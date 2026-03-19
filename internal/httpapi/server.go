@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	"github.com/BetterAndBetterII/openase/internal/infra/sse"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/BetterAndBetterII/openase/internal/webui"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -20,9 +22,10 @@ type Server struct {
 	cfg    config.ServerConfig
 	logger *slog.Logger
 	echo   *echo.Echo
+	sseHub *sse.Hub
 }
 
-func NewServer(cfg config.ServerConfig, logger *slog.Logger) *Server {
+func NewServer(cfg config.ServerConfig, logger *slog.Logger, events provider.EventProvider) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -53,6 +56,7 @@ func NewServer(cfg config.ServerConfig, logger *slog.Logger) *Server {
 		cfg:    cfg,
 		logger: logger.With("component", "http-server"),
 		echo:   e,
+		sseHub: sse.NewHub(events, logger),
 	}
 	server.registerRoutes()
 
@@ -64,6 +68,12 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) Run(ctx context.Context) error {
+	defer func() {
+		if err := s.sseHub.Close(); err != nil {
+			s.logger.Error("close sse hub", "error", err)
+		}
+	}()
+
 	errCh := make(chan error, 1)
 	httpServer := &http.Server{
 		Addr:         net.JoinHostPort(s.cfg.Host, strconv.Itoa(s.cfg.Port)),
@@ -110,6 +120,7 @@ func (s *Server) registerRoutes() {
 
 	s.echo.GET("/healthz", healthHandler)
 	s.echo.GET("/api/v1/healthz", healthHandler)
+	s.echo.GET("/api/v1/events/stream", s.handleEventStream)
 
 	uiHandler := echo.WrapHandler(webui.Handler())
 	s.echo.GET("/", uiHandler)

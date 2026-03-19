@@ -37,7 +37,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		return err
 	}
 
-	server := httpapi.NewServer(a.config.Server, a.logger)
+	server := httpapi.NewServer(a.config.Server, a.logger, a.events)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
 		return err
