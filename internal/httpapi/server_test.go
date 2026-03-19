@@ -45,7 +45,7 @@ func TestEmbeddedUIRoutes(t *testing.T) {
 	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil, nil)
 
 	for target, needle := range map[string]string{
-		"/":                  "OpenASE Org / Project Control Plane",
+		"/":                  "OpenASE Workflow Management",
 		"/_app/version.json": "version",
 	} {
 		req := httptest.NewRequest(http.MethodGet, target, nil)

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -197,6 +198,33 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		t.Fatalf("expected API reload marker to capture new version, got %q", string(reloadMarker))
 	}
 
+	invalidHarnessRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPut,
+		fmt.Sprintf("/api/v1/workflows/%s/harness", createResp.Workflow.ID),
+		`{"content":"---\nworkflow:\n  name: broken\nstatus:\n  pickup: [Todo\n---\n"}`,
+	)
+	if invalidHarnessRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid harness update to fail with 400, got %d body=%s", invalidHarnessRec.Code, invalidHarnessRec.Body.String())
+	}
+
+	getAfterInvalidResp := struct {
+		Workflow workflowResponse `json:"workflow"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
+		nil,
+		http.StatusOK,
+		&getAfterInvalidResp,
+	)
+	if getAfterInvalidResp.Workflow.Version != 2 {
+		t.Fatalf("expected invalid harness update to keep version 2, got %+v", getAfterInvalidResp.Workflow)
+	}
+
 	externalContent := "---\nworkflow:\n  role: coding\n---\n\n# Updated on disk\n"
 	if err := os.WriteFile(harnessAbsPath, []byte(externalContent), 0o644); err != nil {
 		t.Fatalf("write external harness change: %v", err)
@@ -241,6 +269,56 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	)
 	if _, err := os.Stat(harnessAbsPath); !os.IsNotExist(err) {
 		t.Fatalf("expected harness file to be removed, stat err=%v", err)
+	}
+}
+
+func TestValidateHarnessRoute(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+	)
+
+	validRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/harness/validate",
+		`{"content":"---\nworkflow:\n  name: coding\nstatus:\n  pickup: Todo\n---\n\n# Coding\n"}`,
+	)
+	if validRec.Code != http.StatusOK {
+		t.Fatalf("expected validate success, got %d body=%s", validRec.Code, validRec.Body.String())
+	}
+	var validResp harnessValidationResponse
+	if err := json.Unmarshal(validRec.Body.Bytes(), &validResp); err != nil {
+		t.Fatalf("decode valid response: %v", err)
+	}
+	if !validResp.Valid || len(validResp.Issues) != 0 {
+		t.Fatalf("expected valid harness response, got %+v", validResp)
+	}
+
+	invalidRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/harness/validate",
+		`{"content":"---\nworkflow:\n  name: broken\nstatus:\n  pickup: [Todo\n---\n"}`,
+	)
+	if invalidRec.Code != http.StatusOK {
+		t.Fatalf("expected validate response, got %d body=%s", invalidRec.Code, invalidRec.Body.String())
+	}
+	var invalidResp harnessValidationResponse
+	if err := json.Unmarshal(invalidRec.Body.Bytes(), &invalidResp); err != nil {
+		t.Fatalf("decode invalid response: %v", err)
+	}
+	if invalidResp.Valid {
+		t.Fatalf("expected invalid harness response, got %+v", invalidResp)
+	}
+	if len(invalidResp.Issues) == 0 || invalidResp.Issues[0].Level != "error" {
+		t.Fatalf("expected validation issues, got %+v", invalidResp)
 	}
 }
 

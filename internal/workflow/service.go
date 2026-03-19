@@ -489,8 +489,8 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 	if s.client == nil {
 		return HarnessDocument{}, ErrUnavailable
 	}
-	if strings.TrimSpace(input.Content) == "" {
-		return HarnessDocument{}, ErrHarnessInvalid
+	if err := validateHarnessForSave(input.Content); err != nil {
+		return HarnessDocument{}, err
 	}
 
 	item, err := s.client.Workflow.Get(ctx, input.WorkflowID)
@@ -605,6 +605,9 @@ func (s *Service) resolveHarnessContent(
 	rawContent string,
 ) (string, error) {
 	if strings.TrimSpace(rawContent) != "" {
+		if err := validateHarnessForSave(rawContent); err != nil {
+			return "", err
+		}
 		return rawContent, nil
 	}
 
@@ -622,7 +625,12 @@ func (s *Service) resolveHarnessContent(
 		finishStatusName = finishStatus.Name
 	}
 
-	return defaultHarnessContent(name, workflowType, pickupStatus.Name, finishStatusName), nil
+	content := defaultHarnessContent(name, workflowType, pickupStatus.Name, finishStatusName)
+	if err := validateHarnessForSave(content); err != nil {
+		return "", err
+	}
+
+	return content, nil
 }
 
 func (s *Service) handleHarnessReload(event harnessReloadEvent) {

@@ -33,6 +33,11 @@ type harnessResponse struct {
 	Version    int    `json:"version"`
 }
 
+type harnessValidationResponse struct {
+	Valid  bool                              `json:"valid"`
+	Issues []workflowservice.ValidationIssue `json:"issues"`
+}
+
 func (s *Server) registerWorkflowRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/workflows", s.handleListWorkflows)
 	api.POST("/projects/:projectId/workflows", s.handleCreateWorkflow)
@@ -41,6 +46,7 @@ func (s *Server) registerWorkflowRoutes(api *echo.Group) {
 	api.DELETE("/workflows/:workflowId", s.handleDeleteWorkflow)
 	api.GET("/workflows/:workflowId/harness", s.handleGetWorkflowHarness)
 	api.PUT("/workflows/:workflowId/harness", s.handleUpdateWorkflowHarness)
+	api.POST("/harness/validate", s.handleValidateHarness)
 }
 
 func (s *Server) handleListWorkflows(c echo.Context) error {
@@ -210,6 +216,19 @@ func (s *Server) handleUpdateWorkflowHarness(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"harness": mapHarnessResponse(document),
+	})
+}
+
+func (s *Server) handleValidateHarness(c echo.Context) error {
+	var raw rawValidateHarnessRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	result := workflowservice.ValidateHarnessContent(raw.Content)
+	return c.JSON(http.StatusOK, harnessValidationResponse{
+		Valid:  result.Valid,
+		Issues: result.Issues,
 	})
 }
 

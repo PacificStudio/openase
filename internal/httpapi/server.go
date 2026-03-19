@@ -146,9 +146,7 @@ func (s *Server) registerRoutes() {
 	if s.catalog != nil {
 		s.registerCatalogRoutes(api)
 	}
-	if s.workflowService != nil {
-		s.registerWorkflowRoutes(api)
-	}
+	s.registerWorkflowRoutes(api)
 	s.registerTicketStatusRoutes()
 
 	uiHandler := echo.WrapHandler(webui.Handler())

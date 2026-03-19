@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import {
 		Activity,
 		Archive,
@@ -12,11 +12,15 @@
 		Plus,
 		Rocket,
 		Save,
-		Sparkles
+		Sparkles,
+		TriangleAlert,
+		Trash2,
+		Waypoints
 	} from '@lucide/svelte';
 	import { connectEventStream, type SSEFrame, type StreamConnectionState } from '$lib/api/sse';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import HarnessEditor from '$lib/components/harness-editor.svelte';
 	import {
 		Card,
 		CardContent,
@@ -32,22 +36,22 @@
 		default_agent_provider_id?: string | null;
 	};
 
-	type Project = {
-		id: string;
-		organization_id: string;
-		name: string;
-		slug: string;
-		description: string;
-		status: 'planning' | 'active' | 'paused' | 'archived';
-		default_workflow_id?: string | null;
-		default_agent_provider_id?: string | null;
-		max_concurrent_agents: number;
-	};
+type Project = {
+	id: string;
+	organization_id: string;
+	name: string;
+	slug: string;
+	description: string;
+	status: 'planning' | 'active' | 'paused' | 'archived';
+	default_workflow_id?: string | null;
+	default_agent_provider_id?: string | null;
+	max_concurrent_agents: number;
+};
 
-	type Agent = {
-		id: string;
-		provider_id: string;
-		project_id: string;
+type Agent = {
+	id: string;
+	provider_id: string;
+	project_id: string;
 		name: string;
 		status: 'idle' | 'claimed' | 'running' | 'failed' | 'terminated';
 		current_ticket_id?: string | null;
@@ -65,9 +69,59 @@
 		ticket_id?: string | null;
 		agent_id?: string | null;
 		event_type: string;
+	message: string;
+	metadata: Record<string, unknown>;
+	created_at: string;
+};
+
+	type TicketStatus = {
+		id: string;
+		project_id: string;
+		name: string;
+		color: string;
+		icon?: string;
+		position: number;
+		is_default: boolean;
+		description: string;
+	};
+
+	type WorkflowType = 'coding' | 'test' | 'doc' | 'security' | 'deploy' | 'refine-harness' | 'custom';
+
+	type Workflow = {
+		id: string;
+		project_id: string;
+		name: string;
+		type: WorkflowType;
+		harness_path: string;
+		harness_content?: string | null;
+		hooks: Record<string, unknown>;
+		max_concurrent: number;
+		max_retry_attempts: number;
+		timeout_minutes: number;
+		stall_timeout_minutes: number;
+		version: number;
+		is_active: boolean;
+		pickup_status_id: string;
+		finish_status_id?: string | null;
+	};
+
+	type HarnessDocument = {
+		workflow_id: string;
+		path: string;
+		content: string;
+		version: number;
+	};
+
+	type HarnessValidationIssue = {
+		level: 'error' | 'warning' | string;
 		message: string;
-		metadata: Record<string, unknown>;
-		created_at: string;
+		line?: number;
+		column?: number;
+	};
+
+	type HarnessValidationResponse = {
+		valid: boolean;
+		issues: HarnessValidationIssue[];
 	};
 
 	type OrganizationPayload = { organizations: Organization[] };
@@ -80,6 +134,10 @@
 		payload?: unknown;
 		published_at: string;
 	};
+	type StatusPayload = { statuses: TicketStatus[] };
+	type WorkflowListPayload = { workflows: Workflow[] };
+	type WorkflowDetailPayload = { workflow: Workflow };
+	type HarnessPayload = { harness: HarnessDocument };
 
 	type OrganizationForm = {
 		name: string;
@@ -95,24 +153,67 @@
 	};
 
 	const agentConsoleLimit = 40;
+	type WorkflowForm = {
+		name: string;
+		type: WorkflowType;
+		pickupStatusId: string;
+		finishStatusId: string;
+		maxConcurrent: number;
+		maxRetryAttempts: number;
+		timeoutMinutes: number;
+		stallTimeoutMinutes: number;
+		isActive: boolean;
+	};
 	const projectStatuses: Project['status'][] = ['planning', 'active', 'paused', 'archived'];
+	const workflowTypes: WorkflowType[] = [
+		'coding',
+		'test',
+		'doc',
+		'security',
+		'deploy',
+		'refine-harness',
+		'custom'
+	];
 	const inputClass =
 		'w-full rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm outline-none transition focus:border-foreground/40 focus:ring-2 focus:ring-foreground/10';
 	const textAreaClass =
 		'min-h-32 w-full rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm outline-none transition focus:border-foreground/40 focus:ring-2 focus:ring-foreground/10';
+	const editorPlaceholder = `---
+workflow:
+  name: "coding"
+  type: "coding"
+status:
+  pickup: "Todo"
+  finish: "Done"
+---
+
+# Coding Workflow
+
+You are handling {{ ticket.identifier }}.
+`;
 
 	let booting = $state(true);
 	let orgBusy = $state(false);
 	let projectBusy = $state(false);
+	let workflowBusy = $state(false);
+	let harnessBusy = $state(false);
+	let validationBusy = $state(false);
+
 	let organizations = $state<Organization[]>([]);
 	let projects = $state<Project[]>([]);
+	let ticketStatuses = $state<TicketStatus[]>([]);
+	let workflows = $state<Workflow[]>([]);
+
 	let selectedOrgId = $state('');
 	let selectedProjectId = $state('');
+	let selectedWorkflowId = $state('');
+
 	let selectedOrg = $state<Organization | null>(null);
 	let selectedProject = $state<Project | null>(null);
 	let agents = $state<Agent[]>([]);
 	let activityEvents = $state<ActivityEvent[]>([]);
 	let selectedAgentId = $state('');
+	let selectedWorkflow = $state<Workflow | null>(null);
 	let notice = $state('');
 	let errorMessage = $state('');
 	let agentConsoleBusy = $state(false);
@@ -143,6 +244,26 @@
 		status: 'planning',
 		maxConcurrentAgents: 5
 	});
+	let createWorkflowForm = $state<WorkflowForm>(defaultWorkflowForm());
+	let editWorkflowForm = $state<WorkflowForm>(defaultWorkflowForm());
+
+	let harnessDraft = $state('');
+	let harnessPath = $state('');
+	let harnessVersion = $state(0);
+	let harnessIssues = $state<HarnessValidationIssue[]>([]);
+	let lastValidatedContent = $state('');
+	let validationRunID = 0;
+	let validationTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const harnessDirty = $derived(
+		selectedWorkflow ? harnessDraft !== (selectedWorkflow.harness_content ?? '') : false
+	);
+	const harnessErrorCount = $derived(
+		harnessIssues.filter((issue) => issue.level === 'error').length
+	);
+	const harnessWarningCount = $derived(
+		harnessIssues.filter((issue) => issue.level !== 'error').length
+	);
 
 	onMount(() => {
 		const timer = window.setInterval(() => {
@@ -175,6 +296,24 @@
 		void loadActivityEvents(projectId, selectedAgentId);
 	});
 
+	onDestroy(() => {
+		clearPendingValidation();
+	});
+
+	$effect(() => {
+		if (!selectedWorkflowId) {
+			clearPendingValidation();
+			validationBusy = false;
+			lastValidatedContent = '';
+			harnessIssues = [];
+			return;
+		}
+		if (harnessDraft === lastValidatedContent) {
+			return;
+		}
+		queueHarnessValidation(harnessDraft);
+	});
+
 	async function bootstrap() {
 		booting = true;
 		errorMessage = '';
@@ -205,6 +344,7 @@
 			selectedProjectId = '';
 			selectedProject = null;
 			editProjectForm = defaultProjectForm();
+			clearWorkflowState();
 			return;
 		}
 
@@ -228,12 +368,48 @@
 			selectedProjectId = '';
 			selectedProject = null;
 			editProjectForm = defaultProjectForm();
+			clearWorkflowState();
 			return;
 		}
 
 		selectedProjectId = nextProject.id;
 		selectedProject = nextProject;
 		editProjectForm = toProjectForm(nextProject);
+		await loadWorkflowContext(nextProject.id);
+	}
+
+	async function loadWorkflowContext(projectId: string, preferredWorkflowId?: string) {
+		const [statusPayload, workflowPayload] = await Promise.all([
+			api<StatusPayload>(`/api/v1/projects/${projectId}/statuses`),
+			api<WorkflowListPayload>(`/api/v1/projects/${projectId}/workflows`)
+		]);
+		ticketStatuses = statusPayload.statuses;
+		workflows = workflowPayload.workflows;
+		createWorkflowForm = defaultWorkflowForm(ticketStatuses);
+
+		const nextWorkflow =
+			workflows.find((item) => item.id === preferredWorkflowId) ??
+			workflows.find((item) => item.id === selectedWorkflowId) ??
+			workflows[0] ??
+			null;
+
+		if (!nextWorkflow) {
+			resetSelectedWorkflow();
+			return;
+		}
+
+		await loadWorkflowDetail(nextWorkflow.id);
+	}
+
+	async function loadWorkflowDetail(workflowId: string) {
+		const payload = await api<WorkflowDetailPayload>(`/api/v1/workflows/${workflowId}`);
+		selectedWorkflow = payload.workflow;
+		selectedWorkflowId = payload.workflow.id;
+		editWorkflowForm = toWorkflowForm(payload.workflow);
+		harnessDraft = payload.workflow.harness_content ?? '';
+		harnessPath = payload.workflow.harness_path;
+		harnessVersion = payload.workflow.version;
+		lastValidatedContent = '';
 	}
 
 	async function selectOrganization(org: Organization) {
@@ -248,6 +424,8 @@
 		selectedProjectId = '';
 		selectedProject = null;
 		editProjectForm = defaultProjectForm();
+		clearWorkflowState();
+
 		try {
 			await loadProjects(org.id);
 		} catch (error) {
@@ -255,11 +433,34 @@
 		}
 	}
 
-	function selectProject(project: Project) {
+	async function selectProject(project: Project) {
+		if (project.id === selectedProjectId) {
+			return;
+		}
+
 		selectedProjectId = project.id;
 		selectedProject = project;
 		editProjectForm = toProjectForm(project);
 		errorMessage = '';
+		clearWorkflowState();
+		try {
+			await loadWorkflowContext(project.id);
+		} catch (error) {
+			errorMessage = toErrorMessage(error);
+		}
+	}
+
+	async function selectWorkflow(workflow: Workflow) {
+		if (workflow.id === selectedWorkflowId) {
+			return;
+		}
+
+		errorMessage = '';
+		try {
+			await loadWorkflowDetail(workflow.id);
+		} catch (error) {
+			errorMessage = toErrorMessage(error);
+		}
 	}
 
 	async function loadAgents(projectId: string) {
@@ -495,6 +696,222 @@
 		}
 	}
 
+	async function createWorkflow() {
+		if (!selectedProject) {
+			return;
+		}
+
+		workflowBusy = true;
+		errorMessage = '';
+		notice = '';
+		try {
+			const payload = await api<{ workflow: Workflow }>(
+				`/api/v1/projects/${selectedProject.id}/workflows`,
+				{
+					method: 'POST',
+					body: JSON.stringify({
+						name: createWorkflowForm.name,
+						type: createWorkflowForm.type,
+						pickup_status_id: createWorkflowForm.pickupStatusId,
+						finish_status_id: createWorkflowForm.finishStatusId || null,
+						max_concurrent: createWorkflowForm.maxConcurrent,
+						max_retry_attempts: createWorkflowForm.maxRetryAttempts,
+						timeout_minutes: createWorkflowForm.timeoutMinutes,
+						stall_timeout_minutes: createWorkflowForm.stallTimeoutMinutes,
+						is_active: createWorkflowForm.isActive
+					})
+				}
+			);
+			notice = `Workflow ${payload.workflow.name} created`;
+			await loadWorkflowContext(selectedProject.id, payload.workflow.id);
+			createWorkflowForm = defaultWorkflowForm(ticketStatuses);
+		} catch (error) {
+			errorMessage = toErrorMessage(error);
+		} finally {
+			workflowBusy = false;
+		}
+	}
+
+	async function updateWorkflow() {
+		if (!selectedWorkflow || !selectedProject) {
+			return;
+		}
+
+		workflowBusy = true;
+		errorMessage = '';
+		notice = '';
+		try {
+			const payload = await api<WorkflowDetailPayload>(`/api/v1/workflows/${selectedWorkflow.id}`, {
+				method: 'PATCH',
+				body: JSON.stringify({
+					name: editWorkflowForm.name,
+					type: editWorkflowForm.type,
+					pickup_status_id: editWorkflowForm.pickupStatusId,
+					finish_status_id: editWorkflowForm.finishStatusId || null,
+					max_concurrent: editWorkflowForm.maxConcurrent,
+					max_retry_attempts: editWorkflowForm.maxRetryAttempts,
+					timeout_minutes: editWorkflowForm.timeoutMinutes,
+					stall_timeout_minutes: editWorkflowForm.stallTimeoutMinutes,
+					is_active: editWorkflowForm.isActive
+				})
+			});
+			selectedWorkflow = {
+				...payload.workflow,
+				harness_content: selectedWorkflow.harness_content
+			};
+			workflows = workflows.map((item) => (item.id === payload.workflow.id ? payload.workflow : item));
+			notice = `Workflow ${payload.workflow.name} updated`;
+		} catch (error) {
+			errorMessage = toErrorMessage(error);
+		} finally {
+			workflowBusy = false;
+		}
+	}
+
+	async function deleteWorkflow() {
+		if (!selectedWorkflow || !selectedProject) {
+			return;
+		}
+
+		workflowBusy = true;
+		errorMessage = '';
+		notice = '';
+		try {
+			await api<{ workflow: Workflow }>(`/api/v1/workflows/${selectedWorkflow.id}`, {
+				method: 'DELETE'
+			});
+			notice = `Workflow ${selectedWorkflow.name} deleted`;
+			await loadWorkflowContext(selectedProject.id);
+		} catch (error) {
+			errorMessage = toErrorMessage(error);
+		} finally {
+			workflowBusy = false;
+		}
+	}
+
+	async function saveHarness() {
+		if (!selectedWorkflow) {
+			return;
+		}
+
+		harnessBusy = true;
+		errorMessage = '';
+		notice = '';
+		try {
+			const workflowID = selectedWorkflow.id;
+			const workflowName = selectedWorkflow.name;
+			clearPendingValidation();
+			const valid = await runHarnessValidation(harnessDraft);
+			if (!valid) {
+				errorMessage = 'Harness validation failed. Resolve YAML errors before saving.';
+				return;
+			}
+
+			const payload = await api<HarnessPayload>(`/api/v1/workflows/${workflowID}/harness`, {
+				method: 'PUT',
+				body: JSON.stringify({
+					content: harnessDraft
+				})
+			});
+
+			harnessPath = payload.harness.path;
+			harnessVersion = payload.harness.version;
+			lastValidatedContent = harnessDraft;
+			selectedWorkflow = {
+				...selectedWorkflow,
+				harness_content: harnessDraft,
+				harness_path: payload.harness.path,
+				version: payload.harness.version
+			};
+			workflows = workflows.map((item) =>
+				item.id === workflowID
+					? {
+							...item,
+							harness_path: payload.harness.path,
+							version: payload.harness.version
+						}
+					: item
+			);
+			notice = `Harness saved for ${workflowName}`;
+		} catch (error) {
+			errorMessage = toErrorMessage(error);
+		} finally {
+			harnessBusy = false;
+		}
+	}
+
+	async function validateHarnessNow() {
+		clearPendingValidation();
+		errorMessage = '';
+		await runHarnessValidation(harnessDraft);
+	}
+
+	function queueHarnessValidation(content: string) {
+		clearPendingValidation();
+		validationBusy = true;
+		const runID = ++validationRunID;
+		validationTimer = setTimeout(() => {
+			void runHarnessValidation(content, runID);
+		}, 250);
+	}
+
+	async function runHarnessValidation(content: string, runID = ++validationRunID) {
+		validationBusy = true;
+		try {
+			const response = await api<HarnessValidationResponse>('/api/v1/harness/validate', {
+				method: 'POST',
+				body: JSON.stringify({ content })
+			});
+			if (runID !== validationRunID) {
+				return response.valid;
+			}
+
+			harnessIssues = response.issues;
+			lastValidatedContent = content;
+			return response.valid;
+		} catch (error) {
+			if (runID === validationRunID) {
+				harnessIssues = [
+					{
+						level: 'error',
+						message: toErrorMessage(error)
+					}
+				];
+			}
+			return false;
+		} finally {
+			if (runID === validationRunID) {
+				validationBusy = false;
+			}
+		}
+	}
+
+	function clearPendingValidation() {
+		if (validationTimer) {
+			clearTimeout(validationTimer);
+			validationTimer = null;
+		}
+	}
+
+	function resetSelectedWorkflow() {
+		selectedWorkflowId = '';
+		selectedWorkflow = null;
+		editWorkflowForm = defaultWorkflowForm(ticketStatuses);
+		harnessDraft = '';
+		harnessPath = '';
+		harnessVersion = 0;
+		harnessIssues = [];
+		lastValidatedContent = '';
+		clearPendingValidation();
+	}
+
+	function clearWorkflowState() {
+		ticketStatuses = [];
+		workflows = [];
+		createWorkflowForm = defaultWorkflowForm();
+		resetSelectedWorkflow();
+	}
+
 	function fillOrgSlug() {
 		if (!createOrgForm.slug) {
 			createOrgForm = { ...createOrgForm, slug: slugify(createOrgForm.name) };
@@ -541,6 +958,20 @@
 			description: item.description,
 			status: item.status,
 			maxConcurrentAgents: item.max_concurrent_agents
+		};
+	}
+
+	function toWorkflowForm(item: Workflow): WorkflowForm {
+		return {
+			name: item.name,
+			type: item.type,
+			pickupStatusId: item.pickup_status_id,
+			finishStatusId: item.finish_status_id ?? '',
+			maxConcurrent: item.max_concurrent,
+			maxRetryAttempts: item.max_retry_attempts,
+			timeoutMinutes: item.timeout_minutes,
+			stallTimeoutMinutes: item.stall_timeout_minutes,
+			isActive: item.is_active
 		};
 	}
 
@@ -827,6 +1258,34 @@
 		return value === 'idle' || value === 'claimed' || value === 'running' || value === 'failed' || value === 'terminated';
 	}
 
+	function defaultWorkflowForm(statuses: TicketStatus[] = []): WorkflowForm {
+		const pickup = statuses.find((status) => status.is_default) ?? statuses[0];
+		const finish =
+			statuses.find((status) => status.name.toLowerCase() === 'done') ??
+			statuses.find((status) => status.name.toLowerCase() === 'completed') ??
+			statuses[statuses.length - 1];
+
+		return {
+			name: '',
+			type: 'coding',
+			pickupStatusId: pickup?.id ?? '',
+			finishStatusId: finish?.id ?? '',
+			maxConcurrent: 3,
+			maxRetryAttempts: 3,
+			timeoutMinutes: 60,
+			stallTimeoutMinutes: 5,
+			isActive: true
+		};
+	}
+
+	function statusName(statusID?: string | null) {
+		if (!statusID) {
+			return 'No finish state';
+		}
+
+		return ticketStatuses.find((status) => status.id === statusID)?.name ?? 'Unknown';
+	}
+
 	async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 		const headers = new Headers(init.headers);
 		if (init.body && !headers.has('content-type')) {
@@ -838,9 +1297,9 @@
 			headers
 		});
 
-		const payload = (await response.json().catch(() => ({}))) as { error?: string };
+		const payload = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
 		if (!response.ok) {
-			throw new Error(payload.error ?? `request failed with status ${response.status}`);
+			throw new Error(payload.message ?? payload.error ?? `request failed with status ${response.status}`);
 		}
 
 		return payload as T;
@@ -856,24 +1315,25 @@
 </script>
 
 <svelte:head>
-	<title>OpenASE Org / Project Control Plane</title>
+	<title>OpenASE Workflow Management</title>
 	<meta
 		name="description"
-		content="OpenASE Org and Project CRUD workspace backed by the embedded Go API."
+		content="Workflow management and harness editing for OpenASE projects, backed by the embedded Go API."
 	/>
 </svelte:head>
 
 <div class="relative overflow-hidden">
-	<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(218,165,32,0.18),transparent_26rem),radial-gradient(circle_at_bottom_right,rgba(15,118,110,0.14),transparent_28rem)]"></div>
+	<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(194,120,3,0.2),transparent_28rem),radial-gradient(circle_at_bottom_right,rgba(13,148,136,0.18),transparent_30rem)]"></div>
 
 	<section class="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-8 sm:px-8 lg:px-10">
 		<div class="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
 			<div class="space-y-5">
 				<div class="flex flex-wrap items-center gap-3">
-					<Badge variant="outline">F26 vertical slice</Badge>
+					<Badge variant="outline">F26 + F27</Badge>
 					<Badge variant="outline">Agent console</Badge>
-					<Badge variant="outline">SSE ready</Badge>
-					<Badge variant="outline">main</Badge>
+					<Badge variant="outline">F27 vertical slice</Badge>
+					<Badge variant="outline">Workflow management</Badge>
+					<Badge variant="outline">Harness editor</Badge>
 				</div>
 
 				<div class="space-y-4">
@@ -881,12 +1341,12 @@
 						OpenASE control plane
 					</p>
 					<h1 class="max-w-4xl text-5xl leading-none font-semibold tracking-[-0.06em] text-balance sm:text-6xl">
-						The control plane now exposes a live agent console inside the Web UI.
+						Live agent telemetry and workflow harness editing now share one control plane.
 					</h1>
 					<p class="max-w-3xl text-lg leading-8 text-muted-foreground">
-						This cut stays narrow on purpose: select a project, inspect agent state, follow the
-						output feed, and watch heartbeat freshness over the same embedded Go API and SSE
-						surface that later workflows will publish into.
+						Pick a project, monitor agent state and activity in real time, then manage workflows
+						and edit Git-backed harness instructions with syntax highlighting plus YAML
+						frontmatter validation before the content lands on disk.
 					</p>
 				</div>
 			</div>
@@ -906,9 +1366,9 @@
 				</Card>
 				<Card class="border-border/80 bg-background/75 backdrop-blur">
 					<CardHeader class="pb-3">
-						<CardDescription>Active in selected org</CardDescription>
+						<CardDescription>Workflows in focus</CardDescription>
 						<CardTitle class="text-4xl tracking-[-0.05em]">
-							{projects.filter((item) => item.status === 'active').length}
+							{selectedProject ? workflows.length : 0}
 						</CardTitle>
 					</CardHeader>
 				</Card>
@@ -931,7 +1391,7 @@
 			<div class="flex min-h-96 items-center justify-center rounded-[2rem] border border-border/80 bg-background/70">
 				<div class="flex items-center gap-3 text-sm text-muted-foreground">
 					<LoaderCircle class="size-4 animate-spin" />
-					<span>Loading Org / Project control plane…</span>
+					<span>Loading workflow management surface…</span>
 				</div>
 			</div>
 		{:else}
@@ -953,7 +1413,7 @@
 						<CardContent class="space-y-3">
 							{#if organizations.length === 0}
 								<div class="rounded-3xl border border-dashed border-border/80 bg-muted/35 px-4 py-6 text-sm text-muted-foreground">
-									No organizations yet. Create the first one to unlock project CRUD.
+									No organizations yet. Create the first one to unlock project and workflow CRUD.
 								</div>
 							{:else}
 								{#each organizations as org}
@@ -964,7 +1424,7 @@
 												? 'border-foreground/30 bg-foreground text-background shadow-lg shadow-black/10'
 												: 'border-border/70 bg-background/60 hover:border-foreground/15 hover:bg-background'
 										}`}
-										onclick={() => selectOrganization(org)}
+										onclick={() => void selectOrganization(org)}
 									>
 										<div class="flex items-start justify-between gap-4">
 											<div>
@@ -1118,13 +1578,13 @@
 						<Card class="border-border/80 bg-background/80 backdrop-blur">
 							<CardHeader>
 								<div class="flex items-center justify-between gap-4">
-								<div>
-									<CardTitle class="flex items-center gap-2">
-										<FolderKanban class="size-4" />
-										<span>Project roster</span>
-									</CardTitle>
+									<div>
+										<CardTitle class="flex items-center gap-2">
+											<FolderKanban class="size-4" />
+											<span>Project roster</span>
+										</CardTitle>
 										<CardDescription>
-											Select a project to edit, or archive it when the workstream ends.
+											Select a project to edit, then manage its workflows and harnesses.
 										</CardDescription>
 									</div>
 									<Badge variant="outline">{projects.length}</Badge>
@@ -1148,7 +1608,7 @@
 													? 'border-emerald-700/35 bg-emerald-950 text-white shadow-lg shadow-emerald-950/20'
 													: 'border-border/70 bg-background/60 hover:border-foreground/15 hover:bg-background'
 											}`}
-											onclick={() => selectProject(project)}
+											onclick={() => void selectProject(project)}
 										>
 											<div class="flex items-start justify-between gap-4">
 												<div>
@@ -1304,7 +1764,7 @@
 										<span>Selected project</span>
 									</CardTitle>
 									<CardDescription>
-										Keep the project metadata sharp, or archive it without deleting history.
+										Keep project metadata sharp, or archive it without deleting history.
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
@@ -1621,6 +2081,456 @@
 																{/if}
 															</div>
 														{/each}
+													</div>
+												{/if}
+											</CardContent>
+										</Card>
+									</div>
+								</div>
+							{/if}
+						</CardContent>
+					</Card>
+
+					<Card class="overflow-hidden border-border/80 bg-background/80 backdrop-blur">
+						<CardHeader class="border-b border-border/70 bg-muted/20">
+							<div class="flex flex-wrap items-center justify-between gap-4">
+								<div>
+									<CardTitle class="flex items-center gap-2">
+										<Waypoints class="size-4" />
+										<span>Workflow management</span>
+									</CardTitle>
+									<CardDescription>
+										Manage workflow metadata and the Git-backed harness document for the selected project.
+									</CardDescription>
+								</div>
+								{#if selectedProject}
+									<Badge variant="outline">{selectedProject.name}</Badge>
+								{/if}
+							</div>
+						</CardHeader>
+						<CardContent class="p-6">
+							{#if !selectedProject}
+								<div class="rounded-3xl border border-dashed border-border/80 bg-muted/35 px-4 py-10 text-sm text-muted-foreground">
+									Select a project first. Workflow and harness management is scoped per project.
+								</div>
+							{:else}
+								<div class="grid gap-6 xl:grid-cols-[19rem_minmax(0,1fr)]">
+									<div class="space-y-6">
+										<Card class="border-border/80 bg-background/70">
+											<CardHeader>
+												<div class="flex items-center justify-between gap-4">
+													<div>
+														<CardTitle class="flex items-center gap-2">
+															<FolderKanban class="size-4" />
+															<span>Workflow roster</span>
+														</CardTitle>
+														<CardDescription>
+															Every workflow stays attached to the current project.
+														</CardDescription>
+													</div>
+													<Badge variant="outline">{workflows.length}</Badge>
+												</div>
+											</CardHeader>
+											<CardContent class="space-y-3">
+												{#if workflows.length === 0}
+													<div class="rounded-3xl border border-dashed border-border/80 bg-muted/35 px-4 py-6 text-sm text-muted-foreground">
+														No workflows yet. Create the first one to open the harness editor.
+													</div>
+												{:else}
+													{#each workflows as workflow}
+														<button
+															type="button"
+															class={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+																workflow.id === selectedWorkflowId
+																	? 'border-sky-500/40 bg-sky-950/90 text-white shadow-lg shadow-sky-950/25'
+																	: 'border-border/70 bg-background/60 hover:border-foreground/15 hover:bg-background'
+															}`}
+															onclick={() => void selectWorkflow(workflow)}
+														>
+															<div class="flex items-start justify-between gap-3">
+																<div>
+																	<p class="text-sm font-semibold">{workflow.name}</p>
+																	<p
+																		class={`mt-1 text-xs uppercase tracking-[0.2em] ${
+																			workflow.id === selectedWorkflowId
+																				? 'text-white/70'
+																				: 'text-muted-foreground'
+																		}`}
+																	>
+																		{workflow.type}
+																	</p>
+																</div>
+																<Badge variant={workflow.is_active ? 'secondary' : 'outline'}>
+																	v{workflow.version}
+																</Badge>
+															</div>
+															<p
+																class={`mt-3 text-xs ${
+																	workflow.id === selectedWorkflowId
+																		? 'text-white/75'
+																		: 'text-muted-foreground'
+																}`}
+															>
+																{statusName(workflow.pickup_status_id)} -> {statusName(workflow.finish_status_id)}
+															</p>
+														</button>
+													{/each}
+												{/if}
+											</CardContent>
+										</Card>
+
+										<Card class="border-border/80 bg-background/70">
+											<CardHeader>
+												<CardTitle class="flex items-center gap-2">
+													<Plus class="size-4" />
+													<span>Create workflow</span>
+												</CardTitle>
+												<CardDescription>
+													Start narrow: create the role, wire its statuses, then refine the harness.
+												</CardDescription>
+											</CardHeader>
+											<CardContent>
+												<form
+													class="space-y-4"
+													onsubmit={(event) => {
+														event.preventDefault();
+														void createWorkflow();
+													}}
+												>
+													<div class="space-y-2">
+														<label
+															class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground"
+															for="create-workflow-name"
+														>
+															Name
+														</label>
+														<input
+															id="create-workflow-name"
+															class={inputClass}
+															bind:value={createWorkflowForm.name}
+															placeholder="Coding Workflow"
+														/>
+													</div>
+													<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+														<div class="space-y-2">
+															<label
+																class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground"
+																for="create-workflow-type"
+															>
+																Type
+															</label>
+															<select
+																id="create-workflow-type"
+																class={inputClass}
+																bind:value={createWorkflowForm.type}
+															>
+																{#each workflowTypes as workflowType}
+																	<option value={workflowType}>{workflowType}</option>
+																{/each}
+															</select>
+														</div>
+														<div class="space-y-2">
+															<label
+																class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground"
+																for="create-workflow-pickup-status"
+															>
+																Pickup status
+															</label>
+															<select
+																id="create-workflow-pickup-status"
+																class={inputClass}
+																bind:value={createWorkflowForm.pickupStatusId}
+															>
+																<option value="" disabled>Choose a status</option>
+																{#each ticketStatuses as status}
+																	<option value={status.id}>{status.name}</option>
+																{/each}
+															</select>
+														</div>
+													</div>
+													<div class="space-y-2">
+														<label
+															class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground"
+															for="create-workflow-finish-status"
+														>
+															Finish status
+														</label>
+														<select
+															id="create-workflow-finish-status"
+															class={inputClass}
+															bind:value={createWorkflowForm.finishStatusId}
+														>
+															<option value="">No auto-finish status</option>
+															{#each ticketStatuses as status}
+																<option value={status.id}>{status.name}</option>
+															{/each}
+														</select>
+													</div>
+													<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+														<div class="space-y-2">
+															<label
+																class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground"
+																for="create-workflow-max-concurrent"
+															>
+																Max concurrent
+															</label>
+															<input
+																id="create-workflow-max-concurrent"
+																class={inputClass}
+																bind:value={createWorkflowForm.maxConcurrent}
+																type="number"
+																min="1"
+															/>
+														</div>
+														<div class="space-y-2">
+															<label
+																class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground"
+																for="create-workflow-max-retries"
+															>
+																Max retries
+															</label>
+															<input
+																id="create-workflow-max-retries"
+																class={inputClass}
+																bind:value={createWorkflowForm.maxRetryAttempts}
+																type="number"
+																min="0"
+															/>
+														</div>
+													</div>
+													<Button class="w-full" type="submit" disabled={workflowBusy || ticketStatuses.length === 0}>
+														{#if workflowBusy}
+															<LoaderCircle class="mr-2 size-4 animate-spin" />
+														{:else}
+															<Plus class="mr-2 size-4" />
+														{/if}
+														Create workflow
+													</Button>
+												</form>
+											</CardContent>
+										</Card>
+									</div>
+
+									<div class="space-y-6">
+										<Card class="border-border/80 bg-background/70">
+											<CardHeader>
+												<div class="flex flex-wrap items-center justify-between gap-4">
+													<div>
+														<CardTitle class="flex items-center gap-2">
+															<Sparkles class="size-4" />
+															<span>Selected workflow</span>
+														</CardTitle>
+														<CardDescription>
+															Update runtime limits and route the workflow through the right states.
+														</CardDescription>
+													</div>
+													{#if selectedWorkflow}
+														<Badge variant={selectedWorkflow.is_active ? 'secondary' : 'outline'}>
+															{selectedWorkflow.is_active ? 'active' : 'inactive'}
+														</Badge>
+													{/if}
+												</div>
+											</CardHeader>
+											<CardContent>
+												{#if selectedWorkflow}
+													<form
+														class="space-y-4"
+														onsubmit={(event) => {
+															event.preventDefault();
+															void updateWorkflow();
+														}}
+													>
+														<div class="grid gap-4 lg:grid-cols-2">
+															<div class="space-y-2">
+																<label class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground" for="edit-workflow-name">
+																	Name
+																</label>
+																<input id="edit-workflow-name" class={inputClass} bind:value={editWorkflowForm.name} />
+															</div>
+															<div class="space-y-2">
+																<label class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground" for="edit-workflow-type">
+																	Type
+																</label>
+																<select id="edit-workflow-type" class={inputClass} bind:value={editWorkflowForm.type}>
+																	{#each workflowTypes as workflowType}
+																		<option value={workflowType}>{workflowType}</option>
+																	{/each}
+																</select>
+															</div>
+														</div>
+														<div class="grid gap-4 lg:grid-cols-2">
+															<div class="space-y-2">
+																<label class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground" for="edit-workflow-pickup-status">
+																	Pickup status
+																</label>
+																<select id="edit-workflow-pickup-status" class={inputClass} bind:value={editWorkflowForm.pickupStatusId}>
+																	{#each ticketStatuses as status}
+																		<option value={status.id}>{status.name}</option>
+																	{/each}
+																</select>
+															</div>
+															<div class="space-y-2">
+																<label class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground" for="edit-workflow-finish-status">
+																	Finish status
+																</label>
+																<select id="edit-workflow-finish-status" class={inputClass} bind:value={editWorkflowForm.finishStatusId}>
+																	<option value="">No auto-finish status</option>
+																	{#each ticketStatuses as status}
+																		<option value={status.id}>{status.name}</option>
+																	{/each}
+																</select>
+															</div>
+														</div>
+														<div class="grid gap-4 lg:grid-cols-4">
+															<div class="space-y-2">
+																<label class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground" for="edit-workflow-max-concurrent">
+																	Max concurrent
+																</label>
+																<input id="edit-workflow-max-concurrent" class={inputClass} bind:value={editWorkflowForm.maxConcurrent} type="number" min="1" />
+															</div>
+															<div class="space-y-2">
+																<label class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground" for="edit-workflow-max-retries">
+																	Max retries
+																</label>
+																<input id="edit-workflow-max-retries" class={inputClass} bind:value={editWorkflowForm.maxRetryAttempts} type="number" min="0" />
+															</div>
+															<div class="space-y-2">
+																<label class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground" for="edit-workflow-timeout">
+																	Timeout min
+																</label>
+																<input id="edit-workflow-timeout" class={inputClass} bind:value={editWorkflowForm.timeoutMinutes} type="number" min="1" />
+															</div>
+															<div class="space-y-2">
+																<label class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground" for="edit-workflow-stall-timeout">
+																	Stall min
+																</label>
+																<input id="edit-workflow-stall-timeout" class={inputClass} bind:value={editWorkflowForm.stallTimeoutMinutes} type="number" min="1" />
+															</div>
+														</div>
+														<label class="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/60 px-4 py-3 text-sm">
+															<input bind:checked={editWorkflowForm.isActive} class="size-4 rounded border-border" type="checkbox" />
+															<span>Workflow is active and dispatchable</span>
+														</label>
+														<div class="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3">
+															<p class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">Harness path</p>
+															<p class="mt-2 font-mono text-xs text-foreground/80">{harnessPath}</p>
+														</div>
+														<div class="flex flex-wrap gap-3">
+															<Button type="submit" disabled={workflowBusy}>
+																{#if workflowBusy}
+																	<LoaderCircle class="mr-2 size-4 animate-spin" />
+																{:else}
+																	<Save class="mr-2 size-4" />
+																{/if}
+																Save workflow
+															</Button>
+															<Button type="button" variant="outline" disabled={workflowBusy} onclick={() => void deleteWorkflow()}>
+																<Trash2 class="mr-2 size-4" />
+																Delete workflow
+															</Button>
+														</div>
+													</form>
+												{:else}
+													<div class="rounded-3xl border border-dashed border-border/80 bg-muted/35 px-4 py-8 text-sm text-muted-foreground">
+														Create or select a workflow to edit its metadata and harness.
+													</div>
+												{/if}
+											</CardContent>
+										</Card>
+
+										<Card class="border-border/80 bg-background/70">
+											<CardHeader>
+												<div class="flex flex-wrap items-center justify-between gap-4">
+													<div>
+														<CardTitle class="flex items-center gap-2">
+															<Save class="size-4" />
+															<span>Harness editor</span>
+														</CardTitle>
+														<CardDescription>
+															YAML frontmatter is validated live. Save writes directly through the workflow API.
+														</CardDescription>
+													</div>
+													<div class="flex flex-wrap items-center gap-2">
+														{#if selectedWorkflow}
+															<Badge variant="outline">v{harnessVersion}</Badge>
+														{/if}
+														<Badge variant={harnessErrorCount > 0 ? 'destructive' : 'secondary'}>
+															{harnessErrorCount > 0 ? `${harnessErrorCount} error` : 'YAML ok'}
+														</Badge>
+														{#if harnessWarningCount > 0}
+															<Badge variant="outline">{harnessWarningCount} warning</Badge>
+														{/if}
+													</div>
+												</div>
+											</CardHeader>
+											<CardContent class="space-y-4">
+												{#if selectedWorkflow}
+													<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/25 px-4 py-3 text-sm">
+														<div class="flex flex-wrap items-center gap-3 text-muted-foreground">
+															<span class="font-medium text-foreground">{selectedWorkflow.name}</span>
+															<span class="font-mono text-xs">{harnessPath}</span>
+															{#if harnessDirty}
+																<Badge variant="outline">unsaved</Badge>
+															{/if}
+														</div>
+														<div class="flex flex-wrap gap-2">
+															<Button type="button" variant="outline" disabled={validationBusy} onclick={() => void validateHarnessNow()}>
+																{#if validationBusy}
+																	<LoaderCircle class="mr-2 size-4 animate-spin" />
+																{:else}
+																	<TriangleAlert class="mr-2 size-4" />
+																{/if}
+																Validate
+															</Button>
+															<Button type="button" disabled={harnessBusy} onclick={() => void saveHarness()}>
+																{#if harnessBusy}
+																	<LoaderCircle class="mr-2 size-4 animate-spin" />
+																{:else}
+																	<Save class="mr-2 size-4" />
+																{/if}
+																Save harness
+															</Button>
+														</div>
+													</div>
+
+													<HarnessEditor bind:value={harnessDraft} issues={harnessIssues} placeholder={editorPlaceholder} />
+
+													<div class="grid gap-3">
+														{#if validationBusy}
+															<div class="rounded-2xl border border-border/70 bg-background/60 px-4 py-3 text-sm text-muted-foreground">
+																<div class="flex items-center gap-2">
+																	<LoaderCircle class="size-4 animate-spin" />
+																	<span>Checking YAML frontmatter…</span>
+																</div>
+															</div>
+														{:else if harnessIssues.length === 0}
+															<div class="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900">
+																Harness YAML frontmatter is valid.
+															</div>
+														{:else}
+															{#each harnessIssues as issue}
+																<div class={`rounded-2xl border px-4 py-3 text-sm ${
+																	issue.level === 'error'
+																		? 'border-rose-500/25 bg-rose-500/10 text-rose-900'
+																		: 'border-amber-500/25 bg-amber-500/10 text-amber-900'
+																}`}>
+																	<p class="font-medium uppercase tracking-[0.18em]">
+																		{issue.level}
+																		{#if issue.line}
+																			{' '}line {issue.line}
+																			{#if issue.column}
+																				, column {issue.column}
+																			{/if}
+																		{/if}
+																	</p>
+																	<p class="mt-1">{issue.message}</p>
+																</div>
+															{/each}
+														{/if}
+													</div>
+												{:else}
+													<div class="rounded-3xl border border-dashed border-border/80 bg-muted/35 px-4 py-10 text-sm text-muted-foreground">
+														Select a workflow to open the harness editor.
 													</div>
 												{/if}
 											</CardContent>

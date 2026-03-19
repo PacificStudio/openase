@@ -42,6 +42,10 @@ type rawUpdateHarnessRequest struct {
 	Content string `json:"content"`
 }
 
+type rawValidateHarnessRequest struct {
+	Content string `json:"content"`
+}
+
 func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowRequest) (workflowservice.CreateInput, error) {
 	name := strings.TrimSpace(raw.Name)
 	if name == "" {
