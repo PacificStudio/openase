@@ -75,6 +75,8 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.PATCH("/orgs/:orgId", s.patchOrganization)
 	api.GET("/orgs/:orgId/projects", s.listProjects)
 	api.POST("/orgs/:orgId/projects", s.createProject)
+	api.GET("/orgs/:orgId/providers", s.listAgentProviders)
+	api.POST("/orgs/:orgId/providers", s.createAgentProvider)
 	api.GET("/projects/:projectId", s.getProject)
 	api.PATCH("/projects/:projectId", s.patchProject)
 	api.DELETE("/projects/:projectId", s.archiveProject)
@@ -82,6 +84,11 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.POST("/projects/:projectId/repos", s.createProjectRepo)
 	api.PATCH("/projects/:projectId/repos/:repoId", s.patchProjectRepo)
 	api.DELETE("/projects/:projectId/repos/:repoId", s.deleteProjectRepo)
+	api.GET("/projects/:projectId/agents", s.listAgents)
+	api.POST("/projects/:projectId/agents", s.createAgent)
+	api.PATCH("/providers/:providerId", s.patchAgentProvider)
+	api.GET("/agents/:agentId", s.getAgent)
+	api.DELETE("/agents/:agentId", s.deleteAgent)
 }
 
 func (s *Server) listOrganizations(c echo.Context) error {
@@ -463,6 +470,8 @@ func parseUUIDPathParam(c echo.Context, name string) (uuid.UUID, error) {
 
 func writeCatalogError(c echo.Context, err error) error {
 	switch {
+	case errors.Is(err, catalogservice.ErrInvalidInput):
+		return c.JSON(http.StatusBadRequest, errorResponse(catalogErrorMessage(err)))
 	case errors.Is(err, catalogservice.ErrNotFound):
 		return c.JSON(http.StatusNotFound, errorResponse("resource not found"))
 	case errors.Is(err, catalogservice.ErrConflict):
@@ -474,6 +483,15 @@ func writeCatalogError(c echo.Context, err error) error {
 
 func errorResponse(message string) map[string]string {
 	return map[string]string{"error": message}
+}
+
+func catalogErrorMessage(err error) string {
+	prefix := catalogservice.ErrInvalidInput.Error() + ": "
+	if strings.HasPrefix(err.Error(), prefix) {
+		return strings.TrimPrefix(err.Error(), prefix)
+	}
+
+	return err.Error()
 }
 
 func mapOrganizationResponses(items []domain.Organization) []organizationResponse {

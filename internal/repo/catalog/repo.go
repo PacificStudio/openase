@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("catalog resource not found")
-	ErrConflict = errors.New("catalog resource conflict")
+	ErrNotFound     = errors.New("catalog resource not found")
+	ErrConflict     = errors.New("catalog resource conflict")
+	ErrInvalidInput = errors.New("catalog invalid input")
 )
 
 type Repository interface {
@@ -35,6 +36,14 @@ type Repository interface {
 	GetProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
 	UpdateProjectRepo(ctx context.Context, input domain.UpdateProjectRepo) (domain.ProjectRepo, error)
 	DeleteProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
+	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error)
+	CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error)
+	GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
+	UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error)
+	ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error)
+	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
+	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
+	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 }
 
 type EntRepository struct {

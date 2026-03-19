@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
@@ -25,6 +26,8 @@ type fakeCatalogService struct {
 	organizations map[uuid.UUID]domain.Organization
 	projects      map[uuid.UUID]domain.Project
 	projectRepos  map[uuid.UUID]domain.ProjectRepo
+	providers     map[uuid.UUID]domain.AgentProvider
+	agents        map[uuid.UUID]domain.Agent
 }
 
 func newFakeCatalogService() *fakeCatalogService {
@@ -32,6 +35,8 @@ func newFakeCatalogService() *fakeCatalogService {
 		organizations: map[uuid.UUID]domain.Organization{},
 		projects:      map[uuid.UUID]domain.Project{},
 		projectRepos:  map[uuid.UUID]domain.ProjectRepo{},
+		providers:     map[uuid.UUID]domain.AgentProvider{},
+		agents:        map[uuid.UUID]domain.Agent{},
 	}
 }
 
@@ -595,7 +600,7 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		catalogservice.New(catalogrepo.NewEntRepository(client)),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
 	)
 
 	ctx := context.Background()

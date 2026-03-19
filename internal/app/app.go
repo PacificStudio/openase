@@ -8,6 +8,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
+	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
@@ -52,7 +53,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	}
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
-	catalogSvc := catalogservice.New(catalogRepo)
+	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver())
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.logger,

@@ -4,13 +4,15 @@ import (
 	"context"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	repository "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/google/uuid"
 )
 
 var (
-	ErrNotFound = repository.ErrNotFound
-	ErrConflict = repository.ErrConflict
+	ErrNotFound     = repository.ErrNotFound
+	ErrConflict     = repository.ErrConflict
+	ErrInvalidInput = repository.ErrInvalidInput
 )
 
 type Service interface {
@@ -28,14 +30,23 @@ type Service interface {
 	GetProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
 	UpdateProjectRepo(ctx context.Context, input domain.UpdateProjectRepo) (domain.ProjectRepo, error)
 	DeleteProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
+	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error)
+	CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error)
+	GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
+	UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error)
+	ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error)
+	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
+	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
+	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 }
 
 type service struct {
-	repo repository.Repository
+	repo     repository.Repository
+	resolver provider.ExecutableResolver
 }
 
-func New(repo repository.Repository) Service {
-	return &service{repo: repo}
+func New(repo repository.Repository, resolver provider.ExecutableResolver) Service {
+	return &service{repo: repo, resolver: resolver}
 }
 
 func (s *service) ListOrganizations(ctx context.Context) ([]domain.Organization, error) {
