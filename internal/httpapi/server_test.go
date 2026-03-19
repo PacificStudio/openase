@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -14,7 +15,7 @@ import (
 func TestHealthRoutes(t *testing.T) {
 	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	for _, target := range []string{"/", "/healthz", "/api/v1/healthz"} {
+	for _, target := range []string{"/healthz", "/api/v1/healthz"} {
 		req := httptest.NewRequest(http.MethodGet, target, nil)
 		rec := httptest.NewRecorder()
 
@@ -31,6 +32,28 @@ func TestHealthRoutes(t *testing.T) {
 
 		if payload["status"] != "ok" {
 			t.Fatalf("expected ok status for %s, got %q", target, payload["status"])
+		}
+	}
+}
+
+func TestEmbeddedUIRoutes(t *testing.T) {
+	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	for target, needle := range map[string]string{
+		"/":                  "OpenASE Scaffold",
+		"/_app/version.json": "version",
+	} {
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		rec := httptest.NewRecorder()
+
+		server.Handler().ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected %s to return 200, got %d", target, rec.Code)
+		}
+
+		if !strings.Contains(rec.Body.String(), needle) {
+			t.Fatalf("expected %s response to contain %q", target, needle)
 		}
 	}
 }

@@ -4,12 +4,22 @@ Issue-driven automated software engineering platform.
 
 ## Scaffold Status
 
-This repository now includes the Layer 0 runtime scaffold described in `OpenASE-PRD.md` Chapter 5:
+This repository now includes the Layer 0 base slice described in `OpenASE-PRD.md` Chapter 5:
 
 - `cobra` CLI entrypoint with `serve`, `orchestrate`, `all-in-one`, and `version`
-- `Echo` HTTP server with baseline health routes
+- `Echo` HTTP server with baseline health routes and an embedded frontend mount
 - `viper` configuration loading from defaults, env vars, and an optional config file
 - `slog` structured logging with text or JSON output
+- `web/`: SvelteKit 2 + Tailwind CSS 4 + shadcn-svelte source components
+- `internal/webui/static/`: prerendered frontend assets embedded into the Go binary via `go:embed`
+
+## Build
+
+```bash
+npm --prefix web install
+npm --prefix web run build
+go build ./cmd/openase
+```
 
 ## Quick Start
 
@@ -29,6 +39,13 @@ export OPENASE_LOG_FORMAT=json
 
 ## Routes
 
-- `GET /`
+- `GET /` serves the embedded SvelteKit UI
 - `GET /healthz`
 - `GET /api/v1/healthz`
+
+If you modify the web app, rebuild the embedded assets before compiling or running the Go binary:
+
+```bash
+npm --prefix web run build
+go run ./cmd/openase serve
+```

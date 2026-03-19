@@ -3,3 +3,7 @@
 WORKFLOW.backup.*.md
 .cache/
 .tools/
+.tmp/
+openase
+web/.svelte-kit/
+web/node_modules/

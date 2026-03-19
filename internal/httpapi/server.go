@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	"github.com/BetterAndBetterII/openase/internal/webui"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -107,7 +108,10 @@ func (s *Server) registerRoutes() {
 		})
 	}
 
-	s.echo.GET("/", healthHandler)
 	s.echo.GET("/healthz", healthHandler)
 	s.echo.GET("/api/v1/healthz", healthHandler)
+
+	uiHandler := echo.WrapHandler(webui.Handler())
+	s.echo.GET("/", uiHandler)
+	s.echo.GET("/*", uiHandler)
 }
