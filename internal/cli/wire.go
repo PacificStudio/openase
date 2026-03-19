@@ -3,9 +3,12 @@ package cli
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"runtime"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	userserviceinfra "github.com/BetterAndBetterII/openase/internal/infra/userservice"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
@@ -29,5 +32,21 @@ func buildEventProvider(cfg config.Config, logger *slog.Logger) (provider.EventP
 		return bus, nil
 	default:
 		return nil, fmt.Errorf("unsupported event driver %q", driver)
+	}
+}
+
+func buildUserServiceManager() (provider.UserServiceManager, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("resolve user home directory: %w", err)
+	}
+
+	switch runtime.GOOS {
+	case "linux":
+		return userserviceinfra.NewSystemdUserManager(homeDir), nil
+	case "darwin":
+		return userserviceinfra.NewLaunchdUserManager(homeDir, os.Getuid()), nil
+	default:
+		return nil, fmt.Errorf("unsupported OS %q for managed user services", runtime.GOOS)
 	}
 }
