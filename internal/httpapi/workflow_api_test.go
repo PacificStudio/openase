@@ -67,6 +67,8 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
+	activateMarkerPath := filepath.Join(repoRoot, "activate.marker")
+	reloadMarkerPath := filepath.Join(repoRoot, "reload.marker")
 
 	createResp := struct {
 		Workflow workflowResponse `json:"workflow"`
@@ -84,7 +86,12 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 			"harness_content":  "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 			"hooks": map[string]any{
 				"workflow_hooks": map[string]any{
-					"on_reload": []map[string]any{{"cmd": "echo reload"}},
+					"on_activate": []map[string]any{{
+						"cmd": "printf '%s:%s' \"$OPENASE_WORKFLOW_NAME\" \"$OPENASE_WORKFLOW_VERSION\" > activate.marker",
+					}},
+					"on_reload": []map[string]any{{
+						"cmd": "printf '%s:%s' \"$OPENASE_HOOK_NAME\" \"$OPENASE_WORKFLOW_VERSION\" > reload.marker",
+					}},
 				},
 			},
 		},
@@ -96,6 +103,13 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 	if createResp.Workflow.HarnessContent == nil || *createResp.Workflow.HarnessContent == "" {
 		t.Fatalf("expected harness content in create response, got %+v", createResp.Workflow)
+	}
+	activateMarker, err := os.ReadFile(activateMarkerPath)
+	if err != nil {
+		t.Fatalf("read activate marker: %v", err)
+	}
+	if string(activateMarker) != "Coding Workflow:1" {
+		t.Fatalf("expected activate marker to capture workflow context, got %q", string(activateMarker))
 	}
 
 	harnessAbsPath := filepath.Join(repoRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))
@@ -150,12 +164,11 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		map[string]any{
 			"name":           "Core Coding Workflow",
 			"max_concurrent": 7,
-			"is_active":      false,
 		},
 		http.StatusOK,
 		&patchResp,
 	)
-	if patchResp.Workflow.Name != "Core Coding Workflow" || patchResp.Workflow.MaxConcurrent != 7 || patchResp.Workflow.IsActive {
+	if patchResp.Workflow.Name != "Core Coding Workflow" || patchResp.Workflow.MaxConcurrent != 7 || !patchResp.Workflow.IsActive {
 		t.Fatalf("unexpected patched workflow payload: %+v", patchResp.Workflow)
 	}
 
@@ -176,6 +189,13 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if harnessResp.Harness.Version != 2 {
 		t.Fatalf("expected harness version 2 after API update, got %+v", harnessResp.Harness)
 	}
+	reloadMarker, err := os.ReadFile(reloadMarkerPath)
+	if err != nil {
+		t.Fatalf("read reload marker after API update: %v", err)
+	}
+	if string(reloadMarker) != "on_reload:2" {
+		t.Fatalf("expected API reload marker to capture new version, got %q", string(reloadMarker))
+	}
 
 	externalContent := "---\nworkflow:\n  role: coding\n---\n\n# Updated on disk\n"
 	if err := os.WriteFile(harnessAbsPath, []byte(externalContent), 0o644); err != nil {
@@ -183,6 +203,13 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 
 	waitForWorkflowVersion(t, server, createResp.Workflow.ID, 3)
+	reloadMarker, err = os.ReadFile(reloadMarkerPath)
+	if err != nil {
+		t.Fatalf("read reload marker after external update: %v", err)
+	}
+	if string(reloadMarker) != "on_reload:3" {
+		t.Fatalf("expected external reload marker to capture new version, got %q", string(reloadMarker))
+	}
 
 	harnessGetResp := struct {
 		Harness harnessResponse `json:"harness"`

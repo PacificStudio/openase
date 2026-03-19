@@ -19,13 +19,15 @@ import (
 )
 
 var (
-	ErrUnavailable      = errors.New("workflow service unavailable")
-	ErrProjectNotFound  = errors.New("project not found")
-	ErrWorkflowNotFound = errors.New("workflow not found")
-	ErrStatusNotFound   = errors.New("workflow status not found in project")
-	ErrWorkflowConflict = errors.New("workflow conflict")
-	ErrWorkflowInUse    = errors.New("workflow is still referenced by project or tickets")
-	ErrHarnessInvalid   = errors.New("workflow harness is invalid")
+	ErrUnavailable         = errors.New("workflow service unavailable")
+	ErrProjectNotFound     = errors.New("project not found")
+	ErrWorkflowNotFound    = errors.New("workflow not found")
+	ErrStatusNotFound      = errors.New("workflow status not found in project")
+	ErrWorkflowConflict    = errors.New("workflow conflict")
+	ErrWorkflowInUse       = errors.New("workflow is still referenced by project or tickets")
+	ErrHarnessInvalid      = errors.New("workflow harness is invalid")
+	ErrHookConfigInvalid   = errors.New("workflow hook config is invalid")
+	ErrWorkflowHookBlocked = errors.New("workflow hook blocked the lifecycle operation")
 )
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -105,11 +107,12 @@ type UpdateHarnessInput struct {
 }
 
 type Service struct {
-	client      *ent.Client
-	logger      *slog.Logger
-	repoRoot    string
-	harnessRoot string
-	registry    *harnessRegistry
+	client       *ent.Client
+	logger       *slog.Logger
+	repoRoot     string
+	harnessRoot  string
+	registry     *harnessRegistry
+	hookExecutor *workflowHookExecutor
 }
 
 func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Service, error) {
@@ -130,10 +133,11 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 
 	harnessRoot := filepath.Join(repoRoot, ".openase", "harnesses")
 	service := &Service{
-		client:      client,
-		logger:      logger.With("component", "workflow-service"),
-		repoRoot:    repoRoot,
-		harnessRoot: harnessRoot,
+		client:       client,
+		logger:       logger.With("component", "workflow-service"),
+		repoRoot:     repoRoot,
+		harnessRoot:  harnessRoot,
+		hookExecutor: newWorkflowHookExecutor(repoRoot, logger),
 	}
 
 	registry, err := newHarnessRegistry(harnessRoot, service.logger, service.handleHarnessReload)
@@ -219,6 +223,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureHarnessPathAvailable(ctx, harnessPath, uuid.Nil); err != nil {
 		return WorkflowDetail{}, err
 	}
+	parsedHooks, err := parseWorkflowHooks(input.Hooks)
+	if err != nil {
+		return WorkflowDetail{}, err
+	}
 
 	harnessContent, err := s.resolveHarnessContent(ctx, input.Name, input.Type, input.PickupStatusID, input.FinishStatusID, input.HarnessContent)
 	if err != nil {
@@ -228,7 +236,21 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		return WorkflowDetail{}, err
 	}
 
+	workflowID := uuid.New()
+	if input.IsActive {
+		if err := s.runWorkflowHooks(ctx, parsedHooks, workflowHookOnActivate, workflowHookRuntime{
+			ProjectID:       input.ProjectID,
+			WorkflowID:      workflowID,
+			WorkflowName:    input.Name,
+			WorkflowVersion: 1,
+		}); err != nil {
+			_ = s.registry.Delete(harnessPath)
+			return WorkflowDetail{}, err
+		}
+	}
+
 	builder := s.client.Workflow.Create().
+		SetID(workflowID).
 		SetProjectID(input.ProjectID).
 		SetName(input.Name).
 		SetType(input.Type).
@@ -303,12 +325,40 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		}
 	}
 
+	nextHooksRaw := current.Hooks
+	if input.Hooks.Set {
+		nextHooksRaw = input.Hooks.Value
+	}
+	parsedHooks, err := parseWorkflowHooks(nextHooksRaw)
+	if err != nil {
+		return WorkflowDetail{}, err
+	}
+
+	nextIsActive := current.IsActive
+	if input.IsActive.Set {
+		nextIsActive = input.IsActive.Value
+	}
+
 	if nextHarnessPath != current.HarnessPath {
 		content, readErr := s.registry.Read(current.HarnessPath)
 		if readErr != nil {
 			return WorkflowDetail{}, fmt.Errorf("read workflow harness before move: %w", readErr)
 		}
 		if err := s.registry.Write(nextHarnessPath, content); err != nil {
+			return WorkflowDetail{}, err
+		}
+	}
+
+	if !current.IsActive && nextIsActive {
+		if err := s.runWorkflowHooks(ctx, parsedHooks, workflowHookOnActivate, workflowHookRuntime{
+			ProjectID:       current.ProjectID,
+			WorkflowID:      current.ID,
+			WorkflowName:    nextName,
+			WorkflowVersion: current.Version,
+		}); err != nil {
+			if nextHarnessPath != current.HarnessPath {
+				_ = s.registry.Delete(nextHarnessPath)
+			}
 			return WorkflowDetail{}, err
 		}
 	}
@@ -447,15 +497,41 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for harness update", err)
 	}
+	parsedHooks, err := parseWorkflowHooks(item.Hooks)
+	if err != nil {
+		return HarnessDocument{}, err
+	}
+
+	previousContent, err := s.registry.Read(item.HarnessPath)
+	if err != nil {
+		return HarnessDocument{}, fmt.Errorf("read workflow harness before update: %w", err)
+	}
 
 	if err := s.registry.Write(item.HarnessPath, input.Content); err != nil {
 		return HarnessDocument{}, err
+	}
+
+	if item.IsActive {
+		if err := s.runWorkflowHooks(ctx, parsedHooks, workflowHookOnReload, workflowHookRuntime{
+			ProjectID:       item.ProjectID,
+			WorkflowID:      item.ID,
+			WorkflowName:    item.Name,
+			WorkflowVersion: item.Version + 1,
+		}); err != nil {
+			if restoreErr := s.registry.Write(item.HarnessPath, previousContent); restoreErr != nil {
+				s.logger.Error("restore workflow harness after reload hook failure", "error", restoreErr, "workflow_id", item.ID, "path", item.HarnessPath)
+			}
+			return HarnessDocument{}, err
+		}
 	}
 
 	updated, err := s.client.Workflow.UpdateOneID(item.ID).
 		SetVersion(item.Version + 1).
 		Save(ctx)
 	if err != nil {
+		if restoreErr := s.registry.Write(item.HarnessPath, previousContent); restoreErr != nil {
+			s.logger.Error("restore workflow harness after version update failure", "error", restoreErr, "workflow_id", item.ID, "path", item.HarnessPath)
+		}
 		return HarnessDocument{}, s.mapWorkflowWriteError("update workflow harness version", err)
 	}
 
@@ -549,28 +625,71 @@ func (s *Service) resolveHarnessContent(
 	return defaultHarnessContent(name, workflowType, pickupStatus.Name, finishStatusName), nil
 }
 
-func (s *Service) handleHarnessReload(relativePath string) {
+func (s *Service) handleHarnessReload(event harnessReloadEvent) {
 	if s.client == nil {
 		return
 	}
 
 	ctx := context.Background()
-	item, err := s.client.Workflow.Query().Where(entworkflow.HarnessPathEQ(relativePath)).Only(ctx)
+	item, err := s.client.Workflow.Query().Where(entworkflow.HarnessPathEQ(event.RelativePath)).Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return
 		}
 
-		s.logger.Error("reload harness workflow lookup", "error", err, "path", relativePath)
+		s.logger.Error("reload harness workflow lookup", "error", err, "path", event.RelativePath)
 		return
+	}
+
+	parsedHooks, err := parseWorkflowHooks(item.Hooks)
+	if err != nil {
+		s.logger.Error("parse workflow hooks for reload", "error", err, "workflow_id", item.ID, "path", event.RelativePath)
+		return
+	}
+
+	if item.IsActive {
+		if err := s.runWorkflowHooks(ctx, parsedHooks, workflowHookOnReload, workflowHookRuntime{
+			ProjectID:       item.ProjectID,
+			WorkflowID:      item.ID,
+			WorkflowName:    item.Name,
+			WorkflowVersion: item.Version + 1,
+		}); err != nil {
+			s.logger.Error("workflow reload hook blocked harness reload", "error", err, "workflow_id", item.ID, "path", event.RelativePath)
+			if event.PreviousContent != "" {
+				if restoreErr := s.registry.Write(event.RelativePath, event.PreviousContent); restoreErr != nil {
+					s.logger.Error("restore workflow harness after blocked reload", "error", restoreErr, "workflow_id", item.ID, "path", event.RelativePath)
+				}
+			}
+			return
+		}
 	}
 
 	if _, err := s.client.Workflow.UpdateOneID(item.ID).SetVersion(item.Version + 1).Save(ctx); err != nil {
-		s.logger.Error("bump workflow version after harness reload", "error", err, "workflow_id", item.ID, "path", relativePath)
+		s.logger.Error("bump workflow version after harness reload", "error", err, "workflow_id", item.ID, "path", event.RelativePath)
+		if event.PreviousContent != "" {
+			if restoreErr := s.registry.Write(event.RelativePath, event.PreviousContent); restoreErr != nil {
+				s.logger.Error("restore workflow harness after failed version bump", "error", restoreErr, "workflow_id", item.ID, "path", event.RelativePath)
+			}
+		}
 		return
 	}
 
-	s.logger.Info("workflow harness reloaded", "workflow_id", item.ID, "path", relativePath)
+	s.logger.Info("workflow harness reloaded", "workflow_id", item.ID, "path", event.RelativePath)
+}
+
+func (s *Service) runWorkflowHooks(ctx context.Context, hooks workflowHooksConfig, hookName workflowHookName, runtime workflowHookRuntime) error {
+	if s == nil || s.hookExecutor == nil {
+		return nil
+	}
+
+	switch hookName {
+	case workflowHookOnActivate:
+		return s.hookExecutor.RunAll(ctx, hookName, hooks.OnActivate, runtime)
+	case workflowHookOnReload:
+		return s.hookExecutor.RunAll(ctx, hookName, hooks.OnReload, runtime)
+	default:
+		return nil
+	}
 }
 
 func (s *Service) mapWorkflowReadError(action string, err error) error {

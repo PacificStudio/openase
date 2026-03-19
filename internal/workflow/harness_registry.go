@@ -19,7 +19,7 @@ type harnessRegistry struct {
 	rootDir    string
 	logger     *slog.Logger
 	watcher    *fsnotify.Watcher
-	onReload   func(string)
+	onReload   func(harnessReloadEvent)
 	mu         sync.RWMutex
 	cache      map[string]cachedHarness
 	pending    map[string]string
@@ -32,7 +32,13 @@ type cachedHarness struct {
 	hash    string
 }
 
-func newHarnessRegistry(rootDir string, logger *slog.Logger, onReload func(string)) (*harnessRegistry, error) {
+type harnessReloadEvent struct {
+	RelativePath    string
+	PreviousContent string
+	CurrentContent  string
+}
+
+func newHarnessRegistry(rootDir string, logger *slog.Logger, onReload func(harnessReloadEvent)) (*harnessRegistry, error) {
 	if err := os.MkdirAll(rootDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create harness root: %w", err)
 	}
@@ -278,7 +284,11 @@ func (r *harnessRegistry) handleEvent(event fsnotify.Event) {
 	r.mu.Unlock()
 
 	if shouldReload && r.onReload != nil {
-		r.onReload(relativePath)
+		r.onReload(harnessReloadEvent{
+			RelativePath:    relativePath,
+			PreviousContent: previous.content,
+			CurrentContent:  content,
+		})
 	}
 }
 

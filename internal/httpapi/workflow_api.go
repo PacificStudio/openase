@@ -229,6 +229,10 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_IN_USE", err.Error())
 	case errors.Is(err, workflowservice.ErrHarnessInvalid):
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_HARNESS", err.Error())
+	case errors.Is(err, workflowservice.ErrHookConfigInvalid):
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_WORKFLOW_HOOKS", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowHookBlocked):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_HOOK_BLOCKED", err.Error())
 	default:
 		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 	}
