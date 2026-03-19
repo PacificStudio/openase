@@ -32,6 +32,17 @@ type projectResponse struct {
 	MaxConcurrentAgents    int     `json:"max_concurrent_agents"`
 }
 
+type projectRepoResponse struct {
+	ID            string   `json:"id"`
+	ProjectID     string   `json:"project_id"`
+	Name          string   `json:"name"`
+	RepositoryURL string   `json:"repository_url"`
+	DefaultBranch string   `json:"default_branch"`
+	ClonePath     *string  `json:"clone_path,omitempty"`
+	IsPrimary     bool     `json:"is_primary"`
+	Labels        []string `json:"labels,omitempty"`
+}
+
 type organizationPatchRequest struct {
 	Name                   *string `json:"name"`
 	Slug                   *string `json:"slug"`
@@ -48,6 +59,15 @@ type projectPatchRequest struct {
 	MaxConcurrentAgents    *int    `json:"max_concurrent_agents"`
 }
 
+type projectRepoPatchRequest struct {
+	Name          *string   `json:"name"`
+	RepositoryURL *string   `json:"repository_url"`
+	DefaultBranch *string   `json:"default_branch"`
+	ClonePath     *string   `json:"clone_path"`
+	IsPrimary     *bool     `json:"is_primary"`
+	Labels        *[]string `json:"labels"`
+}
+
 func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.GET("/orgs", s.listOrganizations)
 	api.POST("/orgs", s.createOrganization)
@@ -58,6 +78,10 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId", s.getProject)
 	api.PATCH("/projects/:projectId", s.patchProject)
 	api.DELETE("/projects/:projectId", s.archiveProject)
+	api.GET("/projects/:projectId/repos", s.listProjectRepos)
+	api.POST("/projects/:projectId/repos", s.createProjectRepo)
+	api.PATCH("/projects/:projectId/repos/:repoId", s.patchProjectRepo)
+	api.DELETE("/projects/:projectId/repos/:repoId", s.deleteProjectRepo)
 }
 
 func (s *Server) listOrganizations(c echo.Context) error {
@@ -290,6 +314,130 @@ func (s *Server) archiveProject(c echo.Context) error {
 	})
 }
 
+func (s *Server) listProjectRepos(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+
+	items, err := s.catalog.ListProjectRepos(c.Request().Context(), projectID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"repos": mapProjectRepoResponses(items),
+	})
+}
+
+func (s *Server) createProjectRepo(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+
+	var request domain.ProjectRepoInput
+	if err := decodeJSON(c, &request); err != nil {
+		return err
+	}
+
+	input, err := domain.ParseCreateProjectRepo(projectID, request)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+	}
+
+	item, err := s.catalog.CreateProjectRepo(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"repo": mapProjectRepoResponse(item),
+	})
+}
+
+func (s *Server) patchProjectRepo(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	repoID, err := parseUUIDPathParam(c, "repoId")
+	if err != nil {
+		return err
+	}
+
+	current, err := s.catalog.GetProjectRepo(c.Request().Context(), projectID, repoID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	var patch projectRepoPatchRequest
+	if err := decodeJSON(c, &patch); err != nil {
+		return err
+	}
+
+	request := domain.ProjectRepoInput{
+		Name:          current.Name,
+		RepositoryURL: current.RepositoryURL,
+		DefaultBranch: current.DefaultBranch,
+		ClonePath:     current.ClonePath,
+		IsPrimary:     boolPointer(current.IsPrimary),
+		Labels:        append([]string(nil), current.Labels...),
+	}
+	if patch.Name != nil {
+		request.Name = *patch.Name
+	}
+	if patch.RepositoryURL != nil {
+		request.RepositoryURL = *patch.RepositoryURL
+	}
+	if patch.DefaultBranch != nil {
+		request.DefaultBranch = *patch.DefaultBranch
+	}
+	if patch.ClonePath != nil {
+		request.ClonePath = patch.ClonePath
+	}
+	if patch.IsPrimary != nil {
+		request.IsPrimary = patch.IsPrimary
+	}
+	if patch.Labels != nil {
+		request.Labels = *patch.Labels
+	}
+
+	input, err := domain.ParseUpdateProjectRepo(repoID, projectID, request)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+	}
+
+	item, err := s.catalog.UpdateProjectRepo(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"repo": mapProjectRepoResponse(item),
+	})
+}
+
+func (s *Server) deleteProjectRepo(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	repoID, err := parseUUIDPathParam(c, "repoId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.DeleteProjectRepo(c.Request().Context(), projectID, repoID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"repo": mapProjectRepoResponse(item),
+	})
+}
+
 func decodeJSON(c echo.Context, target any) error {
 	decoder := json.NewDecoder(c.Request().Body)
 	decoder.DisallowUnknownFields()
@@ -369,6 +517,28 @@ func mapProjectResponse(item domain.Project) projectResponse {
 	}
 }
 
+func mapProjectRepoResponses(items []domain.ProjectRepo) []projectRepoResponse {
+	response := make([]projectRepoResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapProjectRepoResponse(item))
+	}
+
+	return response
+}
+
+func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
+	return projectRepoResponse{
+		ID:            item.ID.String(),
+		ProjectID:     item.ProjectID.String(),
+		Name:          item.Name,
+		RepositoryURL: item.RepositoryURL,
+		DefaultBranch: item.DefaultBranch,
+		ClonePath:     item.ClonePath,
+		IsPrimary:     item.IsPrimary,
+		Labels:        append([]string(nil), item.Labels...),
+	}
+}
+
 func uuidToStringPointer(value *uuid.UUID) *string {
 	if value == nil {
 		return nil
@@ -379,6 +549,11 @@ func uuidToStringPointer(value *uuid.UUID) *string {
 }
 
 func intPointer(value int) *int {
+	copied := value
+	return &copied
+}
+
+func boolPointer(value bool) *bool {
 	copied := value
 	return &copied
 }

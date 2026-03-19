@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
+	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
 )
@@ -27,6 +30,11 @@ type Repository interface {
 	GetProject(ctx context.Context, id uuid.UUID) (domain.Project, error)
 	UpdateProject(ctx context.Context, input domain.UpdateProject) (domain.Project, error)
 	ArchiveProject(ctx context.Context, id uuid.UUID) (domain.Project, error)
+	ListProjectRepos(ctx context.Context, projectID uuid.UUID) ([]domain.ProjectRepo, error)
+	CreateProjectRepo(ctx context.Context, input domain.CreateProjectRepo) (domain.ProjectRepo, error)
+	GetProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
+	UpdateProjectRepo(ctx context.Context, input domain.UpdateProjectRepo) (domain.ProjectRepo, error)
+	DeleteProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
 }
 
 type EntRepository struct {
@@ -189,6 +197,189 @@ func (r *EntRepository) ArchiveProject(ctx context.Context, id uuid.UUID) (domai
 	return mapProject(item), nil
 }
 
+func (r *EntRepository) ListProjectRepos(ctx context.Context, projectID uuid.UUID) ([]domain.ProjectRepo, error) {
+	exists, err := r.client.Project.Query().
+		Where(entproject.ID(projectID)).
+		Exist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check project before listing repos: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	items, err := r.client.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectID(projectID)).
+		Order(entprojectrepo.ByIsPrimary(entsql.OrderDesc()), entprojectrepo.ByName()).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list project repos: %w", err)
+	}
+
+	return mapProjectRepos(items), nil
+}
+
+func (r *EntRepository) CreateProjectRepo(ctx context.Context, input domain.CreateProjectRepo) (repo domain.ProjectRepo, err error) {
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("start create project repo transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	exists, err := tx.Project.Query().
+		Where(entproject.ID(input.ProjectID)).
+		Exist(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("check project before creating repo: %w", err)
+	}
+	if !exists {
+		return domain.ProjectRepo{}, ErrNotFound
+	}
+
+	repoCount, err := tx.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectID(input.ProjectID)).
+		Count(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("count project repos before create: %w", err)
+	}
+
+	makePrimary := repoCount == 0
+	if input.RequestedPrimary != nil {
+		makePrimary = *input.RequestedPrimary || repoCount == 0
+	}
+	if makePrimary {
+		if err := clearPrimaryRepo(ctx, tx, input.ProjectID); err != nil {
+			return domain.ProjectRepo{}, err
+		}
+	}
+
+	builder := tx.ProjectRepo.Create().
+		SetProjectID(input.ProjectID).
+		SetName(input.Name).
+		SetRepositoryURL(input.RepositoryURL).
+		SetDefaultBranch(input.DefaultBranch).
+		SetIsPrimary(makePrimary)
+	if input.ClonePath != nil {
+		builder.SetClonePath(*input.ClonePath)
+	}
+	if len(input.Labels) > 0 {
+		builder.SetLabels(input.Labels)
+	}
+
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, mapWriteError("create project repo", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("commit create project repo: %w", err)
+	}
+
+	return mapProjectRepo(item), nil
+}
+
+func (r *EntRepository) GetProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error) {
+	item, err := r.client.ProjectRepo.Query().
+		Where(entprojectrepo.ID(id), entprojectrepo.ProjectID(projectID)).
+		Only(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, mapReadError("get project repo", err)
+	}
+
+	return mapProjectRepo(item), nil
+}
+
+func (r *EntRepository) UpdateProjectRepo(ctx context.Context, input domain.UpdateProjectRepo) (repo domain.ProjectRepo, err error) {
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("start update project repo transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	current, err := tx.ProjectRepo.Query().
+		Where(entprojectrepo.ID(input.ID), entprojectrepo.ProjectID(input.ProjectID)).
+		Only(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, mapReadError("get project repo for update", err)
+	}
+
+	makePrimary := input.IsPrimary
+	if makePrimary {
+		if err := clearPrimaryRepo(ctx, tx, input.ProjectID, input.ID); err != nil {
+			return domain.ProjectRepo{}, err
+		}
+	}
+
+	builder := tx.ProjectRepo.UpdateOneID(input.ID).
+		SetName(input.Name).
+		SetRepositoryURL(input.RepositoryURL).
+		SetDefaultBranch(input.DefaultBranch).
+		SetIsPrimary(makePrimary)
+	if input.ClonePath != nil {
+		builder.SetClonePath(*input.ClonePath)
+	} else {
+		builder.ClearClonePath()
+	}
+	if len(input.Labels) > 0 {
+		builder.SetLabels(input.Labels)
+	} else {
+		builder.ClearLabels()
+	}
+
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, mapWriteError("update project repo", err)
+	}
+
+	if current.IsPrimary && !item.IsPrimary {
+		if err := ensureProjectPrimaryRepo(ctx, tx, input.ProjectID, item.ID); err != nil {
+			return domain.ProjectRepo{}, err
+		}
+		item, err = tx.ProjectRepo.Get(ctx, item.ID)
+		if err != nil {
+			return domain.ProjectRepo{}, mapReadError("reload project repo after update", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("commit update project repo: %w", err)
+	}
+
+	return mapProjectRepo(item), nil
+}
+
+func (r *EntRepository) DeleteProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (repo domain.ProjectRepo, err error) {
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("start delete project repo transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	item, err := tx.ProjectRepo.Query().
+		Where(entprojectrepo.ID(id), entprojectrepo.ProjectID(projectID)).
+		Only(ctx)
+	if err != nil {
+		return domain.ProjectRepo{}, mapReadError("get project repo for delete", err)
+	}
+
+	deleted := mapProjectRepo(item)
+	if err := tx.ProjectRepo.DeleteOne(item).Exec(ctx); err != nil {
+		return domain.ProjectRepo{}, mapWriteError("delete project repo", err)
+	}
+
+	if item.IsPrimary {
+		if err := ensureProjectPrimaryRepo(ctx, tx, projectID); err != nil {
+			return domain.ProjectRepo{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("commit delete project repo: %w", err)
+	}
+
+	return deleted, nil
+}
+
 func mapReadError(action string, err error) error {
 	switch {
 	case ent.IsNotFound(err):
@@ -248,4 +439,111 @@ func mapProject(item *ent.Project) domain.Project {
 		DefaultAgentProviderID: item.DefaultAgentProviderID,
 		MaxConcurrentAgents:    item.MaxConcurrentAgents,
 	}
+}
+
+func rollbackOnError(ctx context.Context, tx *ent.Tx, errp *error) {
+	if *errp == nil {
+		return
+	}
+	_ = tx.Rollback()
+}
+
+func clearPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, excludeIDs ...uuid.UUID) error {
+	predicates := []predicate.ProjectRepo{
+		entprojectrepo.ProjectID(projectID),
+		entprojectrepo.IsPrimary(true),
+	}
+	for _, id := range excludeIDs {
+		predicates = append(predicates, entprojectrepo.IDNEQ(id))
+	}
+
+	if _, err := tx.ProjectRepo.Update().
+		Where(predicates...).
+		SetIsPrimary(false).
+		Save(ctx); err != nil {
+		return fmt.Errorf("clear primary project repo: %w", err)
+	}
+
+	return nil
+}
+
+func ensureProjectPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, excludeIDs ...uuid.UUID) error {
+	exists, err := tx.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectID(projectID), entprojectrepo.IsPrimary(true)).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check primary project repo: %w", err)
+	}
+	if exists {
+		return nil
+	}
+
+	predicates := []predicate.ProjectRepo{
+		entprojectrepo.ProjectID(projectID),
+	}
+	for _, id := range excludeIDs {
+		predicates = append(predicates, entprojectrepo.IDNEQ(id))
+	}
+
+	fallback, err := tx.ProjectRepo.Query().
+		Where(predicates...).
+		Order(entprojectrepo.ByName(), entprojectrepo.ByID()).
+		First(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			if len(excludeIDs) == 0 {
+				return nil
+			}
+
+			fallback, err = tx.ProjectRepo.Query().
+				Where(entprojectrepo.ProjectID(projectID)).
+				Order(entprojectrepo.ByName(), entprojectrepo.ByID()).
+				First(ctx)
+			if err != nil {
+				if ent.IsNotFound(err) {
+					return nil
+				}
+				return fmt.Errorf("select fallback primary project repo: %w", err)
+			}
+		} else {
+			return fmt.Errorf("select fallback primary project repo: %w", err)
+		}
+	}
+
+	if err := tx.ProjectRepo.UpdateOneID(fallback.ID).SetIsPrimary(true).Exec(ctx); err != nil {
+		return fmt.Errorf("promote fallback primary project repo: %w", err)
+	}
+
+	return nil
+}
+
+func mapProjectRepos(items []*ent.ProjectRepo) []domain.ProjectRepo {
+	repos := make([]domain.ProjectRepo, 0, len(items))
+	for _, item := range items {
+		repos = append(repos, mapProjectRepo(item))
+	}
+
+	return repos
+}
+
+func mapProjectRepo(item *ent.ProjectRepo) domain.ProjectRepo {
+	return domain.ProjectRepo{
+		ID:            item.ID,
+		ProjectID:     item.ProjectID,
+		Name:          item.Name,
+		RepositoryURL: item.RepositoryURL,
+		DefaultBranch: item.DefaultBranch,
+		ClonePath:     optionalString(item.ClonePath),
+		IsPrimary:     item.IsPrimary,
+		Labels:        append([]string(nil), item.Labels...),
+	}
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+
+	copied := value
+	return &copied
 }

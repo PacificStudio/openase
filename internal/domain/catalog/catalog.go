@@ -30,6 +30,17 @@ type Project struct {
 	MaxConcurrentAgents    int
 }
 
+type ProjectRepo struct {
+	ID            uuid.UUID
+	ProjectID     uuid.UUID
+	Name          string
+	RepositoryURL string
+	DefaultBranch string
+	ClonePath     *string
+	IsPrimary     bool
+	Labels        []string
+}
+
 type OrganizationInput struct {
 	Name                   string  `json:"name"`
 	Slug                   string  `json:"slug"`
@@ -44,6 +55,15 @@ type ProjectInput struct {
 	DefaultWorkflowID      *string `json:"default_workflow_id"`
 	DefaultAgentProviderID *string `json:"default_agent_provider_id"`
 	MaxConcurrentAgents    *int    `json:"max_concurrent_agents"`
+}
+
+type ProjectRepoInput struct {
+	Name          string   `json:"name"`
+	RepositoryURL string   `json:"repository_url"`
+	DefaultBranch string   `json:"default_branch"`
+	ClonePath     *string  `json:"clone_path"`
+	IsPrimary     *bool    `json:"is_primary"`
+	Labels        []string `json:"labels"`
 }
 
 type CreateOrganization struct {
@@ -80,6 +100,27 @@ type UpdateProject struct {
 	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
 	MaxConcurrentAgents    int
+}
+
+type CreateProjectRepo struct {
+	ProjectID        uuid.UUID
+	Name             string
+	RepositoryURL    string
+	DefaultBranch    string
+	ClonePath        *string
+	RequestedPrimary *bool
+	Labels           []string
+}
+
+type UpdateProjectRepo struct {
+	ID            uuid.UUID
+	ProjectID     uuid.UUID
+	Name          string
+	RepositoryURL string
+	DefaultBranch string
+	ClonePath     *string
+	IsPrimary     bool
+	Labels        []string
 }
 
 func ParseCreateOrganization(raw OrganizationInput) (CreateOrganization, error) {
@@ -181,6 +222,63 @@ func ParseUpdateProject(id uuid.UUID, organizationID uuid.UUID, raw ProjectInput
 	}, nil
 }
 
+func ParseCreateProjectRepo(projectID uuid.UUID, raw ProjectRepoInput) (CreateProjectRepo, error) {
+	name, err := parseName("name", raw.Name)
+	if err != nil {
+		return CreateProjectRepo{}, err
+	}
+
+	repositoryURL, err := parseTrimmedRequired("repository_url", raw.RepositoryURL)
+	if err != nil {
+		return CreateProjectRepo{}, err
+	}
+
+	defaultBranch, err := parseDefaultBranch(raw.DefaultBranch)
+	if err != nil {
+		return CreateProjectRepo{}, err
+	}
+
+	clonePath := parseOptionalText(raw.ClonePath)
+
+	labels, err := parseLabels(raw.Labels)
+	if err != nil {
+		return CreateProjectRepo{}, err
+	}
+
+	return CreateProjectRepo{
+		ProjectID:        projectID,
+		Name:             name,
+		RepositoryURL:    repositoryURL,
+		DefaultBranch:    defaultBranch,
+		ClonePath:        clonePath,
+		RequestedPrimary: raw.IsPrimary,
+		Labels:           labels,
+	}, nil
+}
+
+func ParseUpdateProjectRepo(id uuid.UUID, projectID uuid.UUID, raw ProjectRepoInput) (UpdateProjectRepo, error) {
+	input, err := ParseCreateProjectRepo(projectID, raw)
+	if err != nil {
+		return UpdateProjectRepo{}, err
+	}
+
+	isPrimary := false
+	if input.RequestedPrimary != nil {
+		isPrimary = *input.RequestedPrimary
+	}
+
+	return UpdateProjectRepo{
+		ID:            id,
+		ProjectID:     input.ProjectID,
+		Name:          input.Name,
+		RepositoryURL: input.RepositoryURL,
+		DefaultBranch: input.DefaultBranch,
+		ClonePath:     input.ClonePath,
+		IsPrimary:     isPrimary,
+		Labels:        input.Labels,
+	}, nil
+}
+
 func parseName(fieldName string, raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -188,6 +286,58 @@ func parseName(fieldName string, raw string) (string, error) {
 	}
 
 	return trimmed, nil
+}
+
+func parseTrimmedRequired(fieldName string, raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s must not be empty", fieldName)
+	}
+
+	return trimmed, nil
+}
+
+func parseDefaultBranch(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "main", nil
+	}
+
+	return parseTrimmedRequired("default_branch", raw)
+}
+
+func parseOptionalText(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return nil
+	}
+
+	return &trimmed
+}
+
+func parseLabels(raw []string) ([]string, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+
+	labels := make([]string, 0, len(raw))
+	seen := make(map[string]struct{}, len(raw))
+	for index, label := range raw {
+		trimmed := strings.TrimSpace(label)
+		if trimmed == "" {
+			return nil, fmt.Errorf("labels[%d] must not be empty", index)
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		labels = append(labels, trimmed)
+	}
+
+	return labels, nil
 }
 
 func parseSlug(raw string) (string, error) {

@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -23,12 +24,14 @@ import (
 type fakeCatalogService struct {
 	organizations map[uuid.UUID]domain.Organization
 	projects      map[uuid.UUID]domain.Project
+	projectRepos  map[uuid.UUID]domain.ProjectRepo
 }
 
 func newFakeCatalogService() *fakeCatalogService {
 	return &fakeCatalogService{
 		organizations: map[uuid.UUID]domain.Organization{},
 		projects:      map[uuid.UUID]domain.Project{},
+		projectRepos:  map[uuid.UUID]domain.ProjectRepo{},
 	}
 }
 
@@ -135,6 +138,93 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, patchProjectRec, &patchProjectPayload)
 	if patchProjectPayload.Project.Status != "paused" || patchProjectPayload.Project.MaxConcurrentAgents != 3 {
 		t.Fatalf("unexpected patched project payload: %+v", patchProjectPayload.Project)
+	}
+
+	repoRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos",
+		`{"name":"backend","repository_url":"https://github.com/acme/backend.git","labels":["go","api"]}`,
+	)
+	if repoRec.Code != http.StatusCreated {
+		t.Fatalf("expected repo create 201, got %d: %s", repoRec.Code, repoRec.Body.String())
+	}
+
+	var createRepoPayload struct {
+		Repo projectRepoResponse `json:"repo"`
+	}
+	decodeResponse(t, repoRec, &createRepoPayload)
+	if !createRepoPayload.Repo.IsPrimary || createRepoPayload.Repo.DefaultBranch != "main" {
+		t.Fatalf("unexpected created repo payload: %+v", createRepoPayload.Repo)
+	}
+
+	secondRepoRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos",
+		`{"name":"frontend","repository_url":"https://github.com/acme/frontend.git","default_branch":"develop","is_primary":true}`,
+	)
+	if secondRepoRec.Code != http.StatusCreated {
+		t.Fatalf("expected second repo create 201, got %d: %s", secondRepoRec.Code, secondRepoRec.Body.String())
+	}
+
+	var secondRepoPayload struct {
+		Repo projectRepoResponse `json:"repo"`
+	}
+	decodeResponse(t, secondRepoRec, &secondRepoPayload)
+	if !secondRepoPayload.Repo.IsPrimary {
+		t.Fatalf("expected second repo to become primary, got %+v", secondRepoPayload.Repo)
+	}
+
+	listRepoRec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos",
+		"",
+	)
+	if listRepoRec.Code != http.StatusOK {
+		t.Fatalf("expected repo list 200, got %d: %s", listRepoRec.Code, listRepoRec.Body.String())
+	}
+
+	var listRepoPayload struct {
+		Repos []projectRepoResponse `json:"repos"`
+	}
+	decodeResponse(t, listRepoRec, &listRepoPayload)
+	if len(listRepoPayload.Repos) != 2 || !listRepoPayload.Repos[0].IsPrimary {
+		t.Fatalf("unexpected repo list payload: %+v", listRepoPayload.Repos)
+	}
+
+	patchRepoRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos/"+createRepoPayload.Repo.ID,
+		`{"clone_path":"services/backend","is_primary":true}`,
+	)
+	if patchRepoRec.Code != http.StatusOK {
+		t.Fatalf("expected repo patch 200, got %d: %s", patchRepoRec.Code, patchRepoRec.Body.String())
+	}
+
+	var patchRepoPayload struct {
+		Repo projectRepoResponse `json:"repo"`
+	}
+	decodeResponse(t, patchRepoRec, &patchRepoPayload)
+	if !patchRepoPayload.Repo.IsPrimary || patchRepoPayload.Repo.ClonePath == nil || *patchRepoPayload.Repo.ClonePath != "services/backend" {
+		t.Fatalf("unexpected patched repo payload: %+v", patchRepoPayload.Repo)
+	}
+
+	deleteRepoRec := performJSONRequest(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos/"+secondRepoPayload.Repo.ID,
+		"",
+	)
+	if deleteRepoRec.Code != http.StatusOK {
+		t.Fatalf("expected repo delete 200, got %d: %s", deleteRepoRec.Code, deleteRepoRec.Body.String())
 	}
 
 	archiveProjectRec := performJSONRequest(
@@ -339,4 +429,272 @@ func (f *fakeCatalogService) ArchiveProject(_ context.Context, id uuid.UUID) (do
 	f.projects[id] = item
 
 	return item, nil
+}
+
+func (f *fakeCatalogService) ListProjectRepos(_ context.Context, projectID uuid.UUID) ([]domain.ProjectRepo, error) {
+	if _, ok := f.projects[projectID]; !ok {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.ProjectRepo, 0)
+	for _, item := range f.projectRepos {
+		if item.ProjectID == projectID {
+			items = append(items, item)
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].IsPrimary != items[j].IsPrimary {
+			return items[i].IsPrimary
+		}
+		return items[i].Name < items[j].Name
+	})
+
+	return items, nil
+}
+
+func (f *fakeCatalogService) CreateProjectRepo(_ context.Context, input domain.CreateProjectRepo) (domain.ProjectRepo, error) {
+	if _, ok := f.projects[input.ProjectID]; !ok {
+		return domain.ProjectRepo{}, catalogservice.ErrNotFound
+	}
+
+	for _, item := range f.projectRepos {
+		if item.ProjectID == input.ProjectID && item.Name == input.Name {
+			return domain.ProjectRepo{}, catalogservice.ErrConflict
+		}
+	}
+
+	isPrimary := !f.hasProjectRepos(input.ProjectID)
+	if input.RequestedPrimary != nil {
+		isPrimary = *input.RequestedPrimary || !f.hasProjectRepos(input.ProjectID)
+	}
+	if isPrimary {
+		f.clearPrimary(input.ProjectID, uuid.Nil)
+	}
+
+	item := domain.ProjectRepo{
+		ID:            uuid.New(),
+		ProjectID:     input.ProjectID,
+		Name:          input.Name,
+		RepositoryURL: input.RepositoryURL,
+		DefaultBranch: input.DefaultBranch,
+		ClonePath:     input.ClonePath,
+		IsPrimary:     isPrimary,
+		Labels:        append([]string(nil), input.Labels...),
+	}
+	f.projectRepos[item.ID] = item
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) GetProjectRepo(_ context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error) {
+	item, ok := f.projectRepos[id]
+	if !ok || item.ProjectID != projectID {
+		return domain.ProjectRepo{}, catalogservice.ErrNotFound
+	}
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) UpdateProjectRepo(_ context.Context, input domain.UpdateProjectRepo) (domain.ProjectRepo, error) {
+	item, ok := f.projectRepos[input.ID]
+	if !ok || item.ProjectID != input.ProjectID {
+		return domain.ProjectRepo{}, catalogservice.ErrNotFound
+	}
+
+	if input.IsPrimary {
+		f.clearPrimary(input.ProjectID, input.ID)
+	}
+
+	item.Name = input.Name
+	item.RepositoryURL = input.RepositoryURL
+	item.DefaultBranch = input.DefaultBranch
+	item.ClonePath = input.ClonePath
+	item.IsPrimary = input.IsPrimary
+	item.Labels = append([]string(nil), input.Labels...)
+	f.projectRepos[item.ID] = item
+
+	if !item.IsPrimary {
+		f.ensurePrimary(input.ProjectID, item.ID)
+		item = f.projectRepos[item.ID]
+	}
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) DeleteProjectRepo(_ context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error) {
+	item, ok := f.projectRepos[id]
+	if !ok || item.ProjectID != projectID {
+		return domain.ProjectRepo{}, catalogservice.ErrNotFound
+	}
+
+	delete(f.projectRepos, id)
+	if item.IsPrimary {
+		f.ensurePrimary(projectID, uuid.Nil)
+	}
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) hasProjectRepos(projectID uuid.UUID) bool {
+	for _, item := range f.projectRepos {
+		if item.ProjectID == projectID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (f *fakeCatalogService) clearPrimary(projectID uuid.UUID, exclude uuid.UUID) {
+	for id, item := range f.projectRepos {
+		if item.ProjectID == projectID && id != exclude {
+			item.IsPrimary = false
+			f.projectRepos[id] = item
+		}
+	}
+}
+
+func (f *fakeCatalogService) ensurePrimary(projectID uuid.UUID, preferredExclude uuid.UUID) {
+	for _, item := range f.projectRepos {
+		if item.ProjectID == projectID && item.IsPrimary {
+			return
+		}
+	}
+
+	var fallback *domain.ProjectRepo
+	for _, item := range f.projectRepos {
+		if item.ProjectID == projectID && item.ID != preferredExclude {
+			copied := item
+			if fallback == nil || copied.Name < fallback.Name {
+				fallback = &copied
+			}
+		}
+	}
+	if fallback == nil {
+		for _, item := range f.projectRepos {
+			if item.ProjectID == projectID {
+				copied := item
+				if fallback == nil || copied.Name < fallback.Name {
+					fallback = &copied
+				}
+			}
+		}
+	}
+	if fallback == nil {
+		return
+	}
+
+	fallback.IsPrimary = true
+	f.projectRepos[fallback.ID] = *fallback
+}
+
+func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client)),
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	var backendCreate struct {
+		Repo projectRepoResponse `json:"repo"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/repos",
+		map[string]any{
+			"name":           "backend",
+			"repository_url": "https://github.com/acme/backend.git",
+		},
+		http.StatusCreated,
+		&backendCreate,
+	)
+	if !backendCreate.Repo.IsPrimary {
+		t.Fatalf("expected first repo to be primary, got %+v", backendCreate.Repo)
+	}
+
+	var frontendCreate struct {
+		Repo projectRepoResponse `json:"repo"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/repos",
+		map[string]any{
+			"name":           "frontend",
+			"repository_url": "https://github.com/acme/frontend.git",
+			"is_primary":     true,
+		},
+		http.StatusCreated,
+		&frontendCreate,
+	)
+	if !frontendCreate.Repo.IsPrimary {
+		t.Fatalf("expected frontend repo to be primary, got %+v", frontendCreate.Repo)
+	}
+
+	var backendUpdate struct {
+		Repo projectRepoResponse `json:"repo"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+project.ID.String()+"/repos/"+backendCreate.Repo.ID,
+		map[string]any{
+			"is_primary": true,
+		},
+		http.StatusOK,
+		&backendUpdate,
+	)
+	if !backendUpdate.Repo.IsPrimary {
+		t.Fatalf("expected backend repo to regain primary, got %+v", backendUpdate.Repo)
+	}
+
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/projects/"+project.ID.String()+"/repos/"+backendUpdate.Repo.ID,
+		nil,
+		http.StatusOK,
+		nil,
+	)
+
+	var repoList struct {
+		Repos []projectRepoResponse `json:"repos"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+project.ID.String()+"/repos",
+		nil,
+		http.StatusOK,
+		&repoList,
+	)
+	if len(repoList.Repos) != 1 || repoList.Repos[0].Name != "frontend" || !repoList.Repos[0].IsPrimary {
+		t.Fatalf("expected surviving repo to stay primary, got %+v", repoList.Repos)
+	}
 }
