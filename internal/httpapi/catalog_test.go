@@ -603,6 +603,7 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		nil,
 	)
 
 	ctx := context.Background()
