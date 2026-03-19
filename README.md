@@ -6,7 +6,7 @@ Issue-driven automated software engineering platform.
 
 This repository now includes the Layer 0 base slice described in `OpenASE-PRD.md` Chapter 5:
 
-- `cobra` CLI entrypoint with `serve`, `orchestrate`, `all-in-one`, and `version`
+- `cobra` CLI entrypoint with `serve`, `orchestrate`, `all-in-one`, `doctor`, and `version`
 - managed service commands: `up`, `down`, `restart`, and `logs`
 - `Echo` HTTP server with baseline health routes and an embedded frontend mount
 - `viper` configuration loading from defaults, env vars, and an optional config file
@@ -27,6 +27,7 @@ go build ./cmd/openase
 ```bash
 export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
 go run ./cmd/openase version
+go run ./cmd/openase doctor
 go run ./cmd/openase serve
 go run ./cmd/openase all-in-one --tick-interval 2s
 go run ./cmd/openase up --config ./openase.example.yaml
