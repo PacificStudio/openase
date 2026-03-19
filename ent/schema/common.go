@@ -1,0 +1,52 @@
+package schema
+
+import (
+	"time"
+
+	"entgo.io/ent"
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
+)
+
+func uuidField() ent.Field {
+	return field.UUID("id", uuid.UUID{}).
+		Default(uuid.New).
+		Immutable()
+}
+
+func uuidZero() uuid.UUID {
+	return uuid.UUID{}
+}
+
+func createdAtField() ent.Field {
+	return field.Time("created_at").
+		Default(time.Now).
+		Immutable()
+}
+
+func emptyMap() map[string]any {
+	return map[string]any{}
+}
+
+func emptyStrings() []string {
+	return []string{}
+}
+
+func currencyColumn() map[string]string {
+	return map[string]string{
+		dialect.Postgres: "numeric(12,2)",
+	}
+}
+
+func rateColumn() map[string]string {
+	return map[string]string{
+		dialect.Postgres: "numeric(18,8)",
+	}
+}
+
+func textArrayColumn() map[string]string {
+	return map[string]string{
+		dialect.Postgres: "text[]",
+	}
+}

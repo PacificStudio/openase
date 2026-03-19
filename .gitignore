@@ -2,8 +2,9 @@
 .symphony-runtime-source/
 WORKFLOW.backup.*.md
 .cache/
-.tools/
+.mise-data/
 .tmp/
+.tools/
 openase
 web/.svelte-kit/
 web/node_modules/

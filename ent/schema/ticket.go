@@ -1,0 +1,104 @@
+package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/edge"
+	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
+)
+
+type Ticket struct {
+	ent.Schema
+}
+
+func (Ticket) Fields() []ent.Field {
+	return []ent.Field{
+		uuidField(),
+		field.UUID("project_id", uuidZero()),
+		field.String("identifier").NotEmpty(),
+		field.String("title").NotEmpty(),
+		field.Text("description").Optional(),
+		field.UUID("status_id", uuidZero()),
+		field.Enum("priority").
+			Values("urgent", "high", "medium", "low").
+			Default("medium"),
+		field.Enum("type").
+			Values("feature", "bugfix", "refactor", "chore", "epic").
+			Default("feature"),
+		field.UUID("workflow_id", uuidZero()).
+			Optional().
+			Nillable(),
+		field.UUID("assigned_agent_id", uuidZero()).
+			Optional().
+			Nillable(),
+		field.String("created_by").NotEmpty(),
+		field.UUID("parent_ticket_id", uuidZero()).
+			Optional().
+			Nillable(),
+		field.String("external_ref").Optional(),
+		field.Int("attempt_count").Default(0),
+		field.Int("consecutive_errors").Default(0),
+		field.Time("next_retry_at").Optional().Nillable(),
+		field.Bool("retry_paused").Default(false),
+		field.String("pause_reason").Optional(),
+		field.Int("stall_count").Default(0),
+		field.String("retry_token").Optional(),
+		field.Int("harness_version").Default(0),
+		field.Bool("approval_required").Default(false),
+		field.Float("budget_usd").
+			SchemaType(currencyColumn()).
+			Default(0),
+		field.Int64("cost_tokens_input").Default(0),
+		field.Int64("cost_tokens_output").Default(0),
+		field.Float("cost_amount").
+			SchemaType(currencyColumn()).
+			Default(0),
+		field.JSON("metadata", map[string]any{}).Default(emptyMap),
+		field.Time("started_at").Optional().Nillable(),
+		field.Time("completed_at").Optional().Nillable(),
+		createdAtField(),
+	}
+}
+
+func (Ticket) Edges() []ent.Edge {
+	return []ent.Edge{
+		edge.From("project", Project.Type).
+			Ref("tickets").
+			Field("project_id").
+			Unique().
+			Required(),
+		edge.From("status", TicketStatus.Type).
+			Ref("tickets").
+			Field("status_id").
+			Unique().
+			Required(),
+		edge.From("workflow", Workflow.Type).
+			Ref("tickets").
+			Field("workflow_id").
+			Unique(),
+		edge.From("assigned_agent", Agent.Type).
+			Ref("assigned_tickets").
+			Field("assigned_agent_id").
+			Unique(),
+		edge.From("parent", Ticket.Type).
+			Ref("children").
+			Field("parent_ticket_id").
+			Unique(),
+		edge.To("children", Ticket.Type),
+		edge.To("repo_scopes", TicketRepoScope.Type),
+		edge.To("external_links", TicketExternalLink.Type),
+		edge.To("approval_gates", ApprovalGate.Type),
+		edge.To("activity_events", ActivityEvent.Type),
+		edge.To("outgoing_dependencies", TicketDependency.Type),
+		edge.To("incoming_dependencies", TicketDependency.Type),
+	}
+}
+
+func (Ticket) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("identifier").Unique(),
+		index.Fields("project_id", "status_id", "assigned_agent_id", "priority", "created_at"),
+		index.Fields("project_id", "status_id"),
+		index.Fields("project_id", "external_ref"),
+	}
+}
