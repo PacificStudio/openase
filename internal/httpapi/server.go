@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/BetterAndBetterII/openase/internal/webui"
 	"github.com/labstack/echo/v4"
@@ -20,15 +21,21 @@ import (
 )
 
 type Server struct {
-	cfg    config.ServerConfig
-	logger *slog.Logger
-	echo   *echo.Echo
-	sseHub *sse.Hub
-
+	cfg                 config.ServerConfig
+	logger              *slog.Logger
+	echo                *echo.Echo
+	sseHub              *sse.Hub
 	ticketStatusService *ticketstatus.Service
+	catalog             catalogservice.Service
 }
 
-func NewServer(cfg config.ServerConfig, logger *slog.Logger, events provider.EventProvider, ticketStatusService *ticketstatus.Service) *Server {
+func NewServer(
+	cfg config.ServerConfig,
+	logger *slog.Logger,
+	events provider.EventProvider,
+	ticketStatusService *ticketstatus.Service,
+	catalog catalogservice.Service,
+) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -61,6 +68,7 @@ func NewServer(cfg config.ServerConfig, logger *slog.Logger, events provider.Eve
 		echo:                e,
 		sseHub:              sse.NewHub(events, logger),
 		ticketStatusService: ticketStatusService,
+		catalog:             catalog,
 	}
 	server.registerRoutes()
 
@@ -123,12 +131,17 @@ func (s *Server) registerRoutes() {
 	}
 
 	s.echo.GET("/healthz", healthHandler)
-	s.echo.GET("/api/v1/healthz", healthHandler)
-	s.echo.GET("/api/v1/events/stream", s.handleEventStream)
-	s.echo.GET("/api/v1/projects/:projectId/tickets/stream", s.handleTicketStream)
-	s.echo.GET("/api/v1/projects/:projectId/agents/stream", s.handleAgentStream)
-	s.echo.GET("/api/v1/projects/:projectId/hooks/stream", s.handleHookStream)
-	s.echo.GET("/api/v1/projects/:projectId/activity/stream", s.handleActivityStream)
+
+	api := s.echo.Group("/api/v1")
+	api.GET("/healthz", healthHandler)
+	api.GET("/events/stream", s.handleEventStream)
+	api.GET("/projects/:projectId/tickets/stream", s.handleTicketStream)
+	api.GET("/projects/:projectId/agents/stream", s.handleAgentStream)
+	api.GET("/projects/:projectId/hooks/stream", s.handleHookStream)
+	api.GET("/projects/:projectId/activity/stream", s.handleActivityStream)
+	if s.catalog != nil {
+		s.registerCatalogRoutes(api)
+	}
 	s.registerTicketStatusRoutes()
 
 	uiHandler := echo.WrapHandler(webui.Handler())

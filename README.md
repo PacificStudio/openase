@@ -25,6 +25,7 @@ go build ./cmd/openase
 ## Quick Start
 
 ```bash
+export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
 go run ./cmd/openase version
 go run ./cmd/openase serve
 go run ./cmd/openase all-in-one --tick-interval 2s
@@ -35,6 +36,7 @@ Default configuration can be copied from [`openase.example.yaml`](./openase.exam
 
 ```bash
 export OPENASE_SERVER_PORT=41000
+export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
 export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 export OPENASE_LOG_FORMAT=json
 ```
@@ -57,6 +59,9 @@ openase logs --lines 100
 - `GET /` serves the embedded SvelteKit UI
 - `GET /healthz`
 - `GET /api/v1/healthz`
+- `GET/POST/PATCH /api/v1/orgs`
+- `GET/POST /api/v1/orgs/:orgId/projects`
+- `GET/PATCH/DELETE /api/v1/projects/:projectId`
 
 If you modify the web app, rebuild the embedded assets before compiling or running the Go binary:
 

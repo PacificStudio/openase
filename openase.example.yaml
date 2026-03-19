@@ -5,6 +5,9 @@ server:
   write_timeout: 15s
   shutdown_timeout: 10s
 
+database:
+  dsn: postgres://openase:openase@localhost:5432/openase?sslmode=disable
+
 orchestrator:
   tick_interval: 5s
 

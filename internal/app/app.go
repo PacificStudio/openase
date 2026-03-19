@@ -9,6 +9,9 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	"github.com/BetterAndBetterII/openase/internal/runtime/database"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"golang.org/x/sync/errgroup"
 )
@@ -34,23 +37,29 @@ func New(cfg config.Config, logger *slog.Logger, events provider.EventProvider) 
 }
 
 func (a *App) RunServe(ctx context.Context) error {
+	client, err := database.Open(ctx, a.config.Database.DSN)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := client.Close(); closeErr != nil {
+			a.logger.Error("close database", "error", closeErr)
+		}
+	}()
+
 	if err := a.startRuntimeEventLogging(ctx); err != nil {
 		return err
 	}
 
-	client, err := openEntClient(a.config.Database.DSN)
-	if err != nil {
-		return fmt.Errorf("open database client: %w", err)
-	}
-	if client != nil {
-		defer func() {
-			if closeErr := client.Close(); closeErr != nil {
-				a.logger.Error("close database client", "error", closeErr)
-			}
-		}()
-	}
-
-	server := httpapi.NewServer(a.config.Server, a.logger, a.events, ticketstatus.NewService(client))
+	catalogRepo := catalogrepo.NewEntRepository(client)
+	catalogSvc := catalogservice.New(catalogRepo)
+	server := httpapi.NewServer(
+		a.config.Server,
+		a.logger,
+		a.events,
+		ticketstatus.NewService(client),
+		catalogSvc,
+	)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
 		return err
