@@ -1,3 +1,5 @@
 .symphony-runtime/
 .symphony-runtime-source/
 WORKFLOW.backup.*.md
+.cache/
+.tools/

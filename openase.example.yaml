@@ -1,0 +1,13 @@
+server:
+  host: 0.0.0.0
+  port: 40023
+  read_timeout: 15s
+  write_timeout: 15s
+  shutdown_timeout: 10s
+
+orchestrator:
+  tick_interval: 5s
+
+log:
+  level: info
+  format: text
