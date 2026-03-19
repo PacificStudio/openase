@@ -20,6 +20,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		newFakeCatalogService(),
+		nil,
 	)
 
 	service := server.catalog.(*fakeCatalogService)
@@ -89,6 +90,7 @@ func TestListActivityEventsRouteRejectsInvalidQuery(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		newFakeCatalogService(),
+		nil,
 	)
 
 	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/projects/"+uuid.New().String()+"/activity?limit=0", "")
