@@ -9,6 +9,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -37,7 +38,19 @@ func (a *App) RunServe(ctx context.Context) error {
 		return err
 	}
 
-	server := httpapi.NewServer(a.config.Server, a.logger, a.events)
+	client, err := openEntClient(a.config.Database.DSN)
+	if err != nil {
+		return fmt.Errorf("open database client: %w", err)
+	}
+	if client != nil {
+		defer func() {
+			if closeErr := client.Close(); closeErr != nil {
+				a.logger.Error("close database client", "error", closeErr)
+			}
+		}()
+	}
+
+	server := httpapi.NewServer(a.config.Server, a.logger, a.events, ticketstatus.NewService(client))
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
 		return err

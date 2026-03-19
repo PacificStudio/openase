@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/BetterAndBetterII/openase/internal/webui"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -23,9 +24,11 @@ type Server struct {
 	logger *slog.Logger
 	echo   *echo.Echo
 	sseHub *sse.Hub
+
+	ticketStatusService *ticketstatus.Service
 }
 
-func NewServer(cfg config.ServerConfig, logger *slog.Logger, events provider.EventProvider) *Server {
+func NewServer(cfg config.ServerConfig, logger *slog.Logger, events provider.EventProvider, ticketStatusService *ticketstatus.Service) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -53,10 +56,11 @@ func NewServer(cfg config.ServerConfig, logger *slog.Logger, events provider.Eve
 	}))
 
 	server := &Server{
-		cfg:    cfg,
-		logger: logger.With("component", "http-server"),
-		echo:   e,
-		sseHub: sse.NewHub(events, logger),
+		cfg:                 cfg,
+		logger:              logger.With("component", "http-server"),
+		echo:                e,
+		sseHub:              sse.NewHub(events, logger),
+		ticketStatusService: ticketStatusService,
 	}
 	server.registerRoutes()
 
@@ -125,6 +129,7 @@ func (s *Server) registerRoutes() {
 	s.echo.GET("/api/v1/projects/:projectId/agents/stream", s.handleAgentStream)
 	s.echo.GET("/api/v1/projects/:projectId/hooks/stream", s.handleHookStream)
 	s.echo.GET("/api/v1/projects/:projectId/activity/stream", s.handleActivityStream)
+	s.registerTicketStatusRoutes()
 
 	uiHandler := echo.WrapHandler(webui.Handler())
 	s.echo.GET("/", uiHandler)
