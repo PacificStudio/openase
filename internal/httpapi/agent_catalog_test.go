@@ -25,6 +25,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		newFakeCatalogService(),
+		nil,
 	)
 
 	orgRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme Platform","slug":"acme-platform"}`)
@@ -130,6 +131,7 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		newFakeCatalogService(),
+		nil,
 	)
 
 	orgRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme Platform","slug":"acme-platform"}`)
