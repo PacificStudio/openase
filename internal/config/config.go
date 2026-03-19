@@ -22,7 +22,9 @@ const (
 
 type Config struct {
 	Server       ServerConfig
+	Database     DatabaseConfig
 	Orchestrator OrchestratorConfig
+	Event        EventConfig
 	Logging      LoggingConfig
 	Metadata     Metadata
 }
@@ -32,6 +34,7 @@ type Metadata struct {
 }
 
 type ServerConfig struct {
+	Mode            ServerMode
 	Host            string
 	Port            int
 	ReadTimeout     time.Duration
@@ -39,9 +42,33 @@ type ServerConfig struct {
 	ShutdownTimeout time.Duration
 }
 
+type ServerMode string
+
+const (
+	ServerModeAllInOne    ServerMode = "all-in-one"
+	ServerModeServe       ServerMode = "serve"
+	ServerModeOrchestrate ServerMode = "orchestrate"
+)
+
+type DatabaseConfig struct {
+	DSN string
+}
+
 type OrchestratorConfig struct {
 	TickInterval time.Duration
 }
+
+type EventConfig struct {
+	Driver EventDriver
+}
+
+type EventDriver string
+
+const (
+	EventDriverAuto     EventDriver = "auto"
+	EventDriverChannel  EventDriver = "channel"
+	EventDriverPGNotify EventDriver = "pgnotify"
+)
 
 type LoggingConfig struct {
 	Level  slog.Level
@@ -74,12 +101,15 @@ func Load(opts LoadOptions) (Config, error) {
 }
 
 func configureDefaults(v *viper.Viper) {
+	v.SetDefault("server.mode", string(ServerModeAllInOne))
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 40023)
 	v.SetDefault("server.read_timeout", 15*time.Second)
 	v.SetDefault("server.write_timeout", 15*time.Second)
 	v.SetDefault("server.shutdown_timeout", 10*time.Second)
+	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
+	v.SetDefault("event.driver", string(EventDriverAuto))
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", string(LogFormatText))
 }
@@ -126,6 +156,11 @@ func readConfigFile(v *viper.Viper, explicitPath string) (string, error) {
 }
 
 func parseConfig(v *viper.Viper) (Config, error) {
+	serverMode, err := parseServerMode(v.Get("server.mode"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse server.mode: %w", err)
+	}
+
 	serverHost, err := parseNonEmptyString(v.Get("server.host"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse server.host: %w", err)
@@ -151,9 +186,19 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("parse server.shutdown_timeout: %w", err)
 	}
 
+	databaseDSN, err := parseOptionalString(v.Get("database.dsn"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse database.dsn: %w", err)
+	}
+
 	tickInterval, err := parseDuration(v.Get("orchestrator.tick_interval"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse orchestrator.tick_interval: %w", err)
+	}
+
+	eventDriver, err := parseEventDriver(v.Get("event.driver"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse event.driver: %w", err)
 	}
 
 	logLevel, err := parseLogLevel(v.Get("log.level"))
@@ -166,22 +211,34 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("parse log.format: %w", err)
 	}
 
-	return Config{
+	cfg := Config{
 		Server: ServerConfig{
+			Mode:            serverMode,
 			Host:            serverHost,
 			Port:            serverPort,
 			ReadTimeout:     readTimeout,
 			WriteTimeout:    writeTimeout,
 			ShutdownTimeout: shutdownTimeout,
 		},
+		Database: DatabaseConfig{
+			DSN: databaseDSN,
+		},
 		Orchestrator: OrchestratorConfig{
 			TickInterval: tickInterval,
+		},
+		Event: EventConfig{
+			Driver: eventDriver,
 		},
 		Logging: LoggingConfig{
 			Level:  logLevel,
 			Format: logFormat,
 		},
-	}, nil
+	}
+	if err := validateConfig(cfg); err != nil {
+		return Config{}, err
+	}
+
+	return cfg, nil
 }
 
 func parseNonEmptyString(raw any) (string, error) {
@@ -196,6 +253,15 @@ func parseNonEmptyString(raw any) (string, error) {
 	}
 
 	return trimmed, nil
+}
+
+func parseOptionalString(raw any) (string, error) {
+	value, ok := raw.(string)
+	if !ok {
+		return "", fmt.Errorf("unsupported string type %T", raw)
+	}
+
+	return strings.TrimSpace(value), nil
 }
 
 func parsePort(raw any) (int, error) {
@@ -238,6 +304,44 @@ func parseDuration(raw any) (time.Duration, error) {
 	}
 }
 
+func parseServerMode(raw any) (ServerMode, error) {
+	switch value := raw.(type) {
+	case ServerMode:
+		if value == ServerModeAllInOne || value == ServerModeServe || value == ServerModeOrchestrate {
+			return value, nil
+		}
+	case string:
+		mode := ServerMode(strings.ToLower(strings.TrimSpace(value)))
+		if mode == ServerModeAllInOne || mode == ServerModeServe || mode == ServerModeOrchestrate {
+			return mode, nil
+		}
+		return "", fmt.Errorf("unsupported server mode %q", value)
+	default:
+		return "", fmt.Errorf("unsupported server mode type %T", raw)
+	}
+
+	return "", fmt.Errorf("unsupported server mode %q", raw)
+}
+
+func parseEventDriver(raw any) (EventDriver, error) {
+	switch value := raw.(type) {
+	case EventDriver:
+		if value == EventDriverAuto || value == EventDriverChannel || value == EventDriverPGNotify {
+			return value, nil
+		}
+	case string:
+		driver := EventDriver(strings.ToLower(strings.TrimSpace(value)))
+		if driver == EventDriverAuto || driver == EventDriverChannel || driver == EventDriverPGNotify {
+			return driver, nil
+		}
+		return "", fmt.Errorf("unsupported event driver %q", value)
+	default:
+		return "", fmt.Errorf("unsupported event driver type %T", raw)
+	}
+
+	return "", fmt.Errorf("unsupported event driver %q", raw)
+}
+
 func parseLogLevel(raw any) (slog.Level, error) {
 	switch value := raw.(type) {
 	case slog.Level:
@@ -268,4 +372,37 @@ func parseLogFormat(raw any) (LogFormat, error) {
 	}
 
 	return "", fmt.Errorf("unsupported log format type %T", raw)
+}
+
+func validateConfig(cfg Config) error {
+	if cfg.Event.Driver == EventDriverChannel && cfg.Server.Mode != ServerModeAllInOne {
+		return errors.New("event.driver=channel requires server.mode=all-in-one")
+	}
+
+	driver, err := cfg.ResolvedEventDriver()
+	if err != nil {
+		return err
+	}
+	if driver == EventDriverPGNotify && cfg.Database.DSN == "" {
+		return errors.New("database.dsn is required when event.driver resolves to pgnotify")
+	}
+
+	return nil
+}
+
+func (cfg Config) ResolvedEventDriver() (EventDriver, error) {
+	switch cfg.Event.Driver {
+	case EventDriverChannel, EventDriverPGNotify:
+		return cfg.Event.Driver, nil
+	case EventDriverAuto:
+		if cfg.Server.Mode == ServerModeAllInOne {
+			return EventDriverChannel, nil
+		}
+		if cfg.Server.Mode == ServerModeServe || cfg.Server.Mode == ServerModeOrchestrate {
+			return EventDriverPGNotify, nil
+		}
+		return "", fmt.Errorf("cannot resolve event driver for server mode %q", cfg.Server.Mode)
+	default:
+		return "", fmt.Errorf("unsupported event driver %q", cfg.Event.Driver)
+	}
 }

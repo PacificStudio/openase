@@ -16,6 +16,10 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("Load returned error: %v", err)
 	}
 
+	if cfg.Server.Mode != ServerModeAllInOne {
+		t.Fatalf("expected default server mode all-in-one, got %q", cfg.Server.Mode)
+	}
+
 	if cfg.Server.Host != "0.0.0.0" {
 		t.Fatalf("expected default host, got %q", cfg.Server.Host)
 	}
@@ -40,7 +44,10 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_PORT", "41000")
+	t.Setenv("OPENASE_SERVER_MODE", "serve")
+	t.Setenv("OPENASE_DATABASE_DSN", "postgres://openase:secret@localhost:5432/openase?sslmode=disable")
 	t.Setenv("OPENASE_ORCHESTRATOR_TICK_INTERVAL", "2s")
+	t.Setenv("OPENASE_EVENT_DRIVER", "pgnotify")
 	t.Setenv("OPENASE_LOG_FORMAT", "json")
 	t.Setenv("OPENASE_LOG_LEVEL", "debug")
 
@@ -53,8 +60,20 @@ func TestLoadFromEnvironment(t *testing.T) {
 		t.Fatalf("expected env port, got %d", cfg.Server.Port)
 	}
 
+	if cfg.Server.Mode != ServerModeServe {
+		t.Fatalf("expected serve mode, got %q", cfg.Server.Mode)
+	}
+
+	if cfg.Database.DSN == "" {
+		t.Fatal("expected database dsn from env")
+	}
+
 	if cfg.Orchestrator.TickInterval != 2*time.Second {
 		t.Fatalf("expected env tick interval, got %s", cfg.Orchestrator.TickInterval)
+	}
+
+	if cfg.Event.Driver != EventDriverPGNotify {
+		t.Fatalf("expected pgnotify event driver, got %q", cfg.Event.Driver)
 	}
 
 	if cfg.Logging.Format != LogFormatJSON {
@@ -71,13 +90,18 @@ func TestLoadFromConfigFile(t *testing.T) {
 	configPath := filepath.Join(dir, "openase.yaml")
 	writeFile(t, configPath, []byte(`
 server:
+  mode: serve
   host: 127.0.0.1
   port: 40123
   read_timeout: 20s
   write_timeout: 25s
   shutdown_timeout: 12s
+database:
+  dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable
 orchestrator:
   tick_interval: 3s
+event:
+  driver: pgnotify
 log:
   level: warn
   format: json
@@ -96,12 +120,24 @@ log:
 		t.Fatalf("unexpected server config: %+v", cfg.Server)
 	}
 
+	if cfg.Server.Mode != ServerModeServe {
+		t.Fatalf("expected serve mode, got %q", cfg.Server.Mode)
+	}
+
+	if cfg.Database.DSN == "" {
+		t.Fatal("expected config file database dsn")
+	}
+
 	if cfg.Server.ReadTimeout != 20*time.Second {
 		t.Fatalf("expected read timeout 20s, got %s", cfg.Server.ReadTimeout)
 	}
 
 	if cfg.Orchestrator.TickInterval != 3*time.Second {
 		t.Fatalf("expected tick interval 3s, got %s", cfg.Orchestrator.TickInterval)
+	}
+
+	if cfg.Event.Driver != EventDriverPGNotify {
+		t.Fatalf("expected pgnotify driver, got %q", cfg.Event.Driver)
 	}
 
 	if cfg.Logging.Level != slog.LevelWarn {
@@ -115,6 +151,25 @@ func TestLoadRejectsInvalidPort(t *testing.T) {
 
 	if _, err := Load(LoadOptions{}); err == nil {
 		t.Fatal("expected invalid port error")
+	}
+}
+
+func TestLoadRejectsChannelDriverOutsideAllInOne(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENASE_SERVER_MODE", "serve")
+	t.Setenv("OPENASE_EVENT_DRIVER", "channel")
+
+	if _, err := Load(LoadOptions{}); err == nil {
+		t.Fatal("expected invalid channel driver error")
+	}
+}
+
+func TestLoadRejectsMissingDatabaseDSNForResolvedPGNotify(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENASE_SERVER_MODE", "serve")
+
+	if _, err := Load(LoadOptions{}); err == nil {
+		t.Fatal("expected missing database dsn error")
 	}
 }
 

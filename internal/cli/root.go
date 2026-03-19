@@ -45,7 +45,9 @@ func newServeCommand(options *rootOptions) *cobra.Command {
 		Use:   "serve",
 		Short: "Run the HTTP API server.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			overrides := map[string]any{}
+			overrides := map[string]any{
+				"server.mode": config.ServerModeServe,
+			}
 			if cmd.Flags().Changed("host") {
 				overrides["server.host"] = host
 			}
@@ -72,7 +74,9 @@ func newOrchestrateCommand(options *rootOptions) *cobra.Command {
 		Use:   "orchestrate",
 		Short: "Run the orchestration loop.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			overrides := map[string]any{}
+			overrides := map[string]any{
+				"server.mode": config.ServerModeOrchestrate,
+			}
 			if cmd.Flags().Changed("tick-interval") {
 				overrides["orchestrator.tick_interval"] = tickInterval
 			}
@@ -97,7 +101,9 @@ func newAllInOneCommand(options *rootOptions) *cobra.Command {
 		Use:   "all-in-one",
 		Short: "Run the API server and orchestrator in a single process.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			overrides := map[string]any{}
+			overrides := map[string]any{
+				"server.mode": config.ServerModeAllInOne,
+			}
 			if cmd.Flags().Changed("host") {
 				overrides["server.host"] = host
 			}
@@ -148,8 +154,18 @@ func runWithConfig(
 	logger := logging.New(cfg.Logging)
 	slog.SetDefault(logger)
 
+	eventProvider, err := buildEventProvider(cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := eventProvider.Close(); closeErr != nil {
+			logger.Error("close event provider", "error", closeErr)
+		}
+	}()
+
 	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	return run(ctx, app.New(cfg, logger))
+	return run(ctx, app.New(cfg, logger, eventProvider))
 }
