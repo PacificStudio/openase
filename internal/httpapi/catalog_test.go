@@ -23,20 +23,22 @@ import (
 )
 
 type fakeCatalogService struct {
-	organizations map[uuid.UUID]domain.Organization
-	projects      map[uuid.UUID]domain.Project
-	projectRepos  map[uuid.UUID]domain.ProjectRepo
-	providers     map[uuid.UUID]domain.AgentProvider
-	agents        map[uuid.UUID]domain.Agent
+	organizations  map[uuid.UUID]domain.Organization
+	projects       map[uuid.UUID]domain.Project
+	projectRepos   map[uuid.UUID]domain.ProjectRepo
+	providers      map[uuid.UUID]domain.AgentProvider
+	agents         map[uuid.UUID]domain.Agent
+	activityEvents []domain.ActivityEvent
 }
 
 func newFakeCatalogService() *fakeCatalogService {
 	return &fakeCatalogService{
-		organizations: map[uuid.UUID]domain.Organization{},
-		projects:      map[uuid.UUID]domain.Project{},
-		projectRepos:  map[uuid.UUID]domain.ProjectRepo{},
-		providers:     map[uuid.UUID]domain.AgentProvider{},
-		agents:        map[uuid.UUID]domain.Agent{},
+		organizations:  map[uuid.UUID]domain.Organization{},
+		projects:       map[uuid.UUID]domain.Project{},
+		projectRepos:   map[uuid.UUID]domain.ProjectRepo{},
+		providers:      map[uuid.UUID]domain.AgentProvider{},
+		agents:         map[uuid.UUID]domain.Agent{},
+		activityEvents: []domain.ActivityEvent{},
 	}
 }
 

@@ -259,6 +259,36 @@ func (f *fakeCatalogService) ListAgents(_ context.Context, projectID uuid.UUID) 
 	return items, nil
 }
 
+func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
+	if _, ok := f.projects[input.ProjectID]; !ok {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.ActivityEvent, 0)
+	for _, item := range f.activityEvents {
+		if item.ProjectID != input.ProjectID {
+			continue
+		}
+		if input.AgentID != nil {
+			if item.AgentID == nil || *item.AgentID != *input.AgentID {
+				continue
+			}
+		}
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID.String() > items[j].ID.String()
+		}
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if len(items) > input.Limit {
+		items = items[:input.Limit]
+	}
+
+	return items, nil
+}
+
 func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateAgent) (domain.Agent, error) {
 	project, ok := f.projects[input.ProjectID]
 	if !ok {

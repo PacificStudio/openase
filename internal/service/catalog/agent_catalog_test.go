@@ -147,6 +147,10 @@ func (r *stubRepository) ListAgents(context.Context, uuid.UUID) ([]domain.Agent,
 	return nil, nil
 }
 
+func (r *stubRepository) ListActivityEvents(context.Context, domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
+	return nil, nil
+}
+
 func (r *stubRepository) CreateAgent(context.Context, domain.CreateAgent) (domain.Agent, error) {
 	return domain.Agent{}, nil
 }

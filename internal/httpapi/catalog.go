@@ -85,6 +85,7 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.PATCH("/projects/:projectId/repos/:repoId", s.patchProjectRepo)
 	api.DELETE("/projects/:projectId/repos/:repoId", s.deleteProjectRepo)
 	api.GET("/projects/:projectId/agents", s.listAgents)
+	api.GET("/projects/:projectId/activity", s.listActivityEvents)
 	api.POST("/projects/:projectId/agents", s.createAgent)
 	api.PATCH("/providers/:providerId", s.patchAgentProvider)
 	api.GET("/agents/:agentId", s.getAgent)

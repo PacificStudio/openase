@@ -1,0 +1,147 @@
+export type StreamConnectionState = 'idle' | 'connecting' | 'live' | 'retrying';
+
+export type SSEFrame = {
+	event: string;
+	data: string;
+};
+
+type StreamOptions = {
+	onEvent: (frame: SSEFrame) => void;
+	onStateChange?: (state: StreamConnectionState) => void;
+	onError?: (error: unknown) => void;
+	retryDelayMs?: number;
+};
+
+const defaultRetryDelayMs = 2000;
+
+export function connectEventStream(url: string, options: StreamOptions): () => void {
+	let active = true;
+	let controller: AbortController | null = null;
+	const retryDelayMs = options.retryDelayMs ?? defaultRetryDelayMs;
+
+	async function run() {
+		let firstAttempt = true;
+
+		while (active) {
+			options.onStateChange?.(firstAttempt ? 'connecting' : 'retrying');
+			controller = new AbortController();
+
+			try {
+				const response = await fetch(url, {
+					headers: { accept: 'text/event-stream' },
+					signal: controller.signal
+				});
+				if (!response.ok) {
+					throw new Error(`stream request failed with status ${response.status}`);
+				}
+				if (!response.body) {
+					throw new Error('stream response body is unavailable');
+				}
+
+				options.onStateChange?.('live');
+				await consumeStream(response.body, options.onEvent);
+			} catch (error) {
+				if (!active || isAbortError(error)) {
+					return;
+				}
+				options.onError?.(error);
+			}
+
+			if (!active) {
+				return;
+			}
+
+			firstAttempt = false;
+			await wait(retryDelayMs);
+		}
+	}
+
+	void run();
+
+	return () => {
+		active = false;
+		controller?.abort();
+		options.onStateChange?.('idle');
+	};
+}
+
+async function consumeStream(stream: ReadableStream<Uint8Array>, onEvent: (frame: SSEFrame) => void) {
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+	let buffer = '';
+
+	try {
+		for (;;) {
+			const { value, done } = await reader.read();
+			if (done) {
+				buffer += decoder.decode();
+				break;
+			}
+
+			buffer += decoder.decode(value, { stream: true });
+			buffer = emitBufferedFrames(buffer, onEvent);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+
+	emitBufferedFrames(`${buffer}\n\n`, onEvent);
+}
+
+function emitBufferedFrames(buffer: string, onEvent: (frame: SSEFrame) => void): string {
+	let cursor = 0;
+
+	for (;;) {
+		const frameEnd = buffer.indexOf('\n\n', cursor);
+		if (frameEnd === -1) {
+			return buffer.slice(cursor);
+		}
+
+		const frame = parseFrame(buffer.slice(cursor, frameEnd));
+		if (frame) {
+			onEvent(frame);
+		}
+
+		cursor = frameEnd + 2;
+	}
+}
+
+function parseFrame(chunk: string): SSEFrame | null {
+	const lines = chunk.split(/\r?\n/);
+	let event = 'message';
+	const dataLines: string[] = [];
+
+	for (const line of lines) {
+		if (line === '' || line.startsWith(':')) {
+			continue;
+		}
+
+		if (line.startsWith('event:')) {
+			event = line.slice('event:'.length).trim() || 'message';
+			continue;
+		}
+
+		if (line.startsWith('data:')) {
+			dataLines.push(line.slice('data:'.length).trimStart());
+		}
+	}
+
+	if (dataLines.length === 0) {
+		return null;
+	}
+
+	return {
+		event,
+		data: dataLines.join('\n')
+	};
+}
+
+function isAbortError(error: unknown) {
+	return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function wait(durationMs: number) {
+	return new Promise<void>((resolve) => {
+		window.setTimeout(resolve, durationMs);
+	});
+}
