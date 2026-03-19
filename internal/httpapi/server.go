@@ -121,6 +121,10 @@ func (s *Server) registerRoutes() {
 	s.echo.GET("/healthz", healthHandler)
 	s.echo.GET("/api/v1/healthz", healthHandler)
 	s.echo.GET("/api/v1/events/stream", s.handleEventStream)
+	s.echo.GET("/api/v1/projects/:projectId/tickets/stream", s.handleTicketStream)
+	s.echo.GET("/api/v1/projects/:projectId/agents/stream", s.handleAgentStream)
+	s.echo.GET("/api/v1/projects/:projectId/hooks/stream", s.handleHookStream)
+	s.echo.GET("/api/v1/projects/:projectId/activity/stream", s.handleActivityStream)
 
 	uiHandler := echo.WrapHandler(webui.Handler())
 	s.echo.GET("/", uiHandler)

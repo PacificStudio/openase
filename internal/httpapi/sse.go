@@ -14,6 +14,13 @@ import (
 
 const sseKeepaliveInterval = 25 * time.Second
 
+var (
+	ticketStreamTopic   = provider.MustParseTopic("ticket.events")
+	agentStreamTopic    = provider.MustParseTopic("agent.events")
+	hookStreamTopic     = provider.MustParseTopic("hook.events")
+	activityStreamTopic = provider.MustParseTopic("activity.events")
+)
+
 type sseEnvelope struct {
 	Topic       string          `json:"topic"`
 	Type        string          `json:"type"`
@@ -27,6 +34,26 @@ func (s *Server) handleEventStream(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
+	return s.handleEventStreamForTopics(c, topics...)
+}
+
+func (s *Server) handleTicketStream(c echo.Context) error {
+	return s.handleEventStreamForTopics(c, ticketStreamTopic)
+}
+
+func (s *Server) handleAgentStream(c echo.Context) error {
+	return s.handleEventStreamForTopics(c, agentStreamTopic)
+}
+
+func (s *Server) handleHookStream(c echo.Context) error {
+	return s.handleEventStreamForTopics(c, hookStreamTopic)
+}
+
+func (s *Server) handleActivityStream(c echo.Context) error {
+	return s.handleEventStreamForTopics(c, activityStreamTopic)
+}
+
+func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.Topic) error {
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
 		!errors.Is(err, http.ErrNotSupported) {
 		return fmt.Errorf("disable sse write deadline: %w", err)

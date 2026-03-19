@@ -129,6 +129,86 @@ func TestEventStreamRoute(t *testing.T) {
 	}
 }
 
+func TestProjectEventStreamRoutesUseFixedTopics(t *testing.T) {
+	testCases := []struct {
+		name          string
+		path          string
+		topic         provider.Topic
+		eventType     provider.EventType
+		unrelated     provider.Topic
+		unrelatedType provider.EventType
+	}{
+		{
+			name:          "tickets",
+			path:          "/api/v1/projects/project-123/tickets/stream",
+			topic:         provider.MustParseTopic("ticket.events"),
+			eventType:     provider.MustParseEventType("ticket.created"),
+			unrelated:     provider.MustParseTopic("agent.events"),
+			unrelatedType: provider.MustParseEventType("agent.progress"),
+		},
+		{
+			name:          "agents",
+			path:          "/api/v1/projects/project-123/agents/stream",
+			topic:         provider.MustParseTopic("agent.events"),
+			eventType:     provider.MustParseEventType("agent.progress"),
+			unrelated:     provider.MustParseTopic("ticket.events"),
+			unrelatedType: provider.MustParseEventType("ticket.created"),
+		},
+		{
+			name:          "hooks",
+			path:          "/api/v1/projects/project-123/hooks/stream",
+			topic:         provider.MustParseTopic("hook.events"),
+			eventType:     provider.MustParseEventType("hook.failed"),
+			unrelated:     provider.MustParseTopic("ticket.events"),
+			unrelatedType: provider.MustParseEventType("ticket.updated"),
+		},
+		{
+			name:          "activity",
+			path:          "/api/v1/projects/project-123/activity/stream",
+			topic:         provider.MustParseTopic("activity.events"),
+			eventType:     provider.MustParseEventType("activity.new"),
+			unrelated:     provider.MustParseTopic("hook.events"),
+			unrelatedType: provider.MustParseEventType("hook.failed"),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			bus := eventinfra.NewChannelBus()
+			server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), bus)
+			testServer := httptest.NewServer(server.Handler())
+			defer testServer.Close()
+
+			response, cancel := openSSERequest(t, testServer.URL+testCase.path)
+			defer response.Body.Close()
+
+			publishTestEvent(t, bus, testCase.unrelated, testCase.unrelatedType, map[string]string{"scope": "other"})
+			publishTestEvent(t, bus, testCase.topic, testCase.eventType, map[string]string{"scope": "expected"})
+
+			body := readSSEBody(t, response, cancel)
+
+			if response.StatusCode != http.StatusOK {
+				t.Fatalf("expected 200, got %d", response.StatusCode)
+			}
+			if contentType := response.Header.Get(echo.HeaderContentType); contentType != "text/event-stream" {
+				t.Fatalf("expected event-stream content type, got %q", contentType)
+			}
+			if !strings.Contains(body, ": keepalive\n\n") {
+				t.Fatalf("expected keepalive comment, got %q", body)
+			}
+			if !strings.Contains(body, "event: "+testCase.eventType.String()+"\n") {
+				t.Fatalf("expected %s frame, got %q", testCase.eventType, body)
+			}
+			if !strings.Contains(body, "\"topic\":\""+testCase.topic.String()+"\"") {
+				t.Fatalf("expected %s topic payload, got %q", testCase.topic, body)
+			}
+			if strings.Contains(body, testCase.unrelatedType.String()) {
+				t.Fatalf("did not expect unrelated %s frame, got %q", testCase.unrelatedType, body)
+			}
+		})
+	}
+}
+
 func TestEventStreamRouteRejectsMissingTopic(t *testing.T) {
 	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus())
 
@@ -142,5 +222,63 @@ func TestEventStreamRouteRejectsMissingTopic(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "topic query parameter") {
 		t.Fatalf("expected missing topic error, got %q", rec.Body.String())
+	}
+}
+
+func openSSERequest(t *testing.T, url string) (*http.Response, context.CancelFunc) {
+	t.Helper()
+
+	requestCtx, cancel := context.WithCancel(context.Background())
+	request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, url, nil)
+	if err != nil {
+		cancel()
+		t.Fatalf("NewRequest returned error: %v", err)
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		cancel()
+		t.Fatalf("Do returned error: %v", err)
+	}
+
+	return response, cancel
+}
+
+func publishTestEvent(
+	t *testing.T,
+	bus *eventinfra.ChannelBus,
+	topic provider.Topic,
+	eventType provider.EventType,
+	payload map[string]string,
+) {
+	t.Helper()
+
+	message, err := provider.NewJSONEvent(topic, eventType, payload, time.Now())
+	if err != nil {
+		t.Fatalf("NewJSONEvent returned error: %v", err)
+	}
+	if err := bus.Publish(context.Background(), message); err != nil {
+		t.Fatalf("Publish returned error: %v", err)
+	}
+}
+
+func readSSEBody(t *testing.T, response *http.Response, cancel context.CancelFunc) string {
+	t.Helper()
+
+	bodyCh := make(chan string, 1)
+	go func() {
+		bytes, _ := io.ReadAll(response.Body)
+		bodyCh <- string(bytes)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+
+	select {
+	case body := <-bodyCh:
+		return body
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for SSE response body")
+		return ""
 	}
 }
