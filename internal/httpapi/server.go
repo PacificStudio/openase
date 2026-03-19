@@ -16,6 +16,7 @@ import (
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/BetterAndBetterII/openase/internal/webui"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -27,6 +28,7 @@ type Server struct {
 	sseHub              *sse.Hub
 	ticketStatusService *ticketstatus.Service
 	catalog             catalogservice.Service
+	workflowService     *workflowservice.Service
 }
 
 func NewServer(
@@ -35,6 +37,7 @@ func NewServer(
 	events provider.EventProvider,
 	ticketStatusService *ticketstatus.Service,
 	catalog catalogservice.Service,
+	workflowService *workflowservice.Service,
 ) *Server {
 	e := echo.New()
 	e.HideBanner = true
@@ -69,6 +72,7 @@ func NewServer(
 		sseHub:              sse.NewHub(events, logger),
 		ticketStatusService: ticketStatusService,
 		catalog:             catalog,
+		workflowService:     workflowService,
 	}
 	server.registerRoutes()
 
@@ -141,6 +145,9 @@ func (s *Server) registerRoutes() {
 	api.GET("/projects/:projectId/activity/stream", s.handleActivityStream)
 	if s.catalog != nil {
 		s.registerCatalogRoutes(api)
+	}
+	if s.workflowService != nil {
+		s.registerWorkflowRoutes(api)
 	}
 	s.registerTicketStatusRoutes()
 

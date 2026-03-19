@@ -18,7 +18,7 @@ import (
 )
 
 func TestHealthRoutes(t *testing.T) {
-	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil)
+	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil, nil)
 
 	for _, target := range []string{"/healthz", "/api/v1/healthz"} {
 		req := httptest.NewRequest(http.MethodGet, target, nil)
@@ -42,7 +42,7 @@ func TestHealthRoutes(t *testing.T) {
 }
 
 func TestEmbeddedUIRoutes(t *testing.T) {
-	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil)
+	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil, nil)
 
 	for target, needle := range map[string]string{
 		"/":                  "OpenASE Org / Project Control Plane",
@@ -65,7 +65,7 @@ func TestEmbeddedUIRoutes(t *testing.T) {
 
 func TestEventStreamRoute(t *testing.T) {
 	bus := eventinfra.NewChannelBus()
-	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil)
+	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil, nil)
 	testServer := httptest.NewServer(server.Handler())
 	defer testServer.Close()
 
@@ -175,7 +175,7 @@ func TestProjectEventStreamRoutesUseFixedTopics(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			bus := eventinfra.NewChannelBus()
-			server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil)
+			server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil, nil)
 			testServer := httptest.NewServer(server.Handler())
 			defer testServer.Close()
 
@@ -210,7 +210,7 @@ func TestProjectEventStreamRoutesUseFixedTopics(t *testing.T) {
 }
 
 func TestEventStreamRouteRejectsMissingTopic(t *testing.T) {
-	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil)
+	server := NewServer(config.ServerConfig{Port: 40023}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/events/stream", nil)
 	rec := httptest.NewRecorder()

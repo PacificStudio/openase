@@ -459,10 +459,19 @@ func decodeJSON(c echo.Context, target any) error {
 }
 
 func parseUUIDPathParam(c echo.Context, name string) (uuid.UUID, error) {
+	parsed, err := parseUUIDPathParamValue(c, name)
+	if err != nil {
+		return uuid.UUID{}, c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+	}
+
+	return parsed, nil
+}
+
+func parseUUIDPathParamValue(c echo.Context, name string) (uuid.UUID, error) {
 	raw := strings.TrimSpace(c.Param(name))
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return uuid.UUID{}, c.JSON(http.StatusBadRequest, errorResponse(fmt.Sprintf("%s must be a valid UUID", name)))
+		return uuid.UUID{}, fmt.Errorf("%s must be a valid UUID", name)
 	}
 
 	return parsed, nil
@@ -567,6 +576,11 @@ func uuidToStringPointer(value *uuid.UUID) *string {
 }
 
 func intPointer(value int) *int {
+	copied := value
+	return &copied
+}
+
+func stringPointer(value string) *string {
 	copied := value
 	return &copied
 }

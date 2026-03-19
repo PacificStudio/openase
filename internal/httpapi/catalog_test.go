@@ -47,6 +47,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		newFakeCatalogService(),
+		nil,
 	)
 
 	orgBody := `{"name":"Acme Platform","slug":"acme-platform"}`
@@ -259,6 +260,7 @@ func TestCatalogRoutesRejectInvalidInput(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		newFakeCatalogService(),
+		nil,
 	)
 
 	badSlugRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme","slug":"Acme Spaces"}`)

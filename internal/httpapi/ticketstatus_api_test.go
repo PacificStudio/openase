@@ -32,6 +32,7 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		ticketstatus.NewService(client),
 		nil,
+		nil,
 	)
 
 	ctx := context.Background()

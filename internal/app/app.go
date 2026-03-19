@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -54,12 +55,22 @@ func (a *App) RunServe(ctx context.Context) error {
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
 	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver())
+	workflowSvc, err := workflowservice.NewService(client, a.logger, "")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			a.logger.Error("close workflow service", "error", closeErr)
+		}
+	}()
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.logger,
 		a.events,
 		ticketstatus.NewService(client),
 		catalogSvc,
+		workflowSvc,
 	)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
