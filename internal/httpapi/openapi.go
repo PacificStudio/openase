@@ -229,6 +229,22 @@ type OpenAPIHarnessValidationResponse struct {
 	Issues []OpenAPIValidationIssue `json:"issues"`
 }
 
+type OpenAPIHarnessVariableMetadata struct {
+	Path        string `json:"path"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Example     string `json:"example,omitempty"`
+}
+
+type OpenAPIHarnessVariableGroup struct {
+	Name      string                           `json:"name"`
+	Variables []OpenAPIHarnessVariableMetadata `json:"variables"`
+}
+
+type OpenAPIHarnessVariablesResponse struct {
+	Groups []OpenAPIHarnessVariableGroup `json:"groups"`
+}
+
 type OpenAPISkillWorkflowBinding struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -996,6 +1012,20 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	harnessPut.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
 	b.doc.AddOperation("/api/v1/workflows/{workflowId}/harness", http.MethodPut, harnessPut)
+
+	harnessVariables, err := b.jsonOperation(
+		"listHarnessVariables",
+		"List the harness variable dictionary",
+		[]string{"workflows"},
+		http.StatusOK,
+		OpenAPIHarnessVariablesResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/harness/variables", http.MethodGet, harnessVariables)
 
 	harnessValidate, err := b.jsonOperation(
 		"validateHarness",

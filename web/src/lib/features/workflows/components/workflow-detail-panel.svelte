@@ -1,7 +1,7 @@
 <script lang="ts">
   import { cn, formatRelativeTime } from '$lib/utils'
   import Separator from '$ui/separator/separator.svelte'
-  import { Settings, Clock, RotateCcw, Layers, Activity, Zap } from '@lucide/svelte'
+  import { Settings, Clock, RotateCcw, Layers, Activity, FileCode, Zap } from '@lucide/svelte'
   import type { WorkflowSummary } from '../types'
 
   let {
@@ -16,6 +16,7 @@
     { label: 'Max Concurrent', value: workflow.maxConcurrent, icon: Layers },
     { label: 'Timeout', value: `${workflow.timeoutMinutes}m`, icon: Clock },
     { label: 'Max Retry', value: workflow.maxRetry, icon: RotateCcw },
+    { label: 'Stall Timeout', value: `${workflow.stallTimeoutMinutes}m`, icon: Clock },
   ])
 </script>
 
@@ -68,6 +69,23 @@
           <span class="text-foreground font-mono text-xs">{item.value}</span>
         </div>
       {/each}
+    </div>
+  </div>
+
+  <Separator />
+
+  <div class="px-4 py-3">
+    <div class="text-muted-foreground flex items-center gap-2 text-xs font-medium">
+      <FileCode class="size-3" />
+      Harness
+    </div>
+    <div class="mt-2 space-y-1.5">
+      <div class="flex items-center justify-between gap-3 text-xs">
+        <span class="text-muted-foreground">Path</span>
+        <span class="text-foreground font-mono break-all text-right">
+          {workflow.harnessPath || 'Not assigned'}
+        </span>
+      </div>
     </div>
   </div>
 
