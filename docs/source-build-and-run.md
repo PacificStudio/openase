@@ -8,7 +8,7 @@ This guide covers the current repository state for building OpenASE from source,
 - PostgreSQL reachable from the machine that will run OpenASE
 - `git`
 - A local checkout of the primary repository you want OpenASE to manage
-- Optional: `npm` only when you modify files under `web/`
+- Optional: `pnpm` only when you modify files under `web/` (or use the bundled `corepack pnpm` path from Node.js)
 - Optional: `codex`, `claude`, or `gemini` on `PATH` if you want setup to seed detected agent providers
 
 If `go` is not already on `PATH`, this workspace commonly uses one of these paths:
@@ -35,16 +35,16 @@ go build -o ./bin/openase ./cmd/openase
 Only rebuild the frontend when you changed files under `web/`:
 
 ```bash
-npm --prefix web install
-npm --prefix web run build
+corepack pnpm --dir web install --frozen-lockfile
+corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
 ```
 
 If your checkout does not currently contain `internal/webui/static/`, `go build` and `go run` will fail because `internal/webui/ui.go` embeds that directory. In that case, build `web/` first even if you did not change the frontend:
 
 ```bash
-npm --prefix web ci
-npm --prefix web run build
+corepack pnpm --dir web install --frozen-lockfile
+corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
 ```
 
