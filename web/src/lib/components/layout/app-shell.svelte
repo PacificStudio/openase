@@ -17,11 +17,11 @@
   } = $props()
 </script>
 
-<div class="flex h-screen overflow-hidden bg-background">
+<div class="bg-background flex h-screen overflow-hidden">
   <!-- Sidebar -->
   <aside
     class={cn(
-      'flex h-full flex-col border-r border-border bg-sidebar transition-[width] duration-200 ease-in-out',
+      'border-border bg-sidebar flex h-full flex-col border-r transition-[width] duration-200 ease-in-out',
       sidebarCollapsed ? 'w-[52px]' : 'w-[240px]',
     )}
   >
@@ -35,9 +35,7 @@
 
   <!-- Right Panel -->
   {#if rightPanel && rightPanelOpen}
-    <aside
-      class="flex w-[380px] flex-col border-l border-border bg-card overflow-hidden"
-    >
+    <aside class="border-border bg-card flex w-[380px] flex-col overflow-hidden border-l">
       {@render rightPanel()}
     </aside>
   {/if}

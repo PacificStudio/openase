@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
+	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
@@ -33,13 +35,15 @@ type App struct {
 	config config.Config
 	logger *slog.Logger
 	events provider.EventProvider
+	trace  provider.TraceProvider
 }
 
-func New(cfg config.Config, logger *slog.Logger, events provider.EventProvider) *App {
+func New(cfg config.Config, logger *slog.Logger, events provider.EventProvider, trace provider.TraceProvider) *App {
 	return &App{
 		config: cfg,
 		logger: logger,
 		events: events,
+		trace:  trace,
 	}
 }
 
@@ -83,6 +87,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
+		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithNotificationService(notificationSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
@@ -105,8 +110,16 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
-	scheduler := orchestrator.NewScheduler(client, a.logger)
+	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
+	runtimeLauncher := orchestrator.NewRuntimeLauncher(client, a.logger, a.events, agentcli.NewManager(agentcli.ManagerOptions{}))
+	defer func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtimeLauncher.Close(stopCtx); err != nil {
+			a.logger.Warn("close runtime launcher", "error", err)
+		}
+	}()
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
 		return err
@@ -130,23 +143,33 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			a.logger.Info("orchestrator runtime stopping")
 			return nil
 		case tick := <-ticker.C:
-			healthReport, healthErr := healthChecker.Run(ctx)
-			report, runErr := scheduler.RunTick(ctx)
+			tickCtx, span := a.trace.StartSpan(ctx, "orchestrator.tick",
+				provider.WithSpanAttributes(
+					provider.StringAttribute("runtime.mode", string(a.config.Server.Mode)),
+					provider.StringAttribute("tick.time", tick.UTC().Format(time.RFC3339)),
+				),
+			)
+			healthReport, healthErr := healthChecker.Run(tickCtx)
+			report, runErr := scheduler.RunTick(tickCtx)
+			launchErr := runtimeLauncher.RunTick(tickCtx)
 			payload := map[string]any{
 				"mode":          string(a.config.Server.Mode),
 				"time":          tick.UTC().Format(time.RFC3339),
 				"health_report": healthReport,
 				"report":        report,
 			}
-			combinedErr := joinOrchestratorTickErrors(healthErr, runErr)
+			combinedErr := joinOrchestratorTickErrors(healthErr, runErr, launchErr)
 			if combinedErr != nil {
 				payload["error"] = combinedErr.Error()
+				span.RecordError(combinedErr)
+				span.SetStatus(provider.SpanStatusError, combinedErr.Error())
 				a.logger.Error(
 					"orchestrator tick failed",
 					"time", tick.UTC().Format(time.RFC3339),
 					"error", combinedErr,
 				)
 			} else {
+				span.SetStatus(provider.SpanStatusOK, "")
 				a.logger.Info(
 					"orchestrator tick completed",
 					"time", tick.UTC().Format(time.RFC3339),
@@ -159,22 +182,56 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"tickets_skipped", report.TicketsSkipped,
 				)
 			}
-			if err := a.publishRuntimeEvent(ctx, runtimeTickType, payload); err != nil {
-				return fmt.Errorf("publish scheduler tick: %w", err)
+			span.SetAttributes(
+				provider.IntAttribute("orchestrator.health.claims_checked", healthReport.ClaimsChecked),
+				provider.IntAttribute("orchestrator.health.stalled_claims", healthReport.StalledClaims),
+				provider.IntAttribute("orchestrator.health.agents_released", healthReport.AgentsReleased),
+				provider.IntAttribute("orchestrator.report.workflows_scanned", report.WorkflowsScanned),
+				provider.IntAttribute("orchestrator.report.candidates_scanned", report.CandidatesScanned),
+				provider.IntAttribute("orchestrator.report.tickets_dispatched", report.TicketsDispatched),
+				provider.IntAttribute("orchestrator.report.tickets_skipped.total", sumSkipCounts(report.TicketsSkipped)),
+			)
+			for reason, count := range report.TicketsSkipped {
+				span.SetAttributes(provider.IntAttribute("orchestrator.report.tickets_skipped."+reason, count))
+			}
+			publishErr := a.publishRuntimeEvent(ctx, runtimeTickType, payload)
+			if publishErr != nil {
+				span.RecordError(publishErr)
+				span.SetStatus(provider.SpanStatusError, publishErr.Error())
+			}
+			span.End()
+			if publishErr != nil {
+				return fmt.Errorf("publish scheduler tick: %w", publishErr)
 			}
 		}
 	}
 }
 
-func joinOrchestratorTickErrors(healthErr error, schedulerErr error) error {
-	if healthErr == nil {
-		return schedulerErr
-	}
-	if schedulerErr == nil {
-		return fmt.Errorf("health check: %w", healthErr)
+func sumSkipCounts(values map[string]int) int {
+	total := 0
+	for _, value := range values {
+		total += value
 	}
 
-	return fmt.Errorf("health check: %w; scheduler: %v", healthErr, schedulerErr)
+	return total
+}
+
+func joinOrchestratorTickErrors(healthErr error, schedulerErr error, launcherErr error) error {
+	errs := make([]error, 0, 3)
+	if healthErr != nil {
+		errs = append(errs, fmt.Errorf("health check: %w", healthErr))
+	}
+	if schedulerErr != nil {
+		errs = append(errs, fmt.Errorf("scheduler: %w", schedulerErr))
+	}
+	if launcherErr != nil {
+		errs = append(errs, fmt.Errorf("runtime launcher: %w", launcherErr))
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+
+	return errors.Join(errs...)
 }
 
 func (a *App) RunAllInOne(ctx context.Context) error {

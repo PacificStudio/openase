@@ -1489,10 +1489,13 @@ export interface operations {
               capabilities?: string[]
               current_ticket_id?: string | null
               id?: string
+              last_error?: string
               last_heartbeat_at?: string | null
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_phase?: string
+              runtime_started_at?: string | null
               session_id?: string
               status?: string
               total_tickets_completed?: number

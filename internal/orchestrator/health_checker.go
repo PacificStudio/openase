@@ -198,6 +198,11 @@ func (h *HealthChecker) releaseStalledClaim(
 		).
 		ClearCurrentTicketID().
 		SetStatus(entagent.StatusIdle).
+		ClearSessionID().
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		ClearRuntimeStartedAt().
+		SetLastError("").
+		ClearLastHeartbeatAt().
 		Save(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("release stalled agent: %w", err)

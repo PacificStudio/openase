@@ -1,15 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import {
-    Settings,
-    GitBranch,
-    Columns3,
-    Workflow,
-    Bot,
-    Plug,
-    Bell,
-    Shield,
-  } from '@lucide/svelte'
+  import { Settings, GitBranch, Columns3, Workflow, Bot, Plug, Bell, Shield } from '@lucide/svelte'
   import type { Component } from 'svelte'
   import type { SettingsSection } from '../types'
 

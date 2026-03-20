@@ -28,33 +28,35 @@
 </script>
 
 <div class="flex flex-col gap-2 px-5 py-3">
-  <span class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+  <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
     Repositories & PRs
   </span>
 
   {#if ticket.repoScopes.length === 0}
-    <p class="py-4 text-center text-xs text-muted-foreground">No repositories linked</p>
+    <p class="text-muted-foreground py-4 text-center text-xs">No repositories linked</p>
   {/if}
 
   {#each ticket.repoScopes as scope}
-    <div class="flex flex-col gap-1.5 rounded-md border border-border bg-muted/30 p-3">
-      <div class="flex items-center gap-2 text-xs font-medium text-foreground">
-        <GitBranch class="size-3.5 text-muted-foreground" />
+    <div class="border-border bg-muted/30 flex flex-col gap-1.5 rounded-md border p-3">
+      <div class="text-foreground flex items-center gap-2 text-xs font-medium">
+        <GitBranch class="text-muted-foreground size-3.5" />
         <span class="truncate">{scope.repoName}</span>
       </div>
 
-      <div class="flex items-center gap-2 pl-5 text-[11px] text-muted-foreground">
-        <code class="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+      <div class="text-muted-foreground flex items-center gap-2 pl-5 text-[11px]">
+        <code class="bg-muted rounded px-1 py-0.5 font-mono text-[10px]">
           {scope.branchName}
         </code>
       </div>
 
       {#if scope.prUrl}
         <div class="flex items-center gap-2 pl-5">
-          <GitPullRequest class={cn(
-            'size-3.5',
-            prStatusConfig[scope.prStatus ?? 'open']?.class ?? 'text-muted-foreground',
-          )} />
+          <GitPullRequest
+            class={cn(
+              'size-3.5',
+              prStatusConfig[scope.prStatus ?? 'open']?.class ?? 'text-muted-foreground',
+            )}
+          />
           <a
             href={scope.prUrl}
             target="_blank"
@@ -67,10 +69,7 @@
           {#if scope.prStatus}
             <Badge
               variant="outline"
-              class={cn(
-                'text-[10px] py-0 h-4',
-                prStatusConfig[scope.prStatus]?.class,
-              )}
+              class={cn('h-4 py-0 text-[10px]', prStatusConfig[scope.prStatus]?.class)}
             >
               {prStatusConfig[scope.prStatus]?.label ?? scope.prStatus}
             </Badge>
@@ -78,7 +77,7 @@
           {#if scope.ciStatus}
             {@const ci = ciStatusConfig[scope.ciStatus]}
             {#if ci}
-              <svelte:component this={ci.icon} class={cn('size-3.5 ml-auto', ci.class)} />
+              <svelte:component this={ci.icon} class={cn('ml-auto size-3.5', ci.class)} />
             {/if}
           {/if}
         </div>

@@ -15,17 +15,17 @@
   } = $props()
 </script>
 
-<div class={cn('rounded-md border border-border bg-card p-4', className)}>
-  <h3 class="text-sm font-medium text-foreground mb-4">Running Now</h3>
+<div class={cn('border-border bg-card rounded-md border p-4', className)}>
+  <h3 class="text-foreground mb-4 text-sm font-medium">Running Now</h3>
 
   <div class="space-y-4">
     <div class="flex items-center gap-3">
       <div class="flex size-8 items-center justify-center rounded-md bg-emerald-500/10">
         <Bot class="size-4 text-emerald-500" />
       </div>
-      <div class="flex-1 min-w-0">
-        <span class="text-sm text-foreground">{runningAgents} agents</span>
-        <p class="text-xs text-muted-foreground">Currently executing</p>
+      <div class="min-w-0 flex-1">
+        <span class="text-foreground text-sm">{runningAgents} agents</span>
+        <p class="text-muted-foreground text-xs">Currently executing</p>
       </div>
     </div>
 
@@ -33,9 +33,9 @@
       <div class="flex size-8 items-center justify-center rounded-md bg-blue-500/10">
         <Ticket class="size-4 text-blue-500" />
       </div>
-      <div class="flex-1 min-w-0">
-        <span class="text-sm text-foreground">{activeTickets} tickets</span>
-        <p class="text-xs text-muted-foreground">In progress</p>
+      <div class="min-w-0 flex-1">
+        <span class="text-foreground text-sm">{activeTickets} tickets</span>
+        <p class="text-muted-foreground text-xs">In progress</p>
       </div>
     </div>
 
@@ -43,9 +43,9 @@
       <div class="flex size-8 items-center justify-center rounded-md bg-amber-500/10">
         <ShieldCheck class="size-4 text-amber-500" />
       </div>
-      <div class="flex-1 min-w-0">
-        <span class="text-sm text-foreground">{pendingApprovals} approvals</span>
-        <p class="text-xs text-muted-foreground">Awaiting review</p>
+      <div class="min-w-0 flex-1">
+        <span class="text-foreground text-sm">{pendingApprovals} approvals</span>
+        <p class="text-muted-foreground text-xs">Awaiting review</p>
       </div>
     </div>
   </div>

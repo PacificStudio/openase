@@ -27,30 +27,32 @@
   }
 </script>
 
-<div class={cn('rounded-md border border-border bg-card', className)}>
-  <div class="flex items-center justify-between border-b border-border px-4 py-3">
-    <h3 class="text-sm font-medium text-foreground">Exceptions</h3>
+<div class={cn('border-border bg-card rounded-md border', className)}>
+  <div class="border-border flex items-center justify-between border-b px-4 py-3">
+    <h3 class="text-foreground text-sm font-medium">Exceptions</h3>
     {#if exceptions.length > 0}
-      <span class="flex size-5 items-center justify-center rounded-full bg-destructive/10 text-[10px] font-medium text-destructive">
+      <span
+        class="bg-destructive/10 text-destructive flex size-5 items-center justify-center rounded-full text-[10px] font-medium"
+      >
         {exceptions.length}
       </span>
     {/if}
   </div>
 
-  <div class="divide-y divide-border">
+  <div class="divide-border divide-y">
     {#each exceptions as item (item.id)}
       {@const Icon = iconMap[item.type]}
       <div class="flex items-start gap-3 px-4 py-3">
-        <Icon class={cn('size-4 mt-0.5 shrink-0', colorMap[item.type])} />
-        <div class="flex-1 min-w-0">
-          <p class="text-sm text-foreground leading-snug">{item.message}</p>
+        <Icon class={cn('mt-0.5 size-4 shrink-0', colorMap[item.type])} />
+        <div class="min-w-0 flex-1">
+          <p class="text-foreground text-sm leading-snug">{item.message}</p>
           <div class="mt-1 flex items-center gap-2">
             {#if item.ticketIdentifier}
-              <span class="text-xs font-mono text-muted-foreground">
+              <span class="text-muted-foreground font-mono text-xs">
                 {item.ticketIdentifier}
               </span>
             {/if}
-            <span class="text-xs text-muted-foreground">
+            <span class="text-muted-foreground text-xs">
               {formatRelativeTime(item.timestamp)}
             </span>
           </div>
