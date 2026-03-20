@@ -14,15 +14,16 @@ import (
 const agentClaimsContextKey = "agent_platform_claims"
 
 type rawAgentCreateTicketRequest struct {
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	StatusID        *string  `json:"status_id"`
+	Priority        *string  `json:"priority"`
+	Type            *string  `json:"type"`
+	WorkflowID      *string  `json:"workflow_id"`
+	TargetMachineID *string  `json:"target_machine_id"`
+	ParentTicketID  *string  `json:"parent_ticket_id"`
+	ExternalRef     *string  `json:"external_ref"`
+	BudgetUSD       *float64 `json:"budget_usd"`
 }
 
 type rawAgentUpdateTicketRequest struct {
@@ -109,15 +110,16 @@ func (s *Server) handleAgentCreateTicket(c echo.Context) error {
 	}
 
 	input, err := parseCreateTicketRequest(projectID, rawCreateTicketRequest{
-		Title:          raw.Title,
-		Description:    raw.Description,
-		StatusID:       raw.StatusID,
-		Priority:       raw.Priority,
-		Type:           raw.Type,
-		WorkflowID:     raw.WorkflowID,
-		ParentTicketID: raw.ParentTicketID,
-		ExternalRef:    raw.ExternalRef,
-		BudgetUSD:      raw.BudgetUSD,
+		Title:           raw.Title,
+		Description:     raw.Description,
+		StatusID:        raw.StatusID,
+		Priority:        raw.Priority,
+		Type:            raw.Type,
+		WorkflowID:      raw.WorkflowID,
+		TargetMachineID: raw.TargetMachineID,
+		ParentTicketID:  raw.ParentTicketID,
+		ExternalRef:     raw.ExternalRef,
+		BudgetUSD:       raw.BudgetUSD,
 	})
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())

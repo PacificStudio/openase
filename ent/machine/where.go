@@ -875,6 +875,29 @@ func HasOrganizationWith(preds ...predicate.Organization) predicate.Machine {
 	})
 }
 
+// HasTargetTickets applies the HasEdge predicate on the "target_tickets" edge.
+func HasTargetTickets() predicate.Machine {
+	return predicate.Machine(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, TargetTicketsTable, TargetTicketsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasTargetTicketsWith applies the HasEdge predicate on the "target_tickets" edge with a given conditions (other predicates).
+func HasTargetTicketsWith(preds ...predicate.Ticket) predicate.Machine {
+	return predicate.Machine(func(s *sql.Selector) {
+		step := newTargetTicketsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Machine) predicate.Machine {
 	return predicate.Machine(sql.AndPredicates(predicates...))
