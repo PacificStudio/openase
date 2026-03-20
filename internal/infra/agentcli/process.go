@@ -85,8 +85,6 @@ func (m *Manager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) 
 		done:   make(chan struct{}),
 	}
 
-	go process.awaitExit()
-
 	return process, nil
 }
 
@@ -96,7 +94,8 @@ type runningProcess struct {
 	stdout io.ReadCloser
 	stderr io.ReadCloser
 
-	done chan struct{}
+	done     chan struct{}
+	waitOnce sync.Once
 
 	waitMu  sync.Mutex
 	waitErr error
@@ -127,6 +126,7 @@ func (p *runningProcess) Wait() error {
 		return fmt.Errorf("process must not be nil")
 	}
 
+	p.startWaiting()
 	<-p.done
 
 	p.waitMu.Lock()
@@ -142,6 +142,8 @@ func (p *runningProcess) Stop(ctx context.Context) error {
 	if ctx == nil {
 		return fmt.Errorf("context must not be nil")
 	}
+
+	p.startWaiting()
 
 	select {
 	case <-p.done:
@@ -163,6 +165,12 @@ func (p *runningProcess) Stop(ctx context.Context) error {
 		<-p.done
 		return ctx.Err()
 	}
+}
+
+func (p *runningProcess) startWaiting() {
+	p.waitOnce.Do(func() {
+		go p.awaitExit()
+	})
 }
 
 func (p *runningProcess) awaitExit() {
