@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
+	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -60,6 +61,7 @@ func (a *App) RunServe(ctx context.Context) error {
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
 	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver())
+	ticketSvc := ticketservice.NewService(client)
 	notificationSvc := notificationservice.NewService(client, a.logger, http.DefaultClient)
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
 		return err
@@ -68,6 +70,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	scheduledJobSvc := scheduledjobservice.NewService(client, ticketSvc, a.logger)
 	defer func() {
 		if closeErr := workflowSvc.Close(); closeErr != nil {
 			a.logger.Error("close workflow service", "error", closeErr)
@@ -78,11 +81,12 @@ func (a *App) RunServe(ctx context.Context) error {
 		a.config.GitHub,
 		a.logger,
 		a.events,
-		ticketservice.NewService(client),
+		ticketSvc,
 		ticketstatus.NewService(client),
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
+		httpapi.WithScheduledJobService(scheduledJobSvc),
 		httpapi.WithNotificationService(notificationSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()

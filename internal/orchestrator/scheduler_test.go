@@ -284,6 +284,86 @@ type projectFixture struct {
 	statusIDs  map[string]uuid.UUID
 }
 
+func TestSchedulerRunTickCreatesDueScheduledJobTicketsBeforeDispatch(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Security").
+		SetType(entworkflow.TypeSecurity).
+		SetHarnessPath(".openase/harnesses/security.md").
+		SetMaxConcurrent(2).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "security-01", 0)
+
+	job, err := client.ScheduledJob.Create().
+		SetProjectID(fixture.projectID).
+		SetName("weekly-security-scan").
+		SetCronExpression("0 9 * * 1").
+		SetWorkflowID(workflow.ID).
+		SetTicketTemplate(map[string]any{
+			"title":      "Weekly security scan - {{ date }}",
+			"status":     "Todo",
+			"priority":   "high",
+			"type":       "feature",
+			"created_by": "system:scheduled-job",
+		}).
+		SetIsEnabled(true).
+		SetNextRunAt(now.Add(-time.Minute)).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create scheduled job: %v", err)
+	}
+
+	scheduler := newTestScheduler(client, now)
+	report, err := scheduler.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+
+	if report.ScheduledJobsScanned != 1 || report.ScheduledTicketsCreated != 1 {
+		t.Fatalf("expected one due scheduled job to create one ticket, got %+v", report)
+	}
+	if report.WorkflowsScanned != 1 || report.CandidatesScanned != 1 || report.TicketsDispatched != 1 {
+		t.Fatalf("expected created ticket to enter workflow dispatch in the same tick, got %+v", report)
+	}
+
+	createdTicket, err := client.Ticket.Query().
+		Where(entticket.ProjectIDEQ(fixture.projectID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load created ticket: %v", err)
+	}
+	if createdTicket.Title != "Weekly security scan - 2026-03-20" {
+		t.Fatalf("expected rendered scheduled ticket title, got %+v", createdTicket)
+	}
+	if createdTicket.WorkflowID == nil || *createdTicket.WorkflowID != workflow.ID {
+		t.Fatalf("expected created ticket to bind workflow %s, got %+v", workflow.ID, createdTicket.WorkflowID)
+	}
+	if createdTicket.AssignedAgentID == nil || *createdTicket.AssignedAgentID != agentItem.ID {
+		t.Fatalf("expected created ticket to be dispatched to agent %s, got %+v", agentItem.ID, createdTicket.AssignedAgentID)
+	}
+
+	jobAfter, err := client.ScheduledJob.Get(ctx, job.ID)
+	if err != nil {
+		t.Fatalf("reload scheduled job: %v", err)
+	}
+	if jobAfter.LastRunAt == nil || !jobAfter.LastRunAt.Equal(now) {
+		t.Fatalf("expected scheduled job last_run_at to update to %s, got %+v", now, jobAfter.LastRunAt)
+	}
+	if jobAfter.NextRunAt == nil || !jobAfter.NextRunAt.After(now) {
+		t.Fatalf("expected scheduled job next_run_at to advance beyond %s, got %+v", now, jobAfter.NextRunAt)
+	}
+}
+
 func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) projectFixture {
 	t.Helper()
 
