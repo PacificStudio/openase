@@ -194,6 +194,48 @@
     content: string
   }
 
+  type HRAdvisorSummary = {
+    open_tickets: number
+    coding_tickets: number
+    failing_tickets: number
+    blocked_tickets: number
+    active_agents: number
+    workflow_count: number
+    recent_activity_count: number
+    active_workflow_types: string[]
+  }
+
+  type HRAdvisorStaffing = {
+    developers: number
+    qa: number
+    docs: number
+    security: number
+    product: number
+    research: number
+  }
+
+  type HRAdvisorRecommendation = {
+    role_slug: string
+    role_name: string
+    workflow_type: WorkflowType
+    summary: string
+    harness_path: string
+    priority: 'high' | 'medium' | 'low'
+    reason: string
+    evidence: string[]
+    suggested_headcount: number
+    suggested_workflow_name: string
+    activation_ready: boolean
+    active_workflow_name?: string | null
+  }
+
+  type HRAdvisorPayload = {
+    project_id: string
+    summary: HRAdvisorSummary
+    staffing: HRAdvisorStaffing
+    recommendations: HRAdvisorRecommendation[]
+  }
+
   type OnboardingMilestoneKey =
     | 'organization'
     | 'project'
@@ -254,6 +296,7 @@
   type HarnessPayload = { harness: HarnessDocument }
   type SkillListPayload = { skills: Skill[] }
   type BuiltinRolePayload = { roles: BuiltinRole[] }
+  type HRAdvisorResponse = HRAdvisorPayload
 
   type OrganizationForm = {
     name: string
@@ -315,6 +358,7 @@ You are handling {{ ticket.identifier }}.
   let harnessBusy = $state(false)
   let validationBusy = $state(false)
   let skillBusy = $state(false)
+  let hrAdvisorBusy = $state(false)
   let pendingSkillName = $state('')
 
   let organizations = $state<Organization[]>([])
@@ -324,6 +368,8 @@ You are handling {{ ticket.identifier }}.
   let workflows = $state<Workflow[]>([])
   let skills = $state<Skill[]>([])
   let builtinRoles = $state<BuiltinRole[]>([])
+  let hrAdvisor = $state<HRAdvisorPayload | null>(null)
+  let hrAdvisorError = $state('')
 
   let selectedOrgId = $state('')
   let selectedProjectId = $state('')
@@ -480,6 +526,28 @@ You are handling {{ ticket.identifier }}.
     builtinRoles = payload.roles
   }
 
+  async function loadHRAdvisor(projectId: string) {
+    hrAdvisorBusy = true
+    hrAdvisorError = ''
+    try {
+      const payload = await api<HRAdvisorResponse>(`/api/v1/projects/${projectId}/hr-advisor`)
+      if (projectId !== selectedProjectId) {
+        return
+      }
+      hrAdvisor = payload
+    } catch (error) {
+      if (projectId !== selectedProjectId) {
+        return
+      }
+      hrAdvisor = null
+      hrAdvisorError = toErrorMessage(error)
+    } finally {
+      if (projectId === selectedProjectId) {
+        hrAdvisorBusy = false
+      }
+    }
+  }
+
   async function loadOrganizations(preferredOrgId?: string) {
     const payload = await api<OrganizationPayload>('/api/v1/orgs')
     organizations = payload.organizations
@@ -542,7 +610,7 @@ You are handling {{ ticket.identifier }}.
     workflows = workflowPayload.workflows
     skills = skillPayload.skills
     createWorkflowForm = defaultWorkflowForm(ticketStatuses)
-    await loadTickets(projectId)
+    await Promise.all([loadTickets(projectId), loadHRAdvisor(projectId)])
 
     const nextWorkflow =
       workflows.find((item) => item.id === preferredWorkflowId) ??
@@ -932,6 +1000,22 @@ You are handling {{ ticket.identifier }}.
       return
     }
 
+    await createWorkflowFromRoleTemplate(
+      selectedBuiltinRole,
+      createWorkflowForm.name,
+      createWorkflowForm.type,
+    )
+  }
+
+  async function createWorkflowFromRoleTemplate(
+    role: BuiltinRole | null,
+    workflowName: string,
+    workflowType: WorkflowType,
+  ) {
+    if (!selectedProject) {
+      return
+    }
+
     workflowBusy = true
     errorMessage = ''
     notice = ''
@@ -941,10 +1025,10 @@ You are handling {{ ticket.identifier }}.
         {
           method: 'POST',
           body: JSON.stringify({
-            name: createWorkflowForm.name,
-            type: createWorkflowForm.type,
-            harness_path: selectedBuiltinRole?.harness_path,
-            harness_content: selectedBuiltinRole?.content ?? '',
+            name: workflowName,
+            type: workflowType,
+            harness_path: role?.harness_path,
+            harness_content: role?.content ?? '',
             pickup_status_id: createWorkflowForm.pickupStatusId,
             finish_status_id: createWorkflowForm.finishStatusId || null,
             max_concurrent: createWorkflowForm.maxConcurrent,
@@ -958,7 +1042,7 @@ You are handling {{ ticket.identifier }}.
       notice = `Workflow ${payload.workflow.name} created`
       await loadWorkflowContext(selectedProject.id, payload.workflow.id)
       createWorkflowForm = defaultWorkflowForm(ticketStatuses)
-      selectedBuiltinRoleSlug = ''
+      selectedBuiltinRoleSlug = role?.slug ?? ''
     } catch (error) {
       errorMessage = toErrorMessage(error)
     } finally {
@@ -1015,6 +1099,46 @@ You are handling {{ ticket.identifier }}.
 
   function clearBuiltinRoleSelection() {
     selectedBuiltinRoleSlug = ''
+  }
+
+  function selectRecommendedRoleTemplate(recommendation: HRAdvisorRecommendation) {
+    const role = builtinRoles.find((item) => item.slug === recommendation.role_slug)
+    if (!role) {
+      errorMessage = `Role template ${recommendation.role_slug} is unavailable.`
+      return
+    }
+
+    errorMessage = ''
+    selectedBuiltinRoleSlug = role.slug
+    createWorkflowForm = {
+      ...defaultWorkflowForm(ticketStatuses),
+      name: recommendation.suggested_workflow_name || role.name,
+      type: role.workflow_type,
+    }
+    notice = `${role.name} template loaded into workflow creation.`
+  }
+
+  async function activateRecommendedRole(recommendation: HRAdvisorRecommendation) {
+    const role = builtinRoles.find((item) => item.slug === recommendation.role_slug)
+    if (!role) {
+      errorMessage = `Role template ${recommendation.role_slug} is unavailable.`
+      return
+    }
+    if (ticketStatuses.length === 0) {
+      errorMessage = 'Project statuses must exist before activating a recommended role.'
+      return
+    }
+
+    createWorkflowForm = {
+      ...defaultWorkflowForm(ticketStatuses),
+      name: recommendation.suggested_workflow_name || role.name,
+      type: role.workflow_type,
+    }
+    await createWorkflowFromRoleTemplate(
+      role,
+      recommendation.suggested_workflow_name || role.name,
+      role.workflow_type,
+    )
   }
 
   async function updateWorkflow() {
@@ -1199,6 +1323,9 @@ You are handling {{ ticket.identifier }}.
     skills = []
     createWorkflowForm = defaultWorkflowForm()
     selectedBuiltinRoleSlug = ''
+    hrAdvisor = null
+    hrAdvisorError = ''
+    hrAdvisorBusy = false
     resetSelectedWorkflow()
   }
 
@@ -1272,6 +1399,39 @@ You are handling {{ ticket.identifier }}.
     }
 
     return skill.bound_workflows.some((workflow) => workflow.id === workflowID)
+  }
+
+  function hrAdvisorPriorityBadgeClass(priority: HRAdvisorRecommendation['priority']) {
+    switch (priority) {
+      case 'high':
+        return 'border-rose-500/25 bg-rose-500/10 text-rose-700'
+      case 'medium':
+        return 'border-amber-500/25 bg-amber-500/10 text-amber-700'
+      default:
+        return 'border-sky-500/25 bg-sky-500/10 text-sky-700'
+    }
+  }
+
+  function hrAdvisorPriorityCardClass(priority: HRAdvisorRecommendation['priority']) {
+    switch (priority) {
+      case 'high':
+        return 'border-rose-500/25 bg-rose-500/[0.08]'
+      case 'medium':
+        return 'border-amber-500/25 bg-amber-500/[0.08]'
+      default:
+        return 'border-sky-500/25 bg-sky-500/[0.08]'
+    }
+  }
+
+  function staffingEntries(staffing: HRAdvisorStaffing) {
+    return [
+      { label: 'Developers', value: staffing.developers },
+      { label: 'QA', value: staffing.qa },
+      { label: 'Docs', value: staffing.docs },
+      { label: 'Security', value: staffing.security },
+      { label: 'Product', value: staffing.product },
+      { label: 'Research', value: staffing.research },
+    ].filter((item) => item.value > 0)
   }
 
   function ticketDetailHref(ticketID: string) {
@@ -1353,6 +1513,9 @@ You are handling {{ ticket.identifier }}.
       tickets = orderTickets(
         tickets.map((item) => (item.id === payload.ticket.id ? payload.ticket : item)),
       )
+      if (selectedProjectId) {
+        void loadHRAdvisor(selectedProjectId)
+      }
     } catch (error) {
       tickets = orderTickets(
         tickets.map((item) =>
@@ -2608,6 +2771,213 @@ You are handling {{ ticket.identifier }}.
               </Card>
             </div>
           </div>
+
+          <Card class="border-border/80 bg-background/80 overflow-hidden backdrop-blur">
+            <CardHeader class="border-border/70 bg-muted/20 border-b">
+              <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <CardTitle class="flex items-center gap-2">
+                    <HeartPulse class="size-4" />
+                    <span>HR Advisor</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Rule-based role recommendations for the selected project, wired to the built-in
+                    Harness library.
+                  </CardDescription>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  {#if hrAdvisor}
+                    <Badge variant="outline"
+                      >{hrAdvisor.recommendations.length} recommendations</Badge
+                    >
+                  {/if}
+                  {#if hrAdvisorBusy}
+                    <Badge variant="outline">refreshing</Badge>
+                  {/if}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent class="space-y-5 p-6">
+              {#if !selectedProject}
+                <div
+                  class="border-border/80 bg-muted/35 text-muted-foreground rounded-3xl border border-dashed px-4 py-8 text-sm"
+                >
+                  Select a project to generate role recommendations.
+                </div>
+              {:else if hrAdvisorBusy && !hrAdvisor}
+                <div
+                  class="border-border/70 bg-background/60 flex min-h-40 items-center justify-center rounded-[2rem] border"
+                >
+                  <div class="text-muted-foreground flex items-center gap-3 text-sm">
+                    <LoaderCircle class="size-4 animate-spin" />
+                    <span>Analyzing project workload and role gaps…</span>
+                  </div>
+                </div>
+              {:else if hrAdvisorError}
+                <div
+                  class="border-destructive/25 bg-destructive/10 text-destructive rounded-3xl border px-4 py-4 text-sm"
+                >
+                  {hrAdvisorError}
+                </div>
+              {:else if hrAdvisor}
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div class="border-border/70 bg-background/60 rounded-3xl border px-4 py-4">
+                    <p class="text-muted-foreground text-xs font-medium tracking-[0.2em] uppercase">
+                      Open tickets
+                    </p>
+                    <p class="mt-2 text-3xl font-semibold tracking-[-0.05em]">
+                      {hrAdvisor.summary.open_tickets}
+                    </p>
+                  </div>
+                  <div class="border-border/70 bg-background/60 rounded-3xl border px-4 py-4">
+                    <p class="text-muted-foreground text-xs font-medium tracking-[0.2em] uppercase">
+                      Coding load
+                    </p>
+                    <p class="mt-2 text-3xl font-semibold tracking-[-0.05em]">
+                      {hrAdvisor.summary.coding_tickets}
+                    </p>
+                  </div>
+                  <div class="border-border/70 bg-background/60 rounded-3xl border px-4 py-4">
+                    <p class="text-muted-foreground text-xs font-medium tracking-[0.2em] uppercase">
+                      Active agents
+                    </p>
+                    <p class="mt-2 text-3xl font-semibold tracking-[-0.05em]">
+                      {hrAdvisor.summary.active_agents}
+                    </p>
+                  </div>
+                  <div class="border-border/70 bg-background/60 rounded-3xl border px-4 py-4">
+                    <p class="text-muted-foreground text-xs font-medium tracking-[0.2em] uppercase">
+                      Workflow lanes
+                    </p>
+                    <p class="mt-2 text-3xl font-semibold tracking-[-0.05em]">
+                      {hrAdvisor.summary.workflow_count}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  class="border-border/70 bg-muted/25 flex flex-wrap items-center gap-2 rounded-3xl border px-4 py-4"
+                >
+                  <p class="text-muted-foreground text-xs font-medium tracking-[0.2em] uppercase">
+                    Suggested staffing
+                  </p>
+                  {#if staffingEntries(hrAdvisor.staffing).length === 0}
+                    <span class="text-muted-foreground text-sm"
+                      >No extra staffing pressure detected.</span
+                    >
+                  {:else}
+                    {#each staffingEntries(hrAdvisor.staffing) as entry}
+                      <span
+                        class="border-border/80 bg-background text-foreground inline-flex rounded-full border px-3 py-1 text-sm font-medium"
+                      >
+                        {entry.label}: {entry.value}
+                      </span>
+                    {/each}
+                  {/if}
+                </div>
+
+                {#if hrAdvisor.summary.active_workflow_types.length > 0}
+                  <div class="flex flex-wrap gap-2">
+                    {#each hrAdvisor.summary.active_workflow_types as workflowType}
+                      <Badge variant="outline">{workflowType}</Badge>
+                    {/each}
+                  </div>
+                {/if}
+
+                {#if hrAdvisor.recommendations.length === 0}
+                  <div
+                    class="rounded-3xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-5 text-sm text-emerald-950"
+                  >
+                    No urgent role gaps detected from the current project signals.
+                  </div>
+                {:else}
+                  <div class="grid gap-4 xl:grid-cols-2">
+                    {#each hrAdvisor.recommendations as recommendation}
+                      <div
+                        class={`rounded-[1.75rem] border px-5 py-5 ${hrAdvisorPriorityCardClass(recommendation.priority)}`}
+                      >
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                              <p class="text-lg font-semibold tracking-[-0.03em]">
+                                {recommendation.role_name}
+                              </p>
+                              <Badge variant="outline">{recommendation.workflow_type}</Badge>
+                            </div>
+                            <p class="text-muted-foreground mt-2 text-sm">
+                              {recommendation.summary}
+                            </p>
+                          </div>
+                          <span
+                            class={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${hrAdvisorPriorityBadgeClass(recommendation.priority)}`}
+                          >
+                            {recommendation.priority}
+                          </span>
+                        </div>
+
+                        <p class="text-foreground mt-4 text-sm leading-6">
+                          {recommendation.reason}
+                        </p>
+
+                        <div class="mt-4 flex flex-wrap gap-2">
+                          <span
+                            class="border-border/80 bg-background text-muted-foreground inline-flex rounded-full border px-3 py-1 text-xs"
+                          >
+                            Headcount: {recommendation.suggested_headcount}
+                          </span>
+                          {#if recommendation.active_workflow_name}
+                            <span
+                              class="inline-flex rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-800"
+                            >
+                              Active as {recommendation.active_workflow_name}
+                            </span>
+                          {/if}
+                        </div>
+
+                        <div class="mt-4 flex flex-wrap gap-2">
+                          {#each recommendation.evidence as evidence}
+                            <span
+                              class="border-border/80 bg-background text-muted-foreground inline-flex rounded-full border px-3 py-1 text-xs"
+                            >
+                              {evidence}
+                            </span>
+                          {/each}
+                        </div>
+
+                        <div class="mt-5 flex flex-wrap gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={workflowBusy}
+                            onclick={() => selectRecommendedRoleTemplate(recommendation)}
+                          >
+                            Use template
+                          </Button>
+                          <Button
+                            type="button"
+                            disabled={workflowBusy ||
+                              !recommendation.activation_ready ||
+                              ticketStatuses.length === 0}
+                            onclick={() => void activateRecommendedRole(recommendation)}
+                          >
+                            {recommendation.activation_ready
+                              ? 'Activate workflow'
+                              : 'Already active'}
+                          </Button>
+                        </div>
+
+                        {#if recommendation.harness_path}
+                          <p class="text-muted-foreground mt-4 font-mono text-[11px]">
+                            {recommendation.harness_path}
+                          </p>
+                        {/if}
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              {/if}
+            </CardContent>
+          </Card>
 
           <Card class="border-border/80 bg-background/80 overflow-hidden backdrop-blur">
             <CardHeader class="border-border/70 bg-muted/20 border-b">
