@@ -15,8 +15,15 @@
       providerName: 'Anthropic',
       modelName: 'claude-sonnet-4',
       status: 'running',
-      currentTicket: { id: 'tkt-101', identifier: 'ENG-342', title: 'Refactor auth middleware to support OAuth2 PKCE flow' },
+      runtimePhase: 'ready',
+      currentTicket: {
+        id: 'tkt-101',
+        identifier: 'ENG-342',
+        title: 'Refactor auth middleware to support OAuth2 PKCE flow',
+      },
       lastHeartbeat: new Date(now.getTime() - 15_000).toISOString(),
+      runtimeStartedAt: new Date(now.getTime() - 180_000).toISOString(),
+      sessionId: 'thread-claude-alpha',
       todayCompleted: 7,
       todayCost: 4.32,
       capabilities: ['code-generation', 'code-review'],
@@ -27,7 +34,8 @@
       providerName: 'Anthropic',
       modelName: 'claude-sonnet-4',
       status: 'idle',
-      lastHeartbeat: new Date(now.getTime() - 120_000).toISOString(),
+      runtimePhase: 'none',
+      lastHeartbeat: null,
       todayCompleted: 12,
       todayCost: 6.18,
       capabilities: ['code-generation', 'testing'],
@@ -37,9 +45,14 @@
       name: 'codex-primary',
       providerName: 'OpenAI',
       modelName: 'codex-1',
-      status: 'running',
-      currentTicket: { id: 'tkt-205', identifier: 'ENG-587', title: 'Add pagination to list endpoints' },
-      lastHeartbeat: new Date(now.getTime() - 8_000).toISOString(),
+      status: 'claimed',
+      runtimePhase: 'launching',
+      currentTicket: {
+        id: 'tkt-205',
+        identifier: 'ENG-587',
+        title: 'Add pagination to list endpoints',
+      },
+      lastHeartbeat: null,
       todayCompleted: 3,
       todayCost: 2.75,
       capabilities: ['code-generation'],
@@ -49,11 +62,17 @@
       name: 'claude-gamma',
       providerName: 'Anthropic',
       modelName: 'claude-opus-4',
-      status: 'stalled',
-      currentTicket: { id: 'tkt-189', identifier: 'ENG-401', title: 'Migrate database schema to use UUIDs' },
+      status: 'failed',
+      runtimePhase: 'failed',
+      currentTicket: {
+        id: 'tkt-189',
+        identifier: 'ENG-401',
+        title: 'Migrate database schema to use UUIDs',
+      },
       lastHeartbeat: new Date(now.getTime() - 600_000).toISOString(),
+      lastError: 'Codex launch handshake timed out',
       todayCompleted: 1,
-      todayCost: 8.40,
+      todayCost: 8.4,
       capabilities: ['code-generation', 'code-review', 'architecture'],
     },
     {
@@ -61,7 +80,8 @@
       name: 'codex-secondary',
       providerName: 'OpenAI',
       modelName: 'codex-1',
-      status: 'offline',
+      status: 'terminated',
+      runtimePhase: 'none',
       lastHeartbeat: new Date(now.getTime() - 7_200_000).toISOString(),
       todayCompleted: 0,
       todayCost: 0,
@@ -101,7 +121,7 @@
 
 <div class="space-y-4">
   <div class="flex items-center justify-between">
-    <h1 class="text-lg font-semibold text-foreground">Agents</h1>
+    <h1 class="text-foreground text-lg font-semibold">Agents</h1>
     <Button size="sm">
       <Plus class="size-3.5" />
       Register Agent

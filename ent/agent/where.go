@@ -82,6 +82,16 @@ func SessionID(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldSessionID, v))
 }
 
+// RuntimeStartedAt applies equality check predicate on the "runtime_started_at" field. It's identical to RuntimeStartedAtEQ.
+func RuntimeStartedAt(v time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldRuntimeStartedAt, v))
+}
+
+// LastError applies equality check predicate on the "last_error" field. It's identical to LastErrorEQ.
+func LastError(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldLastError, v))
+}
+
 // WorkspacePath applies equality check predicate on the "workspace_path" field. It's identical to WorkspacePathEQ.
 func WorkspacePath(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldWorkspacePath, v))
@@ -335,6 +345,151 @@ func SessionIDEqualFold(v string) predicate.Agent {
 // SessionIDContainsFold applies the ContainsFold predicate on the "session_id" field.
 func SessionIDContainsFold(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldContainsFold(FieldSessionID, v))
+}
+
+// RuntimePhaseEQ applies the EQ predicate on the "runtime_phase" field.
+func RuntimePhaseEQ(v RuntimePhase) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldRuntimePhase, v))
+}
+
+// RuntimePhaseNEQ applies the NEQ predicate on the "runtime_phase" field.
+func RuntimePhaseNEQ(v RuntimePhase) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldRuntimePhase, v))
+}
+
+// RuntimePhaseIn applies the In predicate on the "runtime_phase" field.
+func RuntimePhaseIn(vs ...RuntimePhase) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldRuntimePhase, vs...))
+}
+
+// RuntimePhaseNotIn applies the NotIn predicate on the "runtime_phase" field.
+func RuntimePhaseNotIn(vs ...RuntimePhase) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldRuntimePhase, vs...))
+}
+
+// RuntimeStartedAtEQ applies the EQ predicate on the "runtime_started_at" field.
+func RuntimeStartedAtEQ(v time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldRuntimeStartedAt, v))
+}
+
+// RuntimeStartedAtNEQ applies the NEQ predicate on the "runtime_started_at" field.
+func RuntimeStartedAtNEQ(v time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldRuntimeStartedAt, v))
+}
+
+// RuntimeStartedAtIn applies the In predicate on the "runtime_started_at" field.
+func RuntimeStartedAtIn(vs ...time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldRuntimeStartedAt, vs...))
+}
+
+// RuntimeStartedAtNotIn applies the NotIn predicate on the "runtime_started_at" field.
+func RuntimeStartedAtNotIn(vs ...time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldRuntimeStartedAt, vs...))
+}
+
+// RuntimeStartedAtGT applies the GT predicate on the "runtime_started_at" field.
+func RuntimeStartedAtGT(v time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldGT(FieldRuntimeStartedAt, v))
+}
+
+// RuntimeStartedAtGTE applies the GTE predicate on the "runtime_started_at" field.
+func RuntimeStartedAtGTE(v time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldGTE(FieldRuntimeStartedAt, v))
+}
+
+// RuntimeStartedAtLT applies the LT predicate on the "runtime_started_at" field.
+func RuntimeStartedAtLT(v time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldLT(FieldRuntimeStartedAt, v))
+}
+
+// RuntimeStartedAtLTE applies the LTE predicate on the "runtime_started_at" field.
+func RuntimeStartedAtLTE(v time.Time) predicate.Agent {
+	return predicate.Agent(sql.FieldLTE(FieldRuntimeStartedAt, v))
+}
+
+// RuntimeStartedAtIsNil applies the IsNil predicate on the "runtime_started_at" field.
+func RuntimeStartedAtIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldRuntimeStartedAt))
+}
+
+// RuntimeStartedAtNotNil applies the NotNil predicate on the "runtime_started_at" field.
+func RuntimeStartedAtNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldRuntimeStartedAt))
+}
+
+// LastErrorEQ applies the EQ predicate on the "last_error" field.
+func LastErrorEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldLastError, v))
+}
+
+// LastErrorNEQ applies the NEQ predicate on the "last_error" field.
+func LastErrorNEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldLastError, v))
+}
+
+// LastErrorIn applies the In predicate on the "last_error" field.
+func LastErrorIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldLastError, vs...))
+}
+
+// LastErrorNotIn applies the NotIn predicate on the "last_error" field.
+func LastErrorNotIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldLastError, vs...))
+}
+
+// LastErrorGT applies the GT predicate on the "last_error" field.
+func LastErrorGT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGT(FieldLastError, v))
+}
+
+// LastErrorGTE applies the GTE predicate on the "last_error" field.
+func LastErrorGTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGTE(FieldLastError, v))
+}
+
+// LastErrorLT applies the LT predicate on the "last_error" field.
+func LastErrorLT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLT(FieldLastError, v))
+}
+
+// LastErrorLTE applies the LTE predicate on the "last_error" field.
+func LastErrorLTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLTE(FieldLastError, v))
+}
+
+// LastErrorContains applies the Contains predicate on the "last_error" field.
+func LastErrorContains(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContains(FieldLastError, v))
+}
+
+// LastErrorHasPrefix applies the HasPrefix predicate on the "last_error" field.
+func LastErrorHasPrefix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasPrefix(FieldLastError, v))
+}
+
+// LastErrorHasSuffix applies the HasSuffix predicate on the "last_error" field.
+func LastErrorHasSuffix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasSuffix(FieldLastError, v))
+}
+
+// LastErrorIsNil applies the IsNil predicate on the "last_error" field.
+func LastErrorIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldLastError))
+}
+
+// LastErrorNotNil applies the NotNil predicate on the "last_error" field.
+func LastErrorNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldLastError))
+}
+
+// LastErrorEqualFold applies the EqualFold predicate on the "last_error" field.
+func LastErrorEqualFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEqualFold(FieldLastError, v))
+}
+
+// LastErrorContainsFold applies the ContainsFold predicate on the "last_error" field.
+func LastErrorContainsFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContainsFold(FieldLastError, v))
 }
 
 // WorkspacePathEQ applies the EQ predicate on the "workspace_path" field.

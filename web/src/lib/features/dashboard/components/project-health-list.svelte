@@ -25,35 +25,35 @@
   }
 </script>
 
-<div class={cn('rounded-md border border-border bg-card', className)}>
-  <div class="flex items-center justify-between border-b border-border px-4 py-3">
-    <h3 class="text-sm font-medium text-foreground">Projects</h3>
-    <span class="text-xs text-muted-foreground">{projects.length} total</span>
+<div class={cn('border-border bg-card rounded-md border', className)}>
+  <div class="border-border flex items-center justify-between border-b px-4 py-3">
+    <h3 class="text-foreground text-sm font-medium">Projects</h3>
+    <span class="text-muted-foreground text-xs">{projects.length} total</span>
   </div>
 
-  <div class="divide-y divide-border">
+  <div class="divide-border divide-y">
     {#each projects as project (project.id)}
-      <div class="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/50">
-        <div class="flex items-center gap-2 min-w-0 flex-1">
-          <span class={cn('size-2 rounded-full shrink-0', healthColor[project.health])}></span>
-          <span class="text-sm font-medium text-foreground truncate">{project.name}</span>
+      <div class="hover:bg-muted/50 flex items-center gap-4 px-4 py-3 transition-colors">
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+          <span class={cn('size-2 shrink-0 rounded-full', healthColor[project.health])}></span>
+          <span class="text-foreground truncate text-sm font-medium">{project.name}</span>
         </div>
 
         <Badge variant={healthVariant[project.health]} class="text-[10px] capitalize">
           {project.health}
         </Badge>
 
-        <div class="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+        <div class="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
           <Bot class="size-3" />
           <span>{project.activeAgents}</span>
         </div>
 
-        <div class="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+        <div class="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
           <Ticket class="size-3" />
           <span>{project.activeTickets}</span>
         </div>
 
-        <span class="text-xs text-muted-foreground shrink-0 w-16 text-right">
+        <span class="text-muted-foreground w-16 shrink-0 text-right text-xs">
           {formatRelativeTime(project.lastActivity)}
         </span>
       </div>

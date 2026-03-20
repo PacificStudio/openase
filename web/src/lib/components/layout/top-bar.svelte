@@ -1,14 +1,7 @@
 <script lang="ts">
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
-  import {
-    ChevronDown,
-    Search,
-    Plus,
-    Settings,
-    LogOut,
-    Moon,
-  } from '@lucide/svelte'
+  import { ChevronDown, Search, Plus, Settings, LogOut, Moon } from '@lucide/svelte'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import * as Avatar from '$ui/avatar'
 
@@ -29,23 +22,23 @@
   } = $props()
 </script>
 
-<header class="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
+<header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
   <!-- Logo -->
-  <a href="/" class="mr-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
-    <span class="font-bold text-primary">OpenASE</span>
+  <a href="/" class="text-foreground mr-1 flex items-center gap-1.5 text-sm font-semibold">
+    <span class="text-primary font-bold">OpenASE</span>
   </a>
 
   <Separator orientation="vertical" class="mx-1 h-5" />
 
   <!-- Org Switcher -->
-  <Button variant="ghost" size="sm" class="gap-1 text-xs text-muted-foreground">
+  <Button variant="ghost" size="sm" class="text-muted-foreground gap-1 text-xs">
     {orgName}
     <ChevronDown class="size-3" />
   </Button>
 
   {#if projectName}
     <span class="text-muted-foreground/50">/</span>
-    <Button variant="ghost" size="sm" class="gap-1 text-xs font-medium text-foreground">
+    <Button variant="ghost" size="sm" class="text-foreground gap-1 text-xs font-medium">
       {projectName}
       <ChevronDown class="size-3" />
     </Button>
@@ -58,12 +51,12 @@
   <Button
     variant="outline"
     size="sm"
-    class="hidden w-[200px] justify-start gap-2 text-muted-foreground sm:flex"
+    class="text-muted-foreground hidden w-[200px] justify-start gap-2 sm:flex"
     onclick={onOpenSearch}
   >
     <Search class="size-3.5" />
     <span class="text-xs">Search...</span>
-    <kbd class="ml-auto rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+    <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
   </Button>
 
   <Separator orientation="vertical" class="mx-1 h-5" />
@@ -75,13 +68,13 @@
   </Button>
 
   <!-- SSE Status Indicator -->
-  <div class="flex items-center gap-1.5 text-xs text-muted-foreground" title="SSE: {sseStatus}">
+  <div class="text-muted-foreground flex items-center gap-1.5 text-xs" title="SSE: {sseStatus}">
     {#if sseStatus === 'live'}
-      <span class="size-1.5 rounded-full bg-success" />
+      <span class="bg-success size-1.5 rounded-full" />
     {:else if sseStatus === 'connecting' || sseStatus === 'retrying'}
-      <span class="size-1.5 animate-pulse rounded-full bg-warning" />
+      <span class="bg-warning size-1.5 animate-pulse rounded-full" />
     {:else}
-      <span class="size-1.5 rounded-full bg-destructive" />
+      <span class="bg-destructive size-1.5 rounded-full" />
     {/if}
   </div>
 
@@ -91,7 +84,7 @@
       {#snippet child({ props })}
         <button {...props} class="rounded-full">
           <Avatar.Root class="size-7">
-            <Avatar.Fallback class="bg-primary/10 text-xs text-primary">U</Avatar.Fallback>
+            <Avatar.Fallback class="bg-primary/10 text-primary text-xs">U</Avatar.Fallback>
           </Avatar.Root>
         </button>
       {/snippet}
