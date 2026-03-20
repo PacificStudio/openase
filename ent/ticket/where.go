@@ -1565,6 +1565,29 @@ func HasExternalLinksWith(preds ...predicate.TicketExternalLink) predicate.Ticke
 	})
 }
 
+// HasAgentTokens applies the HasEdge predicate on the "agent_tokens" edge.
+func HasAgentTokens() predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentTokensTable, AgentTokensColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentTokensWith applies the HasEdge predicate on the "agent_tokens" edge with a given conditions (other predicates).
+func HasAgentTokensWith(preds ...predicate.AgentToken) predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := newAgentTokensStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasApprovalGates applies the HasEdge predicate on the "approval_gates" edge.
 func HasApprovalGates() predicate.Ticket {
 	return predicate.Ticket(func(s *sql.Selector) {

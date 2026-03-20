@@ -155,6 +155,61 @@ var (
 			},
 		},
 	}
+	// AgentTokensColumns holds the columns for the "agent_tokens" table.
+	AgentTokensColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "token_hash", Type: field.TypeString},
+		{Name: "scopes", Type: field.TypeJSON},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "agent_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "ticket_id", Type: field.TypeUUID},
+	}
+	// AgentTokensTable holds the schema information for the "agent_tokens" table.
+	AgentTokensTable = &schema.Table{
+		Name:       "agent_tokens",
+		Columns:    AgentTokensColumns,
+		PrimaryKey: []*schema.Column{AgentTokensColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_tokens_agents_tokens",
+				Columns:    []*schema.Column{AgentTokensColumns[6]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_tokens_projects_agent_tokens",
+				Columns:    []*schema.Column{AgentTokensColumns[7]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_tokens_tickets_agent_tokens",
+				Columns:    []*schema.Column{AgentTokensColumns[8]},
+				RefColumns: []*schema.Column{TicketsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agenttoken_token_hash",
+				Unique:  true,
+				Columns: []*schema.Column{AgentTokensColumns[1]},
+			},
+			{
+				Name:    "agenttoken_project_id_ticket_id",
+				Unique:  false,
+				Columns: []*schema.Column{AgentTokensColumns[7], AgentTokensColumns[8]},
+			},
+			{
+				Name:    "agenttoken_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentTokensColumns[3]},
+			},
+		},
+	}
 	// ApprovalGatesColumns holds the columns for the "approval_gates" table.
 	ApprovalGatesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -676,6 +731,7 @@ var (
 		ActivityEventsTable,
 		AgentsTable,
 		AgentProvidersTable,
+		AgentTokensTable,
 		ApprovalGatesTable,
 		OrganizationsTable,
 		ProjectsTable,
@@ -698,6 +754,9 @@ func init() {
 	AgentsTable.ForeignKeys[1].RefTable = AgentProvidersTable
 	AgentsTable.ForeignKeys[2].RefTable = ProjectsTable
 	AgentProvidersTable.ForeignKeys[0].RefTable = OrganizationsTable
+	AgentTokensTable.ForeignKeys[0].RefTable = AgentsTable
+	AgentTokensTable.ForeignKeys[1].RefTable = ProjectsTable
+	AgentTokensTable.ForeignKeys[2].RefTable = TicketsTable
 	ApprovalGatesTable.ForeignKeys[0].RefTable = TicketsTable
 	OrganizationsTable.ForeignKeys[0].RefTable = AgentProvidersTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable

@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -622,6 +623,21 @@ func (_u *TicketUpdate) AddExternalLinks(v ...*TicketExternalLink) *TicketUpdate
 	return _u.AddExternalLinkIDs(ids...)
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_u *TicketUpdate) AddAgentTokenIDs(ids ...uuid.UUID) *TicketUpdate {
+	_u.mutation.AddAgentTokenIDs(ids...)
+	return _u
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_u *TicketUpdate) AddAgentTokens(v ...*AgentToken) *TicketUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTokenIDs(ids...)
+}
+
 // AddApprovalGateIDs adds the "approval_gates" edge to the ApprovalGate entity by IDs.
 func (_u *TicketUpdate) AddApprovalGateIDs(ids ...uuid.UUID) *TicketUpdate {
 	_u.mutation.AddApprovalGateIDs(ids...)
@@ -778,6 +794,27 @@ func (_u *TicketUpdate) RemoveExternalLinks(v ...*TicketExternalLink) *TicketUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveExternalLinkIDs(ids...)
+}
+
+// ClearAgentTokens clears all "agent_tokens" edges to the AgentToken entity.
+func (_u *TicketUpdate) ClearAgentTokens() *TicketUpdate {
+	_u.mutation.ClearAgentTokens()
+	return _u
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to AgentToken entities by IDs.
+func (_u *TicketUpdate) RemoveAgentTokenIDs(ids ...uuid.UUID) *TicketUpdate {
+	_u.mutation.RemoveAgentTokenIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTokens removes "agent_tokens" edges to AgentToken entities.
+func (_u *TicketUpdate) RemoveAgentTokens(v ...*AgentToken) *TicketUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTokenIDs(ids...)
 }
 
 // ClearApprovalGates clears all "approval_gates" edges to the ApprovalGate entity.
@@ -1326,6 +1363,51 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketexternallink.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentTokensTable,
+			Columns: []string{ticket.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTokensIDs(); len(nodes) > 0 && !_u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentTokensTable,
+			Columns: []string{ticket.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentTokensTable,
+			Columns: []string{ticket.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -2117,6 +2199,21 @@ func (_u *TicketUpdateOne) AddExternalLinks(v ...*TicketExternalLink) *TicketUpd
 	return _u.AddExternalLinkIDs(ids...)
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_u *TicketUpdateOne) AddAgentTokenIDs(ids ...uuid.UUID) *TicketUpdateOne {
+	_u.mutation.AddAgentTokenIDs(ids...)
+	return _u
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_u *TicketUpdateOne) AddAgentTokens(v ...*AgentToken) *TicketUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTokenIDs(ids...)
+}
+
 // AddApprovalGateIDs adds the "approval_gates" edge to the ApprovalGate entity by IDs.
 func (_u *TicketUpdateOne) AddApprovalGateIDs(ids ...uuid.UUID) *TicketUpdateOne {
 	_u.mutation.AddApprovalGateIDs(ids...)
@@ -2273,6 +2370,27 @@ func (_u *TicketUpdateOne) RemoveExternalLinks(v ...*TicketExternalLink) *Ticket
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveExternalLinkIDs(ids...)
+}
+
+// ClearAgentTokens clears all "agent_tokens" edges to the AgentToken entity.
+func (_u *TicketUpdateOne) ClearAgentTokens() *TicketUpdateOne {
+	_u.mutation.ClearAgentTokens()
+	return _u
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to AgentToken entities by IDs.
+func (_u *TicketUpdateOne) RemoveAgentTokenIDs(ids ...uuid.UUID) *TicketUpdateOne {
+	_u.mutation.RemoveAgentTokenIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTokens removes "agent_tokens" edges to AgentToken entities.
+func (_u *TicketUpdateOne) RemoveAgentTokens(v ...*AgentToken) *TicketUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTokenIDs(ids...)
 }
 
 // ClearApprovalGates clears all "approval_gates" edges to the ApprovalGate entity.
@@ -2851,6 +2969,51 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketexternallink.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentTokensTable,
+			Columns: []string{ticket.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTokensIDs(); len(nodes) > 0 && !_u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentTokensTable,
+			Columns: []string{ticket.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentTokensTable,
+			Columns: []string{ticket.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

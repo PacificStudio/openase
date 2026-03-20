@@ -45,6 +45,8 @@ const (
 	EdgeCurrentTicket = "current_ticket"
 	// EdgeAssignedTickets holds the string denoting the assigned_tickets edge name in mutations.
 	EdgeAssignedTickets = "assigned_tickets"
+	// EdgeTokens holds the string denoting the tokens edge name in mutations.
+	EdgeTokens = "tokens"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
 	EdgeActivityEvents = "activity_events"
 	// Table holds the table name of the agent in the database.
@@ -77,6 +79,13 @@ const (
 	AssignedTicketsInverseTable = "tickets"
 	// AssignedTicketsColumn is the table column denoting the assigned_tickets relation/edge.
 	AssignedTicketsColumn = "assigned_agent_id"
+	// TokensTable is the table that holds the tokens relation/edge.
+	TokensTable = "agent_tokens"
+	// TokensInverseTable is the table name for the AgentToken entity.
+	// It exists in this package in order to avoid circular dependency with the "agenttoken" package.
+	TokensInverseTable = "agent_tokens"
+	// TokensColumn is the table column denoting the tokens relation/edge.
+	TokensColumn = "agent_id"
 	// ActivityEventsTable is the table that holds the activity_events relation/edge.
 	ActivityEventsTable = "activity_events"
 	// ActivityEventsInverseTable is the table name for the ActivityEvent entity.
@@ -245,6 +254,20 @@ func ByAssignedTickets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByTokensCount orders the results by tokens count.
+func ByTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newTokensStep(), opts...)
+	}
+}
+
+// ByTokens orders the results by tokens terms.
+func ByTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByActivityEventsCount orders the results by activity_events count.
 func ByActivityEventsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -284,6 +307,13 @@ func newAssignedTicketsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AssignedTicketsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AssignedTicketsTable, AssignedTicketsColumn),
+	)
+}
+func newTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(TokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, TokensTable, TokensColumn),
 	)
 }
 func newActivityEventsStep() *sqlgraph.Step {

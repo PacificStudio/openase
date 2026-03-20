@@ -12,6 +12,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -209,6 +210,21 @@ func (_c *ProjectCreate) AddAgents(v ...*Agent) *ProjectCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddAgentIDs(ids...)
+}
+
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_c *ProjectCreate) AddAgentTokenIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddAgentTokenIDs(ids...)
+	return _c
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_c *ProjectCreate) AddAgentTokens(v ...*AgentToken) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentTokenIDs(ids...)
 }
 
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by IDs.
@@ -480,6 +496,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTokensTable,
+			Columns: []string{project.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 )
 
 type Executor interface {
@@ -122,8 +124,7 @@ func buildEnvironmentVariables(hookName TicketHookName, env Env) []string {
 		reposJSON = string(encoded)
 	}
 
-	return []string{
-		"OPENASE_TICKET_ID=" + env.TicketID.String(),
+	environment := []string{
 		"OPENASE_TICKET_IDENTIFIER=" + env.TicketIdentifier,
 		"OPENASE_WORKSPACE=" + env.Workspace,
 		"OPENASE_REPOS=" + reposJSON,
@@ -132,6 +133,10 @@ func buildEnvironmentVariables(hookName TicketHookName, env Env) []string {
 		"OPENASE_ATTEMPT=" + fmt.Sprintf("%d", env.Attempt),
 		"OPENASE_HOOK_NAME=" + string(hookName),
 	}
+
+	environment = append(environment, agentplatform.BuildEnvironment(env.APIURL, env.AgentToken, env.ProjectID, env.TicketID)...)
+
+	return environment
 }
 
 func resolveWorkingDirectory(workspace string, workdir string) (string, error) {

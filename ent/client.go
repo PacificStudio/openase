@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -43,6 +44,8 @@ type Client struct {
 	Agent *AgentClient
 	// AgentProvider is the client for interacting with the AgentProvider builders.
 	AgentProvider *AgentProviderClient
+	// AgentToken is the client for interacting with the AgentToken builders.
+	AgentToken *AgentTokenClient
 	// ApprovalGate is the client for interacting with the ApprovalGate builders.
 	ApprovalGate *ApprovalGateClient
 	// Organization is the client for interacting with the Organization builders.
@@ -79,6 +82,7 @@ func (c *Client) init() {
 	c.ActivityEvent = NewActivityEventClient(c.config)
 	c.Agent = NewAgentClient(c.config)
 	c.AgentProvider = NewAgentProviderClient(c.config)
+	c.AgentToken = NewAgentTokenClient(c.config)
 	c.ApprovalGate = NewApprovalGateClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
 	c.Project = NewProjectClient(c.config)
@@ -185,6 +189,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ActivityEvent:      NewActivityEventClient(cfg),
 		Agent:              NewAgentClient(cfg),
 		AgentProvider:      NewAgentProviderClient(cfg),
+		AgentToken:         NewAgentTokenClient(cfg),
 		ApprovalGate:       NewApprovalGateClient(cfg),
 		Organization:       NewOrganizationClient(cfg),
 		Project:            NewProjectClient(cfg),
@@ -218,6 +223,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ActivityEvent:      NewActivityEventClient(cfg),
 		Agent:              NewAgentClient(cfg),
 		AgentProvider:      NewAgentProviderClient(cfg),
+		AgentToken:         NewAgentTokenClient(cfg),
 		ApprovalGate:       NewApprovalGateClient(cfg),
 		Organization:       NewOrganizationClient(cfg),
 		Project:            NewProjectClient(cfg),
@@ -258,9 +264,10 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.ActivityEvent, c.Agent, c.AgentProvider, c.ApprovalGate, c.Organization,
-		c.Project, c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
+		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.ApprovalGate,
+		c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob, c.Ticket,
+		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus,
+		c.Workflow,
 	} {
 		n.Use(hooks...)
 	}
@@ -270,9 +277,10 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.ActivityEvent, c.Agent, c.AgentProvider, c.ApprovalGate, c.Organization,
-		c.Project, c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
+		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.ApprovalGate,
+		c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob, c.Ticket,
+		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus,
+		c.Workflow,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -287,6 +295,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Agent.mutate(ctx, m)
 	case *AgentProviderMutation:
 		return c.AgentProvider.mutate(ctx, m)
+	case *AgentTokenMutation:
+		return c.AgentToken.mutate(ctx, m)
 	case *ApprovalGateMutation:
 		return c.ApprovalGate.mutate(ctx, m)
 	case *OrganizationMutation:
@@ -667,6 +677,22 @@ func (c *AgentClient) QueryAssignedTickets(_m *Agent) *TicketQuery {
 	return query
 }
 
+// QueryTokens queries the tokens edge of a Agent.
+func (c *AgentClient) QueryTokens(_m *Agent) *AgentTokenQuery {
+	query := (&AgentTokenClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, id),
+			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agent.TokensTable, agent.TokensColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryActivityEvents queries the activity_events edge of a Agent.
 func (c *AgentClient) QueryActivityEvents(_m *Agent) *ActivityEventQuery {
 	query := (&ActivityEventClient{config: c.config}).Query()
@@ -870,6 +896,187 @@ func (c *AgentProviderClient) mutate(ctx context.Context, m *AgentProviderMutati
 		return (&AgentProviderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AgentProvider mutation op: %q", m.Op())
+	}
+}
+
+// AgentTokenClient is a client for the AgentToken schema.
+type AgentTokenClient struct {
+	config
+}
+
+// NewAgentTokenClient returns a client for the AgentToken from the given config.
+func NewAgentTokenClient(c config) *AgentTokenClient {
+	return &AgentTokenClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `agenttoken.Hooks(f(g(h())))`.
+func (c *AgentTokenClient) Use(hooks ...Hook) {
+	c.hooks.AgentToken = append(c.hooks.AgentToken, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `agenttoken.Intercept(f(g(h())))`.
+func (c *AgentTokenClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AgentToken = append(c.inters.AgentToken, interceptors...)
+}
+
+// Create returns a builder for creating a AgentToken entity.
+func (c *AgentTokenClient) Create() *AgentTokenCreate {
+	mutation := newAgentTokenMutation(c.config, OpCreate)
+	return &AgentTokenCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AgentToken entities.
+func (c *AgentTokenClient) CreateBulk(builders ...*AgentTokenCreate) *AgentTokenCreateBulk {
+	return &AgentTokenCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AgentTokenClient) MapCreateBulk(slice any, setFunc func(*AgentTokenCreate, int)) *AgentTokenCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AgentTokenCreateBulk{err: fmt.Errorf("calling to AgentTokenClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AgentTokenCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AgentTokenCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AgentToken.
+func (c *AgentTokenClient) Update() *AgentTokenUpdate {
+	mutation := newAgentTokenMutation(c.config, OpUpdate)
+	return &AgentTokenUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AgentTokenClient) UpdateOne(_m *AgentToken) *AgentTokenUpdateOne {
+	mutation := newAgentTokenMutation(c.config, OpUpdateOne, withAgentToken(_m))
+	return &AgentTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AgentTokenClient) UpdateOneID(id uuid.UUID) *AgentTokenUpdateOne {
+	mutation := newAgentTokenMutation(c.config, OpUpdateOne, withAgentTokenID(id))
+	return &AgentTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AgentToken.
+func (c *AgentTokenClient) Delete() *AgentTokenDelete {
+	mutation := newAgentTokenMutation(c.config, OpDelete)
+	return &AgentTokenDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AgentTokenClient) DeleteOne(_m *AgentToken) *AgentTokenDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AgentTokenClient) DeleteOneID(id uuid.UUID) *AgentTokenDeleteOne {
+	builder := c.Delete().Where(agenttoken.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AgentTokenDeleteOne{builder}
+}
+
+// Query returns a query builder for AgentToken.
+func (c *AgentTokenClient) Query() *AgentTokenQuery {
+	return &AgentTokenQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAgentToken},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AgentToken entity by its id.
+func (c *AgentTokenClient) Get(ctx context.Context, id uuid.UUID) (*AgentToken, error) {
+	return c.Query().Where(agenttoken.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AgentTokenClient) GetX(ctx context.Context, id uuid.UUID) *AgentToken {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAgent queries the agent edge of a AgentToken.
+func (c *AgentTokenClient) QueryAgent(_m *AgentToken) *AgentQuery {
+	query := (&AgentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttoken.Table, agenttoken.FieldID, id),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttoken.AgentTable, agenttoken.AgentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryProject queries the project edge of a AgentToken.
+func (c *AgentTokenClient) QueryProject(_m *AgentToken) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttoken.Table, agenttoken.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttoken.ProjectTable, agenttoken.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTicket queries the ticket edge of a AgentToken.
+func (c *AgentTokenClient) QueryTicket(_m *AgentToken) *TicketQuery {
+	query := (&TicketClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttoken.Table, agenttoken.FieldID, id),
+			sqlgraph.To(ticket.Table, ticket.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttoken.TicketTable, agenttoken.TicketColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AgentTokenClient) Hooks() []Hook {
+	return c.hooks.AgentToken
+}
+
+// Interceptors returns the client interceptors.
+func (c *AgentTokenClient) Interceptors() []Interceptor {
+	return c.inters.AgentToken
+}
+
+func (c *AgentTokenClient) mutate(ctx context.Context, m *AgentTokenMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AgentTokenCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AgentTokenUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AgentTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AgentTokenDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AgentToken mutation op: %q", m.Op())
 	}
 }
 
@@ -1400,6 +1607,22 @@ func (c *ProjectClient) QueryAgents(_m *Project) *AgentQuery {
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(agent.Table, agent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.AgentsTable, project.AgentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentTokens queries the agent_tokens edge of a Project.
+func (c *ProjectClient) QueryAgentTokens(_m *Project) *AgentTokenQuery {
+	query := (&AgentTokenClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.AgentTokensTable, project.AgentTokensColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2055,6 +2278,22 @@ func (c *TicketClient) QueryExternalLinks(_m *Ticket) *TicketExternalLinkQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, id),
 			sqlgraph.To(ticketexternallink.Table, ticketexternallink.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, ticket.ExternalLinksTable, ticket.ExternalLinksColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentTokens queries the agent_tokens edge of a Ticket.
+func (c *TicketClient) QueryAgentTokens(_m *Ticket) *AgentTokenQuery {
+	query := (&AgentTokenClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, id),
+			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentTokensTable, ticket.AgentTokensColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3043,13 +3282,13 @@ func (c *WorkflowClient) mutate(ctx context.Context, m *WorkflowMutation) (Value
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		ActivityEvent, Agent, AgentProvider, ApprovalGate, Organization, Project,
-		ProjectRepo, ScheduledJob, Ticket, TicketDependency, TicketExternalLink,
-		TicketRepoScope, TicketStatus, Workflow []ent.Hook
+		ActivityEvent, Agent, AgentProvider, AgentToken, ApprovalGate, Organization,
+		Project, ProjectRepo, ScheduledJob, Ticket, TicketDependency,
+		TicketExternalLink, TicketRepoScope, TicketStatus, Workflow []ent.Hook
 	}
 	inters struct {
-		ActivityEvent, Agent, AgentProvider, ApprovalGate, Organization, Project,
-		ProjectRepo, ScheduledJob, Ticket, TicketDependency, TicketExternalLink,
-		TicketRepoScope, TicketStatus, Workflow []ent.Interceptor
+		ActivityEvent, Agent, AgentProvider, AgentToken, ApprovalGate, Organization,
+		Project, ProjectRepo, ScheduledJob, Ticket, TicketDependency,
+		TicketExternalLink, TicketRepoScope, TicketStatus, Workflow []ent.Interceptor
 	}
 )

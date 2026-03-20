@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -41,6 +42,7 @@ const (
 	TypeActivityEvent      = "ActivityEvent"
 	TypeAgent              = "Agent"
 	TypeAgentProvider      = "AgentProvider"
+	TypeAgentToken         = "AgentToken"
 	TypeApprovalGate       = "ApprovalGate"
 	TypeOrganization       = "Organization"
 	TypeProject            = "Project"
@@ -943,6 +945,9 @@ type AgentMutation struct {
 	assigned_tickets           map[uuid.UUID]struct{}
 	removedassigned_tickets    map[uuid.UUID]struct{}
 	clearedassigned_tickets    bool
+	tokens                     map[uuid.UUID]struct{}
+	removedtokens              map[uuid.UUID]struct{}
+	clearedtokens              bool
 	activity_events            map[uuid.UUID]struct{}
 	removedactivity_events     map[uuid.UUID]struct{}
 	clearedactivity_events     bool
@@ -1707,6 +1712,60 @@ func (m *AgentMutation) ResetAssignedTickets() {
 	m.removedassigned_tickets = nil
 }
 
+// AddTokenIDs adds the "tokens" edge to the AgentToken entity by ids.
+func (m *AgentMutation) AddTokenIDs(ids ...uuid.UUID) {
+	if m.tokens == nil {
+		m.tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.tokens[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTokens clears the "tokens" edge to the AgentToken entity.
+func (m *AgentMutation) ClearTokens() {
+	m.clearedtokens = true
+}
+
+// TokensCleared reports if the "tokens" edge to the AgentToken entity was cleared.
+func (m *AgentMutation) TokensCleared() bool {
+	return m.clearedtokens
+}
+
+// RemoveTokenIDs removes the "tokens" edge to the AgentToken entity by IDs.
+func (m *AgentMutation) RemoveTokenIDs(ids ...uuid.UUID) {
+	if m.removedtokens == nil {
+		m.removedtokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.tokens, ids[i])
+		m.removedtokens[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTokens returns the removed IDs of the "tokens" edge to the AgentToken entity.
+func (m *AgentMutation) RemovedTokensIDs() (ids []uuid.UUID) {
+	for id := range m.removedtokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TokensIDs returns the "tokens" edge IDs in the mutation.
+func (m *AgentMutation) TokensIDs() (ids []uuid.UUID) {
+	for id := range m.tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTokens resets all changes to the "tokens" edge.
+func (m *AgentMutation) ResetTokens() {
+	m.tokens = nil
+	m.clearedtokens = false
+	m.removedtokens = nil
+}
+
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by ids.
 func (m *AgentMutation) AddActivityEventIDs(ids ...uuid.UUID) {
 	if m.activity_events == nil {
@@ -2124,7 +2183,7 @@ func (m *AgentMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.provider != nil {
 		edges = append(edges, agent.EdgeProvider)
 	}
@@ -2136,6 +2195,9 @@ func (m *AgentMutation) AddedEdges() []string {
 	}
 	if m.assigned_tickets != nil {
 		edges = append(edges, agent.EdgeAssignedTickets)
+	}
+	if m.tokens != nil {
+		edges = append(edges, agent.EdgeTokens)
 	}
 	if m.activity_events != nil {
 		edges = append(edges, agent.EdgeActivityEvents)
@@ -2165,6 +2227,12 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agent.EdgeTokens:
+		ids := make([]ent.Value, 0, len(m.tokens))
+		for id := range m.tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case agent.EdgeActivityEvents:
 		ids := make([]ent.Value, 0, len(m.activity_events))
 		for id := range m.activity_events {
@@ -2177,9 +2245,12 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedassigned_tickets != nil {
 		edges = append(edges, agent.EdgeAssignedTickets)
+	}
+	if m.removedtokens != nil {
+		edges = append(edges, agent.EdgeTokens)
 	}
 	if m.removedactivity_events != nil {
 		edges = append(edges, agent.EdgeActivityEvents)
@@ -2197,6 +2268,12 @@ func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agent.EdgeTokens:
+		ids := make([]ent.Value, 0, len(m.removedtokens))
+		for id := range m.removedtokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case agent.EdgeActivityEvents:
 		ids := make([]ent.Value, 0, len(m.removedactivity_events))
 		for id := range m.removedactivity_events {
@@ -2209,7 +2286,7 @@ func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedprovider {
 		edges = append(edges, agent.EdgeProvider)
 	}
@@ -2221,6 +2298,9 @@ func (m *AgentMutation) ClearedEdges() []string {
 	}
 	if m.clearedassigned_tickets {
 		edges = append(edges, agent.EdgeAssignedTickets)
+	}
+	if m.clearedtokens {
+		edges = append(edges, agent.EdgeTokens)
 	}
 	if m.clearedactivity_events {
 		edges = append(edges, agent.EdgeActivityEvents)
@@ -2240,6 +2320,8 @@ func (m *AgentMutation) EdgeCleared(name string) bool {
 		return m.clearedcurrent_ticket
 	case agent.EdgeAssignedTickets:
 		return m.clearedassigned_tickets
+	case agent.EdgeTokens:
+		return m.clearedtokens
 	case agent.EdgeActivityEvents:
 		return m.clearedactivity_events
 	}
@@ -2278,6 +2360,9 @@ func (m *AgentMutation) ResetEdge(name string) error {
 		return nil
 	case agent.EdgeAssignedTickets:
 		m.ResetAssignedTickets()
+		return nil
+	case agent.EdgeTokens:
+		m.ResetTokens()
 		return nil
 	case agent.EdgeActivityEvents:
 		m.ResetActivityEvents()
@@ -3469,6 +3554,900 @@ func (m *AgentProviderMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AgentProvider edge %s", name)
+}
+
+// AgentTokenMutation represents an operation that mutates the AgentToken nodes in the graph.
+type AgentTokenMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *uuid.UUID
+	token_hash     *string
+	scopes         *[]string
+	appendscopes   []string
+	expires_at     *time.Time
+	created_at     *time.Time
+	last_used_at   *time.Time
+	clearedFields  map[string]struct{}
+	agent          *uuid.UUID
+	clearedagent   bool
+	project        *uuid.UUID
+	clearedproject bool
+	ticket         *uuid.UUID
+	clearedticket  bool
+	done           bool
+	oldValue       func(context.Context) (*AgentToken, error)
+	predicates     []predicate.AgentToken
+}
+
+var _ ent.Mutation = (*AgentTokenMutation)(nil)
+
+// agenttokenOption allows management of the mutation configuration using functional options.
+type agenttokenOption func(*AgentTokenMutation)
+
+// newAgentTokenMutation creates new mutation for the AgentToken entity.
+func newAgentTokenMutation(c config, op Op, opts ...agenttokenOption) *AgentTokenMutation {
+	m := &AgentTokenMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAgentToken,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAgentTokenID sets the ID field of the mutation.
+func withAgentTokenID(id uuid.UUID) agenttokenOption {
+	return func(m *AgentTokenMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AgentToken
+		)
+		m.oldValue = func(ctx context.Context) (*AgentToken, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AgentToken.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAgentToken sets the old AgentToken of the mutation.
+func withAgentToken(node *AgentToken) agenttokenOption {
+	return func(m *AgentTokenMutation) {
+		m.oldValue = func(context.Context) (*AgentToken, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AgentTokenMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AgentTokenMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of AgentToken entities.
+func (m *AgentTokenMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AgentTokenMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AgentTokenMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AgentToken.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAgentID sets the "agent_id" field.
+func (m *AgentTokenMutation) SetAgentID(u uuid.UUID) {
+	m.agent = &u
+}
+
+// AgentID returns the value of the "agent_id" field in the mutation.
+func (m *AgentTokenMutation) AgentID() (r uuid.UUID, exists bool) {
+	v := m.agent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentID returns the old "agent_id" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldAgentID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentID: %w", err)
+	}
+	return oldValue.AgentID, nil
+}
+
+// ResetAgentID resets all changes to the "agent_id" field.
+func (m *AgentTokenMutation) ResetAgentID() {
+	m.agent = nil
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *AgentTokenMutation) SetProjectID(u uuid.UUID) {
+	m.project = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *AgentTokenMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *AgentTokenMutation) ResetProjectID() {
+	m.project = nil
+}
+
+// SetTicketID sets the "ticket_id" field.
+func (m *AgentTokenMutation) SetTicketID(u uuid.UUID) {
+	m.ticket = &u
+}
+
+// TicketID returns the value of the "ticket_id" field in the mutation.
+func (m *AgentTokenMutation) TicketID() (r uuid.UUID, exists bool) {
+	v := m.ticket
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTicketID returns the old "ticket_id" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldTicketID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTicketID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTicketID: %w", err)
+	}
+	return oldValue.TicketID, nil
+}
+
+// ResetTicketID resets all changes to the "ticket_id" field.
+func (m *AgentTokenMutation) ResetTicketID() {
+	m.ticket = nil
+}
+
+// SetTokenHash sets the "token_hash" field.
+func (m *AgentTokenMutation) SetTokenHash(s string) {
+	m.token_hash = &s
+}
+
+// TokenHash returns the value of the "token_hash" field in the mutation.
+func (m *AgentTokenMutation) TokenHash() (r string, exists bool) {
+	v := m.token_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenHash returns the old "token_hash" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldTokenHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenHash: %w", err)
+	}
+	return oldValue.TokenHash, nil
+}
+
+// ResetTokenHash resets all changes to the "token_hash" field.
+func (m *AgentTokenMutation) ResetTokenHash() {
+	m.token_hash = nil
+}
+
+// SetScopes sets the "scopes" field.
+func (m *AgentTokenMutation) SetScopes(s []string) {
+	m.scopes = &s
+	m.appendscopes = nil
+}
+
+// Scopes returns the value of the "scopes" field in the mutation.
+func (m *AgentTokenMutation) Scopes() (r []string, exists bool) {
+	v := m.scopes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScopes returns the old "scopes" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldScopes(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScopes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScopes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScopes: %w", err)
+	}
+	return oldValue.Scopes, nil
+}
+
+// AppendScopes adds s to the "scopes" field.
+func (m *AgentTokenMutation) AppendScopes(s []string) {
+	m.appendscopes = append(m.appendscopes, s...)
+}
+
+// AppendedScopes returns the list of values that were appended to the "scopes" field in this mutation.
+func (m *AgentTokenMutation) AppendedScopes() ([]string, bool) {
+	if len(m.appendscopes) == 0 {
+		return nil, false
+	}
+	return m.appendscopes, true
+}
+
+// ResetScopes resets all changes to the "scopes" field.
+func (m *AgentTokenMutation) ResetScopes() {
+	m.scopes = nil
+	m.appendscopes = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *AgentTokenMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *AgentTokenMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *AgentTokenMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AgentTokenMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AgentTokenMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AgentTokenMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (m *AgentTokenMutation) SetLastUsedAt(t time.Time) {
+	m.last_used_at = &t
+}
+
+// LastUsedAt returns the value of the "last_used_at" field in the mutation.
+func (m *AgentTokenMutation) LastUsedAt() (r time.Time, exists bool) {
+	v := m.last_used_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastUsedAt returns the old "last_used_at" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldLastUsedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastUsedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastUsedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastUsedAt: %w", err)
+	}
+	return oldValue.LastUsedAt, nil
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (m *AgentTokenMutation) ClearLastUsedAt() {
+	m.last_used_at = nil
+	m.clearedFields[agenttoken.FieldLastUsedAt] = struct{}{}
+}
+
+// LastUsedAtCleared returns if the "last_used_at" field was cleared in this mutation.
+func (m *AgentTokenMutation) LastUsedAtCleared() bool {
+	_, ok := m.clearedFields[agenttoken.FieldLastUsedAt]
+	return ok
+}
+
+// ResetLastUsedAt resets all changes to the "last_used_at" field.
+func (m *AgentTokenMutation) ResetLastUsedAt() {
+	m.last_used_at = nil
+	delete(m.clearedFields, agenttoken.FieldLastUsedAt)
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (m *AgentTokenMutation) ClearAgent() {
+	m.clearedagent = true
+	m.clearedFields[agenttoken.FieldAgentID] = struct{}{}
+}
+
+// AgentCleared reports if the "agent" edge to the Agent entity was cleared.
+func (m *AgentTokenMutation) AgentCleared() bool {
+	return m.clearedagent
+}
+
+// AgentIDs returns the "agent" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentID instead. It exists only for internal usage by the builders.
+func (m *AgentTokenMutation) AgentIDs() (ids []uuid.UUID) {
+	if id := m.agent; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgent resets all changes to the "agent" edge.
+func (m *AgentTokenMutation) ResetAgent() {
+	m.agent = nil
+	m.clearedagent = false
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *AgentTokenMutation) ClearProject() {
+	m.clearedproject = true
+	m.clearedFields[agenttoken.FieldProjectID] = struct{}{}
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *AgentTokenMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *AgentTokenMutation) ProjectIDs() (ids []uuid.UUID) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *AgentTokenMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// ClearTicket clears the "ticket" edge to the Ticket entity.
+func (m *AgentTokenMutation) ClearTicket() {
+	m.clearedticket = true
+	m.clearedFields[agenttoken.FieldTicketID] = struct{}{}
+}
+
+// TicketCleared reports if the "ticket" edge to the Ticket entity was cleared.
+func (m *AgentTokenMutation) TicketCleared() bool {
+	return m.clearedticket
+}
+
+// TicketIDs returns the "ticket" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TicketID instead. It exists only for internal usage by the builders.
+func (m *AgentTokenMutation) TicketIDs() (ids []uuid.UUID) {
+	if id := m.ticket; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTicket resets all changes to the "ticket" edge.
+func (m *AgentTokenMutation) ResetTicket() {
+	m.ticket = nil
+	m.clearedticket = false
+}
+
+// Where appends a list predicates to the AgentTokenMutation builder.
+func (m *AgentTokenMutation) Where(ps ...predicate.AgentToken) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AgentTokenMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AgentTokenMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AgentToken, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AgentTokenMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AgentTokenMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AgentToken).
+func (m *AgentTokenMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AgentTokenMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.agent != nil {
+		fields = append(fields, agenttoken.FieldAgentID)
+	}
+	if m.project != nil {
+		fields = append(fields, agenttoken.FieldProjectID)
+	}
+	if m.ticket != nil {
+		fields = append(fields, agenttoken.FieldTicketID)
+	}
+	if m.token_hash != nil {
+		fields = append(fields, agenttoken.FieldTokenHash)
+	}
+	if m.scopes != nil {
+		fields = append(fields, agenttoken.FieldScopes)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, agenttoken.FieldExpiresAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, agenttoken.FieldCreatedAt)
+	}
+	if m.last_used_at != nil {
+		fields = append(fields, agenttoken.FieldLastUsedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AgentTokenMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case agenttoken.FieldAgentID:
+		return m.AgentID()
+	case agenttoken.FieldProjectID:
+		return m.ProjectID()
+	case agenttoken.FieldTicketID:
+		return m.TicketID()
+	case agenttoken.FieldTokenHash:
+		return m.TokenHash()
+	case agenttoken.FieldScopes:
+		return m.Scopes()
+	case agenttoken.FieldExpiresAt:
+		return m.ExpiresAt()
+	case agenttoken.FieldCreatedAt:
+		return m.CreatedAt()
+	case agenttoken.FieldLastUsedAt:
+		return m.LastUsedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AgentTokenMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case agenttoken.FieldAgentID:
+		return m.OldAgentID(ctx)
+	case agenttoken.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case agenttoken.FieldTicketID:
+		return m.OldTicketID(ctx)
+	case agenttoken.FieldTokenHash:
+		return m.OldTokenHash(ctx)
+	case agenttoken.FieldScopes:
+		return m.OldScopes(ctx)
+	case agenttoken.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case agenttoken.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case agenttoken.FieldLastUsedAt:
+		return m.OldLastUsedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AgentToken field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentTokenMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case agenttoken.FieldAgentID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentID(v)
+		return nil
+	case agenttoken.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case agenttoken.FieldTicketID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTicketID(v)
+		return nil
+	case agenttoken.FieldTokenHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenHash(v)
+		return nil
+	case agenttoken.FieldScopes:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScopes(v)
+		return nil
+	case agenttoken.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case agenttoken.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case agenttoken.FieldLastUsedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastUsedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AgentToken field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AgentTokenMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AgentTokenMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentTokenMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown AgentToken numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AgentTokenMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(agenttoken.FieldLastUsedAt) {
+		fields = append(fields, agenttoken.FieldLastUsedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AgentTokenMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AgentTokenMutation) ClearField(name string) error {
+	switch name {
+	case agenttoken.FieldLastUsedAt:
+		m.ClearLastUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentToken nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AgentTokenMutation) ResetField(name string) error {
+	switch name {
+	case agenttoken.FieldAgentID:
+		m.ResetAgentID()
+		return nil
+	case agenttoken.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case agenttoken.FieldTicketID:
+		m.ResetTicketID()
+		return nil
+	case agenttoken.FieldTokenHash:
+		m.ResetTokenHash()
+		return nil
+	case agenttoken.FieldScopes:
+		m.ResetScopes()
+		return nil
+	case agenttoken.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case agenttoken.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case agenttoken.FieldLastUsedAt:
+		m.ResetLastUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentToken field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AgentTokenMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.agent != nil {
+		edges = append(edges, agenttoken.EdgeAgent)
+	}
+	if m.project != nil {
+		edges = append(edges, agenttoken.EdgeProject)
+	}
+	if m.ticket != nil {
+		edges = append(edges, agenttoken.EdgeTicket)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AgentTokenMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case agenttoken.EdgeAgent:
+		if id := m.agent; id != nil {
+			return []ent.Value{*id}
+		}
+	case agenttoken.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case agenttoken.EdgeTicket:
+		if id := m.ticket; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AgentTokenMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AgentTokenMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AgentTokenMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedagent {
+		edges = append(edges, agenttoken.EdgeAgent)
+	}
+	if m.clearedproject {
+		edges = append(edges, agenttoken.EdgeProject)
+	}
+	if m.clearedticket {
+		edges = append(edges, agenttoken.EdgeTicket)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AgentTokenMutation) EdgeCleared(name string) bool {
+	switch name {
+	case agenttoken.EdgeAgent:
+		return m.clearedagent
+	case agenttoken.EdgeProject:
+		return m.clearedproject
+	case agenttoken.EdgeTicket:
+		return m.clearedticket
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AgentTokenMutation) ClearEdge(name string) error {
+	switch name {
+	case agenttoken.EdgeAgent:
+		m.ClearAgent()
+		return nil
+	case agenttoken.EdgeProject:
+		m.ClearProject()
+		return nil
+	case agenttoken.EdgeTicket:
+		m.ClearTicket()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentToken unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AgentTokenMutation) ResetEdge(name string) error {
+	switch name {
+	case agenttoken.EdgeAgent:
+		m.ResetAgent()
+		return nil
+	case agenttoken.EdgeProject:
+		m.ResetProject()
+		return nil
+	case agenttoken.EdgeTicket:
+		m.ResetTicket()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentToken edge %s", name)
 }
 
 // ApprovalGateMutation represents an operation that mutates the ApprovalGate nodes in the graph.
@@ -5009,6 +5988,9 @@ type ProjectMutation struct {
 	agents                        map[uuid.UUID]struct{}
 	removedagents                 map[uuid.UUID]struct{}
 	clearedagents                 bool
+	agent_tokens                  map[uuid.UUID]struct{}
+	removedagent_tokens           map[uuid.UUID]struct{}
+	clearedagent_tokens           bool
 	scheduled_jobs                map[uuid.UUID]struct{}
 	removedscheduled_jobs         map[uuid.UUID]struct{}
 	clearedscheduled_jobs         bool
@@ -5772,6 +6754,60 @@ func (m *ProjectMutation) ResetAgents() {
 	m.removedagents = nil
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by ids.
+func (m *ProjectMutation) AddAgentTokenIDs(ids ...uuid.UUID) {
+	if m.agent_tokens == nil {
+		m.agent_tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentTokens clears the "agent_tokens" edge to the AgentToken entity.
+func (m *ProjectMutation) ClearAgentTokens() {
+	m.clearedagent_tokens = true
+}
+
+// AgentTokensCleared reports if the "agent_tokens" edge to the AgentToken entity was cleared.
+func (m *ProjectMutation) AgentTokensCleared() bool {
+	return m.clearedagent_tokens
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to the AgentToken entity by IDs.
+func (m *ProjectMutation) RemoveAgentTokenIDs(ids ...uuid.UUID) {
+	if m.removedagent_tokens == nil {
+		m.removedagent_tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_tokens, ids[i])
+		m.removedagent_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentTokens returns the removed IDs of the "agent_tokens" edge to the AgentToken entity.
+func (m *ProjectMutation) RemovedAgentTokensIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentTokensIDs returns the "agent_tokens" edge IDs in the mutation.
+func (m *ProjectMutation) AgentTokensIDs() (ids []uuid.UUID) {
+	for id := range m.agent_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentTokens resets all changes to the "agent_tokens" edge.
+func (m *ProjectMutation) ResetAgentTokens() {
+	m.agent_tokens = nil
+	m.clearedagent_tokens = false
+	m.removedagent_tokens = nil
+}
+
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by ids.
 func (m *ProjectMutation) AddScheduledJobIDs(ids ...uuid.UUID) {
 	if m.scheduled_jobs == nil {
@@ -6222,7 +7258,7 @@ func (m *ProjectMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.organization != nil {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -6240,6 +7276,9 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.agents != nil {
 		edges = append(edges, project.EdgeAgents)
+	}
+	if m.agent_tokens != nil {
+		edges = append(edges, project.EdgeAgentTokens)
 	}
 	if m.scheduled_jobs != nil {
 		edges = append(edges, project.EdgeScheduledJobs)
@@ -6294,6 +7333,12 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeAgentTokens:
+		ids := make([]ent.Value, 0, len(m.agent_tokens))
+		for id := range m.agent_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeScheduledJobs:
 		ids := make([]ent.Value, 0, len(m.scheduled_jobs))
 		for id := range m.scheduled_jobs {
@@ -6320,7 +7365,7 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.removedrepos != nil {
 		edges = append(edges, project.EdgeRepos)
 	}
@@ -6335,6 +7380,9 @@ func (m *ProjectMutation) RemovedEdges() []string {
 	}
 	if m.removedagents != nil {
 		edges = append(edges, project.EdgeAgents)
+	}
+	if m.removedagent_tokens != nil {
+		edges = append(edges, project.EdgeAgentTokens)
 	}
 	if m.removedscheduled_jobs != nil {
 		edges = append(edges, project.EdgeScheduledJobs)
@@ -6379,6 +7427,12 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeAgentTokens:
+		ids := make([]ent.Value, 0, len(m.removedagent_tokens))
+		for id := range m.removedagent_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeScheduledJobs:
 		ids := make([]ent.Value, 0, len(m.removedscheduled_jobs))
 		for id := range m.removedscheduled_jobs {
@@ -6397,7 +7451,7 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.clearedorganization {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -6415,6 +7469,9 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	}
 	if m.clearedagents {
 		edges = append(edges, project.EdgeAgents)
+	}
+	if m.clearedagent_tokens {
+		edges = append(edges, project.EdgeAgentTokens)
 	}
 	if m.clearedscheduled_jobs {
 		edges = append(edges, project.EdgeScheduledJobs)
@@ -6447,6 +7504,8 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedtickets
 	case project.EdgeAgents:
 		return m.clearedagents
+	case project.EdgeAgentTokens:
+		return m.clearedagent_tokens
 	case project.EdgeScheduledJobs:
 		return m.clearedscheduled_jobs
 	case project.EdgeActivityEvents:
@@ -6497,6 +7556,9 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeAgents:
 		m.ResetAgents()
+		return nil
+	case project.EdgeAgentTokens:
+		m.ResetAgentTokens()
 		return nil
 	case project.EdgeScheduledJobs:
 		m.ResetScheduledJobs()
@@ -8276,6 +9338,9 @@ type TicketMutation struct {
 	external_links               map[uuid.UUID]struct{}
 	removedexternal_links        map[uuid.UUID]struct{}
 	clearedexternal_links        bool
+	agent_tokens                 map[uuid.UUID]struct{}
+	removedagent_tokens          map[uuid.UUID]struct{}
+	clearedagent_tokens          bool
 	approval_gates               map[uuid.UUID]struct{}
 	removedapproval_gates        map[uuid.UUID]struct{}
 	clearedapproval_gates        bool
@@ -10041,6 +11106,60 @@ func (m *TicketMutation) ResetExternalLinks() {
 	m.removedexternal_links = nil
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by ids.
+func (m *TicketMutation) AddAgentTokenIDs(ids ...uuid.UUID) {
+	if m.agent_tokens == nil {
+		m.agent_tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentTokens clears the "agent_tokens" edge to the AgentToken entity.
+func (m *TicketMutation) ClearAgentTokens() {
+	m.clearedagent_tokens = true
+}
+
+// AgentTokensCleared reports if the "agent_tokens" edge to the AgentToken entity was cleared.
+func (m *TicketMutation) AgentTokensCleared() bool {
+	return m.clearedagent_tokens
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to the AgentToken entity by IDs.
+func (m *TicketMutation) RemoveAgentTokenIDs(ids ...uuid.UUID) {
+	if m.removedagent_tokens == nil {
+		m.removedagent_tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_tokens, ids[i])
+		m.removedagent_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentTokens returns the removed IDs of the "agent_tokens" edge to the AgentToken entity.
+func (m *TicketMutation) RemovedAgentTokensIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentTokensIDs returns the "agent_tokens" edge IDs in the mutation.
+func (m *TicketMutation) AgentTokensIDs() (ids []uuid.UUID) {
+	for id := range m.agent_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentTokens resets all changes to the "agent_tokens" edge.
+func (m *TicketMutation) ResetAgentTokens() {
+	m.agent_tokens = nil
+	m.clearedagent_tokens = false
+	m.removedagent_tokens = nil
+}
+
 // AddApprovalGateIDs adds the "approval_gates" edge to the ApprovalGate entity by ids.
 func (m *TicketMutation) AddApprovalGateIDs(ids ...uuid.UUID) {
 	if m.approval_gates == nil {
@@ -11028,7 +12147,7 @@ func (m *TicketMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TicketMutation) AddedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.project != nil {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -11052,6 +12171,9 @@ func (m *TicketMutation) AddedEdges() []string {
 	}
 	if m.external_links != nil {
 		edges = append(edges, ticket.EdgeExternalLinks)
+	}
+	if m.agent_tokens != nil {
+		edges = append(edges, ticket.EdgeAgentTokens)
 	}
 	if m.approval_gates != nil {
 		edges = append(edges, ticket.EdgeApprovalGates)
@@ -11110,6 +12232,12 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case ticket.EdgeAgentTokens:
+		ids := make([]ent.Value, 0, len(m.agent_tokens))
+		for id := range m.agent_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case ticket.EdgeApprovalGates:
 		ids := make([]ent.Value, 0, len(m.approval_gates))
 		for id := range m.approval_gates {
@@ -11140,7 +12268,7 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TicketMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.removedchildren != nil {
 		edges = append(edges, ticket.EdgeChildren)
 	}
@@ -11149,6 +12277,9 @@ func (m *TicketMutation) RemovedEdges() []string {
 	}
 	if m.removedexternal_links != nil {
 		edges = append(edges, ticket.EdgeExternalLinks)
+	}
+	if m.removedagent_tokens != nil {
+		edges = append(edges, ticket.EdgeAgentTokens)
 	}
 	if m.removedapproval_gates != nil {
 		edges = append(edges, ticket.EdgeApprovalGates)
@@ -11187,6 +12318,12 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case ticket.EdgeAgentTokens:
+		ids := make([]ent.Value, 0, len(m.removedagent_tokens))
+		for id := range m.removedagent_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case ticket.EdgeApprovalGates:
 		ids := make([]ent.Value, 0, len(m.removedapproval_gates))
 		for id := range m.removedapproval_gates {
@@ -11217,7 +12354,7 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TicketMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.clearedproject {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -11241,6 +12378,9 @@ func (m *TicketMutation) ClearedEdges() []string {
 	}
 	if m.clearedexternal_links {
 		edges = append(edges, ticket.EdgeExternalLinks)
+	}
+	if m.clearedagent_tokens {
+		edges = append(edges, ticket.EdgeAgentTokens)
 	}
 	if m.clearedapproval_gates {
 		edges = append(edges, ticket.EdgeApprovalGates)
@@ -11277,6 +12417,8 @@ func (m *TicketMutation) EdgeCleared(name string) bool {
 		return m.clearedrepo_scopes
 	case ticket.EdgeExternalLinks:
 		return m.clearedexternal_links
+	case ticket.EdgeAgentTokens:
+		return m.clearedagent_tokens
 	case ticket.EdgeApprovalGates:
 		return m.clearedapproval_gates
 	case ticket.EdgeActivityEvents:
@@ -11339,6 +12481,9 @@ func (m *TicketMutation) ResetEdge(name string) error {
 		return nil
 	case ticket.EdgeExternalLinks:
 		m.ResetExternalLinks()
+		return nil
+	case ticket.EdgeAgentTokens:
+		m.ResetAgentTokens()
 		return nil
 	case ticket.EdgeApprovalGates:
 		m.ResetApprovalGates()

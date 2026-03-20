@@ -43,6 +43,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("workflows", Workflow.Type),
 		edge.To("tickets", Ticket.Type),
 		edge.To("agents", Agent.Type),
+		edge.To("agent_tokens", AgentToken.Type),
 		edge.To("scheduled_jobs", ScheduledJob.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 		edge.To("default_workflow", Workflow.Type).

@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -260,6 +261,21 @@ func (_u *AgentUpdate) AddAssignedTickets(v ...*Ticket) *AgentUpdate {
 	return _u.AddAssignedTicketIDs(ids...)
 }
 
+// AddTokenIDs adds the "tokens" edge to the AgentToken entity by IDs.
+func (_u *AgentUpdate) AddTokenIDs(ids ...uuid.UUID) *AgentUpdate {
+	_u.mutation.AddTokenIDs(ids...)
+	return _u
+}
+
+// AddTokens adds the "tokens" edges to the AgentToken entity.
+func (_u *AgentUpdate) AddTokens(v ...*AgentToken) *AgentUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTokenIDs(ids...)
+}
+
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by IDs.
 func (_u *AgentUpdate) AddActivityEventIDs(ids ...uuid.UUID) *AgentUpdate {
 	_u.mutation.AddActivityEventIDs(ids...)
@@ -317,6 +333,27 @@ func (_u *AgentUpdate) RemoveAssignedTickets(v ...*Ticket) *AgentUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAssignedTicketIDs(ids...)
+}
+
+// ClearTokens clears all "tokens" edges to the AgentToken entity.
+func (_u *AgentUpdate) ClearTokens() *AgentUpdate {
+	_u.mutation.ClearTokens()
+	return _u
+}
+
+// RemoveTokenIDs removes the "tokens" edge to AgentToken entities by IDs.
+func (_u *AgentUpdate) RemoveTokenIDs(ids ...uuid.UUID) *AgentUpdate {
+	_u.mutation.RemoveTokenIDs(ids...)
+	return _u
+}
+
+// RemoveTokens removes "tokens" edges to AgentToken entities.
+func (_u *AgentUpdate) RemoveTokens(v ...*AgentToken) *AgentUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTokenIDs(ids...)
 }
 
 // ClearActivityEvents clears all "activity_events" edges to the ActivityEvent entity.
@@ -572,6 +609,51 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.TokensTable,
+			Columns: []string{agent.TokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTokensIDs(); len(nodes) > 0 && !_u.mutation.TokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.TokensTable,
+			Columns: []string{agent.TokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.TokensTable,
+			Columns: []string{agent.TokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -870,6 +952,21 @@ func (_u *AgentUpdateOne) AddAssignedTickets(v ...*Ticket) *AgentUpdateOne {
 	return _u.AddAssignedTicketIDs(ids...)
 }
 
+// AddTokenIDs adds the "tokens" edge to the AgentToken entity by IDs.
+func (_u *AgentUpdateOne) AddTokenIDs(ids ...uuid.UUID) *AgentUpdateOne {
+	_u.mutation.AddTokenIDs(ids...)
+	return _u
+}
+
+// AddTokens adds the "tokens" edges to the AgentToken entity.
+func (_u *AgentUpdateOne) AddTokens(v ...*AgentToken) *AgentUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTokenIDs(ids...)
+}
+
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by IDs.
 func (_u *AgentUpdateOne) AddActivityEventIDs(ids ...uuid.UUID) *AgentUpdateOne {
 	_u.mutation.AddActivityEventIDs(ids...)
@@ -927,6 +1024,27 @@ func (_u *AgentUpdateOne) RemoveAssignedTickets(v ...*Ticket) *AgentUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAssignedTicketIDs(ids...)
+}
+
+// ClearTokens clears all "tokens" edges to the AgentToken entity.
+func (_u *AgentUpdateOne) ClearTokens() *AgentUpdateOne {
+	_u.mutation.ClearTokens()
+	return _u
+}
+
+// RemoveTokenIDs removes the "tokens" edge to AgentToken entities by IDs.
+func (_u *AgentUpdateOne) RemoveTokenIDs(ids ...uuid.UUID) *AgentUpdateOne {
+	_u.mutation.RemoveTokenIDs(ids...)
+	return _u
+}
+
+// RemoveTokens removes "tokens" edges to AgentToken entities.
+func (_u *AgentUpdateOne) RemoveTokens(v ...*AgentToken) *AgentUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTokenIDs(ids...)
 }
 
 // ClearActivityEvents clears all "activity_events" edges to the ActivityEvent entity.
@@ -1212,6 +1330,51 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.TokensTable,
+			Columns: []string{agent.TokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTokensIDs(); len(nodes) > 0 && !_u.mutation.TokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.TokensTable,
+			Columns: []string{agent.TokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.TokensTable,
+			Columns: []string{agent.TokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

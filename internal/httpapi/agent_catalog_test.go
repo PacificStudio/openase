@@ -26,6 +26,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		nil,
+		nil,
 		newFakeCatalogService(),
 		nil,
 	)
@@ -132,6 +133,7 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
+		nil,
 		nil,
 		nil,
 		newFakeCatalogService(),

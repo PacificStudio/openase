@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -31,6 +32,7 @@ type Server struct {
 	sseHub              *sse.Hub
 	ticketService       *ticketservice.Service
 	ticketStatusService *ticketstatus.Service
+	agentPlatform       *agentplatform.Service
 	catalog             catalogservice.Service
 	workflowService     *workflowservice.Service
 }
@@ -42,6 +44,7 @@ func NewServer(
 	events provider.EventProvider,
 	ticketService *ticketservice.Service,
 	ticketStatusService *ticketstatus.Service,
+	agentPlatform *agentplatform.Service,
 	catalog catalogservice.Service,
 	workflowService *workflowservice.Service,
 ) *Server {
@@ -80,6 +83,7 @@ func NewServer(
 		sseHub:              sse.NewHub(events, logger),
 		ticketService:       ticketService,
 		ticketStatusService: ticketStatusService,
+		agentPlatform:       agentPlatform,
 		catalog:             catalog,
 		workflowService:     workflowService,
 	}
@@ -153,6 +157,9 @@ func (s *Server) registerRoutes() {
 	api.GET("/projects/:projectId/agents/stream", s.handleAgentStream)
 	api.GET("/projects/:projectId/hooks/stream", s.handleHookStream)
 	api.GET("/projects/:projectId/activity/stream", s.handleActivityStream)
+	if s.agentPlatform != nil {
+		s.registerAgentPlatformRoutes(api.Group("/platform", s.authenticateAgentToken))
+	}
 	if s.catalog != nil {
 		s.registerCatalogRoutes(api)
 	}

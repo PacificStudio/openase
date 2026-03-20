@@ -105,6 +105,8 @@ type TicketEdges struct {
 	RepoScopes []*TicketRepoScope `json:"repo_scopes,omitempty"`
 	// ExternalLinks holds the value of the external_links edge.
 	ExternalLinks []*TicketExternalLink `json:"external_links,omitempty"`
+	// AgentTokens holds the value of the agent_tokens edge.
+	AgentTokens []*AgentToken `json:"agent_tokens,omitempty"`
 	// ApprovalGates holds the value of the approval_gates edge.
 	ApprovalGates []*ApprovalGate `json:"approval_gates,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
@@ -115,7 +117,7 @@ type TicketEdges struct {
 	IncomingDependencies []*TicketDependency `json:"incoming_dependencies,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [12]bool
+	loadedTypes [13]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -200,10 +202,19 @@ func (e TicketEdges) ExternalLinksOrErr() ([]*TicketExternalLink, error) {
 	return nil, &NotLoadedError{edge: "external_links"}
 }
 
+// AgentTokensOrErr returns the AgentTokens value or an error if the edge
+// was not loaded in eager-loading.
+func (e TicketEdges) AgentTokensOrErr() ([]*AgentToken, error) {
+	if e.loadedTypes[8] {
+		return e.AgentTokens, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_tokens"}
+}
+
 // ApprovalGatesOrErr returns the ApprovalGates value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) ApprovalGatesOrErr() ([]*ApprovalGate, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.ApprovalGates, nil
 	}
 	return nil, &NotLoadedError{edge: "approval_gates"}
@@ -212,7 +223,7 @@ func (e TicketEdges) ApprovalGatesOrErr() ([]*ApprovalGate, error) {
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -221,7 +232,7 @@ func (e TicketEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
 // OutgoingDependenciesOrErr returns the OutgoingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.OutgoingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "outgoing_dependencies"}
@@ -230,7 +241,7 @@ func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
 // IncomingDependenciesOrErr returns the IncomingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) IncomingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.IncomingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "incoming_dependencies"}
@@ -511,6 +522,11 @@ func (_m *Ticket) QueryRepoScopes() *TicketRepoScopeQuery {
 // QueryExternalLinks queries the "external_links" edge of the Ticket entity.
 func (_m *Ticket) QueryExternalLinks() *TicketExternalLinkQuery {
 	return NewTicketClient(_m.config).QueryExternalLinks(_m)
+}
+
+// QueryAgentTokens queries the "agent_tokens" edge of the Ticket entity.
+func (_m *Ticket) QueryAgentTokens() *AgentTokenQuery {
+	return NewTicketClient(_m.config).QueryAgentTokens(_m)
 }
 
 // QueryApprovalGates queries the "approval_gates" edge of the Ticket entity.

@@ -18,6 +18,8 @@ type Tx struct {
 	Agent *AgentClient
 	// AgentProvider is the client for interacting with the AgentProvider builders.
 	AgentProvider *AgentProviderClient
+	// AgentToken is the client for interacting with the AgentToken builders.
+	AgentToken *AgentTokenClient
 	// ApprovalGate is the client for interacting with the ApprovalGate builders.
 	ApprovalGate *ApprovalGateClient
 	// Organization is the client for interacting with the Organization builders.
@@ -174,6 +176,7 @@ func (tx *Tx) init() {
 	tx.ActivityEvent = NewActivityEventClient(tx.config)
 	tx.Agent = NewAgentClient(tx.config)
 	tx.AgentProvider = NewAgentProviderClient(tx.config)
+	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.ApprovalGate = NewApprovalGateClient(tx.config)
 	tx.Organization = NewOrganizationClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)

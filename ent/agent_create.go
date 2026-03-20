@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/google/uuid"
@@ -189,6 +190,21 @@ func (_c *AgentCreate) AddAssignedTickets(v ...*Ticket) *AgentCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddAssignedTicketIDs(ids...)
+}
+
+// AddTokenIDs adds the "tokens" edge to the AgentToken entity by IDs.
+func (_c *AgentCreate) AddTokenIDs(ids ...uuid.UUID) *AgentCreate {
+	_c.mutation.AddTokenIDs(ids...)
+	return _c
+}
+
+// AddTokens adds the "tokens" edges to the AgentToken entity.
+func (_c *AgentCreate) AddTokens(v ...*AgentToken) *AgentCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddTokenIDs(ids...)
 }
 
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by IDs.
@@ -422,6 +438,22 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.TokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.TokensTable,
+			Columns: []string{agent.TokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

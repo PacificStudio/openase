@@ -56,6 +56,8 @@ type ProjectEdges struct {
 	Tickets []*Ticket `json:"tickets,omitempty"`
 	// Agents holds the value of the agents edge.
 	Agents []*Agent `json:"agents,omitempty"`
+	// AgentTokens holds the value of the agent_tokens edge.
+	AgentTokens []*AgentToken `json:"agent_tokens,omitempty"`
 	// ScheduledJobs holds the value of the scheduled_jobs edge.
 	ScheduledJobs []*ScheduledJob `json:"scheduled_jobs,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
@@ -66,7 +68,7 @@ type ProjectEdges struct {
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [10]bool
+	loadedTypes [11]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -125,10 +127,19 @@ func (e ProjectEdges) AgentsOrErr() ([]*Agent, error) {
 	return nil, &NotLoadedError{edge: "agents"}
 }
 
+// AgentTokensOrErr returns the AgentTokens value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) AgentTokensOrErr() ([]*AgentToken, error) {
+	if e.loadedTypes[6] {
+		return e.AgentTokens, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_tokens"}
+}
+
 // ScheduledJobsOrErr returns the ScheduledJobs value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.ScheduledJobs, nil
 	}
 	return nil, &NotLoadedError{edge: "scheduled_jobs"}
@@ -137,7 +148,7 @@ func (e ProjectEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -148,7 +159,7 @@ func (e ProjectEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
 func (e ProjectEdges) DefaultWorkflowOrErr() (*Workflow, error) {
 	if e.DefaultWorkflow != nil {
 		return e.DefaultWorkflow, nil
-	} else if e.loadedTypes[8] {
+	} else if e.loadedTypes[9] {
 		return nil, &NotFoundError{label: workflow.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_workflow"}
@@ -159,7 +170,7 @@ func (e ProjectEdges) DefaultWorkflowOrErr() (*Workflow, error) {
 func (e ProjectEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[9] {
+	} else if e.loadedTypes[10] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -290,6 +301,11 @@ func (_m *Project) QueryTickets() *TicketQuery {
 // QueryAgents queries the "agents" edge of the Project entity.
 func (_m *Project) QueryAgents() *AgentQuery {
 	return NewProjectClient(_m.config).QueryAgents(_m)
+}
+
+// QueryAgentTokens queries the "agent_tokens" edge of the Project entity.
+func (_m *Project) QueryAgentTokens() *AgentTokenQuery {
+	return NewProjectClient(_m.config).QueryAgentTokens(_m)
 }
 
 // QueryScheduledJobs queries the "scheduled_jobs" edge of the Project entity.

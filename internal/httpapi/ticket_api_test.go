@@ -33,6 +33,7 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		ticketstatus.NewService(client),
 		nil,
 		nil,
+		nil,
 	)
 
 	ctx := context.Background()
@@ -307,6 +308,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
+		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
 		nil,
 	)
@@ -451,6 +453,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		ticketstatus.NewService(client),
 		nil,
 		nil,
+		nil,
 	)
 
 	ctx := context.Background()
@@ -585,6 +588,7 @@ func TestTicketRoutesPublishSSEEvents(t *testing.T) {
 		ticketstatus.NewService(client),
 		nil,
 		nil,
+		nil,
 	)
 	testServer := httptest.NewServer(server.Handler())
 	defer testServer.Close()
@@ -669,6 +673,7 @@ func TestTicketBudgetUpdatesSyncBudgetExhaustedPauseState(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
+		nil,
 		nil,
 		nil,
 	)

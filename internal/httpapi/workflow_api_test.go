@@ -48,6 +48,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		nil,
 		ticketstatus.NewService(client),
 		nil,
+		nil,
 		workflowSvc,
 	)
 
@@ -289,6 +290,7 @@ func TestValidateHarnessRoute(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	validRec := performJSONRequest(
@@ -361,6 +363,7 @@ func TestHarnessVariablesRoute(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
+		nil,
 		nil,
 		nil,
 		nil,

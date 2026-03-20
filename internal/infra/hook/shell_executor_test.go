@@ -76,9 +76,11 @@ func TestShellExecutorInjectsEnvironmentAndResolvesRelativeWorkdir(t *testing.T)
 	}
 
 	executor := NewShellExecutor()
+	projectID := uuid.New()
 	ticketID := uuid.New()
 	env := Env{
 		TicketID:         ticketID,
+		ProjectID:        projectID,
 		TicketIdentifier: "ASE-15",
 		Workspace:        workspace,
 		Repos: []Repo{
@@ -87,6 +89,8 @@ func TestShellExecutorInjectsEnvironmentAndResolvesRelativeWorkdir(t *testing.T)
 		AgentName:    "codex-01",
 		WorkflowType: "coding",
 		Attempt:      2,
+		APIURL:       "http://localhost:19836/api/v1/platform",
+		AgentToken:   "ase_agent_token",
 	}
 
 	results, err := executor.RunAll(context.Background(), TicketHookOnComplete, []Definition{
@@ -99,7 +103,10 @@ printf '%s' "$OPENASE_AGENT_NAME" > agent.txt
 printf '%s' "$OPENASE_WORKFLOW_TYPE" > workflow_type.txt
 printf '%s' "$OPENASE_ATTEMPT" > attempt.txt
 printf '%s' "$OPENASE_HOOK_NAME" > hook_name.txt
-printf '%s' "$OPENASE_REPOS" > repos.json`,
+printf '%s' "$OPENASE_REPOS" > repos.json
+printf '%s' "$OPENASE_PROJECT_ID" > project_id.txt
+printf '%s' "$OPENASE_API_URL" > api_url.txt
+printf '%s' "$OPENASE_AGENT_TOKEN" > agent_token.txt`,
 			Workdir: "frontend",
 		},
 	}, env)
@@ -126,6 +133,9 @@ printf '%s' "$OPENASE_REPOS" > repos.json`,
 	assertFileContent(t, filepath.Join(frontendDir, "workflow_type.txt"), "coding")
 	assertFileContent(t, filepath.Join(frontendDir, "attempt.txt"), "2")
 	assertFileContent(t, filepath.Join(frontendDir, "hook_name.txt"), "on_complete")
+	assertFileContent(t, filepath.Join(frontendDir, "project_id.txt"), projectID.String())
+	assertFileContent(t, filepath.Join(frontendDir, "api_url.txt"), "http://localhost:19836/api/v1/platform")
+	assertFileContent(t, filepath.Join(frontendDir, "agent_token.txt"), "ase_agent_token")
 
 	var repos []Repo
 	reposRaw, err := os.ReadFile(filepath.Join(frontendDir, "repos.json"))

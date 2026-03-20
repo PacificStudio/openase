@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -254,6 +255,21 @@ func (_u *ProjectUpdate) AddAgents(v ...*Agent) *ProjectUpdate {
 	return _u.AddAgentIDs(ids...)
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_u *ProjectUpdate) AddAgentTokenIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddAgentTokenIDs(ids...)
+	return _u
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_u *ProjectUpdate) AddAgentTokens(v ...*AgentToken) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTokenIDs(ids...)
+}
+
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by IDs.
 func (_u *ProjectUpdate) AddScheduledJobIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddScheduledJobIDs(ids...)
@@ -408,6 +424,27 @@ func (_u *ProjectUpdate) RemoveAgents(v ...*Agent) *ProjectUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentIDs(ids...)
+}
+
+// ClearAgentTokens clears all "agent_tokens" edges to the AgentToken entity.
+func (_u *ProjectUpdate) ClearAgentTokens() *ProjectUpdate {
+	_u.mutation.ClearAgentTokens()
+	return _u
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to AgentToken entities by IDs.
+func (_u *ProjectUpdate) RemoveAgentTokenIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveAgentTokenIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTokens removes "agent_tokens" edges to AgentToken entities.
+func (_u *ProjectUpdate) RemoveAgentTokens(v ...*AgentToken) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTokenIDs(ids...)
 }
 
 // ClearScheduledJobs clears all "scheduled_jobs" edges to the ScheduledJob entity.
@@ -801,6 +838,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTokensTable,
+			Columns: []string{project.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTokensIDs(); len(nodes) > 0 && !_u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTokensTable,
+			Columns: []string{project.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTokensTable,
+			Columns: []string{project.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.ScheduledJobsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1186,6 +1268,21 @@ func (_u *ProjectUpdateOne) AddAgents(v ...*Agent) *ProjectUpdateOne {
 	return _u.AddAgentIDs(ids...)
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_u *ProjectUpdateOne) AddAgentTokenIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddAgentTokenIDs(ids...)
+	return _u
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_u *ProjectUpdateOne) AddAgentTokens(v ...*AgentToken) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTokenIDs(ids...)
+}
+
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by IDs.
 func (_u *ProjectUpdateOne) AddScheduledJobIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddScheduledJobIDs(ids...)
@@ -1340,6 +1437,27 @@ func (_u *ProjectUpdateOne) RemoveAgents(v ...*Agent) *ProjectUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentIDs(ids...)
+}
+
+// ClearAgentTokens clears all "agent_tokens" edges to the AgentToken entity.
+func (_u *ProjectUpdateOne) ClearAgentTokens() *ProjectUpdateOne {
+	_u.mutation.ClearAgentTokens()
+	return _u
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to AgentToken entities by IDs.
+func (_u *ProjectUpdateOne) RemoveAgentTokenIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveAgentTokenIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTokens removes "agent_tokens" edges to AgentToken entities.
+func (_u *ProjectUpdateOne) RemoveAgentTokens(v ...*AgentToken) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTokenIDs(ids...)
 }
 
 // ClearScheduledJobs clears all "scheduled_jobs" edges to the ScheduledJob entity.
@@ -1756,6 +1874,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTokensTable,
+			Columns: []string{project.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTokensIDs(); len(nodes) > 0 && !_u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTokensTable,
+			Columns: []string{project.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTokensTable,
+			Columns: []string{project.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

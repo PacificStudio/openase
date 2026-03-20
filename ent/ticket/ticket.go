@@ -90,6 +90,8 @@ const (
 	EdgeRepoScopes = "repo_scopes"
 	// EdgeExternalLinks holds the string denoting the external_links edge name in mutations.
 	EdgeExternalLinks = "external_links"
+	// EdgeAgentTokens holds the string denoting the agent_tokens edge name in mutations.
+	EdgeAgentTokens = "agent_tokens"
 	// EdgeApprovalGates holds the string denoting the approval_gates edge name in mutations.
 	EdgeApprovalGates = "approval_gates"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
@@ -150,6 +152,13 @@ const (
 	ExternalLinksInverseTable = "ticket_external_links"
 	// ExternalLinksColumn is the table column denoting the external_links relation/edge.
 	ExternalLinksColumn = "ticket_id"
+	// AgentTokensTable is the table that holds the agent_tokens relation/edge.
+	AgentTokensTable = "agent_tokens"
+	// AgentTokensInverseTable is the table name for the AgentToken entity.
+	// It exists in this package in order to avoid circular dependency with the "agenttoken" package.
+	AgentTokensInverseTable = "agent_tokens"
+	// AgentTokensColumn is the table column denoting the agent_tokens relation/edge.
+	AgentTokensColumn = "ticket_id"
 	// ApprovalGatesTable is the table that holds the approval_gates relation/edge.
 	ApprovalGatesTable = "approval_gates"
 	// ApprovalGatesInverseTable is the table name for the ApprovalGate entity.
@@ -541,6 +550,20 @@ func ByExternalLinks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAgentTokensCount orders the results by agent_tokens count.
+func ByAgentTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentTokensStep(), opts...)
+	}
+}
+
+// ByAgentTokens orders the results by agent_tokens terms.
+func ByAgentTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByApprovalGatesCount orders the results by approval_gates count.
 func ByApprovalGatesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -650,6 +673,13 @@ func newExternalLinksStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ExternalLinksInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ExternalLinksTable, ExternalLinksColumn),
+	)
+}
+func newAgentTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentTokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentTokensTable, AgentTokensColumn),
 	)
 }
 func newApprovalGatesStep() *sqlgraph.Step {

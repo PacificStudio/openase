@@ -66,12 +66,15 @@ type Repo struct {
 
 type Env struct {
 	TicketID         uuid.UUID
+	ProjectID        uuid.UUID
 	TicketIdentifier string
 	Workspace        string
 	Repos            []Repo
 	AgentName        string
 	WorkflowType     string
 	Attempt          int
+	APIURL           string
+	AgentToken       string
 }
 
 type Result struct {

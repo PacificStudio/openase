@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -32,6 +33,7 @@ type AgentQuery struct {
 	withProject         *ProjectQuery
 	withCurrentTicket   *TicketQuery
 	withAssignedTickets *TicketQuery
+	withTokens          *AgentTokenQuery
 	withActivityEvents  *ActivityEventQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -150,6 +152,28 @@ func (_q *AgentQuery) QueryAssignedTickets() *TicketQuery {
 			sqlgraph.From(agent.Table, agent.FieldID, selector),
 			sqlgraph.To(ticket.Table, ticket.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, agent.AssignedTicketsTable, agent.AssignedTicketsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryTokens chains the current query on the "tokens" edge.
+func (_q *AgentQuery) QueryTokens() *AgentTokenQuery {
+	query := (&AgentTokenClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, selector),
+			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agent.TokensTable, agent.TokensColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -375,6 +399,7 @@ func (_q *AgentQuery) Clone() *AgentQuery {
 		withProject:         _q.withProject.Clone(),
 		withCurrentTicket:   _q.withCurrentTicket.Clone(),
 		withAssignedTickets: _q.withAssignedTickets.Clone(),
+		withTokens:          _q.withTokens.Clone(),
 		withActivityEvents:  _q.withActivityEvents.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -423,6 +448,17 @@ func (_q *AgentQuery) WithAssignedTickets(opts ...func(*TicketQuery)) *AgentQuer
 		opt(query)
 	}
 	_q.withAssignedTickets = query
+	return _q
+}
+
+// WithTokens tells the query-builder to eager-load the nodes that are connected to
+// the "tokens" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AgentQuery) WithTokens(opts ...func(*AgentTokenQuery)) *AgentQuery {
+	query := (&AgentTokenClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withTokens = query
 	return _q
 }
 
@@ -515,11 +551,12 @@ func (_q *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 	var (
 		nodes       = []*Agent{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withProvider != nil,
 			_q.withProject != nil,
 			_q.withCurrentTicket != nil,
 			_q.withAssignedTickets != nil,
+			_q.withTokens != nil,
 			_q.withActivityEvents != nil,
 		}
 	)
@@ -563,6 +600,13 @@ func (_q *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 		if err := _q.loadAssignedTickets(ctx, query, nodes,
 			func(n *Agent) { n.Edges.AssignedTickets = []*Ticket{} },
 			func(n *Agent, e *Ticket) { n.Edges.AssignedTickets = append(n.Edges.AssignedTickets, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withTokens; query != nil {
+		if err := _q.loadTokens(ctx, query, nodes,
+			func(n *Agent) { n.Edges.Tokens = []*AgentToken{} },
+			func(n *Agent, e *AgentToken) { n.Edges.Tokens = append(n.Edges.Tokens, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -694,6 +738,36 @@ func (_q *AgentQuery) loadAssignedTickets(ctx context.Context, query *TicketQuer
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "assigned_agent_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AgentQuery) loadTokens(ctx context.Context, query *AgentTokenQuery, nodes []*Agent, init func(*Agent), assign func(*Agent, *AgentToken)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Agent)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agenttoken.FieldAgentID)
+	}
+	query.Where(predicate.AgentToken(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(agent.TokensColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AgentID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "agent_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

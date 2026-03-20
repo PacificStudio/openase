@@ -43,6 +43,8 @@ const (
 	EdgeTickets = "tickets"
 	// EdgeAgents holds the string denoting the agents edge name in mutations.
 	EdgeAgents = "agents"
+	// EdgeAgentTokens holds the string denoting the agent_tokens edge name in mutations.
+	EdgeAgentTokens = "agent_tokens"
 	// EdgeScheduledJobs holds the string denoting the scheduled_jobs edge name in mutations.
 	EdgeScheduledJobs = "scheduled_jobs"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
@@ -95,6 +97,13 @@ const (
 	AgentsInverseTable = "agents"
 	// AgentsColumn is the table column denoting the agents relation/edge.
 	AgentsColumn = "project_id"
+	// AgentTokensTable is the table that holds the agent_tokens relation/edge.
+	AgentTokensTable = "agent_tokens"
+	// AgentTokensInverseTable is the table name for the AgentToken entity.
+	// It exists in this package in order to avoid circular dependency with the "agenttoken" package.
+	AgentTokensInverseTable = "agent_tokens"
+	// AgentTokensColumn is the table column denoting the agent_tokens relation/edge.
+	AgentTokensColumn = "project_id"
 	// ScheduledJobsTable is the table that holds the scheduled_jobs relation/edge.
 	ScheduledJobsTable = "scheduled_jobs"
 	// ScheduledJobsInverseTable is the table name for the ScheduledJob entity.
@@ -312,6 +321,20 @@ func ByAgents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAgentTokensCount orders the results by agent_tokens count.
+func ByAgentTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentTokensStep(), opts...)
+	}
+}
+
+// ByAgentTokens orders the results by agent_tokens terms.
+func ByAgentTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByScheduledJobsCount orders the results by scheduled_jobs count.
 func ByScheduledJobsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -393,6 +416,13 @@ func newAgentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentsTable, AgentsColumn),
+	)
+}
+func newAgentTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentTokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentTokensTable, AgentTokensColumn),
 	)
 }
 func newScheduledJobsStep() *sqlgraph.Step {

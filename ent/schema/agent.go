@@ -51,6 +51,7 @@ func (Agent) Edges() []ent.Edge {
 			Field("current_ticket_id").
 			Unique(),
 		edge.To("assigned_tickets", Ticket.Type),
+		edge.To("tokens", AgentToken.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 	}
 }

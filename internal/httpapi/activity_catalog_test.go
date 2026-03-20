@@ -21,6 +21,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		nil,
+		nil,
 		newFakeCatalogService(),
 		nil,
 	)
@@ -96,6 +97,7 @@ func TestListActivityEventsRouteRejectsInvalidQuery(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
+		nil,
 		nil,
 		nil,
 		newFakeCatalogService(),

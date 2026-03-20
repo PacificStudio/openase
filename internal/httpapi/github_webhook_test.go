@@ -357,6 +357,7 @@ func performGitHubWebhookRequest(
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	return performGitHubWebhookRequestWithServer(t, server, event, payload, signature)
@@ -616,6 +617,7 @@ func newGitHubWebhookSyncTestServer(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		ticketservice.NewService(client),
+		nil,
 		nil,
 		nil,
 		nil,

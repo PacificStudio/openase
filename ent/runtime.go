@@ -8,6 +8,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -101,6 +102,24 @@ func init() {
 	agentproviderDescID := agentproviderFields[0].Descriptor()
 	// agentprovider.DefaultID holds the default value on creation for the id field.
 	agentprovider.DefaultID = agentproviderDescID.Default.(func() uuid.UUID)
+	agenttokenFields := schema.AgentToken{}.Fields()
+	_ = agenttokenFields
+	// agenttokenDescTokenHash is the schema descriptor for token_hash field.
+	agenttokenDescTokenHash := agenttokenFields[4].Descriptor()
+	// agenttoken.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	agenttoken.TokenHashValidator = agenttokenDescTokenHash.Validators[0].(func(string) error)
+	// agenttokenDescScopes is the schema descriptor for scopes field.
+	agenttokenDescScopes := agenttokenFields[5].Descriptor()
+	// agenttoken.DefaultScopes holds the default value on creation for the scopes field.
+	agenttoken.DefaultScopes = agenttokenDescScopes.Default.([]string)
+	// agenttokenDescCreatedAt is the schema descriptor for created_at field.
+	agenttokenDescCreatedAt := agenttokenFields[7].Descriptor()
+	// agenttoken.DefaultCreatedAt holds the default value on creation for the created_at field.
+	agenttoken.DefaultCreatedAt = agenttokenDescCreatedAt.Default.(func() time.Time)
+	// agenttokenDescID is the schema descriptor for id field.
+	agenttokenDescID := agenttokenFields[0].Descriptor()
+	// agenttoken.DefaultID holds the default value on creation for the id field.
+	agenttoken.DefaultID = agenttokenDescID.Default.(func() uuid.UUID)
 	approvalgateFields := schema.ApprovalGate{}.Fields()
 	_ = approvalgateFields
 	// approvalgateDescTriggerStatus is the schema descriptor for trigger_status field.

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
@@ -73,6 +74,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		a.events,
 		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
+		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
 	)

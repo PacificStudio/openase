@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -484,6 +485,21 @@ func (_c *TicketCreate) AddExternalLinks(v ...*TicketExternalLink) *TicketCreate
 		ids[i] = v[i].ID
 	}
 	return _c.AddExternalLinkIDs(ids...)
+}
+
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_c *TicketCreate) AddAgentTokenIDs(ids ...uuid.UUID) *TicketCreate {
+	_c.mutation.AddAgentTokenIDs(ids...)
+	return _c
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_c *TicketCreate) AddAgentTokens(v ...*AgentToken) *TicketCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentTokenIDs(ids...)
 }
 
 // AddApprovalGateIDs adds the "approval_gates" edge to the ApprovalGate entity by IDs.
@@ -990,6 +1006,22 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketexternallink.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentTokensTable,
+			Columns: []string{ticket.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

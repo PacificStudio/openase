@@ -35,6 +35,7 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		ticketstatus.NewService(client),
 		nil,
 		nil,
+		nil,
 	)
 
 	ctx := context.Background()

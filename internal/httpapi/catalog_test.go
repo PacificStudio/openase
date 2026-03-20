@@ -59,6 +59,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		nil,
+		nil,
 		newFakeCatalogService(),
 		nil,
 	)
@@ -274,6 +275,7 @@ func TestCatalogRoutesRejectInvalidInput(t *testing.T) {
 		eventinfra.NewChannelBus(),
 		nil,
 		nil,
+		nil,
 		newFakeCatalogService(),
 		nil,
 	)
@@ -296,6 +298,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
+		nil,
 		nil,
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
@@ -999,6 +1002,7 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
+		nil,
 		nil,
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),

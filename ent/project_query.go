@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -39,6 +40,7 @@ type ProjectQuery struct {
 	withWorkflows            *WorkflowQuery
 	withTickets              *TicketQuery
 	withAgents               *AgentQuery
+	withAgentTokens          *AgentTokenQuery
 	withScheduledJobs        *ScheduledJobQuery
 	withActivityEvents       *ActivityEventQuery
 	withDefaultWorkflow      *WorkflowQuery
@@ -204,6 +206,28 @@ func (_q *ProjectQuery) QueryAgents() *AgentQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(agent.Table, agent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.AgentsTable, project.AgentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentTokens chains the current query on the "agent_tokens" edge.
+func (_q *ProjectQuery) QueryAgentTokens() *AgentTokenQuery {
+	query := (&AgentTokenClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.AgentTokensTable, project.AgentTokensColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -497,6 +521,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withWorkflows:            _q.withWorkflows.Clone(),
 		withTickets:              _q.withTickets.Clone(),
 		withAgents:               _q.withAgents.Clone(),
+		withAgentTokens:          _q.withAgentTokens.Clone(),
 		withScheduledJobs:        _q.withScheduledJobs.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
 		withDefaultWorkflow:      _q.withDefaultWorkflow.Clone(),
@@ -570,6 +595,17 @@ func (_q *ProjectQuery) WithAgents(opts ...func(*AgentQuery)) *ProjectQuery {
 		opt(query)
 	}
 	_q.withAgents = query
+	return _q
+}
+
+// WithAgentTokens tells the query-builder to eager-load the nodes that are connected to
+// the "agent_tokens" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithAgentTokens(opts ...func(*AgentTokenQuery)) *ProjectQuery {
+	query := (&AgentTokenClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentTokens = query
 	return _q
 }
 
@@ -695,13 +731,14 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [10]bool{
+		loadedTypes = [11]bool{
 			_q.withOrganization != nil,
 			_q.withRepos != nil,
 			_q.withStatuses != nil,
 			_q.withWorkflows != nil,
 			_q.withTickets != nil,
 			_q.withAgents != nil,
+			_q.withAgentTokens != nil,
 			_q.withScheduledJobs != nil,
 			_q.withActivityEvents != nil,
 			_q.withDefaultWorkflow != nil,
@@ -764,6 +801,13 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadAgents(ctx, query, nodes,
 			func(n *Project) { n.Edges.Agents = []*Agent{} },
 			func(n *Project, e *Agent) { n.Edges.Agents = append(n.Edges.Agents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentTokens; query != nil {
+		if err := _q.loadAgentTokens(ctx, query, nodes,
+			func(n *Project) { n.Edges.AgentTokens = []*AgentToken{} },
+			func(n *Project, e *AgentToken) { n.Edges.AgentTokens = append(n.Edges.AgentTokens, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -960,6 +1004,36 @@ func (_q *ProjectQuery) loadAgents(ctx context.Context, query *AgentQuery, nodes
 	}
 	query.Where(predicate.Agent(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.AgentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadAgentTokens(ctx context.Context, query *AgentTokenQuery, nodes []*Project, init func(*Project), assign func(*Project, *AgentToken)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agenttoken.FieldProjectID)
+	}
+	query.Where(predicate.AgentToken(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.AgentTokensColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

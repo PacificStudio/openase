@@ -60,11 +60,13 @@ type AgentEdges struct {
 	CurrentTicket *Ticket `json:"current_ticket,omitempty"`
 	// AssignedTickets holds the value of the assigned_tickets edge.
 	AssignedTickets []*Ticket `json:"assigned_tickets,omitempty"`
+	// Tokens holds the value of the tokens edge.
+	Tokens []*AgentToken `json:"tokens,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // ProviderOrErr returns the Provider value or an error if the edge
@@ -109,10 +111,19 @@ func (e AgentEdges) AssignedTicketsOrErr() ([]*Ticket, error) {
 	return nil, &NotLoadedError{edge: "assigned_tickets"}
 }
 
+// TokensOrErr returns the Tokens value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) TokensOrErr() ([]*AgentToken, error) {
+	if e.loadedTypes[4] {
+		return e.Tokens, nil
+	}
+	return nil, &NotLoadedError{edge: "tokens"}
+}
+
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -257,6 +268,11 @@ func (_m *Agent) QueryCurrentTicket() *TicketQuery {
 // QueryAssignedTickets queries the "assigned_tickets" edge of the Agent entity.
 func (_m *Agent) QueryAssignedTickets() *TicketQuery {
 	return NewAgentClient(_m.config).QueryAssignedTickets(_m)
+}
+
+// QueryTokens queries the "tokens" edge of the Agent entity.
+func (_m *Agent) QueryTokens() *AgentTokenQuery {
+	return NewAgentClient(_m.config).QueryTokens(_m)
 }
 
 // QueryActivityEvents queries the "activity_events" edge of the Agent entity.
