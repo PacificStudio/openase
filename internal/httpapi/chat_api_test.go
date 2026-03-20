@@ -96,7 +96,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		t.Fatalf("create hook event: %v", err)
 	}
 
-	catalogSvc := catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver())
+	catalogSvc := catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil)
 	providerInput, err := catalogdomain.ParseCreateAgentProvider(org.ID, catalogdomain.AgentProviderInput{
 		Name:        "Claude Code",
 		AdapterType: "claude-code-cli",

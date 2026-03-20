@@ -13,6 +13,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	otelinfra "github.com/BetterAndBetterII/openase/internal/infra/otel"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/BetterAndBetterII/openase/internal/webui"
 	"github.com/labstack/echo/v4"
@@ -38,6 +39,73 @@ func TestHealthRoutes(t *testing.T) {
 
 		if payload["status"] != "ok" {
 			t.Fatalf("expected ok status for %s, got %q", target, payload["status"])
+		}
+	}
+}
+
+func TestMetricsRouteDisabledByDefault(t *testing.T) {
+	server := NewServer(config.ServerConfig{Port: 40023}, config.GitHubConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/metrics", http.NoBody)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected disabled metrics route to return 404, got %d", rec.Code)
+	}
+}
+
+func TestMetricsRouteExportsHTTPMetrics(t *testing.T) {
+	metricsProvider, err := otelinfra.NewMetricsProvider(context.Background(), otelinfra.MetricsConfig{
+		ServiceName: "openase",
+		Prometheus:  true,
+	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatalf("NewMetricsProvider returned error: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := metricsProvider.Shutdown(context.Background()); err != nil {
+			t.Errorf("Shutdown returned error: %v", err)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithMetricsProvider(metricsProvider),
+		WithMetricsHandler(metricsProvider.PrometheusHandler()),
+	)
+
+	healthReq := httptest.NewRequest(http.MethodGet, "/healthz", http.NoBody)
+	healthRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(healthRec, healthReq)
+	if healthRec.Code != http.StatusOK {
+		t.Fatalf("expected health route to return 200, got %d", healthRec.Code)
+	}
+
+	metricsReq := httptest.NewRequest(http.MethodGet, "/api/v1/system/metrics", http.NoBody)
+	metricsRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(metricsRec, metricsReq)
+
+	if metricsRec.Code != http.StatusOK {
+		t.Fatalf("expected metrics route to return 200, got %d", metricsRec.Code)
+	}
+
+	body := metricsRec.Body.String()
+	for _, expected := range []string{
+		`openase_http_server_requests_total{method="GET",route="/healthz",status="200"} 1`,
+		`openase_http_server_duration_seconds_count{method="GET",route="/healthz",status="200"} 1`,
+		`openase_http_server_in_flight_requests{server="http"} 0`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected metrics scrape to contain %q, got %q", expected, body)
 		}
 	}
 }

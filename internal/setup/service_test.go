@@ -109,6 +109,9 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 	if !strings.Contains(string(configContent), "project_name: Demo App") {
 		t.Fatalf("expected config to contain project name, got %q", string(configContent))
 	}
+	if !strings.Contains(string(configContent), "observability:") {
+		t.Fatalf("expected config to contain observability defaults, got %q", string(configContent))
+	}
 	if _, err := os.Stat(filepath.Join(homeDir, ".openase", "openase.yaml")); err != nil {
 		t.Fatalf("expected legacy config file to exist: %v", err)
 	}

@@ -1,43 +1,54 @@
 import {
   createWorkflow,
   getWorkflowHarness,
+  listHarnessVariables,
   listBuiltinRoles,
   listSkills,
   listStatuses,
   listWorkflows,
 } from '$lib/api/openase'
-import {
-  defaultHarnessTemplate,
-  extractBody,
-  extractFrontmatter,
-  normalizeWorkflowType,
-} from './model'
+import { defaultHarnessTemplate, normalizeWorkflowType, toHarnessContent } from './model'
 import type { SkillState } from './model'
-import type { HarnessContent, WorkflowSummary } from './types'
+import type { HarnessVariableGroup, WorkflowSummary } from './types'
 
-export async function loadWorkflowIndex(projectId: string, selectedId: string) {
-  const [workflowPayload, skillPayload, builtinRolePayload, statusPayload] = await Promise.all([
-    listWorkflows(projectId),
-    listSkills(projectId),
-    listBuiltinRoles(),
-    listStatuses(projectId),
-  ])
-
-  const workflows = workflowPayload.workflows.map((workflow) => ({
+function mapWorkflowSummary(
+  workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
+  statusNamesById: Map<string, string>,
+): WorkflowSummary {
+  return {
     id: workflow.id,
     name: workflow.name,
     type: normalizeWorkflowType(workflow.type),
-    pickupStatus: workflow.pickup_status_id,
-    finishStatus: workflow.finish_status_id ?? 'unchanged',
+    harnessPath: workflow.harness_path ?? '',
+    pickupStatus: statusNamesById.get(workflow.pickup_status_id) ?? workflow.pickup_status_id,
+    finishStatus: workflow.finish_status_id
+      ? (statusNamesById.get(workflow.finish_status_id) ?? workflow.finish_status_id)
+      : 'unchanged',
     maxConcurrent: workflow.max_concurrent,
     maxRetry: workflow.max_retry_attempts,
     timeoutMinutes: workflow.timeout_minutes,
+    stallTimeoutMinutes: workflow.stall_timeout_minutes ?? 0,
     isActive: workflow.is_active,
     lastModified: new Date().toISOString(),
     recentSuccessRate: 0,
     version: workflow.version,
-  }))
+  }
+}
 
+export async function loadWorkflowIndex(projectId: string, selectedId: string) {
+  const [workflowPayload, skillPayload, builtinRolePayload, statusPayload, variablePayload] =
+    await Promise.all([
+      listWorkflows(projectId),
+      listSkills(projectId),
+      listBuiltinRoles(),
+      listStatuses(projectId),
+      listHarnessVariables(),
+    ])
+
+  const statusNamesById = new Map(statusPayload.statuses.map((status) => [status.id, status.name]))
+  const workflows = workflowPayload.workflows.map((workflow) =>
+    mapWorkflowSummary(workflow, statusNamesById),
+  )
   const currentWorkflowId = selectedId || workflows[0]?.id
 
   return {
@@ -50,6 +61,7 @@ export async function loadWorkflowIndex(projectId: string, selectedId: string) {
       .sort((left, right) => left.position - right.position)
       .map((status) => ({ id: status.id, name: status.name })),
     skillStates: mapSkillStates(skillPayload.skills, currentWorkflowId),
+    variableGroups: variablePayload.groups as HarnessVariableGroup[],
   }
 }
 
@@ -59,15 +71,8 @@ export async function loadWorkflowHarness(projectId: string, workflowId: string)
     listSkills(projectId),
   ])
 
-  const content = harnessPayload.harness.content
-  const harness: HarnessContent = {
-    frontmatter: extractFrontmatter(content),
-    body: extractBody(content),
-    rawContent: content,
-  }
-
   return {
-    harness,
+    harness: toHarnessContent(harnessPayload.harness.content),
     skillStates: mapSkillStates(skillPayload.skills, workflowId),
   }
 }
@@ -95,24 +100,34 @@ export async function createDefaultWorkflow(
     throw new Error('Failed to create workflow: no workflow data returned from API.')
   }
 
+  const createdWorkflow = payload.workflow
+
   const workflow: WorkflowSummary = {
-    id: payload.workflow.id,
-    name: payload.workflow.name,
-    type: normalizeWorkflowType(payload.workflow.type),
-    pickupStatus: payload.workflow.pickup_status_id,
-    finishStatus: payload.workflow.finish_status_id ?? statuses.at(-1)?.id ?? statuses[0].id,
-    maxConcurrent: payload.workflow.max_concurrent,
-    maxRetry: payload.workflow.max_retry_attempts,
-    timeoutMinutes: payload.workflow.timeout_minutes,
-    isActive: payload.workflow.is_active,
+    id: createdWorkflow.id,
+    name: createdWorkflow.name,
+    type: normalizeWorkflowType(createdWorkflow.type),
+    harnessPath: createdWorkflow.harness_path ?? '',
+    pickupStatus:
+      statuses.find((status) => status.id === createdWorkflow.pickup_status_id)?.name ??
+      createdWorkflow.pickup_status_id,
+    finishStatus:
+      statuses.find((status) => status.id === createdWorkflow.finish_status_id)?.name ??
+      createdWorkflow.finish_status_id ??
+      statuses.at(-1)?.name ??
+      statuses[0].name,
+    maxConcurrent: createdWorkflow.max_concurrent,
+    maxRetry: createdWorkflow.max_retry_attempts,
+    timeoutMinutes: createdWorkflow.timeout_minutes,
+    stallTimeoutMinutes: createdWorkflow.stall_timeout_minutes ?? 0,
+    isActive: createdWorkflow.is_active,
     lastModified: new Date().toISOString(),
     recentSuccessRate: 0,
-    version: payload.workflow.version,
+    version: createdWorkflow.version,
   }
 
   return {
     workflow,
-    selectedId: payload.workflow.id,
+    selectedId: createdWorkflow.id,
   }
 }
 

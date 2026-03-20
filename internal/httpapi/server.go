@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -16,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -31,6 +33,8 @@ type Server struct {
 	logger              *slog.Logger
 	events              provider.EventProvider
 	trace               provider.TraceProvider
+	metrics             provider.MetricsProvider
+	metricsHandler      http.Handler
 	echo                *echo.Echo
 	sseHub              *sse.Hub
 	inboundWebhooks     *inboundWebhookReceiver
@@ -39,6 +43,7 @@ type Server struct {
 	agentPlatform       *agentplatform.Service
 	catalog             catalogservice.Service
 	workflowService     *workflowservice.Service
+	scheduledJobService *scheduledjobservice.Service
 	notificationService *notificationservice.Service
 	chatService         *chatservice.Service
 }
@@ -60,6 +65,24 @@ func WithChatService(service *chatservice.Service) ServerOption {
 func WithTraceProvider(trace provider.TraceProvider) ServerOption {
 	return func(server *Server) {
 		server.trace = trace
+	}
+}
+
+func WithScheduledJobService(service *scheduledjobservice.Service) ServerOption {
+	return func(server *Server) {
+		server.scheduledJobService = service
+	}
+}
+
+func WithMetricsProvider(metrics provider.MetricsProvider) ServerOption {
+	return func(server *Server) {
+		server.metrics = metrics
+	}
+}
+
+func WithMetricsHandler(handler http.Handler) ServerOption {
+	return func(server *Server) {
+		server.metricsHandler = handler
 	}
 }
 
@@ -86,7 +109,7 @@ func NewServer(
 		github:              github,
 		logger:              logger.With("component", "http-server"),
 		events:              events,
-		trace:               nil,
+		metrics:             provider.NewNoopMetricsProvider(),
 		echo:                e,
 		sseHub:              sse.NewHub(events, logger),
 		ticketService:       ticketService,
@@ -102,6 +125,7 @@ func NewServer(
 		}
 	}
 	e.Use(server.traceRequest())
+	e.Use(server.metricsMiddleware())
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogStatus: true,
 		LogURI:    true,
@@ -189,6 +213,7 @@ func (s *Server) registerRoutes() {
 	api := s.echo.Group("/api/v1")
 	api.GET("/healthz", healthHandler)
 	api.GET("/openapi.json", s.handleOpenAPI)
+	api.GET("/system/metrics", s.handleMetrics)
 	api.GET("/events/stream", s.handleEventStream)
 	api.POST("/webhooks/github", s.handleLegacyGitHubWebhook)
 	api.POST("/webhooks/:connector/:provider", s.handleInboundWebhook)
@@ -205,6 +230,7 @@ func (s *Server) registerRoutes() {
 	s.registerTicketRoutes(api)
 	s.registerChatRoutes(api)
 	s.registerWorkflowRoutes(api)
+	s.registerScheduledJobRoutes(api)
 	s.registerNotificationRoutes(api)
 	s.registerSkillRoutes(api)
 	s.registerRoleLibraryRoutes(api)
@@ -214,4 +240,62 @@ func (s *Server) registerRoutes() {
 	uiHandler := echo.WrapHandler(webui.Handler())
 	s.echo.GET("/", uiHandler)
 	s.echo.GET("/*", uiHandler)
+}
+
+func (s *Server) metricsMiddleware() echo.MiddlewareFunc {
+	var inFlight int64
+
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if c.Path() == "/api/v1/system/metrics" {
+				return next(c)
+			}
+
+			currentInFlight := atomic.AddInt64(&inFlight, 1)
+			s.metrics.Gauge("openase.http.server.in_flight_requests", provider.Tags{
+				"server": "http",
+			}).Set(float64(currentInFlight))
+			start := time.Now()
+
+			err := next(c)
+
+			status := c.Response().Status
+			if status == 0 {
+				if err != nil {
+					status = http.StatusInternalServerError
+				} else {
+					status = http.StatusOK
+				}
+			}
+
+			route := c.Path()
+			if route == "" {
+				route = "unmatched"
+			}
+
+			tags := provider.Tags{
+				"method": c.Request().Method,
+				"route":  route,
+				"status": strconv.Itoa(status),
+			}
+			s.metrics.Counter("openase.http.server.requests_total", tags).Add(1)
+			s.metrics.Histogram("openase.http.server.duration_seconds", tags).Record(time.Since(start).Seconds())
+
+			remainingInFlight := atomic.AddInt64(&inFlight, -1)
+			s.metrics.Gauge("openase.http.server.in_flight_requests", provider.Tags{
+				"server": "http",
+			}).Set(float64(remainingInFlight))
+
+			return err
+		}
+	}
+}
+
+func (s *Server) handleMetrics(c echo.Context) error {
+	if s.metricsHandler == nil {
+		return echo.NewHTTPError(http.StatusNotFound, "metrics export is disabled")
+	}
+
+	s.metricsHandler.ServeHTTP(c.Response(), c.Request())
+	return nil
 }
