@@ -14,6 +14,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -280,7 +281,7 @@ func (r *EntRepository) CreateProjectRepo(ctx context.Context, input domain.Crea
 		builder.SetClonePath(*input.ClonePath)
 	}
 	if len(input.Labels) > 0 {
-		builder.SetLabels(input.Labels)
+		builder.SetLabels(pgarray.StringArray(input.Labels))
 	}
 
 	item, err := builder.Save(ctx)
@@ -338,7 +339,7 @@ func (r *EntRepository) UpdateProjectRepo(ctx context.Context, input domain.Upda
 		builder.ClearClonePath()
 	}
 	if len(input.Labels) > 0 {
-		builder.SetLabels(input.Labels)
+		builder.SetLabels(pgarray.StringArray(input.Labels))
 	} else {
 		builder.ClearLabels()
 	}

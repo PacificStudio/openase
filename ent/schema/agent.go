@@ -26,9 +26,7 @@ func (Agent) Fields() []ent.Field {
 			Nillable(),
 		field.String("session_id").Optional(),
 		field.String("workspace_path").Optional(),
-		field.Strings("capabilities").
-			SchemaType(textArrayColumn()).
-			Optional(),
+		textArrayField("capabilities"),
 		field.Int64("total_tokens_used").Default(0),
 		field.Int("total_tickets_completed").Default(0),
 		field.Time("last_heartbeat_at").Optional().Nillable(),

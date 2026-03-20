@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -49,4 +50,10 @@ func textArrayColumn() map[string]string {
 	return map[string]string{
 		dialect.Postgres: "text[]",
 	}
+}
+
+func textArrayField(name string) ent.Field {
+	return field.Other(name, pgarray.StringArray{}).
+		SchemaType(textArrayColumn()).
+		Optional()
 }
