@@ -81,7 +81,11 @@ func TestEventStreamRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do returned error: %v", err)
 	}
-	defer response.Body.Close()
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close event stream response body: %v", err)
+		}
+	})
 
 	message, err := provider.NewJSONEvent(
 		topic,
@@ -180,7 +184,11 @@ func TestProjectEventStreamRoutesUseFixedTopics(t *testing.T) {
 			defer testServer.Close()
 
 			response, cancel := openSSERequest(t, testServer.URL+testCase.path)
-			defer response.Body.Close()
+			t.Cleanup(func() {
+				if err := response.Body.Close(); err != nil {
+					t.Errorf("close project event stream response body: %v", err)
+				}
+			})
 
 			publishTestEvent(t, bus, testCase.unrelated, testCase.unrelatedType, map[string]string{"scope": "other"})
 			publishTestEvent(t, bus, testCase.topic, testCase.eventType, map[string]string{"scope": "expected"})

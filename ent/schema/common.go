@@ -29,10 +29,6 @@ func emptyMap() map[string]any {
 	return map[string]any{}
 }
 
-func emptyStrings() []string {
-	return []string{}
-}
-
 func currencyColumn() map[string]string {
 	return map[string]string{
 		dialect.Postgres: "numeric(12,2)",

@@ -39,7 +39,7 @@ type harnessReloadEvent struct {
 }
 
 func newHarnessRegistry(rootDir string, logger *slog.Logger, onReload func(harnessReloadEvent)) (*harnessRegistry, error) {
-	if err := os.MkdirAll(rootDir, 0o755); err != nil {
+	if err := os.MkdirAll(rootDir, 0o750); err != nil {
 		return nil, fmt.Errorf("create harness root: %w", err)
 	}
 
@@ -109,7 +109,7 @@ func (r *harnessRegistry) Read(relativePath string) (string, error) {
 
 func (r *harnessRegistry) Write(relativePath string, content string) error {
 	absolutePath := r.absolutePath(relativePath)
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o750); err != nil {
 		return fmt.Errorf("create harness parent directory: %w", err)
 	}
 	if err := r.addDirWatchRecursive(filepath.Dir(absolutePath)); err != nil {
@@ -123,7 +123,7 @@ func (r *harnessRegistry) Write(relativePath string, content string) error {
 	r.cache[relativePath] = cachedHarness{content: content, hash: hash}
 	r.mu.Unlock()
 
-	if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(absolutePath, []byte(content), 0o600); err != nil {
 		r.mu.Lock()
 		delete(r.pending, absolutePath)
 		delete(r.cache, relativePath)
@@ -167,6 +167,7 @@ func (r *harnessRegistry) relativePath(absolutePath string) (string, bool) {
 }
 
 func (r *harnessRegistry) readFile(absolutePath string) (string, string, error) {
+	//nolint:gosec // harness paths are resolved relative to the validated registry root
 	contentBytes, err := os.ReadFile(absolutePath)
 	if err != nil {
 		return "", "", fmt.Errorf("read harness file: %w", err)

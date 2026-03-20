@@ -13,6 +13,7 @@ import (
 //go:embed all:static
 var assets embed.FS
 
+// Handler serves the embedded web control plane assets.
 func Handler() http.Handler {
 	staticFS, err := fs.Sub(assets, "static")
 	if err != nil {
@@ -45,7 +46,9 @@ func serveFile(staticFS fs.FS, w http.ResponseWriter, r *http.Request, name stri
 		http.NotFound(w, r)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	info, err := file.Stat()
 	if err != nil {

@@ -244,6 +244,7 @@ func (e *workflowHookExecutor) run(ctx context.Context, hookName workflowHookNam
 	}
 	defer cancel()
 
+	//nolint:gosec // workflow hooks intentionally execute repository-defined shell commands
 	cmd := exec.CommandContext(commandContext, "sh", "-c", commandText)
 	cmd.Dir = e.repoRoot
 	cmd.Env = append(os.Environ(),

@@ -22,6 +22,7 @@ type snapshotStats struct {
 	activeWorkflowTypes   []string
 }
 
+// Analyze recommends role coverage from the current project snapshot.
 func Analyze(snapshot domain.Snapshot) domain.Analysis {
 	stats := collectStats(snapshot)
 	activeRoles := make(map[string]struct{}, len(snapshot.ActiveRoleSlugs))

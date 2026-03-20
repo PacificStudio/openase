@@ -3,6 +3,7 @@ package agentplatform
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"path/filepath"
 	"slices"
@@ -19,7 +20,7 @@ import (
 func TestIssueAndAuthenticateToken(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, ticketID := seedAgentPlatformFixture(t, ctx, client)
+	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
 	service := NewService(client)
 	service.now = func() time.Time {
@@ -56,7 +57,7 @@ func TestIssueAndAuthenticateToken(t *testing.T) {
 func TestIssueTokenUsesDefaultScopes(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, ticketID := seedAgentPlatformFixture(t, ctx, client)
+	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
 	service := NewService(client)
 	issued, err := service.IssueToken(ctx, IssueInput{
@@ -85,7 +86,7 @@ func TestIssueTokenUsesDefaultScopes(t *testing.T) {
 func TestIssueTokenConstrainsScopesToWhitelist(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, ticketID := seedAgentPlatformFixture(t, ctx, client)
+	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
 	service := NewService(client)
 	issued, err := service.IssueToken(ctx, IssueInput{
@@ -126,7 +127,7 @@ func TestIssueTokenConstrainsScopesToWhitelist(t *testing.T) {
 func TestAuthenticateRejectsExpiredToken(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, ticketID := seedAgentPlatformFixture(t, ctx, client)
+	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
 	service := NewService(client)
 	baseTime := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
@@ -171,7 +172,7 @@ func TestBuildEnvironmentIncludesPlatformVariables(t *testing.T) {
 	}
 }
 
-func seedAgentPlatformFixture(t *testing.T, ctx context.Context, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID) {
+func seedAgentPlatformFixture(ctx context.Context, t *testing.T, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 
 	org, err := client.Organization.Create().
@@ -274,13 +275,20 @@ func freePort(t *testing.T) uint32 {
 	if err != nil {
 		t.Fatalf("allocate free port: %v", err)
 	}
-	defer listener.Close()
+	t.Cleanup(func() {
+		if err := listener.Close(); err != nil {
+			t.Errorf("close listener: %v", err)
+		}
+	})
 
 	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {
 		t.Fatalf("expected TCP address, got %T", listener.Addr())
 	}
-	return uint32(tcpAddr.Port)
+	if tcpAddr.Port < 0 || tcpAddr.Port > math.MaxUint16 {
+		t.Fatalf("expected TCP port in uint16 range, got %d", tcpAddr.Port)
+	}
+	return uint32(tcpAddr.Port) //nolint:gosec // validated above to fit the TCP port range
 }
 
 func findStatusIDByName(t *testing.T, statuses []ticketstatus.Status, name string) uuid.UUID {

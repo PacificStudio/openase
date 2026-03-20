@@ -14,7 +14,7 @@ import (
 func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(t, ctx, client)
+	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 13, 0, 0, 0, time.UTC)
 
 	workflow, err := client.Workflow.Create().
@@ -31,7 +31,7 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 		t.Fatalf("create workflow: %v", err)
 	}
 
-	agentItem := fixture.createAgent(t, ctx, "coding-01", 0)
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetWorkflowID(workflow.ID).
@@ -89,7 +89,7 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(t, ctx, client)
+	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 14, 0, 0, 0, time.UTC)
 
 	workflow, err := client.Workflow.Create().
@@ -106,7 +106,7 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 		t.Fatalf("create workflow: %v", err)
 	}
 
-	agentItem := fixture.createAgent(t, ctx, "coding-02", 0)
+	agentItem := fixture.createAgent(ctx, t, "coding-02", 0)
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetWorkflowID(workflow.ID).
@@ -161,7 +161,7 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(t, ctx, client)
+	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 15, 0, 0, 0, time.UTC)
 
 	workflow, err := client.Workflow.Create().
@@ -178,7 +178,7 @@ func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 		t.Fatalf("create workflow: %v", err)
 	}
 
-	agentItem := fixture.createAgent(t, ctx, "coding-03", 0)
+	agentItem := fixture.createAgent(ctx, t, "coding-03", 0)
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetWorkflowID(workflow.ID).

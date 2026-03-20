@@ -9,6 +9,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
+// ChannelBus is an in-process pub/sub implementation for runtime events.
 type ChannelBus struct {
 	mu                  sync.RWMutex
 	closed              bool
@@ -22,6 +23,7 @@ type channelSubscription struct {
 	out    chan provider.Event
 }
 
+// NewChannelBus constructs an in-process event bus backed by Go channels.
 func NewChannelBus() *ChannelBus {
 	return &ChannelBus{
 		topicSubscribers:    make(map[provider.Topic]map[int]chan provider.Event),
@@ -29,6 +31,7 @@ func NewChannelBus() *ChannelBus {
 	}
 }
 
+// Publish fan-outs an event to subscribers of the event topic.
 func (b *ChannelBus) Publish(ctx context.Context, event provider.Event) error {
 	if event.Topic == "" {
 		return errors.New("event topic must not be empty")
@@ -52,6 +55,7 @@ func (b *ChannelBus) Publish(ctx context.Context, event provider.Event) error {
 	return nil
 }
 
+// Subscribe registers a subscriber for one or more event topics.
 func (b *ChannelBus) Subscribe(ctx context.Context, topics ...provider.Topic) (<-chan provider.Event, error) {
 	uniqueTopics, err := dedupeTopics(topics)
 	if err != nil {
@@ -88,6 +92,7 @@ func (b *ChannelBus) Subscribe(ctx context.Context, topics ...provider.Topic) (<
 	return out, nil
 }
 
+// Close shuts down the bus and closes all active subscriptions.
 func (b *ChannelBus) Close() error {
 	b.mu.Lock()
 	if b.closed {

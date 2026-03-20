@@ -8,10 +8,12 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
+// ScheduledJob defines the ent schema for scheduled workflow jobs.
 type ScheduledJob struct {
 	ent.Schema
 }
 
+// Fields returns the ScheduledJob schema fields.
 func (ScheduledJob) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
@@ -26,6 +28,7 @@ func (ScheduledJob) Fields() []ent.Field {
 	}
 }
 
+// Edges returns the ScheduledJob schema edges.
 func (ScheduledJob) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("project", Project.Type).
@@ -41,6 +44,7 @@ func (ScheduledJob) Edges() []ent.Edge {
 	}
 }
 
+// Indexes returns the ScheduledJob schema indexes.
 func (ScheduledJob) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("project_id", "name").Unique(),

@@ -2,6 +2,7 @@ package builtin
 
 import "strings"
 
+// SkillTemplate describes a built-in skill scaffold.
 type SkillTemplate struct {
 	Name        string
 	Title       string
@@ -9,10 +10,12 @@ type SkillTemplate struct {
 	Content     string
 }
 
+// Skills returns the built-in skill templates.
 func Skills() []SkillTemplate {
 	return cloneSkills(builtinSkills)
 }
 
+// SkillByName returns a built-in skill template by name.
 func SkillByName(name string) (SkillTemplate, bool) {
 	for _, item := range builtinSkills {
 		if item.Name == name {
@@ -23,6 +26,7 @@ func SkillByName(name string) (SkillTemplate, bool) {
 	return SkillTemplate{}, false
 }
 
+// IsBuiltinSkill reports whether a skill name belongs to the built-in set.
 func IsBuiltinSkill(name string) bool {
 	_, ok := SkillByName(name)
 	return ok

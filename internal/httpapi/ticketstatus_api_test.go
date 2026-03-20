@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -300,13 +301,20 @@ func freePort(t *testing.T) uint32 {
 	if err != nil {
 		t.Fatalf("allocate free port: %v", err)
 	}
-	defer listener.Close()
+	t.Cleanup(func() {
+		if err := listener.Close(); err != nil {
+			t.Errorf("close listener: %v", err)
+		}
+	})
 
 	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {
 		t.Fatalf("expected TCP address, got %T", listener.Addr())
 	}
-	return uint32(tcpAddr.Port)
+	if tcpAddr.Port < 0 || tcpAddr.Port > math.MaxUint16 {
+		t.Fatalf("expected TCP port in uint16 range, got %d", tcpAddr.Port)
+	}
+	return uint32(tcpAddr.Port) //nolint:gosec // validated above to fit the TCP port range
 }
 
 func executeJSON(t *testing.T, server *Server, method string, target string, body any, wantStatus int, out any) {

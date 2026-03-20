@@ -42,6 +42,7 @@ func (m *Manager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) 
 		return nil, fmt.Errorf("agent cli command must not be empty")
 	}
 
+	//nolint:gosec // command and arguments come from validated agent provider configuration
 	cmd := exec.CommandContext(ctx, spec.Command.String(), spec.Args...)
 	cmd.Cancel = func() error {
 		return interruptProcess(cmd.Process)

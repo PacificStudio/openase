@@ -61,13 +61,13 @@ func runSetupWizard(ctx context.Context, out io.Writer, host string, port int) e
 }
 
 func printSetupWizardBanner(out io.Writer, address string) {
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "  OpenASE -- 首次启动配置")
-	fmt.Fprintln(out)
-	fmt.Fprintf(out, "  请在浏览器中完成配置: %s\n", address)
-	fmt.Fprintln(out, "  浏览器已自动打开。如未打开请手动访问上述地址。")
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "  等待配置完成...")
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "  OpenASE -- 首次启动配置")
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintf(out, "  请在浏览器中完成配置: %s\n", address)
+	_, _ = fmt.Fprintln(out, "  浏览器已自动打开。如未打开请手动访问上述地址。")
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "  等待配置完成...")
 }
 
 func openBrowser(url string) error {
@@ -86,5 +86,6 @@ func openBrowser(url string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
+	//nolint:gosec // setup intentionally launches the platform-specific browser opener
 	return exec.CommandContext(ctx, name, args...).Start()
 }

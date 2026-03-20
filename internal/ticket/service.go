@@ -25,6 +25,7 @@ const (
 )
 
 var (
+	// Ticket service errors describe invalid or missing ticket resources.
 	ErrUnavailable          = errors.New("ticket service unavailable")
 	ErrProjectNotFound      = errors.New("project not found")
 	ErrTicketNotFound       = errors.New("ticket not found")
@@ -36,15 +37,18 @@ var (
 	ErrInvalidDependency    = errors.New("invalid ticket dependency")
 )
 
+// Optional captures whether a value was provided for a partial update.
 type Optional[T any] struct {
 	Set   bool
 	Value T
 }
 
+// Some marks an optional value as explicitly set.
 func Some[T any](value T) Optional[T] {
 	return Optional[T]{Set: true, Value: value}
 }
 
+// TicketReference is a compact ticket summary used inside relationships.
 type TicketReference struct {
 	ID         uuid.UUID `json:"id"`
 	Identifier string    `json:"identifier"`
@@ -53,12 +57,14 @@ type TicketReference struct {
 	StatusName string    `json:"status_name"`
 }
 
+// Dependency describes a typed dependency edge to another ticket.
 type Dependency struct {
 	ID     uuid.UUID                `json:"id"`
 	Type   entticketdependency.Type `json:"type"`
 	Target TicketReference          `json:"target"`
 }
 
+// Ticket is the API-facing ticket aggregate returned by the service layer.
 type Ticket struct {
 	ID                uuid.UUID          `json:"id"`
 	ProjectID         uuid.UUID          `json:"project_id"`
@@ -85,6 +91,7 @@ type Ticket struct {
 	CreatedAt         time.Time          `json:"created_at"`
 }
 
+// ListInput filters ticket queries within a project.
 type ListInput struct {
 	ProjectID   uuid.UUID
 	StatusNames []string
@@ -92,6 +99,7 @@ type ListInput struct {
 	Limit       int
 }
 
+// CreateInput carries the fields required to create a ticket.
 type CreateInput struct {
 	ProjectID      uuid.UUID
 	Title          string
@@ -106,6 +114,7 @@ type CreateInput struct {
 	BudgetUSD      float64
 }
 
+// UpdateInput carries a partial ticket update request.
 type UpdateInput struct {
 	TicketID       uuid.UUID
 	Title          Optional[string]
@@ -120,24 +129,29 @@ type UpdateInput struct {
 	BudgetUSD      Optional[float64]
 }
 
+// AddDependencyInput adds a dependency edge to a ticket.
 type AddDependencyInput struct {
 	TicketID       uuid.UUID
 	TargetTicketID uuid.UUID
 	Type           entticketdependency.Type
 }
 
+// DeleteDependencyResult reports which dependency edge was removed.
 type DeleteDependencyResult struct {
 	DeletedDependencyID uuid.UUID `json:"deleted_dependency_id"`
 }
 
+// Service provides ticket CRUD and dependency orchestration.
 type Service struct {
 	client *ent.Client
 }
 
+// NewService constructs a ticket service backed by the provided ent client.
 func NewService(client *ent.Client) *Service {
 	return &Service{client: client}
 }
 
+// List returns tickets in a project ordered for UI consumption.
 func (s *Service) List(ctx context.Context, input ListInput) ([]Ticket, error) {
 	if s.client == nil {
 		return nil, ErrUnavailable
@@ -177,6 +191,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]Ticket, error) {
 	return tickets, nil
 }
 
+// Get loads a single ticket with its related status, parent, children, and dependencies.
 func (s *Service) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
 	if s.client == nil {
 		return Ticket{}, ErrUnavailable
@@ -205,6 +220,7 @@ func (s *Service) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
 	return mapTicket(item), nil
 }
 
+// Create persists a new ticket and applies project defaults.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error) {
 	if s.client == nil {
 		return Ticket{}, ErrUnavailable
@@ -279,6 +295,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error)
 	return s.Get(ctx, created.ID)
 }
 
+// Update applies a partial update to an existing ticket.
 func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error) {
 	if s.client == nil {
 		return Ticket{}, ErrUnavailable
@@ -383,6 +400,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	return s.Get(ctx, current.ID)
 }
 
+// AddDependency creates a dependency edge between two tickets.
 func (s *Service) AddDependency(ctx context.Context, input AddDependencyInput) (Dependency, error) {
 	if s.client == nil {
 		return Dependency{}, ErrUnavailable
@@ -445,6 +463,7 @@ func (s *Service) AddDependency(ctx context.Context, input AddDependencyInput) (
 	return mapDependency(dependency), nil
 }
 
+// RemoveDependency deletes a dependency edge from a ticket.
 func (s *Service) RemoveDependency(ctx context.Context, ticketID uuid.UUID, dependencyID uuid.UUID) (DeleteDependencyResult, error) {
 	if s.client == nil {
 		return DeleteDependencyResult{}, ErrUnavailable

@@ -24,6 +24,7 @@ func TestSystemdApplyWritesUnitAndRunsLifecycleCommands(t *testing.T) {
 	}
 
 	unitPath := filepath.Join(homeDir, ".config", "systemd", "user", "openase.service")
+	//nolint:gosec // test reads a temp file path assembled from the controlled temp home
 	unitBytes, err := os.ReadFile(unitPath)
 	if err != nil {
 		t.Fatalf("ReadFile returned error: %v", err)
@@ -82,6 +83,7 @@ func TestLaunchdApplyWritesPlistAndBootstrapsService(t *testing.T) {
 	}
 
 	plistPath := filepath.Join(homeDir, "Library", "LaunchAgents", "com.openase.plist")
+	//nolint:gosec // test reads a temp file path assembled from the controlled temp home
 	plistBytes, err := os.ReadFile(plistPath)
 	if err != nil {
 		t.Fatalf("ReadFile returned error: %v", err)

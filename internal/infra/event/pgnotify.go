@@ -2,7 +2,7 @@ package event
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -216,6 +216,6 @@ func decodePGNotifyEvent(payload string) (provider.Event, error) {
 }
 
 func pgChannelName(topic provider.Topic) string {
-	sum := sha1.Sum([]byte(topic))
+	sum := sha256.Sum256([]byte(topic))
 	return "openase_" + hex.EncodeToString(sum[:])
 }
