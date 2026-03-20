@@ -34,6 +34,22 @@ export function parseJSONObject(rawText: string, fieldLabel: string): ParseResul
   }
 }
 
+export function actionErrorMessage(caughtError: unknown, fallback: string) {
+  if (caughtError instanceof Error) {
+    const message = caughtError.message.trim()
+    if (message !== '') {
+      return message
+    }
+  }
+  if (typeof caughtError === 'string') {
+    const message = caughtError.trim()
+    if (message !== '') {
+      return message
+    }
+  }
+  return fallback
+}
+
 function isJSONObject(value: unknown): value is JSONObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

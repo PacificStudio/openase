@@ -16,6 +16,7 @@
     type RuleDraft,
     type RuleUpdateInput,
   } from '../notification-rules'
+  import { actionErrorMessage } from '../notification-support'
   import NotificationRuleEditor from './notification-rule-editor.svelte'
 
   let {
@@ -57,7 +58,7 @@
       return
     }
 
-    draft = createRuleDraft(eventTypes, draft.channelId || channels[0]?.id || '')
+    draft = createRuleDraft(eventTypes, channels[0]?.id || '')
   })
 
   function selectRule(ruleId: string) {
@@ -96,6 +97,8 @@
         const rule = await onUpdate(selectedRule.id, parsed.value.value)
         selectedId = rule.id
         feedback = 'Rule updated.'
+      } catch (caughtError) {
+        error = actionErrorMessage(caughtError, 'Failed to update rule.')
       } finally {
         saving = false
       }
@@ -113,6 +116,8 @@
       const rule = await onCreate(parsed.value)
       selectedId = rule.id
       feedback = 'Rule created.'
+    } catch (caughtError) {
+      error = actionErrorMessage(caughtError, 'Failed to create rule.')
     } finally {
       saving = false
     }
@@ -129,6 +134,8 @@
       await onDelete(selectedRule.id)
       selectedId = 'new'
       feedback = 'Rule deleted.'
+    } catch (caughtError) {
+      error = actionErrorMessage(caughtError, 'Failed to delete rule.')
     } finally {
       deleting = false
     }
@@ -144,6 +151,8 @@
       const rule = await onToggle(selectedRule.id, !selectedRule.is_enabled)
       selectedId = rule.id
       feedback = rule.is_enabled ? 'Rule enabled.' : 'Rule disabled.'
+    } catch (caughtError) {
+      error = actionErrorMessage(caughtError, 'Failed to update rule state.')
     } finally {
       toggling = false
     }
