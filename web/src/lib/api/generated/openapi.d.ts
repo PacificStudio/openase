@@ -1801,6 +1801,7 @@ export interface operations {
         content: {
           'application/json': {
             projects?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -1866,6 +1867,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          accessible_machine_ids?: string[]
           default_agent_provider_id?: string | null
           default_workflow_id?: string | null
           description?: string
@@ -1885,6 +1887,7 @@ export interface operations {
         content: {
           'application/json': {
             project?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -2135,6 +2138,7 @@ export interface operations {
         content: {
           'application/json': {
             project?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -2206,6 +2210,7 @@ export interface operations {
         content: {
           'application/json': {
             project?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -2283,6 +2288,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          accessible_machine_ids?: string[] | null
           default_agent_provider_id?: string | null
           default_workflow_id?: string | null
           description?: string | null
@@ -2302,6 +2308,7 @@ export interface operations {
         content: {
           'application/json': {
             project?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string

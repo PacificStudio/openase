@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +21,8 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 )
 
 func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
@@ -32,7 +37,7 @@ func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
 		t.Fatalf("subscribe agent lifecycle stream: %v", err)
 	}
 
-	if _, err := client.Workflow.Create().
+	workflowItem, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
 		SetName("Coding").
 		SetType(entworkflow.TypeCoding).
@@ -40,15 +45,44 @@ func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
 		SetMaxConcurrent(1).
 		SetPickupStatusID(fixture.statusIDs["Todo"]).
 		SetFinishStatusID(fixture.statusIDs["Done"]).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Current {{ machine.name }} root={{ machine.workspace_root }}
+Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh_user }}@{{ machine.host }}|{% endfor %}
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetIdentifier("ASE-401").
 		SetTitle("Launch Codex").
 		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx)
@@ -68,9 +102,46 @@ func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
+	localWorkspaceRoot := "/srv/openase/workspaces"
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("local").
+		SetHost("local").
+		SetStatus(entmachine.StatusOnline).
+		SetWorkspaceRoot(localWorkspaceRoot).
+		Save(ctx); err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	sshUser := "openase"
+	storageMachine, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("storage").
+		SetHost("10.0.1.20").
+		SetSSHUser(sshUser).
+		SetSSHKeyPath("keys/storage.pem").
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create storage machine: %v", err)
+	}
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("dev-01").
+		SetHost("10.0.1.30").
+		SetSSHUser(sshUser).
+		SetSSHKeyPath("keys/dev-01.pem").
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx); err != nil {
+		t.Fatalf("create non-whitelisted machine: %v", err)
+	}
+	if _, err := client.Project.UpdateOneID(fixture.projectID).
+		SetAccessibleMachineIds([]uuid.UUID{storageMachine.ID}).
+		Save(ctx); err != nil {
+		t.Fatalf("update project accessible machines: %v", err)
+	}
 
 	manager := &runtimeFakeProcessManager{}
-	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil)
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, workflowSvc)
 	launcher.now = func() time.Time {
 		return now
 	}
@@ -121,6 +192,15 @@ func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
 	}
 	if len(activityItems) == 0 {
 		t.Fatal("expected runtime lifecycle activity events to be persisted")
+	}
+	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "Current local root=/srv/openase/workspaces") {
+		t.Fatalf("expected rendered current machine in developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
+	}
+	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "storage=openase@10.0.1.20|") {
+		t.Fatalf("expected whitelisted machine in developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
+	}
+	if strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "dev-01=") {
+		t.Fatalf("expected non-whitelisted machine to stay out of developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
 }
 
@@ -213,7 +293,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
 	)
 
-	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool)
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
 	t.Cleanup(func() {
 		if err := launcher.Close(context.Background()); err != nil {
 			t.Errorf("close launcher: %v", err)
@@ -272,14 +352,29 @@ func decodeLifecycleEnvelope(t *testing.T, payload json.RawMessage) agentLifecyc
 	return decoded
 }
 
-type runtimeFakeProcessManager struct{}
+type runtimeFakeProcessManager struct {
+	mu                 sync.Mutex
+	capturedThreadData runtimeThreadStartParams
+}
 
 func (m *runtimeFakeProcessManager) Start(_ context.Context, _ provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
 	process := newRuntimeFakeProcess()
 	go func() {
-		_ = runRuntimeFakeHandshake(process)
+		_ = runRuntimeFakeHandshake(process, m)
 	}()
 	return process, nil
+}
+
+func (m *runtimeFakeProcessManager) setThreadStart(params runtimeThreadStartParams) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.capturedThreadData = params
+}
+
+func (m *runtimeFakeProcessManager) capturedThreadStart() runtimeThreadStartParams {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.capturedThreadData
 }
 
 type runtimeFakeProcess struct {
@@ -339,7 +434,7 @@ func (p *runtimeFakeProcess) Stop(context.Context) error {
 	return nil
 }
 
-func runRuntimeFakeHandshake(process *runtimeFakeProcess) error {
+func runRuntimeFakeHandshake(process *runtimeFakeProcess, manager *runtimeFakeProcessManager) error {
 	decoder := json.NewDecoder(process.stdinRead)
 	encoder := json.NewEncoder(process.stdoutWrite)
 
@@ -377,6 +472,13 @@ func runRuntimeFakeHandshake(process *runtimeFakeProcess) error {
 	if threadStart.Method != "thread/start" {
 		return fmt.Errorf("expected thread/start, got %s", threadStart.Method)
 	}
+	var threadStartParams runtimeThreadStartParams
+	if err := json.Unmarshal(threadStart.Params, &threadStartParams); err != nil {
+		return fmt.Errorf("decode thread/start params: %w", err)
+	}
+	if manager != nil {
+		manager.setThreadStart(threadStartParams)
+	}
 	if err := encoder.Encode(runtimeJSONRPCMessage{
 		JSONRPC: "2.0",
 		ID:      threadStart.ID,
@@ -395,7 +497,13 @@ type runtimeJSONRPCMessage struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id,omitempty"`
 	Method  string          `json:"method,omitempty"`
+	Params  json.RawMessage `json:"params,omitempty"`
 	Result  json.RawMessage `json:"result,omitempty"`
+}
+
+type runtimeThreadStartParams struct {
+	CWD                   string `json:"cwd,omitempty"`
+	DeveloperInstructions string `json:"developerInstructions,omitempty"`
 }
 
 func readRuntimeMessage(decoder *json.Decoder) (runtimeJSONRPCMessage, error) {

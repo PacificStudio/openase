@@ -8333,6 +8333,8 @@ type ProjectMutation struct {
 	slug                          *string
 	description                   *string
 	status                        *project.Status
+	accessible_machine_ids        *[]uuid.UUID
+	appendaccessible_machine_ids  []uuid.UUID
 	max_concurrent_agents         *int
 	addmax_concurrent_agents      *int
 	clearedFields                 map[string]struct{}
@@ -8767,6 +8769,57 @@ func (m *ProjectMutation) DefaultAgentProviderIDCleared() bool {
 func (m *ProjectMutation) ResetDefaultAgentProviderID() {
 	m.default_agent_provider = nil
 	delete(m.clearedFields, project.FieldDefaultAgentProviderID)
+}
+
+// SetAccessibleMachineIds sets the "accessible_machine_ids" field.
+func (m *ProjectMutation) SetAccessibleMachineIds(u []uuid.UUID) {
+	m.accessible_machine_ids = &u
+	m.appendaccessible_machine_ids = nil
+}
+
+// AccessibleMachineIds returns the value of the "accessible_machine_ids" field in the mutation.
+func (m *ProjectMutation) AccessibleMachineIds() (r []uuid.UUID, exists bool) {
+	v := m.accessible_machine_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccessibleMachineIds returns the old "accessible_machine_ids" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAccessibleMachineIds(ctx context.Context) (v []uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccessibleMachineIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccessibleMachineIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccessibleMachineIds: %w", err)
+	}
+	return oldValue.AccessibleMachineIds, nil
+}
+
+// AppendAccessibleMachineIds adds u to the "accessible_machine_ids" field.
+func (m *ProjectMutation) AppendAccessibleMachineIds(u []uuid.UUID) {
+	m.appendaccessible_machine_ids = append(m.appendaccessible_machine_ids, u...)
+}
+
+// AppendedAccessibleMachineIds returns the list of values that were appended to the "accessible_machine_ids" field in this mutation.
+func (m *ProjectMutation) AppendedAccessibleMachineIds() ([]uuid.UUID, bool) {
+	if len(m.appendaccessible_machine_ids) == 0 {
+		return nil, false
+	}
+	return m.appendaccessible_machine_ids, true
+}
+
+// ResetAccessibleMachineIds resets all changes to the "accessible_machine_ids" field.
+func (m *ProjectMutation) ResetAccessibleMachineIds() {
+	m.accessible_machine_ids = nil
+	m.appendaccessible_machine_ids = nil
 }
 
 // SetMaxConcurrentAgents sets the "max_concurrent_agents" field.
@@ -9426,7 +9479,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.organization != nil {
 		fields = append(fields, project.FieldOrganizationID)
 	}
@@ -9447,6 +9500,9 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.default_agent_provider != nil {
 		fields = append(fields, project.FieldDefaultAgentProviderID)
+	}
+	if m.accessible_machine_ids != nil {
+		fields = append(fields, project.FieldAccessibleMachineIds)
 	}
 	if m.max_concurrent_agents != nil {
 		fields = append(fields, project.FieldMaxConcurrentAgents)
@@ -9473,6 +9529,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.DefaultWorkflowID()
 	case project.FieldDefaultAgentProviderID:
 		return m.DefaultAgentProviderID()
+	case project.FieldAccessibleMachineIds:
+		return m.AccessibleMachineIds()
 	case project.FieldMaxConcurrentAgents:
 		return m.MaxConcurrentAgents()
 	}
@@ -9498,6 +9556,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldDefaultWorkflowID(ctx)
 	case project.FieldDefaultAgentProviderID:
 		return m.OldDefaultAgentProviderID(ctx)
+	case project.FieldAccessibleMachineIds:
+		return m.OldAccessibleMachineIds(ctx)
 	case project.FieldMaxConcurrentAgents:
 		return m.OldMaxConcurrentAgents(ctx)
 	}
@@ -9557,6 +9617,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDefaultAgentProviderID(v)
+		return nil
+	case project.FieldAccessibleMachineIds:
+		v, ok := value.([]uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccessibleMachineIds(v)
 		return nil
 	case project.FieldMaxConcurrentAgents:
 		v, ok := value.(int)
@@ -9670,6 +9737,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldDefaultAgentProviderID:
 		m.ResetDefaultAgentProviderID()
+		return nil
+	case project.FieldAccessibleMachineIds:
+		m.ResetAccessibleMachineIds()
 		return nil
 	case project.FieldMaxConcurrentAgents:
 		m.ResetMaxConcurrentAgents()

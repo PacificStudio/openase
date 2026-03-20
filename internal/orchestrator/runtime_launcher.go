@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -15,11 +16,12 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
-	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 
@@ -31,6 +33,7 @@ type RuntimeLauncher struct {
 	events         provider.EventProvider
 	processManager provider.AgentCLIProcessManager
 	sshPool        *sshinfra.Pool
+	workflow       *workflowservice.Service
 	now            func() time.Time
 
 	sessionsMu sync.Mutex
@@ -43,6 +46,7 @@ func NewRuntimeLauncher(
 	events provider.EventProvider,
 	processManager provider.AgentCLIProcessManager,
 	sshPool *sshinfra.Pool,
+	workflow *workflowservice.Service,
 ) *RuntimeLauncher {
 	if logger == nil {
 		logger = slog.Default()
@@ -54,6 +58,7 @@ func NewRuntimeLauncher(
 		events:         events,
 		processManager: processManager,
 		sshPool:        sshPool,
+		workflow:       workflow,
 		now:            time.Now,
 		sessions:       map[uuid.UUID]*codex.Session{},
 	}
@@ -388,6 +393,15 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 	if err != nil {
 		return nil, fmt.Errorf("parse agent workspace path: %w", err)
 	}
+	developerInstructions, err := l.buildDeveloperInstructions(
+		ctx,
+		launchContext,
+		machine,
+		workingDirectory.String(),
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	processManager := l.processManager
 	if remote {
@@ -417,11 +431,56 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 			ClientTitle:   "OpenASE",
 		},
 		Thread: codex.ThreadStartParams{
-			WorkingDirectory: workingDirectory.String(),
-			Model:            launchContext.agent.Edges.Provider.ModelName,
-			ServiceName:      "openase",
+			WorkingDirectory:      workingDirectory.String(),
+			Model:                 launchContext.agent.Edges.Provider.ModelName,
+			ServiceName:           "openase",
+			DeveloperInstructions: developerInstructions,
 		},
 	})
+}
+
+func (l *RuntimeLauncher) buildDeveloperInstructions(
+	ctx context.Context,
+	launchContext runtimeLaunchContext,
+	machine catalogdomain.Machine,
+	workspace string,
+) (string, error) {
+	if l == nil || l.workflow == nil || launchContext.ticket == nil || launchContext.ticket.WorkflowID == nil {
+		return "", nil
+	}
+	if launchContext.agent == nil || launchContext.project == nil {
+		return "", fmt.Errorf("runtime launch context is incomplete for harness injection")
+	}
+
+	document, err := l.workflow.GetHarness(ctx, *launchContext.ticket.WorkflowID)
+	if err != nil {
+		return "", fmt.Errorf("load workflow harness for agent launch: %w", err)
+	}
+
+	currentMachine, accessibleMachines, err := l.loadMachineAccess(ctx, launchContext.project, machine, workspace)
+	if err != nil {
+		return "", fmt.Errorf("load project machine access for harness injection: %w", err)
+	}
+
+	data, err := l.workflow.BuildHarnessTemplateData(ctx, workflowservice.BuildHarnessTemplateDataInput{
+		WorkflowID:         *launchContext.ticket.WorkflowID,
+		TicketID:           launchContext.ticket.ID,
+		AgentID:            &launchContext.agent.ID,
+		Workspace:          strings.TrimSpace(workspace),
+		Timestamp:          l.now().UTC(),
+		Machine:            currentMachine,
+		AccessibleMachines: accessibleMachines,
+	})
+	if err != nil {
+		return "", fmt.Errorf("build workflow harness context for agent launch: %w", err)
+	}
+
+	rendered, err := workflowservice.RenderHarnessBody(document.Content, data)
+	if err != nil {
+		return "", fmt.Errorf("render workflow harness for agent launch: %w", err)
+	}
+
+	return strings.TrimSpace(rendered), nil
 }
 
 type runtimeLaunchContext struct {
@@ -476,24 +535,24 @@ func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentItem *ent.
 	}, nil
 }
 
-func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContext runtimeLaunchContext) (domain.Machine, bool, error) {
+func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContext runtimeLaunchContext) (catalogdomain.Machine, bool, error) {
 	machines, err := l.client.Machine.Query().
 		Where(entmachine.OrganizationID(launchContext.project.OrganizationID)).
 		Order(entmachine.ByName()).
 		All(ctx)
 	if err != nil {
-		return domain.Machine{}, false, fmt.Errorf("list machines for runtime launch: %w", err)
+		return catalogdomain.Machine{}, false, fmt.Errorf("list machines for runtime launch: %w", err)
 	}
 
 	workspacePath := strings.TrimSpace(launchContext.agent.WorkspacePath)
 	var matched *ent.Machine
 	for _, machineItem := range machines {
-		if machineItem.Host == domain.LocalMachineHost || strings.TrimSpace(machineItem.WorkspaceRoot) == "" {
+		if machineItem.Host == catalogdomain.LocalMachineHost || strings.TrimSpace(machineItem.WorkspaceRoot) == "" {
 			continue
 		}
 		if pathWithinRoot(workspacePath, machineItem.WorkspaceRoot) {
 			if matched != nil {
-				return domain.Machine{}, false, fmt.Errorf("workspace path %q matches multiple remote machines", workspacePath)
+				return catalogdomain.Machine{}, false, fmt.Errorf("workspace path %q matches multiple remote machines", workspacePath)
 			}
 			matched = machineItem
 		}
@@ -503,18 +562,18 @@ func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContex
 	}
 
 	for _, machineItem := range machines {
-		if machineItem.Host == domain.LocalMachineHost {
+		if machineItem.Host == catalogdomain.LocalMachineHost {
 			return mapRuntimeMachine(machineItem), false, nil
 		}
 	}
 
-	return domain.Machine{
-		Name: domain.LocalMachineName,
-		Host: domain.LocalMachineHost,
+	return catalogdomain.Machine{
+		Name: catalogdomain.LocalMachineName,
+		Host: catalogdomain.LocalMachineHost,
 	}, false, nil
 }
 
-func buildRemoteWorkspaceRequest(launchContext runtimeLaunchContext, machine domain.Machine) (workspaceinfra.SetupRequest, error) {
+func buildRemoteWorkspaceRequest(launchContext runtimeLaunchContext, machine catalogdomain.Machine) (workspaceinfra.SetupRequest, error) {
 	if machine.WorkspaceRoot == nil {
 		return workspaceinfra.SetupRequest{}, fmt.Errorf("machine %s is missing workspace_root", machine.Name)
 	}
@@ -596,8 +655,8 @@ func pathWithinRoot(path string, root string) bool {
 	return err == nil && relative != "." && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
-func mapRuntimeMachine(item *ent.Machine) domain.Machine {
-	return domain.Machine{
+func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {
+	return catalogdomain.Machine{
 		ID:             item.ID,
 		OrganizationID: item.OrganizationID,
 		Name:           item.Name,
@@ -621,6 +680,111 @@ func optionalRuntimeString(raw string) *string {
 
 	value := raw
 	return &value
+}
+
+func (l *RuntimeLauncher) loadMachineAccess(
+	ctx context.Context,
+	projectItem *ent.Project,
+	currentMachine catalogdomain.Machine,
+	workspace string,
+) (workflowservice.HarnessMachineData, []workflowservice.HarnessAccessibleMachineData, error) {
+	if projectItem == nil {
+		return workflowservice.HarnessMachineData{}, nil, fmt.Errorf("project must not be nil")
+	}
+
+	accessibleMachines, err := l.resolveAccessibleMachines(
+		ctx,
+		projectItem.OrganizationID,
+		projectItem.AccessibleMachineIds,
+		currentMachine,
+	)
+	if err != nil {
+		return workflowservice.HarnessMachineData{}, nil, err
+	}
+
+	return mapHarnessMachine(currentMachine, workspace), accessibleMachines, nil
+}
+
+func mapHarnessMachine(machine catalogdomain.Machine, workspace string) workflowservice.HarnessMachineData {
+	root := workspaceRoot("", workspace)
+	if machine.WorkspaceRoot != nil {
+		root = workspaceRoot(*machine.WorkspaceRoot, workspace)
+	}
+
+	return workflowservice.HarnessMachineData{
+		Name:          machine.Name,
+		Host:          machine.Host,
+		Description:   machine.Description,
+		Labels:        append([]string(nil), machine.Labels...),
+		WorkspaceRoot: root,
+	}
+}
+
+func (l *RuntimeLauncher) resolveAccessibleMachines(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	machineIDs []uuid.UUID,
+	currentMachine catalogdomain.Machine,
+) ([]workflowservice.HarnessAccessibleMachineData, error) {
+	if len(machineIDs) == 0 {
+		return nil, nil
+	}
+
+	items, err := l.client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(organizationID),
+			entmachine.IDIn(machineIDs...),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("query accessible machines: %w", err)
+	}
+
+	byID := make(map[uuid.UUID]*ent.Machine, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+
+	accessible := make([]workflowservice.HarnessAccessibleMachineData, 0, len(machineIDs))
+	for _, machineID := range machineIDs {
+		item, ok := byID[machineID]
+		if !ok {
+			return nil, fmt.Errorf("project accessible machine %s not found", machineID)
+		}
+		if currentMachine.ID != uuid.Nil && currentMachine.ID == item.ID {
+			continue
+		}
+		if strings.TrimSpace(currentMachine.Host) != "" && currentMachine.Host == item.Host {
+			continue
+		}
+		if item.Host == catalogdomain.LocalMachineHost {
+			continue
+		}
+		accessible = append(accessible, workflowservice.HarnessAccessibleMachineData{
+			Name:        item.Name,
+			Host:        item.Host,
+			Description: item.Description,
+			Labels:      append([]string(nil), item.Labels...),
+			SSHUser:     strings.TrimSpace(item.SSHUser),
+		})
+	}
+
+	slices.SortFunc(accessible, func(left, right workflowservice.HarnessAccessibleMachineData) int {
+		return strings.Compare(left.Name, right.Name)
+	})
+
+	return accessible, nil
+}
+
+func workspaceRoot(configured string, workspace string) string {
+	if strings.TrimSpace(configured) != "" {
+		return strings.TrimSpace(configured)
+	}
+	trimmed := strings.TrimSpace(workspace)
+	if trimmed == "" {
+		return ""
+	}
+	return filepath.Clean(filepath.Dir(trimmed))
 }
 
 func (l *RuntimeLauncher) storeSession(agentID uuid.UUID, session *codex.Session) {

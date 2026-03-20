@@ -29,6 +29,8 @@ const (
 	FieldDefaultWorkflowID = "default_workflow_id"
 	// FieldDefaultAgentProviderID holds the string denoting the default_agent_provider_id field in the database.
 	FieldDefaultAgentProviderID = "default_agent_provider_id"
+	// FieldAccessibleMachineIds holds the string denoting the accessible_machine_ids field in the database.
+	FieldAccessibleMachineIds = "accessible_machine_ids"
 	// FieldMaxConcurrentAgents holds the string denoting the max_concurrent_agents field in the database.
 	FieldMaxConcurrentAgents = "max_concurrent_agents"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
@@ -153,6 +155,7 @@ var Columns = []string{
 	FieldStatus,
 	FieldDefaultWorkflowID,
 	FieldDefaultAgentProviderID,
+	FieldAccessibleMachineIds,
 	FieldMaxConcurrentAgents,
 }
 
@@ -171,6 +174,8 @@ var (
 	NameValidator func(string) error
 	// SlugValidator is a validator for the "slug" field. It is called by the builders before save.
 	SlugValidator func(string) error
+	// DefaultAccessibleMachineIds holds the default value on creation for the "accessible_machine_ids" field.
+	DefaultAccessibleMachineIds func() []uuid.UUID
 	// DefaultMaxConcurrentAgents holds the default value on creation for the "max_concurrent_agents" field.
 	DefaultMaxConcurrentAgents int
 	// DefaultID holds the default value on creation for the "id" field.

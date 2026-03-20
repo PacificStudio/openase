@@ -1977,6 +1977,12 @@
                     "projects": {
                       "items": {
                         "properties": {
+                          "accessible_machine_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
                           "default_agent_provider_id": {
                             "nullable": true,
                             "type": "string"
@@ -2097,6 +2103,12 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "accessible_machine_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "default_agent_provider_id": {
                     "nullable": true,
                     "type": "string"
@@ -2137,6 +2149,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2589,6 +2607,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2728,6 +2752,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2846,6 +2876,13 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "accessible_machine_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
                   "default_agent_provider_id": {
                     "nullable": true,
                     "type": "string"
@@ -2890,6 +2927,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"

@@ -171,6 +171,16 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
+	workflowSvc, err := workflowservice.NewService(client, a.logger, "")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			a.logger.Error("close workflow service", "error", closeErr)
+		}
+	}()
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("resolve user home directory: %w", err)
@@ -185,7 +195,14 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
 	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, sshinfra.NewMonitorCollector(sshPool))
-	runtimeLauncher := orchestrator.NewRuntimeLauncher(client, a.logger, a.events, agentcli.NewManager(agentcli.ManagerOptions{}), sshPool)
+	runtimeLauncher := orchestrator.NewRuntimeLauncher(
+		client,
+		a.logger,
+		a.events,
+		agentcli.NewManager(agentcli.ManagerOptions{}),
+		sshPool,
+		workflowSvc,
+	)
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

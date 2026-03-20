@@ -26,15 +26,16 @@ type OpenAPIOrganization struct {
 }
 
 type OpenAPIProject struct {
-	ID                     string  `json:"id"`
-	OrganizationID         string  `json:"organization_id"`
-	Name                   string  `json:"name"`
-	Slug                   string  `json:"slug"`
-	Description            string  `json:"description"`
-	Status                 string  `json:"status"`
-	DefaultWorkflowID      *string `json:"default_workflow_id,omitempty"`
-	DefaultAgentProviderID *string `json:"default_agent_provider_id,omitempty"`
-	MaxConcurrentAgents    int     `json:"max_concurrent_agents"`
+	ID                     string   `json:"id"`
+	OrganizationID         string   `json:"organization_id"`
+	Name                   string   `json:"name"`
+	Slug                   string   `json:"slug"`
+	Description            string   `json:"description"`
+	Status                 string   `json:"status"`
+	DefaultWorkflowID      *string  `json:"default_workflow_id,omitempty"`
+	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
+	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
+	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
 }
 
 type OpenAPIMachine struct {
