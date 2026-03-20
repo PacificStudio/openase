@@ -159,6 +159,11 @@ func ByCliCommand(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCliCommand, opts...).ToFunc()
 }
 
+// ByCliArgs orders the results by the cli_args field.
+func ByCliArgs(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCliArgs, opts...).ToFunc()
+}
+
 // ByModelName orders the results by the model_name field.
 func ByModelName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldModelName, opts...).ToFunc()

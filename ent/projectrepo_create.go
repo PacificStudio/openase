@@ -12,6 +12,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -83,7 +84,7 @@ func (_c *ProjectRepoCreate) SetNillableIsPrimary(v *bool) *ProjectRepoCreate {
 }
 
 // SetLabels sets the "labels" field.
-func (_c *ProjectRepoCreate) SetLabels(v []string) *ProjectRepoCreate {
+func (_c *ProjectRepoCreate) SetLabels(v pgarray.StringArray) *ProjectRepoCreate {
 	_c.mutation.SetLabels(v)
 	return _c
 }
@@ -257,7 +258,7 @@ func (_c *ProjectRepoCreate) createSpec() (*ProjectRepo, *sqlgraph.CreateSpec) {
 		_node.IsPrimary = value
 	}
 	if value, ok := _c.mutation.Labels(); ok {
-		_spec.SetField(projectrepo.FieldLabels, field.TypeJSON, value)
+		_spec.SetField(projectrepo.FieldLabels, field.TypeOther, value)
 		_node.Labels = value
 	}
 	if nodes := _c.mutation.ProjectIDs(); len(nodes) > 0 {
