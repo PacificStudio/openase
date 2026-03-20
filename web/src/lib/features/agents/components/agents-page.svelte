@@ -169,7 +169,11 @@
     ticketPayload: { tickets: Ticket[] }
   }) {
     providerItems = snapshot.providerPayload.providers
-    providers = buildProviderCards(snapshot.providerPayload.providers, snapshot.agentPayload.agents)
+    providers = buildProviderCards(
+      snapshot.providerPayload.providers,
+      snapshot.agentPayload.agents,
+      appStore.currentOrg?.default_agent_provider_id,
+    )
     agents = buildAgentRows(
       snapshot.providerPayload.providers,
       snapshot.ticketPayload.tickets,
