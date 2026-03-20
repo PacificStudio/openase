@@ -1,11 +1,19 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
+  import type { Organization, Project } from '$lib/api/contracts'
+  import { organizationPath, projectPath, type ProjectSection } from '$lib/features/app-shell/context'
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
-  import { ChevronDown, Search, Plus, Settings, LogOut, Moon } from '@lucide/svelte'
+  import { ChevronDown, Search, Plus, Settings, LogOut, Moon, Check } from '@lucide/svelte'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import * as Avatar from '$ui/avatar'
 
   let {
+    organizations = [],
+    projects = [],
+    currentOrgId = null,
+    currentProjectId = null,
+    currentSection = 'dashboard' as ProjectSection,
     orgName = 'My Org',
     projectName = '',
     sseStatus = 'live' as 'idle' | 'connecting' | 'live' | 'retrying',
@@ -17,6 +25,11 @@
     onNewTicket,
     onOpenSearch,
   }: {
+    organizations?: Organization[]
+    projects?: Project[]
+    currentOrgId?: string | null
+    currentProjectId?: string | null
+    currentSection?: ProjectSection
     orgName?: string
     projectName?: string
     sseStatus?: 'idle' | 'connecting' | 'live' | 'retrying'
@@ -28,28 +41,98 @@
     onNewTicket?: () => void
     onOpenSearch?: () => void
   } = $props()
+
+  function handleOrgSelect(orgId: string) {
+    return goto(organizationPath(orgId))
+  }
+
+  function handleProjectSelect(projectId: string) {
+    if (!currentOrgId) {
+      return Promise.resolve()
+    }
+
+    const section = currentProjectId ? currentSection : 'dashboard'
+    return goto(projectPath(currentOrgId, projectId, section))
+  }
 </script>
 
 <header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
   <!-- Logo -->
-  <a href="/" class="text-foreground mr-1 flex items-center gap-1.5 text-sm font-semibold">
+  <a
+    href={currentOrgId ? organizationPath(currentOrgId) : '/'}
+    class="text-foreground mr-1 flex items-center gap-1.5 text-sm font-semibold"
+  >
     <span class="text-primary font-bold">OpenASE</span>
   </a>
 
   <Separator orientation="vertical" class="mx-1 h-5" />
 
   <!-- Org Switcher -->
-  <Button variant="ghost" size="sm" class="text-muted-foreground gap-1 text-xs">
-    {orgName}
-    <ChevronDown class="size-3" />
-  </Button>
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger>
+      {#snippet child({ props })}
+        <Button
+          {...props}
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground gap-1 text-xs"
+          disabled={organizations.length === 0}
+        >
+          {orgName}
+          <ChevronDown class="size-3" />
+        </Button>
+      {/snippet}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content class="w-56">
+      <DropdownMenu.Label>Organizations</DropdownMenu.Label>
+      {#each organizations as organization (organization.id)}
+        <DropdownMenu.Item onclick={() => void handleOrgSelect(organization.id)}>
+          <span class="flex w-full items-center gap-2">
+            {#if organization.id === currentOrgId}
+              <Check class="size-4" />
+            {:else}
+              <span class="size-4"></span>
+            {/if}
+            <span class={organization.id === currentOrgId ? 'font-medium' : ''}>
+              {organization.name}
+            </span>
+          </span>
+        </DropdownMenu.Item>
+      {/each}
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
 
-  {#if projectName}
+  {#if currentOrgId && (projectName || projects.length > 0)}
     <span class="text-muted-foreground/50">/</span>
-    <Button variant="ghost" size="sm" class="text-foreground gap-1 text-xs font-medium">
-      {projectName}
-      <ChevronDown class="size-3" />
-    </Button>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        {#snippet child({ props })}
+          <Button {...props} variant="ghost" size="sm" class="text-foreground gap-1 text-xs">
+            <span class={projectName ? 'font-medium' : 'text-muted-foreground'}>
+              {projectName || 'Select project'}
+            </span>
+            <ChevronDown class="size-3" />
+          </Button>
+        {/snippet}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content class="w-64">
+        <DropdownMenu.Label>Projects</DropdownMenu.Label>
+        {#each projects as project (project.id)}
+          <DropdownMenu.Item onclick={() => void handleProjectSelect(project.id)}>
+            <span class="flex w-full items-center gap-2">
+              {#if project.id === currentProjectId}
+                <Check class="size-4" />
+              {:else}
+                <span class="size-4"></span>
+              {/if}
+              <span class={project.id === currentProjectId ? 'font-medium' : ''}>
+                {project.name}
+              </span>
+            </span>
+          </DropdownMenu.Item>
+        {/each}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   {/if}
 
   <!-- Spacer -->

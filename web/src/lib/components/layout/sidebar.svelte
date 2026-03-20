@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { organizationPath, projectPath } from '$lib/features/app-shell/context'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Badge } from '$ui/badge'
@@ -29,6 +30,8 @@
   let {
     collapsed = false,
     currentPath = '/',
+    currentOrgId = null,
+    currentProjectId = null,
     projectSelected = false,
     projectName = '',
     projectHealth = 'healthy' as 'healthy' | 'degraded' | 'critical',
@@ -37,6 +40,8 @@
   }: {
     collapsed?: boolean
     currentPath?: string
+    currentOrgId?: string | null
+    currentProjectId?: string | null
     projectSelected?: boolean
     projectName?: string
     projectHealth?: 'healthy' | 'degraded' | 'critical'
@@ -45,52 +50,109 @@
   } = $props()
 
   const globalNav: NavItem[] = $derived([
-    { label: 'Dashboard', href: '/', icon: LayoutDashboard, active: currentPath === '/' },
+    {
+      label: 'Dashboard',
+      href: currentOrgId ? organizationPath(currentOrgId) : '/',
+      icon: LayoutDashboard,
+      active: currentOrgId ? currentPath === organizationPath(currentOrgId) : currentPath === '/',
+    },
   ])
 
   const projectNav: NavItem[] = $derived([
     {
+      label: 'Overview',
+      href:
+        currentOrgId && currentProjectId ? projectPath(currentOrgId, currentProjectId) : '/projects',
+      icon: LayoutDashboard,
+      active:
+        currentOrgId && currentProjectId
+          ? currentPath === projectPath(currentOrgId, currentProjectId)
+          : false,
+    },
+    {
       label: 'Board',
-      href: '/board',
+      href:
+        currentOrgId && currentProjectId
+          ? projectPath(currentOrgId, currentProjectId, 'board')
+          : '/board',
       icon: KanbanSquare,
-      active: currentPath.startsWith('/board'),
+      active:
+        currentOrgId && currentProjectId
+          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'board'))
+          : currentPath.startsWith('/board'),
     },
     {
       label: 'Tickets',
-      href: '/tickets',
+      href:
+        currentOrgId && currentProjectId
+          ? projectPath(currentOrgId, currentProjectId, 'tickets')
+          : '/tickets',
       icon: TicketCheck,
-      active: currentPath.startsWith('/tickets'),
+      active:
+        currentOrgId && currentProjectId
+          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'tickets'))
+          : currentPath.startsWith('/tickets'),
     },
     {
       label: 'Agents',
-      href: '/agents',
+      href:
+        currentOrgId && currentProjectId
+          ? projectPath(currentOrgId, currentProjectId, 'agents')
+          : '/agents',
       icon: Bot,
       badge: agentCount || undefined,
-      active: currentPath.startsWith('/agents'),
+      active:
+        currentOrgId && currentProjectId
+          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'agents'))
+          : currentPath.startsWith('/agents'),
     },
     {
       label: 'Machines',
-      href: '/machines',
+      href:
+        currentOrgId && currentProjectId
+          ? projectPath(currentOrgId, currentProjectId, 'machines')
+          : '/machines',
       icon: Server,
-      active: currentPath.startsWith('/machines'),
+      active:
+        currentOrgId && currentProjectId
+          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'machines'))
+          : currentPath.startsWith('/machines'),
     },
     {
       label: 'Activity',
-      href: '/activity',
+      href:
+        currentOrgId && currentProjectId
+          ? projectPath(currentOrgId, currentProjectId, 'activity')
+          : '/activity',
       icon: Activity,
-      active: currentPath.startsWith('/activity'),
+      active:
+        currentOrgId && currentProjectId
+          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'activity'))
+          : currentPath.startsWith('/activity'),
     },
     {
       label: 'Workflows',
-      href: '/workflows',
+      href:
+        currentOrgId && currentProjectId
+          ? projectPath(currentOrgId, currentProjectId, 'workflows')
+          : '/workflows',
       icon: Workflow,
-      active: currentPath.startsWith('/workflows'),
+      active:
+        currentOrgId && currentProjectId
+          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'workflows'))
+          : currentPath.startsWith('/workflows'),
     },
     {
       label: 'Settings',
-      href: '/settings',
+      href:
+        currentOrgId && currentProjectId
+          ? projectPath(currentOrgId, currentProjectId, 'settings')
+          : '/settings',
       icon: Settings,
-      active: currentPath.startsWith('/settings'),
+      active:
+        currentOrgId && currentProjectId
+          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'settings'))
+          : currentPath.startsWith('/settings'),
     },
   ])
 
@@ -104,9 +166,7 @@
 </script>
 
 <nav class="flex h-full flex-col overflow-hidden">
-  <!-- Sidebar content with scroll -->
   <div class="flex-1 overflow-y-auto px-2 py-3">
-    <!-- Global Nav -->
     <div class="space-y-0.5">
       {#each globalNav as item}
         {@const Icon = item.icon}
@@ -157,11 +217,8 @@
       {/each}
     </div>
 
-    <!-- Project Section -->
     {#if projectSelected}
       <Separator class="my-3" />
-
-      <!-- Project Header -->
       {#if !collapsed}
         <div class="mb-2 flex items-center gap-2 px-2.5">
           <span class={cn('size-2 shrink-0 rounded-full', healthColor)}></span>
@@ -172,8 +229,6 @@
           <span class={cn('size-2 rounded-full', healthColor)}></span>
         </div>
       {/if}
-
-      <!-- Project Nav -->
       <div class="space-y-0.5">
         {#each projectNav as item}
           {@const Icon = item.icon}
@@ -233,8 +288,6 @@
       </div>
     {/if}
   </div>
-
-  <!-- Collapse Toggle -->
   <div class="border-border shrink-0 border-t p-2">
     <Button
       variant="ghost"

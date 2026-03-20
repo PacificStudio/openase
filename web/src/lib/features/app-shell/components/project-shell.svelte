@@ -11,9 +11,12 @@
   import type { Snippet } from 'svelte'
 
   type ShellData = {
+    organizations: Organization[]
+    projects: Project[]
     currentOrg: Organization | null
     currentProject: Project | null
     agentCount: number
+    currentSection: import('$lib/features/app-shell/context').ProjectSection
   }
 
   let { children, data }: { children: Snippet; data: ShellData } = $props()
@@ -71,6 +74,11 @@
 
 <div class="bg-background flex h-screen flex-col overflow-hidden">
   <TopBar
+    organizations={data.organizations}
+    projects={data.projects}
+    currentOrgId={data.currentOrg?.id ?? null}
+    currentProjectId={data.currentProject?.id ?? null}
+    currentSection={data.currentSection}
     orgName={data.currentOrg?.name ?? 'No organization'}
     projectName={data.currentProject?.name ?? ''}
     sseStatus={appStore.sseStatus}
@@ -93,6 +101,8 @@
       <Sidebar
         collapsed={appStore.sidebarCollapsed}
         {currentPath}
+        currentOrgId={data.currentOrg?.id ?? null}
+        currentProjectId={data.currentProject?.id ?? null}
         projectSelected={Boolean(data.currentProject)}
         projectName={data.currentProject?.name ?? ''}
         {projectHealth}
