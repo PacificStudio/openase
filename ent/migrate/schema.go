@@ -287,6 +287,55 @@ var (
 			},
 		},
 	}
+	// NotificationRulesColumns holds the columns for the "notification_rules" table.
+	NotificationRulesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "event_type", Type: field.TypeString},
+		{Name: "filter", Type: field.TypeJSON},
+		{Name: "template", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "is_enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "channel_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+	}
+	// NotificationRulesTable holds the schema information for the "notification_rules" table.
+	NotificationRulesTable = &schema.Table{
+		Name:       "notification_rules",
+		Columns:    NotificationRulesColumns,
+		PrimaryKey: []*schema.Column{NotificationRulesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "notification_rules_notification_channels_notification_rules",
+				Columns:    []*schema.Column{NotificationRulesColumns[7]},
+				RefColumns: []*schema.Column{NotificationChannelsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "notification_rules_projects_notification_rules",
+				Columns:    []*schema.Column{NotificationRulesColumns[8]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "notificationrule_project_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{NotificationRulesColumns[8], NotificationRulesColumns[1]},
+			},
+			{
+				Name:    "notificationrule_project_id_event_type",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationRulesColumns[8], NotificationRulesColumns[2]},
+			},
+			{
+				Name:    "notificationrule_channel_id",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationRulesColumns[7]},
+			},
+		},
+	}
 	// OrganizationsColumns holds the columns for the "organizations" table.
 	OrganizationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -770,6 +819,7 @@ var (
 		AgentTokensTable,
 		ApprovalGatesTable,
 		NotificationChannelsTable,
+		NotificationRulesTable,
 		OrganizationsTable,
 		ProjectsTable,
 		ProjectReposTable,
@@ -796,6 +846,8 @@ func init() {
 	AgentTokensTable.ForeignKeys[2].RefTable = TicketsTable
 	ApprovalGatesTable.ForeignKeys[0].RefTable = TicketsTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
+	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable
+	NotificationRulesTable.ForeignKeys[1].RefTable = ProjectsTable
 	OrganizationsTable.ForeignKeys[0].RefTable = AgentProvidersTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = WorkflowsTable

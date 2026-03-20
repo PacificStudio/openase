@@ -29,6 +29,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
+	// EdgeNotificationRules holds the string denoting the notification_rules edge name in mutations.
+	EdgeNotificationRules = "notification_rules"
 	// Table holds the table name of the notificationchannel in the database.
 	Table = "notification_channels"
 	// OrganizationTable is the table that holds the organization relation/edge.
@@ -38,6 +40,13 @@ const (
 	OrganizationInverseTable = "organizations"
 	// OrganizationColumn is the table column denoting the organization relation/edge.
 	OrganizationColumn = "organization_id"
+	// NotificationRulesTable is the table that holds the notification_rules relation/edge.
+	NotificationRulesTable = "notification_rules"
+	// NotificationRulesInverseTable is the table name for the NotificationRule entity.
+	// It exists in this package in order to avoid circular dependency with the "notificationrule" package.
+	NotificationRulesInverseTable = "notification_rules"
+	// NotificationRulesColumn is the table column denoting the notification_rules relation/edge.
+	NotificationRulesColumn = "channel_id"
 )
 
 // Columns holds all SQL columns for notificationchannel fields.
@@ -115,10 +124,31 @@ func ByOrganizationField(field string, opts ...sql.OrderTermOption) OrderOption 
 		sqlgraph.OrderByNeighborTerms(s, newOrganizationStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByNotificationRulesCount orders the results by notification_rules count.
+func ByNotificationRulesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newNotificationRulesStep(), opts...)
+	}
+}
+
+// ByNotificationRules orders the results by notification_rules terms.
+func ByNotificationRules(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newNotificationRulesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newOrganizationStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OrganizationInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, OrganizationTable, OrganizationColumn),
+	)
+}
+func newNotificationRulesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(NotificationRulesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, NotificationRulesTable, NotificationRulesColumn),
 	)
 }

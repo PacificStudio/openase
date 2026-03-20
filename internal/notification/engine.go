@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
+	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -13,10 +13,8 @@ import (
 )
 
 var (
-	ticketEventsTopic      = provider.MustParseTopic("ticket.events")
-	ticketCreatedEventType = provider.MustParseEventType("ticket.created")
-	ticketUpdatedEventType = provider.MustParseEventType("ticket.updated")
-	ticketStatusEventType  = provider.MustParseEventType("ticket.status_changed")
+	ticketEventsTopic     = provider.MustParseTopic("ticket.events")
+	ticketStatusEventType = provider.MustParseEventType("ticket.status_changed")
 )
 
 // Engine subscribes to runtime events and sends best-effort notifications.
@@ -65,7 +63,7 @@ func (e *Engine) run(ctx context.Context, stream <-chan provider.Event) {
 				return
 			}
 
-			projectID, message, err := renderMessage(event)
+			projectID, contextMap, err := buildRuleContext(event)
 			if err != nil {
 				e.logger.Warn(
 					"notification event ignored",
@@ -76,79 +74,96 @@ func (e *Engine) run(ctx context.Context, stream <-chan provider.Event) {
 				continue
 			}
 
-			if err := e.service.SendToProjectChannels(ctx, projectID, message); err != nil {
+			rules, err := e.service.MatchingRules(ctx, projectID, domain.RuleEventType(event.Type.String()))
+			if err != nil {
 				e.logger.Warn(
-					"notification dispatch failed",
+					"notification rule lookup failed",
 					"project_id", projectID.String(),
 					"type", event.Type.String(),
 					"error", err,
 				)
+				continue
+			}
+
+			for _, rule := range rules {
+				if !rule.Matches(contextMap) {
+					continue
+				}
+				message, err := rule.RenderMessage(contextMap)
+				if err != nil {
+					e.logger.Warn(
+						"notification rule render failed",
+						"rule_id", rule.ID.String(),
+						"project_id", projectID.String(),
+						"type", event.Type.String(),
+						"error", err,
+					)
+					continue
+				}
+				if err := e.service.SendRule(ctx, rule, message); err != nil {
+					e.logger.Warn(
+						"notification dispatch failed",
+						"rule_id", rule.ID.String(),
+						"project_id", projectID.String(),
+						"type", event.Type.String(),
+						"error", err,
+					)
+				}
 			}
 		}
 	}
 }
 
-type ticketEventPayload struct {
-	ProjectID string           `json:"project_id"`
-	Ticket    ticketEventModel `json:"ticket"`
-}
-
-type ticketEventModel struct {
-	ID         string `json:"id"`
-	Identifier string `json:"identifier"`
-	Title      string `json:"title"`
-	StatusName string `json:"status_name"`
-	Priority   string `json:"priority"`
-	Type       string `json:"type"`
-}
-
-func renderMessage(event provider.Event) (uuid.UUID, domain.Message, error) {
+func buildRuleContext(event provider.Event) (uuid.UUID, map[string]any, error) {
 	if event.Topic != ticketEventsTopic {
-		return uuid.UUID{}, domain.Message{}, fmt.Errorf("unsupported topic %s", event.Topic)
+		return uuid.UUID{}, nil, fmt.Errorf("unsupported topic %s", event.Topic)
 	}
 
-	var payload ticketEventPayload
-	if err := json.Unmarshal(event.Payload, &payload); err != nil {
-		return uuid.UUID{}, domain.Message{}, fmt.Errorf("decode ticket event payload: %w", err)
+	payload := map[string]any{}
+	if len(event.Payload) > 0 {
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return uuid.UUID{}, nil, fmt.Errorf("decode ticket event payload: %w", err)
+		}
 	}
 
-	projectID, err := uuid.Parse(strings.TrimSpace(payload.ProjectID))
+	projectIDValue, ok := payload["project_id"].(string)
+	if !ok {
+		return uuid.UUID{}, nil, fmt.Errorf("ticket event project_id is missing")
+	}
+	projectID, err := uuid.Parse(projectIDValue)
 	if err != nil {
-		return uuid.UUID{}, domain.Message{}, fmt.Errorf("ticket event project_id is invalid: %w", err)
+		return uuid.UUID{}, nil, fmt.Errorf("ticket event project_id is invalid: %w", err)
 	}
 
-	title := payload.Ticket.Title
-	if title == "" {
-		title = payload.Ticket.Identifier
-	}
-
-	message := domain.Message{
-		Level: "info",
-		Metadata: map[string]string{
-			"event_type":  event.Type.String(),
-			"project_id":  payload.ProjectID,
-			"ticket_id":   payload.Ticket.ID,
-			"identifier":  payload.Ticket.Identifier,
-			"status_name": payload.Ticket.StatusName,
-			"priority":    payload.Ticket.Priority,
-			"ticket_type": payload.Ticket.Type,
+	contextMap := map[string]any{
+		"event": map[string]any{
+			"topic":        event.Topic.String(),
+			"type":         event.Type.String(),
+			"published_at": event.PublishedAt.UTC().Format(time.RFC3339),
 		},
+		"event_type":   event.Type.String(),
+		"project_id":   projectIDValue,
+		"published_at": event.PublishedAt.UTC().Format(time.RFC3339),
+		"payload":      payload,
+	}
+	for key, value := range payload {
+		if _, exists := contextMap[key]; !exists {
+			contextMap[key] = value
+		}
+	}
+	if ticket, ok := payload["ticket"].(map[string]any); ok {
+		contextMap["ticket"] = ticket
+		for key, value := range ticket {
+			if _, exists := contextMap[key]; !exists {
+				contextMap[key] = value
+			}
+		}
+		if event.Type == ticketStatusEventType {
+			if statusName, ok := ticket["status_name"]; ok {
+				contextMap["new_status"] = statusName
+			}
+		}
 	}
 
-	switch event.Type {
-	case ticketCreatedEventType:
-		message.Title = fmt.Sprintf("Ticket created: %s", payload.Ticket.Identifier)
-		message.Body = fmt.Sprintf("%s\nStatus: %s\nPriority: %s", title, payload.Ticket.StatusName, payload.Ticket.Priority)
-	case ticketStatusEventType:
-		message.Title = fmt.Sprintf("Ticket status changed: %s", payload.Ticket.Identifier)
-		message.Body = fmt.Sprintf("%s\nNew status: %s", title, payload.Ticket.StatusName)
-	case ticketUpdatedEventType:
-		message.Title = fmt.Sprintf("Ticket updated: %s", payload.Ticket.Identifier)
-		message.Body = fmt.Sprintf("%s\nStatus: %s", title, payload.Ticket.StatusName)
-	default:
-		message.Title = fmt.Sprintf("Ticket event: %s", payload.Ticket.Identifier)
-		message.Body = fmt.Sprintf("%s\nEvent: %s", title, event.Type.String())
-	}
-
-	return projectID, message, nil
+	return projectID, contextMap, nil
 }

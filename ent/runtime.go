@@ -11,6 +11,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
+	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -165,6 +166,32 @@ func init() {
 	notificationchannelDescID := notificationchannelFields[0].Descriptor()
 	// notificationchannel.DefaultID holds the default value on creation for the id field.
 	notificationchannel.DefaultID = notificationchannelDescID.Default.(func() uuid.UUID)
+	notificationruleFields := schema.NotificationRule{}.Fields()
+	_ = notificationruleFields
+	// notificationruleDescName is the schema descriptor for name field.
+	notificationruleDescName := notificationruleFields[3].Descriptor()
+	// notificationrule.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	notificationrule.NameValidator = notificationruleDescName.Validators[0].(func(string) error)
+	// notificationruleDescEventType is the schema descriptor for event_type field.
+	notificationruleDescEventType := notificationruleFields[4].Descriptor()
+	// notificationrule.EventTypeValidator is a validator for the "event_type" field. It is called by the builders before save.
+	notificationrule.EventTypeValidator = notificationruleDescEventType.Validators[0].(func(string) error)
+	// notificationruleDescFilter is the schema descriptor for filter field.
+	notificationruleDescFilter := notificationruleFields[5].Descriptor()
+	// notificationrule.DefaultFilter holds the default value on creation for the filter field.
+	notificationrule.DefaultFilter = notificationruleDescFilter.Default.(func() map[string]interface{})
+	// notificationruleDescIsEnabled is the schema descriptor for is_enabled field.
+	notificationruleDescIsEnabled := notificationruleFields[7].Descriptor()
+	// notificationrule.DefaultIsEnabled holds the default value on creation for the is_enabled field.
+	notificationrule.DefaultIsEnabled = notificationruleDescIsEnabled.Default.(bool)
+	// notificationruleDescCreatedAt is the schema descriptor for created_at field.
+	notificationruleDescCreatedAt := notificationruleFields[8].Descriptor()
+	// notificationrule.DefaultCreatedAt holds the default value on creation for the created_at field.
+	notificationrule.DefaultCreatedAt = notificationruleDescCreatedAt.Default.(func() time.Time)
+	// notificationruleDescID is the schema descriptor for id field.
+	notificationruleDescID := notificationruleFields[0].Descriptor()
+	// notificationrule.DefaultID holds the default value on creation for the id field.
+	notificationrule.DefaultID = notificationruleDescID.Default.(func() uuid.UUID)
 	organizationFields := schema.Organization{}.Fields()
 	_ = organizationFields
 	// organizationDescName is the schema descriptor for name field.

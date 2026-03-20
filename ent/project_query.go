@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -43,6 +44,7 @@ type ProjectQuery struct {
 	withAgentTokens          *AgentTokenQuery
 	withScheduledJobs        *ScheduledJobQuery
 	withActivityEvents       *ActivityEventQuery
+	withNotificationRules    *NotificationRuleQuery
 	withDefaultWorkflow      *WorkflowQuery
 	withDefaultAgentProvider *AgentProviderQuery
 	// intermediate query (i.e. traversal path).
@@ -272,6 +274,28 @@ func (_q *ProjectQuery) QueryActivityEvents() *ActivityEventQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(activityevent.Table, activityevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ActivityEventsTable, project.ActivityEventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryNotificationRules chains the current query on the "notification_rules" edge.
+func (_q *ProjectQuery) QueryNotificationRules() *NotificationRuleQuery {
+	query := (&NotificationRuleClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(notificationrule.Table, notificationrule.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.NotificationRulesTable, project.NotificationRulesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -524,6 +548,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withAgentTokens:          _q.withAgentTokens.Clone(),
 		withScheduledJobs:        _q.withScheduledJobs.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
+		withNotificationRules:    _q.withNotificationRules.Clone(),
 		withDefaultWorkflow:      _q.withDefaultWorkflow.Clone(),
 		withDefaultAgentProvider: _q.withDefaultAgentProvider.Clone(),
 		// clone intermediate query.
@@ -631,6 +656,17 @@ func (_q *ProjectQuery) WithActivityEvents(opts ...func(*ActivityEventQuery)) *P
 	return _q
 }
 
+// WithNotificationRules tells the query-builder to eager-load the nodes that are connected to
+// the "notification_rules" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithNotificationRules(opts ...func(*NotificationRuleQuery)) *ProjectQuery {
+	query := (&NotificationRuleClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withNotificationRules = query
+	return _q
+}
+
 // WithDefaultWorkflow tells the query-builder to eager-load the nodes that are connected to
 // the "default_workflow" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *ProjectQuery) WithDefaultWorkflow(opts ...func(*WorkflowQuery)) *ProjectQuery {
@@ -731,7 +767,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [11]bool{
+		loadedTypes = [12]bool{
 			_q.withOrganization != nil,
 			_q.withRepos != nil,
 			_q.withStatuses != nil,
@@ -741,6 +777,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withAgentTokens != nil,
 			_q.withScheduledJobs != nil,
 			_q.withActivityEvents != nil,
+			_q.withNotificationRules != nil,
 			_q.withDefaultWorkflow != nil,
 			_q.withDefaultAgentProvider != nil,
 		}
@@ -822,6 +859,15 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadActivityEvents(ctx, query, nodes,
 			func(n *Project) { n.Edges.ActivityEvents = []*ActivityEvent{} },
 			func(n *Project, e *ActivityEvent) { n.Edges.ActivityEvents = append(n.Edges.ActivityEvents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withNotificationRules; query != nil {
+		if err := _q.loadNotificationRules(ctx, query, nodes,
+			func(n *Project) { n.Edges.NotificationRules = []*NotificationRule{} },
+			func(n *Project, e *NotificationRule) {
+				n.Edges.NotificationRules = append(n.Edges.NotificationRules, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1094,6 +1140,36 @@ func (_q *ProjectQuery) loadActivityEvents(ctx context.Context, query *ActivityE
 	}
 	query.Where(predicate.ActivityEvent(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.ActivityEventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadNotificationRules(ctx context.Context, query *NotificationRuleQuery, nodes []*Project, init func(*Project), assign func(*Project, *NotificationRule)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(notificationrule.FieldProjectID)
+	}
+	query.Where(predicate.NotificationRule(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.NotificationRulesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

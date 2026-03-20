@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -12,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
+	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/google/uuid"
@@ -20,11 +22,12 @@ import (
 // NotificationChannelQuery is the builder for querying NotificationChannel entities.
 type NotificationChannelQuery struct {
 	config
-	ctx              *QueryContext
-	order            []notificationchannel.OrderOption
-	inters           []Interceptor
-	predicates       []predicate.NotificationChannel
-	withOrganization *OrganizationQuery
+	ctx                   *QueryContext
+	order                 []notificationchannel.OrderOption
+	inters                []Interceptor
+	predicates            []predicate.NotificationChannel
+	withOrganization      *OrganizationQuery
+	withNotificationRules *NotificationRuleQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +79,28 @@ func (_q *NotificationChannelQuery) QueryOrganization() *OrganizationQuery {
 			sqlgraph.From(notificationchannel.Table, notificationchannel.FieldID, selector),
 			sqlgraph.To(organization.Table, organization.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, notificationchannel.OrganizationTable, notificationchannel.OrganizationColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryNotificationRules chains the current query on the "notification_rules" edge.
+func (_q *NotificationChannelQuery) QueryNotificationRules() *NotificationRuleQuery {
+	query := (&NotificationRuleClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(notificationchannel.Table, notificationchannel.FieldID, selector),
+			sqlgraph.To(notificationrule.Table, notificationrule.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, notificationchannel.NotificationRulesTable, notificationchannel.NotificationRulesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -270,12 +295,13 @@ func (_q *NotificationChannelQuery) Clone() *NotificationChannelQuery {
 		return nil
 	}
 	return &NotificationChannelQuery{
-		config:           _q.config,
-		ctx:              _q.ctx.Clone(),
-		order:            append([]notificationchannel.OrderOption{}, _q.order...),
-		inters:           append([]Interceptor{}, _q.inters...),
-		predicates:       append([]predicate.NotificationChannel{}, _q.predicates...),
-		withOrganization: _q.withOrganization.Clone(),
+		config:                _q.config,
+		ctx:                   _q.ctx.Clone(),
+		order:                 append([]notificationchannel.OrderOption{}, _q.order...),
+		inters:                append([]Interceptor{}, _q.inters...),
+		predicates:            append([]predicate.NotificationChannel{}, _q.predicates...),
+		withOrganization:      _q.withOrganization.Clone(),
+		withNotificationRules: _q.withNotificationRules.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -290,6 +316,17 @@ func (_q *NotificationChannelQuery) WithOrganization(opts ...func(*OrganizationQ
 		opt(query)
 	}
 	_q.withOrganization = query
+	return _q
+}
+
+// WithNotificationRules tells the query-builder to eager-load the nodes that are connected to
+// the "notification_rules" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *NotificationChannelQuery) WithNotificationRules(opts ...func(*NotificationRuleQuery)) *NotificationChannelQuery {
+	query := (&NotificationRuleClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withNotificationRules = query
 	return _q
 }
 
@@ -371,8 +408,9 @@ func (_q *NotificationChannelQuery) sqlAll(ctx context.Context, hooks ...queryHo
 	var (
 		nodes       = []*NotificationChannel{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			_q.withOrganization != nil,
+			_q.withNotificationRules != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -396,6 +434,15 @@ func (_q *NotificationChannelQuery) sqlAll(ctx context.Context, hooks ...queryHo
 	if query := _q.withOrganization; query != nil {
 		if err := _q.loadOrganization(ctx, query, nodes, nil,
 			func(n *NotificationChannel, e *Organization) { n.Edges.Organization = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withNotificationRules; query != nil {
+		if err := _q.loadNotificationRules(ctx, query, nodes,
+			func(n *NotificationChannel) { n.Edges.NotificationRules = []*NotificationRule{} },
+			func(n *NotificationChannel, e *NotificationRule) {
+				n.Edges.NotificationRules = append(n.Edges.NotificationRules, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -428,6 +475,36 @@ func (_q *NotificationChannelQuery) loadOrganization(ctx context.Context, query 
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *NotificationChannelQuery) loadNotificationRules(ctx context.Context, query *NotificationRuleQuery, nodes []*NotificationChannel, init func(*NotificationChannel), assign func(*NotificationChannel, *NotificationRule)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*NotificationChannel)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(notificationrule.FieldChannelID)
+	}
+	query.Where(predicate.NotificationRule(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(notificationchannel.NotificationRulesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ChannelID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "channel_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

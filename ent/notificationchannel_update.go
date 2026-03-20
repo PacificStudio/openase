@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
+	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/google/uuid"
@@ -96,6 +97,21 @@ func (_u *NotificationChannelUpdate) SetOrganization(v *Organization) *Notificat
 	return _u.SetOrganizationID(v.ID)
 }
 
+// AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
+func (_u *NotificationChannelUpdate) AddNotificationRuleIDs(ids ...uuid.UUID) *NotificationChannelUpdate {
+	_u.mutation.AddNotificationRuleIDs(ids...)
+	return _u
+}
+
+// AddNotificationRules adds the "notification_rules" edges to the NotificationRule entity.
+func (_u *NotificationChannelUpdate) AddNotificationRules(v ...*NotificationRule) *NotificationChannelUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddNotificationRuleIDs(ids...)
+}
+
 // Mutation returns the NotificationChannelMutation object of the builder.
 func (_u *NotificationChannelUpdate) Mutation() *NotificationChannelMutation {
 	return _u.mutation
@@ -105,6 +121,27 @@ func (_u *NotificationChannelUpdate) Mutation() *NotificationChannelMutation {
 func (_u *NotificationChannelUpdate) ClearOrganization() *NotificationChannelUpdate {
 	_u.mutation.ClearOrganization()
 	return _u
+}
+
+// ClearNotificationRules clears all "notification_rules" edges to the NotificationRule entity.
+func (_u *NotificationChannelUpdate) ClearNotificationRules() *NotificationChannelUpdate {
+	_u.mutation.ClearNotificationRules()
+	return _u
+}
+
+// RemoveNotificationRuleIDs removes the "notification_rules" edge to NotificationRule entities by IDs.
+func (_u *NotificationChannelUpdate) RemoveNotificationRuleIDs(ids ...uuid.UUID) *NotificationChannelUpdate {
+	_u.mutation.RemoveNotificationRuleIDs(ids...)
+	return _u
+}
+
+// RemoveNotificationRules removes "notification_rules" edges to NotificationRule entities.
+func (_u *NotificationChannelUpdate) RemoveNotificationRules(v ...*NotificationRule) *NotificationChannelUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveNotificationRuleIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -205,6 +242,51 @@ func (_u *NotificationChannelUpdate) sqlSave(ctx context.Context) (_node int, er
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.NotificationRulesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   notificationchannel.NotificationRulesTable,
+			Columns: []string{notificationchannel.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedNotificationRulesIDs(); len(nodes) > 0 && !_u.mutation.NotificationRulesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   notificationchannel.NotificationRulesTable,
+			Columns: []string{notificationchannel.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.NotificationRulesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   notificationchannel.NotificationRulesTable,
+			Columns: []string{notificationchannel.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{notificationchannel.Label}
@@ -292,6 +374,21 @@ func (_u *NotificationChannelUpdateOne) SetOrganization(v *Organization) *Notifi
 	return _u.SetOrganizationID(v.ID)
 }
 
+// AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
+func (_u *NotificationChannelUpdateOne) AddNotificationRuleIDs(ids ...uuid.UUID) *NotificationChannelUpdateOne {
+	_u.mutation.AddNotificationRuleIDs(ids...)
+	return _u
+}
+
+// AddNotificationRules adds the "notification_rules" edges to the NotificationRule entity.
+func (_u *NotificationChannelUpdateOne) AddNotificationRules(v ...*NotificationRule) *NotificationChannelUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddNotificationRuleIDs(ids...)
+}
+
 // Mutation returns the NotificationChannelMutation object of the builder.
 func (_u *NotificationChannelUpdateOne) Mutation() *NotificationChannelMutation {
 	return _u.mutation
@@ -301,6 +398,27 @@ func (_u *NotificationChannelUpdateOne) Mutation() *NotificationChannelMutation 
 func (_u *NotificationChannelUpdateOne) ClearOrganization() *NotificationChannelUpdateOne {
 	_u.mutation.ClearOrganization()
 	return _u
+}
+
+// ClearNotificationRules clears all "notification_rules" edges to the NotificationRule entity.
+func (_u *NotificationChannelUpdateOne) ClearNotificationRules() *NotificationChannelUpdateOne {
+	_u.mutation.ClearNotificationRules()
+	return _u
+}
+
+// RemoveNotificationRuleIDs removes the "notification_rules" edge to NotificationRule entities by IDs.
+func (_u *NotificationChannelUpdateOne) RemoveNotificationRuleIDs(ids ...uuid.UUID) *NotificationChannelUpdateOne {
+	_u.mutation.RemoveNotificationRuleIDs(ids...)
+	return _u
+}
+
+// RemoveNotificationRules removes "notification_rules" edges to NotificationRule entities.
+func (_u *NotificationChannelUpdateOne) RemoveNotificationRules(v ...*NotificationRule) *NotificationChannelUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveNotificationRuleIDs(ids...)
 }
 
 // Where appends a list predicates to the NotificationChannelUpdate builder.
@@ -424,6 +542,51 @@ func (_u *NotificationChannelUpdateOne) sqlSave(ctx context.Context) (_node *Not
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.NotificationRulesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   notificationchannel.NotificationRulesTable,
+			Columns: []string{notificationchannel.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedNotificationRulesIDs(); len(nodes) > 0 && !_u.mutation.NotificationRulesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   notificationchannel.NotificationRulesTable,
+			Columns: []string{notificationchannel.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.NotificationRulesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   notificationchannel.NotificationRulesTable,
+			Columns: []string{notificationchannel.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -641,6 +641,29 @@ func HasActivityEventsWith(preds ...predicate.ActivityEvent) predicate.Project {
 	})
 }
 
+// HasNotificationRules applies the HasEdge predicate on the "notification_rules" edge.
+func HasNotificationRules() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, NotificationRulesTable, NotificationRulesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasNotificationRulesWith applies the HasEdge predicate on the "notification_rules" edge with a given conditions (other predicates).
+func HasNotificationRulesWith(preds ...predicate.NotificationRule) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newNotificationRulesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasDefaultWorkflow applies the HasEdge predicate on the "default_workflow" edge.
 func HasDefaultWorkflow() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
