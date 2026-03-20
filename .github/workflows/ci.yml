@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  push:
   pull_request:
   workflow_dispatch:
 
@@ -9,12 +8,89 @@ permissions:
   contents: read
 
 jobs:
-  test-and-build:
+  frontend:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install Web Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check Frontend Formatting
+        run: pnpm run format:check
+
+      - name: Lint Frontend
+        run: pnpm run lint
+
+      - name: Typecheck Frontend
+        run: pnpm run check
+
+      - name: Build Web Assets
+        run: pnpm run build
+
+      - name: Upload Embedded Web Assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: embedded-web-assets
+          path: internal/webui/static
+          if-no-files-found: error
+
+  backend:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+    needs: frontend
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v4
+
+      - name: Download Embedded Web Assets
+        uses: actions/download-artifact@v4
+        with:
+          name: embedded-web-assets
+          path: internal/webui/static
+
+      - name: Set Up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.mod
+            go.sum
+
+      - name: Run Backend Formatting And Tests
+        run: make check
+
+      - name: Build OpenASE Binary
+        run: make build
+
+  go-lint:
+    name: Go Lint
     runs-on: ubuntu-latest
 
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -44,8 +120,23 @@ jobs:
             go.mod
             go.sum
 
-      - name: Run Go Tests
-        run: go test ./...
+      - name: Fetch Base Branch
+        if: github.event_name == "pull_request"
+        run: git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
 
-      - name: Build OpenASE Binary
-        run: go build ./cmd/openase
+      - name: Fetch Main Branch
+        if: github.event_name != "pull_request"
+        run: git fetch --no-tags origin main
+
+      - name: Run Incremental Lint
+        if: github.event_name == "pull_request"
+        env:
+          LINT_BASE_REV: ${{ github.event.pull_request.base.sha }}
+        run: make lint
+
+      - name: Run Incremental Lint From Main
+        if: github.event_name != "pull_request"
+        run: make lint
+
+      - name: Run Depguard Architecture Checks
+        run: make lint-depguard

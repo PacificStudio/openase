@@ -40,6 +40,7 @@ func NewRootCommand(version string) *cobra.Command {
 	rootCmd.AddCommand(newDoctorCommand(options))
 	rootCmd.AddCommand(newTicketCommand())
 	rootCmd.AddCommand(newProjectCommand())
+	rootCmd.AddCommand(newIssueAgentTokenCommand(options))
 	rootCmd.AddCommand(newVersionCommand(version))
 
 	return rootCmd

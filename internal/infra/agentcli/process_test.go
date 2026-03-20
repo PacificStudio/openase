@@ -21,23 +21,26 @@ func TestManagerStartCapturesStdoutAndStderr(t *testing.T) {
 		t.Fatalf("Start returned error: %v", err)
 	}
 
-	stdout, err := io.ReadAll(process.Stdout())
-	if err != nil {
-		t.Fatalf("ReadAll(stdout) returned error: %v", err)
+	stdoutDone := readAllAsync(process.Stdout())
+	stderrDone := readAllAsync(process.Stderr())
+
+	stdout := <-stdoutDone
+	if stdout.err != nil {
+		t.Fatalf("ReadAll(stdout) returned error: %v", stdout.err)
 	}
-	stderr, err := io.ReadAll(process.Stderr())
-	if err != nil {
-		t.Fatalf("ReadAll(stderr) returned error: %v", err)
+	stderr := <-stderrDone
+	if stderr.err != nil {
+		t.Fatalf("ReadAll(stderr) returned error: %v", stderr.err)
 	}
 	if err := process.Wait(); err != nil {
 		t.Fatalf("Wait returned error: %v", err)
 	}
 
-	if string(stdout) != "stdout-line" {
-		t.Fatalf("unexpected stdout: %q", string(stdout))
+	if string(stdout.data) != "stdout-line" {
+		t.Fatalf("unexpected stdout: %q", string(stdout.data))
 	}
-	if string(stderr) != "stderr-line" {
-		t.Fatalf("unexpected stderr: %q", string(stderr))
+	if string(stderr.data) != "stderr-line" {
+		t.Fatalf("unexpected stderr: %q", string(stderr.data))
 	}
 	if process.PID() <= 0 {
 		t.Fatalf("expected a positive pid, got %d", process.PID())
@@ -162,6 +165,20 @@ func TestRunningProcessStopTerminatesRunningProcess(t *testing.T) {
 	if waitErr := process.Wait(); waitErr == nil {
 		t.Fatal("expected Wait to report a terminated process")
 	}
+}
+
+type readResult struct {
+	data []byte
+	err  error
+}
+
+func readAllAsync(reader io.Reader) <-chan readResult {
+	done := make(chan readResult, 1)
+	go func() {
+		data, err := io.ReadAll(reader)
+		done <- readResult{data: data, err: err}
+	}()
+	return done
 }
 
 func requirePOSIXShell(t *testing.T) string {
