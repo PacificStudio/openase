@@ -7,6 +7,7 @@
   import {
     LayoutDashboard,
     Bot,
+    Server,
     TicketCheck,
     Activity,
     Settings,
@@ -66,6 +67,12 @@
       icon: Bot,
       badge: agentCount || undefined,
       active: currentPath.startsWith('/agents'),
+    },
+    {
+      label: 'Machines',
+      href: '/machines',
+      icon: Server,
+      active: currentPath.startsWith('/machines'),
     },
     {
       label: 'Activity',
