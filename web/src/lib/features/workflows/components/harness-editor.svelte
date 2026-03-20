@@ -6,9 +6,8 @@
     filterSuggestions,
     findCompletionState,
     flattenSuggestions,
-    type CompletionState,
-    type Suggestion,
   } from './harness-editor-autocomplete'
+  import type { CompletionState, Suggestion } from './harness-editor-autocomplete'
   import type { HarnessContent, HarnessVariableGroup } from '../types'
 
   let {
@@ -42,7 +41,7 @@
   })
 
   $effect(() => {
-    if (filePath || filePath === '') {
+    if (filePath !== undefined) {
       completionState = null
       activeSuggestionIndex = 0
     }

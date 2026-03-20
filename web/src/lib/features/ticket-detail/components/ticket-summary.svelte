@@ -7,11 +7,11 @@
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
   import User from '@lucide/svelte/icons/user'
   import Calendar from '@lucide/svelte/icons/calendar'
+  import Link2 from '@lucide/svelte/icons/link-2'
   import { cn, formatRelativeTime, formatCurrency } from '$lib/utils'
   import type { TicketDetail } from '../types'
 
   let { ticket }: { ticket: TicketDetail } = $props()
-
   const costPercent = $derived.by(() =>
     ticket.budgetUsd > 0 ? Math.round((ticket.costAmount / ticket.budgetUsd) * 100) : 0,
   )
@@ -104,6 +104,40 @@
             {dep.relation}
           </Badge>
         </div>
+      {/each}
+    </div>
+  {/if}
+
+  {#if ticket.externalLinks.length > 0}
+    <Separator />
+    <div class="flex flex-col gap-2">
+      <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+        External Links
+      </span>
+      {#each ticket.externalLinks as link}
+        <a
+          class="border-border/60 bg-muted/30 hover:bg-muted/60 flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors"
+          href={link.url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Link2 class="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-foreground truncate">{link.title || link.externalId}</span>
+              <Badge variant="outline" class="h-4 shrink-0 py-0 text-[10px]">
+                {link.type}
+              </Badge>
+            </div>
+            <div class="text-muted-foreground mt-1 flex items-center gap-2 text-[10px]">
+              <span class="font-mono">{link.externalId}</span>
+              <span>{link.relation}</span>
+              {#if link.status}
+                <span>{link.status}</span>
+              {/if}
+            </div>
+          </div>
+        </a>
       {/each}
     </div>
   {/if}
