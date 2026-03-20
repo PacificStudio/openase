@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -363,9 +364,6 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 	if err != nil {
 		return nil, err
 	}
-	if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {
-		return nil, fmt.Errorf("machine %s codex environment not ready: %s", machine.Name, reason)
-	}
 
 	commandString := launchContext.agent.Edges.Provider.CliCommand
 	if machine.AgentCLIPath != nil {
@@ -375,6 +373,11 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 	command, err := provider.ParseAgentCLICommand(commandString)
 	if err != nil {
 		return nil, fmt.Errorf("parse agent cli command: %w", err)
+	}
+	if requiresMachineCodexReady(command) {
+		if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {
+			return nil, fmt.Errorf("machine %s codex environment not ready: %s", machine.Name, reason)
+		}
 	}
 
 	workingDirectoryValue := strings.TrimSpace(launchContext.agent.WorkspacePath)
@@ -719,6 +722,16 @@ func machineCodexReady(resources map[string]any) (bool, string, bool) {
 	}
 
 	return false, "codex cli is not ready", true
+}
+
+func requiresMachineCodexReady(command provider.AgentCLICommand) bool {
+	trimmed := strings.TrimSpace(command.String())
+	if trimmed == "" {
+		return false
+	}
+
+	base := path.Base(strings.ReplaceAll(trimmed, "\\", "/"))
+	return strings.EqualFold(base, "codex") || strings.EqualFold(base, "codex.exe")
 }
 
 func (l *RuntimeLauncher) loadMachineAccess(

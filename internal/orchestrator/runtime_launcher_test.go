@@ -423,6 +423,121 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	}
 }
 
+func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetCliCommand("python3").
+		Save(ctx); err != nil {
+		t.Fatalf("update provider command: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-403").
+		SetTitle("Launch fake Codex app server").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": "not_logged_in",
+						"ready":       false,
+					},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine resources: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-fake-01").
+		SetStatus(entagent.StatusClaimed).
+		SetCurrentTicketID(ticketItem.ID).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusRunning || agentAfter.RuntimePhase != entagent.RuntimePhaseReady {
+		t.Fatalf("expected ready runtime state, got %+v", agentAfter)
+	}
+	if agentAfter.SessionID != "thread-runtime-1" {
+		t.Fatalf("expected thread-runtime-1 session id, got %q", agentAfter.SessionID)
+	}
+	if agentAfter.LastError != "" {
+		t.Fatalf("expected empty last error, got %q", agentAfter.LastError)
+	}
+}
+
+func TestRequiresMachineCodexReady(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		command string
+		want    bool
+	}{
+		{name: "bare codex", command: "codex", want: true},
+		{name: "absolute codex path", command: "/usr/local/bin/codex", want: true},
+		{name: "windows codex path", command: `C:\Program Files\Codex\codex.exe`, want: true},
+		{name: "python", command: "python3", want: false},
+		{name: "fake app server wrapper", command: "/usr/bin/python3", want: false},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := requiresMachineCodexReady(provider.MustParseAgentCLICommand(tc.command))
+			if got != tc.want {
+				t.Fatalf("requiresMachineCodexReady(%q) = %v, want %v", tc.command, got, tc.want)
+			}
+		})
+	}
+}
+
 func waitForAgentLifecycleEvent(t *testing.T, stream <-chan provider.Event, want provider.EventType) provider.Event {
 	t.Helper()
 
