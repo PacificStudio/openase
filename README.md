@@ -31,7 +31,7 @@ The repository has moved beyond the initial scaffold. The current vertical slice
 For the checked-in UI assets, Go is enough:
 
 ```bash
-go build ./cmd/openase
+go build -o ./bin/openase ./cmd/openase
 ```
 
 Rebuild the embedded frontend only when you modify `web/`:
@@ -39,7 +39,7 @@ Rebuild the embedded frontend only when you modify `web/`:
 ```bash
 npm --prefix web install
 npm --prefix web run build
-go build ./cmd/openase
+go build -o ./bin/openase ./cmd/openase
 ```
 
 Frontend quality gates can be run from the repo root:
@@ -50,6 +50,8 @@ make web-lint
 make web-check
 make web-validate
 ```
+
+For a complete zero-to-run source deployment guide, see [`docs/source-build-and-run.md`](./docs/source-build-and-run.md).
 
 ## Quick Start
 
@@ -72,32 +74,32 @@ export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?ss
 First-run setup opens a local wizard that creates the home directory layout, writes config under `~/.openase/`, migrates the database, seeds the initial org/project/provider data, and scaffolds `.openase/` inside the primary repo.
 
 ```bash
-go run ./cmd/openase setup
+./bin/openase setup
 ```
 
-If you prefer the managed per-user service path, `up` will launch setup on first run and otherwise install/update the service definition that runs `openase all-in-one`:
+If you prefer the managed per-user service path, `up` will launch setup on first run and otherwise install/update the service definition that runs `openase all-in-one`. Use the compiled binary here so the managed service points at a stable executable path:
 
 ```bash
-go run ./cmd/openase up
+./bin/openase up --config ~/.openase/config.yaml
 ```
 
 ### 3. Run the platform
 
 ```bash
-go run ./cmd/openase doctor
-go run ./cmd/openase serve
-go run ./cmd/openase orchestrate
-go run ./cmd/openase all-in-one --tick-interval 2s
-go run ./cmd/openase version
+./bin/openase doctor --config ~/.openase/config.yaml
+./bin/openase serve --config ~/.openase/config.yaml
+./bin/openase orchestrate --config ~/.openase/config.yaml
+./bin/openase all-in-one --config ~/.openase/config.yaml --tick-interval 2s
+./bin/openase version
 ```
 
 Managed service helpers:
 
 ```bash
-openase up --config ~/.openase/config.yaml
-openase logs --lines 100
-openase restart
-openase down
+./bin/openase up --config ~/.openase/config.yaml
+./bin/openase logs --lines 100
+./bin/openase restart
+./bin/openase down
 ```
 
 Useful environment overrides:

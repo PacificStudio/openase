@@ -1,6 +1,7 @@
 WEB_DIR := web
+LINT_SCRIPT := ./scripts/ci/lint.sh
 
-.PHONY: web-build web-lint web-format-check web-check web-validate build run
+.PHONY: web-build web-lint web-format-check web-check web-validate build run lint lint-all lint-depguard
 
 web-build:
 	npm --prefix $(WEB_DIR) install
@@ -25,3 +26,12 @@ build: web-build
 
 run: web-build
 	go run ./cmd/openase serve
+
+lint:
+	OPENASE_LINT_NEW_FROM_REV=$${LINT_BASE_REV:-$$(git merge-base origin/main HEAD)} $(LINT_SCRIPT)
+
+lint-all:
+	$(LINT_SCRIPT)
+
+lint-depguard:
+	$(LINT_SCRIPT) --enable-only=depguard ./...
