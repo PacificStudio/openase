@@ -10,7 +10,6 @@
   import TicketHooks from './ticket-hooks.svelte'
   import TicketActivityList from './ticket-activity.svelte'
   import type { TicketDetail, HookExecution, TicketActivity } from '../types'
-
   let {
     open = $bindable(false),
     projectId,
@@ -104,6 +103,15 @@
             identifier: dependency.target.identifier,
             title: dependency.target.title,
             relation: dependency.type,
+          })),
+          externalLinks: detailTicket.external_links.map((link) => ({
+            id: link.id,
+            type: link.type,
+            url: link.url,
+            externalId: link.external_id,
+            title: link.title ?? undefined,
+            status: link.status ?? undefined,
+            relation: link.relation,
           })),
           children: detailTicket.children.map((child) => ({
             id: child.id,
