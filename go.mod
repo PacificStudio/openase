@@ -13,6 +13,7 @@ require (
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/lib/pq v1.10.9
 	github.com/nikolalohinski/gonja/v2 v2.7.0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
