@@ -11,12 +11,14 @@
     view = $bindable<'board' | 'list'>('board'),
     workflows = [],
     agents = [],
+    listEnabled = false,
     class: className = '',
   }: {
     filter?: BoardFilter
     view?: 'board' | 'list'
     workflows?: string[]
     agents?: string[]
+    listEnabled?: boolean
     class?: string
   } = $props()
 
@@ -56,22 +58,24 @@
     </Select.Content>
   </Select.Root>
 
-  <Select.Root
-    type="single"
-    onValueChange={(v) => {
-      filter = { ...filter, agent: v || undefined }
-    }}
-  >
-    <Select.Trigger size="sm" class="h-8 text-xs">
-      {filter.agent ?? 'Agent'}
-    </Select.Trigger>
-    <Select.Content>
-      <Select.Item value="">All</Select.Item>
-      {#each agents as a}
-        <Select.Item value={a}>{a}</Select.Item>
-      {/each}
-    </Select.Content>
-  </Select.Root>
+  {#if agents.length > 0}
+    <Select.Root
+      type="single"
+      onValueChange={(v) => {
+        filter = { ...filter, agent: v || undefined }
+      }}
+    >
+      <Select.Trigger size="sm" class="h-8 text-xs">
+        {filter.agent ?? 'Agent'}
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Item value="">All</Select.Item>
+        {#each agents as a}
+          <Select.Item value={a}>{a}</Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
+  {/if}
 
   <Select.Root
     type="single"
@@ -118,6 +122,8 @@
       variant={view === 'list' ? 'secondary' : 'ghost'}
       size="sm"
       class="h-7 rounded-l-none px-2"
+      disabled={!listEnabled}
+      title={listEnabled ? 'Switch to list view' : 'List view is not implemented yet'}
       onclick={() => {
         view = 'list'
       }}

@@ -4,13 +4,17 @@
   import { Separator } from '$ui/separator'
   import Copy from '@lucide/svelte/icons/copy'
   import Check from '@lucide/svelte/icons/check'
-  import ExternalLink from '@lucide/svelte/icons/external-link'
   import X from '@lucide/svelte/icons/x'
-  import ChevronDown from '@lucide/svelte/icons/chevron-down'
   import { cn } from '$lib/utils'
   import type { TicketDetail } from '../types'
 
-  let { ticket }: { ticket: TicketDetail } = $props()
+  let {
+    ticket,
+    onClose,
+  }: {
+    ticket: TicketDetail
+    onClose?: () => void
+  } = $props()
 
   let copied = $state(false)
 
@@ -57,10 +61,7 @@
       </Badge>
     </div>
     <div class="flex items-center gap-1">
-      <Button variant="ghost" size="icon-sm">
-        <ExternalLink class="size-3.5" />
-      </Button>
-      <Button variant="ghost" size="icon-sm">
+      <Button variant="ghost" size="icon-sm" onclick={onClose}>
         <X class="size-3.5" />
       </Button>
     </div>
@@ -76,10 +77,6 @@
     >
       {ticket.status.name}
     </Badge>
-    <Button variant="outline" size="sm" class="h-6 gap-1 px-2 text-[11px]">
-      Change Status
-      <ChevronDown class="size-3" />
-    </Button>
   </div>
 </div>
 <Separator />

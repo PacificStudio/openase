@@ -9,6 +9,8 @@
     orgName = 'My Org',
     projectName = '',
     sseStatus = 'live' as 'idle' | 'connecting' | 'live' | 'retrying',
+    searchEnabled = false,
+    newTicketEnabled = false,
     onToggleTheme,
     onNewTicket,
     onOpenSearch,
@@ -16,6 +18,8 @@
     orgName?: string
     projectName?: string
     sseStatus?: 'idle' | 'connecting' | 'live' | 'retrying'
+    searchEnabled?: boolean
+    newTicketEnabled?: boolean
     onToggleTheme?: () => void
     onNewTicket?: () => void
     onOpenSearch?: () => void
@@ -45,13 +49,17 @@
   {/if}
 
   <!-- Spacer -->
-  <div class="flex-1" />
+  <div class="flex-1"></div>
 
   <!-- Search Trigger -->
   <Button
     variant="outline"
     size="sm"
     class="text-muted-foreground hidden w-[200px] justify-start gap-2 sm:flex"
+    disabled={!searchEnabled}
+    title={searchEnabled
+      ? 'Open search'
+      : 'Search is not available in the current API-backed shell'}
     onclick={onOpenSearch}
   >
     <Search class="size-3.5" />
@@ -62,7 +70,13 @@
   <Separator orientation="vertical" class="mx-1 h-5" />
 
   <!-- New Ticket -->
-  <Button size="sm" class="gap-1.5" onclick={onNewTicket}>
+  <Button
+    size="sm"
+    class="gap-1.5"
+    disabled={!newTicketEnabled}
+    title={newTicketEnabled ? 'Create ticket' : 'Ticket creation is not exposed by the current API'}
+    onclick={onNewTicket}
+  >
     <Plus class="size-3.5" />
     <span class="hidden text-xs sm:inline">New Ticket</span>
   </Button>
@@ -70,11 +84,11 @@
   <!-- SSE Status Indicator -->
   <div class="text-muted-foreground flex items-center gap-1.5 text-xs" title="SSE: {sseStatus}">
     {#if sseStatus === 'live'}
-      <span class="bg-success size-1.5 rounded-full" />
+      <span class="bg-success size-1.5 rounded-full"></span>
     {:else if sseStatus === 'connecting' || sseStatus === 'retrying'}
-      <span class="bg-warning size-1.5 animate-pulse rounded-full" />
+      <span class="bg-warning size-1.5 animate-pulse rounded-full"></span>
     {:else}
-      <span class="bg-destructive size-1.5 rounded-full" />
+      <span class="bg-destructive size-1.5 rounded-full"></span>
     {/if}
   </div>
 

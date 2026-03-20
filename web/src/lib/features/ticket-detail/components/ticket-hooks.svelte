@@ -40,7 +40,7 @@
     >
       <div class="flex items-center gap-2 px-3 py-2">
         {#if config}
-          <svelte:component this={config.icon} class={cn('size-3.5 shrink-0', config.class)} />
+          <config.icon class={cn('size-3.5 shrink-0', config.class)} />
         {/if}
         <span class="text-foreground flex-1 truncate text-left text-xs font-medium">
           {hook.hookName}
