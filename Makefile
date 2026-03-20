@@ -3,7 +3,7 @@ SHELL := /bin/sh
 WEB_DIR := web
 GO ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/go" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/go"; elif command -v go >/dev/null 2>&1; then command -v go; else printf '%s' "go"; fi)
 GOFMT ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/gofmt" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/gofmt"; elif command -v gofmt >/dev/null 2>&1; then command -v gofmt; else printf '%s' "gofmt"; fi)
-NPM ?= npm
+PNPM ?= corepack pnpm
 LINT_SCRIPT := ./scripts/ci/lint.sh
 OPENASE_MAIN := ./cmd/openase
 OPENASE_BIN := ./bin/openase
@@ -21,7 +21,7 @@ help:
 		'  make check         Run Go formatting and test checks' \
 		'  make hooks-install Install Git hooks via lefthook' \
 		'  make hooks-run     Run the pre-commit hook against all files' \
-		'  make web-install   Install frontend dependencies with npm ci' \
+		'  make web-install   Install frontend dependencies with pnpm install --frozen-lockfile' \
 		'  make web-check     Run the Svelte type checks' \
 		'  make web-build     Rebuild embedded frontend assets' \
 		'  make build         Build openase from committed embedded assets' \
@@ -81,13 +81,13 @@ hooks-run:
 	$(GO) tool lefthook run pre-commit --all-files --no-auto-install
 
 web-install:
-	$(NPM) --prefix $(WEB_DIR) ci
+	$(PNPM) --dir $(WEB_DIR) install --frozen-lockfile
 
 web-check: web-install
-	$(NPM) --prefix $(WEB_DIR) run check
+	$(PNPM) --dir $(WEB_DIR) run check
 
 web-build: web-install
-	$(NPM) --prefix $(WEB_DIR) run build
+	$(PNPM) --dir $(WEB_DIR) run build
 
 build:
 	@mkdir -p $(dir $(OPENASE_BIN))
