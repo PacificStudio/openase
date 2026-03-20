@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+  '/api/v1/chat': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Start an ephemeral chat turn */
+    post: operations['startEphemeralChat']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/{sessionId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Close an ephemeral chat session */
+    delete: operations['closeEphemeralChat']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/events/stream': {
     parameters: {
       query?: never
@@ -467,6 +501,133 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
+  startEphemeralChat: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Start ephemeral chat request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          context?: {
+            project_id?: string
+            ticket_id?: string | null
+            workflow_id?: string | null
+          }
+          message?: string
+          session_id?: string | null
+          source?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  closeEphemeralChat: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Claude Code session ID. */
+        sessionId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Chat session closed. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   streamEvents: {
     parameters: {
       query?: never

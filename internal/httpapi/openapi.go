@@ -140,6 +140,19 @@ type OpenAPITicketRepoScopeDetail struct {
 	IsPrimaryScope bool                `json:"is_primary_scope"`
 }
 
+type OpenAPIChatContext struct {
+	ProjectID  string  `json:"project_id"`
+	WorkflowID *string `json:"workflow_id,omitempty"`
+	TicketID   *string `json:"ticket_id,omitempty"`
+}
+
+type OpenAPIChatStartRequest struct {
+	Message   string             `json:"message"`
+	Source    string             `json:"source"`
+	Context   OpenAPIChatContext `json:"context"`
+	SessionID *string            `json:"session_id,omitempty"`
+}
+
 type OpenAPITicketStatus struct {
 	ID          string `json:"id"`
 	ProjectID   string `json:"project_id"`
@@ -367,6 +380,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 		return nil, err
 	}
 	if err := builder.addTicketOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addChatOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addStreamOperations(); err != nil {
@@ -934,6 +950,54 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketDetailGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	ticketDetailGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/detail", http.MethodGet, ticketDetailGet)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addChatOperations() error {
+	chatPost, err := b.streamOperation(
+		"startEphemeralChat",
+		"Start an ephemeral chat turn",
+		[]string{"chat"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	bodyRef, err := b.schemaRef(OpenAPIChatStartRequest{})
+	if err != nil {
+		return err
+	}
+	chatPost.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithDescription("Start ephemeral chat request body.").
+			WithJSONSchemaRef(bodyRef).
+			WithRequired(true),
+	}
+	b.doc.AddOperation("/api/v1/chat", http.MethodPost, chatPost)
+
+	chatDelete := openapi3.NewOperation()
+	chatDelete.OperationID = "closeEphemeralChat"
+	chatDelete.Summary = "Close an ephemeral chat session"
+	chatDelete.Tags = []string{"chat"}
+	chatDelete.Responses = openapi3.NewResponsesWithCapacity(3)
+	chatDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Chat session closed."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		chatDelete.AddResponse(code, errorResponse)
+	}
+	chatDelete.AddParameter(openapi3.NewPathParameter("sessionId").
+		WithDescription("Claude Code session ID.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/{sessionId}", http.MethodDelete, chatDelete)
 
 	return nil
 }

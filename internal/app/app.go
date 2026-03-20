@@ -8,8 +8,11 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
+	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
+	agentcliruntime "github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
@@ -73,17 +76,26 @@ func (a *App) RunServe(ctx context.Context) error {
 			a.logger.Error("close workflow service", "error", closeErr)
 		}
 	}()
+	ticketSvc := ticketservice.NewService(client)
+	chatSvc := chatservice.NewService(
+		a.logger,
+		claudecodeadapter.NewAdapter(agentcliruntime.NewManager(agentcliruntime.ManagerOptions{})),
+		catalogSvc,
+		ticketSvc,
+		workflowSvc,
+	)
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,
 		a.logger,
 		a.events,
-		ticketservice.NewService(client),
+		ticketSvc,
 		ticketstatus.NewService(client),
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
 		httpapi.WithNotificationService(notificationSvc),
+		httpapi.WithChatService(chatSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
