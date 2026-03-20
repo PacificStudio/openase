@@ -4624,29 +4624,32 @@ func (m *AgentTokenMutation) ResetEdge(name string) error {
 // MachineMutation represents an operation that mutates the Machine nodes in the graph.
 type MachineMutation struct {
 	config
-	op                  Op
-	typ                 string
-	id                  *uuid.UUID
-	name                *string
-	host                *string
-	port                *int
-	addport             *int
-	ssh_user            *string
-	ssh_key_path        *string
-	description         *string
-	labels              *pgarray.StringArray
-	status              *machine.Status
-	workspace_root      *string
-	agent_cli_path      *string
-	env_vars            *pgarray.StringArray
-	last_heartbeat_at   *time.Time
-	resources           *map[string]interface{}
-	clearedFields       map[string]struct{}
-	organization        *uuid.UUID
-	clearedorganization bool
-	done                bool
-	oldValue            func(context.Context) (*Machine, error)
-	predicates          []predicate.Machine
+	op                    Op
+	typ                   string
+	id                    *uuid.UUID
+	name                  *string
+	host                  *string
+	port                  *int
+	addport               *int
+	ssh_user              *string
+	ssh_key_path          *string
+	description           *string
+	labels                *pgarray.StringArray
+	status                *machine.Status
+	workspace_root        *string
+	agent_cli_path        *string
+	env_vars              *pgarray.StringArray
+	last_heartbeat_at     *time.Time
+	resources             *map[string]interface{}
+	clearedFields         map[string]struct{}
+	organization          *uuid.UUID
+	clearedorganization   bool
+	target_tickets        map[uuid.UUID]struct{}
+	removedtarget_tickets map[uuid.UUID]struct{}
+	clearedtarget_tickets bool
+	done                  bool
+	oldValue              func(context.Context) (*Machine, error)
+	predicates            []predicate.Machine
 }
 
 var _ ent.Mutation = (*MachineMutation)(nil)
@@ -5408,6 +5411,60 @@ func (m *MachineMutation) ResetOrganization() {
 	m.clearedorganization = false
 }
 
+// AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by ids.
+func (m *MachineMutation) AddTargetTicketIDs(ids ...uuid.UUID) {
+	if m.target_tickets == nil {
+		m.target_tickets = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.target_tickets[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTargetTickets clears the "target_tickets" edge to the Ticket entity.
+func (m *MachineMutation) ClearTargetTickets() {
+	m.clearedtarget_tickets = true
+}
+
+// TargetTicketsCleared reports if the "target_tickets" edge to the Ticket entity was cleared.
+func (m *MachineMutation) TargetTicketsCleared() bool {
+	return m.clearedtarget_tickets
+}
+
+// RemoveTargetTicketIDs removes the "target_tickets" edge to the Ticket entity by IDs.
+func (m *MachineMutation) RemoveTargetTicketIDs(ids ...uuid.UUID) {
+	if m.removedtarget_tickets == nil {
+		m.removedtarget_tickets = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.target_tickets, ids[i])
+		m.removedtarget_tickets[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTargetTickets returns the removed IDs of the "target_tickets" edge to the Ticket entity.
+func (m *MachineMutation) RemovedTargetTicketsIDs() (ids []uuid.UUID) {
+	for id := range m.removedtarget_tickets {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TargetTicketsIDs returns the "target_tickets" edge IDs in the mutation.
+func (m *MachineMutation) TargetTicketsIDs() (ids []uuid.UUID) {
+	for id := range m.target_tickets {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTargetTickets resets all changes to the "target_tickets" edge.
+func (m *MachineMutation) ResetTargetTickets() {
+	m.target_tickets = nil
+	m.clearedtarget_tickets = false
+	m.removedtarget_tickets = nil
+}
+
 // Where appends a list predicates to the MachineMutation builder.
 func (m *MachineMutation) Where(ps ...predicate.Machine) {
 	m.predicates = append(m.predicates, ps...)
@@ -5828,9 +5885,12 @@ func (m *MachineMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *MachineMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.organization != nil {
 		edges = append(edges, machine.EdgeOrganization)
+	}
+	if m.target_tickets != nil {
+		edges = append(edges, machine.EdgeTargetTickets)
 	}
 	return edges
 }
@@ -5843,27 +5903,47 @@ func (m *MachineMutation) AddedIDs(name string) []ent.Value {
 		if id := m.organization; id != nil {
 			return []ent.Value{*id}
 		}
+	case machine.EdgeTargetTickets:
+		ids := make([]ent.Value, 0, len(m.target_tickets))
+		for id := range m.target_tickets {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *MachineMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedtarget_tickets != nil {
+		edges = append(edges, machine.EdgeTargetTickets)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *MachineMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case machine.EdgeTargetTickets:
+		ids := make([]ent.Value, 0, len(m.removedtarget_tickets))
+		for id := range m.removedtarget_tickets {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *MachineMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedorganization {
 		edges = append(edges, machine.EdgeOrganization)
+	}
+	if m.clearedtarget_tickets {
+		edges = append(edges, machine.EdgeTargetTickets)
 	}
 	return edges
 }
@@ -5874,6 +5954,8 @@ func (m *MachineMutation) EdgeCleared(name string) bool {
 	switch name {
 	case machine.EdgeOrganization:
 		return m.clearedorganization
+	case machine.EdgeTargetTickets:
+		return m.clearedtarget_tickets
 	}
 	return false
 }
@@ -5895,6 +5977,9 @@ func (m *MachineMutation) ResetEdge(name string) error {
 	switch name {
 	case machine.EdgeOrganization:
 		m.ResetOrganization()
+		return nil
+	case machine.EdgeTargetTickets:
+		m.ResetTargetTickets()
 		return nil
 	}
 	return fmt.Errorf("unknown Machine edge %s", name)
@@ -8333,6 +8418,8 @@ type ProjectMutation struct {
 	slug                          *string
 	description                   *string
 	status                        *project.Status
+	accessible_machine_ids        *[]uuid.UUID
+	appendaccessible_machine_ids  []uuid.UUID
 	max_concurrent_agents         *int
 	addmax_concurrent_agents      *int
 	clearedFields                 map[string]struct{}
@@ -8767,6 +8854,57 @@ func (m *ProjectMutation) DefaultAgentProviderIDCleared() bool {
 func (m *ProjectMutation) ResetDefaultAgentProviderID() {
 	m.default_agent_provider = nil
 	delete(m.clearedFields, project.FieldDefaultAgentProviderID)
+}
+
+// SetAccessibleMachineIds sets the "accessible_machine_ids" field.
+func (m *ProjectMutation) SetAccessibleMachineIds(u []uuid.UUID) {
+	m.accessible_machine_ids = &u
+	m.appendaccessible_machine_ids = nil
+}
+
+// AccessibleMachineIds returns the value of the "accessible_machine_ids" field in the mutation.
+func (m *ProjectMutation) AccessibleMachineIds() (r []uuid.UUID, exists bool) {
+	v := m.accessible_machine_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccessibleMachineIds returns the old "accessible_machine_ids" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAccessibleMachineIds(ctx context.Context) (v []uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccessibleMachineIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccessibleMachineIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccessibleMachineIds: %w", err)
+	}
+	return oldValue.AccessibleMachineIds, nil
+}
+
+// AppendAccessibleMachineIds adds u to the "accessible_machine_ids" field.
+func (m *ProjectMutation) AppendAccessibleMachineIds(u []uuid.UUID) {
+	m.appendaccessible_machine_ids = append(m.appendaccessible_machine_ids, u...)
+}
+
+// AppendedAccessibleMachineIds returns the list of values that were appended to the "accessible_machine_ids" field in this mutation.
+func (m *ProjectMutation) AppendedAccessibleMachineIds() ([]uuid.UUID, bool) {
+	if len(m.appendaccessible_machine_ids) == 0 {
+		return nil, false
+	}
+	return m.appendaccessible_machine_ids, true
+}
+
+// ResetAccessibleMachineIds resets all changes to the "accessible_machine_ids" field.
+func (m *ProjectMutation) ResetAccessibleMachineIds() {
+	m.accessible_machine_ids = nil
+	m.appendaccessible_machine_ids = nil
 }
 
 // SetMaxConcurrentAgents sets the "max_concurrent_agents" field.
@@ -9426,7 +9564,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.organization != nil {
 		fields = append(fields, project.FieldOrganizationID)
 	}
@@ -9447,6 +9585,9 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.default_agent_provider != nil {
 		fields = append(fields, project.FieldDefaultAgentProviderID)
+	}
+	if m.accessible_machine_ids != nil {
+		fields = append(fields, project.FieldAccessibleMachineIds)
 	}
 	if m.max_concurrent_agents != nil {
 		fields = append(fields, project.FieldMaxConcurrentAgents)
@@ -9473,6 +9614,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.DefaultWorkflowID()
 	case project.FieldDefaultAgentProviderID:
 		return m.DefaultAgentProviderID()
+	case project.FieldAccessibleMachineIds:
+		return m.AccessibleMachineIds()
 	case project.FieldMaxConcurrentAgents:
 		return m.MaxConcurrentAgents()
 	}
@@ -9498,6 +9641,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldDefaultWorkflowID(ctx)
 	case project.FieldDefaultAgentProviderID:
 		return m.OldDefaultAgentProviderID(ctx)
+	case project.FieldAccessibleMachineIds:
+		return m.OldAccessibleMachineIds(ctx)
 	case project.FieldMaxConcurrentAgents:
 		return m.OldMaxConcurrentAgents(ctx)
 	}
@@ -9557,6 +9702,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDefaultAgentProviderID(v)
+		return nil
+	case project.FieldAccessibleMachineIds:
+		v, ok := value.([]uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccessibleMachineIds(v)
 		return nil
 	case project.FieldMaxConcurrentAgents:
 		v, ok := value.(int)
@@ -9670,6 +9822,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldDefaultAgentProviderID:
 		m.ResetDefaultAgentProviderID()
+		return nil
+	case project.FieldAccessibleMachineIds:
+		m.ResetAccessibleMachineIds()
 		return nil
 	case project.FieldMaxConcurrentAgents:
 		m.ResetMaxConcurrentAgents()
@@ -11755,6 +11910,8 @@ type TicketMutation struct {
 	clearedstatus                bool
 	workflow                     *uuid.UUID
 	clearedworkflow              bool
+	target_machine               *uuid.UUID
+	clearedtarget_machine        bool
 	assigned_agent               *uuid.UUID
 	clearedassigned_agent        bool
 	parent                       *uuid.UUID
@@ -12201,6 +12358,55 @@ func (m *TicketMutation) WorkflowIDCleared() bool {
 func (m *TicketMutation) ResetWorkflowID() {
 	m.workflow = nil
 	delete(m.clearedFields, ticket.FieldWorkflowID)
+}
+
+// SetTargetMachineID sets the "target_machine_id" field.
+func (m *TicketMutation) SetTargetMachineID(u uuid.UUID) {
+	m.target_machine = &u
+}
+
+// TargetMachineID returns the value of the "target_machine_id" field in the mutation.
+func (m *TicketMutation) TargetMachineID() (r uuid.UUID, exists bool) {
+	v := m.target_machine
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetMachineID returns the old "target_machine_id" field's value of the Ticket entity.
+// If the Ticket object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketMutation) OldTargetMachineID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetMachineID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetMachineID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetMachineID: %w", err)
+	}
+	return oldValue.TargetMachineID, nil
+}
+
+// ClearTargetMachineID clears the value of the "target_machine_id" field.
+func (m *TicketMutation) ClearTargetMachineID() {
+	m.target_machine = nil
+	m.clearedFields[ticket.FieldTargetMachineID] = struct{}{}
+}
+
+// TargetMachineIDCleared returns if the "target_machine_id" field was cleared in this mutation.
+func (m *TicketMutation) TargetMachineIDCleared() bool {
+	_, ok := m.clearedFields[ticket.FieldTargetMachineID]
+	return ok
+}
+
+// ResetTargetMachineID resets all changes to the "target_machine_id" field.
+func (m *TicketMutation) ResetTargetMachineID() {
+	m.target_machine = nil
+	delete(m.clearedFields, ticket.FieldTargetMachineID)
 }
 
 // SetAssignedAgentID sets the "assigned_agent_id" field.
@@ -13268,6 +13474,33 @@ func (m *TicketMutation) ResetWorkflow() {
 	m.clearedworkflow = false
 }
 
+// ClearTargetMachine clears the "target_machine" edge to the Machine entity.
+func (m *TicketMutation) ClearTargetMachine() {
+	m.clearedtarget_machine = true
+	m.clearedFields[ticket.FieldTargetMachineID] = struct{}{}
+}
+
+// TargetMachineCleared reports if the "target_machine" edge to the Machine entity was cleared.
+func (m *TicketMutation) TargetMachineCleared() bool {
+	return m.TargetMachineIDCleared() || m.clearedtarget_machine
+}
+
+// TargetMachineIDs returns the "target_machine" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TargetMachineID instead. It exists only for internal usage by the builders.
+func (m *TicketMutation) TargetMachineIDs() (ids []uuid.UUID) {
+	if id := m.target_machine; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTargetMachine resets all changes to the "target_machine" edge.
+func (m *TicketMutation) ResetTargetMachine() {
+	m.target_machine = nil
+	m.clearedtarget_machine = false
+}
+
 // ClearAssignedAgent clears the "assigned_agent" edge to the Agent entity.
 func (m *TicketMutation) ClearAssignedAgent() {
 	m.clearedassigned_agent = true
@@ -13747,7 +13980,7 @@ func (m *TicketMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TicketMutation) Fields() []string {
-	fields := make([]string, 0, 28)
+	fields := make([]string, 0, 29)
 	if m.project != nil {
 		fields = append(fields, ticket.FieldProjectID)
 	}
@@ -13771,6 +14004,9 @@ func (m *TicketMutation) Fields() []string {
 	}
 	if m.workflow != nil {
 		fields = append(fields, ticket.FieldWorkflowID)
+	}
+	if m.target_machine != nil {
+		fields = append(fields, ticket.FieldTargetMachineID)
 	}
 	if m.assigned_agent != nil {
 		fields = append(fields, ticket.FieldAssignedAgentID)
@@ -13856,6 +14092,8 @@ func (m *TicketMutation) Field(name string) (ent.Value, bool) {
 		return m.GetType()
 	case ticket.FieldWorkflowID:
 		return m.WorkflowID()
+	case ticket.FieldTargetMachineID:
+		return m.TargetMachineID()
 	case ticket.FieldAssignedAgentID:
 		return m.AssignedAgentID()
 	case ticket.FieldCreatedBy:
@@ -13921,6 +14159,8 @@ func (m *TicketMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldType(ctx)
 	case ticket.FieldWorkflowID:
 		return m.OldWorkflowID(ctx)
+	case ticket.FieldTargetMachineID:
+		return m.OldTargetMachineID(ctx)
 	case ticket.FieldAssignedAgentID:
 		return m.OldAssignedAgentID(ctx)
 	case ticket.FieldCreatedBy:
@@ -14025,6 +14265,13 @@ func (m *TicketMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetWorkflowID(v)
+		return nil
+	case ticket.FieldTargetMachineID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetMachineID(v)
 		return nil
 	case ticket.FieldAssignedAgentID:
 		v, ok := value.(uuid.UUID)
@@ -14301,6 +14548,9 @@ func (m *TicketMutation) ClearedFields() []string {
 	if m.FieldCleared(ticket.FieldWorkflowID) {
 		fields = append(fields, ticket.FieldWorkflowID)
 	}
+	if m.FieldCleared(ticket.FieldTargetMachineID) {
+		fields = append(fields, ticket.FieldTargetMachineID)
+	}
 	if m.FieldCleared(ticket.FieldAssignedAgentID) {
 		fields = append(fields, ticket.FieldAssignedAgentID)
 	}
@@ -14344,6 +14594,9 @@ func (m *TicketMutation) ClearField(name string) error {
 		return nil
 	case ticket.FieldWorkflowID:
 		m.ClearWorkflowID()
+		return nil
+	case ticket.FieldTargetMachineID:
+		m.ClearTargetMachineID()
 		return nil
 	case ticket.FieldAssignedAgentID:
 		m.ClearAssignedAgentID()
@@ -14400,6 +14653,9 @@ func (m *TicketMutation) ResetField(name string) error {
 		return nil
 	case ticket.FieldWorkflowID:
 		m.ResetWorkflowID()
+		return nil
+	case ticket.FieldTargetMachineID:
+		m.ResetTargetMachineID()
 		return nil
 	case ticket.FieldAssignedAgentID:
 		m.ResetAssignedAgentID()
@@ -14467,7 +14723,7 @@ func (m *TicketMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TicketMutation) AddedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.project != nil {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -14476,6 +14732,9 @@ func (m *TicketMutation) AddedEdges() []string {
 	}
 	if m.workflow != nil {
 		edges = append(edges, ticket.EdgeWorkflow)
+	}
+	if m.target_machine != nil {
+		edges = append(edges, ticket.EdgeTargetMachine)
 	}
 	if m.assigned_agent != nil {
 		edges = append(edges, ticket.EdgeAssignedAgent)
@@ -14521,6 +14780,10 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 		}
 	case ticket.EdgeWorkflow:
 		if id := m.workflow; id != nil {
+			return []ent.Value{*id}
+		}
+	case ticket.EdgeTargetMachine:
+		if id := m.target_machine; id != nil {
 			return []ent.Value{*id}
 		}
 	case ticket.EdgeAssignedAgent:
@@ -14579,7 +14842,7 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TicketMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.removedchildren != nil {
 		edges = append(edges, ticket.EdgeChildren)
 	}
@@ -14656,7 +14919,7 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TicketMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 12)
+	edges := make([]string, 0, 13)
 	if m.clearedproject {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -14665,6 +14928,9 @@ func (m *TicketMutation) ClearedEdges() []string {
 	}
 	if m.clearedworkflow {
 		edges = append(edges, ticket.EdgeWorkflow)
+	}
+	if m.clearedtarget_machine {
+		edges = append(edges, ticket.EdgeTargetMachine)
 	}
 	if m.clearedassigned_agent {
 		edges = append(edges, ticket.EdgeAssignedAgent)
@@ -14706,6 +14972,8 @@ func (m *TicketMutation) EdgeCleared(name string) bool {
 		return m.clearedstatus
 	case ticket.EdgeWorkflow:
 		return m.clearedworkflow
+	case ticket.EdgeTargetMachine:
+		return m.clearedtarget_machine
 	case ticket.EdgeAssignedAgent:
 		return m.clearedassigned_agent
 	case ticket.EdgeParent:
@@ -14741,6 +15009,9 @@ func (m *TicketMutation) ClearEdge(name string) error {
 	case ticket.EdgeWorkflow:
 		m.ClearWorkflow()
 		return nil
+	case ticket.EdgeTargetMachine:
+		m.ClearTargetMachine()
+		return nil
 	case ticket.EdgeAssignedAgent:
 		m.ClearAssignedAgent()
 		return nil
@@ -14763,6 +15034,9 @@ func (m *TicketMutation) ResetEdge(name string) error {
 		return nil
 	case ticket.EdgeWorkflow:
 		m.ResetWorkflow()
+		return nil
+	case ticket.EdgeTargetMachine:
+		m.ResetTargetMachine()
 		return nil
 	case ticket.EdgeAssignedAgent:
 		m.ResetAssignedAgent()
@@ -17966,6 +18240,7 @@ type WorkflowMutation struct {
 	_type                    *workflow.Type
 	harness_path             *string
 	_hooks                   *map[string]interface{}
+	required_machine_labels  *pgarray.StringArray
 	max_concurrent           *int
 	addmax_concurrent        *int
 	max_retry_attempts       *int
@@ -18277,6 +18552,55 @@ func (m *WorkflowMutation) OldHooks(ctx context.Context) (v map[string]interface
 // ResetHooks resets all changes to the "hooks" field.
 func (m *WorkflowMutation) ResetHooks() {
 	m._hooks = nil
+}
+
+// SetRequiredMachineLabels sets the "required_machine_labels" field.
+func (m *WorkflowMutation) SetRequiredMachineLabels(pa pgarray.StringArray) {
+	m.required_machine_labels = &pa
+}
+
+// RequiredMachineLabels returns the value of the "required_machine_labels" field in the mutation.
+func (m *WorkflowMutation) RequiredMachineLabels() (r pgarray.StringArray, exists bool) {
+	v := m.required_machine_labels
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequiredMachineLabels returns the old "required_machine_labels" field's value of the Workflow entity.
+// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowMutation) OldRequiredMachineLabels(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequiredMachineLabels is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequiredMachineLabels requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequiredMachineLabels: %w", err)
+	}
+	return oldValue.RequiredMachineLabels, nil
+}
+
+// ClearRequiredMachineLabels clears the value of the "required_machine_labels" field.
+func (m *WorkflowMutation) ClearRequiredMachineLabels() {
+	m.required_machine_labels = nil
+	m.clearedFields[workflow.FieldRequiredMachineLabels] = struct{}{}
+}
+
+// RequiredMachineLabelsCleared returns if the "required_machine_labels" field was cleared in this mutation.
+func (m *WorkflowMutation) RequiredMachineLabelsCleared() bool {
+	_, ok := m.clearedFields[workflow.FieldRequiredMachineLabels]
+	return ok
+}
+
+// ResetRequiredMachineLabels resets all changes to the "required_machine_labels" field.
+func (m *WorkflowMutation) ResetRequiredMachineLabels() {
+	m.required_machine_labels = nil
+	delete(m.clearedFields, workflow.FieldRequiredMachineLabels)
 }
 
 // SetMaxConcurrent sets the "max_concurrent" field.
@@ -18903,7 +19227,7 @@ func (m *WorkflowMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *WorkflowMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.project != nil {
 		fields = append(fields, workflow.FieldProjectID)
 	}
@@ -18918,6 +19242,9 @@ func (m *WorkflowMutation) Fields() []string {
 	}
 	if m._hooks != nil {
 		fields = append(fields, workflow.FieldHooks)
+	}
+	if m.required_machine_labels != nil {
+		fields = append(fields, workflow.FieldRequiredMachineLabels)
 	}
 	if m.max_concurrent != nil {
 		fields = append(fields, workflow.FieldMaxConcurrent)
@@ -18961,6 +19288,8 @@ func (m *WorkflowMutation) Field(name string) (ent.Value, bool) {
 		return m.HarnessPath()
 	case workflow.FieldHooks:
 		return m.Hooks()
+	case workflow.FieldRequiredMachineLabels:
+		return m.RequiredMachineLabels()
 	case workflow.FieldMaxConcurrent:
 		return m.MaxConcurrent()
 	case workflow.FieldMaxRetryAttempts:
@@ -18996,6 +19325,8 @@ func (m *WorkflowMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldHarnessPath(ctx)
 	case workflow.FieldHooks:
 		return m.OldHooks(ctx)
+	case workflow.FieldRequiredMachineLabels:
+		return m.OldRequiredMachineLabels(ctx)
 	case workflow.FieldMaxConcurrent:
 		return m.OldMaxConcurrent(ctx)
 	case workflow.FieldMaxRetryAttempts:
@@ -19055,6 +19386,13 @@ func (m *WorkflowMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetHooks(v)
+		return nil
+	case workflow.FieldRequiredMachineLabels:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequiredMachineLabels(v)
 		return nil
 	case workflow.FieldMaxConcurrent:
 		v, ok := value.(int)
@@ -19205,6 +19543,9 @@ func (m *WorkflowMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *WorkflowMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(workflow.FieldRequiredMachineLabels) {
+		fields = append(fields, workflow.FieldRequiredMachineLabels)
+	}
 	if m.FieldCleared(workflow.FieldFinishStatusID) {
 		fields = append(fields, workflow.FieldFinishStatusID)
 	}
@@ -19222,6 +19563,9 @@ func (m *WorkflowMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *WorkflowMutation) ClearField(name string) error {
 	switch name {
+	case workflow.FieldRequiredMachineLabels:
+		m.ClearRequiredMachineLabels()
+		return nil
 	case workflow.FieldFinishStatusID:
 		m.ClearFinishStatusID()
 		return nil
@@ -19247,6 +19591,9 @@ func (m *WorkflowMutation) ResetField(name string) error {
 		return nil
 	case workflow.FieldHooks:
 		m.ResetHooks()
+		return nil
+	case workflow.FieldRequiredMachineLabels:
+		m.ResetRequiredMachineLabels()
 		return nil
 	case workflow.FieldMaxConcurrent:
 		m.ResetMaxConcurrent()

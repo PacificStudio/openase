@@ -16,6 +16,7 @@ import type {
   ProjectResponse,
   SkillListPayload,
   StatusPayload,
+  SystemDashboardResponse,
   TicketDetailPayload,
   TicketPayload,
   Organization,
@@ -35,6 +36,10 @@ type MachineMutationBody = {
   ssh_user?: string
   status?: string
   workspace_root?: string
+}
+
+export function getSystemDashboard() {
+  return api.get<SystemDashboardResponse>('/api/v1/system/dashboard')
 }
 
 export function listOrganizations() {

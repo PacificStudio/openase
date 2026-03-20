@@ -26,6 +26,9 @@ type DeepRequired<T> = T extends readonly (infer Item)[]
       ? { [K in keyof T]-?: DeepRequired<Defined<T[K]>> }
       : Defined<T>
 
+export type SystemDashboardResponse = DeepRequired<ResponseFor<'/api/v1/system/dashboard', 'get'>>
+export type SystemMemorySnapshot = SystemDashboardResponse['memory']
+
 export type OrganizationPayload = DeepRequired<ResponseFor<'/api/v1/orgs', 'get'>>
 export type OrganizationResponse = DeepRequired<ResponseFor<'/api/v1/orgs', 'post'>>
 export type Organization = ItemOf<OrganizationPayload['organizations']>

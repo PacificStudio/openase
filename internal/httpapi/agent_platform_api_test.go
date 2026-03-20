@@ -112,6 +112,32 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		t.Fatalf("unexpected updated ticket payload: %+v", updateResp.Ticket)
 	}
 
+	usageResp := struct {
+		Ticket         ticketResponse             `json:"ticket"`
+		Applied        ticketservice.AppliedUsage `json:"applied"`
+		BudgetExceeded bool                       `json:"budget_exceeded"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/usage", currentTicketID),
+		map[string]any{
+			"input_tokens":  120,
+			"output_tokens": 45,
+			"cost_usd":      0.21,
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&usageResp,
+	)
+	if usageResp.Applied.InputTokens != 120 || usageResp.Applied.OutputTokens != 45 || usageResp.BudgetExceeded {
+		t.Fatalf("unexpected usage response: %+v", usageResp)
+	}
+	if usageResp.Ticket.CostTokensInput != 120 || usageResp.Ticket.CostTokensOutput != 45 || usageResp.Ticket.CostAmount != 0.21 {
+		t.Fatalf("unexpected ticket usage totals: %+v", usageResp.Ticket)
+	}
+
 	forbiddenRec := performJSONRequestWithHeaders(
 		t,
 		server,

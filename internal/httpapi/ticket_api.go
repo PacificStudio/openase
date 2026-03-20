@@ -48,6 +48,7 @@ type ticketResponse struct {
 	Priority          string                       `json:"priority"`
 	Type              string                       `json:"type"`
 	WorkflowID        *string                      `json:"workflow_id,omitempty"`
+	TargetMachineID   *string                      `json:"target_machine_id,omitempty"`
 	CreatedBy         string                       `json:"created_by"`
 	Parent            *ticketReferenceResponse     `json:"parent,omitempty"`
 	Children          []ticketReferenceResponse    `json:"children"`
@@ -55,6 +56,8 @@ type ticketResponse struct {
 	ExternalLinks     []ticketExternalLinkResponse `json:"external_links"`
 	ExternalRef       string                       `json:"external_ref"`
 	BudgetUSD         float64                      `json:"budget_usd"`
+	CostTokensInput   int64                        `json:"cost_tokens_input"`
+	CostTokensOutput  int64                        `json:"cost_tokens_output"`
 	CostAmount        float64                      `json:"cost_amount"`
 	AttemptCount      int                          `json:"attempt_count"`
 	ConsecutiveErrors int                          `json:"consecutive_errors"`
@@ -388,6 +391,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrWorkflowNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "WORKFLOW_NOT_FOUND", err.Error())
+	case errors.Is(err, ticketservice.ErrTargetMachineNotFound):
+		return writeAPIError(c, http.StatusBadRequest, "TARGET_MACHINE_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrParentTicketNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "PARENT_TICKET_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrDependencyConflict):
@@ -498,6 +503,8 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 		ExternalLinks:     []ticketExternalLinkResponse{},
 		ExternalRef:       item.ExternalRef,
 		BudgetUSD:         item.BudgetUSD,
+		CostTokensInput:   item.CostTokensInput,
+		CostTokensOutput:  item.CostTokensOutput,
 		CostAmount:        item.CostAmount,
 		AttemptCount:      item.AttemptCount,
 		ConsecutiveErrors: item.ConsecutiveErrors,
@@ -508,6 +515,10 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 	if item.WorkflowID != nil {
 		workflowID := item.WorkflowID.String()
 		response.WorkflowID = &workflowID
+	}
+	if item.TargetMachineID != nil {
+		targetMachineID := item.TargetMachineID.String()
+		response.TargetMachineID = &targetMachineID
 	}
 	if item.NextRetryAt != nil {
 		nextRetryAt := item.NextRetryAt.UTC().Format(time.RFC3339)

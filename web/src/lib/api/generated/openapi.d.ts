@@ -542,6 +542,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/system/dashboard': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get process memory and runtime dashboard metrics */
+    get: operations['getSystemDashboard']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/tickets/{ticketId}': {
     parameters: {
       query?: never
@@ -1784,6 +1801,7 @@ export interface operations {
         content: {
           'application/json': {
             projects?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -1849,6 +1867,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          accessible_machine_ids?: string[]
           default_agent_provider_id?: string | null
           default_workflow_id?: string | null
           description?: string
@@ -1868,6 +1887,7 @@ export interface operations {
         content: {
           'application/json': {
             project?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -2118,6 +2138,7 @@ export interface operations {
         content: {
           'application/json': {
             project?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -2189,6 +2210,7 @@ export interface operations {
         content: {
           'application/json': {
             project?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -2266,6 +2288,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          accessible_machine_ids?: string[] | null
           default_agent_provider_id?: string | null
           default_workflow_id?: string | null
           description?: string | null
@@ -2285,6 +2308,7 @@ export interface operations {
         content: {
           'application/json': {
             project?: {
+              accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
               default_workflow_id?: string | null
               description?: string
@@ -3091,6 +3115,10 @@ export interface operations {
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
               created_at?: string
               created_by?: string
               dependencies?: {
@@ -3132,6 +3160,7 @@ export interface operations {
               retry_paused?: boolean
               status_id?: string
               status_name?: string
+              target_machine_id?: string | null
               title?: string
               type?: string
               workflow_id?: string | null
@@ -3303,6 +3332,10 @@ export interface operations {
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
               created_at?: string
               created_by?: string
               dependencies?: {
@@ -3344,6 +3377,7 @@ export interface operations {
               retry_paused?: boolean
               status_id?: string
               status_name?: string
+              target_machine_id?: string | null
               title?: string
               type?: string
               workflow_id?: string | null
@@ -3422,6 +3456,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string
@@ -3493,6 +3528,7 @@ export interface operations {
           max_retry_attempts?: number | null
           name?: string
           pickup_status_id?: string
+          required_machine_labels?: string[]
           stall_timeout_minutes?: number | null
           timeout_minutes?: number | null
           type?: string
@@ -3521,6 +3557,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string
@@ -3951,6 +3988,10 @@ export interface operations {
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
               created_at?: string
               created_by?: string
               dependencies?: {
@@ -3992,6 +4033,7 @@ export interface operations {
               retry_paused?: boolean
               status_id?: string
               status_name?: string
+              target_machine_id?: string | null
               title?: string
               type?: string
               workflow_id?: string | null
@@ -4037,6 +4079,53 @@ export interface operations {
       }
     }
   }
+  getSystemDashboard: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get process memory and runtime dashboard metrics response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            memory?: {
+              alloc_bytes?: number
+              gc_cycles?: number
+              goroutines?: number
+              heap_alloc_bytes?: number
+              heap_idle_bytes?: number
+              heap_inuse_bytes?: number
+              heap_released_bytes?: number
+              next_gc_bytes?: number
+              observed_at?: string
+              stack_inuse_bytes?: number
+              sys_bytes?: number
+              total_alloc_bytes?: number
+            }
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   updateTicket: {
     parameters: {
       query?: never
@@ -4059,6 +4148,7 @@ export interface operations {
           parent_ticket_id?: string | null
           priority?: string | null
           status_id?: string | null
+          target_machine_id?: string | null
           title?: string | null
           type?: string | null
           workflow_id?: string | null
@@ -4087,6 +4177,10 @@ export interface operations {
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
               created_at?: string
               created_by?: string
               dependencies?: {
@@ -4128,6 +4222,7 @@ export interface operations {
               retry_paused?: boolean
               status_id?: string
               status_name?: string
+              target_machine_id?: string | null
               title?: string
               type?: string
               workflow_id?: string | null
@@ -4375,6 +4470,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string
@@ -4454,6 +4550,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string
@@ -4536,6 +4633,7 @@ export interface operations {
           max_retry_attempts?: number | null
           name?: string | null
           pickup_status_id?: string | null
+          required_machine_labels?: string[] | null
           stall_timeout_minutes?: number | null
           timeout_minutes?: number | null
           type?: string | null
@@ -4564,6 +4662,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string

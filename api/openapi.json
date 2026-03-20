@@ -1977,6 +1977,12 @@
                     "projects": {
                       "items": {
                         "properties": {
+                          "accessible_machine_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
                           "default_agent_provider_id": {
                             "nullable": true,
                             "type": "string"
@@ -2097,6 +2103,12 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "accessible_machine_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "default_agent_provider_id": {
                     "nullable": true,
                     "type": "string"
@@ -2137,6 +2149,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2589,6 +2607,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2728,6 +2752,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2846,6 +2876,13 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "accessible_machine_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
                   "default_agent_provider_id": {
                     "nullable": true,
                     "type": "string"
@@ -2890,6 +2927,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -4358,6 +4401,14 @@
                             "format": "double",
                             "type": "number"
                           },
+                          "cost_tokens_input": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "cost_tokens_output": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
                           "created_at": {
                             "type": "string"
                           },
@@ -4483,6 +4534,10 @@
                             "type": "string"
                           },
                           "status_name": {
+                            "type": "string"
+                          },
+                          "target_machine_id": {
+                            "nullable": true,
                             "type": "string"
                           },
                           "title": {
@@ -4844,6 +4899,14 @@
                           "format": "double",
                           "type": "number"
                         },
+                        "cost_tokens_input": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
                         "created_at": {
                           "type": "string"
                         },
@@ -4969,6 +5032,10 @@
                           "type": "string"
                         },
                         "status_name": {
+                          "type": "string"
+                        },
+                        "target_machine_id": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "title": {
@@ -5112,6 +5179,12 @@
                           "project_id": {
                             "type": "string"
                           },
+                          "required_machine_labels": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
                           "stall_timeout_minutes": {
                             "type": "integer"
                           },
@@ -5248,6 +5321,12 @@
                   "pickup_status_id": {
                     "type": "string"
                   },
+                  "required_machine_labels": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "stall_timeout_minutes": {
                     "nullable": true,
                     "type": "integer"
@@ -5310,6 +5389,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "required_machine_labels": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "stall_timeout_minutes": {
                           "type": "integer"
@@ -6099,6 +6184,14 @@
                           "format": "double",
                           "type": "number"
                         },
+                        "cost_tokens_input": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
                         "created_at": {
                           "type": "string"
                         },
@@ -6224,6 +6317,10 @@
                           "type": "string"
                         },
                         "status_name": {
+                          "type": "string"
+                        },
+                        "target_machine_id": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "title": {
@@ -6307,6 +6404,108 @@
         ]
       }
     },
+    "/api/v1/system/dashboard": {
+      "get": {
+        "operationId": "getSystemDashboard",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "memory": {
+                      "properties": {
+                        "alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "gc_cycles": {
+                          "maximum": 4294967295,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "goroutines": {
+                          "type": "integer"
+                        },
+                        "heap_alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_idle_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_inuse_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_released_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "next_gc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "observed_at": {
+                          "type": "string"
+                        },
+                        "stack_inuse_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sys_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "total_alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get process memory and runtime dashboard metrics response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get process memory and runtime dashboard metrics",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/api/v1/tickets/{ticketId}": {
       "patch": {
         "operationId": "updateTicket",
@@ -6353,6 +6552,10 @@
                     "type": "string"
                   },
                   "status_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "target_machine_id": {
                     "nullable": true,
                     "type": "string"
                   },
@@ -6420,6 +6623,14 @@
                         "cost_amount": {
                           "format": "double",
                           "type": "number"
+                        },
+                        "cost_tokens_input": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
                         },
                         "created_at": {
                           "type": "string"
@@ -6546,6 +6757,10 @@
                           "type": "string"
                         },
                         "status_name": {
+                          "type": "string"
+                        },
+                        "target_machine_id": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "title": {
@@ -6978,6 +7193,12 @@
                         "project_id": {
                           "type": "string"
                         },
+                        "required_machine_labels": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "stall_timeout_minutes": {
                           "type": "integer"
                         },
@@ -7136,6 +7357,12 @@
                         "project_id": {
                           "type": "string"
                         },
+                        "required_machine_labels": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "stall_timeout_minutes": {
                           "type": "integer"
                         },
@@ -7270,6 +7497,13 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "required_machine_labels": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
                   "stall_timeout_minutes": {
                     "nullable": true,
                     "type": "integer"
@@ -7333,6 +7567,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "required_machine_labels": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "stall_timeout_minutes": {
                           "type": "integer"
@@ -7967,6 +8207,9 @@
     }
   },
   "tags": [
+    {
+      "name": "system"
+    },
     {
       "name": "catalog"
     },

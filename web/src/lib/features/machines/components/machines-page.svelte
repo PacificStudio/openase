@@ -198,7 +198,6 @@
       machines = machines.map((machine) =>
         machine.id === payload.machine.id ? payload.machine : machine,
       )
-      probe = payload.probe
       await openMachine(payload.machine, { preserveFeedback: true })
       probe = payload.probe
       feedback = 'Connection test completed.'

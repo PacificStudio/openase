@@ -22,11 +22,12 @@ import (
 const (
 	TokenPrefix = "ase_agent_"
 
-	ScopeTicketsCreate     Scope = "tickets.create"
-	ScopeTicketsList       Scope = "tickets.list"
-	ScopeTicketsUpdateSelf Scope = "tickets.update.self"
-	ScopeProjectsUpdate    Scope = "projects.update"
-	ScopeProjectsAddRepo   Scope = "projects.add_repo"
+	ScopeTicketsCreate      Scope = "tickets.create"
+	ScopeTicketsList        Scope = "tickets.list"
+	ScopeTicketsReportUsage Scope = "tickets.report_usage"
+	ScopeTicketsUpdateSelf  Scope = "tickets.update.self"
+	ScopeProjectsUpdate     Scope = "projects.update"
+	ScopeProjectsAddRepo    Scope = "projects.add_repo"
 )
 
 var (
@@ -41,6 +42,7 @@ var (
 	defaultAgentScopes = []Scope{
 		ScopeTicketsCreate,
 		ScopeTicketsList,
+		ScopeTicketsReportUsage,
 		ScopeTicketsUpdateSelf,
 	}
 	supportedAgentScopes = []Scope{
@@ -48,6 +50,7 @@ var (
 		ScopeProjectsUpdate,
 		ScopeTicketsCreate,
 		ScopeTicketsList,
+		ScopeTicketsReportUsage,
 		ScopeTicketsUpdateSelf,
 	}
 )

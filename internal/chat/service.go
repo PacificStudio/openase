@@ -479,6 +479,10 @@ func (s *Service) writeHarnessEditorContext(
 	sb.WriteString("### 可用模板变量\n")
 	sb.WriteString(renderHarnessVariableDictionary())
 	sb.WriteByte('\n')
+	sb.WriteString("\n### Harness 编辑器回复要求\n")
+	sb.WriteString("- 当用户请求修改 Harness 时，先简要说明修改意图，再给出完整的更新后 Harness。\n")
+	sb.WriteString("- 完整 Harness 必须放在一个 ```markdown 代码块中，便于编辑器提取 diff 并应用。\n")
+	sb.WriteString("- 只有在用户明确要求平台写操作时才输出 action_proposal；普通 Harness 建议不要输出 action_proposal。\n")
 	return nil
 }
 

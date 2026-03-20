@@ -25,6 +25,8 @@ const (
 	FieldHarnessPath = "harness_path"
 	// FieldHooks holds the string denoting the hooks field in the database.
 	FieldHooks = "hooks"
+	// FieldRequiredMachineLabels holds the string denoting the required_machine_labels field in the database.
+	FieldRequiredMachineLabels = "required_machine_labels"
 	// FieldMaxConcurrent holds the string denoting the max_concurrent field in the database.
 	FieldMaxConcurrent = "max_concurrent"
 	// FieldMaxRetryAttempts holds the string denoting the max_retry_attempts field in the database.
@@ -98,6 +100,7 @@ var Columns = []string{
 	FieldType,
 	FieldHarnessPath,
 	FieldHooks,
+	FieldRequiredMachineLabels,
 	FieldMaxConcurrent,
 	FieldMaxRetryAttempts,
 	FieldTimeoutMinutes,
@@ -195,6 +198,11 @@ func ByType(opts ...sql.OrderTermOption) OrderOption {
 // ByHarnessPath orders the results by the harness_path field.
 func ByHarnessPath(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldHarnessPath, opts...).ToFunc()
+}
+
+// ByRequiredMachineLabels orders the results by the required_machine_labels field.
+func ByRequiredMachineLabels(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRequiredMachineLabels, opts...).ToFunc()
 }
 
 // ByMaxConcurrent orders the results by the max_concurrent field.
