@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
@@ -35,6 +36,8 @@ var (
 	ErrParentTicketNotFound = errors.New("parent ticket not found")
 	ErrDependencyNotFound   = errors.New("ticket dependency not found")
 	ErrDependencyConflict   = errors.New("ticket dependency already exists")
+	ErrExternalLinkNotFound = errors.New("ticket external link not found")
+	ErrExternalLinkConflict = errors.New("ticket external link already exists")
 	ErrInvalidDependency    = errors.New("invalid ticket dependency")
 )
 
@@ -65,6 +68,18 @@ type Dependency struct {
 	Target TicketReference          `json:"target"`
 }
 
+// ExternalLink describes a ticket association to an external issue or PR.
+type ExternalLink struct {
+	ID         uuid.UUID                      `json:"id"`
+	LinkType   entticketexternallink.LinkType `json:"link_type"`
+	URL        string                         `json:"url"`
+	ExternalID string                         `json:"external_id"`
+	Title      string                         `json:"title,omitempty"`
+	Status     string                         `json:"status,omitempty"`
+	Relation   entticketexternallink.Relation `json:"relation"`
+	CreatedAt  time.Time                      `json:"created_at"`
+}
+
 // Ticket is the API-facing ticket aggregate returned by the service layer.
 type Ticket struct {
 	ID                uuid.UUID          `json:"id"`
@@ -81,6 +96,7 @@ type Ticket struct {
 	Parent            *TicketReference   `json:"parent,omitempty"`
 	Children          []TicketReference  `json:"children"`
 	Dependencies      []Dependency       `json:"dependencies"`
+	ExternalLinks     []ExternalLink     `json:"external_links"`
 	ExternalRef       string             `json:"external_ref"`
 	BudgetUSD         float64            `json:"budget_usd"`
 	CostAmount        float64            `json:"cost_amount"`
@@ -137,9 +153,25 @@ type AddDependencyInput struct {
 	Type           entticketdependency.Type
 }
 
+// AddExternalLinkInput adds an external issue or PR association to a ticket.
+type AddExternalLinkInput struct {
+	TicketID   uuid.UUID
+	LinkType   entticketexternallink.LinkType
+	URL        string
+	ExternalID string
+	Title      string
+	Status     string
+	Relation   entticketexternallink.Relation
+}
+
 // DeleteDependencyResult reports which dependency edge was removed.
 type DeleteDependencyResult struct {
 	DeletedDependencyID uuid.UUID `json:"deleted_dependency_id"`
+}
+
+// DeleteExternalLinkResult reports which external link was removed.
+type DeleteExternalLinkResult struct {
+	DeletedExternalLinkID uuid.UUID `json:"deleted_external_link_id"`
 }
 
 // Service provides ticket CRUD and dependency orchestration.
@@ -167,6 +199,9 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]Ticket, error) {
 		WithStatus().
 		WithParent(func(query *ent.TicketQuery) {
 			query.WithStatus()
+		}).
+		WithExternalLinks(func(query *ent.TicketExternalLinkQuery) {
+			query.Order(ent.Asc(entticketexternallink.FieldCreatedAt), ent.Asc(entticketexternallink.FieldID))
 		})
 
 	if len(input.StatusNames) > 0 {
@@ -212,6 +247,9 @@ func (s *Service) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
 				WithTargetTicket(func(ticketQuery *ent.TicketQuery) {
 					ticketQuery.WithStatus()
 				})
+		}).
+		WithExternalLinks(func(query *ent.TicketExternalLinkQuery) {
+			query.Order(ent.Asc(entticketexternallink.FieldCreatedAt), ent.Asc(entticketexternallink.FieldID))
 		}).
 		Only(ctx)
 	if err != nil {
@@ -511,6 +549,114 @@ func (s *Service) RemoveDependency(ctx context.Context, ticketID uuid.UUID, depe
 	return DeleteDependencyResult{DeletedDependencyID: dependencyID}, nil
 }
 
+// AddExternalLink creates a new external issue or PR association for a ticket.
+func (s *Service) AddExternalLink(ctx context.Context, input AddExternalLinkInput) (ExternalLink, error) {
+	if s.client == nil {
+		return ExternalLink{}, ErrUnavailable
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return ExternalLink{}, fmt.Errorf("start add ticket external link tx: %w", err)
+	}
+	defer rollback(tx)
+
+	source, err := tx.Ticket.Get(ctx, input.TicketID)
+	if err != nil {
+		return ExternalLink{}, s.mapTicketReadError("get ticket for external link create", err)
+	}
+
+	builder := tx.TicketExternalLink.Create().
+		SetTicketID(source.ID).
+		SetLinkType(input.LinkType).
+		SetURL(input.URL).
+		SetExternalID(input.ExternalID).
+		SetRelation(input.Relation)
+	if input.Title != "" {
+		builder.SetTitle(input.Title)
+	}
+	if input.Status != "" {
+		builder.SetStatus(input.Status)
+	}
+
+	created, err := builder.Save(ctx)
+	if err != nil {
+		return ExternalLink{}, s.mapTicketWriteError("create ticket external link", err)
+	}
+
+	if strings.TrimSpace(source.ExternalRef) == "" {
+		if _, err := tx.Ticket.UpdateOneID(source.ID).SetExternalRef(input.ExternalID).Save(ctx); err != nil {
+			return ExternalLink{}, s.mapTicketWriteError("set ticket external_ref", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return ExternalLink{}, fmt.Errorf("commit add ticket external link tx: %w", err)
+	}
+
+	return mapExternalLink(created), nil
+}
+
+// RemoveExternalLink deletes an external issue or PR association from a ticket.
+func (s *Service) RemoveExternalLink(ctx context.Context, ticketID uuid.UUID, externalLinkID uuid.UUID) (DeleteExternalLinkResult, error) {
+	if s.client == nil {
+		return DeleteExternalLinkResult{}, ErrUnavailable
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return DeleteExternalLinkResult{}, fmt.Errorf("start delete ticket external link tx: %w", err)
+	}
+	defer rollback(tx)
+
+	link, err := tx.TicketExternalLink.Query().
+		Where(
+			entticketexternallink.ID(externalLinkID),
+			entticketexternallink.TicketIDEQ(ticketID),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return DeleteExternalLinkResult{}, ErrExternalLinkNotFound
+		}
+		return DeleteExternalLinkResult{}, fmt.Errorf("get ticket external link for delete: %w", err)
+	}
+
+	source, err := tx.Ticket.Get(ctx, ticketID)
+	if err != nil {
+		return DeleteExternalLinkResult{}, s.mapTicketReadError("get ticket for external link delete", err)
+	}
+
+	if err := tx.TicketExternalLink.DeleteOneID(externalLinkID).Exec(ctx); err != nil {
+		return DeleteExternalLinkResult{}, s.mapTicketWriteError("delete ticket external link", err)
+	}
+
+	if strings.TrimSpace(source.ExternalRef) == link.ExternalID {
+		replacement, replacementErr := tx.TicketExternalLink.Query().
+			Where(entticketexternallink.TicketIDEQ(ticketID)).
+			Order(ent.Asc(entticketexternallink.FieldCreatedAt), ent.Asc(entticketexternallink.FieldID)).
+			First(ctx)
+		switch {
+		case ent.IsNotFound(replacementErr):
+			if _, err := tx.Ticket.UpdateOneID(ticketID).ClearExternalRef().Save(ctx); err != nil {
+				return DeleteExternalLinkResult{}, s.mapTicketWriteError("clear ticket external_ref", err)
+			}
+		case replacementErr != nil:
+			return DeleteExternalLinkResult{}, fmt.Errorf("select replacement external link: %w", replacementErr)
+		default:
+			if _, err := tx.Ticket.UpdateOneID(ticketID).SetExternalRef(replacement.ExternalID).Save(ctx); err != nil {
+				return DeleteExternalLinkResult{}, s.mapTicketWriteError("replace ticket external_ref", err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return DeleteExternalLinkResult{}, fmt.Errorf("commit delete ticket external link tx: %w", err)
+	}
+
+	return DeleteExternalLinkResult{DeletedExternalLinkID: externalLinkID}, nil
+}
+
 func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) error {
 	exists, err := s.client.Project.Query().Where(project.ID(projectID)).Exist(ctx)
 	if err != nil {
@@ -573,6 +719,10 @@ func (s *Service) mapTicketWriteError(action string, err error) error {
 		switch message := strings.ToLower(err.Error()); {
 		case strings.Contains(message, "ticketdependency_source_ticket_id_target_ticket_id_type"):
 			return ErrDependencyConflict
+		case strings.Contains(message, "ticket_external_links_ticket_id_external_id"),
+			strings.Contains(message, "ticketexternallink_ticket_id_external_id"),
+			(strings.Contains(message, "ticket_external_links") && strings.Contains(message, "external_id")):
+			return ErrExternalLinkConflict
 		case strings.Contains(message, "ticket_project_id_identifier"),
 			strings.Contains(message, "ticket_identifier"):
 			return ErrTicketConflict
@@ -816,6 +966,7 @@ func mapTicket(item *ent.Ticket) Ticket {
 		CreatedBy:         item.CreatedBy,
 		Children:          []TicketReference{},
 		Dependencies:      []Dependency{},
+		ExternalLinks:     []ExternalLink{},
 		ExternalRef:       item.ExternalRef,
 		BudgetUSD:         item.BudgetUsd,
 		CostAmount:        item.CostAmount,
@@ -840,6 +991,9 @@ func mapTicket(item *ent.Ticket) Ticket {
 	for _, dependency := range item.Edges.OutgoingDependencies {
 		result.Dependencies = append(result.Dependencies, mapDependency(dependency))
 	}
+	for _, externalLink := range item.Edges.ExternalLinks {
+		result.ExternalLinks = append(result.ExternalLinks, mapExternalLink(externalLink))
+	}
 
 	return result
 }
@@ -854,6 +1008,19 @@ func mapDependency(item *ent.TicketDependency) Dependency {
 	}
 
 	return dependency
+}
+
+func mapExternalLink(item *ent.TicketExternalLink) ExternalLink {
+	return ExternalLink{
+		ID:         item.ID,
+		LinkType:   item.LinkType,
+		URL:        item.URL,
+		ExternalID: item.ExternalID,
+		Title:      item.Title,
+		Status:     item.Status,
+		Relation:   item.Relation,
+		CreatedAt:  item.CreatedAt,
+	}
 }
 
 func mapTicketReference(item *ent.Ticket) TicketReference {

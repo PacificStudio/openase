@@ -52,6 +52,26 @@
         relation: 'blocked_by',
       },
     ],
+    externalLinks: [
+      {
+        id: 'ext_1',
+        type: 'github_issue',
+        url: 'https://github.com/openase/core/issues/42',
+        externalId: 'openase/core#42',
+        title: 'OAuth refresh fails after token expiry',
+        status: 'open',
+        relation: 'related',
+      },
+      {
+        id: 'ext_2',
+        type: 'github_pr',
+        url: 'https://github.com/openase/core/pull/87',
+        externalId: 'openase/core#87',
+        title: 'Implement OAuth2 token refresh flow',
+        status: 'open',
+        relation: 'resolves',
+      },
+    ],
     children: [
       {
         id: 'tk_43',

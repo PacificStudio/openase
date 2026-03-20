@@ -7,15 +7,16 @@
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
   import User from '@lucide/svelte/icons/user'
   import Calendar from '@lucide/svelte/icons/calendar'
+  import Link2 from '@lucide/svelte/icons/link-2'
   import { cn, formatRelativeTime, formatCurrency } from '$lib/utils'
   import type { TicketDetail } from '../types'
 
   let { ticket }: { ticket: TicketDetail } = $props()
 
-  const costPercent = ticket.budgetUsd > 0
-    ? Math.round((ticket.costAmount / ticket.budgetUsd) * 100)
-    : 0
-  const costOverBudget = costPercent > 80
+  const costPercent = $derived(
+    ticket.budgetUsd > 0 ? Math.round((ticket.costAmount / ticket.budgetUsd) * 100) : 0,
+  )
+  const costOverBudget = $derived(costPercent > 80)
 </script>
 
 <div class="flex flex-col gap-3 px-5 py-3">
@@ -107,6 +108,40 @@
             {dep.relation}
           </Badge>
         </div>
+      {/each}
+    </div>
+  {/if}
+
+  {#if ticket.externalLinks.length > 0}
+    <Separator />
+    <div class="flex flex-col gap-2">
+      <span class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        External Links
+      </span>
+      {#each ticket.externalLinks as link}
+        <a
+          class="flex items-start gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 text-xs transition-colors hover:bg-muted/60"
+          href={link.url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Link2 class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="truncate text-foreground">{link.title || link.externalId}</span>
+              <Badge variant="outline" class="h-4 py-0 text-[10px] shrink-0">
+                {link.type}
+              </Badge>
+            </div>
+            <div class="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+              <span class="font-mono">{link.externalId}</span>
+              <span>{link.relation}</span>
+              {#if link.status}
+                <span>{link.status}</span>
+              {/if}
+            </div>
+          </div>
+        </a>
       {/each}
     </div>
   {/if}

@@ -102,30 +102,42 @@ type OpenAPITicketDependency struct {
 	Target OpenAPITicketReference `json:"target"`
 }
 
+type OpenAPITicketExternalLink struct {
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	URL        string `json:"url"`
+	ExternalID string `json:"external_id"`
+	Title      string `json:"title,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Relation   string `json:"relation"`
+	CreatedAt  string `json:"created_at"`
+}
+
 type OpenAPITicket struct {
-	ID                string                    `json:"id"`
-	ProjectID         string                    `json:"project_id"`
-	Identifier        string                    `json:"identifier"`
-	Title             string                    `json:"title"`
-	Description       string                    `json:"description"`
-	StatusID          string                    `json:"status_id"`
-	StatusName        string                    `json:"status_name"`
-	Priority          string                    `json:"priority"`
-	Type              string                    `json:"type"`
-	WorkflowID        *string                   `json:"workflow_id,omitempty"`
-	CreatedBy         string                    `json:"created_by"`
-	Parent            *OpenAPITicketReference   `json:"parent,omitempty"`
-	Children          []OpenAPITicketReference  `json:"children"`
-	Dependencies      []OpenAPITicketDependency `json:"dependencies"`
-	ExternalRef       string                    `json:"external_ref"`
-	BudgetUSD         float64                   `json:"budget_usd"`
-	CostAmount        float64                   `json:"cost_amount"`
-	AttemptCount      int                       `json:"attempt_count"`
-	ConsecutiveErrors int                       `json:"consecutive_errors"`
-	NextRetryAt       *string                   `json:"next_retry_at,omitempty"`
-	RetryPaused       bool                      `json:"retry_paused"`
-	PauseReason       string                    `json:"pause_reason,omitempty"`
-	CreatedAt         string                    `json:"created_at"`
+	ID                string                      `json:"id"`
+	ProjectID         string                      `json:"project_id"`
+	Identifier        string                      `json:"identifier"`
+	Title             string                      `json:"title"`
+	Description       string                      `json:"description"`
+	StatusID          string                      `json:"status_id"`
+	StatusName        string                      `json:"status_name"`
+	Priority          string                      `json:"priority"`
+	Type              string                      `json:"type"`
+	WorkflowID        *string                     `json:"workflow_id,omitempty"`
+	CreatedBy         string                      `json:"created_by"`
+	Parent            *OpenAPITicketReference     `json:"parent,omitempty"`
+	Children          []OpenAPITicketReference    `json:"children"`
+	Dependencies      []OpenAPITicketDependency   `json:"dependencies"`
+	ExternalLinks     []OpenAPITicketExternalLink `json:"external_links"`
+	ExternalRef       string                      `json:"external_ref"`
+	BudgetUSD         float64                     `json:"budget_usd"`
+	CostAmount        float64                     `json:"cost_amount"`
+	AttemptCount      int                         `json:"attempt_count"`
+	ConsecutiveErrors int                         `json:"consecutive_errors"`
+	NextRetryAt       *string                     `json:"next_retry_at,omitempty"`
+	RetryPaused       bool                        `json:"retry_paused"`
+	PauseReason       string                      `json:"pause_reason,omitempty"`
+	CreatedAt         string                      `json:"created_at"`
 }
 
 type OpenAPITicketRepoScopeDetail struct {
@@ -290,6 +302,14 @@ type OpenAPITicketResponse struct {
 	Ticket OpenAPITicket `json:"ticket"`
 }
 
+type OpenAPITicketExternalLinkResponse struct {
+	ExternalLink OpenAPITicketExternalLink `json:"external_link"`
+}
+
+type OpenAPIDeleteTicketExternalLinkResponse struct {
+	DeletedExternalLinkID string `json:"deleted_external_link_id"`
+}
+
 type OpenAPIWorkflowsResponse struct {
 	Workflows []OpenAPIWorkflow `json:"workflows"`
 }
@@ -336,6 +356,7 @@ type OpenAPIUpdateHarnessRequest rawUpdateHarnessRequest
 type OpenAPIValidateHarnessRequest rawValidateHarnessRequest
 type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
+type OpenAPICreateTicketExternalLinkRequest rawAddExternalLinkRequest
 
 func BuildOpenAPIDocument() (*openapi3.T, error) {
 	doc := &openapi3.T{
@@ -916,6 +937,42 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	}
 	ticketPatch.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}", http.MethodPatch, ticketPatch)
+
+	externalLinkPost, err := b.jsonOperation(
+		"addTicketExternalLink",
+		"Add an external link to a ticket",
+		[]string{"tickets"},
+		http.StatusCreated,
+		OpenAPITicketExternalLinkResponse{},
+		OpenAPICreateTicketExternalLinkRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	externalLinkPost.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/external-links", http.MethodPost, externalLinkPost)
+
+	externalLinkDelete, err := b.jsonOperation(
+		"deleteTicketExternalLink",
+		"Delete an external link from a ticket",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPIDeleteTicketExternalLinkResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	externalLinkDelete.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	externalLinkDelete.AddParameter(uuidPathParameter("externalLinkId", "External link ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/external-links/{externalLinkId}", http.MethodDelete, externalLinkDelete)
 
 	ticketDetailGet, err := b.jsonOperation(
 		"getTicketDetail",
