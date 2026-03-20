@@ -1,133 +1,83 @@
-import { redirect } from '@sveltejs/kit'
-import type { LayoutLoad } from './$types'
+import {
+  loadOrganizationContext,
+  loadOrganizations,
+  loadProjectAgentCount,
+} from '$lib/api/app-context'
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
+import {
+  parseAppRouteContext,
+  projectSectionFromPathname,
+  type ProjectSection,
+} from '$lib/stores/app-context'
+import { error } from '@sveltejs/kit'
+import type { LayoutLoad } from './$types'
 
-type OrgResponse = {
-  organizations?: Organization[]
+type AppLayoutData = {
+  organizations: Organization[]
+  currentOrg: Organization | null
+  currentProject: Project | null
+  projects: Project[]
+  providers: AgentProvider[]
+  agentCount: number
+  currentSection: ProjectSection
 }
 
-type ProjectResponse = {
-  projects?: Project[]
+const emptyLayoutData: AppLayoutData = {
+  organizations: [],
+  currentOrg: null,
+  currentProject: null,
+  projects: [],
+  providers: [],
+  agentCount: 0,
+  currentSection: 'dashboard',
 }
 
-type ProviderResponse = {
-  providers?: AgentProvider[]
-}
-
-type AgentResponse = {
-  agents?: unknown[]
-}
-
-function emptyLayoutData() {
-  return {
-    organizations: [],
-    projects: [],
-    currentOrg: null,
-    currentProject: null,
-    providers: [],
-    agentCount: 0,
-  }
-}
-
-function selectById<T extends { id: string }>(items: T[], requestedId: string | null) {
-  if (items.length === 0) {
-    return null
-  }
-
-  if (!requestedId) {
-    return items[0]
-  }
-
-  return items.find((item) => item.id === requestedId) ?? items[0]
-}
-
-function buildCanonicalHref(url: URL, orgId: string | null, projectId: string | null) {
-  const nextUrl = new URL(url)
-
-  if (orgId) {
-    nextUrl.searchParams.set('orgId', orgId)
-  } else {
-    nextUrl.searchParams.delete('orgId')
-  }
-
-  if (projectId) {
-    nextUrl.searchParams.set('projectId', projectId)
-  } else {
-    nextUrl.searchParams.delete('projectId')
-  }
-
-  return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
-}
-
-async function loadOrganizations(fetcher: typeof fetch) {
-  const response = await fetcher('/api/v1/orgs')
-  if (!response.ok) {
-    return []
-  }
-
-  const data = (await response.json()) as OrgResponse
-  return data.organizations ?? []
-}
-
-async function loadOrgContext(fetcher: typeof fetch, orgId: string) {
-  const [projectResponse, providerResponse] = await Promise.all([
-    fetcher(`/api/v1/orgs/${orgId}/projects`),
-    fetcher(`/api/v1/orgs/${orgId}/providers`),
-  ])
-
-  const projectData = projectResponse.ok
-    ? ((await projectResponse.json()) as ProjectResponse)
-    : { projects: [] }
-  const providerData = providerResponse.ok
-    ? ((await providerResponse.json()) as ProviderResponse)
-    : { providers: [] }
-
-  return {
-    projects: projectData.projects ?? [],
-    providers: providerData.providers ?? [],
-  }
-}
-
-async function loadAgentCount(fetcher: typeof fetch, projectId: string | null) {
-  if (!projectId) {
-    return 0
-  }
-
-  const response = await fetcher(`/api/v1/projects/${projectId}/agents`)
-  if (!response.ok) {
-    return 0
-  }
-
-  const data = (await response.json()) as AgentResponse
-  return data.agents?.length ?? 0
-}
-
-export const load: LayoutLoad = async ({ fetch, url }) => {
-  const requestedOrgId = url.searchParams.get('orgId')
-  const requestedProjectId = url.searchParams.get('projectId')
+export const load: LayoutLoad = async ({ fetch, params, url }) => {
   const organizations = await loadOrganizations(fetch)
-  const currentOrg = selectById(organizations, requestedOrgId)
-  if (!currentOrg) {
-    return emptyLayoutData()
+  if (organizations.length === 0 && !params.orgId) {
+    return emptyLayoutData
   }
 
-  const { projects, providers } = await loadOrgContext(fetch, currentOrg.id)
-  const currentProject = selectById(projects, requestedProjectId)
-  const canonicalHref = buildCanonicalHref(url, currentOrg.id, currentProject?.id ?? null)
-  const currentHref = `${url.pathname}${url.search}${url.hash}`
+  const routeContext = parseAppRouteContext(params)
+  const currentOrg = routeContext.orgId
+    ? (organizations.find((organization) => organization.id === routeContext.orgId) ?? null)
+    : null
 
-  if (canonicalHref !== currentHref) {
-    throw redirect(307, canonicalHref)
+  if (routeContext.scope !== 'none' && !currentOrg) {
+    throw error(404, 'Organization not found')
   }
 
-  const agentCount = await loadAgentCount(fetch, currentProject?.id ?? null)
+  const { projects, providers } = currentOrg
+    ? await loadOrganizationContext(fetch, currentOrg.id)
+    : { projects: [], providers: [] }
+
+  const currentProject =
+    routeContext.scope === 'project'
+      ? (projects.find((project) => project.id === routeContext.projectId) ?? null)
+      : null
+
+  if (routeContext.scope === 'project' && !currentProject) {
+    throw error(404, 'Project not found')
+  }
+
+  const agentCount = currentProject ? await loadAgentCount(fetch, currentProject.id) : 0
 
   return {
     organizations,
-    projects,
     currentOrg,
     currentProject,
+    projects,
     providers,
     agentCount,
+    currentSection:
+      currentProject && currentOrg
+        ? projectSectionFromPathname(url.pathname, {
+            scope: 'project',
+            orgId: currentOrg.id,
+            projectId: currentProject.id,
+          })
+        : 'dashboard',
   }
 }
+
+const loadAgentCount = loadProjectAgentCount
