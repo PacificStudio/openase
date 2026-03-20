@@ -187,7 +187,7 @@ func TestLoadRejectsMissingDatabaseDSNForResolvedPGNotify(t *testing.T) {
 func writeFile(t *testing.T, path string, content []byte) {
 	t.Helper()
 
-	if err := os.WriteFile(path, content, 0o644); err != nil {
+	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("WriteFile returned error: %v", err)
 	}
 }

@@ -42,6 +42,7 @@ func (m *Manager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) 
 		return nil, fmt.Errorf("agent cli command must not be empty")
 	}
 
+	//nolint:gosec // command and arguments come from validated agent provider configuration
 	cmd := exec.CommandContext(ctx, spec.Command.String(), spec.Args...)
 	cmd.Cancel = func() error {
 		return interruptProcess(cmd.Process)
@@ -96,9 +97,8 @@ type runningProcess struct {
 
 	done     chan struct{}
 	waitOnce sync.Once
-
-	waitMu  sync.Mutex
-	waitErr error
+	waitMu   sync.Mutex
+	waitErr  error
 }
 
 func (p *runningProcess) PID() int {
@@ -126,7 +126,7 @@ func (p *runningProcess) Wait() error {
 		return fmt.Errorf("process must not be nil")
 	}
 
-	p.startWaiting()
+	p.startWait()
 	<-p.done
 
 	p.waitMu.Lock()
@@ -143,7 +143,7 @@ func (p *runningProcess) Stop(ctx context.Context) error {
 		return fmt.Errorf("context must not be nil")
 	}
 
-	p.startWaiting()
+	p.startWait()
 
 	select {
 	case <-p.done:
@@ -155,6 +155,7 @@ func (p *runningProcess) Stop(ctx context.Context) error {
 		return err
 	}
 
+	p.startWait()
 	select {
 	case <-p.done:
 		return nil
@@ -163,11 +164,11 @@ func (p *runningProcess) Stop(ctx context.Context) error {
 			return err
 		}
 		<-p.done
-		return ctx.Err()
+		return nil
 	}
 }
 
-func (p *runningProcess) startWaiting() {
+func (p *runningProcess) startWait() {
 	p.waitOnce.Do(func() {
 		go p.awaitExit()
 	})

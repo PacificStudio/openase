@@ -11,8 +11,10 @@ import (
 
 var serviceNamePattern = regexp.MustCompile(`^[a-z0-9]+([._-][a-z0-9]+)*$`)
 
+// ServiceName identifies a managed user service.
 type ServiceName string
 
+// ParseServiceName validates a raw service name token.
 func ParseServiceName(raw string) (ServiceName, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -25,6 +27,7 @@ func ParseServiceName(raw string) (ServiceName, error) {
 	return ServiceName(trimmed), nil
 }
 
+// MustParseServiceName parses a service name and panics on invalid input.
 func MustParseServiceName(raw string) ServiceName {
 	name, err := ParseServiceName(raw)
 	if err != nil {
@@ -38,8 +41,10 @@ func (n ServiceName) String() string {
 	return string(n)
 }
 
+// AbsolutePath is a validated absolute filesystem path.
 type AbsolutePath string
 
+// ParseAbsolutePath validates and normalizes an absolute path.
 func ParseAbsolutePath(raw string) (AbsolutePath, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -52,6 +57,7 @@ func ParseAbsolutePath(raw string) (AbsolutePath, error) {
 	return AbsolutePath(filepath.Clean(trimmed)), nil
 }
 
+// MustParseAbsolutePath parses an absolute path and panics on invalid input.
 func MustParseAbsolutePath(raw string) AbsolutePath {
 	path, err := ParseAbsolutePath(raw)
 	if err != nil {
@@ -65,6 +71,7 @@ func (p AbsolutePath) String() string {
 	return string(p)
 }
 
+// UserServiceInstallSpec defines how to install a managed user service.
 type UserServiceInstallSpec struct {
 	Name             ServiceName
 	Description      string
@@ -76,6 +83,7 @@ type UserServiceInstallSpec struct {
 	StderrPath       AbsolutePath
 }
 
+// NewUserServiceInstallSpec validates and constructs a managed service install spec.
 func NewUserServiceInstallSpec(
 	name ServiceName,
 	description string,
@@ -121,6 +129,7 @@ func NewUserServiceInstallSpec(
 	}, nil
 }
 
+// UserServiceLogsOptions controls service log streaming behavior.
 type UserServiceLogsOptions struct {
 	Follow bool
 	Lines  int
@@ -128,6 +137,7 @@ type UserServiceLogsOptions struct {
 	Stderr io.Writer
 }
 
+// NewUserServiceLogsOptions validates and constructs log streaming options.
 func NewUserServiceLogsOptions(lines int, follow bool, stdout io.Writer, stderr io.Writer) (UserServiceLogsOptions, error) {
 	if lines <= 0 {
 		return UserServiceLogsOptions{}, fmt.Errorf("log lines must be positive")
@@ -147,6 +157,7 @@ func NewUserServiceLogsOptions(lines int, follow bool, stdout io.Writer, stderr 
 	}, nil
 }
 
+// UserServiceManager abstracts platform-specific user service control.
 type UserServiceManager interface {
 	Platform() string
 	Apply(context.Context, UserServiceInstallSpec) error

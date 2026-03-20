@@ -165,20 +165,20 @@ func assertStatus(t *testing.T, report Report, name string, want Status) {
 func mkdirAll(t *testing.T, path string) {
 	t.Helper()
 
-	if err := os.MkdirAll(path, 0o755); err != nil {
+	if err := os.MkdirAll(path, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%q) returned error: %v", path, err)
 	}
 }
 
 func writeFile(t *testing.T, path string, content []byte) {
 	t.Helper()
-	writeFileMode(t, path, content, 0o644)
+	writeFileMode(t, path, content, 0o600)
 }
 
 func writeFileMode(t *testing.T, path string, content []byte, mode os.FileMode) {
 	t.Helper()
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("MkdirAll(%q) returned error: %v", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, content, mode); err != nil {

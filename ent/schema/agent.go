@@ -8,10 +8,12 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
+// Agent defines the ent schema for project agents.
 type Agent struct {
 	ent.Schema
 }
 
+// Fields returns the Agent schema fields.
 func (Agent) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
@@ -35,6 +37,7 @@ func (Agent) Fields() []ent.Field {
 	}
 }
 
+// Edges returns the Agent schema edges.
 func (Agent) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("provider", AgentProvider.Type).
@@ -56,6 +59,7 @@ func (Agent) Edges() []ent.Edge {
 	}
 }
 
+// Indexes returns the Agent schema indexes.
 func (Agent) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("project_id", "name").Unique(),

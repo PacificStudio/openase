@@ -7,10 +7,12 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
+// TicketRepoScope defines the ent schema for per-ticket repository scopes.
 type TicketRepoScope struct {
 	ent.Schema
 }
 
+// Fields returns the TicketRepoScope schema fields.
 func (TicketRepoScope) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
@@ -28,6 +30,7 @@ func (TicketRepoScope) Fields() []ent.Field {
 	}
 }
 
+// Edges returns the TicketRepoScope schema edges.
 func (TicketRepoScope) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("ticket", Ticket.Type).
@@ -43,6 +46,7 @@ func (TicketRepoScope) Edges() []ent.Edge {
 	}
 }
 
+// Indexes returns the TicketRepoScope schema indexes.
 func (TicketRepoScope) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("ticket_id", "repo_id").Unique(),

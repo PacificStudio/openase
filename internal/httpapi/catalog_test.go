@@ -562,12 +562,7 @@ func (f *fakeCatalogService) UpdateOrganization(_ context.Context, input domain.
 		return domain.Organization{}, catalogservice.ErrNotFound
 	}
 
-	item := domain.Organization{
-		ID:                     input.ID,
-		Name:                   input.Name,
-		Slug:                   input.Slug,
-		DefaultAgentProviderID: input.DefaultAgentProviderID,
-	}
+	item := domain.Organization(input)
 	f.organizations[input.ID] = item
 
 	return item, nil

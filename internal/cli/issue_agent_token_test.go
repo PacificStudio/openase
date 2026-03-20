@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestNewRootCommandIncludesIssueAgentTokenCommand(t *testing.T) {
 func TestIssueAgentTokenCommandOutputsJSON(t *testing.T) {
 	client, dsn := openCLIEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, ticketID := seedCLIPlatformFixture(t, ctx, client)
+	projectID, agentID, ticketID := seedCLIPlatformFixture(ctx, t, client)
 
 	t.Setenv("OPENASE_DATABASE_DSN", dsn)
 	t.Setenv("OPENASE_SERVER_HOST", "127.0.0.1")
@@ -85,7 +86,7 @@ func TestIssueAgentTokenCommandOutputsJSON(t *testing.T) {
 func TestIssueAgentTokenCommandOutputsShellExports(t *testing.T) {
 	client, dsn := openCLIEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, ticketID := seedCLIPlatformFixture(t, ctx, client)
+	projectID, agentID, ticketID := seedCLIPlatformFixture(ctx, t, client)
 
 	t.Setenv("OPENASE_DATABASE_DSN", dsn)
 	t.Setenv("OPENASE_SERVER_HOST", "0.0.0.0")
@@ -132,7 +133,7 @@ func openCLIEntClient(t *testing.T) (*ent.Client, string) {
 	pg := embeddedpostgres.NewDatabase(
 		embeddedpostgres.DefaultConfig().
 			Version(embeddedpostgres.V16).
-			Port(uint32(port)).
+			Port(port).
 			Database("openase").
 			Username("postgres").
 			Password("postgres").
@@ -162,7 +163,7 @@ func openCLIEntClient(t *testing.T) (*ent.Client, string) {
 	return client, dsn
 }
 
-func seedCLIPlatformFixture(t *testing.T, ctx context.Context, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID) {
+func seedCLIPlatformFixture(ctx context.Context, t *testing.T, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 
 	org, err := client.Organization.Create().
@@ -231,12 +232,28 @@ func findCLIStatusIDByName(t *testing.T, statuses []ticketstatus.Status, want st
 	return uuid.Nil
 }
 
-func getFreePort() (int, error) {
+func getFreePort() (uint32, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return 0, err
 	}
-	defer listener.Close()
+	defer func() {
+		_ = listener.Close()
+	}()
 
-	return listener.Addr().(*net.TCPAddr).Port, nil
+	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("listener address %T is not TCP", listener.Addr())
+	}
+
+	if tcpAddr.Port < 0 {
+		return 0, fmt.Errorf("listener port %d is negative", tcpAddr.Port)
+	}
+
+	port, err := strconv.ParseUint(strconv.Itoa(tcpAddr.Port), 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("parse listener port %d: %w", tcpAddr.Port, err)
+	}
+
+	return uint32(port), nil
 }

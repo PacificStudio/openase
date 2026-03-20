@@ -99,9 +99,7 @@ func (s *Server) handleListTickets(c echo.Context) error {
 		Priorities:  make([]entticket.Priority, 0, len(parsedPriorities)),
 		Limit:       0,
 	}
-	for _, priority := range parsedPriorities {
-		input.Priorities = append(input.Priorities, priority)
-	}
+	input.Priorities = append(input.Priorities, parsedPriorities...)
 
 	items, err := s.ticketService.List(c.Request().Context(), input)
 	if err != nil {
