@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/BetterAndBetterII/openase/internal/builtin"
 )
 
 type stubResolver struct {
@@ -95,8 +97,8 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 	if installer.input.Project.Name != "Demo App" {
 		t.Fatalf("expected installer to receive project input, got %+v", installer.input)
 	}
-	if len(result.ScaffoldedFiles) != 4 {
-		t.Fatalf("expected 4 scaffolded files, got %d", len(result.ScaffoldedFiles))
+	if len(result.ScaffoldedFiles) != len(primaryRepoScaffold(repoRoot)) {
+		t.Fatalf("expected %d scaffolded files, got %d", len(primaryRepoScaffold(repoRoot)), len(result.ScaffoldedFiles))
 	}
 
 	configContent, err := os.ReadFile(filepath.Join(homeDir, ".openase", "config.yaml"))
@@ -132,9 +134,17 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 		filepath.Join(repoRoot, ".openase", "skills", ".gitkeep"),
 		filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"),
 		filepath.Join(repoRoot, ".openase", "bin", "openase"),
+		filepath.Join(repoRoot, ".openase", "harnesses", "roles", "fullstack-developer.md"),
+		filepath.Join(repoRoot, ".openase", "harnesses", "roles", "data-analyst.md"),
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected scaffolded file %s: %v", path, err)
+		}
+	}
+
+	for _, skill := range builtin.Skills() {
+		if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", skill.Name, "SKILL.md")); err != nil {
+			t.Fatalf("expected built-in skill scaffold for %s: %v", skill.Name, err)
 		}
 	}
 

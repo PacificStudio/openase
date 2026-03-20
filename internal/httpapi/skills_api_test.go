@@ -129,6 +129,12 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if len(reviewSkill.BoundWorkflows) != 1 || reviewSkill.BoundWorkflows[0].Name != "Coding Workflow" {
 		t.Fatalf("expected review-code to bind to Coding Workflow, got %+v", reviewSkill)
 	}
+	if !reviewSkill.IsBuiltin {
+		t.Fatalf("expected review-code to be marked as built-in, got %+v", reviewSkill)
+	}
+	if reviewSkill.Description == "" {
+		t.Fatalf("expected review-code to expose a description, got %+v", reviewSkill)
+	}
 
 	workspaceRoot := t.TempDir()
 	refreshResp := skillSyncResponse{}
@@ -232,6 +238,46 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		if len(item.BoundWorkflows) != 0 {
 			t.Fatalf("expected %s to have no bound workflows, got %+v", item.Name, item.BoundWorkflows)
 		}
+	}
+	deploySkill := findSkillResponse(t, listAfterResp.Skills, "deploy-docker")
+	if deploySkill.IsBuiltin {
+		t.Fatalf("expected harvested deploy-docker skill to be non built-in, got %+v", deploySkill)
+	}
+	if deploySkill.Description != "Deploy Docker" {
+		t.Fatalf("expected deploy-docker description to come from SKILL.md title, got %+v", deploySkill)
+	}
+}
+
+func TestBuiltinRoleLibraryRoute(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	resp := struct {
+		Roles []builtinRoleResponse `json:"roles"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/roles/builtin",
+		nil,
+		http.StatusOK,
+		&resp,
+	)
+	if len(resp.Roles) != 14 {
+		t.Fatalf("expected 14 builtin roles, got %+v", resp.Roles)
+	}
+	if resp.Roles[0].HarnessPath == "" || resp.Roles[0].Content == "" {
+		t.Fatalf("expected role payload to include harness path and content, got %+v", resp.Roles[0])
 	}
 }
 

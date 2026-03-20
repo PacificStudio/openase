@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/builtin"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 	"go.yaml.in/yaml/v3"
@@ -30,7 +32,9 @@ var (
 
 type Skill struct {
 	Name           string                 `json:"name"`
+	Description    string                 `json:"description"`
 	Path           string                 `json:"path"`
+	IsBuiltin      bool                   `json:"is_builtin"`
 	BoundWorkflows []SkillWorkflowBinding `json:"bound_workflows"`
 }
 
@@ -97,9 +101,15 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 
 	byName := make(map[string]*Skill, len(projectSkillNames))
 	for _, name := range projectSkillNames {
+		description, err := s.readSkillDescription(name)
+		if err != nil {
+			return nil, err
+		}
 		byName[name] = &Skill{
-			Name: name,
-			Path: skillContentRelativePath(name),
+			Name:        name,
+			Description: description,
+			Path:        skillContentRelativePath(name),
+			IsBuiltin:   builtin.IsBuiltinSkill(name),
 		}
 	}
 
@@ -117,9 +127,15 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 		for _, name := range skillNames {
 			skillItem, ok := byName[name]
 			if !ok {
+				description, descErr := s.readSkillDescription(name)
+				if descErr != nil && !errors.Is(descErr, fs.ErrNotExist) {
+					return nil, descErr
+				}
 				skillItem = &Skill{
-					Name: name,
-					Path: skillContentRelativePath(name),
+					Name:        name,
+					Description: description,
+					Path:        skillContentRelativePath(name),
+					IsBuiltin:   builtin.IsBuiltinSkill(name),
 				}
 				byName[name] = skillItem
 			}
@@ -147,6 +163,37 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 	}
 
 	return items, nil
+}
+
+func (s *Service) readSkillDescription(name string) (string, error) {
+	if skill, ok := builtin.SkillByName(name); ok && strings.TrimSpace(skill.Description) != "" {
+		return skill.Description, nil
+	}
+
+	contentPath := filepath.Join(s.skillDirectoryPath(name), "SKILL.md")
+	data, err := os.ReadFile(contentPath)
+	if err != nil {
+		return "", fmt.Errorf("read skill %s metadata: %w", name, err)
+	}
+
+	title := parseSkillTitle(string(data))
+	if title != "" {
+		return title, nil
+	}
+
+	return "", nil
+}
+
+func parseSkillTitle(content string) string {
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "# ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "# "))
+		}
+	}
+
+	return ""
 }
 
 func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (RefreshSkillsResult, error) {

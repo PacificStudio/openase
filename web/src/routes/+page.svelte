@@ -164,6 +164,29 @@ type Agent = {
 		issues: HarnessValidationIssue[];
 	};
 
+	type SkillBinding = {
+		id: string;
+		name: string;
+		harness_path: string;
+	};
+
+	type Skill = {
+		name: string;
+		description: string;
+		path: string;
+		is_builtin: boolean;
+		bound_workflows: SkillBinding[];
+	};
+
+	type BuiltinRole = {
+		slug: string;
+		name: string;
+		workflow_type: WorkflowType;
+		summary: string;
+		harness_path: string;
+		content: string;
+	};
+
 	type OnboardingMilestoneKey =
 		| 'organization'
 		| 'project'
@@ -222,6 +245,8 @@ type Agent = {
 	type WorkflowListPayload = { workflows: Workflow[] };
 	type WorkflowDetailPayload = { workflow: Workflow };
 	type HarnessPayload = { harness: HarnessDocument };
+	type SkillListPayload = { skills: Skill[] };
+	type BuiltinRolePayload = { roles: BuiltinRole[] };
 
 	type OrganizationForm = {
 		name: string;
@@ -282,16 +307,21 @@ You are handling {{ ticket.identifier }}.
 	let workflowBusy = $state(false);
 	let harnessBusy = $state(false);
 	let validationBusy = $state(false);
+	let skillBusy = $state(false);
+	let pendingSkillName = $state('');
 
 	let organizations = $state<Organization[]>([]);
 	let projects = $state<Project[]>([]);
 	let ticketStatuses = $state<TicketStatus[]>([]);
 	let tickets = $state<Ticket[]>([]);
 	let workflows = $state<Workflow[]>([]);
+	let skills = $state<Skill[]>([]);
+	let builtinRoles = $state<BuiltinRole[]>([]);
 
 	let selectedOrgId = $state('');
 	let selectedProjectId = $state('');
 	let selectedWorkflowId = $state('');
+	let selectedBuiltinRoleSlug = $state('');
 
 	let selectedOrg = $state<Organization | null>(null);
 	let selectedProject = $state<Project | null>(null);
@@ -356,6 +386,9 @@ You are handling {{ ticket.identifier }}.
 	);
 	const harnessWarningCount = $derived(
 		harnessIssues.filter((issue) => issue.level !== 'error').length
+	);
+	const selectedBuiltinRole = $derived(
+		builtinRoles.find((role) => role.slug === selectedBuiltinRoleSlug) ?? null
 	);
 	const onboardingSummary = $derived(
 		buildOnboardingSummary({
@@ -427,12 +460,17 @@ You are handling {{ ticket.identifier }}.
 		booting = true;
 		errorMessage = '';
 		try {
-			await loadOrganizations();
+			await Promise.all([loadBuiltinRoles(), loadOrganizations()]);
 		} catch (error) {
 			errorMessage = toErrorMessage(error);
 		} finally {
 			booting = false;
 		}
+	}
+
+	async function loadBuiltinRoles() {
+		const payload = await api<BuiltinRolePayload>('/api/v1/roles/builtin');
+		builtinRoles = payload.roles;
 	}
 
 	async function loadOrganizations(preferredOrgId?: string) {
@@ -488,12 +526,14 @@ You are handling {{ ticket.identifier }}.
 	}
 
 	async function loadWorkflowContext(projectId: string, preferredWorkflowId?: string) {
-		const [statusPayload, workflowPayload] = await Promise.all([
+		const [statusPayload, workflowPayload, skillPayload] = await Promise.all([
 			api<StatusPayload>(`/api/v1/projects/${projectId}/statuses`),
-			api<WorkflowListPayload>(`/api/v1/projects/${projectId}/workflows`)
+			api<WorkflowListPayload>(`/api/v1/projects/${projectId}/workflows`),
+			api<SkillListPayload>(`/api/v1/projects/${projectId}/skills`)
 		]);
 		ticketStatuses = orderTicketStatuses(statusPayload.statuses);
 		workflows = workflowPayload.workflows;
+		skills = skillPayload.skills;
 		createWorkflowForm = defaultWorkflowForm(ticketStatuses);
 		await loadTickets(projectId);
 
@@ -888,6 +928,8 @@ You are handling {{ ticket.identifier }}.
 					body: JSON.stringify({
 						name: createWorkflowForm.name,
 						type: createWorkflowForm.type,
+						harness_path: selectedBuiltinRole?.harness_path,
+						harness_content: selectedBuiltinRole?.content ?? '',
 						pickup_status_id: createWorkflowForm.pickupStatusId,
 						finish_status_id: createWorkflowForm.finishStatusId || null,
 						max_concurrent: createWorkflowForm.maxConcurrent,
@@ -901,11 +943,60 @@ You are handling {{ ticket.identifier }}.
 			notice = `Workflow ${payload.workflow.name} created`;
 			await loadWorkflowContext(selectedProject.id, payload.workflow.id);
 			createWorkflowForm = defaultWorkflowForm(ticketStatuses);
+			selectedBuiltinRoleSlug = '';
 		} catch (error) {
 			errorMessage = toErrorMessage(error);
 		} finally {
 			workflowBusy = false;
 		}
+	}
+
+	async function toggleSkillBinding(skill: Skill) {
+		if (!selectedProject || !selectedWorkflow) {
+			return;
+		}
+		if (harnessDirty) {
+			errorMessage = 'Save or discard harness edits before changing workflow skill bindings.';
+			return;
+		}
+
+		skillBusy = true;
+		pendingSkillName = skill.name;
+		errorMessage = '';
+		notice = '';
+		try {
+			const bound = workflowHasSkill(skill, selectedWorkflow.id);
+			const endpoint = bound ? 'unbind' : 'bind';
+			await api<{ harness: HarnessDocument }>(`/api/v1/workflows/${selectedWorkflow.id}/skills/${endpoint}`, {
+				method: 'POST',
+				body: JSON.stringify({ skills: [skill.name] })
+			});
+			await Promise.all([
+				loadWorkflowDetail(selectedWorkflow.id),
+				api<SkillListPayload>(`/api/v1/projects/${selectedProject.id}/skills`).then((payload) => {
+					skills = payload.skills;
+				})
+			]);
+			notice = `${bound ? 'Unbound' : 'Bound'} ${skill.name} ${bound ? 'from' : 'to'} ${selectedWorkflow.name}`;
+		} catch (error) {
+			errorMessage = toErrorMessage(error);
+		} finally {
+			skillBusy = false;
+			pendingSkillName = '';
+		}
+	}
+
+	function selectBuiltinRole(role: BuiltinRole) {
+		selectedBuiltinRoleSlug = role.slug;
+		createWorkflowForm = {
+			...createWorkflowForm,
+			name: role.name,
+			type: role.workflow_type
+		};
+	}
+
+	function clearBuiltinRoleSelection() {
+		selectedBuiltinRoleSlug = '';
 	}
 
 	async function updateWorkflow() {
@@ -1085,7 +1176,9 @@ You are handling {{ ticket.identifier }}.
 		ticketStatuses = [];
 		resetTicketBoard();
 		workflows = [];
+		skills = [];
 		createWorkflowForm = defaultWorkflowForm();
+		selectedBuiltinRoleSlug = '';
 		resetSelectedWorkflow();
 	}
 
@@ -1151,6 +1244,14 @@ You are handling {{ ticket.identifier }}.
 		}
 
 		return workflows.find((workflow) => workflow.id === workflowID)?.name ?? 'Detached workflow';
+	}
+
+	function workflowHasSkill(skill: Skill, workflowID?: string | null) {
+		if (!workflowID) {
+			return false;
+		}
+
+		return skill.bound_workflows.some((workflow) => workflow.id === workflowID);
 	}
 
 	function ticketDetailHref(ticketID: string) {
@@ -2931,6 +3032,47 @@ You are handling {{ ticket.identifier }}.
 
 										<Card class="border-border/80 bg-background/70">
 											<CardHeader>
+												<div class="flex items-center justify-between gap-4">
+													<div>
+														<CardTitle class="flex items-center gap-2">
+															<Bot class="size-4" />
+															<span>Role library</span>
+														</CardTitle>
+														<CardDescription>
+															Start from one of the built-in Harness templates, then tune the workflow after activation.
+														</CardDescription>
+													</div>
+													<Badge variant="outline">{builtinRoles.length}</Badge>
+												</div>
+											</CardHeader>
+											<CardContent class="space-y-3">
+												{#each builtinRoles as role}
+													<button
+														type="button"
+														class={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+															role.slug === selectedBuiltinRoleSlug
+																? 'border-emerald-500/40 bg-emerald-500/10'
+																: 'border-border/70 bg-background/60 hover:border-foreground/15 hover:bg-background'
+														}`}
+														onclick={() => selectBuiltinRole(role)}
+													>
+														<div class="flex items-start justify-between gap-3">
+															<div>
+																<p class="text-sm font-semibold">{role.name}</p>
+																<p class="mt-2 text-sm text-muted-foreground">{role.summary}</p>
+															</div>
+															<Badge variant={role.slug === selectedBuiltinRoleSlug ? 'secondary' : 'outline'}>
+																{role.workflow_type}
+															</Badge>
+														</div>
+														<p class="mt-3 font-mono text-[11px] text-muted-foreground">{role.harness_path}</p>
+													</button>
+												{/each}
+											</CardContent>
+										</Card>
+
+										<Card class="border-border/80 bg-background/70">
+											<CardHeader>
 												<CardTitle class="flex items-center gap-2">
 													<Plus class="size-4" />
 													<span>Create workflow</span>
@@ -2947,6 +3089,22 @@ You are handling {{ ticket.identifier }}.
 														void createWorkflow();
 													}}
 												>
+													{#if selectedBuiltinRole}
+														<div class="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-950">
+															<div class="flex flex-wrap items-center justify-between gap-3">
+																<div>
+																	<p class="font-semibold">{selectedBuiltinRole.name}</p>
+																	<p class="mt-1 text-emerald-900/80">{selectedBuiltinRole.summary}</p>
+																</div>
+																<Button type="button" variant="outline" onclick={() => clearBuiltinRoleSelection()}>
+																	Clear template
+																</Button>
+															</div>
+															<p class="mt-3 font-mono text-[11px] text-emerald-900/80">
+																{selectedBuiltinRole.harness_path}
+															</p>
+														</div>
+													{/if}
 													<div class="space-y-2">
 														<label
 															class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground"
@@ -3057,6 +3215,83 @@ You are handling {{ ticket.identifier }}.
 														Create workflow
 													</Button>
 												</form>
+											</CardContent>
+										</Card>
+
+										<Card class="border-border/80 bg-background/70">
+											<CardHeader>
+												<div class="flex items-center justify-between gap-4">
+													<div>
+														<CardTitle class="flex items-center gap-2">
+															<Cable class="size-4" />
+															<span>Skill management</span>
+														</CardTitle>
+														<CardDescription>
+															Inspect built-in and harvested skills, then bind the selected workflow without leaving the control plane.
+														</CardDescription>
+													</div>
+													<Badge variant="outline">{skills.length}</Badge>
+												</div>
+											</CardHeader>
+											<CardContent class="space-y-3">
+												{#if skills.length === 0}
+													<div class="rounded-3xl border border-dashed border-border/80 bg-muted/35 px-4 py-6 text-sm text-muted-foreground">
+														No skills discovered in this project yet.
+													</div>
+												{:else}
+													{#each skills as skill}
+														<div class="rounded-3xl border border-border/70 bg-background/60 px-4 py-4">
+															<div class="flex flex-wrap items-start justify-between gap-3">
+																<div>
+																	<div class="flex flex-wrap items-center gap-2">
+																		<p class="text-sm font-semibold">{skill.name}</p>
+																		<Badge variant={skill.is_builtin ? 'secondary' : 'outline'}>
+																			{skill.is_builtin ? 'built-in' : 'project'}
+																		</Badge>
+																		{#if selectedWorkflow && workflowHasSkill(skill, selectedWorkflow.id)}
+																			<Badge variant="outline">selected workflow</Badge>
+																		{/if}
+																	</div>
+																	<p class="mt-2 text-sm text-muted-foreground">
+																		{skill.description || 'No description extracted from SKILL.md yet.'}
+																	</p>
+																	<p class="mt-2 font-mono text-[11px] text-muted-foreground">{skill.path}</p>
+																</div>
+																{#if selectedWorkflow}
+																	<Button
+																		type="button"
+																		variant={workflowHasSkill(skill, selectedWorkflow.id) ? 'outline' : 'default'}
+																		disabled={skillBusy || harnessDirty}
+																		onclick={() => void toggleSkillBinding(skill)}
+																	>
+																		{#if skillBusy && pendingSkillName === skill.name}
+																			<LoaderCircle class="mr-2 size-4 animate-spin" />
+																		{/if}
+																		{workflowHasSkill(skill, selectedWorkflow.id) ? 'Unbind' : 'Bind'}
+																	</Button>
+																{/if}
+															</div>
+															<div class="mt-3 flex flex-wrap gap-2">
+																{#if skill.bound_workflows.length === 0}
+																	<Badge variant="outline">Unbound</Badge>
+																{:else}
+																	{#each skill.bound_workflows as workflowBinding}
+																		<Badge variant="outline">{workflowBinding.name}</Badge>
+																	{/each}
+																{/if}
+															</div>
+														</div>
+													{/each}
+												{/if}
+												{#if !selectedWorkflow}
+													<div class="rounded-2xl border border-dashed border-border/80 bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
+														Select a workflow to bind or unbind skills.
+													</div>
+												{:else if harnessDirty}
+													<div class="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-4 text-sm text-amber-950">
+														Save the current harness draft before changing skill bindings, so the frontmatter update does not overwrite unsaved edits.
+													</div>
+												{/if}
 											</CardContent>
 										</Card>
 									</div>
