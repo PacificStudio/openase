@@ -5,12 +5,7 @@
   import ActivityFeedPanel from './activity-feed-panel.svelte'
   import CostSnapshotPanel from './cost-snapshot-panel.svelte'
   import { Bot, Ticket, ShieldCheck, DollarSign } from '@lucide/svelte'
-  import type {
-    ProjectSummary,
-    DashboardStats,
-    ExceptionItem,
-    ActivityItem,
-  } from '../types'
+  import type { ProjectSummary, DashboardStats, ExceptionItem, ActivityItem } from '../types'
 
   const now = new Date()
   function ago(minutes: number): string {
@@ -155,8 +150,8 @@
 
 <div class="space-y-6">
   <div>
-    <h1 class="text-lg font-semibold text-foreground">Dashboard</h1>
-    <p class="text-sm text-muted-foreground">Organization overview</p>
+    <h1 class="text-foreground text-lg font-semibold">Dashboard</h1>
+    <p class="text-muted-foreground text-sm">Organization overview</p>
   </div>
 
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -172,11 +167,7 @@
       icon={Ticket}
       trend={{ value: 8, positive: true }}
     />
-    <StatCard
-      label="Pending Approvals"
-      value={stats.pendingApprovals}
-      icon={ShieldCheck}
-    />
+    <StatCard label="Pending Approvals" value={stats.pendingApprovals} icon={ShieldCheck} />
     <StatCard
       label="Today's Cost"
       value={'$' + stats.todayCost.toFixed(2)}
@@ -186,16 +177,16 @@
   </div>
 
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <ProjectHealthList projects={projects} class="lg:col-span-2" />
-    <ExceptionPanel exceptions={exceptions} />
+    <ProjectHealthList {projects} class="lg:col-span-2" />
+    <ExceptionPanel {exceptions} />
   </div>
 
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <ActivityFeedPanel activities={activities} class="lg:col-span-2" />
+    <ActivityFeedPanel {activities} class="lg:col-span-2" />
     <CostSnapshotPanel
       todayCost={stats.todayCost}
       weekCost={stats.weekCost}
-      topProject={{ name: 'openase-core', cost: 72.30 }}
+      topProject={{ name: 'openase-core', cost: 72.3 }}
       topAgent={{ name: 'claude-dev-1', cost: 48.15 }}
     />
   </div>

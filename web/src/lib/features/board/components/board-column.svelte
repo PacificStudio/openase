@@ -15,22 +15,19 @@
   } = $props()
 </script>
 
-<div class={cn('flex min-w-[280px] max-w-[320px] shrink-0 flex-col', className)}>
+<div class={cn('flex max-w-[320px] min-w-[280px] shrink-0 flex-col', className)}>
   <div class="mb-2 flex items-center gap-2 px-1">
-    <span
-      class="size-2.5 rounded-full"
-      style="background-color: {column.color}"
-    ></span>
-    <span class="text-sm font-medium text-foreground">{column.name}</span>
-    <span class="text-xs text-muted-foreground">{column.tickets.length}</span>
+    <span class="size-2.5 rounded-full" style="background-color: {column.color}"></span>
+    <span class="text-foreground text-sm font-medium">{column.name}</span>
+    <span class="text-muted-foreground text-xs">{column.tickets.length}</span>
     {#if column.wipInfo}
-      <span class="ml-auto text-[10px] text-muted-foreground">{column.wipInfo}</span>
+      <span class="text-muted-foreground ml-auto text-[10px]">{column.wipInfo}</span>
     {/if}
   </div>
 
-  <div class="flex flex-1 flex-col gap-1.5 overflow-y-auto rounded-lg bg-muted/30 p-1.5">
+  <div class="bg-muted/30 flex flex-1 flex-col gap-1.5 overflow-y-auto rounded-lg p-1.5">
     {#if column.tickets.length === 0}
-      <div class="flex flex-col items-center justify-center py-8 text-muted-foreground">
+      <div class="text-muted-foreground flex flex-col items-center justify-center py-8">
         <Inbox class="mb-2 size-5" />
         <span class="text-xs">No tickets</span>
       </div>

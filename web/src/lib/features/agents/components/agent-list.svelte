@@ -67,38 +67,38 @@
 <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead>
-      <tr class="border-b border-border text-left text-xs text-muted-foreground">
-        <th class="pb-2 pl-3 pr-2 font-medium">Status</th>
+      <tr class="border-border text-muted-foreground border-b text-left text-xs">
+        <th class="pr-2 pb-2 pl-3 font-medium">Status</th>
         <th class="px-2 pb-2 font-medium">Agent</th>
         <th class="px-2 pb-2 font-medium">Runtime</th>
         <th class="px-2 pb-2 font-medium">Current Ticket</th>
         <th class="px-2 pb-2 font-medium">Last Heartbeat</th>
         <th class="px-2 pb-2 text-right font-medium">Completed</th>
         <th class="px-2 pb-2 text-right font-medium">Cost</th>
-        <th class="pb-2 pl-2 pr-3 text-right font-medium">Actions</th>
+        <th class="pr-3 pb-2 pl-2 text-right font-medium">Actions</th>
       </tr>
     </thead>
     <tbody>
       {#each agents as agent (agent.id)}
-        <tr class="group border-b border-border/50 transition-colors hover:bg-muted/30">
-          <td class="py-2.5 pl-3 pr-2">
+        <tr class="group border-border/50 hover:bg-muted/30 border-b transition-colors">
+          <td class="py-2.5 pr-2 pl-3">
             <div class="flex items-center gap-2">
               <span class={cn('size-2 rounded-full', statusColors[agent.status])}></span>
-              <span class="text-xs text-muted-foreground">{statusLabels[agent.status]}</span>
+              <span class="text-muted-foreground text-xs">{statusLabels[agent.status]}</span>
             </div>
           </td>
           <td class="px-2 py-2.5">
             <div class="flex items-center gap-2">
-              <span class="font-medium text-foreground">{agent.name}</span>
+              <span class="text-foreground font-medium">{agent.name}</span>
               <Badge variant="secondary" class="text-[10px]">{agent.providerName}</Badge>
             </div>
-            <div class="text-xs text-muted-foreground">{agent.modelName}</div>
+            <div class="text-muted-foreground text-xs">{agent.modelName}</div>
           </td>
           <td class="px-2 py-2.5">
             <div class="flex flex-col items-start gap-1">
               <Badge class={runtimePhaseClasses[agent.runtimePhase]}>{runtimeLabel(agent)}</Badge>
               {#if agent.sessionId}
-                <span class="font-mono text-xs text-muted-foreground">{agent.sessionId}</span>
+                <span class="text-muted-foreground font-mono text-xs">{agent.sessionId}</span>
               {:else if agent.lastError}
                 <span class="max-w-56 truncate text-xs text-rose-700">{agent.lastError}</span>
               {/if}
@@ -108,32 +108,34 @@
             {#if agent.currentTicket}
               <a
                 href="/tickets/{agent.currentTicket.id}"
-                class="text-xs text-primary hover:underline"
+                class="text-primary text-xs hover:underline"
               >
                 {agent.currentTicket.identifier}
               </a>
-              <div class="max-w-48 truncate text-xs text-muted-foreground">
+              <div class="text-muted-foreground max-w-48 truncate text-xs">
                 {agent.currentTicket.title}
               </div>
             {:else}
-              <span class="text-xs text-muted-foreground/50">&mdash;</span>
+              <span class="text-muted-foreground/50 text-xs">&mdash;</span>
             {/if}
           </td>
           <td class="px-2 py-2.5">
-            <span class="text-xs text-muted-foreground">
+            <span class="text-muted-foreground text-xs">
               {heartbeatLabel(agent.lastHeartbeat)}
             </span>
           </td>
           <td class="px-2 py-2.5 text-right">
-            <span class="text-xs tabular-nums text-foreground">{agent.todayCompleted}</span>
+            <span class="text-foreground text-xs tabular-nums">{agent.todayCompleted}</span>
           </td>
           <td class="px-2 py-2.5 text-right">
-            <span class="text-xs tabular-nums text-foreground">
+            <span class="text-foreground text-xs tabular-nums">
               {formatCurrency(agent.todayCost)}
             </span>
           </td>
-          <td class="py-2.5 pl-2 pr-3">
-            <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <td class="py-2.5 pr-3 pl-2">
+            <div
+              class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+            >
               <Button variant="ghost" size="icon-xs" aria-label="View output">
                 <Terminal class="size-3.5" />
               </Button>

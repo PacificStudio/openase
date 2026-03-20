@@ -16,7 +16,11 @@
       modelName: 'claude-sonnet-4',
       status: 'running',
       runtimePhase: 'ready',
-      currentTicket: { id: 'tkt-101', identifier: 'ENG-342', title: 'Refactor auth middleware to support OAuth2 PKCE flow' },
+      currentTicket: {
+        id: 'tkt-101',
+        identifier: 'ENG-342',
+        title: 'Refactor auth middleware to support OAuth2 PKCE flow',
+      },
       lastHeartbeat: new Date(now.getTime() - 15_000).toISOString(),
       runtimeStartedAt: new Date(now.getTime() - 180_000).toISOString(),
       sessionId: 'thread-claude-alpha',
@@ -43,7 +47,11 @@
       modelName: 'codex-1',
       status: 'claimed',
       runtimePhase: 'launching',
-      currentTicket: { id: 'tkt-205', identifier: 'ENG-587', title: 'Add pagination to list endpoints' },
+      currentTicket: {
+        id: 'tkt-205',
+        identifier: 'ENG-587',
+        title: 'Add pagination to list endpoints',
+      },
       lastHeartbeat: null,
       todayCompleted: 3,
       todayCost: 2.75,
@@ -56,11 +64,15 @@
       modelName: 'claude-opus-4',
       status: 'failed',
       runtimePhase: 'failed',
-      currentTicket: { id: 'tkt-189', identifier: 'ENG-401', title: 'Migrate database schema to use UUIDs' },
+      currentTicket: {
+        id: 'tkt-189',
+        identifier: 'ENG-401',
+        title: 'Migrate database schema to use UUIDs',
+      },
       lastHeartbeat: new Date(now.getTime() - 600_000).toISOString(),
       lastError: 'Codex launch handshake timed out',
       todayCompleted: 1,
-      todayCost: 8.40,
+      todayCost: 8.4,
       capabilities: ['code-generation', 'code-review', 'architecture'],
     },
     {
@@ -109,7 +121,7 @@
 
 <div class="space-y-4">
   <div class="flex items-center justify-between">
-    <h1 class="text-lg font-semibold text-foreground">Agents</h1>
+    <h1 class="text-foreground text-lg font-semibold">Agents</h1>
     <Button size="sm">
       <Plus class="size-3.5" />
       Register Agent

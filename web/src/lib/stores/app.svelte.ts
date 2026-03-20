@@ -10,14 +10,30 @@ function createAppStore() {
   let theme = $state<'light' | 'dark'>('dark')
 
   return {
-    get currentOrg() { return currentOrg },
-    set currentOrg(v) { currentOrg = v },
-    get currentProject() { return currentProject },
-    set currentProject(v) { currentProject = v },
-    get sidebarCollapsed() { return sidebarCollapsed },
-    set sidebarCollapsed(v) { sidebarCollapsed = v },
-    toggleSidebar() { sidebarCollapsed = !sidebarCollapsed },
-    get rightPanelOpen() { return rightPanelOpen },
+    get currentOrg() {
+      return currentOrg
+    },
+    set currentOrg(v) {
+      currentOrg = v
+    },
+    get currentProject() {
+      return currentProject
+    },
+    set currentProject(v) {
+      currentProject = v
+    },
+    get sidebarCollapsed() {
+      return sidebarCollapsed
+    },
+    set sidebarCollapsed(v) {
+      sidebarCollapsed = v
+    },
+    toggleSidebar() {
+      sidebarCollapsed = !sidebarCollapsed
+    },
+    get rightPanelOpen() {
+      return rightPanelOpen
+    },
     openRightPanel(content: { type: string; id?: string }) {
       rightPanelContent = content
       rightPanelOpen = true
@@ -26,10 +42,18 @@ function createAppStore() {
       rightPanelOpen = false
       rightPanelContent = null
     },
-    get rightPanelContent() { return rightPanelContent },
-    get sseStatus() { return sseStatus },
-    set sseStatus(v) { sseStatus = v },
-    get theme() { return theme },
+    get rightPanelContent() {
+      return rightPanelContent
+    },
+    get sseStatus() {
+      return sseStatus
+    },
+    set sseStatus(v) {
+      sseStatus = v
+    },
+    get theme() {
+      return theme
+    },
     toggleTheme() {
       theme = theme === 'dark' ? 'light' : 'dark'
       if (typeof document !== 'undefined') {

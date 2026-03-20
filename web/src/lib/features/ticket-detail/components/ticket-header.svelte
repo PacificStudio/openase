@@ -40,7 +40,7 @@
     <div class="flex items-center gap-2">
       <button
         onclick={copyIdentifier}
-        class="flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-xs text-muted-foreground hover:bg-muted transition-colors"
+        class="text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-xs transition-colors"
       >
         {ticket.identifier}
         {#if copied}
@@ -66,12 +66,13 @@
     </div>
   </div>
 
-  <h2 class="text-sm font-medium leading-snug">{ticket.title}</h2>
+  <h2 class="text-sm leading-snug font-medium">{ticket.title}</h2>
 
   <div class="flex items-center gap-2">
     <Badge
       class="text-[10px]"
-      style="background-color: {ticket.status.color}20; color: {ticket.status.color}; border-color: {ticket.status.color}30"
+      style="background-color: {ticket.status.color}20; color: {ticket.status
+        .color}; border-color: {ticket.status.color}30"
     >
       {ticket.status.name}
     </Badge>
