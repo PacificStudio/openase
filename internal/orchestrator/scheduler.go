@@ -17,6 +17,8 @@ import (
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	domaincatalog "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
 
@@ -29,18 +31,21 @@ const (
 
 // TickReport summarizes the work done during one scheduler tick.
 type TickReport struct {
-	WorkflowsScanned  int            `json:"workflows_scanned"`
-	CandidatesScanned int            `json:"candidates_scanned"`
-	TicketsDispatched int            `json:"tickets_dispatched"`
-	TicketsSkipped    map[string]int `json:"tickets_skipped"`
+	ScheduledJobsScanned    int            `json:"scheduled_jobs_scanned"`
+	ScheduledTicketsCreated int            `json:"scheduled_tickets_created"`
+	WorkflowsScanned        int            `json:"workflows_scanned"`
+	CandidatesScanned       int            `json:"candidates_scanned"`
+	TicketsDispatched       int            `json:"tickets_dispatched"`
+	TicketsSkipped          map[string]int `json:"tickets_skipped"`
 }
 
 // Scheduler claims runnable tickets and advances orchestrator work.
 type Scheduler struct {
-	client *ent.Client
-	logger *slog.Logger
-	events provider.EventProvider
-	now    func() time.Time
+	client        *ent.Client
+	logger        *slog.Logger
+	events        provider.EventProvider
+	scheduledJobs *scheduledjobservice.Service
+	now           func() time.Time
 }
 
 // NewScheduler constructs the orchestrator scheduler.
@@ -50,10 +55,11 @@ func NewScheduler(client *ent.Client, logger *slog.Logger, events provider.Event
 	}
 
 	return &Scheduler{
-		client: client,
-		logger: logger.With("component", "scheduler"),
-		events: events,
-		now:    time.Now,
+		client:        client,
+		logger:        logger.With("component", "scheduler"),
+		events:        events,
+		scheduledJobs: scheduledjobservice.NewService(client, ticketservice.NewService(client), logger),
+		now:           time.Now,
 	}
 }
 
@@ -64,6 +70,16 @@ func (s *Scheduler) RunTick(ctx context.Context) (TickReport, error) {
 	}
 	if s == nil || s.client == nil {
 		return report, fmt.Errorf("scheduler unavailable")
+	}
+
+	if s.scheduledJobs != nil {
+		s.scheduledJobs.SetNowFunc(s.now)
+		dueReport, err := s.scheduledJobs.RunDue(ctx)
+		if err != nil {
+			return report, fmt.Errorf("run scheduled jobs: %w", err)
+		}
+		report.ScheduledJobsScanned = dueReport.JobsScanned
+		report.ScheduledTicketsCreated = dueReport.TicketsCreated
 	}
 
 	now := s.now().UTC()

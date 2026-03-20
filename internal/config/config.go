@@ -69,7 +69,18 @@ type EventConfig struct {
 }
 
 type ObservabilityConfig struct {
+	Metrics MetricsConfig
 	Tracing TraceConfig
+}
+
+type MetricsConfig struct {
+	Enabled bool
+	Export  MetricsExportConfig
+}
+
+type MetricsExportConfig struct {
+	Prometheus   bool
+	OTLPEndpoint string
 }
 
 type TraceConfig struct {
@@ -128,6 +139,9 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
 	v.SetDefault("event.driver", string(EventDriverAuto))
+	v.SetDefault("observability.metrics.enabled", true)
+	v.SetDefault("observability.metrics.export.prometheus", false)
+	v.SetDefault("observability.metrics.export.otlp_endpoint", "")
 	v.SetDefault("observability.tracing.enabled", false)
 	v.SetDefault("observability.tracing.endpoint", "")
 	v.SetDefault("observability.tracing.service_name", "openase")
@@ -228,6 +242,21 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("parse event.driver: %w", err)
 	}
 
+	metricsEnabled, err := parseBool(v.Get("observability.metrics.enabled"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.metrics.enabled: %w", err)
+	}
+
+	prometheusEnabled, err := parseBool(v.Get("observability.metrics.export.prometheus"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.metrics.export.prometheus: %w", err)
+	}
+
+	otlpEndpoint, err := parseOptionalString(v.Get("observability.metrics.export.otlp_endpoint"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.metrics.export.otlp_endpoint: %w", err)
+	}
+
 	traceEnabled, err := parseBool(v.Get("observability.tracing.enabled"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse observability.tracing.enabled: %w", err)
@@ -280,6 +309,13 @@ func parseConfig(v *viper.Viper) (Config, error) {
 			Driver: eventDriver,
 		},
 		Observability: ObservabilityConfig{
+			Metrics: MetricsConfig{
+				Enabled: metricsEnabled,
+				Export: MetricsExportConfig{
+					Prometheus:   prometheusEnabled,
+					OTLPEndpoint: otlpEndpoint,
+				},
+			},
 			Tracing: TraceConfig{
 				Enabled:     traceEnabled,
 				Endpoint:    traceEndpoint,

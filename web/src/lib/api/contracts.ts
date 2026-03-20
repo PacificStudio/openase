@@ -72,6 +72,9 @@ export type HarnessPayload = DeepRequired<
   ResponseFor<'/api/v1/workflows/{workflowId}/harness', 'get'>
 >
 export type HarnessDocument = HarnessPayload['harness']
+export type HarnessVariableDictionaryPayload = DeepRequired<
+  ResponseFor<'/api/v1/harness/variables', 'get'>
+>
 export type WorkflowSkillBindingResponse = DeepRequired<
   ResponseFor<'/api/v1/workflows/{workflowId}/skills/bind', 'post'>
 >

@@ -10,8 +10,8 @@
   import Button from '$ui/button/button.svelte'
   import { Plus, PanelRightClose, PanelRight } from '@lucide/svelte'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
-  import type { WorkflowSummary, HarnessContent } from '../types'
-  import { type SkillState, extractBody, extractFrontmatter } from '../model'
+  import type { HarnessVariableGroup, WorkflowSummary } from '../types'
+  import { type SkillState, toHarnessContent } from '../model'
   import { createDefaultWorkflow, loadWorkflowHarness, loadWorkflowIndex } from '../data'
   import WorkflowList from './workflow-list.svelte'
   import WorkflowDetailPanel from './workflow-detail-panel.svelte'
@@ -26,24 +26,31 @@
   let statusMessage = $state('')
   let workflows = $state<WorkflowSummary[]>([])
   let selectedId = $state('')
-  let harness = $state<HarnessContent | null>(null)
+  let harness = $state<ReturnType<typeof toHarnessContent> | null>(null)
   let draftHarness = $state('')
   let skillStates = $state<SkillState[]>([])
   let validationIssues = $state<HarnessValidationIssue[]>([])
   let builtinRoleContent = $state('')
   let statuses = $state<Array<{ id: string; name: string }>>([])
+  let variableGroups = $state<HarnessVariableGroup[]>([])
 
-  let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId))
+  let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
   let isDirty = $derived(harness ? draftHarness !== harness.rawContent : false)
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
       workflows = []
+      selectedId = ''
       harness = null
       draftHarness = ''
       skillStates = []
       statuses = []
+      variableGroups = []
+      validationIssues = []
+      statusMessage = ''
+      error = ''
+      loading = false
       return
     }
 
@@ -66,6 +73,7 @@
         skillStates = payload.skillStates
         builtinRoleContent = payload.builtinRoleContent
         statuses = payload.statuses
+        variableGroups = payload.variableGroups
       } catch (caughtError) {
         if (cancelled) return
         error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
@@ -126,14 +134,20 @@
 
     try {
       const payload = await saveWorkflowHarness(selectedId, draftHarness)
-      const content = payload.harness.content
-      harness = {
-        frontmatter: extractFrontmatter(content),
-        body: extractBody(content),
-        rawContent: content,
-      }
-      draftHarness = content
-      statusMessage = 'Harness saved.'
+      harness = toHarnessContent(payload.harness.content)
+      draftHarness = payload.harness.content
+      workflows = workflows.map((workflow) =>
+        workflow.id === selectedId
+          ? {
+              ...workflow,
+              harnessPath: payload.harness.path ?? workflow.harnessPath,
+              version: payload.harness.version ?? workflow.version,
+            }
+          : workflow,
+      )
+      statusMessage = payload.harness.version
+        ? `Harness saved as v${payload.harness.version}.`
+        : 'Harness saved.'
     } catch (caughtError) {
       error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save harness.'
     } finally {
@@ -246,14 +260,9 @@
       </div>
 
       <WorkflowEditorPanel
-        {selectedWorkflow}
-        harness={harness
-          ? {
-              frontmatter: extractFrontmatter(draftHarness),
-              body: extractBody(draftHarness),
-              rawContent: draftHarness,
-            }
-          : null}
+        selectedWorkflow={selectedWorkflow ?? undefined}
+        harness={harness ? toHarnessContent(draftHarness) : null}
+        {variableGroups}
         {skillStates}
         {validationIssues}
         {statusMessage}
