@@ -39,6 +39,20 @@ export type ProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/proj
 export type ProjectResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}', 'get'>>
 export type Project = ItemOf<ProjectPayload['projects']>
 
+export type MachinePayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/machines', 'get'>>
+export type MachineCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/orgs/{orgId}/machines', 'post'>
+>
+export type MachineResponse = DeepRequired<ResponseFor<'/api/v1/machines/{machineId}', 'get'>>
+export type Machine = ItemOf<MachinePayload['machines']>
+export type MachineTestResponse = DeepRequired<
+  ResponseFor<'/api/v1/machines/{machineId}/test', 'post'>
+>
+export type MachineProbe = MachineTestResponse['probe']
+export type MachineResourcesResponse = DeepRequired<
+  ResponseFor<'/api/v1/machines/{machineId}/resources', 'get'>
+>
+
 export type AgentPayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/agents', 'get'>>
 export type Agent = ItemOf<AgentPayload['agents']>
 

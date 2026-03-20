@@ -17,6 +17,7 @@ export const projectNav: NavItem[] = [
   { label: 'Tickets', href: '/tickets', icon: 'ticket' },
   { label: 'Workflows', href: '/workflows', icon: 'workflow' },
   { label: 'Agents', href: '/agents', icon: 'bot' },
+  { label: 'Machines', href: '/machines', icon: 'server' },
   { label: 'Activity', href: '/activity', icon: 'activity' },
   { label: 'Insights', href: '/insights', icon: 'bar-chart-3' },
   { label: 'Settings', href: '/settings', icon: 'settings' },
