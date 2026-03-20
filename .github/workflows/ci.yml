@@ -27,9 +27,9 @@ jobs:
         working-directory: web
         run: npm ci
 
-      - name: Build Web Assets
+      - name: Run Web CI
         working-directory: web
-        run: npm run build
+        run: npm run ci
 
       - name: Set Up Go
         uses: actions/setup-go@v5
