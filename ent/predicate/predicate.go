@@ -18,6 +18,9 @@ type AgentProvider func(*sql.Selector)
 // AgentToken is the predicate function for agenttoken builders.
 type AgentToken func(*sql.Selector)
 
+// Machine is the predicate function for machine builders.
+type Machine func(*sql.Selector)
+
 // NotificationChannel is the predicate function for notificationchannel builders.
 type NotificationChannel func(*sql.Selector)
 

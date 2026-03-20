@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -24,6 +25,7 @@ import (
 
 type fakeCatalogService struct {
 	organizations  map[uuid.UUID]domain.Organization
+	machines       map[uuid.UUID]domain.Machine
 	projects       map[uuid.UUID]domain.Project
 	tickets        map[uuid.UUID]fakeCatalogTicket
 	projectRepos   map[uuid.UUID]domain.ProjectRepo
@@ -41,6 +43,7 @@ type fakeCatalogTicket struct {
 func newFakeCatalogService() *fakeCatalogService {
 	return &fakeCatalogService{
 		organizations:  map[uuid.UUID]domain.Organization{},
+		machines:       map[uuid.UUID]domain.Machine{},
 		projects:       map[uuid.UUID]domain.Project{},
 		tickets:        map[uuid.UUID]fakeCatalogTicket{},
 		projectRepos:   map[uuid.UUID]domain.ProjectRepo{},
@@ -267,6 +270,119 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	}
 }
 
+func TestMachineRoutes(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	orgRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme Platform","slug":"acme-platform"}`)
+	if orgRec.Code != http.StatusCreated {
+		t.Fatalf("expected organization create 201, got %d: %s", orgRec.Code, orgRec.Body.String())
+	}
+
+	var orgPayload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	decodeResponse(t, orgRec, &orgPayload)
+
+	listMachinesRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs/"+orgPayload.Organization.ID+"/machines", "")
+	if listMachinesRec.Code != http.StatusOK {
+		t.Fatalf("expected machine list 200, got %d: %s", listMachinesRec.Code, listMachinesRec.Body.String())
+	}
+
+	var listMachinesPayload struct {
+		Machines []machineResponse `json:"machines"`
+	}
+	decodeResponse(t, listMachinesRec, &listMachinesPayload)
+	if len(listMachinesPayload.Machines) != 1 || listMachinesPayload.Machines[0].Name != "local" {
+		t.Fatalf("expected auto-seeded local machine, got %+v", listMachinesPayload.Machines)
+	}
+
+	createMachineRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/machines",
+		`{"name":"gpu-01","host":"10.0.1.10","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
+	)
+	if createMachineRec.Code != http.StatusCreated {
+		t.Fatalf("expected machine create 201, got %d: %s", createMachineRec.Code, createMachineRec.Body.String())
+	}
+
+	var createMachinePayload struct {
+		Machine machineResponse `json:"machine"`
+	}
+	decodeResponse(t, createMachineRec, &createMachinePayload)
+	if createMachinePayload.Machine.Status != "maintenance" {
+		t.Fatalf("expected created remote machine to default to maintenance, got %+v", createMachinePayload.Machine)
+	}
+
+	patchMachineRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/machines/"+createMachinePayload.Machine.ID,
+		`{"status":"online","description":"A100 worker"}`,
+	)
+	if patchMachineRec.Code != http.StatusOK {
+		t.Fatalf("expected machine patch 200, got %d: %s", patchMachineRec.Code, patchMachineRec.Body.String())
+	}
+
+	var patchMachinePayload struct {
+		Machine machineResponse `json:"machine"`
+	}
+	decodeResponse(t, patchMachineRec, &patchMachinePayload)
+	if patchMachinePayload.Machine.Status != "online" || patchMachinePayload.Machine.Description != "A100 worker" {
+		t.Fatalf("unexpected patched machine payload: %+v", patchMachinePayload.Machine)
+	}
+
+	testMachineRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/machines/"+createMachinePayload.Machine.ID+"/test", "")
+	if testMachineRec.Code != http.StatusOK {
+		t.Fatalf("expected machine test 200, got %d: %s", testMachineRec.Code, testMachineRec.Body.String())
+	}
+
+	var testMachinePayload struct {
+		Machine machineResponse      `json:"machine"`
+		Probe   machineProbeResponse `json:"probe"`
+	}
+	decodeResponse(t, testMachineRec, &testMachinePayload)
+	if testMachinePayload.Probe.Transport != "ssh" {
+		t.Fatalf("expected ssh probe transport, got %+v", testMachinePayload.Probe)
+	}
+	if testMachinePayload.Machine.LastHeartbeatAt == nil {
+		t.Fatalf("expected machine test to stamp heartbeat, got %+v", testMachinePayload.Machine)
+	}
+
+	resourcesRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+createMachinePayload.Machine.ID+"/resources", "")
+	if resourcesRec.Code != http.StatusOK {
+		t.Fatalf("expected machine resources 200, got %d: %s", resourcesRec.Code, resourcesRec.Body.String())
+	}
+
+	var resourcesPayload struct {
+		MachineID       string         `json:"machine_id"`
+		Status          string         `json:"status"`
+		LastHeartbeatAt *string        `json:"last_heartbeat_at"`
+		Resources       map[string]any `json:"resources"`
+	}
+	decodeResponse(t, resourcesRec, &resourcesPayload)
+	if resourcesPayload.Status != "online" || resourcesPayload.Resources["transport"] != "ssh" {
+		t.Fatalf("unexpected machine resources payload: %+v", resourcesPayload)
+	}
+
+	deleteMachineRec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/machines/"+createMachinePayload.Machine.ID, "")
+	if deleteMachineRec.Code != http.StatusOK {
+		t.Fatalf("expected machine delete 200, got %d: %s", deleteMachineRec.Code, deleteMachineRec.Body.String())
+	}
+}
+
 func TestCatalogRoutesRejectInvalidInput(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
@@ -301,7 +417,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 
@@ -544,6 +660,20 @@ func (f *fakeCatalogService) CreateOrganization(_ context.Context, input domain.
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
 	}
 	f.organizations[item.ID] = item
+	localID := uuid.New()
+	f.machines[localID] = domain.Machine{
+		ID:             localID,
+		OrganizationID: item.ID,
+		Name:           domain.LocalMachineName,
+		Host:           domain.LocalMachineHost,
+		Port:           22,
+		Status:         "online",
+		Description:    "Control-plane local execution host.",
+		Resources: map[string]any{
+			"transport":    "local",
+			"last_success": true,
+		},
+	}
 
 	return item, nil
 }
@@ -566,6 +696,130 @@ func (f *fakeCatalogService) UpdateOrganization(_ context.Context, input domain.
 	f.organizations[input.ID] = item
 
 	return item, nil
+}
+
+func (f *fakeCatalogService) ListMachines(_ context.Context, organizationID uuid.UUID) ([]domain.Machine, error) {
+	if _, ok := f.organizations[organizationID]; !ok {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.Machine, 0)
+	for _, item := range f.machines {
+		if item.OrganizationID == organizationID {
+			items = append(items, item)
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+
+	return items, nil
+}
+
+func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.CreateMachine) (domain.Machine, error) {
+	if _, ok := f.organizations[input.OrganizationID]; !ok {
+		return domain.Machine{}, catalogservice.ErrNotFound
+	}
+	for _, item := range f.machines {
+		if item.OrganizationID == input.OrganizationID && item.Name == input.Name {
+			return domain.Machine{}, catalogservice.ErrConflict
+		}
+	}
+
+	item := domain.Machine{
+		ID:             uuid.New(),
+		OrganizationID: input.OrganizationID,
+		Name:           input.Name,
+		Host:           input.Host,
+		Port:           input.Port,
+		SSHUser:        input.SSHUser,
+		SSHKeyPath:     input.SSHKeyPath,
+		Description:    input.Description,
+		Labels:         append([]string(nil), input.Labels...),
+		Status:         input.Status,
+		WorkspaceRoot:  input.WorkspaceRoot,
+		AgentCLIPath:   input.AgentCLIPath,
+		EnvVars:        append([]string(nil), input.EnvVars...),
+		Resources:      map[string]any{},
+	}
+	f.machines[item.ID] = item
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) GetMachine(_ context.Context, id uuid.UUID) (domain.Machine, error) {
+	item, ok := f.machines[id]
+	if !ok {
+		return domain.Machine{}, catalogservice.ErrNotFound
+	}
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) UpdateMachine(_ context.Context, input domain.UpdateMachine) (domain.Machine, error) {
+	current, ok := f.machines[input.ID]
+	if !ok {
+		return domain.Machine{}, catalogservice.ErrNotFound
+	}
+	for _, item := range f.machines {
+		if item.ID != input.ID && item.OrganizationID == input.OrganizationID && item.Name == input.Name {
+			return domain.Machine{}, catalogservice.ErrConflict
+		}
+	}
+
+	current.Name = input.Name
+	current.Host = input.Host
+	current.Port = input.Port
+	current.SSHUser = input.SSHUser
+	current.SSHKeyPath = input.SSHKeyPath
+	current.Description = input.Description
+	current.Labels = append([]string(nil), input.Labels...)
+	current.Status = input.Status
+	current.WorkspaceRoot = input.WorkspaceRoot
+	current.AgentCLIPath = input.AgentCLIPath
+	current.EnvVars = append([]string(nil), input.EnvVars...)
+	f.machines[input.ID] = current
+
+	return current, nil
+}
+
+func (f *fakeCatalogService) DeleteMachine(_ context.Context, id uuid.UUID) (domain.Machine, error) {
+	item, ok := f.machines[id]
+	if !ok {
+		return domain.Machine{}, catalogservice.ErrNotFound
+	}
+	if item.Name == domain.LocalMachineName {
+		return domain.Machine{}, catalogservice.ErrInvalidInput
+	}
+
+	delete(f.machines, id)
+	return item, nil
+}
+
+func (f *fakeCatalogService) TestMachineConnection(_ context.Context, id uuid.UUID) (domain.Machine, domain.MachineProbe, error) {
+	item, ok := f.machines[id]
+	if !ok {
+		return domain.Machine{}, domain.MachineProbe{}, catalogservice.ErrNotFound
+	}
+
+	checkedAt := time.Now().UTC()
+	transport := map[bool]string{true: "local", false: "ssh"}[item.Host == domain.LocalMachineHost]
+	probe := domain.MachineProbe{
+		CheckedAt: checkedAt,
+		Transport: transport,
+		Output:    "probe-ok",
+		Resources: map[string]any{
+			"transport":    transport,
+			"checked_at":   checkedAt.Format(time.RFC3339),
+			"last_success": true,
+		},
+	}
+	item.Status = "online"
+	item.LastHeartbeatAt = &checkedAt
+	item.Resources = cloneMap(probe.Resources)
+	f.machines[id] = item
+
+	return item, probe, nil
 }
 
 func (f *fakeCatalogService) ListProjects(_ context.Context, organizationID uuid.UUID) ([]domain.Project, error) {
@@ -1000,7 +1254,7 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 
@@ -1102,5 +1356,52 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 	)
 	if len(repoList.Repos) != 1 || repoList.Repos[0].Name != "frontend" || !repoList.Repos[0].IsPrimary {
 		t.Fatalf("expected surviving repo to stay primary, got %+v", repoList.Repos)
+	}
+}
+
+func TestOrganizationCreateSeedsLocalMachineWithEntRepository(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	var createOrgPayload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs",
+		map[string]any{"name": "Acme", "slug": "acme"},
+		http.StatusCreated,
+		&createOrgPayload,
+	)
+
+	var machinesPayload struct {
+		Machines []machineResponse `json:"machines"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/orgs/"+createOrgPayload.Organization.ID+"/machines",
+		nil,
+		http.StatusOK,
+		&machinesPayload,
+	)
+	if len(machinesPayload.Machines) != 1 {
+		t.Fatalf("expected one seeded machine, got %+v", machinesPayload.Machines)
+	}
+	if machinesPayload.Machines[0].Name != "local" || machinesPayload.Machines[0].Status != "online" {
+		t.Fatalf("unexpected seeded local machine: %+v", machinesPayload.Machines[0])
 	}
 }

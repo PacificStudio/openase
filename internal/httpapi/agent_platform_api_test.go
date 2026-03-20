@@ -41,7 +41,7 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
 		platformService,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 
@@ -139,7 +139,7 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
 		platformService,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 
@@ -244,7 +244,7 @@ func TestAgentPlatformHarnessWhitelistConstrainsTokenScopes(t *testing.T) {
 		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
 		platformService,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 
@@ -327,7 +327,7 @@ func TestAgentPlatformRejectsMissingOrCrossProjectToken(t *testing.T) {
 		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
 		platformService,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 

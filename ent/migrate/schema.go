@@ -213,6 +213,58 @@ var (
 			},
 		},
 	}
+	// MachinesColumns holds the columns for the "machines" table.
+	MachinesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "host", Type: field.TypeString},
+		{Name: "port", Type: field.TypeInt, Default: 22},
+		{Name: "ssh_user", Type: field.TypeString, Nullable: true},
+		{Name: "ssh_key_path", Type: field.TypeString, Nullable: true},
+		{Name: "description", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "labels", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"online", "offline", "degraded", "maintenance"}, Default: "maintenance"},
+		{Name: "workspace_root", Type: field.TypeString, Nullable: true},
+		{Name: "agent_cli_path", Type: field.TypeString, Nullable: true},
+		{Name: "env_vars", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
+		{Name: "resources", Type: field.TypeJSON},
+		{Name: "organization_id", Type: field.TypeUUID},
+	}
+	// MachinesTable holds the schema information for the "machines" table.
+	MachinesTable = &schema.Table{
+		Name:       "machines",
+		Columns:    MachinesColumns,
+		PrimaryKey: []*schema.Column{MachinesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "machines_organizations_machines",
+				Columns:    []*schema.Column{MachinesColumns[14]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "machine_organization_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{MachinesColumns[14], MachinesColumns[1]},
+			},
+			{
+				Name:    "machine_organization_id_host",
+				Unique:  false,
+				Columns: []*schema.Column{MachinesColumns[14], MachinesColumns[2]},
+			},
+			{
+				Name:    "machine_labels",
+				Unique:  false,
+				Columns: []*schema.Column{MachinesColumns[7]},
+				Annotation: &entsql.IndexAnnotation{
+					Type: "GIN",
+				},
+			},
+		},
+	}
 	// NotificationChannelsColumns holds the columns for the "notification_channels" table.
 	NotificationChannelsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -778,6 +830,7 @@ var (
 		AgentsTable,
 		AgentProvidersTable,
 		AgentTokensTable,
+		MachinesTable,
 		NotificationChannelsTable,
 		NotificationRulesTable,
 		OrganizationsTable,
@@ -804,6 +857,7 @@ func init() {
 	AgentTokensTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentTokensTable.ForeignKeys[1].RefTable = ProjectsTable
 	AgentTokensTable.ForeignKeys[2].RefTable = TicketsTable
+	MachinesTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable
 	NotificationRulesTable.ForeignKeys[1].RefTable = ProjectsTable

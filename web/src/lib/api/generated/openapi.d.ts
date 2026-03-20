@@ -38,6 +38,59 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/machines/{machineId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get a machine */
+    get: operations['getMachine']
+    put?: never
+    post?: never
+    /** Delete a machine */
+    delete: operations['deleteMachine']
+    options?: never
+    head?: never
+    /** Update a machine */
+    patch: operations['updateMachine']
+    trace?: never
+  }
+  '/api/v1/machines/{machineId}/resources': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get machine resources */
+    get: operations['getMachineResources']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/machines/{machineId}/test': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Test a machine SSH connection */
+    post: operations['testMachineConnection']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/orgs': {
     parameters: {
       query?: never
@@ -71,6 +124,24 @@ export interface paths {
     head?: never
     /** Update an organization */
     patch: operations['updateOrganization']
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/machines': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List machines for an organization */
+    get: operations['listMachines']
+    put?: never
+    /** Create a machine */
+    post: operations['createMachine']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
     trace?: never
   }
   '/api/v1/orgs/{orgId}/projects': {
@@ -558,6 +629,461 @@ export interface operations {
       }
     }
   }
+  getMachine: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get a machine response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            machine?: {
+              agent_cli_path?: string | null
+              description?: string
+              env_vars?: string[]
+              host?: string
+              id?: string
+              labels?: string[]
+              last_heartbeat_at?: string | null
+              name?: string
+              organization_id?: string
+              port?: number
+              resources?: {
+                [key: string]: unknown
+              }
+              ssh_key_path?: string | null
+              ssh_user?: string | null
+              status?: string
+              workspace_root?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteMachine: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete a machine response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            machine?: {
+              agent_cli_path?: string | null
+              description?: string
+              env_vars?: string[]
+              host?: string
+              id?: string
+              labels?: string[]
+              last_heartbeat_at?: string | null
+              name?: string
+              organization_id?: string
+              port?: number
+              resources?: {
+                [key: string]: unknown
+              }
+              ssh_key_path?: string | null
+              ssh_user?: string | null
+              status?: string
+              workspace_root?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateMachine: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a machine request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          agent_cli_path?: string | null
+          description?: string | null
+          env_vars?: string[] | null
+          host?: string | null
+          labels?: string[] | null
+          name?: string | null
+          port?: number | null
+          ssh_key_path?: string | null
+          ssh_user?: string | null
+          status?: string | null
+          workspace_root?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update a machine response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            machine?: {
+              agent_cli_path?: string | null
+              description?: string
+              env_vars?: string[]
+              host?: string
+              id?: string
+              labels?: string[]
+              last_heartbeat_at?: string | null
+              name?: string
+              organization_id?: string
+              port?: number
+              resources?: {
+                [key: string]: unknown
+              }
+              ssh_key_path?: string | null
+              ssh_user?: string | null
+              status?: string
+              workspace_root?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getMachineResources: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get machine resources response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            last_heartbeat_at?: string | null
+            machine_id?: string
+            resources?: {
+              [key: string]: unknown
+            }
+            status?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  testMachineConnection: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Test a machine SSH connection response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            machine?: {
+              agent_cli_path?: string | null
+              description?: string
+              env_vars?: string[]
+              host?: string
+              id?: string
+              labels?: string[]
+              last_heartbeat_at?: string | null
+              name?: string
+              organization_id?: string
+              port?: number
+              resources?: {
+                [key: string]: unknown
+              }
+              ssh_key_path?: string | null
+              ssh_user?: string | null
+              status?: string
+              workspace_root?: string | null
+            }
+            probe?: {
+              checked_at?: string
+              output?: string
+              resources?: {
+                [key: string]: unknown
+              }
+              transport?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listOrganizations: {
     parameters: {
       query?: never
@@ -720,6 +1246,181 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listMachines: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List machines for an organization response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            machines?: {
+              agent_cli_path?: string | null
+              description?: string
+              env_vars?: string[]
+              host?: string
+              id?: string
+              labels?: string[]
+              last_heartbeat_at?: string | null
+              name?: string
+              organization_id?: string
+              port?: number
+              resources?: {
+                [key: string]: unknown
+              }
+              ssh_key_path?: string | null
+              ssh_user?: string | null
+              status?: string
+              workspace_root?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createMachine: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a machine request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          agent_cli_path?: string | null
+          description?: string
+          env_vars?: string[]
+          host?: string
+          labels?: string[]
+          name?: string
+          port?: number | null
+          ssh_key_path?: string | null
+          ssh_user?: string | null
+          status?: string
+          workspace_root?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Create a machine response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            machine?: {
+              agent_cli_path?: string | null
+              description?: string
+              env_vars?: string[]
+              host?: string
+              id?: string
+              labels?: string[]
+              last_heartbeat_at?: string | null
+              name?: string
+              organization_id?: string
+              port?: number
+              resources?: {
+                [key: string]: unknown
+              }
+              ssh_key_path?: string | null
+              ssh_user?: string | null
+              status?: string
+              workspace_root?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
         headers: {
           [name: string]: unknown
         }

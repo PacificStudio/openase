@@ -29,6 +29,12 @@ type Repository interface {
 	CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error)
+	ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error)
+	CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error)
+	GetMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
+	UpdateMachine(ctx context.Context, input domain.UpdateMachine) (domain.Machine, error)
+	DeleteMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
+	RecordMachineProbe(ctx context.Context, input domain.RecordMachineProbe) error
 	ListProjects(ctx context.Context, organizationID uuid.UUID) ([]domain.Project, error)
 	CreateProject(ctx context.Context, input domain.CreateProject) (domain.Project, error)
 	GetProject(ctx context.Context, id uuid.UUID) (domain.Project, error)
@@ -73,7 +79,13 @@ func (r *EntRepository) ListOrganizations(ctx context.Context) ([]domain.Organiz
 }
 
 func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error) {
-	builder := r.client.Organization.Create().
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.Organization{}, fmt.Errorf("start create organization transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	builder := tx.Organization.Create().
 		SetName(input.Name).
 		SetSlug(input.Slug)
 	if input.DefaultAgentProviderID != nil {
@@ -83,6 +95,14 @@ func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.Cre
 	item, err := builder.Save(ctx)
 	if err != nil {
 		return domain.Organization{}, mapWriteError("create organization", err)
+	}
+
+	if err := createLocalMachine(ctx, tx, item.ID); err != nil {
+		return domain.Organization{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.Organization{}, fmt.Errorf("commit create organization: %w", err)
 	}
 
 	return mapOrganization(item), nil

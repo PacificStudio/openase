@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -13,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -62,8 +65,19 @@ func (a *App) RunServe(ctx context.Context) error {
 		return err
 	}
 
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve user home directory: %w", err)
+	}
+	sshPool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
+	defer func() {
+		if closeErr := sshPool.Close(); closeErr != nil {
+			a.logger.Error("close ssh pool", "error", closeErr)
+		}
+	}()
+
 	catalogRepo := catalogrepo.NewEntRepository(client)
-	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver())
+	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver(), sshinfra.NewTester(sshPool))
 	notificationSvc := notificationservice.NewService(client, a.logger, http.DefaultClient)
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
 		return err

@@ -15,7 +15,7 @@ func TestCreateAgentProviderAutoDetectsCLICommand(t *testing.T) {
 	repo := &stubRepository{}
 	svc := New(repo, stubExecutableResolver{
 		paths: map[string]string{"codex": "/usr/local/bin/codex"},
-	})
+	}, nil)
 
 	item, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
@@ -39,7 +39,7 @@ func TestCreateAgentProviderAutoDetectsCLICommand(t *testing.T) {
 }
 
 func TestCreateAgentProviderRejectsMissingCustomCLICommand(t *testing.T) {
-	svc := New(&stubRepository{}, stubExecutableResolver{})
+	svc := New(&stubRepository{}, stubExecutableResolver{}, nil)
 
 	_, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
@@ -54,7 +54,7 @@ func TestCreateAgentProviderRejectsMissingCustomCLICommand(t *testing.T) {
 }
 
 func TestCreateAgentProviderRejectsMissingExecutable(t *testing.T) {
-	svc := New(&stubRepository{}, stubExecutableResolver{})
+	svc := New(&stubRepository{}, stubExecutableResolver{}, nil)
 
 	_, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
@@ -80,7 +80,7 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 			AuthConfig:     map[string]any{},
 		},
 	}
-	svc := New(repo, stubExecutableResolver{})
+	svc := New(repo, stubExecutableResolver{}, nil)
 
 	item, err := svc.UpdateAgentProvider(context.Background(), domain.UpdateAgentProvider{
 		ID:             repo.provider.ID,
@@ -138,6 +138,30 @@ func (r *stubRepository) UpdateOrganization(context.Context, domain.UpdateOrgani
 
 func (r *stubRepository) ListProjects(context.Context, uuid.UUID) ([]domain.Project, error) {
 	return nil, nil
+}
+
+func (r *stubRepository) ListMachines(context.Context, uuid.UUID) ([]domain.Machine, error) {
+	return nil, nil
+}
+
+func (r *stubRepository) CreateMachine(context.Context, domain.CreateMachine) (domain.Machine, error) {
+	return domain.Machine{}, nil
+}
+
+func (r *stubRepository) GetMachine(context.Context, uuid.UUID) (domain.Machine, error) {
+	return domain.Machine{}, nil
+}
+
+func (r *stubRepository) UpdateMachine(context.Context, domain.UpdateMachine) (domain.Machine, error) {
+	return domain.Machine{}, nil
+}
+
+func (r *stubRepository) DeleteMachine(context.Context, uuid.UUID) (domain.Machine, error) {
+	return domain.Machine{}, nil
+}
+
+func (r *stubRepository) RecordMachineProbe(context.Context, domain.RecordMachineProbe) error {
+	return nil
 }
 
 func (r *stubRepository) CreateProject(context.Context, domain.CreateProject) (domain.Project, error) {
