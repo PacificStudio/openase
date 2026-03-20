@@ -1,9 +1,12 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import WorkflowLifecycleSidebar from '$lib/features/workflows/components/workflow-lifecycle-sidebar.svelte'
-  import WorkflowList from '$lib/features/workflows/components/workflow-list.svelte'
-  import { loadWorkflowCatalog } from '$lib/features/workflows/data'
-  import type { WorkflowStatusOption, WorkflowSummary } from '$lib/features/workflows/types'
+  import {
+    loadWorkflowCatalog,
+    WorkflowLifecycleSidebar,
+    WorkflowList,
+    type WorkflowStatusOption,
+    type WorkflowSummary,
+  } from '$lib/features/workflows'
   import { appStore } from '$lib/stores/app.svelte'
   import { Separator } from '$ui/separator'
 

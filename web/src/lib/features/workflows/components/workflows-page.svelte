@@ -24,16 +24,15 @@
     creating = $state(false)
   let error = $state(''),
     statusMessage = $state('')
-  let workflows = $state<WorkflowSummary[]>([])
-  let selectedId = $state('')
-  let harness = $state<ReturnType<typeof toHarnessContent> | null>(null)
-  let draftHarness = $state('')
+  let workflows = $state<WorkflowSummary[]>([]),
+    selectedId = $state('')
+  let harness = $state<ReturnType<typeof toHarnessContent> | null>(null),
+    draftHarness = $state('')
   let skillStates = $state<SkillState[]>([])
   let validationIssues = $state<HarnessValidationIssue[]>([])
-  let builtinRoleContent = $state('')
-  let statuses = $state<WorkflowStatusOption[]>([])
+  let builtinRoleContent = $state(''),
+    statuses = $state<WorkflowStatusOption[]>([])
   let variableGroups = $state<HarnessVariableGroup[]>([])
-
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
   let isDirty = $derived(harness ? draftHarness !== harness.rawContent : false)
 
