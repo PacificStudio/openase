@@ -164,6 +164,49 @@ type Agent = {
 		issues: HarnessValidationIssue[];
 	};
 
+	type OnboardingMilestoneKey =
+		| 'organization'
+		| 'project'
+		| 'workflow-lane'
+		| 'ticket'
+		| 'agent'
+		| 'automation-signal';
+
+	type OnboardingMilestone = {
+		key: OnboardingMilestoneKey;
+		title: string;
+		description: string;
+		action: string;
+		completed: boolean;
+		isCurrent: boolean;
+	};
+
+	type OnboardingSnapshot = {
+		organizationCount: number;
+		projectCount: number;
+		selectedOrgName: string;
+		selectedProjectName: string;
+		statusCount: number;
+		workflowCount: number;
+		ticketCount: number;
+		agentCount: number;
+		runningAgentCount: number;
+		activityCount: number;
+		hasAutomationSignal: boolean;
+	};
+
+	type OnboardingSummary = {
+		complete: boolean;
+		completedCount: number;
+		totalCount: number;
+		progressPercent: number;
+		title: string;
+		description: string;
+		actionLabel: string;
+		stats: Array<{ label: string; value: string }>;
+		milestones: OnboardingMilestone[];
+	};
+
 	type OrganizationPayload = { organizations: Organization[] };
 	type ProjectPayload = { projects: Project[] };
 	type AgentPayload = { agents: Agent[] };
@@ -313,6 +356,21 @@ You are handling {{ ticket.identifier }}.
 	);
 	const harnessWarningCount = $derived(
 		harnessIssues.filter((issue) => issue.level !== 'error').length
+	);
+	const onboardingSummary = $derived(
+		buildOnboardingSummary({
+			organizationCount: organizations.length,
+			projectCount: projects.length,
+			selectedOrgName: selectedOrg?.name ?? '',
+			selectedProjectName: selectedProject?.name ?? '',
+			statusCount: ticketStatuses.length,
+			workflowCount: workflows.length,
+			ticketCount: tickets.length,
+			agentCount: agents.length,
+			runningAgentCount: runningAgentCount(),
+			activityCount: activityEvents.length,
+			hasAutomationSignal: hasAutomationSignal()
+		})
 	);
 
 	onMount(() => {
@@ -1393,6 +1451,20 @@ You are handling {{ ticket.identifier }}.
 		return agents.filter((item) => item.status === 'running').length;
 	}
 
+	function hasAutomationSignal() {
+		return (
+			agents.some(
+				(item) =>
+					item.total_tickets_completed > 0 ||
+					item.status === 'running' ||
+					item.status === 'claimed' ||
+					Boolean(item.current_ticket_id)
+			) ||
+			tickets.some((item) => item.attempt_count > 0 || item.cost_amount > 0) ||
+			activityEvents.some((item) => Boolean(item.agent_id) || Boolean(item.ticket_id))
+		);
+	}
+
 	function stalledAgentCount() {
 		return agents.filter((item) => heartbeatTone(item.last_heartbeat_at) === 'stalled').length;
 	}
@@ -1556,6 +1628,132 @@ You are handling {{ ticket.identifier }}.
 		};
 	}
 
+	function buildOnboardingSummary(snapshot: OnboardingSnapshot): OnboardingSummary {
+		const hasOrganization = snapshot.organizationCount > 0;
+		const hasProject = hasOrganization && snapshot.projectCount > 0 && snapshot.selectedProjectName.length > 0;
+		const hasWorkflowLane = hasProject && snapshot.statusCount > 0 && snapshot.workflowCount > 0;
+		const hasTicket = hasWorkflowLane && snapshot.ticketCount > 0;
+		const hasAgent = hasTicket && snapshot.agentCount > 0;
+		const hasSignal = hasAgent && snapshot.hasAutomationSignal;
+
+		const milestones: OnboardingMilestone[] = [
+			{
+				key: 'organization',
+				title: 'Workspace boundary',
+				description: hasOrganization
+					? `Organization scope is live${snapshot.selectedOrgName ? ` in ${snapshot.selectedOrgName}` : ''}.`
+					: 'Create the first organization so OpenASE has a top-level workspace boundary.',
+				action: 'Create an organization to unlock project and workflow surfaces.',
+				completed: hasOrganization,
+				isCurrent: false
+			},
+			{
+				key: 'project',
+				title: 'Project selected',
+				description: hasProject
+					? `${snapshot.selectedProjectName} is selected and its board context is loaded.`
+					: 'Create a project inside the selected organization to load statuses, board, and workflows.',
+				action: 'Create a project for the current organization.',
+				completed: hasProject,
+				isCurrent: false
+			},
+			{
+				key: 'workflow-lane',
+				title: 'Runnable lane',
+				description: hasWorkflowLane
+					? `${snapshot.statusCount} status columns and ${snapshot.workflowCount} workflow${snapshot.workflowCount === 1 ? '' : 's'} are ready.`
+					: 'Add at least one workflow on top of the project board so tickets have an executable lane.',
+				action: 'Create a workflow and keep the board statuses wired.',
+				completed: hasWorkflowLane,
+				isCurrent: false
+			},
+			{
+				key: 'ticket',
+				title: 'First ticket seeded',
+				description: hasTicket
+					? `${snapshot.ticketCount} ticket${snapshot.ticketCount === 1 ? '' : 's'} are ready for routing on the board.`
+					: 'Seed the first ticket so the board can demonstrate ticket-driven routing.',
+				action: 'Seed a first ticket for the selected project.',
+				completed: hasTicket,
+				isCurrent: false
+			},
+			{
+				key: 'agent',
+				title: 'Telemetry unlocked',
+				description: hasAgent
+					? `${snapshot.agentCount} agent${snapshot.agentCount === 1 ? '' : 's'} attached, ${snapshot.runningAgentCount} currently running.`
+					: 'Attach an agent to this project to unlock live heartbeat, activity, and execution telemetry.',
+				action: 'Start or register an agent for the selected project.',
+				completed: hasAgent,
+				isCurrent: false
+			},
+			{
+				key: 'automation-signal',
+				title: 'First automation signal',
+				description: hasSignal
+					? `Live work has been observed through tickets, agents, or activity events (${snapshot.activityCount} activity event${snapshot.activityCount === 1 ? '' : 's'} in view).`
+					: 'Kick off a first run and watch the board, agent console, and activity stream for movement.',
+				action: 'Trigger the first ticket run and confirm the banner flips to fully unlocked.',
+				completed: hasSignal,
+				isCurrent: false
+			}
+		];
+
+		const currentIndex = milestones.findIndex((item) => !item.completed);
+		if (currentIndex >= 0) {
+			milestones[currentIndex] = { ...milestones[currentIndex], isCurrent: true };
+		}
+
+		const completedCount = milestones.filter((item) => item.completed).length;
+		const totalCount = milestones.length;
+		const complete = completedCount === totalCount;
+		const currentMilestone = currentIndex >= 0 ? milestones[currentIndex] : null;
+
+		return {
+			complete,
+			completedCount,
+			totalCount,
+			progressPercent: Math.round((completedCount / totalCount) * 100),
+			title: complete
+				? `${snapshot.selectedProjectName || 'This workspace'} is ready for ticket-driven automation.`
+				: `${completedCount}/${totalCount} onboarding milestones unlocked`,
+			description: complete
+				? 'Organization, project, workflow lane, ticket queue, and live telemetry are all active in the same control plane.'
+				: currentMilestone?.description ?? 'OpenASE is still unlocking core onboarding milestones.',
+			actionLabel: complete
+				? 'Next focus: keep routing tickets and refine workflows as real work lands.'
+				: currentMilestone?.action ?? 'Continue onboarding setup in the current workspace.',
+			stats: [
+				{ label: 'Organizations', value: String(snapshot.organizationCount) },
+				{ label: 'Projects', value: String(snapshot.projectCount) },
+				{ label: 'Workflows', value: String(snapshot.workflowCount) },
+				{ label: 'Tickets', value: String(snapshot.ticketCount) },
+				{ label: 'Agents', value: String(snapshot.agentCount) }
+			],
+			milestones
+		};
+	}
+
+	function onboardingCardClass(milestone: OnboardingMilestone) {
+		if (milestone.completed) {
+			return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-950';
+		}
+		if (milestone.isCurrent) {
+			return 'border-amber-500/35 bg-amber-500/12 text-amber-950';
+		}
+		return 'border-border/70 bg-background/65 text-foreground';
+	}
+
+	function onboardingStatusClass(milestone: OnboardingMilestone) {
+		if (milestone.completed) {
+			return 'border-emerald-500/25 bg-emerald-500/15 text-emerald-800';
+		}
+		if (milestone.isCurrent) {
+			return 'border-amber-500/25 bg-amber-500/15 text-amber-800';
+		}
+		return 'border-border/70 bg-background text-muted-foreground';
+	}
+
 	function statusName(statusID?: string | null) {
 		if (!statusID) {
 			return 'No finish state';
@@ -1664,6 +1862,89 @@ You are handling {{ ticket.identifier }}.
 				{errorMessage}
 			</div>
 		{/if}
+
+		<div class="overflow-hidden rounded-[2rem] border border-amber-500/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(255,255,255,0.92)_42%,rgba(16,185,129,0.12))] shadow-[0_24px_80px_-48px_rgba(120,53,15,0.65)]">
+			<div class="grid gap-6 p-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:p-8">
+				<div class="space-y-5">
+					<div class="flex flex-wrap items-center gap-3">
+						<Badge variant={onboardingSummary.complete ? 'secondary' : 'outline'}>
+							<Rocket class="mr-1 size-3.5" />
+							Progressive unlock
+						</Badge>
+						<Badge variant="outline">
+							{onboardingSummary.completedCount}/{onboardingSummary.totalCount} milestones
+						</Badge>
+						<Badge variant="outline">{onboardingSummary.progressPercent}% ready</Badge>
+					</div>
+
+					<div class="space-y-3">
+						<p class="text-sm font-medium uppercase tracking-[0.28em] text-amber-950/70">
+							Chapter 14 onboarding
+						</p>
+						<h2 class="max-w-3xl text-3xl leading-tight font-semibold tracking-[-0.05em] text-balance text-slate-950 sm:text-4xl">
+							{onboardingSummary.title}
+						</h2>
+						<p class="max-w-3xl text-base leading-7 text-slate-700">
+							{onboardingSummary.description}
+						</p>
+					</div>
+
+					<div class="space-y-3">
+						<div class="h-2 overflow-hidden rounded-full bg-white/70">
+							<div
+								class={`h-full rounded-full transition-all ${onboardingSummary.complete ? 'bg-emerald-600' : 'bg-amber-500'}`}
+								style={`width: ${onboardingSummary.progressPercent}%;`}
+							></div>
+						</div>
+						<p class="text-sm font-medium text-slate-800">{onboardingSummary.actionLabel}</p>
+					</div>
+				</div>
+
+				<div class="grid gap-3 sm:grid-cols-2">
+					{#each onboardingSummary.stats as stat}
+						<div class="rounded-3xl border border-white/70 bg-white/70 px-4 py-4 backdrop-blur">
+							<p class="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+								{stat.label}
+							</p>
+							<p class="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">
+								{stat.value}
+							</p>
+						</div>
+					{/each}
+				</div>
+			</div>
+
+			<div class="border-t border-black/5 bg-white/45 px-6 py-6 lg:px-8">
+				<div class="mb-4 flex items-center gap-2 text-sm font-medium text-slate-800">
+					<Waypoints class="size-4" />
+					<span>Milestone detection</span>
+				</div>
+				<div class="grid gap-3 xl:grid-cols-3">
+					{#each onboardingSummary.milestones as milestone}
+						<div class={`rounded-3xl border px-4 py-4 ${onboardingCardClass(milestone)}`}>
+							<div class="flex items-start justify-between gap-3">
+								<div>
+									<p class="text-sm font-semibold">{milestone.title}</p>
+									<p class="mt-2 text-sm leading-6 opacity-80">{milestone.description}</p>
+								</div>
+								<span class={`inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium ${onboardingStatusClass(milestone)}`}>
+									{#if milestone.completed}
+										Done
+									{:else if milestone.isCurrent}
+										Next
+									{:else}
+										Locked
+									{/if}
+								</span>
+							</div>
+							<p class="mt-3 text-xs font-medium uppercase tracking-[0.2em] opacity-70">
+								{milestone.action}
+							</p>
+						</div>
+					{/each}
+				</div>
+			</div>
+		</div>
 
 		{#if booting}
 			<div class="flex min-h-96 items-center justify-center rounded-[2rem] border border-border/80 bg-background/70">
