@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
-	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 	"github.com/labstack/echo/v4"
@@ -185,6 +187,17 @@ type OpenAPITicketRepoScopeDetail struct {
 	IsPrimaryScope bool                `json:"is_primary_scope"`
 }
 
+type OpenAPITicketRepoScope struct {
+	ID             string  `json:"id"`
+	TicketID       string  `json:"ticket_id"`
+	RepoID         string  `json:"repo_id"`
+	BranchName     string  `json:"branch_name"`
+	PullRequestURL *string `json:"pull_request_url,omitempty"`
+	PrStatus       string  `json:"pr_status"`
+	CiStatus       string  `json:"ci_status"`
+	IsPrimaryScope bool    `json:"is_primary_scope"`
+}
+
 type OpenAPIChatContext struct {
 	ProjectID  string  `json:"project_id"`
 	WorkflowID *string `json:"workflow_id,omitempty"`
@@ -343,6 +356,35 @@ type OpenAPIHRAdvisorRecommendation struct {
 	ActiveWorkflowName    *string  `json:"active_workflow_name,omitempty"`
 }
 
+type OpenAPINotificationChannel struct {
+	ID             string         `json:"id"`
+	OrganizationID string         `json:"organization_id"`
+	Name           string         `json:"name"`
+	Type           string         `json:"type"`
+	Config         map[string]any `json:"config"`
+	IsEnabled      bool           `json:"is_enabled"`
+	CreatedAt      string         `json:"created_at"`
+}
+
+type OpenAPINotificationRule struct {
+	ID        string                     `json:"id"`
+	ProjectID string                     `json:"project_id"`
+	ChannelID string                     `json:"channel_id"`
+	Name      string                     `json:"name"`
+	EventType string                     `json:"event_type"`
+	Filter    map[string]any             `json:"filter"`
+	Template  string                     `json:"template"`
+	IsEnabled bool                       `json:"is_enabled"`
+	CreatedAt string                     `json:"created_at"`
+	Channel   OpenAPINotificationChannel `json:"channel"`
+}
+
+type OpenAPINotificationRuleEventType struct {
+	EventType       string `json:"event_type"`
+	Label           string `json:"label"`
+	DefaultTemplate string `json:"default_template"`
+}
+
 type OpenAPIOrganizationsResponse struct {
 	Organizations []OpenAPIOrganization `json:"organizations"`
 }
@@ -391,6 +433,10 @@ type OpenAPIAgentsResponse struct {
 	Agents []OpenAPIAgent `json:"agents"`
 }
 
+type OpenAPIAgentResponse struct {
+	Agent OpenAPIAgent `json:"agent"`
+}
+
 type OpenAPIActivityEventsResponse struct {
 	Events []OpenAPIActivityEvent `json:"events"`
 }
@@ -398,6 +444,12 @@ type OpenAPIActivityEventsResponse struct {
 type OpenAPITicketStatusesResponse struct {
 	Statuses []OpenAPITicketStatus `json:"statuses"`
 }
+
+type OpenAPITicketStatusResponse struct {
+	Status OpenAPITicketStatus `json:"status"`
+}
+
+type OpenAPITicketStatusDeleteResponse ticketstatus.DeleteResult
 
 type OpenAPITicketsResponse struct {
 	Tickets []OpenAPITicket `json:"tickets"`
@@ -413,6 +465,30 @@ type OpenAPITicketExternalLinkResponse struct {
 
 type OpenAPIDeleteTicketExternalLinkResponse struct {
 	DeletedExternalLinkID string `json:"deleted_external_link_id"`
+}
+
+type OpenAPITicketDependencyResponse struct {
+	Dependency OpenAPITicketDependency `json:"dependency"`
+}
+
+type OpenAPITicketDependencyDeleteResponse struct {
+	DeletedDependencyID string `json:"deleted_dependency_id"`
+}
+
+type OpenAPIProjectReposResponse struct {
+	Repos []OpenAPIProjectRepo `json:"repos"`
+}
+
+type OpenAPIProjectRepoResponse struct {
+	Repo OpenAPIProjectRepo `json:"repo"`
+}
+
+type OpenAPITicketRepoScopesResponse struct {
+	RepoScopes []OpenAPITicketRepoScope `json:"repo_scopes"`
+}
+
+type OpenAPITicketRepoScopeResponse struct {
+	RepoScope OpenAPITicketRepoScope `json:"repo_scope"`
 }
 
 type OpenAPIWorkflowsResponse struct {
@@ -455,6 +531,38 @@ type OpenAPIHRAdvisorResponse struct {
 	Recommendations []OpenAPIHRAdvisorRecommendation `json:"recommendations"`
 }
 
+type OpenAPINotificationRuleEventTypesResponse struct {
+	EventTypes []OpenAPINotificationRuleEventType `json:"event_types"`
+}
+
+type OpenAPINotificationChannelsResponse struct {
+	Channels []OpenAPINotificationChannel `json:"channels"`
+}
+
+type OpenAPINotificationChannelResponse struct {
+	Channel OpenAPINotificationChannel `json:"channel"`
+}
+
+type OpenAPINotificationChannelDeleteResponse struct {
+	DeletedChannelID string `json:"deleted_channel_id"`
+}
+
+type OpenAPINotificationChannelTestResponse struct {
+	Status string `json:"status"`
+}
+
+type OpenAPINotificationRulesResponse struct {
+	Rules []OpenAPINotificationRule `json:"rules"`
+}
+
+type OpenAPINotificationRuleResponse struct {
+	Rule OpenAPINotificationRule `json:"rule"`
+}
+
+type OpenAPINotificationRuleDeleteResponse struct {
+	DeletedRuleID string `json:"deleted_rule_id"`
+}
+
 type OpenAPITicketDetailResponse struct {
 	Ticket      OpenAPITicket                  `json:"ticket"`
 	RepoScopes  []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
@@ -462,14 +570,19 @@ type OpenAPITicketDetailResponse struct {
 	HookHistory []OpenAPIActivityEvent         `json:"hook_history"`
 }
 
-type OpenAPICreateOrganizationRequest domain.OrganizationInput
+type OpenAPICreateOrganizationRequest catalogdomain.OrganizationInput
 type OpenAPIUpdateOrganizationRequest organizationPatchRequest
-type OpenAPICreateAgentProviderRequest domain.AgentProviderInput
+type OpenAPICreateAgentProviderRequest catalogdomain.AgentProviderInput
 type OpenAPIUpdateAgentProviderRequest agentProviderPatchRequest
-type OpenAPICreateProjectRequest domain.ProjectInput
+type OpenAPICreateProjectRequest catalogdomain.ProjectInput
 type OpenAPIUpdateProjectRequest projectPatchRequest
-type OpenAPICreateMachineRequest domain.MachineInput
+type OpenAPICreateMachineRequest catalogdomain.MachineInput
 type OpenAPIUpdateMachineRequest machinePatchRequest
+type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
+type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
+type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
+type OpenAPIUpdateTicketRepoScopeRequest ticketRepoScopePatchRequest
+type OpenAPICreateAgentRequest catalogdomain.AgentInput
 type OpenAPICreateWorkflowRequest rawCreateWorkflowRequest
 type OpenAPIUpdateWorkflowRequest rawUpdateWorkflowRequest
 type OpenAPIUpdateHarnessRequest rawUpdateHarnessRequest
@@ -477,8 +590,16 @@ type OpenAPIValidateHarnessRequest rawValidateHarnessRequest
 type OpenAPICreateScheduledJobRequest rawCreateScheduledJobRequest
 type OpenAPIUpdateScheduledJobRequest rawUpdateScheduledJobRequest
 type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
+type OpenAPICreateTicketRequest rawCreateTicketRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
+type OpenAPIAddTicketDependencyRequest rawAddDependencyRequest
 type OpenAPICreateTicketExternalLinkRequest rawAddExternalLinkRequest
+type OpenAPICreateTicketStatusRequest rawCreateTicketStatusRequest
+type OpenAPIUpdateTicketStatusRequest rawUpdateTicketStatusRequest
+type OpenAPICreateNotificationChannelRequest notificationdomain.ChannelInput
+type OpenAPIUpdateNotificationChannelRequest notificationdomain.ChannelPatchInput
+type OpenAPICreateNotificationRuleRequest notificationdomain.RuleInput
+type OpenAPIUpdateNotificationRuleRequest notificationdomain.RulePatchInput
 
 func BuildOpenAPIDocument() (*openapi3.T, error) {
 	doc := &openapi3.T{
@@ -501,6 +622,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			{Name: "skills"},
 			{Name: "streams"},
 			{Name: "hr-advisor"},
+			{Name: "notifications"},
 		},
 	}
 
@@ -518,6 +640,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 		return nil, err
 	}
 	if err := builder.addTicketOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addNotificationOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addChatOperations(); err != nil {
@@ -873,6 +998,164 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	projectDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}", http.MethodDelete, projectDelete)
 
+	projectReposGet, err := b.jsonOperation(
+		"listProjectRepos",
+		"List project repositories",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectReposResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectReposGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/repos", http.MethodGet, projectReposGet)
+
+	projectReposPost, err := b.jsonOperation(
+		"createProjectRepo",
+		"Create a project repository",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPIProjectRepoResponse{},
+		OpenAPICreateProjectRepoRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectReposPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/repos", http.MethodPost, projectReposPost)
+
+	projectRepoPatch, err := b.jsonOperation(
+		"updateProjectRepo",
+		"Update a project repository",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectRepoResponse{},
+		OpenAPIUpdateProjectRepoRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectRepoPatch.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectRepoPatch.AddParameter(uuidPathParameter("repoId", "Repository ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}", http.MethodPatch, projectRepoPatch)
+
+	projectRepoDelete, err := b.jsonOperation(
+		"deleteProjectRepo",
+		"Delete a project repository",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectRepoResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectRepoDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectRepoDelete.AddParameter(uuidPathParameter("repoId", "Repository ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}", http.MethodDelete, projectRepoDelete)
+
+	repoScopesGet, err := b.jsonOperation(
+		"listTicketRepoScopes",
+		"List ticket repository scopes",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketRepoScopesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	repoScopesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	repoScopesGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes", http.MethodGet, repoScopesGet)
+
+	repoScopesPost, err := b.jsonOperation(
+		"createTicketRepoScope",
+		"Create a ticket repository scope",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPITicketRepoScopeResponse{},
+		OpenAPICreateTicketRepoScopeRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	repoScopesPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	repoScopesPost.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes", http.MethodPost, repoScopesPost)
+
+	repoScopePatch, err := b.jsonOperation(
+		"updateTicketRepoScope",
+		"Update a ticket repository scope",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketRepoScopeResponse{},
+		OpenAPIUpdateTicketRepoScopeRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	repoScopePatch.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	repoScopePatch.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	repoScopePatch.AddParameter(uuidPathParameter("scopeId", "Repository scope ID."))
+	b.doc.AddOperation(
+		"/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}",
+		http.MethodPatch,
+		repoScopePatch,
+	)
+
+	repoScopeDelete, err := b.jsonOperation(
+		"deleteTicketRepoScope",
+		"Delete a ticket repository scope",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketRepoScopeResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	repoScopeDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	repoScopeDelete.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	repoScopeDelete.AddParameter(uuidPathParameter("scopeId", "Repository scope ID."))
+	b.doc.AddOperation(
+		"/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}",
+		http.MethodDelete,
+		repoScopeDelete,
+	)
+
 	providerPatch, err := b.jsonOperation(
 		"updateAgentProvider",
 		"Update an agent provider",
@@ -908,6 +1191,77 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	statusesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/statuses", http.MethodGet, statusesGet)
 
+	statusesPost, err := b.jsonOperation(
+		"createTicketStatus",
+		"Create a ticket status",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPITicketStatusResponse{},
+		OpenAPICreateTicketStatusRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	statusesPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/statuses", http.MethodPost, statusesPost)
+
+	statusesReset, err := b.jsonOperation(
+		"resetTicketStatuses",
+		"Reset project statuses to the default template",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketStatusesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	statusesReset.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/statuses/reset", http.MethodPost, statusesReset)
+
+	statusPatch, err := b.jsonOperation(
+		"updateTicketStatus",
+		"Update a ticket status",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketStatusResponse{},
+		OpenAPIUpdateTicketStatusRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	statusPatch.AddParameter(uuidPathParameter("statusId", "Ticket status ID."))
+	b.doc.AddOperation("/api/v1/statuses/{statusId}", http.MethodPatch, statusPatch)
+
+	statusDelete, err := b.jsonOperation(
+		"deleteTicketStatus",
+		"Delete a ticket status",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketStatusDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	statusDelete.AddParameter(uuidPathParameter("statusId", "Ticket status ID."))
+	b.doc.AddOperation("/api/v1/statuses/{statusId}", http.MethodDelete, statusDelete)
+
 	agentsGet, err := b.jsonOperation(
 		"listAgents",
 		"List agents",
@@ -924,6 +1278,59 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	agentsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents", http.MethodGet, agentsGet)
+
+	agentsPost, err := b.jsonOperation(
+		"createAgent",
+		"Create an agent",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPIAgentResponse{},
+		OpenAPICreateAgentRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agents", http.MethodPost, agentsPost)
+
+	agentGet, err := b.jsonOperation(
+		"getAgent",
+		"Get an agent",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}", http.MethodGet, agentGet)
+
+	agentDelete, err := b.jsonOperation(
+		"deleteAgent",
+		"Delete an agent",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentDelete.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}", http.MethodDelete, agentDelete)
 
 	activityGet, err := b.jsonOperation(
 		"listActivityEvents",
@@ -1298,6 +1705,41 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketsGet.AddParameter(csvQueryParameter("priority", "Filter tickets by priorities."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets", http.MethodGet, ticketsGet)
 
+	ticketsPost, err := b.jsonOperation(
+		"createTicket",
+		"Create a ticket",
+		[]string{"tickets"},
+		http.StatusCreated,
+		OpenAPITicketResponse{},
+		OpenAPICreateTicketRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets", http.MethodPost, ticketsPost)
+
+	ticketGet, err := b.jsonOperation(
+		"getTicket",
+		"Get a ticket",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}", http.MethodGet, ticketGet)
+
 	ticketPatch, err := b.jsonOperation(
 		"updateTicket",
 		"Update a ticket",
@@ -1315,6 +1757,47 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	}
 	ticketPatch.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}", http.MethodPatch, ticketPatch)
+
+	dependencyPost, err := b.jsonOperation(
+		"addTicketDependency",
+		"Add a ticket dependency",
+		[]string{"tickets"},
+		http.StatusCreated,
+		OpenAPITicketDependencyResponse{},
+		OpenAPIAddTicketDependencyRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	dependencyPost.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/dependencies", http.MethodPost, dependencyPost)
+
+	dependencyDelete, err := b.jsonOperation(
+		"deleteTicketDependency",
+		"Delete a ticket dependency",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketDependencyDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	dependencyDelete.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	dependencyDelete.AddParameter(uuidPathParameter("dependencyId", "Dependency ID."))
+	b.doc.AddOperation(
+		"/api/v1/tickets/{ticketId}/dependencies/{dependencyId}",
+		http.MethodDelete,
+		dependencyDelete,
+	)
 
 	externalLinkPost, err := b.jsonOperation(
 		"addTicketExternalLink",
@@ -1369,6 +1852,183 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketDetailGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	ticketDetailGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/detail", http.MethodGet, ticketDetailGet)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addNotificationOperations() error {
+	eventTypesGet, err := b.jsonOperation(
+		"listNotificationRuleEventTypes",
+		"List supported notification rule event types",
+		[]string{"notifications"},
+		http.StatusOK,
+		OpenAPINotificationRuleEventTypesResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/notification-event-types", http.MethodGet, eventTypesGet)
+
+	channelsGet, err := b.jsonOperation(
+		"listNotificationChannels",
+		"List organization notification channels",
+		[]string{"notifications"},
+		http.StatusOK,
+		OpenAPINotificationChannelsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	channelsGet.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/channels", http.MethodGet, channelsGet)
+
+	channelsPost, err := b.jsonOperation(
+		"createNotificationChannel",
+		"Create a notification channel",
+		[]string{"notifications"},
+		http.StatusCreated,
+		OpenAPINotificationChannelResponse{},
+		OpenAPICreateNotificationChannelRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	channelsPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/channels", http.MethodPost, channelsPost)
+
+	channelPatch, err := b.jsonOperation(
+		"updateNotificationChannel",
+		"Update a notification channel",
+		[]string{"notifications"},
+		http.StatusOK,
+		OpenAPINotificationChannelResponse{},
+		OpenAPIUpdateNotificationChannelRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	channelPatch.AddParameter(uuidPathParameter("channelId", "Notification channel ID."))
+	b.doc.AddOperation("/api/v1/channels/{channelId}", http.MethodPatch, channelPatch)
+
+	channelDelete, err := b.jsonOperation(
+		"deleteNotificationChannel",
+		"Delete a notification channel",
+		[]string{"notifications"},
+		http.StatusOK,
+		OpenAPINotificationChannelDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	channelDelete.AddParameter(uuidPathParameter("channelId", "Notification channel ID."))
+	b.doc.AddOperation("/api/v1/channels/{channelId}", http.MethodDelete, channelDelete)
+
+	channelTest, err := b.jsonOperation(
+		"testNotificationChannel",
+		"Test a notification channel",
+		[]string{"notifications"},
+		http.StatusOK,
+		OpenAPINotificationChannelTestResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	channelTest.AddParameter(uuidPathParameter("channelId", "Notification channel ID."))
+	b.doc.AddOperation("/api/v1/channels/{channelId}/test", http.MethodPost, channelTest)
+
+	rulesGet, err := b.jsonOperation(
+		"listNotificationRules",
+		"List project notification rules",
+		[]string{"notifications"},
+		http.StatusOK,
+		OpenAPINotificationRulesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	rulesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/notification-rules", http.MethodGet, rulesGet)
+
+	rulesPost, err := b.jsonOperation(
+		"createNotificationRule",
+		"Create a notification rule",
+		[]string{"notifications"},
+		http.StatusCreated,
+		OpenAPINotificationRuleResponse{},
+		OpenAPICreateNotificationRuleRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	rulesPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/notification-rules", http.MethodPost, rulesPost)
+
+	rulePatch, err := b.jsonOperation(
+		"updateNotificationRule",
+		"Update a notification rule",
+		[]string{"notifications"},
+		http.StatusOK,
+		OpenAPINotificationRuleResponse{},
+		OpenAPIUpdateNotificationRuleRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	rulePatch.AddParameter(uuidPathParameter("ruleId", "Notification rule ID."))
+	b.doc.AddOperation("/api/v1/notification-rules/{ruleId}", http.MethodPatch, rulePatch)
+
+	ruleDelete, err := b.jsonOperation(
+		"deleteNotificationRule",
+		"Delete a notification rule",
+		[]string{"notifications"},
+		http.StatusOK,
+		OpenAPINotificationRuleDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ruleDelete.AddParameter(uuidPathParameter("ruleId", "Notification rule ID."))
+	b.doc.AddOperation("/api/v1/notification-rules/{ruleId}", http.MethodDelete, ruleDelete)
 
 	return nil
 }

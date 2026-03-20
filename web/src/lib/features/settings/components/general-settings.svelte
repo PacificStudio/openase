@@ -1,4 +1,9 @@
 <script lang="ts">
+  import {
+    capabilityCatalog,
+    capabilityStateClasses,
+    capabilityStateLabel,
+  } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
   import { listWorkflows, updateProject } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
@@ -7,6 +12,8 @@
   import { Button } from '$ui/button'
   import * as Select from '$ui/select'
   import { Separator } from '$ui/separator'
+
+  const generalCapability = capabilityCatalog.generalSettings
 
   let projectName = $state('')
   let description = $state('')
@@ -92,8 +99,15 @@
 
 <div class="max-w-lg space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">General</h2>
-    <p class="text-muted-foreground mt-1 text-sm">Core project configuration.</p>
+    <div class="flex items-center gap-2">
+      <h2 class="text-foreground text-base font-semibold">General</h2>
+      <span
+        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(generalCapability.state)}`}
+      >
+        {capabilityStateLabel(generalCapability.state)}
+      </span>
+    </div>
+    <p class="text-muted-foreground mt-1 text-sm">{generalCapability.summary}</p>
   </div>
 
   <Separator />

@@ -58,6 +58,7 @@ export type MachineResourcesResponse = DeepRequired<
 
 export type AgentPayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/agents', 'get'>>
 export type Agent = ItemOf<AgentPayload['agents']>
+export type AgentResponse = DeepRequired<ResponseFor<'/api/v1/agents/{agentId}', 'get'>>
 
 export type ActivityPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/activity', 'get'>
@@ -67,14 +68,48 @@ export type ActivityEvent = ItemOf<ActivityPayload['events']>
 export type StatusPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/statuses', 'get'>
 >
+export type StatusResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/statuses', 'post'>
+>
+export type StatusResetPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/statuses/reset', 'post'>
+>
+export type StatusDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/statuses/{statusId}', 'delete'>
+>
 export type TicketStatus = ItemOf<StatusPayload['statuses']>
 
 export type TicketPayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/tickets', 'get'>>
+export type TicketCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets', 'post'>
+>
 export type TicketResponse = DeepRequired<ResponseFor<'/api/v1/tickets/{ticketId}', 'patch'>>
 export type Ticket = ItemOf<TicketPayload['tickets']>
 export type TicketPriority = Ticket['priority']
 export type TicketReference = ItemOf<Ticket['children']>
 export type TicketDependency = ItemOf<Ticket['dependencies']>
+export type TicketDependencyResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/dependencies', 'post'>
+>
+export type TicketDependencyDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/dependencies/{dependencyId}', 'delete'>
+>
+
+export type ProjectRepoPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/repos', 'get'>
+>
+export type ProjectRepoResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/repos', 'post'>
+>
+export type ProjectRepoRecord = ItemOf<ProjectRepoPayload['repos']>
+
+export type TicketRepoScopePayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes', 'get'>
+>
+export type TicketRepoScopeResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes', 'post'>
+>
+export type TicketRepoScopeRecord = ItemOf<TicketRepoScopePayload['repo_scopes']>
 
 export type WorkflowListPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/workflows', 'get'>
@@ -127,3 +162,33 @@ export type TicketDetailPayload = DeepRequired<
 >
 export type TicketRepoScope = ItemOf<TicketDetailPayload['repo_scopes']>
 export type ProjectRepo = NonNullable<TicketRepoScope['repo']>
+
+export type NotificationRuleEventTypesPayload = DeepRequired<
+  ResponseFor<'/api/v1/notification-event-types', 'get'>
+>
+export type NotificationRuleEventType = ItemOf<NotificationRuleEventTypesPayload['event_types']>
+
+export type NotificationChannelPayload = DeepRequired<
+  ResponseFor<'/api/v1/orgs/{orgId}/channels', 'get'>
+>
+export type NotificationChannelResponse = DeepRequired<
+  ResponseFor<'/api/v1/orgs/{orgId}/channels', 'post'>
+>
+export type NotificationChannelDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/channels/{channelId}', 'delete'>
+>
+export type NotificationChannelTestResponse = DeepRequired<
+  ResponseFor<'/api/v1/channels/{channelId}/test', 'post'>
+>
+export type NotificationChannel = ItemOf<NotificationChannelPayload['channels']>
+
+export type NotificationRulePayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/notification-rules', 'get'>
+>
+export type NotificationRuleResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/notification-rules', 'post'>
+>
+export type NotificationRuleDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/notification-rules/{ruleId}', 'delete'>
+>
+export type NotificationRule = ItemOf<NotificationRulePayload['rules']>

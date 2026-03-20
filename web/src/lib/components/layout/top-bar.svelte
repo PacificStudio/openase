@@ -11,6 +11,8 @@
     sseStatus = 'live' as 'idle' | 'connecting' | 'live' | 'retrying',
     searchEnabled = false,
     newTicketEnabled = false,
+    searchTitle,
+    newTicketTitle,
     onToggleTheme,
     onNewTicket,
     onOpenSearch,
@@ -20,6 +22,8 @@
     sseStatus?: 'idle' | 'connecting' | 'live' | 'retrying'
     searchEnabled?: boolean
     newTicketEnabled?: boolean
+    searchTitle?: string
+    newTicketTitle?: string
     onToggleTheme?: () => void
     onNewTicket?: () => void
     onOpenSearch?: () => void
@@ -57,9 +61,7 @@
     size="sm"
     class="text-muted-foreground hidden w-[200px] justify-start gap-2 sm:flex"
     disabled={!searchEnabled}
-    title={searchEnabled
-      ? 'Open search'
-      : 'Search is not available in the current API-backed shell'}
+    title={searchEnabled ? 'Open search' : (searchTitle ?? 'Search is not available.')}
     onclick={onOpenSearch}
   >
     <Search class="size-3.5" />
@@ -74,7 +76,9 @@
     size="sm"
     class="gap-1.5"
     disabled={!newTicketEnabled}
-    title={newTicketEnabled ? 'Create ticket' : 'Ticket creation is not exposed by the current API'}
+    title={newTicketEnabled
+      ? 'Create ticket'
+      : (newTicketTitle ?? 'Ticket creation is not available.')}
     onclick={onNewTicket}
   >
     <Plus class="size-3.5" />
