@@ -1,4 +1,4 @@
-import type { WorkflowSummary } from './types'
+import type { HarnessContent, WorkflowSummary } from './types'
 
 export type SkillState = {
   name: string
@@ -24,13 +24,21 @@ export function normalizeWorkflowType(type: string): WorkflowSummary['type'] {
 }
 
 export function extractFrontmatter(content: string) {
-  const match = content.match(/^---\n([\s\S]*?)\n---/)
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
   return match?.[1] ?? ''
 }
 
 export function extractBody(content: string) {
-  const match = content.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/)
+  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/)
   return match?.[1] ?? content
+}
+
+export function toHarnessContent(content: string): HarnessContent {
+  return {
+    frontmatter: extractFrontmatter(content),
+    body: extractBody(content),
+    rawContent: content,
+  }
 }
 
 export function defaultHarnessTemplate() {

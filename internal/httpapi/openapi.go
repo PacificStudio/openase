@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 	"github.com/labstack/echo/v4"
@@ -168,6 +169,19 @@ type OpenAPITicketRepoScopeDetail struct {
 	IsPrimaryScope bool                `json:"is_primary_scope"`
 }
 
+type OpenAPIChatContext struct {
+	ProjectID  string  `json:"project_id"`
+	WorkflowID *string `json:"workflow_id,omitempty"`
+	TicketID   *string `json:"ticket_id,omitempty"`
+}
+
+type OpenAPIChatStartRequest struct {
+	Message   string             `json:"message"`
+	Source    string             `json:"source"`
+	Context   OpenAPIChatContext `json:"context"`
+	SessionID *string            `json:"session_id,omitempty"`
+}
+
 type OpenAPITicketStatus struct {
 	ID          string `json:"id"`
 	ProjectID   string `json:"project_id"`
@@ -204,6 +218,28 @@ type OpenAPIHarnessDocument struct {
 	Version    int    `json:"version"`
 }
 
+type OpenAPIScheduledJobTicketTemplate struct {
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Status      string  `json:"status,omitempty"`
+	Priority    string  `json:"priority"`
+	Type        string  `json:"type"`
+	CreatedBy   string  `json:"created_by"`
+	BudgetUSD   float64 `json:"budget_usd,omitempty"`
+}
+
+type OpenAPIScheduledJob struct {
+	ID             string                            `json:"id"`
+	ProjectID      string                            `json:"project_id"`
+	Name           string                            `json:"name"`
+	CronExpression string                            `json:"cron_expression"`
+	WorkflowID     string                            `json:"workflow_id"`
+	TicketTemplate OpenAPIScheduledJobTicketTemplate `json:"ticket_template"`
+	IsEnabled      bool                              `json:"is_enabled"`
+	LastRunAt      *string                           `json:"last_run_at,omitempty"`
+	NextRunAt      *string                           `json:"next_run_at,omitempty"`
+}
+
 type OpenAPIValidationIssue struct {
 	Level   string `json:"level"`
 	Message string `json:"message"`
@@ -214,6 +250,22 @@ type OpenAPIValidationIssue struct {
 type OpenAPIHarnessValidationResponse struct {
 	Valid  bool                     `json:"valid"`
 	Issues []OpenAPIValidationIssue `json:"issues"`
+}
+
+type OpenAPIHarnessVariableMetadata struct {
+	Path        string `json:"path"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Example     string `json:"example,omitempty"`
+}
+
+type OpenAPIHarnessVariableGroup struct {
+	Name      string                           `json:"name"`
+	Variables []OpenAPIHarnessVariableMetadata `json:"variables"`
+}
+
+type OpenAPIHarnessVariablesResponse struct {
+	Groups []OpenAPIHarnessVariableGroup `json:"groups"`
 }
 
 type OpenAPISkillWorkflowBinding struct {
@@ -346,6 +398,19 @@ type OpenAPIWorkflowResponse struct {
 	Workflow OpenAPIWorkflow `json:"workflow"`
 }
 
+type OpenAPIScheduledJobsResponse struct {
+	ScheduledJobs []OpenAPIScheduledJob `json:"scheduled_jobs"`
+}
+
+type OpenAPIScheduledJobResponse struct {
+	ScheduledJob OpenAPIScheduledJob `json:"scheduled_job"`
+}
+
+type OpenAPIScheduledJobTriggerResponse struct {
+	ScheduledJob OpenAPIScheduledJob `json:"scheduled_job"`
+	Ticket       OpenAPITicket       `json:"ticket"`
+}
+
 type OpenAPIHarnessResponse struct {
 	Harness OpenAPIHarnessDocument `json:"harness"`
 }
@@ -384,6 +449,8 @@ type OpenAPICreateWorkflowRequest rawCreateWorkflowRequest
 type OpenAPIUpdateWorkflowRequest rawUpdateWorkflowRequest
 type OpenAPIUpdateHarnessRequest rawUpdateHarnessRequest
 type OpenAPIValidateHarnessRequest rawValidateHarnessRequest
+type OpenAPICreateScheduledJobRequest rawCreateScheduledJobRequest
+type OpenAPIUpdateScheduledJobRequest rawUpdateScheduledJobRequest
 type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
 
@@ -403,6 +470,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			{Name: "catalog"},
 			{Name: "tickets"},
 			{Name: "workflows"},
+			{Name: "scheduled-jobs"},
 			{Name: "skills"},
 			{Name: "streams"},
 			{Name: "hr-advisor"},
@@ -416,7 +484,13 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 	if err := builder.addWorkflowOperations(); err != nil {
 		return nil, err
 	}
+	if err := builder.addScheduledJobOperations(); err != nil {
+		return nil, err
+	}
 	if err := builder.addTicketOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addChatOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addStreamOperations(); err != nil {
@@ -981,6 +1055,20 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	harnessPut.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
 	b.doc.AddOperation("/api/v1/workflows/{workflowId}/harness", http.MethodPut, harnessPut)
 
+	harnessVariables, err := b.jsonOperation(
+		"listHarnessVariables",
+		"List the harness variable dictionary",
+		[]string{"workflows"},
+		http.StatusOK,
+		OpenAPIHarnessVariablesResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/harness/variables", http.MethodGet, harnessVariables)
+
 	harnessValidate, err := b.jsonOperation(
 		"validateHarness",
 		"Validate workflow harness content",
@@ -1052,6 +1140,96 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	return nil
 }
 
+func (b openAPISpecBuilder) addScheduledJobOperations() error {
+	scheduledJobsGet, err := b.jsonOperation(
+		"listScheduledJobs",
+		"List scheduled jobs for a project",
+		[]string{"scheduled-jobs"},
+		http.StatusOK,
+		OpenAPIScheduledJobsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/scheduled-jobs", http.MethodGet, scheduledJobsGet)
+
+	scheduledJobsPost, err := b.jsonOperation(
+		"createScheduledJob",
+		"Create a scheduled job",
+		[]string{"scheduled-jobs"},
+		http.StatusCreated,
+		OpenAPIScheduledJobResponse{},
+		OpenAPICreateScheduledJobRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/scheduled-jobs", http.MethodPost, scheduledJobsPost)
+
+	scheduledJobPatch, err := b.jsonOperation(
+		"updateScheduledJob",
+		"Update a scheduled job",
+		[]string{"scheduled-jobs"},
+		http.StatusOK,
+		OpenAPIScheduledJobResponse{},
+		OpenAPIUpdateScheduledJobRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobPatch.AddParameter(uuidPathParameter("jobId", "Scheduled job ID."))
+	b.doc.AddOperation("/api/v1/scheduled-jobs/{jobId}", http.MethodPatch, scheduledJobPatch)
+
+	scheduledJobDelete, err := b.jsonOperation(
+		"deleteScheduledJob",
+		"Delete a scheduled job",
+		[]string{"scheduled-jobs"},
+		http.StatusOK,
+		scheduledjobservice.DeleteResult{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobDelete.AddParameter(uuidPathParameter("jobId", "Scheduled job ID."))
+	b.doc.AddOperation("/api/v1/scheduled-jobs/{jobId}", http.MethodDelete, scheduledJobDelete)
+
+	scheduledJobTrigger, err := b.jsonOperation(
+		"triggerScheduledJob",
+		"Trigger a scheduled job once",
+		[]string{"scheduled-jobs"},
+		http.StatusOK,
+		OpenAPIScheduledJobTriggerResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobTrigger.AddParameter(uuidPathParameter("jobId", "Scheduled job ID."))
+	b.doc.AddOperation("/api/v1/scheduled-jobs/{jobId}/trigger", http.MethodPost, scheduledJobTrigger)
+
+	return nil
+}
+
 func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketsGet, err := b.jsonOperation(
 		"listTickets",
@@ -1107,6 +1285,54 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketDetailGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	ticketDetailGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/detail", http.MethodGet, ticketDetailGet)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addChatOperations() error {
+	chatPost, err := b.streamOperation(
+		"startEphemeralChat",
+		"Start an ephemeral chat turn",
+		[]string{"chat"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	bodyRef, err := b.schemaRef(OpenAPIChatStartRequest{})
+	if err != nil {
+		return err
+	}
+	chatPost.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithDescription("Start ephemeral chat request body.").
+			WithJSONSchemaRef(bodyRef).
+			WithRequired(true),
+	}
+	b.doc.AddOperation("/api/v1/chat", http.MethodPost, chatPost)
+
+	chatDelete := openapi3.NewOperation()
+	chatDelete.OperationID = "closeEphemeralChat"
+	chatDelete.Summary = "Close an ephemeral chat session"
+	chatDelete.Tags = []string{"chat"}
+	chatDelete.Responses = openapi3.NewResponsesWithCapacity(3)
+	chatDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Chat session closed."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		chatDelete.AddResponse(code, errorResponse)
+	}
+	chatDelete.AddParameter(openapi3.NewPathParameter("sessionId").
+		WithDescription("Claude Code session ID.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/{sessionId}", http.MethodDelete, chatDelete)
 
 	return nil
 }
