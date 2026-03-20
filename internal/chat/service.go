@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -385,7 +384,7 @@ func (s *Service) buildSessionSpec(
 		command,
 		buildBaseArgs(providerItem.CliArgs, providerItem.ModelName),
 		workingDirectory,
-		authConfigEnvironment(providerItem.AuthConfig),
+		provider.AuthConfigEnvironment(providerItem.AuthConfig),
 		nil,
 		systemPrompt,
 		&s.maxTurns,
@@ -628,63 +627,6 @@ func hasModelFlag(args []string) bool {
 		}
 	}
 	return false
-}
-
-func authConfigEnvironment(authConfig map[string]any) []string {
-	if len(authConfig) == 0 {
-		return nil
-	}
-
-	keys := make([]string, 0, len(authConfig))
-	for key := range authConfig {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	env := make([]string, 0, len(keys))
-	for _, key := range keys {
-		value, ok := stringifyEnvValue(authConfig[key])
-		if !ok {
-			continue
-		}
-		env = append(env, normalizeEnvKey(key)+"="+value)
-	}
-	return env
-}
-
-func stringifyEnvValue(value any) (string, bool) {
-	switch typed := value.(type) {
-	case string:
-		return typed, true
-	case bool:
-		return strconv.FormatBool(typed), true
-	case float64:
-		return strconv.FormatFloat(typed, 'f', -1, 64), true
-	case int:
-		return strconv.Itoa(typed), true
-	case json.Number:
-		return typed.String(), true
-	default:
-		return "", false
-	}
-}
-
-func normalizeEnvKey(raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return ""
-	}
-	normalized := strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z':
-			return r - ('a' - 'A')
-		case r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-			return r
-		default:
-			return '_'
-		}
-	}, trimmed)
-	return strings.Trim(normalized, "_")
 }
 
 func parseSource(raw string) (Source, error) {

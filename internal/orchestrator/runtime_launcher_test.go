@@ -423,6 +423,212 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	}
 }
 
+func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetCliCommand("python3").
+		Save(ctx); err != nil {
+		t.Fatalf("update provider command: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-403").
+		SetTitle("Launch fake Codex app server").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": "not_logged_in",
+						"ready":       false,
+					},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine resources: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-fake-01").
+		SetStatus(entagent.StatusClaimed).
+		SetCurrentTicketID(ticketItem.ID).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusRunning || agentAfter.RuntimePhase != entagent.RuntimePhaseReady {
+		t.Fatalf("expected ready runtime state, got %+v", agentAfter)
+	}
+	if agentAfter.SessionID != "thread-runtime-1" {
+		t.Fatalf("expected thread-runtime-1 session id, got %q", agentAfter.SessionID)
+	}
+	if agentAfter.LastError != "" {
+		t.Fatalf("expected empty last error, got %q", agentAfter.LastError)
+	}
+}
+
+func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetAuthConfig(map[string]any{"openai_api_key": "sk-test-runtime"}).
+		Save(ctx); err != nil {
+		t.Fatalf("update provider auth config: %v", err)
+	}
+
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": "not_logged_in",
+						"auth_mode":   "login",
+						"ready":       false,
+					},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine resources: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-404").
+		SetTitle("Launch Codex with API key auth").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-api-key-01").
+		SetStatus(entagent.StatusClaimed).
+		SetCurrentTicketID(ticketItem.ID).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+
+	manager := &runtimeFakeProcessManager{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, nil)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusRunning || agentAfter.RuntimePhase != entagent.RuntimePhaseReady {
+		t.Fatalf("expected ready runtime state, got %+v", agentAfter)
+	}
+
+	processSpec := manager.capturedProcessSpec()
+	if value, ok := provider.LookupEnvironmentValue(processSpec.Environment, "OPENAI_API_KEY"); !ok || value != "sk-test-runtime" {
+		t.Fatalf("expected OPENAI_API_KEY to be injected into runtime environment, got %+v", processSpec.Environment)
+	}
+}
+
+func TestRequiresMachineCodexReady(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		command string
+		env     []string
+		want    bool
+	}{
+		{name: "bare codex", command: "codex", want: true},
+		{name: "absolute codex path", command: "/usr/local/bin/codex", want: true},
+		{name: "quoted codex path with args", command: `"/Applications/Codex/codex" --version`, want: true},
+		{name: "windows codex path", command: `C:\Program Files\Codex\codex.exe`, want: true},
+		{name: "codex with api key", command: "codex", env: []string{"OPENAI_API_KEY=sk-test"}, want: false},
+		{name: "python", command: "python3", want: false},
+		{name: "fake app server wrapper", command: "/usr/bin/python3", want: false},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := requiresMachineCodexReady(provider.MustParseAgentCLICommand(tc.command), tc.env)
+			if got != tc.want {
+				t.Fatalf("requiresMachineCodexReady(%q, %+v) = %v, want %v", tc.command, tc.env, got, tc.want)
+			}
+		})
+	}
+}
+
 func waitForAgentLifecycleEvent(t *testing.T, stream <-chan provider.Event, want provider.EventType) provider.Event {
 	t.Helper()
 
@@ -453,9 +659,15 @@ func decodeLifecycleEnvelope(t *testing.T, payload json.RawMessage) agentLifecyc
 type runtimeFakeProcessManager struct {
 	mu                 sync.Mutex
 	capturedThreadData runtimeThreadStartParams
+	capturedSpec       provider.AgentCLIProcessSpec
 }
 
-func (m *runtimeFakeProcessManager) Start(_ context.Context, _ provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
+func (m *runtimeFakeProcessManager) Start(_ context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
+	if m != nil {
+		m.mu.Lock()
+		m.capturedSpec = spec
+		m.mu.Unlock()
+	}
 	process := newRuntimeFakeProcess()
 	go func() {
 		_ = runRuntimeFakeHandshake(process, m)
@@ -473,6 +685,17 @@ func (m *runtimeFakeProcessManager) capturedThreadStart() runtimeThreadStartPara
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.capturedThreadData
+}
+
+func (m *runtimeFakeProcessManager) capturedProcessSpec() provider.AgentCLIProcessSpec {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return provider.AgentCLIProcessSpec{
+		Command:          m.capturedSpec.Command,
+		Args:             append([]string(nil), m.capturedSpec.Args...),
+		WorkingDirectory: m.capturedSpec.WorkingDirectory,
+		Environment:      append([]string(nil), m.capturedSpec.Environment...),
+	}
 }
 
 type runtimeFakeProcess struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -363,9 +364,6 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 	if err != nil {
 		return nil, err
 	}
-	if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {
-		return nil, fmt.Errorf("machine %s codex environment not ready: %s", machine.Name, reason)
-	}
 
 	commandString := launchContext.agent.Edges.Provider.CliCommand
 	if machine.AgentCLIPath != nil {
@@ -375,6 +373,12 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 	command, err := provider.ParseAgentCLICommand(commandString)
 	if err != nil {
 		return nil, fmt.Errorf("parse agent cli command: %w", err)
+	}
+	environment := buildAgentCLIEnvironment(machine.EnvVars, launchContext.agent.Edges.Provider.AuthConfig)
+	if requiresMachineCodexReady(command, environment) {
+		if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {
+			return nil, fmt.Errorf("machine %s codex environment not ready: %s", machine.Name, reason)
+		}
 	}
 
 	workingDirectoryValue := strings.TrimSpace(launchContext.agent.WorkspacePath)
@@ -415,7 +419,7 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 		command,
 		launchContext.agent.Edges.Provider.CliArgs,
 		&workingDirectory,
-		append([]string(nil), machine.EnvVars...),
+		environment,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("build codex process spec: %w", err)
@@ -719,6 +723,68 @@ func machineCodexReady(resources map[string]any) (bool, string, bool) {
 	}
 
 	return false, "codex cli is not ready", true
+}
+
+func buildAgentCLIEnvironment(machineEnv []string, authConfig map[string]any) []string {
+	environment := append([]string(nil), machineEnv...)
+	return append(environment, provider.AuthConfigEnvironment(authConfig)...)
+}
+
+func requiresMachineCodexReady(command provider.AgentCLICommand, environment []string) bool {
+	if value, ok := provider.LookupEnvironmentValue(environment, "OPENAI_API_KEY"); ok && strings.TrimSpace(value) != "" {
+		return false
+	}
+
+	executable := agentCLIExecutable(command)
+	if executable == "" {
+		return false
+	}
+
+	base := path.Base(strings.ReplaceAll(executable, "\\", "/"))
+	return strings.EqualFold(base, "codex") || strings.EqualFold(base, "codex.exe")
+}
+
+func agentCLIExecutable(command provider.AgentCLICommand) string {
+	trimmed := strings.TrimSpace(command.String())
+	if trimmed == "" {
+		return ""
+	}
+
+	if isCodexExecutablePath(trimmed) {
+		return strings.Trim(trimmed, `"'`)
+	}
+
+	token := firstCommandToken(trimmed)
+	if token == "" {
+		return ""
+	}
+	return strings.Trim(token, `"'`)
+}
+
+func firstCommandToken(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if quote := trimmed[0]; quote == '"' || quote == '\'' {
+		for index := 1; index < len(trimmed); index++ {
+			if trimmed[index] == quote {
+				return trimmed[1:index]
+			}
+		}
+		return strings.Trim(trimmed, `"'`)
+	}
+
+	fields := strings.Fields(trimmed)
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[0]
+}
+
+func isCodexExecutablePath(raw string) bool {
+	base := path.Base(strings.ReplaceAll(strings.Trim(raw, `"'`), "\\", "/"))
+	return strings.EqualFold(base, "codex") || strings.EqualFold(base, "codex.exe")
 }
 
 func (l *RuntimeLauncher) loadMachineAccess(

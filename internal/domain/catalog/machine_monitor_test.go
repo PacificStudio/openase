@@ -7,9 +7,9 @@ import (
 
 func TestParseMachineAgentEnvironment(t *testing.T) {
 	collectedAt := time.Date(2026, 3, 20, 18, 30, 0, 0, time.UTC)
-	raw := "claude_code\tfalse\t\tunknown\n" +
-		"codex\ttrue\t0.0.1\tlogged_in\n" +
-		"gemini\ttrue\t1.2.3\tunknown\n"
+	raw := "claude_code\tfalse\t\tunknown\tunknown\n" +
+		"codex\ttrue\t0.0.1\tunknown\tapi_key\n" +
+		"gemini\ttrue\t1.2.3\tunknown\tunknown\n"
 
 	environment, err := ParseMachineAgentEnvironment(raw, collectedAt)
 	if err != nil {
@@ -21,7 +21,7 @@ func TestParseMachineAgentEnvironment(t *testing.T) {
 	if len(environment.CLIs) != 3 {
 		t.Fatalf("expected three cli snapshots, got %+v", environment.CLIs)
 	}
-	if environment.CLIs[1].Name != "codex" || environment.CLIs[1].Version != "0.0.1" || !environment.CLIs[1].Ready {
+	if environment.CLIs[1].Name != "codex" || environment.CLIs[1].Version != "0.0.1" || environment.CLIs[1].AuthMode != MachineAgentAuthModeAPIKey || !environment.CLIs[1].Ready {
 		t.Fatalf("expected codex snapshot to be parsed, got %+v", environment.CLIs[1])
 	}
 	if environment.CLIs[2].Name != "gemini" || !environment.CLIs[2].Ready {

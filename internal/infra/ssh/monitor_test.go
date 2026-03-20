@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,5 +58,38 @@ func TestMonitorCollectorCollectReachabilityLocalMachineSkipsPool(t *testing.T) 
 	}
 	if reachability.Transport != "local" || !reachability.Reachable {
 		t.Fatalf("unexpected local reachability result: %+v", reachability)
+	}
+}
+
+func TestMonitorCollectorCollectAgentEnvironmentInjectsMachineEnvVars(t *testing.T) {
+	var capturedScript string
+	collector := &MonitorCollector{
+		now: func() time.Time { return time.Date(2026, 3, 20, 17, 10, 0, 0, time.UTC) },
+		runLocal: func(_ context.Context, script string) ([]byte, error) {
+			capturedScript = script
+			return []byte(
+				"claude_code\tfalse\t\tunknown\tunknown\n" +
+					"codex\ttrue\t0.0.1\tunknown\tapi_key\n" +
+					"gemini\tfalse\t\tunknown\tunknown\n",
+			), nil
+		},
+	}
+
+	environment, err := collector.CollectAgentEnvironment(context.Background(), domain.Machine{
+		Name:    domain.LocalMachineName,
+		Host:    domain.LocalMachineHost,
+		EnvVars: []string{"OPENAI_API_KEY=sk-test", "PATH=/opt/codex/bin:/usr/bin"},
+	})
+	if err != nil {
+		t.Fatalf("collect agent environment: %v", err)
+	}
+	if !strings.Contains(capturedScript, "export OPENAI_API_KEY='sk-test'") {
+		t.Fatalf("expected OPENAI_API_KEY export in monitor script, got %q", capturedScript)
+	}
+	if !strings.Contains(capturedScript, "export PATH='/opt/codex/bin:/usr/bin'") {
+		t.Fatalf("expected PATH export in monitor script, got %q", capturedScript)
+	}
+	if environment.CLIs[1].AuthMode != domain.MachineAgentAuthModeAPIKey || !environment.CLIs[1].Ready {
+		t.Fatalf("expected codex api-key snapshot to be ready, got %+v", environment.CLIs[1])
 	}
 }
