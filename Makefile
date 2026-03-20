@@ -53,18 +53,24 @@ check: fmt-check test
 
 hooks-install:
 	$(GO) tool lefthook install
-	@hook=.git/hooks/pre-commit; \
-	tmp=$$(mktemp .git/hooks/pre-commit.XXXXXX); \
-	{ \
-		printf '#!/bin/sh\n'; \
-		printf 'export PATH="%s"\n' "$$PATH"; \
-		printf 'export LEFTHOOK_BIN="%s/scripts/lefthook.sh"\n' "$(CURDIR)"; \
-		printf 'export OPENASE_GO="%s"\n' "$(GO)"; \
-		printf 'export OPENASE_GOFMT="%s"\n' "$(GOFMT)"; \
-		sed '/^export PATH=/d;/^export LEFTHOOK_BIN=/d;/^export OPENASE_GO=/d;/^export OPENASE_GOFMT=/d;/^PATH=/d;/^LEFTHOOK_BIN=/d;/^OPENASE_GO=/d;/^OPENASE_GOFMT=/d' "$$hook" | sed '1d'; \
-	} > "$$tmp"; \
-	mv "$$tmp" "$$hook"; \
-	chmod +x "$$hook"
+	@for hook in .git/hooks/*; do \
+		case "$$hook" in \
+			*.sample|*.old) continue ;; \
+		esac; \
+		[ -f "$$hook" ] || continue; \
+		grep -q 'call_lefthook' "$$hook" || continue; \
+		tmp=$$(mktemp "$$hook.XXXXXX"); \
+		{ \
+			printf '#!/bin/sh\n'; \
+			printf 'export PATH="%s"\n' "$$PATH"; \
+			printf 'export LEFTHOOK_BIN="%s/scripts/lefthook.sh"\n' "$(CURDIR)"; \
+			printf 'export OPENASE_GO="%s"\n' "$(GO)"; \
+			printf 'export OPENASE_GOFMT="%s"\n' "$(GOFMT)"; \
+			sed '/^export PATH=/d;/^export LEFTHOOK_BIN=/d;/^export OPENASE_GO=/d;/^export OPENASE_GOFMT=/d;/^PATH=/d;/^LEFTHOOK_BIN=/d;/^OPENASE_GO=/d;/^OPENASE_GOFMT=/d' "$$hook" | sed '1d'; \
+		} > "$$tmp"; \
+		mv "$$tmp" "$$hook"; \
+		chmod +x "$$hook"; \
+	done
 
 hooks-run:
 	$(GO) tool lefthook run pre-commit --all-files --no-auto-install
