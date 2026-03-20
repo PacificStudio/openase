@@ -122,11 +122,146 @@ func TestOpenReconcilesLegacyGlobalTicketIdentifierIndex(t *testing.T) {
 	}
 }
 
+func TestOpenBackfillsNullProjectAccessibleMachineIDsBeforeMigration(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-null-access").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	projectItem, err := bootstrapClient.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-null-access").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "projects" ALTER COLUMN "accessible_machine_ids" DROP NOT NULL`); err != nil {
+		t.Fatalf("drop project accessible machine ids not null: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE "projects" SET "accessible_machine_ids" = NULL WHERE "id" = $1`, projectItem.ID); err != nil {
+		t.Fatalf("set project accessible machine ids null: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open runtime database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	projectAfter, err := client.Project.Get(ctx, projectItem.ID)
+	if err != nil {
+		t.Fatalf("reload project: %v", err)
+	}
+	if len(projectAfter.AccessibleMachineIds) != 0 {
+		t.Fatalf("expected empty accessible machine ids after backfill, got %+v", projectAfter.AccessibleMachineIds)
+	}
+}
+
+func TestOpenAddsMissingProjectAccessibleMachineIDsBeforeMigration(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-missing-access").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	projectItem, err := bootstrapClient.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-missing-access").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "projects" DROP COLUMN "accessible_machine_ids"`); err != nil {
+		t.Fatalf("drop project accessible machine ids column: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open runtime database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	projectAfter, err := client.Project.Get(ctx, projectItem.ID)
+	if err != nil {
+		t.Fatalf("reload project: %v", err)
+	}
+	if len(projectAfter.AccessibleMachineIds) != 0 {
+		t.Fatalf("expected empty accessible machine ids after column add, got %+v", projectAfter.AccessibleMachineIds)
+	}
+}
+
 func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx := context.Background()
+	const waitTimeout = 15 * time.Second
 
 	dsn := startEmbeddedPostgres(t)
 	firstEntered := make(chan struct{})
@@ -145,7 +280,9 @@ func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 
 	select {
 	case <-firstEntered:
-	case <-ctx.Done():
+	case err := <-firstErr:
+		t.Fatalf("first schema bootstrap lock caller failed before entering critical section: %v", err)
+	case <-time.After(waitTimeout):
 		t.Fatal("timed out waiting for first schema bootstrap lock holder")
 	}
 
@@ -159,7 +296,9 @@ func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 	select {
 	case <-secondEntered:
 		t.Fatal("expected second schema bootstrap caller to wait for lock release")
-	case <-time.After(200 * time.Millisecond):
+	case err := <-secondErr:
+		t.Fatalf("second schema bootstrap lock caller failed before entering critical section: %v", err)
+	case <-time.After(500 * time.Millisecond):
 	}
 
 	close(releaseFirst)
@@ -169,13 +308,15 @@ func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("first schema bootstrap lock caller failed: %v", err)
 		}
-	case <-ctx.Done():
+	case <-time.After(waitTimeout):
 		t.Fatal("timed out waiting for first schema bootstrap lock caller to finish")
 	}
 
 	select {
 	case <-secondEntered:
-	case <-ctx.Done():
+	case err := <-secondErr:
+		t.Fatalf("second schema bootstrap lock caller failed before entering critical section: %v", err)
+	case <-time.After(waitTimeout):
 		t.Fatal("timed out waiting for second schema bootstrap lock caller to enter")
 	}
 
@@ -184,7 +325,7 @@ func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("second schema bootstrap lock caller failed: %v", err)
 		}
-	case <-ctx.Done():
+	case <-time.After(waitTimeout):
 		t.Fatal("timed out waiting for second schema bootstrap lock caller to finish")
 	}
 }

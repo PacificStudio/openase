@@ -103,14 +103,20 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		t.Fatalf("create claimed agent: %v", err)
 	}
 	localWorkspaceRoot := "/srv/openase/workspaces"
-	if _, err := client.Machine.Create().
-		SetOrganizationID(fixture.orgID).
-		SetName("local").
-		SetHost("local").
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("local"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
 		SetStatus(entmachine.StatusOnline).
 		SetWorkspaceRoot(localWorkspaceRoot).
 		Save(ctx); err != nil {
-		t.Fatalf("create local machine: %v", err)
+		t.Fatalf("update local machine: %v", err)
 	}
 	sshUser := "openase"
 	storageMachine, err := client.Machine.Create().

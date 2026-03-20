@@ -30,6 +30,9 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 	}
 
 	if err := withSchemaBootstrapLock(ctx, trimmedDSN, func() error {
+		if err := reconcileLegacyProjectAccessibleMachineIDs(ctx, trimmedDSN); err != nil {
+			return err
+		}
 		if err := client.Schema.Create(
 			ctx,
 			entmigrate.WithDropColumn(false),
@@ -84,6 +87,67 @@ func withSchemaBootstrapLock(ctx context.Context, dsn string, fn func() error) (
 	}()
 
 	return fn()
+}
+
+func reconcileLegacyProjectAccessibleMachineIDs(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database for project accessible machine reconciliation: %w", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database for project accessible machine reconciliation: %w", err)
+	}
+
+	var projectTableExists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = current_schema()
+			  AND table_name = 'projects'
+		)`,
+	).Scan(&projectTableExists); err != nil {
+		return fmt.Errorf("check projects table: %w", err)
+	}
+	if !projectTableExists {
+		return nil
+	}
+
+	var columnExists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = current_schema()
+			  AND table_name = 'projects'
+			  AND column_name = 'accessible_machine_ids'
+		)`,
+	).Scan(&columnExists); err != nil {
+		return fmt.Errorf("check project accessible machine column: %w", err)
+	}
+	if !columnExists {
+		if _, err := db.ExecContext(
+			ctx,
+			`ALTER TABLE "projects" ADD COLUMN "accessible_machine_ids" jsonb`,
+		); err != nil {
+			return fmt.Errorf("add project accessible machine ids column: %w", err)
+		}
+	}
+
+	if _, err := db.ExecContext(
+		ctx,
+		`UPDATE "projects" SET "accessible_machine_ids" = '[]'::jsonb WHERE "accessible_machine_ids" IS NULL`,
+	); err != nil {
+		return fmt.Errorf("backfill project accessible machine ids: %w", err)
+	}
+
+	return nil
 }
 
 func reconcileLegacyTicketIdentifierIndex(ctx context.Context, dsn string) error {
