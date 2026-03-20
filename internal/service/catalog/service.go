@@ -2,7 +2,11 @@ package catalog
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"time"
 
+	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	repository "github.com/BetterAndBetterII/openase/internal/repo/catalog"
@@ -10,16 +14,28 @@ import (
 )
 
 var (
-	ErrNotFound     = repository.ErrNotFound
-	ErrConflict     = repository.ErrConflict
-	ErrInvalidInput = repository.ErrInvalidInput
+	ErrNotFound                  = repository.ErrNotFound
+	ErrConflict                  = repository.ErrConflict
+	ErrInvalidInput              = repository.ErrInvalidInput
+	ErrMachineTestingUnavailable = errors.New("machine testing unavailable")
+	ErrMachineProbeFailed        = errors.New("machine probe failed")
 )
+
+type MachineTester interface {
+	TestConnection(ctx context.Context, machine domain.Machine) (domain.MachineProbe, error)
+}
 
 type Service interface {
 	ListOrganizations(ctx context.Context) ([]domain.Organization, error)
 	CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error)
+	ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error)
+	CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error)
+	GetMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
+	UpdateMachine(ctx context.Context, input domain.UpdateMachine) (domain.Machine, error)
+	DeleteMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
+	TestMachineConnection(ctx context.Context, id uuid.UUID) (domain.Machine, domain.MachineProbe, error)
 	ListProjects(ctx context.Context, organizationID uuid.UUID) ([]domain.Project, error)
 	CreateProject(ctx context.Context, input domain.CreateProject) (domain.Project, error)
 	GetProject(ctx context.Context, id uuid.UUID) (domain.Project, error)
@@ -47,12 +63,13 @@ type Service interface {
 }
 
 type service struct {
-	repo     repository.Repository
-	resolver provider.ExecutableResolver
+	repo          repository.Repository
+	resolver      provider.ExecutableResolver
+	machineTester MachineTester
 }
 
-func New(repo repository.Repository, resolver provider.ExecutableResolver) Service {
-	return &service{repo: repo, resolver: resolver}
+func New(repo repository.Repository, resolver provider.ExecutableResolver, machineTester MachineTester) Service {
+	return &service{repo: repo, resolver: resolver, machineTester: machineTester}
 }
 
 func (s *service) ListOrganizations(ctx context.Context) ([]domain.Organization, error) {
@@ -69,6 +86,76 @@ func (s *service) GetOrganization(ctx context.Context, id uuid.UUID) (domain.Org
 
 func (s *service) UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error) {
 	return s.repo.UpdateOrganization(ctx, input)
+}
+
+func (s *service) ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error) {
+	return s.repo.ListMachines(ctx, organizationID)
+}
+
+func (s *service) CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error) {
+	return s.repo.CreateMachine(ctx, input)
+}
+
+func (s *service) GetMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error) {
+	return s.repo.GetMachine(ctx, id)
+}
+
+func (s *service) UpdateMachine(ctx context.Context, input domain.UpdateMachine) (domain.Machine, error) {
+	return s.repo.UpdateMachine(ctx, input)
+}
+
+func (s *service) DeleteMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error) {
+	return s.repo.DeleteMachine(ctx, id)
+}
+
+func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (domain.Machine, domain.MachineProbe, error) {
+	if s.machineTester == nil {
+		return domain.Machine{}, domain.MachineProbe{}, ErrMachineTestingUnavailable
+	}
+
+	machine, err := s.repo.GetMachine(ctx, id)
+	if err != nil {
+		return domain.Machine{}, domain.MachineProbe{}, err
+	}
+
+	probe, err := s.machineTester.TestConnection(ctx, machine)
+	if err != nil {
+		checkedAt := probe.CheckedAt
+		if checkedAt.IsZero() {
+			checkedAt = time.Now().UTC()
+		}
+		updateErr := s.repo.RecordMachineProbe(ctx, domain.RecordMachineProbe{
+			ID:              id,
+			Status:          domainMachineFailureStatus(machine),
+			LastHeartbeatAt: checkedAt,
+			Resources: map[string]any{
+				"transport":    probe.Transport,
+				"error":        err.Error(),
+				"checked_at":   checkedAt.Format(time.RFC3339),
+				"last_success": false,
+			},
+		})
+		if updateErr != nil {
+			return domain.Machine{}, domain.MachineProbe{}, fmt.Errorf("%w: %v (status update failed: %v)", ErrMachineProbeFailed, err, updateErr)
+		}
+		return domain.Machine{}, domain.MachineProbe{}, fmt.Errorf("%w: %v", ErrMachineProbeFailed, err)
+	}
+
+	if err := s.repo.RecordMachineProbe(ctx, domain.RecordMachineProbe{
+		ID:              id,
+		Status:          domainMachineSuccessStatus(machine),
+		LastHeartbeatAt: probe.CheckedAt,
+		Resources:       cloneResources(probe.Resources),
+	}); err != nil {
+		return domain.Machine{}, domain.MachineProbe{}, err
+	}
+
+	updated, err := s.repo.GetMachine(ctx, id)
+	if err != nil {
+		return domain.Machine{}, domain.MachineProbe{}, err
+	}
+
+	return updated, probe, nil
 }
 
 func (s *service) ListProjects(ctx context.Context, organizationID uuid.UUID) ([]domain.Project, error) {
@@ -129,4 +216,31 @@ func (s *service) UpdateTicketRepoScope(ctx context.Context, input domain.Update
 
 func (s *service) DeleteTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error) {
 	return s.repo.DeleteTicketRepoScope(ctx, projectID, ticketID, id)
+}
+
+func domainMachineFailureStatus(machine domain.Machine) entmachine.Status {
+	if machine.Host == domain.LocalMachineHost {
+		return entmachine.StatusDegraded
+	}
+	return entmachine.StatusOffline
+}
+
+func domainMachineSuccessStatus(machine domain.Machine) entmachine.Status {
+	if machine.Status == entmachine.StatusMaintenance {
+		return entmachine.StatusOnline
+	}
+	return machine.Status
+}
+
+func cloneResources(raw map[string]any) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(raw))
+	for key, value := range raw {
+		cloned[key] = value
+	}
+
+	return cloned
 }

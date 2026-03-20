@@ -12,9 +12,10 @@
 
   let { ticket }: { ticket: TicketDetail } = $props()
 
-  const costPercent =
-    ticket.budgetUsd > 0 ? Math.round((ticket.costAmount / ticket.budgetUsd) * 100) : 0
-  const costOverBudget = costPercent > 80
+  const costPercent = $derived.by(() =>
+    ticket.budgetUsd > 0 ? Math.round((ticket.costAmount / ticket.budgetUsd) * 100) : 0,
+  )
+  const costOverBudget = $derived(costPercent > 80)
 </script>
 
 <div class="flex flex-col gap-3 px-5 py-3">

@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -109,6 +110,21 @@ func (_u *OrganizationUpdate) AddProviders(v ...*AgentProvider) *OrganizationUpd
 	return _u.AddProviderIDs(ids...)
 }
 
+// AddMachineIDs adds the "machines" edge to the Machine entity by IDs.
+func (_u *OrganizationUpdate) AddMachineIDs(ids ...uuid.UUID) *OrganizationUpdate {
+	_u.mutation.AddMachineIDs(ids...)
+	return _u
+}
+
+// AddMachines adds the "machines" edges to the Machine entity.
+func (_u *OrganizationUpdate) AddMachines(v ...*Machine) *OrganizationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMachineIDs(ids...)
+}
+
 // AddNotificationChannelIDs adds the "notification_channels" edge to the NotificationChannel entity by IDs.
 func (_u *OrganizationUpdate) AddNotificationChannelIDs(ids ...uuid.UUID) *OrganizationUpdate {
 	_u.mutation.AddNotificationChannelIDs(ids...)
@@ -174,6 +190,27 @@ func (_u *OrganizationUpdate) RemoveProviders(v ...*AgentProvider) *Organization
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveProviderIDs(ids...)
+}
+
+// ClearMachines clears all "machines" edges to the Machine entity.
+func (_u *OrganizationUpdate) ClearMachines() *OrganizationUpdate {
+	_u.mutation.ClearMachines()
+	return _u
+}
+
+// RemoveMachineIDs removes the "machines" edge to Machine entities by IDs.
+func (_u *OrganizationUpdate) RemoveMachineIDs(ids ...uuid.UUID) *OrganizationUpdate {
+	_u.mutation.RemoveMachineIDs(ids...)
+	return _u
+}
+
+// RemoveMachines removes "machines" edges to Machine entities.
+func (_u *OrganizationUpdate) RemoveMachines(v ...*Machine) *OrganizationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMachineIDs(ids...)
 }
 
 // ClearNotificationChannels clears all "notification_channels" edges to the NotificationChannel entity.
@@ -353,6 +390,51 @@ func (_u *OrganizationUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.MachinesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MachinesTable,
+			Columns: []string{organization.MachinesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMachinesIDs(); len(nodes) > 0 && !_u.mutation.MachinesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MachinesTable,
+			Columns: []string{organization.MachinesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MachinesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MachinesTable,
+			Columns: []string{organization.MachinesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.NotificationChannelsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -525,6 +607,21 @@ func (_u *OrganizationUpdateOne) AddProviders(v ...*AgentProvider) *Organization
 	return _u.AddProviderIDs(ids...)
 }
 
+// AddMachineIDs adds the "machines" edge to the Machine entity by IDs.
+func (_u *OrganizationUpdateOne) AddMachineIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
+	_u.mutation.AddMachineIDs(ids...)
+	return _u
+}
+
+// AddMachines adds the "machines" edges to the Machine entity.
+func (_u *OrganizationUpdateOne) AddMachines(v ...*Machine) *OrganizationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMachineIDs(ids...)
+}
+
 // AddNotificationChannelIDs adds the "notification_channels" edge to the NotificationChannel entity by IDs.
 func (_u *OrganizationUpdateOne) AddNotificationChannelIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
 	_u.mutation.AddNotificationChannelIDs(ids...)
@@ -590,6 +687,27 @@ func (_u *OrganizationUpdateOne) RemoveProviders(v ...*AgentProvider) *Organizat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveProviderIDs(ids...)
+}
+
+// ClearMachines clears all "machines" edges to the Machine entity.
+func (_u *OrganizationUpdateOne) ClearMachines() *OrganizationUpdateOne {
+	_u.mutation.ClearMachines()
+	return _u
+}
+
+// RemoveMachineIDs removes the "machines" edge to Machine entities by IDs.
+func (_u *OrganizationUpdateOne) RemoveMachineIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
+	_u.mutation.RemoveMachineIDs(ids...)
+	return _u
+}
+
+// RemoveMachines removes "machines" edges to Machine entities.
+func (_u *OrganizationUpdateOne) RemoveMachines(v ...*Machine) *OrganizationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMachineIDs(ids...)
 }
 
 // ClearNotificationChannels clears all "notification_channels" edges to the NotificationChannel entity.
@@ -792,6 +910,51 @@ func (_u *OrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Organizati
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MachinesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MachinesTable,
+			Columns: []string{organization.MachinesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMachinesIDs(); len(nodes) > 0 && !_u.mutation.MachinesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MachinesTable,
+			Columns: []string{organization.MachinesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MachinesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MachinesTable,
+			Columns: []string{organization.MachinesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

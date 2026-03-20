@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -47,6 +48,8 @@ type Client struct {
 	AgentProvider *AgentProviderClient
 	// AgentToken is the client for interacting with the AgentToken builders.
 	AgentToken *AgentTokenClient
+	// Machine is the client for interacting with the Machine builders.
+	Machine *MachineClient
 	// NotificationChannel is the client for interacting with the NotificationChannel builders.
 	NotificationChannel *NotificationChannelClient
 	// NotificationRule is the client for interacting with the NotificationRule builders.
@@ -86,6 +89,7 @@ func (c *Client) init() {
 	c.Agent = NewAgentClient(c.config)
 	c.AgentProvider = NewAgentProviderClient(c.config)
 	c.AgentToken = NewAgentTokenClient(c.config)
+	c.Machine = NewMachineClient(c.config)
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
 	c.NotificationRule = NewNotificationRuleClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
@@ -194,6 +198,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Agent:               NewAgentClient(cfg),
 		AgentProvider:       NewAgentProviderClient(cfg),
 		AgentToken:          NewAgentTokenClient(cfg),
+		Machine:             NewMachineClient(cfg),
 		NotificationChannel: NewNotificationChannelClient(cfg),
 		NotificationRule:    NewNotificationRuleClient(cfg),
 		Organization:        NewOrganizationClient(cfg),
@@ -229,6 +234,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Agent:               NewAgentClient(cfg),
 		AgentProvider:       NewAgentProviderClient(cfg),
 		AgentToken:          NewAgentTokenClient(cfg),
+		Machine:             NewMachineClient(cfg),
 		NotificationChannel: NewNotificationChannelClient(cfg),
 		NotificationRule:    NewNotificationRuleClient(cfg),
 		Organization:        NewOrganizationClient(cfg),
@@ -270,10 +276,10 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.NotificationChannel,
-		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
-		c.Ticket, c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
-		c.TicketStatus, c.Workflow,
+		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.Machine,
+		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
+		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketDependency,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
 	} {
 		n.Use(hooks...)
 	}
@@ -283,10 +289,10 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.NotificationChannel,
-		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
-		c.Ticket, c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
-		c.TicketStatus, c.Workflow,
+		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.Machine,
+		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
+		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketDependency,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -303,6 +309,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AgentProvider.mutate(ctx, m)
 	case *AgentTokenMutation:
 		return c.AgentToken.mutate(ctx, m)
+	case *MachineMutation:
+		return c.Machine.mutate(ctx, m)
 	case *NotificationChannelMutation:
 		return c.NotificationChannel.mutate(ctx, m)
 	case *NotificationRuleMutation:
@@ -1088,6 +1096,155 @@ func (c *AgentTokenClient) mutate(ctx context.Context, m *AgentTokenMutation) (V
 	}
 }
 
+// MachineClient is a client for the Machine schema.
+type MachineClient struct {
+	config
+}
+
+// NewMachineClient returns a client for the Machine from the given config.
+func NewMachineClient(c config) *MachineClient {
+	return &MachineClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `machine.Hooks(f(g(h())))`.
+func (c *MachineClient) Use(hooks ...Hook) {
+	c.hooks.Machine = append(c.hooks.Machine, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `machine.Intercept(f(g(h())))`.
+func (c *MachineClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Machine = append(c.inters.Machine, interceptors...)
+}
+
+// Create returns a builder for creating a Machine entity.
+func (c *MachineClient) Create() *MachineCreate {
+	mutation := newMachineMutation(c.config, OpCreate)
+	return &MachineCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Machine entities.
+func (c *MachineClient) CreateBulk(builders ...*MachineCreate) *MachineCreateBulk {
+	return &MachineCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MachineClient) MapCreateBulk(slice any, setFunc func(*MachineCreate, int)) *MachineCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MachineCreateBulk{err: fmt.Errorf("calling to MachineClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MachineCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MachineCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Machine.
+func (c *MachineClient) Update() *MachineUpdate {
+	mutation := newMachineMutation(c.config, OpUpdate)
+	return &MachineUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MachineClient) UpdateOne(_m *Machine) *MachineUpdateOne {
+	mutation := newMachineMutation(c.config, OpUpdateOne, withMachine(_m))
+	return &MachineUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MachineClient) UpdateOneID(id uuid.UUID) *MachineUpdateOne {
+	mutation := newMachineMutation(c.config, OpUpdateOne, withMachineID(id))
+	return &MachineUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Machine.
+func (c *MachineClient) Delete() *MachineDelete {
+	mutation := newMachineMutation(c.config, OpDelete)
+	return &MachineDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MachineClient) DeleteOne(_m *Machine) *MachineDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MachineClient) DeleteOneID(id uuid.UUID) *MachineDeleteOne {
+	builder := c.Delete().Where(machine.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MachineDeleteOne{builder}
+}
+
+// Query returns a query builder for Machine.
+func (c *MachineClient) Query() *MachineQuery {
+	return &MachineQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMachine},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Machine entity by its id.
+func (c *MachineClient) Get(ctx context.Context, id uuid.UUID) (*Machine, error) {
+	return c.Query().Where(machine.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MachineClient) GetX(ctx context.Context, id uuid.UUID) *Machine {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOrganization queries the organization edge of a Machine.
+func (c *MachineClient) QueryOrganization(_m *Machine) *OrganizationQuery {
+	query := (&OrganizationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machine.Table, machine.FieldID, id),
+			sqlgraph.To(organization.Table, organization.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, machine.OrganizationTable, machine.OrganizationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MachineClient) Hooks() []Hook {
+	return c.hooks.Machine
+}
+
+// Interceptors returns the client interceptors.
+func (c *MachineClient) Interceptors() []Interceptor {
+	return c.inters.Machine
+}
+
+func (c *MachineClient) mutate(ctx context.Context, m *MachineMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MachineCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MachineUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MachineUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MachineDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Machine mutation op: %q", m.Op())
+	}
+}
+
 // NotificationChannelClient is a client for the NotificationChannel schema.
 type NotificationChannelClient struct {
 	config
@@ -1551,6 +1708,22 @@ func (c *OrganizationClient) QueryProviders(_m *Organization) *AgentProviderQuer
 			sqlgraph.From(organization.Table, organization.FieldID, id),
 			sqlgraph.To(agentprovider.Table, agentprovider.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, organization.ProvidersTable, organization.ProvidersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMachines queries the machines edge of a Organization.
+func (c *OrganizationClient) QueryMachines(_m *Organization) *MachineQuery {
+	query := (&MachineClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, id),
+			sqlgraph.To(machine.Table, machine.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.MachinesTable, organization.MachinesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3487,13 +3660,13 @@ func (c *WorkflowClient) mutate(ctx context.Context, m *WorkflowMutation) (Value
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		ActivityEvent, Agent, AgentProvider, AgentToken, NotificationChannel,
+		ActivityEvent, Agent, AgentProvider, AgentToken, Machine, NotificationChannel,
 		NotificationRule, Organization, Project, ProjectRepo, ScheduledJob, Ticket,
 		TicketDependency, TicketExternalLink, TicketRepoScope, TicketStatus,
 		Workflow []ent.Hook
 	}
 	inters struct {
-		ActivityEvent, Agent, AgentProvider, AgentToken, NotificationChannel,
+		ActivityEvent, Agent, AgentProvider, AgentToken, Machine, NotificationChannel,
 		NotificationRule, Organization, Project, ProjectRepo, ScheduledJob, Ticket,
 		TicketDependency, TicketExternalLink, TicketRepoScope, TicketStatus,
 		Workflow []ent.Interceptor

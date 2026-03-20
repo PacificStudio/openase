@@ -1,144 +1,13 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
+  import { connectEventStream } from '$lib/api/sse'
+  import { listActivity, listTickets } from '$lib/api/openase'
+  import { ApiError } from '$lib/api/client'
   import { Input } from '$ui/input'
   import * as Select from '$ui/select'
   import { Search } from '@lucide/svelte'
   import type { ActivityEntry } from '../types'
   import ActivityTimeline from './activity-timeline.svelte'
-
-  const now = new Date()
-  const h = (hours: number) => new Date(now.getTime() - hours * 3_600_000).toISOString()
-
-  const mockEntries: ActivityEntry[] = [
-    {
-      id: '1',
-      eventType: 'ticket_created',
-      message: 'Ticket created: Add dark mode toggle',
-      timestamp: h(0.5),
-      ticketIdentifier: 'OAS-142',
-    },
-    {
-      id: '2',
-      eventType: 'agent_started',
-      message: 'Agent began working on OAS-142',
-      timestamp: h(0.8),
-      ticketIdentifier: 'OAS-142',
-      agentName: 'claude-alpha',
-    },
-    {
-      id: '3',
-      eventType: 'pr_opened',
-      message: 'Pull request #87 opened for OAS-140',
-      timestamp: h(1.2),
-      ticketIdentifier: 'OAS-140',
-      agentName: 'claude-beta',
-    },
-    {
-      id: '4',
-      eventType: 'comment_added',
-      message: 'Review comment added on PR #87',
-      timestamp: h(2),
-      ticketIdentifier: 'OAS-140',
-    },
-    {
-      id: '5',
-      eventType: 'agent_completed',
-      message: 'Agent completed work on OAS-139',
-      timestamp: h(3),
-      ticketIdentifier: 'OAS-139',
-      agentName: 'claude-alpha',
-    },
-    {
-      id: '6',
-      eventType: 'status_changed',
-      message: 'OAS-138 moved to In Review',
-      timestamp: h(4.5),
-      ticketIdentifier: 'OAS-138',
-    },
-    {
-      id: '7',
-      eventType: 'hook_failed',
-      message: 'Pre-commit hook failed on OAS-137',
-      timestamp: h(5),
-      ticketIdentifier: 'OAS-137',
-      agentName: 'claude-gamma',
-    },
-    {
-      id: '8',
-      eventType: 'pr_merged',
-      message: 'Pull request #85 merged for OAS-136',
-      timestamp: h(8),
-      ticketIdentifier: 'OAS-136',
-    },
-    {
-      id: '9',
-      eventType: 'ticket_created',
-      message: 'Ticket created: Refactor auth middleware',
-      timestamp: h(25),
-      ticketIdentifier: 'OAS-141',
-    },
-    {
-      id: '10',
-      eventType: 'agent_started',
-      message: 'Agent began working on OAS-135',
-      timestamp: h(26),
-      ticketIdentifier: 'OAS-135',
-      agentName: 'claude-beta',
-    },
-    { id: '11', eventType: 'budget_alert', message: 'Daily budget 80% consumed', timestamp: h(27) },
-    {
-      id: '12',
-      eventType: 'agent_completed',
-      message: 'Agent completed work on OAS-134',
-      timestamp: h(28),
-      ticketIdentifier: 'OAS-134',
-      agentName: 'claude-alpha',
-    },
-    {
-      id: '13',
-      eventType: 'status_changed',
-      message: 'OAS-133 moved to Done',
-      timestamp: h(30),
-      ticketIdentifier: 'OAS-133',
-    },
-    {
-      id: '14',
-      eventType: 'pr_opened',
-      message: 'Pull request #84 opened for OAS-132',
-      timestamp: h(32),
-      ticketIdentifier: 'OAS-132',
-      agentName: 'claude-gamma',
-    },
-    {
-      id: '15',
-      eventType: 'agent_stalled',
-      message: 'Agent stalled on OAS-131 — no heartbeat',
-      timestamp: h(50),
-      ticketIdentifier: 'OAS-131',
-      agentName: 'claude-beta',
-    },
-    {
-      id: '16',
-      eventType: 'ticket_created',
-      message: 'Ticket created: Fix pagination bug',
-      timestamp: h(51),
-      ticketIdentifier: 'OAS-130',
-    },
-    {
-      id: '17',
-      eventType: 'hook_failed',
-      message: 'CI pipeline failed on PR #82',
-      timestamp: h(52),
-      ticketIdentifier: 'OAS-129',
-      agentName: 'claude-alpha',
-    },
-    {
-      id: '18',
-      eventType: 'pr_merged',
-      message: 'Pull request #81 merged for OAS-128',
-      timestamp: h(54),
-      ticketIdentifier: 'OAS-128',
-    },
-  ]
 
   const eventTypes = [
     { value: 'all', label: 'All events' },
@@ -151,11 +20,14 @@
     { value: 'status_changed', label: 'Status changed' },
   ]
 
+  let entries = $state<ActivityEntry[]>([])
+  let loading = $state(false)
+  let error = $state('')
   let searchQuery = $state('')
   let selectedType = $state<string>('all')
 
   const filtered = $derived(
-    mockEntries.filter((e) => {
+    entries.filter((e) => {
       if (selectedType !== 'all' && e.eventType !== selectedType) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
@@ -168,6 +40,77 @@
       return true
     }),
   )
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      entries = []
+      return
+    }
+
+    let cancelled = false
+
+    const load = async () => {
+      loading = true
+      error = ''
+
+      try {
+        const [activityPayload, ticketPayload] = await Promise.all([
+          listActivity(projectId, { limit: '100' }),
+          listTickets(projectId),
+        ])
+        if (cancelled) return
+
+        const ticketIdentifiers = new Map(
+          ticketPayload.tickets.map((ticket) => [ticket.id, ticket.identifier]),
+        )
+
+        entries = activityPayload.events.map((event) => ({
+          id: event.id,
+          eventType: normalizeEventType(event.event_type),
+          message: event.message,
+          timestamp: event.created_at,
+          ticketIdentifier: event.ticket_id
+            ? (ticketIdentifiers.get(event.ticket_id) ?? event.ticket_id)
+            : undefined,
+          agentName: agentNameFromMetadata(event.metadata),
+        }))
+      } catch (caughtError) {
+        if (cancelled) return
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load activity.'
+      } finally {
+        if (!cancelled) {
+          loading = false
+        }
+      }
+    }
+
+    void load()
+
+    const disconnect = connectEventStream(`/api/v1/projects/${projectId}/activity/stream`, {
+      onEvent: () => {
+        void load()
+      },
+      onError: (streamError) => {
+        console.error('Activity stream error:', streamError)
+      },
+    })
+
+    return () => {
+      cancelled = true
+      disconnect()
+    }
+  })
+
+  function normalizeEventType(eventType: string) {
+    if (eventType === 'comment_added') return 'comment'
+    return eventType
+  }
+
+  function agentNameFromMetadata(metadata: Record<string, unknown>) {
+    const value = metadata.agent_name
+    return typeof value === 'string' ? value : undefined
+  }
 </script>
 
 <div class="mx-auto w-full max-w-3xl space-y-6">
@@ -200,7 +143,15 @@
     </Select.Root>
   </div>
 
-  {#if filtered.length > 0}
+  {#if loading}
+    <div class="text-muted-foreground py-16 text-center text-sm">Loading activity…</div>
+  {:else if error}
+    <div
+      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+    >
+      {error}
+    </div>
+  {:else if filtered.length > 0}
     <ActivityTimeline entries={filtered} />
   {:else}
     <div class="text-muted-foreground py-16 text-center text-sm">No events match your filters.</div>

@@ -1,11 +1,16 @@
 import type { Organization, Project } from '$lib/api/contracts'
 
+type AppPanelContent = {
+  type: 'ticket'
+  id: string
+}
+
 function createAppStore() {
   let currentOrg = $state<Organization | null>(null)
   let currentProject = $state<Project | null>(null)
   let sidebarCollapsed = $state(false)
   let rightPanelOpen = $state(false)
-  let rightPanelContent = $state<{ type: string; id?: string } | null>(null)
+  let rightPanelContent = $state<AppPanelContent | null>(null)
   let sseStatus = $state<'idle' | 'connecting' | 'live' | 'retrying'>('idle')
   let theme = $state<'light' | 'dark'>('dark')
 
@@ -34,7 +39,7 @@ function createAppStore() {
     get rightPanelOpen() {
       return rightPanelOpen
     },
-    openRightPanel(content: { type: string; id?: string }) {
+    openRightPanel(content: AppPanelContent) {
       rightPanelContent = content
       rightPanelOpen = true
     },

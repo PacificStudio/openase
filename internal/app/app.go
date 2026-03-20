@@ -6,13 +6,18 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
+	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
 	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -33,18 +38,36 @@ var (
 )
 
 type App struct {
-	config config.Config
-	logger *slog.Logger
-	events provider.EventProvider
-	trace  provider.TraceProvider
+	config         config.Config
+	logger         *slog.Logger
+	events         provider.EventProvider
+	trace          provider.TraceProvider
+	metrics        provider.MetricsProvider
+	metricsHandler http.Handler
 }
 
-func New(cfg config.Config, logger *slog.Logger, events provider.EventProvider, trace provider.TraceProvider) *App {
+func New(
+	cfg config.Config,
+	logger *slog.Logger,
+	events provider.EventProvider,
+	trace provider.TraceProvider,
+	metrics provider.MetricsProvider,
+	metricsHandler http.Handler,
+) *App {
+	if trace == nil {
+		trace = provider.NewNoopTraceProvider()
+	}
+	if metrics == nil {
+		metrics = provider.NewNoopMetricsProvider()
+	}
+
 	return &App{
-		config: cfg,
-		logger: logger,
-		events: events,
-		trace:  trace,
+		config:         cfg,
+		logger:         logger,
+		events:         events,
+		trace:          trace,
+		metrics:        metrics,
+		metricsHandler: metricsHandler,
 	}
 }
 
@@ -63,9 +86,20 @@ func (a *App) RunServe(ctx context.Context) error {
 		return err
 	}
 
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve user home directory: %w", err)
+	}
+	sshPool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
+	defer func() {
+		if closeErr := sshPool.Close(); closeErr != nil {
+			a.logger.Error("close ssh pool", "error", closeErr)
+		}
+	}()
+
 	catalogRepo := catalogrepo.NewEntRepository(client)
-	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver())
 	ticketSvc := ticketservice.NewService(client)
+	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver(), sshinfra.NewTester(sshPool))
 	notificationSvc := notificationservice.NewService(client, a.logger, http.DefaultClient)
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
 		return err
@@ -80,6 +114,18 @@ func (a *App) RunServe(ctx context.Context) error {
 			a.logger.Error("close workflow service", "error", closeErr)
 		}
 	}()
+	chatWorkingDirectory, err := provider.ParseAbsolutePath(workflowSvc.RepoRoot())
+	if err != nil {
+		return fmt.Errorf("resolve chat working directory: %w", err)
+	}
+	chatSvc := chatservice.NewService(
+		a.logger,
+		claudecodeadapter.NewAdapter(agentcli.NewManager(agentcli.ManagerOptions{})),
+		catalogSvc,
+		ticketSvc,
+		workflowSvc,
+		chatWorkingDirectory,
+	)
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,
@@ -91,8 +137,11 @@ func (a *App) RunServe(ctx context.Context) error {
 		catalogSvc,
 		workflowSvc,
 		httpapi.WithTraceProvider(a.trace),
+		httpapi.WithMetricsProvider(a.metrics),
+		httpapi.WithMetricsHandler(a.metricsHandler),
 		httpapi.WithScheduledJobService(scheduledJobSvc),
 		httpapi.WithNotificationService(notificationSvc),
+		httpapi.WithChatService(chatSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
@@ -153,6 +202,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					provider.StringAttribute("tick.time", tick.UTC().Format(time.RFC3339)),
 				),
 			)
+			start := time.Now()
 			healthReport, healthErr := healthChecker.Run(tickCtx)
 			report, runErr := scheduler.RunTick(tickCtx)
 			launchErr := runtimeLauncher.RunTick(tickCtx)
@@ -172,6 +222,10 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"time", tick.UTC().Format(time.RFC3339),
 					"error", combinedErr,
 				)
+				a.metrics.Counter("openase.orchestrator.tick_total", provider.Tags{
+					"mode":   string(a.config.Server.Mode),
+					"result": "error",
+				}).Add(1)
 			} else {
 				span.SetStatus(provider.SpanStatusOK, "")
 				a.logger.Info(
@@ -185,7 +239,14 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"tickets_dispatched", report.TicketsDispatched,
 					"tickets_skipped", report.TicketsSkipped,
 				)
+				a.metrics.Counter("openase.orchestrator.tick_total", provider.Tags{
+					"mode":   string(a.config.Server.Mode),
+					"result": "ok",
+				}).Add(1)
 			}
+			a.metrics.Histogram("openase.orchestrator.tick_duration_seconds", provider.Tags{
+				"mode": string(a.config.Server.Mode),
+			}).Record(time.Since(start).Seconds())
 			span.SetAttributes(
 				provider.IntAttribute("orchestrator.health.claims_checked", healthReport.ClaimsChecked),
 				provider.IntAttribute("orchestrator.health.stalled_claims", healthReport.StalledClaims),

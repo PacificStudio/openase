@@ -469,7 +469,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
 		nil,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 

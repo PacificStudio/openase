@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
+  import { listActivity, listAgents, listTickets, getProject } from '$lib/api/openase'
+  import { ApiError } from '$lib/api/client'
   import StatCard from './stat-card.svelte'
   import ProjectHealthList from './project-health-list.svelte'
   import ExceptionPanel from './exception-panel.svelte'
@@ -6,188 +9,199 @@
   import CostSnapshotPanel from './cost-snapshot-panel.svelte'
   import { Bot, Ticket, ShieldCheck, DollarSign } from '@lucide/svelte'
   import type { ProjectSummary, DashboardStats, ExceptionItem, ActivityItem } from '../types'
+  let loading = $state(false)
+  let error = $state('')
+  let stats = $state<DashboardStats>({
+    runningAgents: 0,
+    activeTickets: 0,
+    pendingApprovals: 0,
+    todayCost: 0,
+    weekCost: 0,
+    ticketsCreatedToday: 0,
+    ticketsCompletedToday: 0,
+    avgCycleMinutes: 0,
+    prMergeRate: 0,
+  })
+  let projects = $state<ProjectSummary[]>([])
+  let exceptions = $state<ExceptionItem[]>([])
+  let activities = $state<ActivityItem[]>([])
 
-  const now = new Date()
-  function ago(minutes: number): string {
-    return new Date(now.getTime() - minutes * 60_000).toISOString()
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      projects = []
+      activities = []
+      exceptions = []
+      return
+    }
+
+    let cancelled = false
+
+    const load = async () => {
+      loading = true
+      error = ''
+
+      try {
+        const [projectPayload, agentPayload, ticketPayload, activityPayload] = await Promise.all([
+          getProject(projectId),
+          listAgents(projectId),
+          listTickets(projectId),
+          listActivity(projectId, { limit: '24' }),
+        ])
+
+        if (cancelled) return
+
+        const activeTickets = ticketPayload.tickets.filter(
+          (ticket) => !isTerminalStatus(ticket.status_name),
+        )
+        const runningAgents = agentPayload.agents.filter(
+          (agent) => agent.status === 'running',
+        ).length
+        const totalCost = ticketPayload.tickets.reduce((sum, ticket) => sum + ticket.cost_amount, 0)
+        const todayStart = new Date()
+        todayStart.setHours(0, 0, 0, 0)
+
+        stats = {
+          runningAgents,
+          activeTickets: activeTickets.length,
+          pendingApprovals: 0,
+          todayCost: ticketPayload.tickets
+            .filter((ticket) => new Date(ticket.created_at) >= todayStart)
+            .reduce((sum, ticket) => sum + ticket.cost_amount, 0),
+          weekCost: totalCost,
+          ticketsCreatedToday: ticketPayload.tickets.filter(
+            (ticket) => new Date(ticket.created_at) >= todayStart,
+          ).length,
+          ticketsCompletedToday: ticketPayload.tickets.filter(
+            (ticket) =>
+              isTerminalStatus(ticket.status_name) && new Date(ticket.created_at) >= todayStart,
+          ).length,
+          avgCycleMinutes: 0,
+          prMergeRate: 0,
+        }
+
+        projects = [
+          {
+            id: projectPayload.project.id,
+            name: projectPayload.project.name,
+            health: projectHealth(projectPayload.project.status),
+            activeAgents: runningAgents,
+            activeTickets: activeTickets.length,
+            lastActivity: activityPayload.events[0]?.created_at ?? new Date().toISOString(),
+          },
+        ]
+
+        activities = activityPayload.events.slice(0, 6).map((event) => ({
+          id: event.id,
+          type: event.event_type,
+          message: event.message,
+          timestamp: event.created_at,
+          ticketIdentifier: undefined,
+          agentName: agentNameFromMetadata(event.metadata),
+        }))
+
+        exceptions = activityPayload.events
+          .filter((event) => isExceptionEvent(event.event_type))
+          .slice(0, 4)
+          .map((event) => ({
+            id: event.id,
+            type: normalizeExceptionType(event.event_type),
+            message: event.message,
+            timestamp: event.created_at,
+          }))
+      } catch (caughtError) {
+        if (cancelled) return
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
+      } finally {
+        if (!cancelled) {
+          loading = false
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  })
+
+  function isTerminalStatus(statusName: string) {
+    const value = statusName.toLowerCase()
+    return value === 'done' || value === 'cancelled' || value === 'archived'
   }
 
-  const stats: DashboardStats = {
-    runningAgents: 7,
-    activeTickets: 23,
-    pendingApprovals: 3,
-    todayCost: 42.87,
-    weekCost: 187.54,
-    ticketsCreatedToday: 12,
-    ticketsCompletedToday: 9,
-    avgCycleMinutes: 34,
-    prMergeRate: 0.82,
+  function projectHealth(status: string): ProjectSummary['health'] {
+    const value = status.toLowerCase()
+    if (value === 'healthy' || value === 'active') return 'healthy'
+    if (value === 'blocked' || value === 'archived') return 'blocked'
+    return 'warning'
   }
 
-  const projects: ProjectSummary[] = [
-    {
-      id: 'p1',
-      name: 'openase-core',
-      health: 'healthy',
-      activeAgents: 3,
-      activeTickets: 8,
-      lastActivity: ago(2),
-    },
-    {
-      id: 'p2',
-      name: 'openase-web',
-      health: 'healthy',
-      activeAgents: 2,
-      activeTickets: 6,
-      lastActivity: ago(5),
-    },
-    {
-      id: 'p3',
-      name: 'billing-service',
-      health: 'warning',
-      activeAgents: 1,
-      activeTickets: 4,
-      lastActivity: ago(18),
-    },
-    {
-      id: 'p4',
-      name: 'auth-gateway',
-      health: 'blocked',
-      activeAgents: 0,
-      activeTickets: 3,
-      lastActivity: ago(45),
-    },
-    {
-      id: 'p5',
-      name: 'data-pipeline',
-      health: 'healthy',
-      activeAgents: 1,
-      activeTickets: 2,
-      lastActivity: ago(12),
-    },
-  ]
+  function isExceptionEvent(eventType: string) {
+    return ['hook_failed', 'budget_alert', 'agent_stalled', 'retry_paused'].includes(eventType)
+  }
 
-  const exceptions: ExceptionItem[] = [
-    {
-      id: 'e1',
-      type: 'hook_failed',
-      message: 'Pre-commit hook failed: lint errors in auth-gateway',
-      ticketIdentifier: 'AUTH-142',
-      timestamp: ago(8),
-    },
-    {
-      id: 'e2',
-      type: 'budget_alert',
-      message: 'billing-service approaching daily budget limit (85%)',
-      timestamp: ago(22),
-    },
-    {
-      id: 'e3',
-      type: 'agent_stalled',
-      message: 'Agent claude-dev-3 unresponsive for 15 minutes',
-      ticketIdentifier: 'CORE-287',
-      timestamp: ago(15),
-    },
-    {
-      id: 'e4',
-      type: 'retry_paused',
-      message: 'Retry paused after 3 failures on CORE-301',
-      ticketIdentifier: 'CORE-301',
-      timestamp: ago(35),
-    },
-  ]
+  function normalizeExceptionType(eventType: string): ExceptionItem['type'] {
+    if (
+      eventType === 'hook_failed' ||
+      eventType === 'budget_alert' ||
+      eventType === 'agent_stalled'
+    ) {
+      return eventType
+    }
 
-  const activities: ActivityItem[] = [
-    {
-      id: 'a1',
-      type: 'pr_merged',
-      message: 'PR #487 merged: Add user settings page',
-      ticketIdentifier: 'WEB-102',
-      agentName: 'claude-dev-1',
-      timestamp: ago(3),
-    },
-    {
-      id: 'a2',
-      type: 'agent.launching',
-      message: 'Agent launching Codex session for database migration',
-      ticketIdentifier: 'CORE-290',
-      agentName: 'claude-dev-2',
-      timestamp: ago(7),
-    },
-    {
-      id: 'a3',
-      type: 'agent.ready',
-      message: 'Codex session is ready and heartbeating for API endpoint refactor',
-      ticketIdentifier: 'CORE-285',
-      agentName: 'claude-dev-1',
-      timestamp: ago(14),
-    },
-    {
-      id: 'a4',
-      type: 'pr_opened',
-      message: 'PR #488 opened: Fix billing calculation edge case',
-      ticketIdentifier: 'BILL-67',
-      agentName: 'claude-dev-4',
-      timestamp: ago(20),
-    },
-    {
-      id: 'a5',
-      type: 'comment',
-      message: 'Review comment added on PR #485',
-      ticketIdentifier: 'WEB-99',
-      timestamp: ago(28),
-    },
-    {
-      id: 'a6',
-      type: 'agent_assigned',
-      message: 'Agent assigned to implement OAuth flow',
-      ticketIdentifier: 'AUTH-145',
-      agentName: 'claude-dev-5',
-      timestamp: ago(32),
-    },
-  ]
+    return 'retry_paused'
+  }
+
+  function agentNameFromMetadata(metadata: Record<string, unknown>) {
+    const value = metadata.agent_name
+    return typeof value === 'string' ? value : undefined
+  }
 </script>
 
 <div class="space-y-6">
   <div>
     <h1 class="text-foreground text-lg font-semibold">Dashboard</h1>
-    <p class="text-muted-foreground text-sm">Organization overview</p>
+    <p class="text-muted-foreground text-sm">Project overview</p>
   </div>
 
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <StatCard
-      label="Running Agents"
-      value={stats.runningAgents}
-      icon={Bot}
-      trend={{ value: 12, positive: true }}
-    />
-    <StatCard
-      label="Active Tickets"
-      value={stats.activeTickets}
-      icon={Ticket}
-      trend={{ value: 8, positive: true }}
-    />
-    <StatCard label="Pending Approvals" value={stats.pendingApprovals} icon={ShieldCheck} />
-    <StatCard
-      label="Today's Cost"
-      value={'$' + stats.todayCost.toFixed(2)}
-      icon={DollarSign}
-      trend={{ value: 5, positive: false }}
-    />
-  </div>
+  {#if loading}
+    <div
+      class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
+    >
+      Loading dashboard…
+    </div>
+  {:else if error}
+    <div
+      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+    >
+      {error}
+    </div>
+  {:else}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
+      <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
+      <StatCard label="Pending Approvals" value={stats.pendingApprovals} icon={ShieldCheck} />
+      <StatCard label="Today's Cost" value={'$' + stats.todayCost.toFixed(2)} icon={DollarSign} />
+    </div>
 
-  <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <ProjectHealthList {projects} class="lg:col-span-2" />
-    <ExceptionPanel {exceptions} />
-  </div>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <ProjectHealthList {projects} class="lg:col-span-2" />
+      <ExceptionPanel {exceptions} />
+    </div>
 
-  <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <ActivityFeedPanel {activities} class="lg:col-span-2" />
-    <CostSnapshotPanel
-      todayCost={stats.todayCost}
-      weekCost={stats.weekCost}
-      topProject={{ name: 'openase-core', cost: 72.3 }}
-      topAgent={{ name: 'claude-dev-1', cost: 48.15 }}
-    />
-  </div>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <ActivityFeedPanel {activities} class="lg:col-span-2" />
+      <CostSnapshotPanel
+        todayCost={stats.todayCost}
+        weekCost={stats.weekCost}
+        topProject={{
+          name: appStore.currentProject?.name ?? 'Current project',
+          cost: stats.weekCost,
+        }}
+        topAgent={{ name: 'Contract not exposed', cost: 0 }}
+      />
+    </div>
+  {/if}
 </div>
