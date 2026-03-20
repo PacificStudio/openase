@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import type { Organization, Project } from '$lib/api/contracts'
   import { connectEventStream } from '$lib/api/sse'
@@ -11,6 +12,8 @@
   import type { Snippet } from 'svelte'
 
   type ShellData = {
+    organizations: Organization[]
+    projects: Project[]
     currentOrg: Organization | null
     currentProject: Project | null
     agentCount: number
@@ -21,6 +24,18 @@
   let currentPath = $derived(page.url.pathname)
   let currentTicketId = $derived(
     appStore.rightPanelContent?.type === 'ticket' ? appStore.rightPanelContent.id : null,
+  )
+  let organizationOptions = $derived(
+    data.organizations.map((organization) => ({
+      id: organization.id,
+      name: organization.name,
+    })),
+  )
+  let projectOptions = $derived(
+    data.projects.map((project) => ({
+      id: project.id,
+      name: project.name,
+    })),
   )
 
   const projectHealth = $derived.by(() => {
@@ -67,12 +82,65 @@
   function handleToggleTheme() {
     appStore.toggleTheme()
   }
+
+  function buildContextHref(orgId: string | null, projectId: string | null) {
+    const nextUrl = new URL(page.url)
+
+    if (orgId) {
+      nextUrl.searchParams.set('orgId', orgId)
+    } else {
+      nextUrl.searchParams.delete('orgId')
+    }
+
+    if (projectId) {
+      nextUrl.searchParams.set('projectId', projectId)
+    } else {
+      nextUrl.searchParams.delete('projectId')
+    }
+
+    return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+  }
+
+  function navigateToContext(orgId: string | null, projectId: string | null, replaceState = false) {
+    const nextHref = buildContextHref(orgId, projectId)
+    const currentHref = `${page.url.pathname}${page.url.search}${page.url.hash}`
+
+    if (nextHref === currentHref) {
+      return
+    }
+
+    void goto(nextHref, {
+      replaceState,
+      noScroll: true,
+      keepFocus: true,
+    })
+  }
+
+  function handleSelectOrg(orgId: string) {
+    if (orgId === data.currentOrg?.id) {
+      return
+    }
+
+    navigateToContext(orgId, null)
+  }
+
+  function handleSelectProject(projectId: string) {
+    if (projectId === data.currentProject?.id) {
+      return
+    }
+
+    navigateToContext(data.currentOrg?.id ?? null, projectId)
+  }
 </script>
 
 <div class="bg-background flex h-screen flex-col overflow-hidden">
   <TopBar
     orgName={data.currentOrg?.name ?? 'No organization'}
     projectName={data.currentProject?.name ?? ''}
+    organizations={organizationOptions}
+    projects={projectOptions}
+    currentOrgId={data.currentOrg?.id ?? null}
+    currentProjectId={data.currentProject?.id ?? null}
     sseStatus={appStore.sseStatus}
     searchEnabled={searchCapability.state === 'available'}
     newTicketEnabled={newTicketCapability.state === 'available'}
@@ -81,6 +149,8 @@
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
     onOpenSearch={handleOpenSearch}
+    onSelectOrg={handleSelectOrg}
+    onSelectProject={handleSelectProject}
   />
 
   <div class="flex flex-1 overflow-hidden">
