@@ -5,16 +5,16 @@ The `web` package is the SvelteKit frontend embedded into the OpenASE Go binary 
 ## Common Commands
 
 ```sh
-npm install
-npm run dev
-npm run build
-npm run lint
-npm run format:check
-npm run check:svelte
+pnpm install
+pnpm run dev
+pnpm run build
+pnpm run lint
+pnpm run format:check
+pnpm run check:svelte
 ```
 
 ## Quality Gates
 
-- `npm run lint` runs ESLint across Svelte, TypeScript, and config files.
-- `npm run format` / `npm run format:check` apply or verify Prettier formatting.
-- `npm run check:svelte` runs `svelte-check` against the workspace TypeScript config.
+- `pnpm run lint` runs ESLint across Svelte, TypeScript, and config files.
+- `pnpm run format` / `pnpm run format:check` apply or verify Prettier formatting.
+- `pnpm run check:svelte` runs `svelte-check` against the workspace TypeScript config.

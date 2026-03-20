@@ -1163,7 +1163,7 @@ ticket_hooks:
   on_claim:
     - cmd: "git fetch origin && git checkout -b agent/{{ agent.name }}/{{ ticket.identifier }} origin/main"
       timeout: 60
-    - cmd: "npm ci"
+    - cmd: "pnpm install --frozen-lockfile"
       workdir: "frontend"
       timeout: 300
   on_complete:
@@ -1236,7 +1236,7 @@ your-project/
 ```yaml
 ticket_hooks:
   on_claim:
-    - cmd: "npm ci"
+    - cmd: "pnpm install --frozen-lockfile"
       workdir: "frontend"    # /workspaces/ASE-42/frontend/
     - cmd: "go mod download"
       workdir: "backend"     # /workspaces/ASE-42/backend/
@@ -2205,7 +2205,7 @@ git commit
 | ESLint + svelte-check | 增量 | 全量 |
 | 密钥扫描 | 简单 grep | gitleaks 全量 |
 | depguard 架构守卫 | 随 golangci-lint | 随 golangci-lint |
-| SvelteKit build | 跳过 | `npm run build` |
+| SvelteKit build | 跳过 | `pnpm run build` |
 | 覆盖率报告 | 跳过 | `go test -coverprofile` |
 
 ---
@@ -3649,7 +3649,7 @@ hooks:
   on_claim:
     - cmd: "git fetch origin && git checkout -b {{ git.branch_pattern }} origin/{{ project.default_branch }}"
       timeout: 60
-    - cmd: "npm ci"
+    - cmd: "pnpm install --frozen-lockfile"
       workdir: "frontend"
       timeout: 300
       on_failure: warn
@@ -4491,7 +4491,7 @@ mock-generate:         ## 生成 mock（mockery）
 	mockery --all --dir=./domain --output=./mocks --outpkg=mocks
 
 test-frontend:         ## 前端测试
-	cd web && npm run test
+	cd web && pnpm run test
 
 test-e2e:              ## E2E 测试（需要完整服务运行）
 	cd web && npx playwright test
@@ -4882,7 +4882,7 @@ echo '},'
 echo '"network":{'
 echo '"github_reachable":'$(curl -s --max-time 5 https://api.github.com >/dev/null && echo true || echo false)','
 echo '"pypi_reachable":'$(curl -s --max-time 5 https://pypi.org >/dev/null && echo true || echo false)','
-echo '"npm_reachable":'$(curl -s --max-time 5 https://registry.npmjs.org >/dev/null && echo true || echo false)
+echo '"npmjs_registry_reachable":'$(curl -s --max-time 5 https://registry.npmjs.org >/dev/null && echo true || echo false)
 echo '}'
 
 echo '}'
