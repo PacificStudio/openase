@@ -8,7 +8,7 @@
     CardHeader,
     CardTitle,
   } from '$lib/components/ui/card'
-  import type { Organization, Project } from '$lib/features/workspace/types'
+  import type { Organization, Project } from '$lib/types/workspace-shell'
 
   let {
     organizations = [],

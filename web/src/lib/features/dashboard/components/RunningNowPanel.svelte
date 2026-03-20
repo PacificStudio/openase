@@ -12,8 +12,8 @@
     heartbeatBadgeClass,
     heartbeatLabel,
     streamBadgeClass,
-  } from '$lib/features/workspace/metrics'
-  import type { Agent } from '$lib/features/workspace/types'
+    type Agent,
+  } from '$lib/features/workspace'
   import type { StreamConnectionState } from '$lib/api/sse'
 
   let {

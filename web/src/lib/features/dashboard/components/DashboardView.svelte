@@ -9,7 +9,7 @@
     Agent,
     HRAdvisorPayload,
     ActivityEvent,
-  } from '$lib/features/workspace/types'
+  } from '$lib/features/workspace'
   import type { StreamConnectionState } from '$lib/api/sse'
 
   let {

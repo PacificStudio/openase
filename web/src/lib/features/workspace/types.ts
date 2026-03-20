@@ -4,7 +4,6 @@ export type Organization = {
   slug: string
   default_agent_provider_id?: string | null
 }
-
 export type ProjectStatus = 'planning' | 'active' | 'paused' | 'archived'
 
 export type Project = {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Badge } from '$lib/components/ui/badge'
   import TicketCard from './TicketCard.svelte'
-  import type { Ticket, TicketStatus } from '$lib/features/workspace/types'
+  import type { Ticket, TicketStatus } from '$lib/features/workspace'
 
   let {
     status,

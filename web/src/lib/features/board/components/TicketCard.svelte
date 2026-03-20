@@ -1,8 +1,8 @@
 <script lang="ts">
   import { ArrowUpRight, Link2 } from '@lucide/svelte'
   import { Badge } from '$lib/components/ui/badge'
-  import { ticketPriorityBadgeClass } from '$lib/features/workspace/mappers'
-  import type { Ticket } from '$lib/features/workspace/types'
+  import { ticketPriorityBadgeClass } from '$lib/features/workspace'
+  import type { Ticket } from '$lib/features/workspace'
 
   let {
     ticket,

@@ -2,7 +2,7 @@
   import { FolderKanban } from '@lucide/svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card'
-  import { streamBadgeClass } from '$lib/features/workspace/metrics'
+  import { streamBadgeClass } from '$lib/features/workspace'
   import type { StreamConnectionState } from '$lib/api/sse'
 
   let {

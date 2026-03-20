@@ -2,7 +2,7 @@
   import { Menu, PanelsTopLeft, Sparkles } from '@lucide/svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
-  import type { Organization, Project } from '$lib/features/workspace/types'
+  import type { Organization, Project } from '$lib/types/workspace-shell'
 
   let {
     selectedOrg = null,

@@ -1,8 +1,14 @@
 import { connectEventStream, type SSEFrame, type StreamConnectionState } from '$lib/api/sse'
-import { api, toErrorMessage } from '$lib/features/workspace/api'
-import { orderTicketStatuses, orderTickets } from '$lib/features/workspace/mappers'
-import { parseStreamEnvelope } from '$lib/features/workspace/stream'
-import type { Ticket, TicketPayload, TicketStatus } from '$lib/features/workspace/types'
+import {
+  api,
+  orderTicketStatuses,
+  orderTickets,
+  parseStreamEnvelope,
+  toErrorMessage,
+  type Ticket,
+  type TicketPayload,
+  type TicketStatus,
+} from '$lib/features/workspace'
 
 type LoadOptions = { silent?: boolean }
 type TicketMutationCallback = (projectId: string) => void

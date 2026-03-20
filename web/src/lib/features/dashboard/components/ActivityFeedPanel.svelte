@@ -8,8 +8,7 @@
     CardHeader,
     CardTitle,
   } from '$lib/components/ui/card'
-  import { formatTimestamp, streamBadgeClass } from '$lib/features/workspace/metrics'
-  import type { ActivityEvent } from '$lib/features/workspace/types'
+  import { formatTimestamp, streamBadgeClass, type ActivityEvent } from '$lib/features/workspace'
   import type { StreamConnectionState } from '$lib/api/sse'
 
   let {

@@ -2,7 +2,7 @@
   import { Card, CardContent } from '$lib/components/ui/card'
   import BoardToolbar from './BoardToolbar.svelte'
   import BoardColumn from './BoardColumn.svelte'
-  import type { Ticket, TicketStatus } from '$lib/features/workspace/types'
+  import type { Ticket, TicketStatus } from '$lib/features/workspace'
   import type { StreamConnectionState } from '$lib/api/sse'
 
   let {

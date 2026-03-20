@@ -12,8 +12,10 @@
     hrAdvisorPriorityBadgeClass,
     hrAdvisorPriorityCardClass,
     staffingEntries,
-  } from '$lib/features/workspace/mappers'
-  import type { HRAdvisorPayload, OnboardingSummary, Project } from '$lib/features/workspace/types'
+    type HRAdvisorPayload,
+    type OnboardingSummary,
+    type Project,
+  } from '$lib/features/workspace'
 
   let {
     project = null,

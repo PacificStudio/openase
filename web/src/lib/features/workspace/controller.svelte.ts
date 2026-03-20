@@ -1,5 +1,5 @@
-import { createBoardStore } from '$lib/features/board/store.svelte'
-import { createDashboardStore } from '$lib/features/dashboard/store.svelte'
+import { createBoardStore } from '$lib/features/board'
+import { createDashboardStore } from '$lib/features/dashboard'
 import { api, toErrorMessage } from './api'
 import { createEntityMutationActions } from './entity-mutations'
 import {
