@@ -85,11 +85,10 @@
     }
   }
 
-  function updateTextField(field: 'title' | 'description', event: Event) {
-    const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement
+  function updateDraftField<K extends keyof NewTicketDraft>(field: K, value: NewTicketDraft[K]) {
     draft = {
       ...draft,
-      [field]: target.value,
+      [field]: value,
     }
   }
 
@@ -148,7 +147,8 @@
           value={draft.title}
           placeholder="Describe the outcome to deliver"
           disabled={loading || saving}
-          oninput={(event) => updateTextField('title', event)}
+          oninput={(event) =>
+            updateDraftField('title', (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 
@@ -160,7 +160,8 @@
           rows={6}
           placeholder="Add implementation context, acceptance criteria, or constraints."
           disabled={loading || saving}
-          oninput={(event) => updateTextField('description', event)}
+          oninput={(event) =>
+            updateDraftField('description', (event.currentTarget as HTMLTextAreaElement).value)}
         />
       </div>
 
@@ -171,12 +172,7 @@
             type="single"
             value={draft.statusId}
             disabled={loading || saving || statusOptions.length === 0}
-            onValueChange={(value) => {
-              draft = {
-                ...draft,
-                statusId: value || '',
-              }
-            }}
+            onValueChange={(value) => updateDraftField('statusId', value || '')}
           >
             <Select.Trigger class="w-full">{selectedStatusLabel}</Select.Trigger>
             <Select.Content>
@@ -195,10 +191,7 @@
             disabled={loading || saving}
             onValueChange={(value) => {
               if (!value) return
-              draft = {
-                ...draft,
-                priority: value as NewTicketDraft['priority'],
-              }
+              updateDraftField('priority', value as NewTicketDraft['priority'])
             }}
           >
             <Select.Trigger class="w-full capitalize">{draft.priority}</Select.Trigger>
@@ -216,12 +209,7 @@
             type="single"
             value={draft.workflowId}
             disabled={loading || saving || workflowOptions.length === 0}
-            onValueChange={(value) => {
-              draft = {
-                ...draft,
-                workflowId: value || '',
-              }
-            }}
+            onValueChange={(value) => updateDraftField('workflowId', value || '')}
           >
             <Select.Trigger class="w-full">{selectedWorkflowLabel}</Select.Trigger>
             <Select.Content>
