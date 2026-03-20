@@ -9,12 +9,20 @@
     selectedProject = null,
     notice = '',
     errorMessage = '',
+    pageTags = ['Feature-first shell', 'Dashboard', 'Board', 'SSE streams'],
+    pageEyebrow = 'OpenASE control plane',
+    pageTitle = 'Project shell, live dashboard, and board now ship as separate features.',
+    pageDescription = 'Keep routing tickets from the board, watch agent telemetry update through SSE, and edit workflow settings from the drawer without stuffing page logic back into the route file.',
     onToggleDrawer,
   }: {
     selectedOrg?: Organization | null
     selectedProject?: Project | null
     notice?: string
     errorMessage?: string
+    pageTags?: string[]
+    pageEyebrow?: string
+    pageTitle?: string
+    pageDescription?: string
     onToggleDrawer?: () => void
   } = $props()
 </script>
@@ -26,24 +34,22 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div class="space-y-3">
         <div class="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">Feature-first shell</Badge>
-          <Badge variant="outline">Dashboard</Badge>
-          <Badge variant="outline">Board</Badge>
-          <Badge variant="outline">SSE streams</Badge>
+          {#each pageTags as tag}
+            <Badge variant="outline">{tag}</Badge>
+          {/each}
         </div>
 
         <div class="space-y-2">
           <p class="text-muted-foreground text-xs font-medium tracking-[0.28em] uppercase">
-            OpenASE control plane
+            {pageEyebrow}
           </p>
           <div class="flex flex-wrap items-center gap-3">
             <h1 class="text-3xl font-semibold tracking-[-0.05em] text-balance sm:text-4xl">
-              Project shell, live dashboard, and board now ship as separate features.
+              {pageTitle}
             </h1>
           </div>
           <p class="text-muted-foreground max-w-3xl text-sm leading-7 sm:text-base">
-            Keep routing tickets from the board, watch agent telemetry update through SSE, and edit
-            workflow settings from the drawer without stuffing page logic back into the route file.
+            {pageDescription}
           </p>
         </div>
       </div>
