@@ -8,15 +8,12 @@
     LayoutDashboard,
     Bot,
     TicketCheck,
-    ShieldCheck,
     Activity,
     Settings,
-    FolderKanban,
+    KanbanSquare,
+    Workflow,
     ChevronsLeft,
     ChevronsRight,
-    Circle,
-    Bell,
-    Plug,
   } from '@lucide/svelte'
   import type { Component } from 'svelte'
 
@@ -34,7 +31,6 @@
     projectSelected = false,
     projectName = '',
     projectHealth = 'healthy' as 'healthy' | 'degraded' | 'critical',
-    approvalCount = 0,
     agentCount = 0,
     onToggleCollapse,
   }: {
@@ -43,28 +39,21 @@
     projectSelected?: boolean
     projectName?: string
     projectHealth?: 'healthy' | 'degraded' | 'critical'
-    approvalCount?: number
     agentCount?: number
     onToggleCollapse?: () => void
   } = $props()
 
   const globalNav: NavItem[] = $derived([
     { label: 'Dashboard', href: '/', icon: LayoutDashboard, active: currentPath === '/' },
-    {
-      label: 'Projects',
-      href: '/projects',
-      icon: FolderKanban,
-      active: currentPath.startsWith('/projects'),
-    },
-    {
-      label: 'Notifications',
-      href: '/notifications',
-      icon: Bell,
-      active: currentPath.startsWith('/notifications'),
-    },
   ])
 
   const projectNav: NavItem[] = $derived([
+    {
+      label: 'Board',
+      href: '/board',
+      icon: KanbanSquare,
+      active: currentPath.startsWith('/board'),
+    },
     {
       label: 'Tickets',
       href: '/tickets',
@@ -79,23 +68,16 @@
       active: currentPath.startsWith('/agents'),
     },
     {
-      label: 'Approvals',
-      href: '/approvals',
-      icon: ShieldCheck,
-      badge: approvalCount || undefined,
-      active: currentPath.startsWith('/approvals'),
-    },
-    {
       label: 'Activity',
       href: '/activity',
       icon: Activity,
       active: currentPath.startsWith('/activity'),
     },
     {
-      label: 'Connectors',
-      href: '/connectors',
-      icon: Plug,
-      active: currentPath.startsWith('/connectors'),
+      label: 'Workflows',
+      href: '/workflows',
+      icon: Workflow,
+      active: currentPath.startsWith('/workflows'),
     },
     {
       label: 'Settings',
@@ -172,12 +154,12 @@
       <!-- Project Header -->
       {#if !collapsed}
         <div class="mb-2 flex items-center gap-2 px-2.5">
-          <span class={cn('size-2 shrink-0 rounded-full', healthColor)} />
+          <span class={cn('size-2 shrink-0 rounded-full', healthColor)}></span>
           <span class="truncate text-xs font-medium text-sidebar-foreground">{projectName}</span>
         </div>
       {:else}
         <div class="mb-2 flex justify-center">
-          <span class={cn('size-2 rounded-full', healthColor)} />
+          <span class={cn('size-2 rounded-full', healthColor)}></span>
         </div>
       {/if}
 

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { cn, formatRelativeTime } from '$lib/utils'
-  import Badge from '$ui/badge/badge.svelte'
   import { ArrowRight, Circle } from '@lucide/svelte'
   import type { WorkflowSummary, WorkflowType } from '../types'
 

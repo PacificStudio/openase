@@ -1,82 +1,18 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
+  import { connectEventStream } from '$lib/api/sse'
+  import { listStatuses, listTickets, listWorkflows } from '$lib/api/openase'
+  import { ApiError } from '$lib/api/client'
   import type { BoardColumn, BoardFilter, BoardTicket } from '../types'
   import BoardToolbar from './board-toolbar.svelte'
   import BoardView from './board-view.svelte'
 
   let filter = $state<BoardFilter>({ search: '' })
   let view = $state<'board' | 'list'>('board')
-
-  const now = Date.now()
-  const h = (hours: number) => new Date(now - hours * 3_600_000).toISOString()
-
-  const allColumns: BoardColumn[] = [
-    {
-      id: 'backlog',
-      name: 'Backlog',
-      color: '#6b7280',
-      tickets: [
-        { id: '1', identifier: 'ASE-38', title: 'Add rate limiting to public API endpoints', priority: 'medium', workflowType: 'coding', updatedAt: h(72), labels: ['api'] },
-        { id: '2', identifier: 'ASE-39', title: 'Write integration tests for webhook delivery', priority: 'low', workflowType: 'test', updatedAt: h(48) },
-        { id: '3', identifier: 'ASE-40', title: 'Audit dependency versions for CVEs', priority: 'high', workflowType: 'security', updatedAt: h(24) },
-      ],
-    },
-    {
-      id: 'todo',
-      name: 'Todo',
-      color: '#a855f7',
-      tickets: [
-        { id: '4', identifier: 'ASE-41', title: 'Implement SSO login with SAML provider', priority: 'high', workflowType: 'coding', agentName: 'Coder-1', updatedAt: h(6) },
-        { id: '5', identifier: 'ASE-42', title: 'Add pagination to workflow history endpoint', priority: 'medium', workflowType: 'coding', updatedAt: h(12) },
-        { id: '6', identifier: 'ASE-43', title: 'Create E2E test suite for onboarding flow', priority: 'medium', workflowType: 'test', updatedAt: h(8) },
-        { id: '7', identifier: 'ASE-44', title: 'Migrate legacy cron jobs to event-driven triggers', priority: 'low', workflowType: 'coding', updatedAt: h(30) },
-      ],
-    },
-    {
-      id: 'in_progress',
-      name: 'In Progress',
-      color: '#f59e0b',
-      wipInfo: '3 / 5 WIP',
-      tickets: [
-        { id: '8', identifier: 'ASE-45', title: 'Refactor notification service to use message queue', priority: 'high', workflowType: 'coding', agentName: 'Coder-2', prCount: 1, prStatus: 'draft', updatedAt: h(1) },
-        { id: '9', identifier: 'ASE-46', title: 'Fix flaky test in CI for auth module', priority: 'urgent', workflowType: 'test', agentName: 'Tester-1', anomaly: 'retry', updatedAt: h(0.5) },
-        { id: '10', identifier: 'ASE-47', title: 'Implement role-based access control for admin panel', priority: 'high', workflowType: 'coding', agentName: 'Coder-1', prCount: 2, prStatus: 'open', updatedAt: h(2) },
-      ],
-    },
-    {
-      id: 'in_review',
-      name: 'In Review',
-      color: '#3b82f6',
-      tickets: [
-        { id: '11', identifier: 'ASE-48', title: 'Add OpenTelemetry tracing to core services', priority: 'medium', workflowType: 'coding', agentName: 'Coder-2', prCount: 1, prStatus: 'approved', updatedAt: h(3) },
-        { id: '12', identifier: 'ASE-49', title: 'Security scan: validate input sanitization', priority: 'high', workflowType: 'security', agentName: 'SecBot', anomaly: 'hook_failed', prCount: 1, prStatus: 'changes requested', updatedAt: h(1.5) },
-        { id: '13', identifier: 'ASE-50', title: 'Update API docs for v2 billing endpoints', priority: 'low', workflowType: 'review', agentName: 'Coder-3', prCount: 1, prStatus: 'open', updatedAt: h(5) },
-        { id: '14', identifier: 'ASE-51', title: 'Add budget guardrails to agent orchestrator', priority: 'urgent', workflowType: 'coding', agentName: 'Coder-1', anomaly: 'awaiting_approval', prCount: 1, prStatus: 'open', updatedAt: h(0.3) },
-      ],
-    },
-    {
-      id: 'done',
-      name: 'Done',
-      color: '#22c55e',
-      tickets: [
-        { id: '15', identifier: 'ASE-33', title: 'Set up GitHub Actions for automated releases', priority: 'medium', workflowType: 'deploy', agentName: 'Coder-2', prCount: 1, prStatus: 'merged', updatedAt: h(10) },
-        { id: '16', identifier: 'ASE-34', title: 'Fix memory leak in WebSocket connection handler', priority: 'urgent', workflowType: 'coding', agentName: 'Coder-1', prCount: 1, prStatus: 'merged', updatedAt: h(14) },
-        { id: '17', identifier: 'ASE-35', title: 'Add snapshot tests for dashboard components', priority: 'low', workflowType: 'test', agentName: 'Tester-1', prCount: 1, prStatus: 'merged', updatedAt: h(20) },
-        { id: '18', identifier: 'ASE-36', title: 'Implement retry logic for external API calls', priority: 'medium', workflowType: 'coding', agentName: 'Coder-3', prCount: 2, prStatus: 'merged', updatedAt: h(18) },
-        { id: '19', identifier: 'ASE-37', title: 'Upgrade Node.js runtime to v22 LTS', priority: 'low', workflowType: 'deploy', agentName: 'Coder-2', prCount: 1, prStatus: 'merged', updatedAt: h(36) },
-      ],
-    },
-    {
-      id: 'cancelled',
-      name: 'Cancelled',
-      color: '#ef4444',
-      tickets: [
-        { id: '20', identifier: 'ASE-30', title: 'Evaluate alternative vector DB for embeddings', priority: 'low', workflowType: 'review', anomaly: 'budget_exhausted', updatedAt: h(96) },
-      ],
-    },
-  ]
-
-  const workflows = ['coding', 'test', 'security', 'review', 'deploy']
-  const agents = ['Coder-1', 'Coder-2', 'Coder-3', 'Tester-1', 'SecBot']
+  let loading = $state(false)
+  let error = $state('')
+  let allColumns = $state<BoardColumn[]>([])
+  let workflows = $state<string[]>([])
 
   let filteredColumns = $derived.by(() => {
     return allColumns.map((col) => {
@@ -92,8 +28,104 @@
     })
   })
 
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      allColumns = []
+      workflows = []
+      return
+    }
+
+    let cancelled = false
+
+    const load = async () => {
+      loading = true
+      error = ''
+
+      try {
+        const [statusPayload, ticketPayload, workflowPayload] = await Promise.all([
+          listStatuses(projectId),
+          listTickets(projectId),
+          listWorkflows(projectId),
+        ])
+        if (cancelled) return
+
+        const workflowTypeById = new Map(
+          workflowPayload.workflows.map((workflow) => [workflow.id, workflow.type]),
+        )
+
+        workflows = Array.from(new Set(workflowPayload.workflows.map((workflow) => workflow.type)))
+
+        allColumns = statusPayload.statuses
+          .slice()
+          .sort((left, right) => left.position - right.position)
+          .map((status) => ({
+            id: status.id,
+            name: status.name,
+            color: status.color || '#94a3b8',
+            tickets: ticketPayload.tickets
+              .filter((ticket) => ticket.status_id === status.id)
+              .map((ticket) => ({
+                id: ticket.id,
+                identifier: ticket.identifier,
+                title: ticket.title,
+                priority: normalizePriority(ticket.priority),
+                workflowType: ticket.workflow_id
+                  ? workflowTypeById.get(ticket.workflow_id) ?? undefined
+                  : undefined,
+                updatedAt: ticket.created_at,
+                labels: [],
+                anomaly: inferAnomaly(ticket),
+              })),
+          }))
+      } catch (caughtError) {
+        if (cancelled) return
+        error =
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load board data.'
+      } finally {
+        if (!cancelled) {
+          loading = false
+        }
+      }
+    }
+
+    void load()
+
+    const disconnect = connectEventStream(`/api/v1/projects/${projectId}/tickets/stream`, {
+      onEvent: () => {
+        void load()
+      },
+      onError: () => {},
+    })
+
+    return () => {
+      cancelled = true
+      disconnect()
+    }
+  })
+
   function handleTicketClick(ticket: BoardTicket) {
-    console.log('Ticket clicked:', ticket.identifier, ticket.title)
+    appStore.openRightPanel({ type: 'ticket', id: ticket.id })
+  }
+
+  function normalizePriority(priority: string): BoardTicket['priority'] {
+    if (priority === 'urgent' || priority === 'high' || priority === 'medium' || priority === 'low') {
+      return priority
+    }
+
+    return 'medium'
+  }
+
+  function inferAnomaly(ticket: {
+    budget_usd: number
+    cost_amount: number
+    consecutive_errors: number
+    retry_paused: boolean
+  }): BoardTicket['anomaly'] | undefined {
+    if (ticket.retry_paused) return 'retry'
+    if (ticket.consecutive_errors > 0) return 'hook_failed'
+    if (ticket.budget_usd > 0 && ticket.cost_amount >= ticket.budget_usd) return 'budget_exhausted'
+    return undefined
   }
 </script>
 
@@ -102,10 +134,21 @@
     bind:filter
     bind:view
     {workflows}
-    {agents}
+    agents={[]}
+    listEnabled={false}
   />
-  <BoardView
-    columns={filteredColumns}
-    onticketclick={handleTicketClick}
-  />
+  {#if loading}
+    <div class="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+      Loading board…
+    </div>
+  {:else if error}
+    <div class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      {error}
+    </div>
+  {:else}
+    <BoardView
+      columns={filteredColumns}
+      onticketclick={handleTicketClick}
+    />
+  {/if}
 </div>

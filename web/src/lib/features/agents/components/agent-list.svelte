@@ -5,7 +5,13 @@
   import { Terminal, Pause, Play } from '@lucide/svelte'
   import type { AgentInstance } from '../types'
 
-  let { agents }: { agents: AgentInstance[] } = $props()
+  let {
+    agents,
+    onSelectTicket,
+  }: {
+    agents: AgentInstance[]
+    onSelectTicket?: (ticketId: string) => void
+  } = $props()
 
   const statusColors: Record<AgentInstance['status'], string> = {
     idle: 'bg-emerald-500',
@@ -53,12 +59,17 @@
           </td>
           <td class="px-2 py-2.5">
             {#if agent.currentTicket}
-              <a
-                href="/tickets/{agent.currentTicket.id}"
+              <button
+                type="button"
+                onclick={() => {
+                  if (agent.currentTicket) {
+                    onSelectTicket?.(agent.currentTicket.id)
+                  }
+                }}
                 class="text-xs text-primary hover:underline"
               >
                 {agent.currentTicket.identifier}
-              </a>
+              </button>
               <div class="max-w-48 truncate text-xs text-muted-foreground">
                 {agent.currentTicket.title}
               </div>
@@ -81,15 +92,15 @@
           </td>
           <td class="py-2.5 pl-2 pr-3">
             <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-              <Button variant="ghost" size="icon-xs" aria-label="View output">
+              <Button variant="ghost" size="icon-xs" aria-label="View output" disabled title="Agent output is not exposed by the current API">
                 <Terminal class="size-3.5" />
               </Button>
               {#if agent.status === 'running'}
-                <Button variant="ghost" size="icon-xs" aria-label="Pause agent">
+                <Button variant="ghost" size="icon-xs" aria-label="Pause agent" disabled title="Agent pause is not exposed by the current API">
                   <Pause class="size-3.5" />
                 </Button>
               {:else}
-                <Button variant="ghost" size="icon-xs" aria-label="Resume agent">
+                <Button variant="ghost" size="icon-xs" aria-label="Resume agent" disabled title="Agent resume is not exposed by the current API">
                   <Play class="size-3.5" />
                 </Button>
               {/if}

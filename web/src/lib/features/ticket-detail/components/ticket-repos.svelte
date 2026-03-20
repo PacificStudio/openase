@@ -78,7 +78,7 @@
           {#if scope.ciStatus}
             {@const ci = ciStatusConfig[scope.ciStatus]}
             {#if ci}
-              <svelte:component this={ci.icon} class={cn('size-3.5 ml-auto', ci.class)} />
+              <ci.icon class={cn('size-3.5 ml-auto', ci.class)} />
             {/if}
           {/if}
         </div>

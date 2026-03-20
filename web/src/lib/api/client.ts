@@ -45,6 +45,7 @@ async function request<T>(method: string, path: string, opts: FetchOptions = {})
 export const api = {
   get: <T>(path: string, opts?: FetchOptions) => request<T>('GET', path, opts),
   post: <T>(path: string, opts?: FetchOptions) => request<T>('POST', path, opts),
+  put: <T>(path: string, opts?: FetchOptions) => request<T>('PUT', path, opts),
   patch: <T>(path: string, opts?: FetchOptions) => request<T>('PATCH', path, opts),
   delete: <T>(path: string, opts?: FetchOptions) => request<T>('DELETE', path, opts),
 }
