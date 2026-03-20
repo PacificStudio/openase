@@ -10,11 +10,11 @@ pnpm run dev
 pnpm run build
 pnpm run lint
 pnpm run format:check
-pnpm run check:svelte
+pnpm run check
 ```
 
 ## Quality Gates
 
 - `pnpm run lint` runs ESLint across Svelte, TypeScript, and config files.
 - `pnpm run format` / `pnpm run format:check` apply or verify Prettier formatting.
-- `pnpm run check:svelte` runs `svelte-check` against the workspace TypeScript config.
+- `pnpm run check` runs `svelte-check` against the workspace TypeScript config.

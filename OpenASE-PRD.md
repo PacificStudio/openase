@@ -1164,7 +1164,7 @@ ticket_hooks:
     - cmd: "git fetch origin && git checkout -b agent/{{ agent.name }}/{{ ticket.identifier }} origin/main"
       timeout: 60
     - cmd: "pnpm install --frozen-lockfile"
-      workdir: "frontend"
+      workdir: "web"
       timeout: 300
   on_complete:
     - cmd: "bash scripts/ci/run-tests.sh"
@@ -1237,7 +1237,7 @@ your-project/
 ticket_hooks:
   on_claim:
     - cmd: "pnpm install --frozen-lockfile"
-      workdir: "frontend"    # /workspaces/ASE-42/frontend/
+      workdir: "web"         # /workspaces/ASE-42/web/
     - cmd: "go mod download"
       workdir: "backend"     # /workspaces/ASE-42/backend/
 ```
@@ -3650,7 +3650,7 @@ hooks:
     - cmd: "git fetch origin && git checkout -b {{ git.branch_pattern }} origin/{{ project.default_branch }}"
       timeout: 60
     - cmd: "pnpm install --frozen-lockfile"
-      workdir: "frontend"
+      workdir: "web"
       timeout: 300
       on_failure: warn
   on_complete:
