@@ -1,4 +1,4 @@
-import type { HarnessVariableGroup, HarnessVariableMetadata } from './types'
+import type { HarnessVariableGroup, HarnessVariableMetadata } from '../types'
 
 export type Suggestion = {
   id: string
@@ -77,7 +77,7 @@ export function findCompletionState(rawContent: string, cursor: number): Complet
     }
   }
 
-  const match = segment.match(/([A-Za-z_][\w.[\]]*)?$/)
+  const match = segment.match(/([A-Za-z_][A-Za-z0-9_.[\]]*)?$/)
   if (!match) {
     return null
   }

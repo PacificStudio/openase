@@ -2,8 +2,12 @@
   import { tick } from 'svelte'
   import { cn } from '$lib/utils'
   import { FileCode, Copy, Check } from '@lucide/svelte'
-  import { filterSuggestions, findCompletionState, flattenSuggestions } from '../harness-completion'
-  import type { CompletionState, Suggestion } from '../harness-completion'
+  import {
+    filterSuggestions,
+    findCompletionState,
+    flattenSuggestions,
+  } from './harness-editor-autocomplete'
+  import type { CompletionState, Suggestion } from './harness-editor-autocomplete'
   import type { HarnessContent, HarnessVariableGroup } from '../types'
 
   let {
@@ -37,12 +41,10 @@
   })
 
   $effect(() => {
-    const resetForFilePath = filePath
-    if (resetForFilePath !== undefined) {
-      // Reset completion state when the editor switches to a different harness file.
+    if (filePath !== undefined) {
+      completionState = null
+      activeSuggestionIndex = 0
     }
-    completionState = null
-    activeSuggestionIndex = 0
   })
 
   function handleInput(e: Event) {
