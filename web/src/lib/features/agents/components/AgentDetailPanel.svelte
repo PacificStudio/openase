@@ -51,18 +51,22 @@
 
       <div class="grid gap-3 sm:grid-cols-2">
         <div class="border-border/70 bg-background/60 rounded-2xl border px-4 py-3">
-          <div class="text-muted-foreground flex items-center gap-2 text-xs tracking-[0.18em] uppercase">
+          <div
+            class="text-muted-foreground flex items-center gap-2 text-xs tracking-[0.18em] uppercase"
+          >
             <Ticket class="size-3.5" />
             Current ticket
           </div>
           <p class="mt-2 text-sm font-semibold">{agent.current_ticket_id ?? 'Idle queue'}</p>
         </div>
         <div class="border-border/70 bg-background/60 rounded-2xl border px-4 py-3">
-          <div class="text-muted-foreground flex items-center gap-2 text-xs tracking-[0.18em] uppercase">
+          <div
+            class="text-muted-foreground flex items-center gap-2 text-xs tracking-[0.18em] uppercase"
+          >
             <FolderGit2 class="size-3.5" />
             Workspace
           </div>
-          <p class="mt-2 break-all text-sm font-semibold">{agent.workspace_path}</p>
+          <p class="mt-2 text-sm font-semibold break-all">{agent.workspace_path}</p>
         </div>
       </div>
 
@@ -77,7 +81,7 @@
         </div>
         <div class="border-border/70 bg-background/60 rounded-2xl border px-4 py-3">
           <p class="text-muted-foreground text-xs tracking-[0.18em] uppercase">Session</p>
-          <p class="mt-2 break-all text-sm font-semibold">{agent.session_id}</p>
+          <p class="mt-2 text-sm font-semibold break-all">{agent.session_id}</p>
         </div>
       </div>
 

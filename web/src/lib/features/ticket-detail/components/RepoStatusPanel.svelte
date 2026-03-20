@@ -61,7 +61,9 @@
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="space-y-2">
               <div class="flex flex-wrap items-center gap-2">
-                <p class="text-foreground text-sm font-semibold">{scope.repo?.name ?? scope.repo_id}</p>
+                <p class="text-foreground text-sm font-semibold">
+                  {scope.repo?.name ?? scope.repo_id}
+                </p>
                 {#if scope.is_primary_scope}
                   <Badge variant="secondary">primary</Badge>
                 {/if}
@@ -77,7 +79,8 @@
                 </span>
               </div>
               <p class="text-muted-foreground text-xs">
-                Branch `{scope.branch_name}` on {scope.repo?.default_branch ?? 'unknown default branch'}
+                Branch `{scope.branch_name}` on {scope.repo?.default_branch ??
+                  'unknown default branch'}
               </p>
             </div>
 

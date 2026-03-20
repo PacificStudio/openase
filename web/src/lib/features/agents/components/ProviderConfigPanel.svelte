@@ -68,7 +68,8 @@
             <div>
               <p class="text-muted-foreground text-xs tracking-[0.18em] uppercase">CLI</p>
               <p class="mt-2 text-sm font-semibold">
-                {provider.cli_command} {provider.cli_args.join(' ')}
+                {provider.cli_command}
+                {provider.cli_args.join(' ')}
               </p>
             </div>
             <div>

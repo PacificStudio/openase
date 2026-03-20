@@ -1,8 +1,6 @@
 import type { WorkspaceStartOptions } from './controller.svelte'
 
-export function readWorkspaceRouteSelection(
-  searchParams: URLSearchParams,
-): WorkspaceStartOptions {
+export function readWorkspaceRouteSelection(searchParams: URLSearchParams): WorkspaceStartOptions {
   return {
     preferredOrgId: readNonEmptyQuery(searchParams, 'org'),
     preferredProjectId: readNonEmptyQuery(searchParams, 'project'),

@@ -78,7 +78,9 @@
       {:else}
         <div class="mt-2 space-y-2">
           {#each detail.ticket.dependencies as dependency}
-            <div class="flex items-center justify-between gap-3 rounded-2xl border border-white/50 px-3 py-2">
+            <div
+              class="flex items-center justify-between gap-3 rounded-2xl border border-white/50 px-3 py-2"
+            >
               <span class="font-medium">
                 {dependency.target.identifier} · {dependency.target.title}
               </span>
