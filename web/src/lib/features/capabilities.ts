@@ -67,9 +67,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'Agent resume stays disabled because no resume endpoint is exported yet.',
   },
   repositoriesSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Repository CRUD routes are available, but repository settings screens have not been wired in this frontend slice yet.',
+      'Repository settings now wire project repo list/create/update/delete flows and primary repo management to the existing catalog API.',
   },
   statusesSettings: {
     state: 'unwired',
