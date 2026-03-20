@@ -70,7 +70,58 @@ func buildRoleTemplate(slug string, name string, workflowType string, summary st
 	}
 }
 
+func buildDispatcherRoleTemplate() RoleTemplate {
+	content := strings.TrimSpace(`
+---
+workflow:
+  name: "Dispatcher"
+  type: "custom"
+  role: "dispatcher"
+status:
+  pickup: "Backlog"
+  finish: "Backlog"
+agent:
+  max_turns: 5
+  timeout_minutes: 5
+  max_budget_usd: 0.50
+platform_access:
+  allowed:
+    - "tickets.update.self"
+    - "tickets.create"
+    - "tickets.list"
+    - "tickets.link"
+    - "machines.list"
+---
+
+# Dispatcher
+
+Evaluate Backlog tickets, choose the best role workflow, and move each ticket into the correct pickup column.
+
+## Responsibilities
+
+- Read the ticket and decide whether it should move to coding, test, doc, security, deploy, or stay in Backlog.
+- Use project.workflows, project.statuses, and project.machines to make assignment decisions from current project state.
+- Split oversized tickets into smaller children instead of assigning ambiguous multi-role work to one workflow.
+- Leave the ticket in Backlog with a clear explanation when the request is underspecified.
+
+## Delivery Standard
+
+- Prefer the narrowest confident assignment over speculative routing.
+- Make every state change explainable from the ticket content and available project capacity.
+`) + "\n"
+
+	return RoleTemplate{
+		Slug:         "dispatcher",
+		Name:         "Dispatcher",
+		WorkflowType: "custom",
+		Summary:      "Evaluate Backlog tickets, choose the best role workflow, and move each ticket into the correct pickup column.",
+		HarnessPath:  filepath.ToSlash(filepath.Join(".openase", "harnesses", "roles", "dispatcher.md")),
+		Content:      content,
+	}
+}
+
 var builtinRoles = []RoleTemplate{
+	buildDispatcherRoleTemplate(),
 	buildRoleTemplate(
 		"fullstack-developer",
 		"Fullstack Developer",

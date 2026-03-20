@@ -8281,6 +8281,9 @@ Layer 0 (基座，无依赖)
   F01 Go 脚手架
   F02 ent Schema + 迁移
   F03 SvelteKit 脚手架 + go:embed
+  F71 lefthook pre-commit 配置 → F01
+  F72 golangci-lint + depguard 架构守卫 → F71
+  F73 SvelteKit ESLint + Prettier + svelte-check → F03, F71
 
 Layer 1 (核心 CRUD，依赖 Layer 0)
   F04 Org/Project CRUD → F01, F02
@@ -8363,14 +8366,11 @@ Layer 9 (多机器，依赖 Layer 2)
   F65 Environment Provisioner Agent → F62, F41, F61
   F66 Machine 管理 UI → F03, F59, F60
 
-Layer 10 (可观测性 + 工程规范)
+Layer 10 (可观测性 + 后期治理)
   F67 OTel TraceProvider 实现 → F01
   F68 OTel MetricsProvider 实现 → F01
   F69 内存 Metrics + Web UI 仪表盘 → F68, F03
   F70 成本追踪 (Token 消耗 + 预算) → F12, F68
-  F71 lefthook pre-commit 配置 → F01
-  F72 golangci-lint + depguard 架构守卫 → F71
-  F73 SvelteKit ESLint + Prettier + svelte-check → F03, F71
   F74 Conventional Commits 校验 → F71
 
 Layer 11 (企业级 + 开放生态)
@@ -8385,13 +8385,16 @@ Layer 11 (企业级 + 开放生态)
 
 ### 36.2 任务清单（按依赖拓扑排序）
 
-**Layer 0 — 基座（可并行，第 1-2 周）**
+**Layer 0 — 基座 + 工程基线（可并行，第 1-2 周，F71-F73 在第 1 周优先完成）**
 
 | ID | 任务 | 工作量 | 依赖 | PRD 章节 |
 |----|------|--------|------|---------|
 | F01 | Go 项目脚手架：cobra CLI + Echo 路由 + viper 配置 + slog 日志 | 3d | 无 | 5 |
 | F02 | ent Schema 全量定义 + atlas 迁移 + 数据库索引 | 5d | 无 | 6, 20 |
 | F03 | SvelteKit 脚手架 + Tailwind + shadcn-svelte + `go:embed` 集成 | 3d | 无 | 5 |
+| F71 | lefthook 配置 + Makefile | 1d | F01 | 15 |
+| F72 | golangci-lint 严格配置 + depguard 架构守卫 | 1d | F71 | 15 |
+| F73 | SvelteKit ESLint + Prettier + svelte-check | 1d | F03, F71 | 15 |
 
 **Layer 1 — 核心 CRUD（第 2-4 周）**
 
@@ -8501,7 +8504,7 @@ Layer 11 (企业级 + 开放生态)
 | F65 | Environment Provisioner Agent（SSH + 预设 Skill 修复环境） | 3d | F62, F41, F61 | 25 |
 | F66 | Machine 管理 UI | 3d | F03, F59, F60 | 25 |
 
-**Layer 10 — 可观测性 + 工程规范（可随时插入）**
+**Layer 10 — 可观测性 + 后期治理（可随时插入，主要在后期完成）**
 
 | ID | 任务 | 工作量 | 依赖 | PRD 章节 |
 |----|------|--------|------|---------|
@@ -8509,9 +8512,6 @@ Layer 11 (企业级 + 开放生态)
 | F68 | OTel MetricsProvider 实现（Counter / Histogram / Gauge + 导出） | 3d | F01 | 9 |
 | F69 | 内存 Metrics + Web UI 仪表盘（工单吞吐 / 成本 / Agent 利用率） | 4d | F68, F03 | 9, 13 |
 | F70 | 成本追踪（Token 消耗记录 + 预算告警 + 自动熔断） | 3d | F12, F68 | 9 |
-| F71 | lefthook 配置 + Makefile | 1d | F01 | 15 |
-| F72 | golangci-lint 严格配置 + depguard 架构守卫 | 1d | F71 | 15 |
-| F73 | SvelteKit ESLint + Prettier + svelte-check | 1d | F03, F71 | 15 |
 | F74 | Conventional Commits 校验（commit-msg hook） | 0.5d | F71 | 15 |
 
 **Layer 11 — 企业级 + 开放生态（第 18-26 周）**
@@ -8537,7 +8537,7 @@ F01 → F02 → F04 → F06 → F11 → F12 → F13 → F33 → F62
 并行路径:
 F03 → F24 → F28 → F30 (前端 + Onboarding = 18d)
 F21 → F22 → F23 (SSE = 8d)
-F71 → F72 (工程规范 = 2d，可在 Week 1 完成)
+F71 → F72 与 F03 → F73 (工程规范基线 = 2-3d，第 1 周优先完成，随后全程护航)
 ```
 
 **Phase 1 里程碑（Week 8）：** F01-F32 全部完成，一个用户可以 `openase up` → Setup Wizard → 创建工单 → Claude Code Agent 自动编码 → 看板实时更新 → 工单完成。
@@ -8546,7 +8546,7 @@ F71 → F72 (工程规范 = 2d，可在 Week 1 完成)
 
 **Phase 3 里程碑（Week 18）：** 加上 F51-F66，Ephemeral Chat + 定时任务 + 多机器 + 审批 全部可用。
 
-**Phase 4 里程碑（Week 26）：** 加上 F67-F81，可观测性 + 企业级 + 开放 API 全部可用。
+**Phase 4 里程碑（Week 26）：** 加上 F67-F70、F74-F81，可观测性 + 企业级 + 开放 API 全部可用；F71-F73 已在前期作为工程基线完成。
 
 ### 36.4 并行开发建议
 
@@ -8554,9 +8554,9 @@ F71 → F72 (工程规范 = 2d，可在 Week 1 完成)
 
 | 开发者 | Week 1-4 | Week 5-8 | Week 9-12 | Week 13-16 |
 |--------|---------|---------|----------|----------|
-| **后端 A** | F01, F02, F04, F06 | F11, F12, F13, F15 | F37, F38, F40, F42 | F59, F62, F63 |
+| **后端 A** | F01, F02, F71, F72, F04, F06 | F11, F12, F13, F15 | F37, F38, F40, F42 | F59, F62, F63 |
 | **后端 B** | F09, F10, F05, F07 | F14, F17, F18, F19, F20, F21 | F34, F35, F36, F47, F48 | F44, F45, F56, F54 |
-| **前端** | F03, F71-F74 | F22, F23, F24, F25, F26, F27 | F28, F30, F31, F32, F41 | F46, F50, F51, F52, F53, F55 |
+| **前端** | F03, F73, F74, F22 预研 | F22, F23, F24, F25, F26, F27 | F28, F30, F31, F32, F41 | F46, F50, F51, F52, F53, F55 |
 
 ---
 

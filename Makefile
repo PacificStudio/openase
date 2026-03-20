@@ -4,11 +4,13 @@ WEB_DIR := web
 GO ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/go" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/go"; elif command -v go >/dev/null 2>&1; then command -v go; else printf '%s' "go"; fi)
 GOFMT ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/gofmt" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/gofmt"; elif command -v gofmt >/dev/null 2>&1; then command -v gofmt; else printf '%s' "gofmt"; fi)
 NPM ?= npm
+LINT_SCRIPT := ./scripts/ci/lint.sh
 OPENASE_MAIN := ./cmd/openase
+OPENASE_BIN := ./bin/openase
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test check hooks-install hooks-run web-install web-check web-build build build-web run doctor
+.PHONY: help format fmt-check test check hooks-install hooks-run web-install web-check web-build build build-web run doctor lint lint-all lint-depguard
 
 help:
 	@printf '%s\n' \
@@ -25,7 +27,10 @@ help:
 		'  make build         Build openase from committed embedded assets' \
 		'  make build-web     Rebuild frontend assets, then build openase' \
 		'  make run           Run the API server with committed embedded assets' \
-		'  make doctor        Run local environment diagnostics'
+		'  make doctor        Run local environment diagnostics' \
+		'  make lint          Run lint on changes since merge-base with origin/main' \
+		'  make lint-all      Run the full lint suite' \
+		'  make lint-depguard Run only depguard lint checks'
 
 format:
 	@files="$$(git ls-files '*.go')"; \
@@ -85,7 +90,8 @@ web-build: web-install
 	$(NPM) --prefix $(WEB_DIR) run build
 
 build:
-	$(GO) build $(OPENASE_MAIN)
+	@mkdir -p $(dir $(OPENASE_BIN))
+	$(GO) build -o $(OPENASE_BIN) $(OPENASE_MAIN)
 
 build-web: web-build build
 
@@ -94,3 +100,12 @@ run:
 
 doctor:
 	$(GO) run $(OPENASE_MAIN) doctor
+
+lint:
+	OPENASE_LINT_NEW_FROM_REV=$${LINT_BASE_REV:-$$(git merge-base origin/main HEAD)} $(LINT_SCRIPT)
+
+lint-all:
+	$(LINT_SCRIPT)
+
+lint-depguard:
+	$(LINT_SCRIPT) --enable-only=depguard ./...

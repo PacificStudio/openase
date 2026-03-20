@@ -449,6 +449,7 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
 
@@ -459,6 +460,8 @@ status:
   pickup: "Todo"
   finish: "Done"
 ---
+Implement product changes end to end.
+
 Ticket {{ ticket.identifier }} {{ ticket.title | markdown_escape }}
 Status {{ ticket.status }} parent={{ ticket.parent_identifier }} attempts={{ attempt }}/{{ max_attempts }}
 Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].relation }}
@@ -468,6 +471,9 @@ All {{ all_repos | map(attribute="name") | join(",") }}
 Agent {{ agent.name }} {{ agent.provider }} {{ agent.adapter_type }} {{ agent.model }} {{ agent.total_tickets_completed }}
 Machine {{ machine.name }} {{ accessible_machines[0].ssh_user }}
 Workflow {{ workflow.name }} {{ workflow.type }} {{ workflow.role_name }} {{ workflow.pickup_status }} {{ workflow.finish_status }}
+ProjectWorkflows {% for wf in project.workflows %}{{ wf.role_name }}:{{ wf.pickup_status }}:{{ wf.current_active }}/{{ wf.max_concurrent }}:{{ wf.role_description }}|{% endfor %}
+ProjectStatuses {{ project.statuses | map(attribute="name") | join(",") }} first={{ project.statuses[0].color }}
+ProjectMachines {% for machine in project.machines %}{{ machine.name }}:{{ machine.status }}:{{ machine.labels | join(",") }}|{% endfor %}
 Platform {{ platform.api_url }} {{ platform.project_id }} {{ platform.ticket_id }}
 Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 {% if attempt > 1 %}retry{% endif %}
@@ -489,6 +495,22 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	})
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
+	}
+	if _, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
+		ProjectID:           project.ID,
+		Name:                "Dispatcher Workflow",
+		Type:                "custom",
+		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Backlog\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
+		Hooks:               map[string]any{},
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      5,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusID:      backlogID,
+		FinishStatusID:      &backlogID,
+	}); err != nil {
+		t.Fatalf("create dispatcher workflow: %v", err)
 	}
 
 	if _, err := client.ProjectRepo.Create().
@@ -529,6 +551,19 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
+	}
+	if _, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-40").
+		SetTitle("Implement auth boundary parsing").
+		SetStatusID(todoID).
+		SetPriority(entticket.PriorityMedium).
+		SetType(entticket.TypeFeature).
+		SetCreatedBy("user:gary").
+		SetWorkflowID(createdWorkflow.ID).
+		SetAssignedAgentID(agent.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("create active workflow ticket: %v", err)
 	}
 
 	parentTicket, err := client.Ticket.Create().
@@ -644,6 +679,9 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Agent claude-01 Claude Code claude-code-cli claude-sonnet-4-6 47",
 		"Machine gpu-01 openase",
 		"Workflow Coding Workflow coding fullstack-developer Todo Done",
+		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
+		"ProjectStatuses Backlog,Todo,In Progress,In Review,Done,Cancelled first=#6B7280",
+		"ProjectMachines gpu-01:current:gpu,a100|storage:accessible:storage,nfs|",
 		fmt.Sprintf("Platform http://localhost:19836/api/v1 %s %s", project.ID, ticketItem.ID),
 		"Timestamp 2026-03-20T10:30:00Z Version 0.3.1 URL http://localhost:19836/tickets/ASE-42",
 		"retry",
