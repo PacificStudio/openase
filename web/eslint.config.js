@@ -50,12 +50,6 @@ export default defineConfig(
     },
   },
   {
-    files: ['src/lib/components/harness-editor.svelte'],
-    rules: {
-      'svelte/no-at-html-tags': 'off',
-    },
-  },
-  {
     files: ['**/*.{js,cjs,mjs,ts}'],
     rules: {
       'no-console': ['warn', { allow: ['warn', 'error'] }],

@@ -121,7 +121,9 @@
     <pre
       bind:this={overlay}
       class="pointer-events-none absolute inset-0 overflow-auto p-5 font-mono text-[13px] leading-6 break-words whitespace-pre-wrap"
-      aria-hidden="true"><!-- eslint-disable-next-line svelte/no-at-html-tags -->{@html `${highlightedMarkup}<br />`}</pre>
+      aria-hidden="true">
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+      {@html `${highlightedMarkup}<br />`}</pre>
     <textarea
       bind:value
       class="relative z-10 h-[30rem] w-full resize-none overflow-auto bg-transparent p-5 font-mono text-[13px] leading-6 text-transparent caret-white outline-none selection:bg-sky-300/30"

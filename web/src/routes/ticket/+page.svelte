@@ -13,6 +13,7 @@
   } from '@lucide/svelte'
   import { connectEventStream, type SSEFrame, type StreamConnectionState } from '$lib/api/sse'
   import { Badge } from '$lib/components/ui/badge'
+  import MetadataViewer from '$lib/components/metadata-viewer.svelte'
   import {
     Card,
     CardContent,
@@ -672,14 +673,7 @@
                     <p class="text-foreground mt-3 text-sm leading-6">
                       {item.message || 'No message payload.'}
                     </p>
-                    {#if Object.keys(item.metadata).length > 0}
-                      <pre
-                        class="border-border/70 bg-muted/25 text-muted-foreground mt-3 overflow-x-auto rounded-2xl border p-3 text-[11px]">{JSON.stringify(
-                          item.metadata,
-                          null,
-                          2,
-                        )}</pre>
-                    {/if}
+                    <MetadataViewer metadata={item.metadata} />
                   </div>
                 {/each}
               {/if}
@@ -721,14 +715,7 @@
                     <p class="text-foreground mt-3 text-sm leading-6">
                       {item.message || 'No message payload.'}
                     </p>
-                    {#if Object.keys(item.metadata).length > 0}
-                      <pre
-                        class="border-border/70 bg-muted/25 text-muted-foreground mt-3 overflow-x-auto rounded-2xl border p-3 text-[11px]">{JSON.stringify(
-                          item.metadata,
-                          null,
-                          2,
-                        )}</pre>
-                    {/if}
+                    <MetadataViewer metadata={item.metadata} />
                   </div>
                 {/each}
               {/if}
