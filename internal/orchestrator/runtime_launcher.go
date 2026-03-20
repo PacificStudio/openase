@@ -702,16 +702,18 @@ func machineCodexReady(resources map[string]any) (bool, string, bool) {
 
 	installed := anyToBool(codexMap["installed"])
 	authStatus := strings.TrimSpace(fmt.Sprint(codexMap["auth_status"]))
-	ready := installed && !strings.EqualFold(authStatus, "not_logged_in")
 	if rawReady, exists := codexMap["ready"]; exists {
-		ready = anyToBool(rawReady)
-	}
-	if ready {
+		if anyToBool(rawReady) {
+			return true, "", true
+		}
+	} else if installed && !strings.EqualFold(authStatus, "not_logged_in") {
 		return true, "", true
 	}
+
 	if !installed {
 		return false, "codex cli is not installed", true
 	}
+
 	if strings.EqualFold(authStatus, "not_logged_in") {
 		return false, "codex cli is not logged in", true
 	}
