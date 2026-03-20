@@ -1,0 +1,795 @@
+package ticket
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/BetterAndBetterII/openase/ent"
+	"github.com/BetterAndBetterII/openase/ent/project"
+	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/google/uuid"
+)
+
+const (
+	defaultCreatedBy        = "user:api"
+	defaultIdentifierPrefix = "ASE"
+)
+
+var (
+	ErrUnavailable          = errors.New("ticket service unavailable")
+	ErrProjectNotFound      = errors.New("project not found")
+	ErrTicketNotFound       = errors.New("ticket not found")
+	ErrStatusNotFound       = errors.New("ticket status not found")
+	ErrWorkflowNotFound     = errors.New("workflow not found")
+	ErrParentTicketNotFound = errors.New("parent ticket not found")
+	ErrDependencyNotFound   = errors.New("ticket dependency not found")
+	ErrDependencyConflict   = errors.New("ticket dependency already exists")
+	ErrInvalidDependency    = errors.New("invalid ticket dependency")
+)
+
+type Optional[T any] struct {
+	Set   bool
+	Value T
+}
+
+func Some[T any](value T) Optional[T] {
+	return Optional[T]{Set: true, Value: value}
+}
+
+type TicketReference struct {
+	ID         uuid.UUID `json:"id"`
+	Identifier string    `json:"identifier"`
+	Title      string    `json:"title"`
+	StatusID   uuid.UUID `json:"status_id"`
+	StatusName string    `json:"status_name"`
+}
+
+type Dependency struct {
+	ID     uuid.UUID                `json:"id"`
+	Type   entticketdependency.Type `json:"type"`
+	Target TicketReference          `json:"target"`
+}
+
+type Ticket struct {
+	ID           uuid.UUID          `json:"id"`
+	ProjectID    uuid.UUID          `json:"project_id"`
+	Identifier   string             `json:"identifier"`
+	Title        string             `json:"title"`
+	Description  string             `json:"description"`
+	StatusID     uuid.UUID          `json:"status_id"`
+	StatusName   string             `json:"status_name"`
+	Priority     entticket.Priority `json:"priority"`
+	Type         entticket.Type     `json:"type"`
+	WorkflowID   *uuid.UUID         `json:"workflow_id,omitempty"`
+	CreatedBy    string             `json:"created_by"`
+	Parent       *TicketReference   `json:"parent,omitempty"`
+	Children     []TicketReference  `json:"children"`
+	Dependencies []Dependency       `json:"dependencies"`
+	ExternalRef  string             `json:"external_ref"`
+	BudgetUSD    float64            `json:"budget_usd"`
+	CreatedAt    time.Time          `json:"created_at"`
+}
+
+type ListInput struct {
+	ProjectID   uuid.UUID
+	StatusNames []string
+	Priorities  []entticket.Priority
+	Limit       int
+}
+
+type CreateInput struct {
+	ProjectID      uuid.UUID
+	Title          string
+	Description    string
+	StatusID       *uuid.UUID
+	Priority       entticket.Priority
+	Type           entticket.Type
+	WorkflowID     *uuid.UUID
+	CreatedBy      string
+	ParentTicketID *uuid.UUID
+	ExternalRef    string
+	BudgetUSD      float64
+}
+
+type UpdateInput struct {
+	TicketID       uuid.UUID
+	Title          Optional[string]
+	Description    Optional[string]
+	StatusID       Optional[uuid.UUID]
+	Priority       Optional[entticket.Priority]
+	Type           Optional[entticket.Type]
+	WorkflowID     Optional[*uuid.UUID]
+	CreatedBy      Optional[string]
+	ParentTicketID Optional[*uuid.UUID]
+	ExternalRef    Optional[string]
+	BudgetUSD      Optional[float64]
+}
+
+type AddDependencyInput struct {
+	TicketID       uuid.UUID
+	TargetTicketID uuid.UUID
+	Type           entticketdependency.Type
+}
+
+type DeleteDependencyResult struct {
+	DeletedDependencyID uuid.UUID `json:"deleted_dependency_id"`
+}
+
+type Service struct {
+	client *ent.Client
+}
+
+func NewService(client *ent.Client) *Service {
+	return &Service{client: client}
+}
+
+func (s *Service) List(ctx context.Context, input ListInput) ([]Ticket, error) {
+	if s.client == nil {
+		return nil, ErrUnavailable
+	}
+	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
+		return nil, err
+	}
+
+	query := s.client.Ticket.Query().
+		Where(entticket.ProjectIDEQ(input.ProjectID)).
+		Order(ent.Asc(entticket.FieldCreatedAt), ent.Asc(entticket.FieldIdentifier)).
+		WithStatus().
+		WithParent(func(query *ent.TicketQuery) {
+			query.WithStatus()
+		})
+
+	if len(input.StatusNames) > 0 {
+		query = query.Where(entticket.HasStatusWith(entticketstatus.NameIn(input.StatusNames...)))
+	}
+	if len(input.Priorities) > 0 {
+		query = query.Where(entticket.PriorityIn(input.Priorities...))
+	}
+	if input.Limit > 0 {
+		query = query.Limit(input.Limit)
+	}
+
+	items, err := query.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list tickets: %w", err)
+	}
+
+	tickets := make([]Ticket, 0, len(items))
+	for _, item := range items {
+		tickets = append(tickets, mapTicket(item))
+	}
+
+	return tickets, nil
+}
+
+func (s *Service) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
+	if s.client == nil {
+		return Ticket{}, ErrUnavailable
+	}
+
+	item, err := s.client.Ticket.Query().
+		Where(entticket.ID(ticketID)).
+		WithStatus().
+		WithParent(func(query *ent.TicketQuery) {
+			query.WithStatus()
+		}).
+		WithChildren(func(query *ent.TicketQuery) {
+			query.Order(ent.Asc(entticket.FieldCreatedAt), ent.Asc(entticket.FieldIdentifier)).WithStatus()
+		}).
+		WithOutgoingDependencies(func(query *ent.TicketDependencyQuery) {
+			query.Order(ent.Asc(entticketdependency.FieldType), ent.Asc(entticketdependency.FieldTargetTicketID)).
+				WithTargetTicket(func(ticketQuery *ent.TicketQuery) {
+					ticketQuery.WithStatus()
+				})
+		}).
+		Only(ctx)
+	if err != nil {
+		return Ticket{}, s.mapTicketReadError("get ticket", err)
+	}
+
+	return mapTicket(item), nil
+}
+
+func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error) {
+	if s.client == nil {
+		return Ticket{}, ErrUnavailable
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Ticket{}, fmt.Errorf("start ticket create tx: %w", err)
+	}
+	defer rollback(tx)
+
+	if err := s.ensureProjectExistsTx(ctx, tx, input.ProjectID); err != nil {
+		return Ticket{}, err
+	}
+
+	statusID, err := s.resolveCreateStatusID(ctx, tx, input.ProjectID, input.StatusID)
+	if err != nil {
+		return Ticket{}, err
+	}
+	if input.WorkflowID != nil {
+		if err := ensureWorkflowBelongsToProject(ctx, tx, input.ProjectID, *input.WorkflowID); err != nil {
+			return Ticket{}, err
+		}
+	}
+	if input.ParentTicketID != nil {
+		if err := ensureTicketBelongsToProject(ctx, tx, input.ProjectID, *input.ParentTicketID, ErrParentTicketNotFound); err != nil {
+			return Ticket{}, err
+		}
+	}
+
+	identifier, err := nextTicketIdentifier(ctx, tx, input.ProjectID)
+	if err != nil {
+		return Ticket{}, err
+	}
+
+	builder := tx.Ticket.Create().
+		SetProjectID(input.ProjectID).
+		SetIdentifier(identifier).
+		SetTitle(input.Title).
+		SetDescription(input.Description).
+		SetStatusID(statusID).
+		SetPriority(input.Priority).
+		SetType(input.Type).
+		SetCreatedBy(resolveCreatedBy(input.CreatedBy)).
+		SetBudgetUsd(input.BudgetUSD)
+
+	if input.WorkflowID != nil {
+		builder.SetWorkflowID(*input.WorkflowID)
+	}
+	if input.ParentTicketID != nil {
+		builder.SetParentTicketID(*input.ParentTicketID)
+	}
+	if input.ExternalRef != "" {
+		builder.SetExternalRef(input.ExternalRef)
+	}
+
+	created, err := builder.Save(ctx)
+	if err != nil {
+		return Ticket{}, s.mapTicketWriteError("create ticket", err)
+	}
+
+	if input.ParentTicketID != nil {
+		if _, err := ensureSubIssueDependency(ctx, tx, created.ID, *input.ParentTicketID); err != nil {
+			return Ticket{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Ticket{}, fmt.Errorf("commit ticket create tx: %w", err)
+	}
+
+	return s.Get(ctx, created.ID)
+}
+
+func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error) {
+	if s.client == nil {
+		return Ticket{}, ErrUnavailable
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Ticket{}, fmt.Errorf("start ticket update tx: %w", err)
+	}
+	defer rollback(tx)
+
+	current, err := tx.Ticket.Get(ctx, input.TicketID)
+	if err != nil {
+		return Ticket{}, s.mapTicketReadError("get ticket for update", err)
+	}
+
+	builder := tx.Ticket.UpdateOneID(current.ID)
+
+	if input.Title.Set {
+		builder.SetTitle(input.Title.Value)
+	}
+	if input.Description.Set {
+		builder.SetDescription(input.Description.Value)
+	}
+	if input.StatusID.Set {
+		if err := ensureStatusBelongsToProject(ctx, tx, current.ProjectID, input.StatusID.Value); err != nil {
+			return Ticket{}, err
+		}
+		builder.SetStatusID(input.StatusID.Value)
+	}
+	if input.Priority.Set {
+		builder.SetPriority(input.Priority.Value)
+	}
+	if input.Type.Set {
+		builder.SetType(input.Type.Value)
+	}
+	if input.WorkflowID.Set {
+		if input.WorkflowID.Value == nil {
+			builder.ClearWorkflowID()
+		} else {
+			if err := ensureWorkflowBelongsToProject(ctx, tx, current.ProjectID, *input.WorkflowID.Value); err != nil {
+				return Ticket{}, err
+			}
+			builder.SetWorkflowID(*input.WorkflowID.Value)
+		}
+	}
+	if input.CreatedBy.Set {
+		builder.SetCreatedBy(resolveCreatedBy(input.CreatedBy.Value))
+	}
+	if input.ExternalRef.Set {
+		if strings.TrimSpace(input.ExternalRef.Value) == "" {
+			builder.ClearExternalRef()
+		} else {
+			builder.SetExternalRef(strings.TrimSpace(input.ExternalRef.Value))
+		}
+	}
+	if input.BudgetUSD.Set {
+		builder.SetBudgetUsd(input.BudgetUSD.Value)
+	}
+	if input.ParentTicketID.Set {
+		if input.ParentTicketID.Value == nil {
+			builder.ClearParentTicketID()
+		} else {
+			if *input.ParentTicketID.Value == current.ID {
+				return Ticket{}, ErrInvalidDependency
+			}
+			if err := ensureTicketBelongsToProject(ctx, tx, current.ProjectID, *input.ParentTicketID.Value, ErrParentTicketNotFound); err != nil {
+				return Ticket{}, err
+			}
+			if err := ensureParentDoesNotCreateCycle(ctx, tx, current.ID, *input.ParentTicketID.Value); err != nil {
+				return Ticket{}, err
+			}
+			builder.SetParentTicketID(*input.ParentTicketID.Value)
+		}
+	}
+
+	if _, err := builder.Save(ctx); err != nil {
+		return Ticket{}, s.mapTicketWriteError("update ticket", err)
+	}
+
+	if input.ParentTicketID.Set {
+		if err := syncSubIssueDependencies(ctx, tx, current.ID, input.ParentTicketID.Value); err != nil {
+			return Ticket{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Ticket{}, fmt.Errorf("commit ticket update tx: %w", err)
+	}
+
+	return s.Get(ctx, current.ID)
+}
+
+func (s *Service) AddDependency(ctx context.Context, input AddDependencyInput) (Dependency, error) {
+	if s.client == nil {
+		return Dependency{}, ErrUnavailable
+	}
+	if input.TicketID == input.TargetTicketID {
+		return Dependency{}, ErrInvalidDependency
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Dependency{}, fmt.Errorf("start add ticket dependency tx: %w", err)
+	}
+	defer rollback(tx)
+
+	source, err := tx.Ticket.Get(ctx, input.TicketID)
+	if err != nil {
+		return Dependency{}, s.mapTicketReadError("get source ticket", err)
+	}
+	if err := ensureTicketBelongsToProject(ctx, tx, source.ProjectID, input.TargetTicketID, ErrTicketNotFound); err != nil {
+		return Dependency{}, err
+	}
+
+	var dependency *ent.TicketDependency
+	if input.Type == entticketdependency.TypeSubIssue {
+		if err := ensureParentDoesNotCreateCycle(ctx, tx, source.ID, input.TargetTicketID); err != nil {
+			return Dependency{}, err
+		}
+		if _, err := tx.Ticket.UpdateOneID(source.ID).SetParentTicketID(input.TargetTicketID).Save(ctx); err != nil {
+			return Dependency{}, s.mapTicketWriteError("set ticket parent", err)
+		}
+		dependency, err = ensureSubIssueDependency(ctx, tx, source.ID, input.TargetTicketID)
+		if err != nil {
+			return Dependency{}, err
+		}
+	} else {
+		dependency, err = tx.TicketDependency.Create().
+			SetSourceTicketID(source.ID).
+			SetTargetTicketID(input.TargetTicketID).
+			SetType(input.Type).
+			Save(ctx)
+		if err != nil {
+			return Dependency{}, s.mapTicketWriteError("create ticket dependency", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Dependency{}, fmt.Errorf("commit add ticket dependency tx: %w", err)
+	}
+
+	dependency, err = s.client.TicketDependency.Query().
+		Where(entticketdependency.ID(dependency.ID)).
+		WithTargetTicket(func(query *ent.TicketQuery) {
+			query.WithStatus()
+		}).
+		Only(ctx)
+	if err != nil {
+		return Dependency{}, fmt.Errorf("reload ticket dependency: %w", err)
+	}
+
+	return mapDependency(dependency), nil
+}
+
+func (s *Service) RemoveDependency(ctx context.Context, ticketID uuid.UUID, dependencyID uuid.UUID) (DeleteDependencyResult, error) {
+	if s.client == nil {
+		return DeleteDependencyResult{}, ErrUnavailable
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return DeleteDependencyResult{}, fmt.Errorf("start delete ticket dependency tx: %w", err)
+	}
+	defer rollback(tx)
+
+	dependency, err := tx.TicketDependency.Query().
+		Where(
+			entticketdependency.ID(dependencyID),
+			entticketdependency.SourceTicketIDEQ(ticketID),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return DeleteDependencyResult{}, ErrDependencyNotFound
+		}
+		return DeleteDependencyResult{}, fmt.Errorf("get ticket dependency for delete: %w", err)
+	}
+
+	if dependency.Type == entticketdependency.TypeSubIssue {
+		source, sourceErr := tx.Ticket.Get(ctx, ticketID)
+		if sourceErr != nil {
+			return DeleteDependencyResult{}, s.mapTicketReadError("get ticket for dependency delete", sourceErr)
+		}
+		if source.ParentTicketID != nil && *source.ParentTicketID == dependency.TargetTicketID {
+			if _, err := tx.Ticket.UpdateOneID(ticketID).ClearParentTicketID().Save(ctx); err != nil {
+				return DeleteDependencyResult{}, s.mapTicketWriteError("clear ticket parent", err)
+			}
+		}
+	}
+
+	if err := tx.TicketDependency.DeleteOneID(dependencyID).Exec(ctx); err != nil {
+		return DeleteDependencyResult{}, s.mapTicketWriteError("delete ticket dependency", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return DeleteDependencyResult{}, fmt.Errorf("commit delete ticket dependency tx: %w", err)
+	}
+
+	return DeleteDependencyResult{DeletedDependencyID: dependencyID}, nil
+}
+
+func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) error {
+	exists, err := s.client.Project.Query().Where(project.ID(projectID)).Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check project existence: %w", err)
+	}
+	if !exists {
+		return ErrProjectNotFound
+	}
+
+	return nil
+}
+
+func (s *Service) ensureProjectExistsTx(ctx context.Context, tx *ent.Tx, projectID uuid.UUID) error {
+	exists, err := tx.Project.Query().Where(project.ID(projectID)).Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check project existence: %w", err)
+	}
+	if !exists {
+		return ErrProjectNotFound
+	}
+
+	return nil
+}
+
+func (s *Service) resolveCreateStatusID(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, inputStatusID *uuid.UUID) (uuid.UUID, error) {
+	if inputStatusID != nil {
+		if err := ensureStatusBelongsToProject(ctx, tx, projectID, *inputStatusID); err != nil {
+			return uuid.UUID{}, err
+		}
+		return *inputStatusID, nil
+	}
+
+	defaultStatus, err := tx.TicketStatus.Query().
+		Where(
+			entticketstatus.ProjectIDEQ(projectID),
+			entticketstatus.IsDefault(true),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return uuid.UUID{}, ErrStatusNotFound
+		}
+		return uuid.UUID{}, fmt.Errorf("get default project ticket status: %w", err)
+	}
+
+	return defaultStatus.ID, nil
+}
+
+func (s *Service) mapTicketReadError(action string, err error) error {
+	if ent.IsNotFound(err) {
+		return ErrTicketNotFound
+	}
+
+	return fmt.Errorf("%s: %w", action, err)
+}
+
+func (s *Service) mapTicketWriteError(action string, err error) error {
+	switch {
+	case ent.IsConstraintError(err):
+		return ErrDependencyConflict
+	case ent.IsNotFound(err):
+		return ErrTicketNotFound
+	default:
+		return fmt.Errorf("%s: %w", action, err)
+	}
+}
+
+func ensureStatusBelongsToProject(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, statusID uuid.UUID) error {
+	exists, err := tx.TicketStatus.Query().
+		Where(
+			entticketstatus.ID(statusID),
+			entticketstatus.ProjectIDEQ(projectID),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check ticket status existence: %w", err)
+	}
+	if !exists {
+		return ErrStatusNotFound
+	}
+
+	return nil
+}
+
+func ensureWorkflowBelongsToProject(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, workflowID uuid.UUID) error {
+	exists, err := tx.Workflow.Query().
+		Where(
+			entworkflow.ID(workflowID),
+			entworkflow.ProjectIDEQ(projectID),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check workflow existence: %w", err)
+	}
+	if !exists {
+		return ErrWorkflowNotFound
+	}
+
+	return nil
+}
+
+func ensureTicketBelongsToProject(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, ticketID uuid.UUID, notFound error) error {
+	exists, err := tx.Ticket.Query().
+		Where(
+			entticket.ID(ticketID),
+			entticket.ProjectIDEQ(projectID),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check ticket existence: %w", err)
+	}
+	if !exists {
+		return notFound
+	}
+
+	return nil
+}
+
+func ensureParentDoesNotCreateCycle(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID, parentTicketID uuid.UUID) error {
+	if ticketID == parentTicketID {
+		return ErrInvalidDependency
+	}
+
+	seen := map[uuid.UUID]struct{}{ticketID: {}}
+	currentID := parentTicketID
+	for currentID != uuid.Nil {
+		if _, ok := seen[currentID]; ok {
+			return ErrInvalidDependency
+		}
+		seen[currentID] = struct{}{}
+
+		current, err := tx.Ticket.Get(ctx, currentID)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return ErrParentTicketNotFound
+			}
+			return fmt.Errorf("load ticket parent chain: %w", err)
+		}
+		if current.ParentTicketID == nil {
+			return nil
+		}
+		currentID = *current.ParentTicketID
+	}
+
+	return nil
+}
+
+func syncSubIssueDependencies(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID, parentTicketID *uuid.UUID) error {
+	existing, err := tx.TicketDependency.Query().
+		Where(
+			entticketdependency.SourceTicketIDEQ(ticketID),
+			entticketdependency.TypeEQ(entticketdependency.TypeSubIssue),
+		).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("query sub-issue dependencies: %w", err)
+	}
+
+	keepID := uuid.Nil
+	if parentTicketID != nil {
+		for _, dependency := range existing {
+			if dependency.TargetTicketID == *parentTicketID {
+				keepID = dependency.ID
+				break
+			}
+		}
+	}
+
+	for _, dependency := range existing {
+		if dependency.ID == keepID {
+			continue
+		}
+		if err := tx.TicketDependency.DeleteOneID(dependency.ID).Exec(ctx); err != nil {
+			return fmt.Errorf("delete stale sub-issue dependency: %w", err)
+		}
+	}
+
+	if parentTicketID == nil || keepID != uuid.Nil {
+		return nil
+	}
+
+	_, err = tx.TicketDependency.Create().
+		SetSourceTicketID(ticketID).
+		SetTargetTicketID(*parentTicketID).
+		SetType(entticketdependency.TypeSubIssue).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("create sub-issue dependency: %w", err)
+	}
+
+	return nil
+}
+
+func ensureSubIssueDependency(ctx context.Context, tx *ent.Tx, sourceTicketID uuid.UUID, targetTicketID uuid.UUID) (*ent.TicketDependency, error) {
+	if err := syncSubIssueDependencies(ctx, tx, sourceTicketID, &targetTicketID); err != nil {
+		return nil, err
+	}
+
+	dependency, err := tx.TicketDependency.Query().
+		Where(
+			entticketdependency.SourceTicketIDEQ(sourceTicketID),
+			entticketdependency.TargetTicketIDEQ(targetTicketID),
+			entticketdependency.TypeEQ(entticketdependency.TypeSubIssue),
+		).
+		Only(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reload sub-issue dependency: %w", err)
+	}
+
+	return dependency, nil
+}
+
+func nextTicketIdentifier(ctx context.Context, tx *ent.Tx, projectID uuid.UUID) (string, error) {
+	items, err := tx.Ticket.Query().
+		Where(entticket.ProjectIDEQ(projectID)).
+		Select(entticket.FieldIdentifier).
+		All(ctx)
+	if err != nil {
+		return "", fmt.Errorf("list project identifiers: %w", err)
+	}
+
+	maxValue := 0
+	for _, item := range items {
+		value, ok := parseIdentifierSequence(item.Identifier)
+		if ok && value > maxValue {
+			maxValue = value
+		}
+	}
+
+	return fmt.Sprintf("%s-%d", defaultIdentifierPrefix, maxValue+1), nil
+}
+
+func parseIdentifierSequence(identifier string) (int, bool) {
+	if !strings.HasPrefix(identifier, defaultIdentifierPrefix+"-") {
+		return 0, false
+	}
+
+	value, err := strconv.Atoi(strings.TrimPrefix(identifier, defaultIdentifierPrefix+"-"))
+	if err != nil || value < 1 {
+		return 0, false
+	}
+
+	return value, true
+}
+
+func resolveCreatedBy(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return defaultCreatedBy
+	}
+
+	return strings.TrimSpace(raw)
+}
+
+func mapTicket(item *ent.Ticket) Ticket {
+	result := Ticket{
+		ID:           item.ID,
+		ProjectID:    item.ProjectID,
+		Identifier:   item.Identifier,
+		Title:        item.Title,
+		Description:  item.Description,
+		StatusID:     item.StatusID,
+		Priority:     item.Priority,
+		Type:         item.Type,
+		WorkflowID:   item.WorkflowID,
+		CreatedBy:    item.CreatedBy,
+		Children:     []TicketReference{},
+		Dependencies: []Dependency{},
+		ExternalRef:  item.ExternalRef,
+		BudgetUSD:    item.BudgetUsd,
+		CreatedAt:    item.CreatedAt,
+	}
+
+	if item.Edges.Status != nil {
+		result.StatusName = item.Edges.Status.Name
+	}
+	if item.Edges.Parent != nil {
+		parent := mapTicketReference(item.Edges.Parent)
+		result.Parent = &parent
+	}
+	for _, child := range item.Edges.Children {
+		result.Children = append(result.Children, mapTicketReference(child))
+	}
+	for _, dependency := range item.Edges.OutgoingDependencies {
+		result.Dependencies = append(result.Dependencies, mapDependency(dependency))
+	}
+
+	return result
+}
+
+func mapDependency(item *ent.TicketDependency) Dependency {
+	dependency := Dependency{
+		ID:   item.ID,
+		Type: item.Type,
+	}
+	if item.Edges.TargetTicket != nil {
+		dependency.Target = mapTicketReference(item.Edges.TargetTicket)
+	}
+
+	return dependency
+}
+
+func mapTicketReference(item *ent.Ticket) TicketReference {
+	reference := TicketReference{
+		ID:         item.ID,
+		Identifier: item.Identifier,
+		Title:      item.Title,
+		StatusID:   item.StatusID,
+	}
+	if item.Edges.Status != nil {
+		reference.StatusName = item.Edges.Status.Name
+	}
+
+	return reference
+}
+
+func rollback(tx *ent.Tx) {
+	if tx == nil {
+		return
+	}
+	_ = tx.Rollback()
+}

@@ -57,6 +57,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
+		nil,
 		newFakeCatalogService(),
 		nil,
 	)
@@ -269,6 +270,7 @@ func TestCatalogRoutesRejectInvalidInput(t *testing.T) {
 		config.ServerConfig{Port: 40023},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
+		nil,
 		nil,
 		newFakeCatalogService(),
 		nil,
@@ -992,6 +994,7 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		config.ServerConfig{Port: 40023},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
+		nil,
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
 		nil,

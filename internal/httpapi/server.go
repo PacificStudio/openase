@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/BetterAndBetterII/openase/internal/webui"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -26,6 +27,7 @@ type Server struct {
 	logger              *slog.Logger
 	echo                *echo.Echo
 	sseHub              *sse.Hub
+	ticketService       *ticketservice.Service
 	ticketStatusService *ticketstatus.Service
 	catalog             catalogservice.Service
 	workflowService     *workflowservice.Service
@@ -35,6 +37,7 @@ func NewServer(
 	cfg config.ServerConfig,
 	logger *slog.Logger,
 	events provider.EventProvider,
+	ticketService *ticketservice.Service,
 	ticketStatusService *ticketstatus.Service,
 	catalog catalogservice.Service,
 	workflowService *workflowservice.Service,
@@ -70,6 +73,7 @@ func NewServer(
 		logger:              logger.With("component", "http-server"),
 		echo:                e,
 		sseHub:              sse.NewHub(events, logger),
+		ticketService:       ticketService,
 		ticketStatusService: ticketStatusService,
 		catalog:             catalog,
 		workflowService:     workflowService,
@@ -146,6 +150,7 @@ func (s *Server) registerRoutes() {
 	if s.catalog != nil {
 		s.registerCatalogRoutes(api)
 	}
+	s.registerTicketRoutes(api)
 	s.registerWorkflowRoutes(api)
 	s.registerTicketStatusRoutes()
 

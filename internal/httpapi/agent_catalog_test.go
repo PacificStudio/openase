@@ -24,6 +24,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
+		nil,
 		newFakeCatalogService(),
 		nil,
 	)
@@ -129,6 +130,7 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 		config.ServerConfig{Port: 40023},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
+		nil,
 		nil,
 		newFakeCatalogService(),
 		nil,

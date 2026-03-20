@@ -14,6 +14,7 @@ import (
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"golang.org/x/sync/errgroup"
@@ -69,6 +70,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		a.config.Server,
 		a.logger,
 		a.events,
+		ticketservice.NewService(client),
 		ticketstatus.NewService(client),
 		catalogSvc,
 		workflowSvc,
