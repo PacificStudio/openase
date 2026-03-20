@@ -169,6 +169,7 @@ func (s *Server) registerRoutes() {
 
 	api := s.echo.Group("/api/v1")
 	api.GET("/healthz", healthHandler)
+	api.GET("/openapi.json", s.handleOpenAPI)
 	api.GET("/events/stream", s.handleEventStream)
 	api.POST("/webhooks/github", s.handleLegacyGitHubWebhook)
 	api.POST("/webhooks/:connector/:provider", s.handleInboundWebhook)

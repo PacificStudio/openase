@@ -3,12 +3,13 @@ import { createHarnessActions } from './harness-actions'
 import { defaultWorkflowForm, workflowHasSkill } from './mappers'
 import type {
   BuiltinRole,
-  HarnessDocument,
   Skill,
   SkillListPayload,
   TicketStatus,
   Workflow,
   WorkflowDetailPayload,
+  WorkflowResponse,
+  WorkflowSkillBindingResponse,
 } from './types'
 
 type WorkflowState = {
@@ -93,7 +94,7 @@ export function createWorkflowEditorActions({
     }
 
     await runWorkflowMutation(async () => {
-      const payload = await api<{ workflow: Workflow }>(
+      const payload = await api<WorkflowResponse>(
         `/api/v1/projects/${selectedProjectId}/workflows`,
         {
           method: 'POST',
@@ -142,7 +143,7 @@ export function createWorkflowEditorActions({
       })
       state.selectedWorkflow = {
         ...payload.workflow,
-        harness_content: state.selectedWorkflow?.harness_content,
+        harness_content: state.selectedWorkflow?.harness_content ?? null,
       }
       state.workflows = state.workflows.map((item) =>
         item.id === payload.workflow.id ? payload.workflow : item,
@@ -181,7 +182,7 @@ export function createWorkflowEditorActions({
     state.notice = ''
     try {
       const endpoint = workflowHasSkill(skill, selectedWorkflow.id) ? 'unbind' : 'bind'
-      await api<{ harness: HarnessDocument }>(
+      await api<WorkflowSkillBindingResponse>(
         `/api/v1/workflows/${selectedWorkflow.id}/skills/${endpoint}`,
         {
           method: 'POST',
@@ -207,7 +208,7 @@ export function createWorkflowEditorActions({
     state.createWorkflowForm = {
       ...state.createWorkflowForm,
       name: role.name,
-      type: role.workflow_type,
+      type: role.workflow_type as Workflow['type'],
     }
   }
 
@@ -230,7 +231,7 @@ export function createWorkflowEditorActions({
     state.createWorkflowForm = {
       ...defaultWorkflowForm(getStatuses()),
       name: recommendation.suggested_workflow_name || role.name,
-      type: role.workflow_type,
+      type: role.workflow_type as Workflow['type'],
     }
     state.notice = `${role.name} template loaded into workflow creation.`
   }

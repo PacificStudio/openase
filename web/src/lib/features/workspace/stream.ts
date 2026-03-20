@@ -52,8 +52,8 @@ export function parseActivityEvent(raw: unknown, fallbackCreatedAt: string): Act
   return {
     id,
     project_id: projectId,
-    ticket_id: readNullableString(source, 'ticket_id'),
-    agent_id: readNullableString(source, 'agent_id'),
+    ticket_id: readNullableString(source, 'ticket_id') ?? null,
+    agent_id: readNullableString(source, 'agent_id') ?? null,
     event_type: eventType,
     message: readString(source, 'message') ?? '',
     metadata: readRecord(source, 'metadata') ?? {},

@@ -1,0 +1,5192 @@
+{
+  "components": {},
+  "info": {
+    "description": "OpenAPI contract for the current OpenASE web control-plane surface.",
+    "title": "OpenASE Frontend Contract API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/v1/events/stream": {
+      "get": {
+        "operationId": "streamEvents",
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Stream global platform events",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/harness/validate": {
+      "post": {
+        "operationId": "validateHarness",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Validate workflow harness content request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "issues": {
+                      "items": {
+                        "properties": {
+                          "column": {
+                            "type": "integer"
+                          },
+                          "level": {
+                            "type": "string"
+                          },
+                          "line": {
+                            "type": "integer"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "valid": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Validate workflow harness content response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Validate workflow harness content",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/api/v1/orgs": {
+      "get": {
+        "operationId": "listOrganizations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "organizations": {
+                      "items": {
+                        "properties": {
+                          "default_agent_provider_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List organizations response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List organizations",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "post": {
+        "operationId": "createOrganization",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "default_agent_provider_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create an organization request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "organization": {
+                      "properties": {
+                        "default_agent_provider_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create an organization response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Create an organization",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}": {
+      "patch": {
+        "operationId": "updateOrganization",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "default_agent_provider_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "name": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "slug": {
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Update an organization request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "organization": {
+                      "properties": {
+                        "default_agent_provider_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Update an organization response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Update an organization",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "projects": {
+                      "items": {
+                        "properties": {
+                          "default_agent_provider_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "default_workflow_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "max_concurrent_agents": {
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization_id": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List projects for an organization response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List projects for an organization",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "post": {
+        "operationId": "createProject",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "default_agent_provider_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "default_workflow_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "max_concurrent_agents": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a project request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "project": {
+                      "properties": {
+                        "default_agent_provider_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "default_workflow_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "max_concurrent_agents": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a project response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Create a project",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/providers": {
+      "get": {
+        "operationId": "listAgentProviders",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "providers": {
+                      "items": {
+                        "properties": {
+                          "adapter_type": {
+                            "type": "string"
+                          },
+                          "auth_config": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "cli_args": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "cli_command": {
+                            "type": "string"
+                          },
+                          "cost_per_input_token": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "cost_per_output_token": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "model_max_tokens": {
+                            "type": "integer"
+                          },
+                          "model_name": {
+                            "type": "string"
+                          },
+                          "model_temperature": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization_id": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List agent providers for an organization response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List agent providers for an organization",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "post": {
+        "operationId": "createAgentProvider",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "adapter_type": {
+                    "type": "string"
+                  },
+                  "auth_config": {
+                    "additionalProperties": {},
+                    "type": "object"
+                  },
+                  "cli_args": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "cli_command": {
+                    "type": "string"
+                  },
+                  "cost_per_input_token": {
+                    "format": "double",
+                    "nullable": true,
+                    "type": "number"
+                  },
+                  "cost_per_output_token": {
+                    "format": "double",
+                    "nullable": true,
+                    "type": "number"
+                  },
+                  "model_max_tokens": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "model_name": {
+                    "type": "string"
+                  },
+                  "model_temperature": {
+                    "format": "double",
+                    "nullable": true,
+                    "type": "number"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create an agent provider request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "provider": {
+                      "properties": {
+                        "adapter_type": {
+                          "type": "string"
+                        },
+                        "auth_config": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "cli_args": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "cli_command": {
+                          "type": "string"
+                        },
+                        "cost_per_input_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "cost_per_output_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "model_max_tokens": {
+                          "type": "integer"
+                        },
+                        "model_name": {
+                          "type": "string"
+                        },
+                        "model_temperature": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create an agent provider response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Create an agent provider",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}": {
+      "delete": {
+        "operationId": "archiveProject",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "project": {
+                      "properties": {
+                        "default_agent_provider_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "default_workflow_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "max_concurrent_agents": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Archive a project response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Archive a project",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "get": {
+        "operationId": "getProject",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "project": {
+                      "properties": {
+                        "default_agent_provider_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "default_workflow_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "max_concurrent_agents": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get a project response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get a project",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "patch": {
+        "operationId": "updateProject",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "default_agent_provider_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "default_workflow_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "description": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "max_concurrent_agents": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "name": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "slug": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "status": {
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Update a project request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "project": {
+                      "properties": {
+                        "default_agent_provider_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "default_workflow_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "max_concurrent_agents": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Update a project response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Update a project",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/activity": {
+      "get": {
+        "operationId": "listActivityEvents",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter activity by agent ID.",
+            "in": "query",
+            "name": "agent_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter activity by ticket ID.",
+            "in": "query",
+            "name": "ticket_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Limit the number of returned activity events.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "events": {
+                      "items": {
+                        "properties": {
+                          "agent_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "metadata": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "ticket_id": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List activity events response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List activity events",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/activity/stream": {
+      "get": {
+        "operationId": "streamProjectActivity",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Stream project activity events",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/agents": {
+      "get": {
+        "operationId": "listAgents",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "agents": {
+                      "items": {
+                        "properties": {
+                          "capabilities": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "current_ticket_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "last_heartbeat_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "provider_id": {
+                            "type": "string"
+                          },
+                          "session_id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "total_tickets_completed": {
+                            "type": "integer"
+                          },
+                          "total_tokens_used": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "workspace_path": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List agents response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List agents",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/agents/stream": {
+      "get": {
+        "operationId": "streamProjectAgents",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Stream project agent events",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/hooks/stream": {
+      "get": {
+        "operationId": "streamProjectHooks",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Stream project hook events",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/hr-advisor": {
+      "get": {
+        "operationId": "getHRAdvisor",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "project_id": {
+                      "type": "string"
+                    },
+                    "recommendations": {
+                      "items": {
+                        "properties": {
+                          "activation_ready": {
+                            "type": "boolean"
+                          },
+                          "active_workflow_name": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "evidence": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "harness_path": {
+                            "type": "string"
+                          },
+                          "priority": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "role_name": {
+                            "type": "string"
+                          },
+                          "role_slug": {
+                            "type": "string"
+                          },
+                          "suggested_headcount": {
+                            "type": "integer"
+                          },
+                          "suggested_workflow_name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "workflow_type": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "staffing": {
+                      "properties": {
+                        "developers": {
+                          "type": "integer"
+                        },
+                        "docs": {
+                          "type": "integer"
+                        },
+                        "product": {
+                          "type": "integer"
+                        },
+                        "qa": {
+                          "type": "integer"
+                        },
+                        "research": {
+                          "type": "integer"
+                        },
+                        "security": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "summary": {
+                      "properties": {
+                        "active_agents": {
+                          "type": "integer"
+                        },
+                        "active_workflow_types": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "blocked_tickets": {
+                          "type": "integer"
+                        },
+                        "coding_tickets": {
+                          "type": "integer"
+                        },
+                        "failing_tickets": {
+                          "type": "integer"
+                        },
+                        "open_tickets": {
+                          "type": "integer"
+                        },
+                        "recent_activity_count": {
+                          "type": "integer"
+                        },
+                        "workflow_count": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get HR advisor recommendations response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get HR advisor recommendations",
+        "tags": [
+          "hr-advisor"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/skills": {
+      "get": {
+        "operationId": "listSkills",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "skills": {
+                      "items": {
+                        "properties": {
+                          "bound_workflows": {
+                            "items": {
+                              "properties": {
+                                "harness_path": {
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "is_builtin": {
+                            "type": "boolean"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List workflow skills response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List workflow skills",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/statuses": {
+      "get": {
+        "operationId": "listTicketStatuses",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "statuses": {
+                      "items": {
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "icon": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "is_default": {
+                            "type": "boolean"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "position": {
+                            "type": "integer"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List ticket statuses response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List ticket statuses",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/tickets": {
+      "get": {
+        "operationId": "listTickets",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tickets by status names. Accepts a comma-separated string.",
+            "in": "query",
+            "name": "status_name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tickets by priorities. Accepts a comma-separated string.",
+            "in": "query",
+            "name": "priority",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "tickets": {
+                      "items": {
+                        "properties": {
+                          "attempt_count": {
+                            "type": "integer"
+                          },
+                          "budget_usd": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "children": {
+                            "items": {
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "identifier": {
+                                  "type": "string"
+                                },
+                                "status_id": {
+                                  "type": "string"
+                                },
+                                "status_name": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "consecutive_errors": {
+                            "type": "integer"
+                          },
+                          "cost_amount": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "dependencies": {
+                            "items": {
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "target": {
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "identifier": {
+                                      "type": "string"
+                                    },
+                                    "status_id": {
+                                      "type": "string"
+                                    },
+                                    "status_name": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "external_ref": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "identifier": {
+                            "type": "string"
+                          },
+                          "next_retry_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "parent": {
+                            "nullable": true,
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "identifier": {
+                                "type": "string"
+                              },
+                              "status_id": {
+                                "type": "string"
+                              },
+                              "status_name": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "pause_reason": {
+                            "type": "string"
+                          },
+                          "priority": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "retry_paused": {
+                            "type": "boolean"
+                          },
+                          "status_id": {
+                            "type": "string"
+                          },
+                          "status_name": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "workflow_id": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List tickets response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List tickets",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/tickets/stream": {
+      "get": {
+        "operationId": "streamProjectTickets",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Stream project ticket events",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/tickets/{ticketId}/detail": {
+      "get": {
+        "operationId": "getTicketDetail",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "activity": {
+                      "items": {
+                        "properties": {
+                          "agent_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "metadata": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "ticket_id": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "hook_history": {
+                      "items": {
+                        "properties": {
+                          "agent_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "metadata": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "ticket_id": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "repo_scopes": {
+                      "items": {
+                        "properties": {
+                          "branch_name": {
+                            "type": "string"
+                          },
+                          "ci_status": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "is_primary_scope": {
+                            "type": "boolean"
+                          },
+                          "pr_status": {
+                            "type": "string"
+                          },
+                          "pull_request_url": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "repo": {
+                            "nullable": true,
+                            "properties": {
+                              "clone_path": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "default_branch": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "is_primary": {
+                                "type": "boolean"
+                              },
+                              "labels": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "project_id": {
+                                "type": "string"
+                              },
+                              "repository_url": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "repo_id": {
+                            "type": "string"
+                          },
+                          "ticket_id": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "ticket": {
+                      "properties": {
+                        "attempt_count": {
+                          "type": "integer"
+                        },
+                        "budget_usd": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "children": {
+                          "items": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "identifier": {
+                                "type": "string"
+                              },
+                              "status_id": {
+                                "type": "string"
+                              },
+                              "status_name": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "consecutive_errors": {
+                          "type": "integer"
+                        },
+                        "cost_amount": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "dependencies": {
+                          "items": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "target": {
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "identifier": {
+                                    "type": "string"
+                                  },
+                                  "status_id": {
+                                    "type": "string"
+                                  },
+                                  "status_name": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "external_ref": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "identifier": {
+                          "type": "string"
+                        },
+                        "next_retry_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "parent": {
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "identifier": {
+                              "type": "string"
+                            },
+                            "status_id": {
+                              "type": "string"
+                            },
+                            "status_name": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "pause_reason": {
+                          "type": "string"
+                        },
+                        "priority": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "retry_paused": {
+                          "type": "boolean"
+                        },
+                        "status_id": {
+                          "type": "string"
+                        },
+                        "status_name": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "workflow_id": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get ticket detail response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get ticket detail",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/workflows": {
+      "get": {
+        "operationId": "listWorkflows",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workflows": {
+                      "items": {
+                        "properties": {
+                          "finish_status_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "harness_content": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "harness_path": {
+                            "type": "string"
+                          },
+                          "hooks": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "is_active": {
+                            "type": "boolean"
+                          },
+                          "max_concurrent": {
+                            "type": "integer"
+                          },
+                          "max_retry_attempts": {
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "pickup_status_id": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "stall_timeout_minutes": {
+                            "type": "integer"
+                          },
+                          "timeout_minutes": {
+                            "type": "integer"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List workflows response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List workflows",
+        "tags": [
+          "workflows"
+        ]
+      },
+      "post": {
+        "operationId": "createWorkflow",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "finish_status_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "harness_content": {
+                    "type": "string"
+                  },
+                  "harness_path": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "hooks": {
+                    "additionalProperties": {},
+                    "type": "object"
+                  },
+                  "is_active": {
+                    "nullable": true,
+                    "type": "boolean"
+                  },
+                  "max_concurrent": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "max_retry_attempts": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "pickup_status_id": {
+                    "type": "string"
+                  },
+                  "stall_timeout_minutes": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "timeout_minutes": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a workflow request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workflow": {
+                      "properties": {
+                        "finish_status_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_content": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_path": {
+                          "type": "string"
+                        },
+                        "hooks": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "is_active": {
+                          "type": "boolean"
+                        },
+                        "max_concurrent": {
+                          "type": "integer"
+                        },
+                        "max_retry_attempts": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "pickup_status_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stall_timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a workflow response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Create a workflow",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/api/v1/providers/{providerId}": {
+      "patch": {
+        "operationId": "updateAgentProvider",
+        "parameters": [
+          {
+            "description": "Agent provider ID.",
+            "in": "path",
+            "name": "providerId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "adapter_type": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "auth_config": {
+                    "additionalProperties": {},
+                    "nullable": true,
+                    "type": "object"
+                  },
+                  "cli_args": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
+                  "cli_command": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "cost_per_input_token": {
+                    "format": "double",
+                    "nullable": true,
+                    "type": "number"
+                  },
+                  "cost_per_output_token": {
+                    "format": "double",
+                    "nullable": true,
+                    "type": "number"
+                  },
+                  "model_max_tokens": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "model_name": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "model_temperature": {
+                    "format": "double",
+                    "nullable": true,
+                    "type": "number"
+                  },
+                  "name": {
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Update an agent provider request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "provider": {
+                      "properties": {
+                        "adapter_type": {
+                          "type": "string"
+                        },
+                        "auth_config": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "cli_args": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "cli_command": {
+                          "type": "string"
+                        },
+                        "cost_per_input_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "cost_per_output_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "model_max_tokens": {
+                          "type": "integer"
+                        },
+                        "model_name": {
+                          "type": "string"
+                        },
+                        "model_temperature": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Update an agent provider response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Update an agent provider",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/roles/builtin": {
+      "get": {
+        "operationId": "listBuiltinRoles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "roles": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "harness_path": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "workflow_type": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List builtin workflow role templates response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List builtin workflow role templates",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/tickets/{ticketId}": {
+      "patch": {
+        "operationId": "updateTicket",
+        "parameters": [
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "budget_usd": {
+                    "format": "double",
+                    "nullable": true,
+                    "type": "number"
+                  },
+                  "created_by": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "description": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "external_ref": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "parent_ticket_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "priority": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "status_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "title": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "type": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "workflow_id": {
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Update a ticket request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ticket": {
+                      "properties": {
+                        "attempt_count": {
+                          "type": "integer"
+                        },
+                        "budget_usd": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "children": {
+                          "items": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "identifier": {
+                                "type": "string"
+                              },
+                              "status_id": {
+                                "type": "string"
+                              },
+                              "status_name": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "consecutive_errors": {
+                          "type": "integer"
+                        },
+                        "cost_amount": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "dependencies": {
+                          "items": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "target": {
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "identifier": {
+                                    "type": "string"
+                                  },
+                                  "status_id": {
+                                    "type": "string"
+                                  },
+                                  "status_name": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "external_ref": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "identifier": {
+                          "type": "string"
+                        },
+                        "next_retry_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "parent": {
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "identifier": {
+                              "type": "string"
+                            },
+                            "status_id": {
+                              "type": "string"
+                            },
+                            "status_name": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "pause_reason": {
+                          "type": "string"
+                        },
+                        "priority": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "retry_paused": {
+                          "type": "boolean"
+                        },
+                        "status_id": {
+                          "type": "string"
+                        },
+                        "status_name": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "workflow_id": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Update a ticket response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Update a ticket",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflowId}": {
+      "delete": {
+        "operationId": "deleteWorkflow",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workflow": {
+                      "properties": {
+                        "finish_status_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_content": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_path": {
+                          "type": "string"
+                        },
+                        "hooks": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "is_active": {
+                          "type": "boolean"
+                        },
+                        "max_concurrent": {
+                          "type": "integer"
+                        },
+                        "max_retry_attempts": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "pickup_status_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stall_timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete a workflow response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Delete a workflow",
+        "tags": [
+          "workflows"
+        ]
+      },
+      "get": {
+        "operationId": "getWorkflow",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workflow": {
+                      "properties": {
+                        "finish_status_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_content": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_path": {
+                          "type": "string"
+                        },
+                        "hooks": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "is_active": {
+                          "type": "boolean"
+                        },
+                        "max_concurrent": {
+                          "type": "integer"
+                        },
+                        "max_retry_attempts": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "pickup_status_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stall_timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get a workflow response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get a workflow",
+        "tags": [
+          "workflows"
+        ]
+      },
+      "patch": {
+        "operationId": "updateWorkflow",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "finish_status_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "harness_path": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "hooks": {
+                    "additionalProperties": {},
+                    "nullable": true,
+                    "type": "object"
+                  },
+                  "is_active": {
+                    "nullable": true,
+                    "type": "boolean"
+                  },
+                  "max_concurrent": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "max_retry_attempts": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "name": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "pickup_status_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "stall_timeout_minutes": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "timeout_minutes": {
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Update a workflow request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workflow": {
+                      "properties": {
+                        "finish_status_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_content": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_path": {
+                          "type": "string"
+                        },
+                        "hooks": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "is_active": {
+                          "type": "boolean"
+                        },
+                        "max_concurrent": {
+                          "type": "integer"
+                        },
+                        "max_retry_attempts": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "pickup_status_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stall_timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Update a workflow response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Update a workflow",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflowId}/harness": {
+      "get": {
+        "operationId": "getWorkflowHarness",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "harness": {
+                      "properties": {
+                        "content": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "workflow_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get workflow harness content response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get workflow harness content",
+        "tags": [
+          "workflows"
+        ]
+      },
+      "put": {
+        "operationId": "updateWorkflowHarness",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Update workflow harness content request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "harness": {
+                      "properties": {
+                        "content": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "workflow_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Update workflow harness content response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Update workflow harness content",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflowId}/skills/bind": {
+      "post": {
+        "operationId": "bindWorkflowSkills",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "skills": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Bind skills to a workflow harness request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "harness": {
+                      "properties": {
+                        "content": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "workflow_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bind skills to a workflow harness response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Bind skills to a workflow harness",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflowId}/skills/unbind": {
+      "post": {
+        "operationId": "unbindWorkflowSkills",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "skills": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Unbind skills from a workflow harness request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "harness": {
+                      "properties": {
+                        "content": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "workflow_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unbind skills from a workflow harness response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Unbind skills from a workflow harness",
+        "tags": [
+          "skills"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "catalog"
+    },
+    {
+      "name": "tickets"
+    },
+    {
+      "name": "workflows"
+    },
+    {
+      "name": "skills"
+    },
+    {
+      "name": "streams"
+    },
+    {
+      "name": "hr-advisor"
+    }
+  ]
+}

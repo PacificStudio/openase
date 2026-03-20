@@ -41,6 +41,7 @@ func NewRootCommand(version string) *cobra.Command {
 	rootCmd.AddCommand(newTicketCommand())
 	rootCmd.AddCommand(newProjectCommand())
 	rootCmd.AddCommand(newIssueAgentTokenCommand(options))
+	rootCmd.AddCommand(newOpenAPICommand())
 	rootCmd.AddCommand(newVersionCommand(version))
 
 	return rootCmd
@@ -140,9 +141,8 @@ func newVersionCommand(version string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print the OpenASE CLI version.",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintln(os.Stdout, version)
-			return err
+		Run: func(_ *cobra.Command, _ []string) {
+			_, _ = fmt.Fprintln(os.Stdout, version)
 		},
 	}
 }

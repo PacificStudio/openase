@@ -197,11 +197,11 @@ AI Agent 编码领域正在经历从"单 Agent 使用"到"Agent 舰队管理"的
 | 进程管理 | os/exec + context | Agent CLI 子进程管理 + 超时取消 |
 | 日志 | slog (标准库) | Go 1.21+ 内置结构化日志 |
 | 配置 | viper | 多源配置（文件 / 环境变量 / 命令行） |
-| OpenAPI 生成 | oapi-codegen | 从 spec 生成 Go server stub |
+| OpenAPI 生成 | OpenASE 内置 exporter + kin-openapi | 从 Go HTTP contract 导出 `api/openapi.json`，作为前后端交接的唯一接口事实来源 |
 | 前端框架 | SvelteKit + Tailwind CSS | 编译时框架，无运行时开销；adapter-static 输出纯静态文件，完美匹配 `go:embed`；SSE 流式更新与 Svelte store 天然契合 |
 | 前端组件库 | shadcn-svelte (基于 bits-ui) | 复制粘贴式组件源码，无运行时依赖；Tailwind 原生；Linear 风格审美匹配；Kanban 拖拽搭配 svelte-dnd-action |
 | 前端图标库 | Lucide (lucide-svelte) | shadcn-svelte 默认图标库；每个图标独立 Svelte 组件，按需 import 完美 tree-shake；1400+ 图标 |
-| 前端 API 客户端 | openapi-typescript | 从 OpenAPI spec 生成 TypeScript 类型定义，配合轻量 fetch wrapper + Svelte store |
+| 前端 API 客户端 | openapi-typescript | 从 `api/openapi.json` 生成 TypeScript 合同类型，配合轻量 fetch wrapper + Svelte store |
 | 认证 | 双模（Local Token / OIDC） | 自部署用 Token、多租户用标准 OIDC |
 
 ### 5.3 服务架构
@@ -1236,8 +1236,8 @@ your-project/
 ```yaml
 ticket_hooks:
   on_claim:
-    - cmd: "pnpm install --frozen-lockfile"
-      workdir: "web"         # /workspaces/ASE-42/web/
+    - cmd: "npm ci"
+      workdir: "frontend"    # /workspaces/ASE-42/frontend/
     - cmd: "go mod download"
       workdir: "backend"     # /workspaces/ASE-42/backend/
 ```
@@ -3252,8 +3252,15 @@ git commit
 | ESLint + svelte-check | 增量 | 全量 |
 | 密钥扫描 | 简单 grep | gitleaks 全量 |
 | depguard 架构守卫 | 随 golangci-lint | 随 golangci-lint |
-| SvelteKit build | 跳过 | `pnpm run build` |
+| SvelteKit build | 跳过 | `npm run build` |
+| OpenAPI contract regenerate + diff | 按需运行 `make openapi-generate` | 强制执行 `make openapi-check`，要求 `api/openapi.json` 与 `web/src/lib/api/generated/openapi.d.ts` 已提交 |
 | 覆盖率报告 | 跳过 | `go test -coverprofile` |
+
+**前后端交接规则**：
+
+1. 后端 HTTP handler、请求结构、响应结构一旦变化，必须先重新生成 `api/openapi.json`。
+2. 前端只消费由 `api/openapi.json` 生成的类型化契约，不再手写一套独立接口定义。
+3. PR 合入前，CI 必须通过 `make openapi-check`，用生成结果 diff 保证前后端接口已同步。
 
 ---
 
@@ -4696,8 +4703,8 @@ hooks:
   on_claim:
     - cmd: "git fetch origin && git checkout -b {{ git.branch_pattern }} origin/{{ project.default_branch }}"
       timeout: 60
-    - cmd: "pnpm install --frozen-lockfile"
-      workdir: "web"
+    - cmd: "npm ci"
+      workdir: "frontend"
       timeout: 300
       on_failure: warn
   on_complete:
@@ -5538,7 +5545,7 @@ mock-generate:         ## 生成 mock（mockery）
 	mockery --all --dir=./domain --output=./mocks --outpkg=mocks
 
 test-frontend:         ## 前端测试
-	cd web && pnpm run test
+	cd web && npm run test
 
 test-e2e:              ## E2E 测试（需要完整服务运行）
 	cd web && npx playwright test
@@ -5929,7 +5936,7 @@ echo '},'
 echo '"network":{'
 echo '"github_reachable":'$(curl -s --max-time 5 https://api.github.com >/dev/null && echo true || echo false)','
 echo '"pypi_reachable":'$(curl -s --max-time 5 https://pypi.org >/dev/null && echo true || echo false)','
-echo '"npmjs_registry_reachable":'$(curl -s --max-time 5 https://registry.npmjs.org >/dev/null && echo true || echo false)
+echo '"npm_reachable":'$(curl -s --max-time 5 https://registry.npmjs.org >/dev/null && echo true || echo false)
 echo '}'
 
 echo '}'
