@@ -44,6 +44,52 @@ type MachineGPUResources struct {
 	GPUs        []MachineGPU
 }
 
+type MachineAgentAuthStatus string
+
+const (
+	MachineAgentAuthStatusUnknown     MachineAgentAuthStatus = "unknown"
+	MachineAgentAuthStatusLoggedIn    MachineAgentAuthStatus = "logged_in"
+	MachineAgentAuthStatusNotLoggedIn MachineAgentAuthStatus = "not_logged_in"
+)
+
+type MachineAgentCLI struct {
+	Name       string
+	Installed  bool
+	Version    string
+	AuthStatus MachineAgentAuthStatus
+	Ready      bool
+}
+
+type MachineAgentEnvironment struct {
+	CollectedAt  time.Time
+	Dispatchable bool
+	CLIs         []MachineAgentCLI
+}
+
+type MachineGitAudit struct {
+	Installed bool
+	UserName  string
+	UserEmail string
+}
+
+type MachineGitHubCLIAudit struct {
+	Installed  bool
+	AuthStatus MachineAgentAuthStatus
+}
+
+type MachineNetworkAudit struct {
+	GitHubReachable bool
+	PyPIReachable   bool
+	NPMReachable    bool
+}
+
+type MachineFullAudit struct {
+	CollectedAt time.Time
+	Git         MachineGitAudit
+	GitHubCLI   MachineGitHubCLIAudit
+	Network     MachineNetworkAudit
+}
+
 func ParseMachineSystemResources(raw string, collectedAt time.Time) (MachineSystemResources, error) {
 	values, err := parseMachineMetricLines(raw)
 	if err != nil {
@@ -150,6 +196,153 @@ func ParseMachineGPUResources(raw string, collectedAt time.Time) (MachineGPUReso
 	}, nil
 }
 
+func ParseMachineAgentEnvironment(raw string, collectedAt time.Time) (MachineAgentEnvironment, error) {
+	records, err := parseMachineTabularRecords(raw)
+	if err != nil {
+		return MachineAgentEnvironment{}, err
+	}
+
+	parsed := make(map[string]MachineAgentCLI, len(records))
+	for index, record := range records {
+		if len(record) != 4 {
+			return MachineAgentEnvironment{}, fmt.Errorf("agent environment row %d must have 4 columns", index)
+		}
+
+		name := strings.TrimSpace(record[0])
+		if name == "" {
+			return MachineAgentEnvironment{}, fmt.Errorf("agent environment row %d is missing cli name", index)
+		}
+		if _, exists := parsed[name]; exists {
+			return MachineAgentEnvironment{}, fmt.Errorf("agent environment row %d duplicates cli %q", index, name)
+		}
+
+		installed, err := strconv.ParseBool(strings.TrimSpace(record[1]))
+		if err != nil {
+			return MachineAgentEnvironment{}, fmt.Errorf("parse agent environment installed on row %d: %w", index, err)
+		}
+		authStatus, err := parseMachineAgentAuthStatus(record[3])
+		if err != nil {
+			return MachineAgentEnvironment{}, fmt.Errorf("parse agent environment auth status on row %d: %w", index, err)
+		}
+
+		parsed[name] = MachineAgentCLI{
+			Name:       name,
+			Installed:  installed,
+			Version:    strings.TrimSpace(record[2]),
+			AuthStatus: authStatus,
+			Ready:      installed && authStatus != MachineAgentAuthStatusNotLoggedIn,
+		}
+	}
+
+	clis := make([]MachineAgentCLI, 0, 3)
+	dispatchable := false
+	for _, name := range []string{"claude_code", "codex", "gemini"} {
+		cli, ok := parsed[name]
+		if !ok {
+			return MachineAgentEnvironment{}, fmt.Errorf("missing agent environment entry %q", name)
+		}
+		clis = append(clis, cli)
+		if cli.Ready {
+			dispatchable = true
+		}
+	}
+
+	return MachineAgentEnvironment{
+		CollectedAt:  collectedAt.UTC(),
+		Dispatchable: dispatchable,
+		CLIs:         clis,
+	}, nil
+}
+
+func ParseMachineFullAudit(raw string, collectedAt time.Time) (MachineFullAudit, error) {
+	records, err := parseMachineTabularRecords(raw)
+	if err != nil {
+		return MachineFullAudit{}, err
+	}
+
+	var (
+		gitFound     bool
+		ghFound      bool
+		networkFound bool
+		audit        = MachineFullAudit{CollectedAt: collectedAt.UTC()}
+	)
+
+	for index, record := range records {
+		if len(record) == 0 {
+			continue
+		}
+		switch strings.TrimSpace(record[0]) {
+		case "git":
+			if len(record) != 4 {
+				return MachineFullAudit{}, fmt.Errorf("git audit row %d must have 4 columns", index)
+			}
+			installed, err := strconv.ParseBool(strings.TrimSpace(record[1]))
+			if err != nil {
+				return MachineFullAudit{}, fmt.Errorf("parse git audit installed on row %d: %w", index, err)
+			}
+			audit.Git = MachineGitAudit{
+				Installed: installed,
+				UserName:  strings.TrimSpace(record[2]),
+				UserEmail: strings.TrimSpace(record[3]),
+			}
+			gitFound = true
+		case "gh_cli":
+			if len(record) != 3 {
+				return MachineFullAudit{}, fmt.Errorf("gh_cli audit row %d must have 3 columns", index)
+			}
+			installed, err := strconv.ParseBool(strings.TrimSpace(record[1]))
+			if err != nil {
+				return MachineFullAudit{}, fmt.Errorf("parse gh_cli audit installed on row %d: %w", index, err)
+			}
+			authStatus, err := parseMachineAgentAuthStatus(record[2])
+			if err != nil {
+				return MachineFullAudit{}, fmt.Errorf("parse gh_cli audit auth status on row %d: %w", index, err)
+			}
+			audit.GitHubCLI = MachineGitHubCLIAudit{
+				Installed:  installed,
+				AuthStatus: authStatus,
+			}
+			ghFound = true
+		case "network":
+			if len(record) != 4 {
+				return MachineFullAudit{}, fmt.Errorf("network audit row %d must have 4 columns", index)
+			}
+			githubReachable, err := strconv.ParseBool(strings.TrimSpace(record[1]))
+			if err != nil {
+				return MachineFullAudit{}, fmt.Errorf("parse network github reachability on row %d: %w", index, err)
+			}
+			pypiReachable, err := strconv.ParseBool(strings.TrimSpace(record[2]))
+			if err != nil {
+				return MachineFullAudit{}, fmt.Errorf("parse network pypi reachability on row %d: %w", index, err)
+			}
+			npmReachable, err := strconv.ParseBool(strings.TrimSpace(record[3]))
+			if err != nil {
+				return MachineFullAudit{}, fmt.Errorf("parse network npm reachability on row %d: %w", index, err)
+			}
+			audit.Network = MachineNetworkAudit{
+				GitHubReachable: githubReachable,
+				PyPIReachable:   pypiReachable,
+				NPMReachable:    npmReachable,
+			}
+			networkFound = true
+		default:
+			return MachineFullAudit{}, fmt.Errorf("unknown machine audit row %q", strings.TrimSpace(record[0]))
+		}
+	}
+
+	if !gitFound {
+		return MachineFullAudit{}, fmt.Errorf("missing machine full audit entry %q", "git")
+	}
+	if !ghFound {
+		return MachineFullAudit{}, fmt.Errorf("missing machine full audit entry %q", "gh_cli")
+	}
+	if !networkFound {
+		return MachineFullAudit{}, fmt.Errorf("missing machine full audit entry %q", "network")
+	}
+
+	return audit, nil
+}
+
 func parseMachineMetricLines(raw string) (map[string]string, error) {
 	values := map[string]string{}
 	lines := strings.Split(strings.TrimSpace(raw), "\n")
@@ -166,6 +359,24 @@ func parseMachineMetricLines(raw string) (map[string]string, error) {
 	}
 
 	return values, nil
+}
+
+func parseMachineTabularRecords(raw string) ([][]string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, fmt.Errorf("machine tabular payload must not be empty")
+	}
+
+	reader := csv.NewReader(strings.NewReader(trimmed))
+	reader.Comma = '\t'
+	reader.TrimLeadingSpace = false
+	reader.FieldsPerRecord = -1
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("parse machine tabular payload: %w", err)
+	}
+	return records, nil
 }
 
 func parseMetricInt(values map[string]string, key string) (int, error) {
@@ -190,6 +401,16 @@ func parseMetricFloat(values map[string]string, key string) (float64, error) {
 		return 0, fmt.Errorf("parse machine metric %q: %w", key, err)
 	}
 	return parsed, nil
+}
+
+func parseMachineAgentAuthStatus(raw string) (MachineAgentAuthStatus, error) {
+	status := MachineAgentAuthStatus(strings.ToLower(strings.TrimSpace(raw)))
+	switch status {
+	case MachineAgentAuthStatusUnknown, MachineAgentAuthStatusLoggedIn, MachineAgentAuthStatusNotLoggedIn:
+		return status, nil
+	default:
+		return "", fmt.Errorf("unsupported auth status %q", strings.TrimSpace(raw))
+	}
 }
 
 func kilobytesToGigabytes(value float64) float64 {

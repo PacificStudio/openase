@@ -358,6 +358,9 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 	if err != nil {
 		return nil, err
 	}
+	if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {
+		return nil, fmt.Errorf("machine %s codex environment not ready: %s", machine.Name, reason)
+	}
 
 	commandString := launchContext.agent.Edges.Provider.CliCommand
 	if machine.AgentCLIPath != nil {
@@ -611,6 +614,7 @@ func mapRuntimeMachine(item *ent.Machine) domain.Machine {
 		WorkspaceRoot:  optionalRuntimeString(item.WorkspaceRoot),
 		AgentCLIPath:   optionalRuntimeString(item.AgentCliPath),
 		EnvVars:        append([]string(nil), item.EnvVars...),
+		Resources:      cloneResourceMap(item.Resources),
 	}
 }
 
@@ -621,6 +625,39 @@ func optionalRuntimeString(raw string) *string {
 
 	value := raw
 	return &value
+}
+
+func machineCodexReady(resources map[string]any) (bool, string, bool) {
+	monitor, ok := nestedMap(resources, "monitor")
+	if !ok {
+		return false, "", false
+	}
+	levelMap, ok := nestedMap(monitor, "l4")
+	if !ok {
+		return false, "", false
+	}
+	codexMap, ok := nestedMap(levelMap, "codex")
+	if !ok {
+		return false, "", false
+	}
+
+	installed := anyToBool(codexMap["installed"])
+	authStatus := strings.TrimSpace(fmt.Sprint(codexMap["auth_status"]))
+	ready := installed && !strings.EqualFold(authStatus, "not_logged_in")
+	if rawReady, exists := codexMap["ready"]; exists {
+		ready = anyToBool(rawReady)
+	}
+	if ready {
+		return true, "", true
+	}
+	if !installed {
+		return false, "codex cli is not installed", true
+	}
+	if strings.EqualFold(authStatus, "not_logged_in") {
+		return false, "codex cli is not logged in", true
+	}
+
+	return false, "codex cli is not ready", true
 }
 
 func (l *RuntimeLauncher) storeSession(agentID uuid.UUID, session *codex.Session) {
