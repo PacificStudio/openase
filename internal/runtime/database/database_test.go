@@ -8,6 +8,7 @@ import (
 	"net"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
@@ -118,6 +119,73 @@ func TestOpenReconcilesLegacyGlobalTicketIdentifierIndex(t *testing.T) {
 		if ticketItem.Identifier != "ASE-1" {
 			t.Fatalf("expected first ticket in project %d to use ASE-1, got %+v", index+1, ticketItem)
 		}
+	}
+}
+
+func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	dsn := startEmbeddedPostgres(t)
+	firstEntered := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	secondEntered := make(chan struct{})
+	firstErr := make(chan error, 1)
+	secondErr := make(chan error, 1)
+
+	go func() {
+		firstErr <- withSchemaBootstrapLock(ctx, dsn, func() error {
+			close(firstEntered)
+			<-releaseFirst
+			return nil
+		})
+	}()
+
+	select {
+	case <-firstEntered:
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for first schema bootstrap lock holder")
+	}
+
+	go func() {
+		secondErr <- withSchemaBootstrapLock(ctx, dsn, func() error {
+			close(secondEntered)
+			return nil
+		})
+	}()
+
+	select {
+	case <-secondEntered:
+		t.Fatal("expected second schema bootstrap caller to wait for lock release")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(releaseFirst)
+
+	select {
+	case err := <-firstErr:
+		if err != nil {
+			t.Fatalf("first schema bootstrap lock caller failed: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for first schema bootstrap lock caller to finish")
+	}
+
+	select {
+	case <-secondEntered:
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for second schema bootstrap lock caller to enter")
+	}
+
+	select {
+	case err := <-secondErr:
+		if err != nil {
+			t.Fatalf("second schema bootstrap lock caller failed: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for second schema bootstrap lock caller to finish")
 	}
 }
 
