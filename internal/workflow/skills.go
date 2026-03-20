@@ -171,6 +171,7 @@ func (s *Service) readSkillDescription(name string) (string, error) {
 	}
 
 	contentPath := filepath.Join(s.skillDirectoryPath(name), "SKILL.md")
+	//nolint:gosec // contentPath comes from validated skill metadata rooted in trusted directories
 	data, err := os.ReadFile(contentPath)
 	if err != nil {
 		return "", fmt.Errorf("read skill %s metadata: %w", name, err)
@@ -208,7 +209,7 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 	if err != nil {
 		return RefreshSkillsResult{}, err
 	}
-	if err := os.MkdirAll(target.skillsDir.String(), 0o755); err != nil {
+	if err := os.MkdirAll(target.skillsDir.String(), 0o750); err != nil {
 		return RefreshSkillsResult{}, fmt.Errorf("create agent skill directory: %w", err)
 	}
 
@@ -487,7 +488,7 @@ func resolveSkillTarget(workspacePath string, rawAdapterType string) (resolvedSk
 	if err != nil {
 		return resolvedSkillTarget{}, fmt.Errorf("%w: %s", ErrSkillInvalid, err)
 	}
-	if err := os.MkdirAll(workspace.String(), 0o755); err != nil {
+	if err := os.MkdirAll(workspace.String(), 0o750); err != nil {
 		return resolvedSkillTarget{}, fmt.Errorf("%w: create workspace path: %s", ErrSkillInvalid, err)
 	}
 
@@ -557,6 +558,7 @@ func listSkillNames(root string) ([]string, error) {
 
 func validateSkillDirectory(dir string) error {
 	contentPath := filepath.Join(dir, "SKILL.md")
+	//nolint:gosec // contentPath is resolved from validated skill sources
 	content, err := os.ReadFile(contentPath)
 	if err != nil {
 		return fmt.Errorf("%w: missing SKILL.md in %s", ErrSkillInvalid, dir)
@@ -621,18 +623,34 @@ func copyDirectory(src string, dst string) error {
 			return os.MkdirAll(targetPath, entryInfo.Mode().Perm())
 		}
 
+		//nolint:gosec // path comes from walking the validated source skill directory
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read skill file %s: %w", path, err)
 		}
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o750); err != nil {
 			return fmt.Errorf("create skill file parent %s: %w", targetPath, err)
 		}
-		if err := os.WriteFile(targetPath, content, entryInfo.Mode().Perm()); err != nil {
+		if err := ensureCopyTargetWithinRoot(dst, targetPath); err != nil {
+			return err
+		}
+		if err := os.WriteFile(targetPath, content, entryInfo.Mode().Perm()); err != nil { //nolint:gosec // target path is validated to remain within the destination root
 			return fmt.Errorf("write skill file %s: %w", targetPath, err)
 		}
 		return nil
 	})
+}
+
+func ensureCopyTargetWithinRoot(root string, targetPath string) error {
+	relative, err := filepath.Rel(root, targetPath)
+	if err != nil {
+		return fmt.Errorf("resolve skill copy target %s: %w", targetPath, err)
+	}
+	if relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("skill copy target escapes root %s: %s", root, targetPath)
+	}
+
+	return nil
 }
 
 func directoryFingerprint(root string) (string, error) {
@@ -664,6 +682,7 @@ func directoryFingerprint(root string) (string, error) {
 			return nil
 		}
 
+		//nolint:gosec // path comes from walking the validated fingerprint root
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return err

@@ -56,17 +56,17 @@ func (m *LaunchdUserManager) Apply(ctx context.Context, spec provider.UserServic
 		return err
 	}
 	if loaded {
-		if err := m.run(ctx, "launchctl", "bootout", m.target(spec.Name)); err != nil {
+		if err := m.run(ctx, "bootout", m.target(spec.Name)); err != nil {
 			return err
 		}
 	}
-	if err := m.run(ctx, "launchctl", "bootstrap", m.domain(), plistPath); err != nil {
+	if err := m.run(ctx, "bootstrap", m.domain(), plistPath); err != nil {
 		return err
 	}
-	if err := m.run(ctx, "launchctl", "enable", m.target(spec.Name)); err != nil {
+	if err := m.run(ctx, "enable", m.target(spec.Name)); err != nil {
 		return err
 	}
-	if err := m.run(ctx, "launchctl", "kickstart", "-k", m.target(spec.Name)); err != nil {
+	if err := m.run(ctx, "kickstart", "-k", m.target(spec.Name)); err != nil {
 		return err
 	}
 
@@ -82,7 +82,7 @@ func (m *LaunchdUserManager) Down(ctx context.Context, name provider.ServiceName
 		return nil
 	}
 
-	return m.run(ctx, "launchctl", "bootout", m.target(name))
+	return m.run(ctx, "bootout", m.target(name))
 }
 
 func (m *LaunchdUserManager) Restart(ctx context.Context, name provider.ServiceName) error {
@@ -91,15 +91,15 @@ func (m *LaunchdUserManager) Restart(ctx context.Context, name provider.ServiceN
 		return err
 	}
 	if !loaded {
-		if err := m.run(ctx, "launchctl", "bootstrap", m.domain(), m.plistPath(name)); err != nil {
+		if err := m.run(ctx, "bootstrap", m.domain(), m.plistPath(name)); err != nil {
 			return err
 		}
-		if err := m.run(ctx, "launchctl", "enable", m.target(name)); err != nil {
+		if err := m.run(ctx, "enable", m.target(name)); err != nil {
 			return err
 		}
 	}
 
-	return m.run(ctx, "launchctl", "kickstart", "-k", m.target(name))
+	return m.run(ctx, "kickstart", "-k", m.target(name))
 }
 
 func (m *LaunchdUserManager) Logs(ctx context.Context, name provider.ServiceName, opts provider.UserServiceLogsOptions) error {
@@ -150,9 +150,9 @@ func (m *LaunchdUserManager) target(name provider.ServiceName) string {
 	return m.domain() + "/" + m.label(name)
 }
 
-func (m *LaunchdUserManager) run(ctx context.Context, name string, args ...string) error {
-	if err := m.runner.Run(ctx, name, args, nil, nil); err != nil {
-		return fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+func (m *LaunchdUserManager) run(ctx context.Context, args ...string) error {
+	if err := m.runner.Run(ctx, "launchctl", args, nil, nil); err != nil {
+		return fmt.Errorf("launchctl %s: %w", strings.Join(args, " "), err)
 	}
 
 	return nil
@@ -193,11 +193,12 @@ func plistString(value string) string {
 }
 
 func buildLaunchdShellCommand(spec provider.UserServiceInstallSpec) string {
-	parts := []string{
-		". " + shellQuote(spec.EnvironmentFile.String()) + " 2>/dev/null || true;",
+	parts := make([]string, 0, 3+len(spec.Arguments))
+	parts = append(parts,
+		". "+shellQuote(spec.EnvironmentFile.String())+" 2>/dev/null || true;",
 		"exec",
 		shellQuote(spec.ProgramPath.String()),
-	}
+	)
 	for _, arg := range spec.Arguments {
 		parts = append(parts, shellQuote(arg))
 	}

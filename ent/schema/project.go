@@ -7,10 +7,12 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
+// Project defines the ent schema for projects.
 type Project struct {
 	ent.Schema
 }
 
+// Fields returns the Project schema fields.
 func (Project) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
@@ -31,6 +33,7 @@ func (Project) Fields() []ent.Field {
 	}
 }
 
+// Edges returns the Project schema edges.
 func (Project) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("organization", Organization.Type).
@@ -55,6 +58,7 @@ func (Project) Edges() []ent.Edge {
 	}
 }
 
+// Indexes returns the Project schema indexes.
 func (Project) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("organization_id", "slug").Unique(),

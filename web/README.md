@@ -4,7 +4,7 @@ The `web` package is the SvelteKit frontend embedded into the OpenASE Go binary.
 
 ## Layering
 
-OpenASE frontend code must follow a one-way dependency stack:
+OpenASE frontend code must follow a one-way dependency stack. The first line is the coarse-grained layer boundary; the second line expands what usually sits inside a feature implementation:
 
 ```text
 ui -> layout -> features -> routes

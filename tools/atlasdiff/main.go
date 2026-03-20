@@ -68,6 +68,7 @@ func main() {
 	)
 
 	args := atlasArgs(mode, name, devURL)
+	//nolint:gosec // atlasdiff runs a workspace-local helper binary with fixed arguments
 	cmd := exec.CommandContext(ctx, filepath.Join(cwd, atlasBinary), args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

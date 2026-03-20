@@ -168,11 +168,7 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 	go session.readLoop()
 	go session.waitLoop()
 
-	initializeParams, err := newWireInitializeParams(request.Initialize)
-	if err != nil {
-		_ = session.stopWithTimeout()
-		return nil, err
-	}
+	initializeParams := newWireInitializeParams(request.Initialize)
 	if err := session.call(ctx, methodInitialize, initializeParams, &wireInitializeResponse{}); err != nil {
 		_ = session.stopWithTimeout()
 		return nil, fmt.Errorf("initialize codex app server: %w", err)
@@ -321,7 +317,7 @@ func newSession(process provider.AgentCLIProcess) *Session {
 	}
 }
 
-func newWireInitializeParams(params InitializeParams) (wireInitializeParams, error) {
+func newWireInitializeParams(params InitializeParams) wireInitializeParams {
 	name := strings.TrimSpace(params.ClientName)
 	if name == "" {
 		name = defaultClientName
@@ -342,7 +338,7 @@ func newWireInitializeParams(params InitializeParams) (wireInitializeParams, err
 			Title:   title,
 			Version: version,
 		},
-	}, nil
+	}
 }
 
 func newWireThreadStartParams(params ThreadStartParams) (wireThreadStartParams, error) {

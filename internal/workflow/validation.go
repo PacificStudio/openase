@@ -108,7 +108,7 @@ func extractHarnessFrontmatter(content string) (string, string, error) {
 	normalized := normalizeHarnessNewlines(content)
 	lines := strings.Split(normalized, "\n")
 	if len(lines) == 0 || lines[0] != "---" {
-		return "", "", fmt.Errorf("Harness must begin with YAML frontmatter delimited by ---")
+		return "", "", fmt.Errorf("harness must begin with YAML frontmatter delimited by ---")
 	}
 
 	for index := 1; index < len(lines); index++ {
@@ -119,13 +119,13 @@ func extractHarnessFrontmatter(content string) (string, string, error) {
 		frontmatter := strings.Join(lines[1:index], "\n")
 		body := strings.Join(lines[index+1:], "\n")
 		if strings.TrimSpace(frontmatter) == "" {
-			return "", "", fmt.Errorf("Harness YAML frontmatter must not be empty")
+			return "", "", fmt.Errorf("harness YAML frontmatter must not be empty")
 		}
 
 		return frontmatter, body, nil
 	}
 
-	return "", "", fmt.Errorf("Harness YAML frontmatter is missing the closing --- delimiter")
+	return "", "", fmt.Errorf("harness YAML frontmatter is missing the closing --- delimiter")
 }
 
 func validateHarnessFrontmatter(frontmatter string) []ValidationIssue {

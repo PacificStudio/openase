@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	"github.com/BetterAndBetterII/openase/internal/webui"
 	"github.com/labstack/echo/v4"
 )
 
@@ -43,22 +44,27 @@ func TestHealthRoutes(t *testing.T) {
 
 func TestEmbeddedUIRoutes(t *testing.T) {
 	server := NewServer(config.ServerConfig{Port: 40023}, config.GitHubConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil, nil, nil, nil)
+	uiHandler := webui.Handler()
 
-	for target, needle := range map[string]string{
-		"/":                  "OpenASE Workflow Management",
-		"/_app/version.json": "version",
-	} {
+	for _, target := range []string{"/", "/_app/version.json"} {
 		req := httptest.NewRequest(http.MethodGet, target, nil)
+		expected := httptest.NewRecorder()
 		rec := httptest.NewRecorder()
+
+		uiHandler.ServeHTTP(expected, req.Clone(req.Context()))
 
 		server.Handler().ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expected %s to return 200, got %d", target, rec.Code)
+		if rec.Code != expected.Code {
+			t.Fatalf("expected %s to return %d, got %d", target, expected.Code, rec.Code)
 		}
 
-		if !strings.Contains(rec.Body.String(), needle) {
-			t.Fatalf("expected %s response to contain %q", target, needle)
+		if rec.Body.String() != expected.Body.String() {
+			t.Fatalf("expected %s response body %q, got %q", target, expected.Body.String(), rec.Body.String())
+		}
+
+		if got := rec.Header().Get(echo.HeaderContentType); got != expected.Header().Get(echo.HeaderContentType) {
+			t.Fatalf("expected %s content-type %q, got %q", target, expected.Header().Get(echo.HeaderContentType), got)
 		}
 	}
 }
@@ -81,7 +87,11 @@ func TestEventStreamRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do returned error: %v", err)
 	}
-	defer response.Body.Close()
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close event stream response body: %v", err)
+		}
+	})
 
 	message, err := provider.NewJSONEvent(
 		topic,
@@ -180,7 +190,11 @@ func TestProjectEventStreamRoutesUseFixedTopics(t *testing.T) {
 			defer testServer.Close()
 
 			response, cancel := openSSERequest(t, testServer.URL+testCase.path)
-			defer response.Body.Close()
+			t.Cleanup(func() {
+				if err := response.Body.Close(); err != nil {
+					t.Errorf("close project event stream response body: %v", err)
+				}
+			})
 
 			publishTestEvent(t, bus, testCase.unrelated, testCase.unrelatedType, map[string]string{"scope": "other"})
 			publishTestEvent(t, bus, testCase.topic, testCase.eventType, map[string]string{"scope": "expected"})

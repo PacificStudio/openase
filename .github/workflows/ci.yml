@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  push:
   pull_request:
   workflow_dispatch:
 
@@ -9,8 +8,12 @@ permissions:
   contents: read
 
 jobs:
-  test-and-build:
+  frontend:
+    name: Frontend Checks
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
 
     steps:
       - name: Check Out Repository
@@ -24,12 +27,32 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install Web Dependencies
-        working-directory: web
         run: npm ci
 
       - name: Run Web CI
-        working-directory: web
         run: npm run ci
+
+      - name: Upload Embedded Web Assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: embedded-web-assets
+          path: internal/webui/static
+          if-no-files-found: error
+
+  backend:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+    needs: frontend
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v4
+
+      - name: Download Embedded Web Assets
+        uses: actions/download-artifact@v4
+        with:
+          name: embedded-web-assets
+          path: internal/webui/static
 
       - name: Set Up Go
         uses: actions/setup-go@v5
@@ -39,8 +62,43 @@ jobs:
             go.mod
             go.sum
 
-      - name: Run Go Tests
-        run: go test ./...
+      - name: Run Backend Formatting And Tests
+        run: make check
 
       - name: Build OpenASE Binary
-        run: go build ./cmd/openase
+        run: make build
+
+  go-lint:
+    name: Go Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set Up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.mod
+            go.sum
+
+      - name: Fetch Base Branch
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Run Incremental Lint
+        if: github.event_name == 'pull_request'
+        env:
+          LINT_BASE_REV: ${{ github.event.pull_request.base.sha }}
+        run: make lint
+
+      - name: Run Incremental Lint From Main
+        if: github.event_name != 'pull_request'
+        run: make lint
+
+      - name: Run Depguard Architecture Checks
+        run: make lint-depguard

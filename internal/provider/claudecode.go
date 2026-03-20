@@ -7,8 +7,10 @@ import (
 	"strings"
 )
 
+// ClaudeCodeSessionID identifies a Claude Code session.
 type ClaudeCodeSessionID string
 
+// ParseClaudeCodeSessionID validates a raw Claude Code session identifier.
 func ParseClaudeCodeSessionID(raw string) (ClaudeCodeSessionID, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -18,6 +20,7 @@ func ParseClaudeCodeSessionID(raw string) (ClaudeCodeSessionID, error) {
 	return ClaudeCodeSessionID(trimmed), nil
 }
 
+// MustParseClaudeCodeSessionID parses a session ID and panics on invalid input.
 func MustParseClaudeCodeSessionID(raw string) ClaudeCodeSessionID {
 	sessionID, err := ParseClaudeCodeSessionID(raw)
 	if err != nil {
@@ -31,9 +34,11 @@ func (s ClaudeCodeSessionID) String() string {
 	return string(s)
 }
 
+// ClaudeCodeEventKind classifies one streamed Claude Code event frame.
 type ClaudeCodeEventKind string
 
 const (
+	// Claude Code event kinds mirror the upstream streaming protocol.
 	ClaudeCodeEventKindUnknown      ClaudeCodeEventKind = "unknown"
 	ClaudeCodeEventKindSystem       ClaudeCodeEventKind = "system"
 	ClaudeCodeEventKindAssistant    ClaudeCodeEventKind = "assistant"
@@ -45,6 +50,7 @@ const (
 	ClaudeCodeEventKindTaskNotice   ClaudeCodeEventKind = "task_notification"
 )
 
+// ClaudeCodeEvent is the normalized event envelope emitted by the adapter.
 type ClaudeCodeEvent struct {
 	Kind            ClaudeCodeEventKind
 	Raw             json.RawMessage
@@ -66,10 +72,12 @@ type ClaudeCodeEvent struct {
 	TotalCostUSD    *float64
 }
 
+// ClaudeCodeTurnInput is a single prompt turn sent to Claude Code.
 type ClaudeCodeTurnInput struct {
 	Prompt string
 }
 
+// NewClaudeCodeTurnInput validates and constructs a Claude Code turn input.
 func NewClaudeCodeTurnInput(prompt string) (ClaudeCodeTurnInput, error) {
 	trimmed := strings.TrimSpace(prompt)
 	if trimmed == "" {
@@ -79,6 +87,7 @@ func NewClaudeCodeTurnInput(prompt string) (ClaudeCodeTurnInput, error) {
 	return ClaudeCodeTurnInput{Prompt: trimmed}, nil
 }
 
+// ClaudeCodeSessionSpec defines how to start or resume a Claude Code session.
 type ClaudeCodeSessionSpec struct {
 	Command                AgentCLICommand
 	BaseArgs               []string
@@ -92,6 +101,7 @@ type ClaudeCodeSessionSpec struct {
 	IncludePartialMessages bool
 }
 
+// NewClaudeCodeSessionSpec validates and constructs a Claude Code session spec.
 func NewClaudeCodeSessionSpec(
 	command AgentCLICommand,
 	baseArgs []string,
@@ -179,6 +189,7 @@ func cloneClaudeCodeSessionIDPointer(value *ClaudeCodeSessionID) *ClaudeCodeSess
 	return &cloned
 }
 
+// ClaudeCodeSession represents a live Claude Code session.
 type ClaudeCodeSession interface {
 	SessionID() (ClaudeCodeSessionID, bool)
 	Events() <-chan ClaudeCodeEvent
@@ -187,6 +198,7 @@ type ClaudeCodeSession interface {
 	Close(context.Context) error
 }
 
+// ClaudeCodeAdapter starts Claude Code sessions behind a provider abstraction.
 type ClaudeCodeAdapter interface {
 	Start(context.Context, ClaudeCodeSessionSpec) (ClaudeCodeSession, error)
 }

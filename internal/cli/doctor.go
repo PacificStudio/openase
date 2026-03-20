@@ -15,7 +15,9 @@ func newDoctorCommand(options *rootOptions) *cobra.Command {
 			report := doctor.Diagnose(cmd.Context(), doctor.Options{
 				ConfigFile: options.configFile,
 			})
-			fmt.Fprint(cmd.OutOrStdout(), report.Render())
+			if _, err := fmt.Fprint(cmd.OutOrStdout(), report.Render()); err != nil {
+				return err
+			}
 			if report.HasErrors() {
 				return newExitError(1, "")
 			}

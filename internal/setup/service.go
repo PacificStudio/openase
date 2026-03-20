@@ -57,12 +57,14 @@ type Service struct {
 
 type runtimeDatabaseConnector struct{}
 
-func (runtimeDatabaseConnector) Ping(ctx context.Context, dsn string) error {
+func (runtimeDatabaseConnector) Ping(ctx context.Context, dsn string) (err error) {
 	client, err := openEntClient(dsn)
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() {
+		err = errors.Join(err, client.Close())
+	}()
 
 	return client.Schema.Create(ctx)
 }
@@ -221,7 +223,7 @@ func (s *Service) ensureHomeLayout() error {
 		filepath.Join(baseDir, "logs"),
 		filepath.Join(baseDir, "workspaces"),
 	} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("create %s: %w", dir, err)
 		}
 	}
@@ -290,10 +292,10 @@ func (s *Service) writeConfigFile(request CompleteRequest) error {
 		return fmt.Errorf("marshal setup config: %w", err)
 	}
 
-	if err := os.WriteFile(s.configPath(), content, 0o644); err != nil {
+	if err := os.WriteFile(s.configPath(), content, 0o600); err != nil {
 		return fmt.Errorf("write setup config: %w", err)
 	}
-	if err := os.WriteFile(s.legacyConfigPath(), content, 0o644); err != nil {
+	if err := os.WriteFile(s.legacyConfigPath(), content, 0o600); err != nil {
 		return fmt.Errorf("write legacy setup config: %w", err)
 	}
 
@@ -374,7 +376,7 @@ func ensurePrimaryRepoScaffold(repoRoot string) ([]string, error) {
 	files := primaryRepoScaffold(repoRoot)
 	created := make([]string, 0, len(files))
 	for _, file := range files {
-		if err := os.MkdirAll(filepath.Dir(file.path), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(file.path), 0o750); err != nil {
 			return nil, fmt.Errorf("create scaffold directory for %s: %w", file.path, err)
 		}
 		if fileExists(file.path) {
@@ -403,12 +405,14 @@ func generateAuthToken() (string, error) {
 	return hex.EncodeToString(token), nil
 }
 
-func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) error {
+func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err error) {
 	client, err := database.Open(ctx, input.Database.DSN())
 	if err != nil {
 		return fmt.Errorf("open installation database: %w", err)
 	}
-	defer client.Close()
+	defer func() {
+		err = errors.Join(err, client.Close())
+	}()
 
 	repo := catalogrepo.NewEntRepository(client)
 	service := catalogservice.New(repo, executable.NewPathResolver())

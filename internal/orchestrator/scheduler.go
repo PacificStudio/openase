@@ -23,6 +23,7 @@ const (
 	skipReasonMaxConcurrency = "max_concurrency"
 )
 
+// TickReport summarizes the work done during one scheduler tick.
 type TickReport struct {
 	WorkflowsScanned  int            `json:"workflows_scanned"`
 	CandidatesScanned int            `json:"candidates_scanned"`
@@ -30,12 +31,14 @@ type TickReport struct {
 	TicketsSkipped    map[string]int `json:"tickets_skipped"`
 }
 
+// Scheduler claims runnable tickets and advances orchestrator work.
 type Scheduler struct {
 	client *ent.Client
 	logger *slog.Logger
 	now    func() time.Time
 }
 
+// NewScheduler constructs the orchestrator scheduler.
 func NewScheduler(client *ent.Client, logger *slog.Logger) *Scheduler {
 	if logger == nil {
 		logger = slog.Default()
@@ -48,6 +51,7 @@ func NewScheduler(client *ent.Client, logger *slog.Logger) *Scheduler {
 	}
 }
 
+// RunTick executes one scheduling pass.
 func (s *Scheduler) RunTick(ctx context.Context) (TickReport, error) {
 	report := TickReport{
 		TicketsSkipped: map[string]int{},

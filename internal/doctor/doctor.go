@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	// Register the pgx database/sql driver used by doctor connectivity checks.
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.yaml.in/yaml/v3"
 )
@@ -164,7 +165,7 @@ func (r Report) Render() string {
 	}
 
 	builder.WriteString("\n")
-	builder.WriteString(fmt.Sprintf("总结: %d 个警告，%d 个错误\n", r.WarningCount(), r.ErrorCount()))
+	_, _ = fmt.Fprintf(&builder, "总结: %d 个警告，%d 个错误\n", r.WarningCount(), r.ErrorCount())
 	return builder.String()
 }
 
@@ -719,6 +720,7 @@ func collectHookScriptReferences(repoRoot string) ([]string, []string, error) {
 			return nil
 		}
 
+		//nolint:gosec // paths come from walking the already-selected repository root
 		content, readErr := os.ReadFile(path)
 		if readErr != nil {
 			return fmt.Errorf("read harness file %s: %w", path, readErr)
@@ -872,6 +874,7 @@ func firstNonEmptyLine(raw string) string {
 }
 
 func runExecCommand(ctx context.Context, name string, args ...string) (string, error) {
+	//nolint:gosec // doctor intentionally executes resolved local diagnostics commands
 	command := exec.CommandContext(ctx, name, args...)
 	output, err := command.CombinedOutput()
 	if err != nil {

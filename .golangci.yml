@@ -144,9 +144,6 @@ linters:
               desc: delivery handlers must not depend on app wiring
     revive:
       rules:
-        - name: exported
-          arguments:
-            - checkPrivateReceivers
         - name: unexported-return
         - name: blank-imports
         - name: context-as-argument

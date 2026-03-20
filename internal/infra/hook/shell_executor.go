@@ -72,6 +72,7 @@ func (e *ShellExecutor) run(ctx context.Context, hookName TicketHookName, hook D
 	}
 	defer cancel()
 
+	//nolint:gosec // hook commands are an explicit repository-controlled execution surface
 	cmd := exec.CommandContext(commandContext, "sh", "-c", hook.Command)
 	cmd.Dir = workingDirectory
 	cmd.Env = append(os.Environ(), buildEnvironmentVariables(hookName, env)...)
@@ -124,17 +125,18 @@ func buildEnvironmentVariables(hookName TicketHookName, env Env) []string {
 		reposJSON = string(encoded)
 	}
 
-	environment := []string{
-		"OPENASE_TICKET_IDENTIFIER=" + env.TicketIdentifier,
-		"OPENASE_WORKSPACE=" + env.Workspace,
-		"OPENASE_REPOS=" + reposJSON,
-		"OPENASE_AGENT_NAME=" + env.AgentName,
-		"OPENASE_WORKFLOW_TYPE=" + env.WorkflowType,
-		"OPENASE_ATTEMPT=" + fmt.Sprintf("%d", env.Attempt),
-		"OPENASE_HOOK_NAME=" + string(hookName),
-	}
-
-	environment = append(environment, agentplatform.BuildEnvironment(env.APIURL, env.AgentToken, env.ProjectID, env.TicketID)...)
+	agentEnvironment := agentplatform.BuildEnvironment(env.APIURL, env.AgentToken, env.ProjectID, env.TicketID)
+	environment := make([]string, 0, 7+len(agentEnvironment))
+	environment = append(environment,
+		"OPENASE_TICKET_IDENTIFIER="+env.TicketIdentifier,
+		"OPENASE_WORKSPACE="+env.Workspace,
+		"OPENASE_REPOS="+reposJSON,
+		"OPENASE_AGENT_NAME="+env.AgentName,
+		"OPENASE_WORKFLOW_TYPE="+env.WorkflowType,
+		"OPENASE_ATTEMPT="+fmt.Sprintf("%d", env.Attempt),
+		"OPENASE_HOOK_NAME="+string(hookName),
+	)
+	environment = append(environment, agentEnvironment...)
 
 	return environment
 }

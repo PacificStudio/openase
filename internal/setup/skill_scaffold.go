@@ -15,8 +15,9 @@ type scaffoldFileSpec struct {
 }
 
 func primaryRepoScaffold(repoRoot string) []scaffoldFileSpec {
-	files := []scaffoldFileSpec{
-		{
+	files := make([]scaffoldFileSpec, 0, 3+len(builtin.Skills())+len(builtin.Roles()))
+	files = append(files,
+		scaffoldFileSpec{
 			path: filepath.Join(repoRoot, ".openase", "harnesses", "coding.md"),
 			content: `---
 workflow:
@@ -33,17 +34,17 @@ You are implementing the assigned OpenASE ticket in the primary repository.
 `,
 			mode: 0o644,
 		},
-		{
+		scaffoldFileSpec{
 			path:    filepath.Join(repoRoot, ".openase", "skills", ".gitkeep"),
 			content: "",
 			mode:    0o644,
 		},
-		{
+		scaffoldFileSpec{
 			path:    filepath.Join(repoRoot, ".openase", "bin", "openase"),
 			content: openASECLIWrapperScript(),
 			mode:    0o755,
 		},
-	}
+	)
 
 	for _, skill := range builtin.Skills() {
 		files = append(files, scaffoldFileSpec{

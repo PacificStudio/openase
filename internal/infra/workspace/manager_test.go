@@ -169,10 +169,10 @@ func appendCommit(t *testing.T, repoPath string, branch string, filePath string,
 	}
 
 	absoluteFilePath := filepath.Join(repoPath, filePath)
-	if err := os.MkdirAll(filepath.Dir(absoluteFilePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(absoluteFilePath), 0o750); err != nil {
 		t.Fatalf("create directories for %s: %v", filePath, err)
 	}
-	if err := os.WriteFile(absoluteFilePath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(absoluteFilePath, []byte(content), 0o600); err != nil {
 		t.Fatalf("write file %s: %v", filePath, err)
 	}
 
@@ -199,10 +199,10 @@ func commitFiles(t *testing.T, repository *git.Repository, repoPath string, file
 
 	for relativePath, content := range files {
 		absolutePath := filepath.Join(repoPath, relativePath)
-		if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(absolutePath), 0o750); err != nil {
 			t.Fatalf("create directory for %s: %v", relativePath, err)
 		}
-		if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(absolutePath, []byte(content), 0o600); err != nil {
 			t.Fatalf("write file %s: %v", relativePath, err)
 		}
 	}

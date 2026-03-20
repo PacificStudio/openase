@@ -53,7 +53,7 @@ func (s *stubInstaller) Initialize(_ context.Context, input InstallInput) error 
 func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 	homeDir := t.TempDir()
 	repoRoot := filepath.Join(t.TempDir(), "repo")
-	if err := os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
 		t.Fatalf("MkdirAll returned error: %v", err)
 	}
 
@@ -101,6 +101,7 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 		t.Fatalf("expected %d scaffolded files, got %d", len(primaryRepoScaffold(repoRoot)), len(result.ScaffoldedFiles))
 	}
 
+	//nolint:gosec // test reads files from a controlled temp home directory
 	configContent, err := os.ReadFile(filepath.Join(homeDir, ".openase", "config.yaml"))
 	if err != nil {
 		t.Fatalf("ReadFile config returned error: %v", err)
@@ -113,6 +114,7 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 	}
 
 	envPath := filepath.Join(homeDir, ".openase", ".env")
+	//nolint:gosec // test reads files from a controlled temp home directory
 	envContent, err := os.ReadFile(envPath)
 	if err != nil {
 		t.Fatalf("ReadFile env returned error: %v", err)
@@ -148,6 +150,7 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 		}
 	}
 
+	//nolint:gosec // test reads files from a controlled temp repository
 	skillContent, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("ReadFile SKILL.md returned error: %v", err)
@@ -167,11 +170,15 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 
 	fakeBinDir := t.TempDir()
 	fakeOpenasePath := filepath.Join(fakeBinDir, "openase")
-	if err := os.WriteFile(fakeOpenasePath, []byte("#!/bin/sh\nprintf '%s' \"$*\"\n"), 0o755); err != nil {
+	if err := os.WriteFile(fakeOpenasePath, []byte("#!/bin/sh\nprintf '%s' \"$*\"\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile fake openase returned error: %v", err)
+	}
+	if err := os.Chmod(fakeOpenasePath, 0o700); err != nil { //nolint:gosec // test needs the temp helper script to be executable
+		t.Fatalf("Chmod fake openase returned error: %v", err)
 	}
 	t.Setenv("PATH", fakeBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
+	//nolint:gosec // test executes a temporary wrapper script under a controlled temp directory
 	output, err := exec.Command(wrapperPath, "ticket", "list").CombinedOutput()
 	if err != nil {
 		t.Fatalf("wrapper execution returned error: %v (output=%q)", err, string(output))

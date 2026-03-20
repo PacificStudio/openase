@@ -17,7 +17,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "ci": "npm run lint && npm run lint:structure && npm run lint:deps && npm run check && npm run build"
+    "ci": "npm run format:check && npm run lint && npm run lint:structure && npm run lint:deps && npm run check && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

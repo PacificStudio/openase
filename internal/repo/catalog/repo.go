@@ -664,7 +664,7 @@ func mapProject(item *ent.Project) domain.Project {
 	}
 }
 
-func rollbackOnError(ctx context.Context, tx *ent.Tx, errp *error) {
+func rollbackOnError(_ context.Context, tx *ent.Tx, errp *error) {
 	if *errp == nil {
 		return
 	}
@@ -672,10 +672,11 @@ func rollbackOnError(ctx context.Context, tx *ent.Tx, errp *error) {
 }
 
 func clearPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, excludeIDs ...uuid.UUID) error {
-	predicates := []predicate.ProjectRepo{
+	predicates := make([]predicate.ProjectRepo, 0, 2+len(excludeIDs))
+	predicates = append(predicates,
 		entprojectrepo.ProjectID(projectID),
 		entprojectrepo.IsPrimary(true),
-	}
+	)
 	for _, id := range excludeIDs {
 		predicates = append(predicates, entprojectrepo.IDNEQ(id))
 	}
@@ -741,10 +742,11 @@ func ensureProjectPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UU
 }
 
 func clearPrimaryTicketRepoScope(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID, excludeIDs ...uuid.UUID) error {
-	predicates := []predicate.TicketRepoScope{
+	predicates := make([]predicate.TicketRepoScope, 0, 2+len(excludeIDs))
+	predicates = append(predicates,
 		entticketreposcope.TicketID(ticketID),
 		entticketreposcope.IsPrimaryScope(true),
-	}
+	)
 	for _, id := range excludeIDs {
 		predicates = append(predicates, entticketreposcope.IDNEQ(id))
 	}

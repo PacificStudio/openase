@@ -96,6 +96,12 @@ export default defineConfig(
     },
   },
   {
+    files: ['src/lib/components/layout/**/*.svelte'],
+    rules: {
+      'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
     files: ['src/lib/components/ui/**/*.svelte'],
     rules: {
       'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
