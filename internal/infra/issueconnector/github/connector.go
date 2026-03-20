@@ -122,10 +122,14 @@ func (c *Connector) SyncBack(ctx context.Context, cfg domain.Config, update doma
 		if err != nil {
 			return err
 		}
+		endpoint, err := buildRepositoryEndpoint(cfg.BaseURL, repoRef, "issues", strconv.Itoa(externalRef.Number))
+		if err != nil {
+			return err
+		}
 		_, err = c.doJSON(
 			ctx,
 			http.MethodPatch,
-			buildRepositoryEndpoint(cfg.BaseURL, repoRef, "issues", strconv.Itoa(externalRef.Number)),
+			endpoint,
 			cfg.AuthToken,
 			map[string]string{"state": state},
 			http.StatusOK,
@@ -137,10 +141,14 @@ func (c *Connector) SyncBack(ctx context.Context, cfg domain.Config, update doma
 		if comment == "" {
 			return fmt.Errorf("sync back comment must not be empty")
 		}
+		endpoint, err := buildRepositoryEndpoint(cfg.BaseURL, repoRef, "issues", strconv.Itoa(externalRef.Number), "comments")
+		if err != nil {
+			return err
+		}
 		_, err = c.doJSON(
 			ctx,
 			http.MethodPost,
-			buildRepositoryEndpoint(cfg.BaseURL, repoRef, "issues", strconv.Itoa(externalRef.Number), "comments"),
+			endpoint,
 			cfg.AuthToken,
 			map[string]string{"body": comment},
 			http.StatusCreated,
@@ -152,10 +160,14 @@ func (c *Connector) SyncBack(ctx context.Context, cfg domain.Config, update doma
 		if label == "" {
 			return fmt.Errorf("sync back label must not be empty")
 		}
+		endpoint, err := buildRepositoryEndpoint(cfg.BaseURL, repoRef, "issues", strconv.Itoa(externalRef.Number), "labels")
+		if err != nil {
+			return err
+		}
 		_, err = c.doJSON(
 			ctx,
 			http.MethodPost,
-			buildRepositoryEndpoint(cfg.BaseURL, repoRef, "issues", strconv.Itoa(externalRef.Number), "labels"),
+			endpoint,
 			cfg.AuthToken,
 			map[string][]string{"labels": []string{label}},
 			http.StatusOK,
@@ -172,11 +184,15 @@ func (c *Connector) HealthCheck(ctx context.Context, cfg domain.Config) error {
 	if err != nil {
 		return err
 	}
+	endpoint, err := buildRepositoryEndpoint(cfg.BaseURL, repoRef)
+	if err != nil {
+		return err
+	}
 
 	_, err = c.doJSON(
 		ctx,
 		http.MethodGet,
-		buildRepositoryEndpoint(cfg.BaseURL, repoRef),
+		endpoint,
 		cfg.AuthToken,
 		nil,
 		http.StatusOK,
@@ -423,7 +439,11 @@ func buildIssuesURL(rawBaseURL string, repoRef repositoryRef, since time.Time) (
 		return "", err
 	}
 
-	endpoint, err := url.Parse(buildRepositoryEndpoint(base, repoRef, "issues"))
+	repoEndpoint, err := buildRepositoryEndpoint(base, repoRef, "issues")
+	if err != nil {
+		return "", err
+	}
+	endpoint, err := url.Parse(repoEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("build issues endpoint: %w", err)
 	}
@@ -441,8 +461,11 @@ func buildIssuesURL(rawBaseURL string, repoRef repositoryRef, since time.Time) (
 	return endpoint.String(), nil
 }
 
-func buildRepositoryEndpoint(rawBaseURL string, repoRef repositoryRef, segments ...string) string {
-	baseURL, _ := normalizeBaseURL(rawBaseURL)
+func buildRepositoryEndpoint(rawBaseURL string, repoRef repositoryRef, segments ...string) (string, error) {
+	baseURL, err := normalizeBaseURL(rawBaseURL)
+	if err != nil {
+		return "", err
+	}
 	pathParts := make([]string, 0, 4+len(segments))
 	pathParts = append(pathParts,
 		strings.TrimRight(baseURL, "/"),
@@ -454,7 +477,7 @@ func buildRepositoryEndpoint(rawBaseURL string, repoRef repositoryRef, segments 
 		pathParts = append(pathParts, url.PathEscape(strings.TrimSpace(segment)))
 	}
 
-	return strings.Join(pathParts, "/")
+	return strings.Join(pathParts, "/"), nil
 }
 
 func normalizeBaseURL(raw string) (string, error) {
@@ -552,7 +575,7 @@ func (c *Connector) doJSON(
 	payload any,
 	expectedStatus int,
 	target any,
-) (http.Header, error) {
+) (headers http.Header, err error) {
 	request, err := newJSONRequest(ctx, method, endpoint, authToken, payload)
 	if err != nil {
 		return nil, err
@@ -562,41 +585,30 @@ func (c *Connector) doJSON(
 	if err != nil {
 		return nil, fmt.Errorf("%s %s: %w", method, endpoint, err)
 	}
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("%s %s: close response body: %w", method, endpoint, closeErr)
+		}
+	}()
 
 	if response.StatusCode != expectedStatus {
 		body, readErr := io.ReadAll(response.Body)
-		closeErr := response.Body.Close()
 		if readErr != nil {
 			return nil, fmt.Errorf("%s %s: unexpected status %d and failed to read response body: %w", method, endpoint, response.StatusCode, readErr)
-		}
-		if closeErr != nil {
-			return nil, fmt.Errorf("%s %s: close response body: %w", method, endpoint, closeErr)
 		}
 		return nil, fmt.Errorf("%s %s: unexpected status %d: %s", method, endpoint, response.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	headers := response.Header.Clone()
+	headers = response.Header.Clone()
 	if target == nil {
 		if _, err := io.Copy(io.Discard, response.Body); err != nil {
-			if closeErr := response.Body.Close(); closeErr != nil {
-				return nil, fmt.Errorf("%s %s: discard response body: %w (close: %v)", method, endpoint, err, closeErr)
-			}
 			return nil, fmt.Errorf("%s %s: discard response body: %w", method, endpoint, err)
-		}
-		if err := response.Body.Close(); err != nil {
-			return nil, fmt.Errorf("%s %s: close response body: %w", method, endpoint, err)
 		}
 		return headers, nil
 	}
 
 	if err := json.NewDecoder(response.Body).Decode(target); err != nil {
-		if closeErr := response.Body.Close(); closeErr != nil {
-			return nil, fmt.Errorf("%s %s: decode response: %w (close: %v)", method, endpoint, err, closeErr)
-		}
 		return nil, fmt.Errorf("%s %s: decode response: %w", method, endpoint, err)
-	}
-	if err := response.Body.Close(); err != nil {
-		return nil, fmt.Errorf("%s %s: close response body: %w", method, endpoint, err)
 	}
 
 	return headers, nil

@@ -295,3 +295,25 @@ func TestConnectorHealthCheckHitsRepositoryEndpoint(t *testing.T) {
 		t.Fatalf("HealthCheck returned error: %v", err)
 	}
 }
+
+func TestConnectorSyncBackRejectsInvalidBaseURL(t *testing.T) {
+	connector := New(http.DefaultClient)
+	err := connector.SyncBack(context.Background(), domain.Config{
+		Type:       domain.TypeGitHub,
+		BaseURL:    "://bad-url",
+		ProjectRef: "acme/backend",
+		StatusMapping: map[string]string{
+			"closed": "Done",
+		},
+	}, domain.SyncBackUpdate{
+		ExternalID: "acme/backend#42",
+		Action:     domain.SyncBackActionUpdateStatus,
+		Status:     "Done",
+	})
+	if err == nil {
+		t.Fatal("SyncBack returned nil error, want invalid base_url error")
+	}
+	if !strings.Contains(err.Error(), "base_url must be a valid URL") {
+		t.Fatalf("SyncBack error = %v, want invalid base_url error", err)
+	}
+}
