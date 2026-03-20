@@ -5,9 +5,18 @@
   import * as DropdownMenu from '$ui/dropdown-menu'
   import * as Avatar from '$ui/avatar'
 
+  type ContextOption = {
+    id: string
+    name: string
+  }
+
   let {
     orgName = 'My Org',
     projectName = '',
+    organizations = [],
+    projects = [],
+    currentOrgId = null,
+    currentProjectId = null,
     sseStatus = 'live' as 'idle' | 'connecting' | 'live' | 'retrying',
     searchEnabled = false,
     newTicketEnabled = false,
@@ -16,9 +25,15 @@
     onToggleTheme,
     onNewTicket,
     onOpenSearch,
+    onSelectOrg,
+    onSelectProject,
   }: {
     orgName?: string
     projectName?: string
+    organizations?: ContextOption[]
+    projects?: ContextOption[]
+    currentOrgId?: string | null
+    currentProjectId?: string | null
     sseStatus?: 'idle' | 'connecting' | 'live' | 'retrying'
     searchEnabled?: boolean
     newTicketEnabled?: boolean
@@ -27,6 +42,8 @@
     onToggleTheme?: () => void
     onNewTicket?: () => void
     onOpenSearch?: () => void
+    onSelectOrg?: (orgId: string) => void
+    onSelectProject?: (projectId: string) => void
   } = $props()
 </script>
 
@@ -39,17 +56,75 @@
   <Separator orientation="vertical" class="mx-1 h-5" />
 
   <!-- Org Switcher -->
-  <Button variant="ghost" size="sm" class="text-muted-foreground gap-1 text-xs">
-    {orgName}
-    <ChevronDown class="size-3" />
-  </Button>
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger>
+      {#snippet child({ props })}
+        <Button
+          {...props}
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground gap-1 text-xs"
+          disabled={organizations.length === 0}
+        >
+          {orgName}
+          <ChevronDown class="size-3" />
+        </Button>
+      {/snippet}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="start" class="w-56">
+      <DropdownMenu.Label>Organizations</DropdownMenu.Label>
+      {#if organizations.length > 0}
+        <DropdownMenu.RadioGroup value={currentOrgId ?? undefined}>
+          {#each organizations as organization (organization.id)}
+            <DropdownMenu.RadioItem
+              value={organization.id}
+              onclick={() => onSelectOrg?.(organization.id)}
+            >
+              {organization.name}
+            </DropdownMenu.RadioItem>
+          {/each}
+        </DropdownMenu.RadioGroup>
+      {:else}
+        <DropdownMenu.Item disabled>No organizations available</DropdownMenu.Item>
+      {/if}
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
 
   {#if projectName}
     <span class="text-muted-foreground/50">/</span>
-    <Button variant="ghost" size="sm" class="text-foreground gap-1 text-xs font-medium">
-      {projectName}
-      <ChevronDown class="size-3" />
-    </Button>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant="ghost"
+            size="sm"
+            class="text-foreground gap-1 text-xs font-medium"
+            disabled={projects.length === 0}
+          >
+            {projectName}
+            <ChevronDown class="size-3" />
+          </Button>
+        {/snippet}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="start" class="w-56">
+        <DropdownMenu.Label>Projects</DropdownMenu.Label>
+        {#if projects.length > 0}
+          <DropdownMenu.RadioGroup value={currentProjectId ?? undefined}>
+            {#each projects as project (project.id)}
+              <DropdownMenu.RadioItem
+                value={project.id}
+                onclick={() => onSelectProject?.(project.id)}
+              >
+                {project.name}
+              </DropdownMenu.RadioItem>
+            {/each}
+          </DropdownMenu.RadioGroup>
+        {:else}
+          <DropdownMenu.Item disabled>No projects available</DropdownMenu.Item>
+        {/if}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   {/if}
 
   <!-- Spacer -->
