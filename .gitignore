@@ -8,3 +8,4 @@ WORKFLOW.backup.*.md
 openase
 web/.svelte-kit/
 web/node_modules/
+internal/webui/static
