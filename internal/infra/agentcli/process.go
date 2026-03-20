@@ -237,6 +237,7 @@ func (b *processOutputBuffer) Read(p []byte) (int, error) {
 	return b.buffer.Read(p)
 }
 
+// Close marks the buffered output stream as complete for downstream readers.
 func (b *processOutputBuffer) Close() error {
 	return b.closeWithError(nil)
 }
