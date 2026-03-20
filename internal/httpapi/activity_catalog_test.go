@@ -30,12 +30,15 @@ func TestListActivityEventsRoute(t *testing.T) {
 	projectID := uuid.New()
 	agentOneID := uuid.New()
 	agentTwoID := uuid.New()
+	ticketOneID := uuid.New()
+	ticketTwoID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
 	service.activityEvents = []domain.ActivityEvent{
 		{
 			ID:        uuid.New(),
 			ProjectID: projectID,
+			TicketID:  &ticketOneID,
 			AgentID:   &agentOneID,
 			EventType: "agent.output",
 			Message:   "older line",
@@ -45,6 +48,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 		{
 			ID:        uuid.New(),
 			ProjectID: projectID,
+			TicketID:  &ticketTwoID,
 			AgentID:   &agentTwoID,
 			EventType: "agent.output",
 			Message:   "other agent line",
@@ -54,6 +58,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 		{
 			ID:        uuid.New(),
 			ProjectID: projectID,
+			TicketID:  &ticketOneID,
 			AgentID:   &agentOneID,
 			EventType: "agent.heartbeat",
 			Message:   "still running",
@@ -66,7 +71,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 		t,
 		server,
 		http.MethodGet,
-		"/api/v1/projects/"+projectID.String()+"/activity?agent_id="+agentOneID.String()+"&limit=1",
+		"/api/v1/projects/"+projectID.String()+"/activity?agent_id="+agentOneID.String()+"&ticket_id="+ticketOneID.String()+"&limit=1",
 		"",
 	)
 	if rec.Code != http.StatusOK {

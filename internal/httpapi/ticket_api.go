@@ -3,9 +3,11 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/labstack/echo/v4"
 )
@@ -50,9 +52,22 @@ type ticketResponse struct {
 	CreatedAt         string                     `json:"created_at"`
 }
 
+type ticketRepoScopeDetailResponse struct {
+	ID             string               `json:"id"`
+	TicketID       string               `json:"ticket_id"`
+	RepoID         string               `json:"repo_id"`
+	Repo           *projectRepoResponse `json:"repo,omitempty"`
+	BranchName     string               `json:"branch_name"`
+	PullRequestURL *string              `json:"pull_request_url,omitempty"`
+	PrStatus       string               `json:"pr_status"`
+	CiStatus       string               `json:"ci_status"`
+	IsPrimaryScope bool                 `json:"is_primary_scope"`
+}
+
 func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleListTickets)
 	api.POST("/projects/:projectId/tickets", s.handleCreateTicket)
+	api.GET("/projects/:projectId/tickets/:ticketId/detail", s.handleGetTicketDetail)
 	api.GET("/tickets/:ticketId", s.handleGetTicket)
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)
 	api.POST("/tickets/:ticketId/dependencies", s.handleAddTicketDependency)
@@ -148,6 +163,57 @@ func (s *Server) handleGetTicket(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"ticket": mapTicketResponse(item),
+	})
+}
+
+func (s *Server) handleGetTicketDetail(c echo.Context) error {
+	if s.ticketService == nil || s.catalog == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket detail service unavailable")
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+
+	item, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if item.ProjectID != projectID {
+		return writeTicketError(c, ticketservice.ErrTicketNotFound)
+	}
+
+	projectRepos, err := s.catalog.ListProjectRepos(c.Request().Context(), projectID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	repoScopes, err := s.catalog.ListTicketRepoScopes(c.Request().Context(), projectID, ticketID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	activityInput, err := domain.ParseListActivityEvents(projectID, domain.ActivityEventListInput{
+		TicketID: ticketID.String(),
+		Limit:    "100",
+	})
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	activityItems, err := s.catalog.ListActivityEvents(c.Request().Context(), activityInput)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"ticket":       mapTicketResponse(item),
+		"repo_scopes":  mapTicketRepoScopeDetailResponses(repoScopes, indexProjectRepoResponses(projectRepos)),
+		"activity":     mapActivityEventResponses(activityItems),
+		"hook_history": mapActivityEventResponses(filterHookActivityEvents(activityItems)),
 	})
 }
 
@@ -263,6 +329,77 @@ func writeTicketError(c echo.Context, err error) error {
 	default:
 		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 	}
+}
+
+func mapTicketRepoScopeDetailResponses(
+	items []domain.TicketRepoScope,
+	reposByID map[string]projectRepoResponse,
+) []ticketRepoScopeDetailResponse {
+	response := make([]ticketRepoScopeDetailResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapTicketRepoScopeDetailResponse(item, reposByID[item.RepoID.String()]))
+	}
+
+	return response
+}
+
+func mapTicketRepoScopeDetailResponse(
+	item domain.TicketRepoScope,
+	repo projectRepoResponse,
+) ticketRepoScopeDetailResponse {
+	var repoResponse *projectRepoResponse
+	if repo.ID != "" {
+		copied := repo
+		repoResponse = &copied
+	}
+
+	return ticketRepoScopeDetailResponse{
+		ID:             item.ID.String(),
+		TicketID:       item.TicketID.String(),
+		RepoID:         item.RepoID.String(),
+		Repo:           repoResponse,
+		BranchName:     item.BranchName,
+		PullRequestURL: item.PullRequestURL,
+		PrStatus:       item.PrStatus.String(),
+		CiStatus:       item.CiStatus.String(),
+		IsPrimaryScope: item.IsPrimaryScope,
+	}
+}
+
+func indexProjectRepoResponses(items []domain.ProjectRepo) map[string]projectRepoResponse {
+	index := make(map[string]projectRepoResponse, len(items))
+	for _, item := range items {
+		response := mapProjectRepoResponse(item)
+		index[response.ID] = response
+	}
+
+	return index
+}
+
+func filterHookActivityEvents(items []domain.ActivityEvent) []domain.ActivityEvent {
+	filtered := make([]domain.ActivityEvent, 0, len(items))
+	for _, item := range items {
+		if !isHookActivityEvent(item) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+
+	return filtered
+}
+
+func isHookActivityEvent(item domain.ActivityEvent) bool {
+	if strings.Contains(strings.ToLower(item.EventType), "hook") {
+		return true
+	}
+
+	for _, key := range []string{"hook", "hook_name", "hook_stage", "hook_result", "hook_outcome"} {
+		if _, ok := item.Metadata[key]; ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 func mapTicketResponses(items []ticketservice.Ticket) []ticketResponse {

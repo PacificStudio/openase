@@ -1095,6 +1095,14 @@ You are handling {{ ticket.identifier }}.
 		return workflows.find((workflow) => workflow.id === workflowID)?.name ?? 'Detached workflow';
 	}
 
+	function ticketDetailHref(ticketID: string) {
+		if (!selectedProjectId) {
+			return '/ticket';
+		}
+
+		return `/ticket?project=${encodeURIComponent(selectedProjectId)}&id=${encodeURIComponent(ticketID)}`;
+	}
+
 	function isTicketMutationPending(ticketID: string) {
 		return ticketMutationIds.includes(ticketID);
 	}
@@ -2306,12 +2314,22 @@ You are handling {{ ticket.identifier }}.
 
 																<div class="mt-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
 																	<span>{formatTimestamp(ticket.created_at)}</span>
-																	{#if isTicketMutationPending(ticket.id)}
-																		<span class="inline-flex items-center gap-1">
-																			<LoaderCircle class="size-3 animate-spin" />
-																			Updating
-																		</span>
-																	{/if}
+																	<div class="flex items-center gap-3">
+																		<a
+																			href={ticketDetailHref(ticket.id)}
+																			class="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2.5 py-1 font-medium text-foreground transition hover:border-foreground/20"
+																			onclick={(event) => event.stopPropagation()}
+																		>
+																			<Waypoints class="size-3" />
+																			Detail
+																		</a>
+																		{#if isTicketMutationPending(ticket.id)}
+																			<span class="inline-flex items-center gap-1">
+																				<LoaderCircle class="size-3 animate-spin" />
+																				Updating
+																			</span>
+																		{/if}
+																	</div>
 																</div>
 															</button>
 														{/each}

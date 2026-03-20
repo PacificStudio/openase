@@ -26,8 +26,9 @@ func (s *Server) listActivityEvents(c echo.Context) error {
 	}
 
 	input, err := domain.ParseListActivityEvents(projectID, domain.ActivityEventListInput{
-		AgentID: c.QueryParam("agent_id"),
-		Limit:   c.QueryParam("limit"),
+		AgentID:  c.QueryParam("agent_id"),
+		TicketID: c.QueryParam("ticket_id"),
+		Limit:    c.QueryParam("limit"),
 	})
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))

@@ -30,6 +30,9 @@ func (r *EntRepository) ListActivityEvents(ctx context.Context, input domain.Lis
 	if input.AgentID != nil {
 		predicates = append(predicates, entactivityevent.AgentID(*input.AgentID))
 	}
+	if input.TicketID != nil {
+		predicates = append(predicates, entactivityevent.TicketID(*input.TicketID))
+	}
 
 	items, err := r.client.ActivityEvent.Query().
 		Where(predicates...).

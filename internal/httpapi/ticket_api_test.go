@@ -15,6 +15,9 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 )
@@ -292,6 +295,148 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	)
 	if peerAfterDeleteResp.Ticket.Parent != nil {
 		t.Fatalf("expected sub_issue delete to clear parent, got %+v", peerAfterDeleteResp.Ticket)
+	}
+}
+
+func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40026},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-9").
+		SetTitle("Build ticket detail page").
+		SetDescription("Expose PR status, activity, and hook history in one place.").
+		SetStatusID(backlogID).
+		SetCreatedBy("user:codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	backendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create backend repo: %v", err)
+	}
+	frontendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("frontend").
+		SetRepositoryURL("https://github.com/acme/frontend.git").
+		SetDefaultBranch("develop").
+		SetIsPrimary(false).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create frontend repo: %v", err)
+	}
+
+	if _, err := client.TicketRepoScope.Create().
+		SetTicketID(ticketItem.ID).
+		SetRepoID(frontendRepo.ID).
+		SetBranchName("agent/codex/ASE-9").
+		SetPullRequestURL("https://github.com/acme/frontend/pull/9").
+		SetPrStatus("open").
+		SetCiStatus("pending").
+		SetIsPrimaryScope(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create frontend repo scope: %v", err)
+	}
+	if _, err := client.TicketRepoScope.Create().
+		SetTicketID(ticketItem.ID).
+		SetRepoID(backendRepo.ID).
+		SetBranchName("main").
+		SetPrStatus("approved").
+		SetCiStatus("passing").
+		SetIsPrimaryScope(false).
+		Save(ctx); err != nil {
+		t.Fatalf("create backend repo scope: %v", err)
+	}
+
+	if _, err := client.ActivityEvent.Create().
+		SetProjectID(project.ID).
+		SetTicketID(ticketItem.ID).
+		SetEventType("agent.output").
+		SetMessage("Opened frontend PR #9").
+		SetMetadata(map[string]any{"stream": "stdout"}).
+		Save(ctx); err != nil {
+		t.Fatalf("create activity event: %v", err)
+	}
+	if _, err := client.ActivityEvent.Create().
+		SetProjectID(project.ID).
+		SetTicketID(ticketItem.ID).
+		SetEventType("hook.failed").
+		SetMessage("on_complete failed for run-tests.sh").
+		SetMetadata(map[string]any{"hook_name": "on_complete", "command": "run-tests.sh"}).
+		Save(ctx); err != nil {
+		t.Fatalf("create hook event: %v", err)
+	}
+
+	var payload struct {
+		Ticket      ticketResponse                  `json:"ticket"`
+		RepoScopes  []ticketRepoScopeDetailResponse `json:"repo_scopes"`
+		Activity    []activityEventResponse         `json:"activity"`
+		HookHistory []activityEventResponse         `json:"hook_history"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/tickets/%s/detail", project.ID, ticketItem.ID),
+		nil,
+		http.StatusOK,
+		&payload,
+	)
+
+	if payload.Ticket.ID != ticketItem.ID.String() || payload.Ticket.Identifier != "ASE-9" {
+		t.Fatalf("unexpected ticket payload: %+v", payload.Ticket)
+	}
+	if len(payload.RepoScopes) != 2 || payload.RepoScopes[0].Repo == nil || payload.RepoScopes[0].Repo.Name != "frontend" {
+		t.Fatalf("expected repo scopes with repo metadata, got %+v", payload.RepoScopes)
+	}
+	if payload.RepoScopes[0].PullRequestURL == nil || *payload.RepoScopes[0].PullRequestURL != "https://github.com/acme/frontend/pull/9" {
+		t.Fatalf("expected frontend pull request URL, got %+v", payload.RepoScopes[0])
+	}
+	if len(payload.Activity) != 2 {
+		t.Fatalf("expected two ticket activity events, got %+v", payload.Activity)
+	}
+	if len(payload.HookHistory) != 1 || payload.HookHistory[0].EventType != "hook.failed" {
+		t.Fatalf("expected hook history to filter hook-tagged events, got %+v", payload.HookHistory)
 	}
 }
 

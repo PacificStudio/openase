@@ -26,18 +26,24 @@ type ActivityEvent struct {
 }
 
 type ActivityEventListInput struct {
-	AgentID string
-	Limit   string
+	AgentID  string
+	TicketID string
+	Limit    string
 }
 
 type ListActivityEvents struct {
 	ProjectID uuid.UUID
 	AgentID   *uuid.UUID
+	TicketID  *uuid.UUID
 	Limit     int
 }
 
 func ParseListActivityEvents(projectID uuid.UUID, raw ActivityEventListInput) (ListActivityEvents, error) {
 	agentID, err := parseOptionalUUIDText("agent_id", raw.AgentID)
+	if err != nil {
+		return ListActivityEvents{}, err
+	}
+	ticketID, err := parseOptionalUUIDText("ticket_id", raw.TicketID)
 	if err != nil {
 		return ListActivityEvents{}, err
 	}
@@ -50,6 +56,7 @@ func ParseListActivityEvents(projectID uuid.UUID, raw ActivityEventListInput) (L
 	return ListActivityEvents{
 		ProjectID: projectID,
 		AgentID:   agentID,
+		TicketID:  ticketID,
 		Limit:     limit,
 	}, nil
 }

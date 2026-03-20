@@ -278,6 +278,11 @@ func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.
 				continue
 			}
 		}
+		if input.TicketID != nil {
+			if item.TicketID == nil || *item.TicketID != *input.TicketID {
+				continue
+			}
+		}
 		items = append(items, item)
 	}
 	sort.Slice(items, func(i, j int) bool {
