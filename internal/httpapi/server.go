@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -42,6 +43,7 @@ type Server struct {
 	agentPlatform       *agentplatform.Service
 	catalog             catalogservice.Service
 	workflowService     *workflowservice.Service
+	scheduledJobService *scheduledjobservice.Service
 	notificationService *notificationservice.Service
 	chatService         *chatservice.Service
 }
@@ -63,6 +65,12 @@ func WithChatService(service *chatservice.Service) ServerOption {
 func WithTraceProvider(trace provider.TraceProvider) ServerOption {
 	return func(server *Server) {
 		server.trace = trace
+	}
+}
+
+func WithScheduledJobService(service *scheduledjobservice.Service) ServerOption {
+	return func(server *Server) {
+		server.scheduledJobService = service
 	}
 }
 
@@ -222,6 +230,7 @@ func (s *Server) registerRoutes() {
 	s.registerTicketRoutes(api)
 	s.registerChatRoutes(api)
 	s.registerWorkflowRoutes(api)
+	s.registerScheduledJobRoutes(api)
 	s.registerNotificationRoutes(api)
 	s.registerSkillRoutes(api)
 	s.registerRoleLibraryRoutes(api)

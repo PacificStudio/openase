@@ -12,13 +12,14 @@ description:
 
 - `gh` CLI is installed and available in `PATH`.
 - `gh auth status` succeeds for GitHub operations in this repo.
+- `corepack pnpm` is available for frontend validation.
 
 ## Goals
 
 - Push the current branch to `origin` safely.
 - Create a PR if none exists for the branch, otherwise update the existing PR.
 - Keep PR metadata aligned with the actual total scope of the branch.
-- Run the current OpenASE Go + Svelte validation before publishing.
+- Run the same local validation gates that current CI expects before publishing.
 
 ## Related Skills
 
@@ -29,46 +30,56 @@ description:
 
 ## Validation Gate
 
-Use the repo's real validation commands instead of Symphony's Elixir pipeline.
+Use the repo-local helper script:
 
-- Go/backend changes or unclear scope:
-  - `PATH="$PWD/.tooling/go/bin:/home/yuzhong/.local/go1.26.1/bin:$PATH" go test ./...`
-  - `./scripts/ci/lint.sh`
-- Frontend changes under `web/` or unclear scope:
-  - `npm --prefix web install`
-  - `npm --prefix web run check`
-  - `npm --prefix web run build`
-- Cross-cutting changes or uncertainty:
-  - Run all of the above before pushing.
+- `.codex/skills/push/scripts/openase_ci_gate.sh`
+
+That script mirrors `.github/workflows/ci.yml` instead of asking the agent to
+guess which checks are needed:
+
+- Always runs `make openapi-check` because CI always runs API contract checks.
+- Detects `go_changed` and `web_changed` using the same path rules as CI.
+- Runs frontend CI with `make web-install` and `corepack pnpm --dir web run ci`
+  when `web_changed=true`.
+- Runs backend and Go lint checks with `make check`, `make build`,
+  `LINT_BASE_REV=<base> make lint`, and `make lint-depguard` when
+  `go_changed=true`.
+
+If the branch scope is ambiguous, use the script anyway; it already biases
+toward the stricter CI-compatible outcome.
 
 ## Steps
 
 1. Identify the current branch and inspect working tree state.
 2. If there are intended but uncommitted changes, use the `commit` skill first.
-3. Run the applicable validation gate for the current diff.
-4. Push the branch to `origin`, setting upstream tracking if needed.
-5. If the push is rejected because the remote moved:
+3. Ensure `origin/main` is available locally:
+   - `git fetch --no-tags origin main`
+4. Run the local CI gate for the current branch diff:
+   - `.codex/skills/push/scripts/openase_ci_gate.sh`
+   - Use `--plan` first if you want to inspect which jobs it will run.
+5. Push the branch to `origin`, setting upstream tracking if needed.
+6. If the push is rejected because the remote moved:
    - Run the `pull` skill to merge `origin/main` and/or remote branch updates.
-   - Rerun the applicable validation gate.
+   - Rerun `.codex/skills/push/scripts/openase_ci_gate.sh`.
    - Push again.
    - Use `--force-with-lease` only when local history was intentionally
      rewritten.
-6. If the push fails due to auth, permissions, branch protection, or workflow
+7. If the push fails due to auth, permissions, branch protection, or workflow
    restrictions, stop and surface the exact error. Do not rewrite remotes or
    switch protocols as a workaround.
-7. Ensure a PR exists for the branch:
+8. Ensure a PR exists for the branch:
    - If no PR exists, create one.
    - If a PR exists and is open, update it.
    - If the branch is tied to a closed or merged PR, create a new branch and a
      new PR instead of reusing stale history.
-8. Write a clear PR title that describes the shipped outcome, not just the last
+9. Write a clear PR title that describes the shipped outcome, not just the last
    commit.
-9. Write or refresh the PR body explicitly. OpenASE does not currently require a
+10. Write or refresh the PR body explicitly. OpenASE does not currently require a
    repository PR template, so include concrete sections such as:
    - Summary
    - Validation
    - Risks / follow-up
-10. Reply with the PR URL from `gh pr view`.
+11. Reply with the PR URL from `gh pr view`.
 
 ## Commands
 
@@ -76,14 +87,12 @@ Use the repo's real validation commands instead of Symphony's Elixir pipeline.
 # Identify branch
 branch=$(git branch --show-current)
 
-# Go validation
-PATH="$PWD/.tooling/go/bin:/home/yuzhong/.local/go1.26.1/bin:$PATH" go test ./...
-./scripts/ci/lint.sh
+# Sync base branch for deterministic validation scope
+git fetch --no-tags origin main
 
-# Frontend validation
-npm --prefix web install
-npm --prefix web run check
-npm --prefix web run build
+# Preview and run the CI-compatible validation gate
+.codex/skills/push/scripts/openase_ci_gate.sh --plan
+.codex/skills/push/scripts/openase_ci_gate.sh
 
 # Push branch
 git push -u origin HEAD
@@ -126,5 +135,5 @@ gh pr view --json url -q .url
 
 - Do not assume `.github/pull_request_template.md` exists in this repo.
 - Prefer complete, honest PR metadata over placeholder text.
-- If validation scope is ambiguous, bias toward running the full Go + Svelte
-  gate before publishing.
+- Do not replace the helper script with ad hoc command guessing. If CI changes,
+  update the script and this skill together.

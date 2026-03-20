@@ -30,7 +30,9 @@ description:
 7. If conflicts appear, resolve them (see conflict guidance below), then:
    - `git add <files>`
    - `git commit` (or `git merge --continue` if the merge is paused)
-8. Verify with project checks (follow repo policy in `AGENTS.md`).
+8. Verify with project checks:
+   - Prefer `.codex/skills/push/scripts/openase_ci_gate.sh` so merge-time
+     validation follows the same local gate as push-time validation.
 9. Summarize the merge:
    - Call out the most challenging conflicts/files and how they were resolved.
    - Note any assumptions or follow-ups.
