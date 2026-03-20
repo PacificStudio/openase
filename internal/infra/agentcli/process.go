@@ -95,8 +95,7 @@ type runningProcess struct {
 	stdout io.ReadCloser
 	stderr io.ReadCloser
 
-	done chan struct{}
-
+	done     chan struct{}
 	waitOnce sync.Once
 	waitMu   sync.Mutex
 	waitErr  error
@@ -143,6 +142,8 @@ func (p *runningProcess) Stop(ctx context.Context) error {
 	if ctx == nil {
 		return fmt.Errorf("context must not be nil")
 	}
+
+	p.startWait()
 
 	select {
 	case <-p.done:
