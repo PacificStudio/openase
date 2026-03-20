@@ -43,7 +43,9 @@ export const load: PageLoad = async ({ fetch, depends }) => {
   }
 }
 
-async function loadOrgContext(fetch: PageLoadEvent['fetch']): Promise<MachinesPageData['orgContext']> {
+async function loadOrgContext(
+  fetch: PageLoadEvent['fetch'],
+): Promise<MachinesPageData['orgContext']> {
   try {
     const orgResponse = await fetch('/api/v1/orgs')
     if (!orgResponse.ok) {

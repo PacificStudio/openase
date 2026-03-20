@@ -1,12 +1,39 @@
 <script lang="ts">
   import { invalidate } from '$app/navigation'
   import { ApiError } from '$lib/api/client'
-  import { createMachine, deleteMachine, getMachineResources, testMachineConnection, updateMachine } from '$lib/api/openase'
+  import {
+    createMachine,
+    deleteMachine,
+    getMachineResources,
+    testMachineConnection,
+    updateMachine,
+  } from '$lib/api/openase'
   import PageHeader from '$lib/components/layout/page-header.svelte'
   import MachinePageActions from './machine-page-actions.svelte'
   import MachineWorkspace from './machine-workspace.svelte'
-  import { createEmptyMachineDraft, filterMachines, machineToDraft, parseMachineDraft, parseMachineSnapshot } from '../model'
-  import type { MachineDraft, MachineDraftField, MachineItem, MachineProbeResult, MachinesPageData, MachineSnapshot, MachineWorkspaceState } from '../types'
+  import {
+    createEmptyMachineDraft,
+    filterMachines,
+    parseMachineDraft,
+    parseMachineSnapshot,
+  } from '../model'
+  import {
+    createEditorSelectionState,
+    createEmptyState,
+    createListErrorState,
+    createNoOrgState,
+    createStartCreateState,
+    type MachinesPageViewState,
+  } from '../page-state'
+  import type {
+    MachineDraft,
+    MachineDraftField,
+    MachineItem,
+    MachineProbeResult,
+    MachinesPageData,
+    MachineSnapshot,
+    MachineWorkspaceState,
+  } from '../types'
 
   let { data }: { data: MachinesPageData } = $props()
 
@@ -37,71 +64,50 @@
   })
 
   async function syncFromRouteData(nextData: MachinesPageData) {
-    routeOrgId = nextData.orgContext.kind === 'ready' ? nextData.orgContext.org.id : ''
     loading = false
     refreshing = false
 
-    if (nextData.orgContext.kind === 'no-org') return applyNoOrgState()
-    if (nextData.orgContext.kind === 'error') return applyListErrorState(nextData.orgContext.message)
+    if (nextData.orgContext.kind === 'no-org') return applyViewState(createNoOrgState())
+    if (nextData.orgContext.kind === 'error') {
+      return applyViewState(createListErrorState(nextData.orgContext.message))
+    }
 
-    machines = nextData.initialMachines
-    listMessage = nextData.initialListError ?? ''
-    editorError = ''
+    const nextOrgId = nextData.orgContext.org.id
+    if (nextData.initialListError) {
+      return applyViewState(createListErrorState(nextData.initialListError))
+    }
+    if (nextData.initialMachines.length === 0) {
+      return applyViewState(createEmptyState(nextOrgId))
+    }
 
-    if (nextData.initialListError) return applyListErrorState(nextData.initialListError)
-    if (nextData.initialMachines.length === 0) return applyEmptyState()
-
-    workspaceState = 'ready'
     const nextMachine =
       nextData.initialMachines.find((machine) => machine.id === selectedId) ??
       nextData.initialMachines[0]
-    await openMachine(nextMachine, { preserveFeedback: true })
+    applyViewState(
+      createEditorSelectionState(nextOrgId, nextData.initialMachines, nextMachine, feedback, true),
+    )
+    await loadMachineResources(nextMachine.id)
   }
 
-  function resetEditorState(options: { preserveFeedback?: boolean } = {}) {
-    selectedId = ''
-    mode = 'edit'
-    draft = createEmptyMachineDraft()
-    snapshot = null
-    probe = null
-    editorError = ''
-    if (!options.preserveFeedback) feedback = ''
-  }
-
-  function applyNoOrgState() {
-    routeOrgId = ''
-    machines = []
-    listMessage = ''
-    searchQuery = ''
-    workspaceState = 'no-org'
-    resetEditorState()
-  }
-
-  function applyListErrorState(message: string, options: { preserveFeedback?: boolean } = {}) {
-    machines = []
-    listMessage = message
-    searchQuery = ''
-    workspaceState = 'error'
-    resetEditorState(options)
-  }
-
-  function applyEmptyState(options: { preserveFeedback?: boolean } = {}) {
-    listMessage = ''
-    searchQuery = ''
-    machines = []
-    workspaceState = 'empty'
-    resetEditorState(options)
+  function applyViewState(nextState: MachinesPageViewState) {
+    routeOrgId = nextState.routeOrgId
+    machines = nextState.machines
+    searchQuery = nextState.searchQuery
+    workspaceState = nextState.workspaceState
+    listMessage = nextState.listMessage
+    selectedId = nextState.selectedId
+    mode = nextState.mode
+    draft = nextState.draft
+    snapshot = nextState.snapshot
+    probe = nextState.probe
+    editorError = nextState.editorError
+    feedback = nextState.feedback
   }
 
   async function openMachine(machine: MachineItem, options: { preserveFeedback?: boolean } = {}) {
-    workspaceState = 'ready'
-    mode = 'edit'
-    selectedId = machine.id
-    draft = machineToDraft(machine)
-    editorError = ''
-    if (!options.preserveFeedback) feedback = ''
-    probe = null
-    snapshot = parseMachineSnapshot(machine.resources)
+    applyViewState(
+      createEditorSelectionState(routeOrgId, machines, machine, feedback, options.preserveFeedback),
+    )
     await loadMachineResources(machine.id)
   }
 
@@ -120,15 +126,8 @@
   }
 
   function startCreate(options: { preserveFeedback?: boolean } = {}) {
-    if (!routeOrgId) return applyNoOrgState()
-    workspaceState = 'ready'
-    mode = 'create'
-    selectedId = ''
-    draft = createEmptyMachineDraft()
-    probe = null
-    snapshot = null
-    editorError = ''
-    if (!options.preserveFeedback) feedback = ''
+    if (!routeOrgId) return applyViewState(createNoOrgState())
+    applyViewState(createStartCreateState(routeOrgId, machines, feedback, options.preserveFeedback))
   }
 
   function resetDraft() {
@@ -140,7 +139,10 @@
     }
 
     if (selectedMachine) {
-      draft = machineToDraft(selectedMachine)
+      draft = {
+        ...draft,
+        ...createEditorSelectionState(routeOrgId, machines, selectedMachine).draft,
+      }
       feedback = ''
       editorError = ''
     }
@@ -175,7 +177,6 @@
       if (mode === 'create') {
         const payload = await createMachine(routeOrgId, parsed.value)
         machines = [payload.machine, ...machines]
-        workspaceState = 'ready'
         await openMachine(payload.machine, { preserveFeedback: true })
         feedback = 'Machine created.'
       } else if (selectedMachine) {
@@ -183,7 +184,6 @@
         machines = machines.map((machine) =>
           machine.id === payload.machine.id ? payload.machine : machine,
         )
-        workspaceState = 'ready'
         await openMachine(payload.machine, { preserveFeedback: true })
         feedback = 'Machine updated.'
       }
@@ -233,7 +233,7 @@
       if (nextMachine) {
         await openMachine(nextMachine, { preserveFeedback: true })
       } else {
-        applyEmptyState({ preserveFeedback: true })
+        applyViewState(createEmptyState(routeOrgId, feedback, true))
       }
     } catch (caughtError) {
       editorError =
@@ -254,7 +254,11 @@
   />
 {/snippet}
 
-<PageHeader title="Machines" description="Manage SSH-backed worker machines and inspect live monitor snapshots." {actions} />
+<PageHeader
+  title="Machines"
+  description="Manage SSH-backed worker machines and inspect live monitor snapshots."
+  {actions}
+/>
 
 <MachineWorkspace
   state={workspaceState}
@@ -279,9 +283,7 @@
   }}
   onSelectMachine={(machineId) => {
     const nextMachine = machines.find((machine) => machine.id === machineId)
-    if (nextMachine) {
-      void openMachine(nextMachine)
-    }
+    if (nextMachine) void openMachine(nextMachine)
   }}
   onDraftChange={(field: MachineDraftField, value: string) => {
     draft = { ...draft, [field]: value }

@@ -17,13 +17,7 @@
   } = $props()
 </script>
 
-<Button
-  variant="outline"
-  size="sm"
-  class="gap-1.5"
-  onclick={onRefresh}
-  disabled={refreshDisabled}
->
+<Button variant="outline" size="sm" class="gap-1.5" onclick={onRefresh} disabled={refreshDisabled}>
   <RefreshCw class="size-3.5" />
   {refreshing ? 'Refreshing…' : 'Refresh'}
 </Button>

@@ -95,7 +95,9 @@
     </div>
   {:else if state === 'empty'}
     <div class="border-border bg-card rounded-xl border border-dashed px-4 py-10 text-center">
-      <p class="text-foreground text-sm font-medium">No machines configured for this organization.</p>
+      <p class="text-foreground text-sm font-medium">
+        No machines configured for this organization.
+      </p>
       <p class="text-muted-foreground mt-2 text-sm">
         Register a remote worker to make it available for orchestration and routing.
       </p>
