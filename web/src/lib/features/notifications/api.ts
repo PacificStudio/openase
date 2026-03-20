@@ -1,9 +1,5 @@
 import { api } from '$lib/features/workspace'
-import type {
-  JSONObject,
-  NotificationChannelForm,
-  NotificationRuleForm,
-} from './types'
+import type { JSONObject, NotificationChannelForm, NotificationRuleForm } from './types'
 import {
   parseNotificationChannel,
   parseNotificationRule,

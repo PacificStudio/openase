@@ -84,7 +84,10 @@ export function areJSONValuesEqual(left: JSONValue, right: JSONValue): boolean {
 }
 
 function arraysEqual(left: JSONArray, right: JSONArray) {
-  return left.length === right.length && left.every((item, index) => areJSONValuesEqual(item, right[index]))
+  return (
+    left.length === right.length &&
+    left.every((item, index) => areJSONValuesEqual(item, right[index]))
+  )
 }
 
 function objectsEqual(left: JSONObject, right: JSONObject) {
