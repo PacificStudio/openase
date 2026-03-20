@@ -10,12 +10,12 @@
   import Button from '$ui/button/button.svelte'
   import { Plus, PanelRightClose, PanelRight } from '@lucide/svelte'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
-  import type { HarnessVariableGroup, WorkflowSummary } from '../types'
+  import type { HarnessVariableGroup, WorkflowStatusOption, WorkflowSummary } from '../types'
   import { type SkillState, toHarnessContent } from '../model'
   import { createDefaultWorkflow, loadWorkflowHarness, loadWorkflowIndex } from '../data'
   import WorkflowList from './workflow-list.svelte'
-  import WorkflowDetailPanel from './workflow-detail-panel.svelte'
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
+  import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
 
   let showDetail = $state(true)
   let loading = $state(false),
@@ -31,7 +31,7 @@
   let skillStates = $state<SkillState[]>([])
   let validationIssues = $state<HarnessValidationIssue[]>([])
   let builtinRoleContent = $state('')
-  let statuses = $state<Array<{ id: string; name: string }>>([])
+  let statuses = $state<WorkflowStatusOption[]>([])
   let variableGroups = $state<HarnessVariableGroup[]>([])
 
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
@@ -249,7 +249,6 @@
       </Button>
     </div>
   </div>
-
   {#if loading}
     <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
       Loading workflows…
@@ -287,7 +286,13 @@
 
       {#if showDetail && selectedWorkflow}
         <div class="w-70 shrink-0">
-          <WorkflowDetailPanel workflow={selectedWorkflow} />
+          <WorkflowLifecycleSidebar
+            workflow={selectedWorkflow}
+            {workflows}
+            {statuses}
+            onWorkflowsChange={(nextWorkflows) => (workflows = nextWorkflows)}
+            onSelectedIdChange={(nextSelectedId) => (selectedId = nextSelectedId)}
+          />
         </div>
       {/if}
     </div>

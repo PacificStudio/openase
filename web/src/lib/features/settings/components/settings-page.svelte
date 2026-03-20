@@ -4,6 +4,7 @@
   import GeneralSettings from './general-settings.svelte'
   import SettingsPlaceholder from './settings-placeholder.svelte'
   import StatusSettings from './status-settings.svelte'
+  import WorkflowSettings from './workflow-settings.svelte'
 
   let activeSection = $state<SettingsSection>('general')
 
@@ -23,7 +24,7 @@
     {:else if activeSection === 'repositories'}
       <SettingsPlaceholder section="repositories" title="Repositories" />
     {:else if activeSection === 'workflows'}
-      <SettingsPlaceholder section="workflows" title="Workflows" />
+      <WorkflowSettings />
     {:else if activeSection === 'agents'}
       <SettingsPlaceholder section="agents" title="Agents" />
     {:else if activeSection === 'connectors'}
