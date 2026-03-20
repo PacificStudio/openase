@@ -194,13 +194,15 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			for reason, count := range report.TicketsSkipped {
 				span.SetAttributes(provider.IntAttribute("orchestrator.report.tickets_skipped."+reason, count))
 			}
-			if err := a.publishRuntimeEvent(ctx, runtimeTickType, payload); err != nil {
-				span.RecordError(err)
-				span.SetStatus(provider.SpanStatusError, err.Error())
-				span.End()
-				return fmt.Errorf("publish scheduler tick: %w", err)
+			publishErr := a.publishRuntimeEvent(ctx, runtimeTickType, payload)
+			if publishErr != nil {
+				span.RecordError(publishErr)
+				span.SetStatus(provider.SpanStatusError, publishErr.Error())
 			}
 			span.End()
+			if publishErr != nil {
+				return fmt.Errorf("publish scheduler tick: %w", publishErr)
+			}
 		}
 	}
 }
