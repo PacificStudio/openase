@@ -5,6 +5,7 @@
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { capabilityCatalog } from '$lib/features/capabilities'
+  import { NewTicketDialog } from '$lib/features/tickets'
   import { TicketDrawer } from '$lib/features/ticket-detail'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
@@ -61,7 +62,7 @@
   }
 
   function handleNewTicket() {
-    return
+    appStore.openNewTicketDialog()
   }
 
   function handleToggleTheme() {
@@ -75,7 +76,7 @@
     projectName={data.currentProject?.name ?? ''}
     sseStatus={appStore.sseStatus}
     searchEnabled={searchCapability.state === 'available'}
-    newTicketEnabled={newTicketCapability.state === 'available'}
+    newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
     searchTitle={searchCapability.summary}
     newTicketTitle={newTicketCapability.summary}
     onToggleTheme={handleToggleTheme}
@@ -116,4 +117,6 @@
       }
     }}
   />
+
+  <NewTicketDialog />
 </div>
