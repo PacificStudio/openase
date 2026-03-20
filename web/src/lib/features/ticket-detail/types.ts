@@ -1,4 +1,4 @@
-import type { ActivityEvent, Project, Ticket } from '$lib/features/workspace'
+import type { Project } from '$lib/features/workspace'
 import type {
   ProjectRepo as ContractProjectRepo,
   TicketDetailPayload as ContractTicketDetailPayload,
@@ -7,11 +7,7 @@ import type {
 
 export type ProjectRepo = ContractProjectRepo
 export type TicketRepoScope = ContractTicketRepoScope
-export type TicketDetailPayload = ContractTicketDetailPayload & {
-  ticket: Ticket
-  activity: ActivityEvent[]
-  hook_history: ActivityEvent[]
-}
+export type TicketDetailPayload = ContractTicketDetailPayload
 
 export type TicketDetailData = {
   project: Project | null

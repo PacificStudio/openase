@@ -369,7 +369,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 	if err := builder.addTicketOperations(); err != nil {
 		return nil, err
 	}
-	builder.addStreamOperations()
+	if err := builder.addStreamOperations(); err != nil {
+		return nil, err
+	}
 
 	if err := doc.Validate(context.Background()); err != nil {
 		return nil, fmt.Errorf("validate openapi document: %w", err)
@@ -936,13 +938,16 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	return nil
 }
 
-func (b openAPISpecBuilder) addStreamOperations() {
-	globalStream := b.streamOperation(
+func (b openAPISpecBuilder) addStreamOperations() error {
+	globalStream, err := b.streamOperation(
 		"streamEvents",
 		"Stream global platform events",
 		[]string{"streams"},
 		http.StatusInternalServerError,
 	)
+	if err != nil {
+		return err
+	}
 	b.doc.AddOperation("/api/v1/events/stream", http.MethodGet, globalStream)
 
 	projectStreams := []struct {
@@ -956,10 +961,15 @@ func (b openAPISpecBuilder) addStreamOperations() {
 		{path: "/api/v1/projects/{projectId}/hooks/stream", operationID: "streamProjectHooks", summary: "Stream project hook events"},
 	}
 	for _, item := range projectStreams {
-		op := b.streamOperation(item.operationID, item.summary, []string{"streams"}, http.StatusBadRequest, http.StatusInternalServerError)
+		op, err := b.streamOperation(item.operationID, item.summary, []string{"streams"}, http.StatusBadRequest, http.StatusInternalServerError)
+		if err != nil {
+			return err
+		}
 		op.AddParameter(uuidPathParameter("projectId", "Project ID."))
 		b.doc.AddOperation(item.path, http.MethodGet, op)
 	}
+
+	return nil
 }
 
 func (b openAPISpecBuilder) jsonOperation(
@@ -1012,7 +1022,7 @@ func (b openAPISpecBuilder) streamOperation(
 	summary string,
 	tags []string,
 	errorCodes ...int,
-) *openapi3.Operation {
+) (*openapi3.Operation, error) {
 	op := openapi3.NewOperation()
 	op.OperationID = operationID
 	op.Summary = summary
@@ -1029,11 +1039,11 @@ func (b openAPISpecBuilder) streamOperation(
 	for _, code := range errorCodes {
 		errorResponse, err := b.errorResponse(code)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		op.AddResponse(code, errorResponse)
 	}
-	return op
+	return op, nil
 }
 
 func (b openAPISpecBuilder) jsonResponse(summary string, body any) (*openapi3.Response, error) {

@@ -1163,8 +1163,8 @@ ticket_hooks:
   on_claim:
     - cmd: "git fetch origin && git checkout -b agent/{{ agent.name }}/{{ ticket.identifier }} origin/main"
       timeout: 60
-    - cmd: "npm ci"
-      workdir: "frontend"
+    - cmd: "pnpm install --frozen-lockfile"
+      workdir: "web"
       timeout: 300
   on_complete:
     - cmd: "bash scripts/ci/run-tests.sh"
