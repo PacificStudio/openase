@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
 	"github.com/nikolalohinski/gonja/v2"
@@ -92,6 +94,33 @@ type HarnessProjectData struct {
 	Description   string
 	Status        string
 	DefaultBranch string
+	Workflows     []HarnessProjectWorkflowData
+	Statuses      []HarnessProjectStatusData
+	Machines      []HarnessProjectMachineData
+}
+
+type HarnessProjectWorkflowData struct {
+	Name            string
+	Type            string
+	RoleName        string
+	RoleDescription string
+	PickupStatus    string
+	MaxConcurrent   int
+	CurrentActive   int
+}
+
+type HarnessProjectStatusData struct {
+	Name  string
+	Color string
+}
+
+type HarnessProjectMachineData struct {
+	Name        string
+	Host        string
+	Description string
+	Labels      []string
+	Status      string
+	Resources   map[string]any
 }
 
 type HarnessRepoData struct {
@@ -208,6 +237,15 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		WithRepos(func(query *ent.ProjectRepoQuery) {
 			query.Order(ent.Asc(entprojectrepo.FieldName))
 		}).
+		WithWorkflows(func(query *ent.WorkflowQuery) {
+			query.
+				Order(ent.Asc(entworkflow.FieldName)).
+				WithPickupStatus()
+		}).
+		WithStatuses(func(query *ent.TicketStatusQuery) {
+			query.
+				Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -250,6 +288,10 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 	scopedRepos, repoBranchByID := mapHarnessScopedRepos(ticketItem.Edges.RepoScopes, workspace)
 	allRepos := mapHarnessAllRepos(projectItem.Edges.Repos, repoBranchByID, workspace)
 	defaultBranch := deriveDefaultBranch(projectItem.Edges.Repos)
+	projectWorkflows, err := s.mapHarnessProjectWorkflows(ctx, projectItem.Edges.Workflows)
+	if err != nil {
+		return HarnessTemplateData{}, err
+	}
 	finishStatus := ""
 	if workflowItem.Edges.FinishStatus != nil {
 		finishStatus = workflowItem.Edges.FinishStatus.Name
@@ -282,6 +324,9 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 			Description:   projectItem.Description,
 			Status:        projectItem.Status.String(),
 			DefaultBranch: defaultBranch,
+			Workflows:     projectWorkflows,
+			Statuses:      mapHarnessProjectStatuses(projectItem.Edges.Statuses),
+			Machines:      mapHarnessProjectMachines(input.Machine, input.AccessibleMachines),
 		},
 		Repos:              scopedRepos,
 		AllRepos:           allRepos,
@@ -370,6 +415,24 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "project.description", Type: "string", Description: "项目描述", Example: "A SaaS platform for..."},
 				{Path: "project.status", Type: "string", Description: "项目状态", Example: "active"},
 				{Path: "project.default_branch", Type: "string", Description: "项目默认分支", Example: "main"},
+				{Path: "project.workflows", Type: "list", Description: "项目中已激活的 Workflow 列表"},
+				{Path: "project.workflows[].name", Type: "string", Description: "Workflow 名称", Example: "Coding Workflow"},
+				{Path: "project.workflows[].type", Type: "string", Description: "Workflow 类型", Example: "coding"},
+				{Path: "project.workflows[].role_name", Type: "string", Description: "角色名称", Example: "fullstack-developer"},
+				{Path: "project.workflows[].role_description", Type: "string", Description: "角色描述", Example: "Implement product changes end to end, covering backend, frontend, and verification."},
+				{Path: "project.workflows[].pickup_status", Type: "string", Description: "Workflow 的 pickup 状态", Example: "Todo"},
+				{Path: "project.workflows[].max_concurrent", Type: "int", Description: "最大并发数", Example: "3"},
+				{Path: "project.workflows[].current_active", Type: "int", Description: "当前活跃工单数", Example: "1"},
+				{Path: "project.statuses", Type: "list", Description: "项目状态列表"},
+				{Path: "project.statuses[].name", Type: "string", Description: "状态名", Example: "Backlog"},
+				{Path: "project.statuses[].color", Type: "string", Description: "状态颜色", Example: "#6B7280"},
+				{Path: "project.machines", Type: "list", Description: "项目可访问的机器视图"},
+				{Path: "project.machines[].name", Type: "string", Description: "机器名", Example: "gpu-01"},
+				{Path: "project.machines[].host", Type: "string", Description: "机器地址", Example: "10.0.1.10"},
+				{Path: "project.machines[].description", Type: "string", Description: "机器描述", Example: "NVIDIA A100 x4"},
+				{Path: "project.machines[].labels", Type: "list", Description: "机器标签", Example: "[\"gpu\", \"a100\"]"},
+				{Path: "project.machines[].status", Type: "string", Description: "机器可用状态", Example: "current"},
+				{Path: "project.machines[].resources", Type: "object", Description: "资源快照（当前最小实现为空对象）"},
 			},
 		},
 		{
@@ -492,6 +555,9 @@ func (d HarnessTemplateData) contextMap() map[string]any {
 			"description":    d.Project.Description,
 			"status":         d.Project.Status,
 			"default_branch": d.Project.DefaultBranch,
+			"workflows":      projectWorkflowMaps(d.Project.Workflows),
+			"statuses":       projectStatusMaps(d.Project.Statuses),
+			"machines":       projectMachineMaps(d.Project.Machines),
 		},
 		"repos":               repoMaps(d.Repos),
 		"all_repos":           repoMaps(d.AllRepos),
@@ -558,6 +624,108 @@ func mapHarnessAllRepos(repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]s
 			IsPrimary:     repo.IsPrimary,
 		})
 	}
+	return items
+}
+
+func (s *Service) mapHarnessProjectWorkflows(ctx context.Context, workflows []*ent.Workflow) ([]HarnessProjectWorkflowData, error) {
+	items := make([]HarnessProjectWorkflowData, 0, len(workflows))
+	workflowIDs := make([]uuid.UUID, 0, len(workflows))
+	for _, workflowItem := range workflows {
+		if workflowItem == nil || !workflowItem.IsActive {
+			continue
+		}
+		workflowIDs = append(workflowIDs, workflowItem.ID)
+	}
+
+	activeCountByWorkflow := make(map[uuid.UUID]int, len(workflowIDs))
+	if len(workflowIDs) > 0 {
+		activeTickets, err := s.client.Ticket.Query().
+			Where(
+				entticket.WorkflowIDIn(workflowIDs...),
+				entticket.AssignedAgentIDNotNil(),
+			).
+			All(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list active workflow tickets for harness render: %w", err)
+		}
+		for _, ticketItem := range activeTickets {
+			if ticketItem.WorkflowID == nil {
+				continue
+			}
+			activeCountByWorkflow[*ticketItem.WorkflowID]++
+		}
+	}
+
+	for _, workflowItem := range workflows {
+		if workflowItem == nil || !workflowItem.IsActive {
+			continue
+		}
+		harnessContent, err := s.registry.Read(workflowItem.HarnessPath)
+		if err != nil {
+			return nil, fmt.Errorf("read workflow harness for project context: %w", err)
+		}
+		roleName := extractWorkflowRoleName(harnessContent, workflowItem.Name)
+		items = append(items, HarnessProjectWorkflowData{
+			Name:            workflowItem.Name,
+			Type:            workflowItem.Type.String(),
+			RoleName:        roleName,
+			RoleDescription: extractWorkflowRoleDescription(harnessContent),
+			PickupStatus:    edgeTicketStatusName(workflowItem.Edges.PickupStatus),
+			MaxConcurrent:   workflowItem.MaxConcurrent,
+			CurrentActive:   activeCountByWorkflow[workflowItem.ID],
+		})
+	}
+
+	return items, nil
+}
+
+func mapHarnessProjectStatuses(statuses []*ent.TicketStatus) []HarnessProjectStatusData {
+	items := make([]HarnessProjectStatusData, 0, len(statuses))
+	for _, status := range statuses {
+		if status == nil {
+			continue
+		}
+		items = append(items, HarnessProjectStatusData{
+			Name:  status.Name,
+			Color: status.Color,
+		})
+	}
+	return items
+}
+
+func mapHarnessProjectMachines(current HarnessMachineData, accessible []HarnessAccessibleMachineData) []HarnessProjectMachineData {
+	items := make([]HarnessProjectMachineData, 0, len(accessible)+1)
+	seen := make(map[string]struct{}, len(accessible)+1)
+	add := func(name string, host string, description string, labels []string, status string) {
+		key := strings.TrimSpace(name) + "|" + strings.TrimSpace(host)
+		if key == "|" {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		items = append(items, HarnessProjectMachineData{
+			Name:        name,
+			Host:        host,
+			Description: description,
+			Labels:      append([]string(nil), labels...),
+			Status:      status,
+			Resources:   map[string]any{},
+		})
+	}
+
+	add(current.Name, current.Host, current.Description, current.Labels, "current")
+	for _, machine := range accessible {
+		add(machine.Name, machine.Host, machine.Description, machine.Labels, "accessible")
+	}
+	slices.SortFunc(items, func(left, right HarnessProjectMachineData) int {
+		if compared := strings.Compare(left.Name, right.Name); compared != 0 {
+			return compared
+		}
+		return strings.Compare(left.Host, right.Host)
+	})
+
 	return items
 }
 
@@ -704,6 +872,30 @@ func extractWorkflowRoleName(content string, fallback string) string {
 	return fallback
 }
 
+func extractWorkflowRoleDescription(content string) string {
+	_, body, err := extractHarnessFrontmatter(content)
+	if err != nil {
+		return ""
+	}
+
+	var paragraph []string
+	for _, line := range strings.Split(body, "\n") {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case trimmed == "":
+			if len(paragraph) > 0 {
+				return strings.Join(paragraph, " ")
+			}
+		case strings.HasPrefix(trimmed, "#"):
+			continue
+		default:
+			paragraph = append(paragraph, trimmed)
+		}
+	}
+
+	return strings.Join(paragraph, " ")
+}
+
 func cloneHarnessMachine(machine HarnessMachineData) HarnessMachineData {
 	machine.Labels = append([]string(nil), machine.Labels...)
 	return machine
@@ -762,6 +954,48 @@ func repoMaps(items []HarnessRepoData) []map[string]any {
 	return result
 }
 
+func projectWorkflowMaps(items []HarnessProjectWorkflowData) []map[string]any {
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		result = append(result, map[string]any{
+			"name":             item.Name,
+			"type":             item.Type,
+			"role_name":        item.RoleName,
+			"role_description": item.RoleDescription,
+			"pickup_status":    item.PickupStatus,
+			"max_concurrent":   item.MaxConcurrent,
+			"current_active":   item.CurrentActive,
+		})
+	}
+	return result
+}
+
+func projectStatusMaps(items []HarnessProjectStatusData) []map[string]any {
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		result = append(result, map[string]any{
+			"name":  item.Name,
+			"color": item.Color,
+		})
+	}
+	return result
+}
+
+func projectMachineMaps(items []HarnessProjectMachineData) []map[string]any {
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		result = append(result, map[string]any{
+			"name":        item.Name,
+			"host":        item.Host,
+			"description": item.Description,
+			"labels":      append([]string(nil), item.Labels...),
+			"status":      item.Status,
+			"resources":   cloneResourceMap(item.Resources),
+		})
+	}
+	return result
+}
+
 func agentMap(item HarnessAgentData) map[string]any {
 	return map[string]any{
 		"id":                      item.ID,
@@ -796,6 +1030,18 @@ func accessibleMachineMaps(items []HarnessAccessibleMachineData) []map[string]an
 		})
 	}
 	return result
+}
+
+func cloneResourceMap(resources map[string]any) map[string]any {
+	if len(resources) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(resources))
+	for key, value := range resources {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func filterMarkdownEscape(_ *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {

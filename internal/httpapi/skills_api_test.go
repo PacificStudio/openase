@@ -273,11 +273,14 @@ func TestBuiltinRoleLibraryRoute(t *testing.T) {
 		http.StatusOK,
 		&resp,
 	)
-	if len(resp.Roles) != 14 {
-		t.Fatalf("expected 14 builtin roles, got %+v", resp.Roles)
+	if len(resp.Roles) != 15 {
+		t.Fatalf("expected 15 builtin roles, got %+v", resp.Roles)
 	}
 	if resp.Roles[0].HarnessPath == "" || resp.Roles[0].Content == "" {
 		t.Fatalf("expected role payload to include harness path and content, got %+v", resp.Roles[0])
+	}
+	if resp.Roles[0].Slug != "dispatcher" {
+		t.Fatalf("expected dispatcher to be included in builtin role payload, got %+v", resp.Roles[0])
 	}
 }
 
