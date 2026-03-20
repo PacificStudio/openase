@@ -17,7 +17,12 @@
   let filteredColumns = $derived.by(() => {
     return allColumns.map((col) => {
       const filtered = col.tickets.filter((t) => {
-        if (filter.search && !t.title.toLowerCase().includes(filter.search.toLowerCase()) && !t.identifier.toLowerCase().includes(filter.search.toLowerCase())) return false
+        if (
+          filter.search &&
+          !t.title.toLowerCase().includes(filter.search.toLowerCase()) &&
+          !t.identifier.toLowerCase().includes(filter.search.toLowerCase())
+        )
+          return false
         if (filter.workflow && t.workflowType !== filter.workflow) return false
         if (filter.agent && t.agentName !== filter.agent) return false
         if (filter.priority && t.priority !== filter.priority) return false
@@ -71,7 +76,7 @@
                 title: ticket.title,
                 priority: normalizePriority(ticket.priority),
                 workflowType: ticket.workflow_id
-                  ? workflowTypeById.get(ticket.workflow_id) ?? undefined
+                  ? (workflowTypeById.get(ticket.workflow_id) ?? undefined)
                   : undefined,
                 updatedAt: ticket.created_at,
                 labels: [],
@@ -80,8 +85,7 @@
           }))
       } catch (caughtError) {
         if (cancelled) return
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load board data.'
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load board data.'
       } finally {
         if (!cancelled) {
           loading = false
@@ -111,7 +115,12 @@
   }
 
   function normalizePriority(priority: string): BoardTicket['priority'] {
-    if (priority === 'urgent' || priority === 'high' || priority === 'medium' || priority === 'low') {
+    if (
+      priority === 'urgent' ||
+      priority === 'high' ||
+      priority === 'medium' ||
+      priority === 'low'
+    ) {
       return priority
     }
 
@@ -132,25 +141,18 @@
 </script>
 
 <div class="flex h-full flex-col gap-4">
-  <BoardToolbar
-    bind:filter
-    bind:view
-    {workflows}
-    agents={[]}
-    listEnabled={false}
-  />
+  <BoardToolbar bind:filter bind:view {workflows} agents={[]} listEnabled={false} />
   {#if loading}
-    <div class="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+    <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
       Loading board…
     </div>
   {:else if error}
-    <div class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <div
+      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+    >
       {error}
     </div>
   {:else}
-    <BoardView
-      columns={filteredColumns}
-      onticketclick={handleTicketClick}
-    />
+    <BoardView columns={filteredColumns} onticketclick={handleTicketClick} />
   {/if}
 </div>

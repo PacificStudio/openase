@@ -6,7 +6,12 @@ import {
   listStatuses,
   listWorkflows,
 } from '$lib/api/openase'
-import { defaultHarnessTemplate, extractBody, extractFrontmatter, normalizeWorkflowType } from './model'
+import {
+  defaultHarnessTemplate,
+  extractBody,
+  extractFrontmatter,
+  normalizeWorkflowType,
+} from './model'
 import type { SkillState } from './model'
 import type { HarnessContent, WorkflowSummary } from './types'
 

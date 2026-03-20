@@ -8,12 +8,7 @@
   import ActivityFeedPanel from './activity-feed-panel.svelte'
   import CostSnapshotPanel from './cost-snapshot-panel.svelte'
   import { Bot, Ticket, ShieldCheck, DollarSign } from '@lucide/svelte'
-  import type {
-    ProjectSummary,
-    DashboardStats,
-    ExceptionItem,
-    ActivityItem,
-  } from '../types'
+  import type { ProjectSummary, DashboardStats, ExceptionItem, ActivityItem } from '../types'
   let loading = $state(false)
   let error = $state('')
   let stats = $state<DashboardStats>({
@@ -56,8 +51,12 @@
 
         if (cancelled) return
 
-        const activeTickets = ticketPayload.tickets.filter((ticket) => !isTerminalStatus(ticket.status_name))
-        const runningAgents = agentPayload.agents.filter((agent) => agent.status === 'running').length
+        const activeTickets = ticketPayload.tickets.filter(
+          (ticket) => !isTerminalStatus(ticket.status_name),
+        )
+        const runningAgents = agentPayload.agents.filter(
+          (agent) => agent.status === 'running',
+        ).length
         const totalCost = ticketPayload.tickets.reduce((sum, ticket) => sum + ticket.cost_amount, 0)
         const todayStart = new Date()
         todayStart.setHours(0, 0, 0, 0)
@@ -70,9 +69,12 @@
             .filter((ticket) => new Date(ticket.created_at) >= todayStart)
             .reduce((sum, ticket) => sum + ticket.cost_amount, 0),
           weekCost: totalCost,
-          ticketsCreatedToday: ticketPayload.tickets.filter((ticket) => new Date(ticket.created_at) >= todayStart).length,
+          ticketsCreatedToday: ticketPayload.tickets.filter(
+            (ticket) => new Date(ticket.created_at) >= todayStart,
+          ).length,
           ticketsCompletedToday: ticketPayload.tickets.filter(
-            (ticket) => isTerminalStatus(ticket.status_name) && new Date(ticket.created_at) >= todayStart,
+            (ticket) =>
+              isTerminalStatus(ticket.status_name) && new Date(ticket.created_at) >= todayStart,
           ).length,
           avgCycleMinutes: 0,
           prMergeRate: 0,
@@ -109,8 +111,7 @@
           }))
       } catch (caughtError) {
         if (cancelled) return
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
       } finally {
         if (!cancelled) {
           loading = false
@@ -142,7 +143,11 @@
   }
 
   function normalizeExceptionType(eventType: string): ExceptionItem['type'] {
-    if (eventType === 'hook_failed' || eventType === 'budget_alert' || eventType === 'agent_stalled') {
+    if (
+      eventType === 'hook_failed' ||
+      eventType === 'budget_alert' ||
+      eventType === 'agent_stalled'
+    ) {
       return eventType
     }
 
@@ -157,16 +162,20 @@
 
 <div class="space-y-6">
   <div>
-    <h1 class="text-lg font-semibold text-foreground">Dashboard</h1>
-    <p class="text-sm text-muted-foreground">Project overview</p>
+    <h1 class="text-foreground text-lg font-semibold">Dashboard</h1>
+    <p class="text-muted-foreground text-sm">Project overview</p>
   </div>
 
   {#if loading}
-    <div class="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+    <div
+      class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
+    >
       Loading dashboard…
     </div>
   {:else if error}
-    <div class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <div
+      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+    >
       {error}
     </div>
   {:else}
@@ -178,16 +187,19 @@
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <ProjectHealthList projects={projects} class="lg:col-span-2" />
-      <ExceptionPanel exceptions={exceptions} />
+      <ProjectHealthList {projects} class="lg:col-span-2" />
+      <ExceptionPanel {exceptions} />
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <ActivityFeedPanel activities={activities} class="lg:col-span-2" />
+      <ActivityFeedPanel {activities} class="lg:col-span-2" />
       <CostSnapshotPanel
         todayCost={stats.todayCost}
         weekCost={stats.weekCost}
-        topProject={{ name: appStore.currentProject?.name ?? 'Current project', cost: stats.weekCost }}
+        topProject={{
+          name: appStore.currentProject?.name ?? 'Current project',
+          cost: stats.weekCost,
+        }}
         topAgent={{ name: 'Contract not exposed', cost: 0 }}
       />
     </div>

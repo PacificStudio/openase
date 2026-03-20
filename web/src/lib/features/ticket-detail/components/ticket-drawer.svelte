@@ -1,13 +1,7 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { getTicketDetail, listStatuses, listWorkflows } from '$lib/api/openase'
-  import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-  } from '$ui/sheet'
+  import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '$ui/sheet'
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '$ui/tabs'
   import { ApiError } from '$lib/api/client'
   import TicketHeader from './ticket-header.svelte'
@@ -67,18 +61,14 @@
 
         if (cancelled) return
 
-        const statusMap = new Map(
-          statusPayload.statuses.map((status) => [status.id, status]),
-        )
+        const statusMap = new Map(statusPayload.statuses.map((status) => [status.id, status]))
         const workflowMap = new Map(
           workflowPayload.workflows.map((workflow) => [workflow.id, workflow]),
         )
 
         const detailTicket = detailPayload.ticket
         const status = statusMap.get(detailTicket.status_id)
-        const workflow = detailTicket.workflow_id
-          ? workflowMap.get(detailTicket.workflow_id)
-          : null
+        const workflow = detailTicket.workflow_id ? workflowMap.get(detailTicket.workflow_id) : null
 
         ticket = {
           id: detailTicket.id,
@@ -144,9 +134,7 @@
       } catch (caughtError) {
         if (cancelled) return
         error =
-          caughtError instanceof ApiError
-            ? caughtError.detail
-            : 'Failed to load ticket detail.'
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load ticket detail.'
       } finally {
         if (!cancelled) {
           loading = false
@@ -166,7 +154,12 @@
   }
 
   function normalizePriority(priority: string): TicketDetail['priority'] {
-    if (priority === 'urgent' || priority === 'high' || priority === 'medium' || priority === 'low') {
+    if (
+      priority === 'urgent' ||
+      priority === 'high' ||
+      priority === 'medium' ||
+      priority === 'low'
+    ) {
       return priority
     }
 
@@ -204,18 +197,20 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="w-full sm:max-w-lg p-0 flex flex-col" showCloseButton={false}>
+  <SheetContent side="right" class="flex w-full flex-col p-0 sm:max-w-lg" showCloseButton={false}>
     <SheetHeader class="sr-only">
       <SheetTitle>{ticket?.identifier ?? 'Ticket detail'}</SheetTitle>
       <SheetDescription>Ticket detail drawer</SheetDescription>
     </SheetHeader>
 
     {#if loading}
-      <div class="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+      <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
         Loading ticket detail…
       </div>
     {:else if error}
-      <div class="flex flex-1 items-center justify-center px-6 text-center text-sm text-destructive">
+      <div
+        class="text-destructive flex flex-1 items-center justify-center px-6 text-center text-sm"
+      >
         {error}
       </div>
     {:else if ticket}

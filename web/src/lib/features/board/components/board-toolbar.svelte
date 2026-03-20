@@ -31,7 +31,7 @@
 
 <div class={cn('flex items-center gap-2', className)}>
   <div class="relative w-52">
-    <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+    <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
     <Input
       type="text"
       placeholder="Search tickets..."
@@ -43,7 +43,9 @@
 
   <Select.Root
     type="single"
-    onValueChange={(v) => { filter = { ...filter, workflow: v || undefined } }}
+    onValueChange={(v) => {
+      filter = { ...filter, workflow: v || undefined }
+    }}
   >
     <Select.Trigger size="sm" class="h-8 text-xs">
       {filter.workflow ?? 'Workflow'}
@@ -59,7 +61,9 @@
   {#if agents.length > 0}
     <Select.Root
       type="single"
-      onValueChange={(v) => { filter = { ...filter, agent: v || undefined } }}
+      onValueChange={(v) => {
+        filter = { ...filter, agent: v || undefined }
+      }}
     >
       <Select.Trigger size="sm" class="h-8 text-xs">
         {filter.agent ?? 'Agent'}
@@ -75,7 +79,9 @@
 
   <Select.Root
     type="single"
-    onValueChange={(v) => { filter = { ...filter, priority: v || undefined } }}
+    onValueChange={(v) => {
+      filter = { ...filter, priority: v || undefined }
+    }}
   >
     <Select.Trigger size="sm" class="h-8 text-xs">
       {filter.priority ?? 'Priority'}
@@ -93,18 +99,22 @@
     variant={filter.anomalyOnly ? 'secondary' : 'ghost'}
     size="sm"
     class="h-8 gap-1 text-xs"
-    onclick={() => { filter = { ...filter, anomalyOnly: !filter.anomalyOnly } }}
+    onclick={() => {
+      filter = { ...filter, anomalyOnly: !filter.anomalyOnly }
+    }}
   >
     <AlertTriangle class="size-3" />
     Anomalies
   </Button>
 
-  <div class="ml-auto flex items-center rounded-md border border-border">
+  <div class="border-border ml-auto flex items-center rounded-md border">
     <Button
       variant={view === 'board' ? 'secondary' : 'ghost'}
       size="sm"
       class="h-7 rounded-r-none px-2"
-      onclick={() => { view = 'board' }}
+      onclick={() => {
+        view = 'board'
+      }}
     >
       <Columns3 class="size-3.5" />
     </Button>
@@ -114,7 +124,9 @@
       class="h-7 rounded-l-none px-2"
       disabled={!listEnabled}
       title={listEnabled ? 'Switch to list view' : 'List view is not implemented yet'}
-      onclick={() => { view = 'list' }}
+      onclick={() => {
+        view = 'list'
+      }}
     >
       <List class="size-3.5" />
     </Button>

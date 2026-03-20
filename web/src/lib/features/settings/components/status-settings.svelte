@@ -40,8 +40,7 @@
           }))
       } catch (caughtError) {
         if (cancelled) return
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load statuses.'
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load statuses.'
       } finally {
         if (!cancelled) {
           loading = false
@@ -59,8 +58,8 @@
 
 <div class="max-w-lg space-y-6">
   <div>
-    <h2 class="text-base font-semibold text-foreground">Statuses</h2>
-    <p class="mt-1 text-sm text-muted-foreground">
+    <h2 class="text-foreground text-base font-semibold">Statuses</h2>
+    <p class="text-muted-foreground mt-1 text-sm">
       Current board columns. Status mutations are not exposed by the current API.
     </p>
   </div>
@@ -68,13 +67,13 @@
   <Separator />
 
   {#if loading}
-    <div class="text-sm text-muted-foreground">Loading statuses…</div>
+    <div class="text-muted-foreground text-sm">Loading statuses…</div>
   {:else if error}
-    <div class="text-sm text-destructive">{error}</div>
+    <div class="text-destructive text-sm">{error}</div>
   {:else}
     <div class="space-y-2">
       {#each statuses as status (status.id)}
-        <div class="flex items-center gap-3 rounded-md border border-border px-3 py-2">
+        <div class="border-border flex items-center gap-3 rounded-md border px-3 py-2">
           <input
             type="color"
             value={status.color}
@@ -85,7 +84,7 @@
         </div>
       {/each}
     </div>
-    <p class="text-xs text-muted-foreground">
+    <p class="text-muted-foreground text-xs">
       Add, delete, and reorder actions stay disabled until status mutation endpoints are available.
     </p>
   {/if}

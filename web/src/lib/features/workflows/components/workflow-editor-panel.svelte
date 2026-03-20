@@ -46,15 +46,20 @@
 </script>
 
 <div class="flex flex-1 flex-col overflow-hidden">
-  <div class="flex items-center justify-between border-b border-border px-4 py-2">
-    <div class="flex items-center gap-2 text-xs text-muted-foreground">
+  <div class="border-border flex items-center justify-between border-b px-4 py-2">
+    <div class="text-muted-foreground flex items-center gap-2 text-xs">
       <span>{selectedWorkflow?.name ?? 'No workflow selected'}</span>
       {#if isDirty}
         <Badge variant="outline" class="text-[10px]">Unsaved</Badge>
       {/if}
     </div>
     <div class="flex items-center gap-2">
-      <Button variant="outline" size="sm" onclick={onValidate} disabled={validating || !selectedWorkflow}>
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={onValidate}
+        disabled={validating || !selectedWorkflow}
+      >
         {validating ? 'Validating…' : 'Validate'}
       </Button>
       <Button size="sm" onclick={onSave} disabled={!isDirty || saving || !selectedWorkflow}>
@@ -74,7 +79,7 @@
     {/if}
   </div>
 
-  <div class="border-t border-border px-4 py-3">
+  <div class="border-border border-t px-4 py-3">
     <div class="flex flex-wrap items-center gap-2">
       {#each skillStates as skill (skill.path)}
         <button
@@ -88,7 +93,8 @@
           onclick={() => onToggleSkill?.(skill)}
           title={skill.description}
         >
-          {skill.bound ? 'Unbind' : 'Bind'} {skill.name}
+          {skill.bound ? 'Unbind' : 'Bind'}
+          {skill.name}
         </button>
       {/each}
     </div>
@@ -101,14 +107,16 @@
     {/if}
 
     {#if error}
-      <div class="mt-3 flex items-center gap-2 text-xs text-destructive">
+      <div class="text-destructive mt-3 flex items-center gap-2 text-xs">
         <AlertCircle class="size-3.5" />
         {error}
       </div>
     {/if}
 
     {#if validationIssues.length > 0}
-      <div class="mt-3 space-y-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+      <div
+        class="mt-3 space-y-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
+      >
         {#each validationIssues as issue, index (index)}
           <div>
             {issue.level?.toUpperCase() ?? 'ISSUE'}: {issue.message}

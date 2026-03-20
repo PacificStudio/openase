@@ -71,14 +71,13 @@
           message: event.message,
           timestamp: event.created_at,
           ticketIdentifier: event.ticket_id
-            ? ticketIdentifiers.get(event.ticket_id) ?? event.ticket_id
+            ? (ticketIdentifiers.get(event.ticket_id) ?? event.ticket_id)
             : undefined,
           agentName: agentNameFromMetadata(event.metadata),
         }))
       } catch (caughtError) {
         if (cancelled) return
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load activity.'
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load activity.'
       } finally {
         if (!cancelled) {
           loading = false
@@ -116,24 +115,22 @@
 
 <div class="mx-auto w-full max-w-3xl space-y-6">
   <div>
-    <h1 class="text-lg font-semibold text-foreground">Activity</h1>
-    <p class="mt-1 text-sm text-muted-foreground">
+    <h1 class="text-foreground text-lg font-semibold">Activity</h1>
+    <p class="text-muted-foreground mt-1 text-sm">
       Event log across all tickets, agents, and integrations.
     </p>
   </div>
 
   <div class="flex flex-wrap items-center gap-3">
-    <div class="relative flex-1 min-w-48">
-      <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        placeholder="Search events..."
-        class="pl-9"
-        bind:value={searchQuery}
-      />
+    <div class="relative min-w-48 flex-1">
+      <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+      <Input placeholder="Search events..." class="pl-9" bind:value={searchQuery} />
     </div>
     <Select.Root
       type="single"
-      onValueChange={(v) => { selectedType = v || 'all' }}
+      onValueChange={(v) => {
+        selectedType = v || 'all'
+      }}
     >
       <Select.Trigger class="w-44">
         {eventTypes.find((t) => t.value === selectedType)?.label ?? 'All events'}
@@ -147,18 +144,16 @@
   </div>
 
   {#if loading}
-    <div class="py-16 text-center text-sm text-muted-foreground">
-      Loading activity…
-    </div>
+    <div class="text-muted-foreground py-16 text-center text-sm">Loading activity…</div>
   {:else if error}
-    <div class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <div
+      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+    >
       {error}
     </div>
   {:else if filtered.length > 0}
     <ActivityTimeline entries={filtered} />
   {:else}
-    <div class="py-16 text-center text-sm text-muted-foreground">
-      No events match your filters.
-    </div>
+    <div class="text-muted-foreground py-16 text-center text-sm">No events match your filters.</div>
   {/if}
 </div>

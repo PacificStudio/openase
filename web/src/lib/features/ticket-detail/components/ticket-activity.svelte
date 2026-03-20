@@ -25,12 +25,12 @@
 </script>
 
 <div class="flex flex-col gap-0 px-5 py-3">
-  <span class="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+  <span class="text-muted-foreground mb-2 text-[10px] font-medium tracking-wider uppercase">
     Activity
   </span>
 
   {#if activities.length === 0}
-    <p class="py-4 text-center text-xs text-muted-foreground">No activity yet</p>
+    <p class="text-muted-foreground py-4 text-center text-xs">No activity yet</p>
   {/if}
 
   <div class="relative">
@@ -38,18 +38,20 @@
       {@const config = typeIcons[activity.type] ?? fallbackIcon}
       <div class="relative flex gap-3 pb-3">
         {#if i < activities.length - 1}
-          <div class="absolute left-[7px] top-5 bottom-0 w-px bg-border"></div>
+          <div class="bg-border absolute top-5 bottom-0 left-[7px] w-px"></div>
         {/if}
 
-        <div class="relative z-10 mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-background">
+        <div
+          class="bg-background relative z-10 mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full"
+        >
           <config.icon class={cn('size-3.5', config.class)} />
         </div>
 
-        <div class="flex flex-1 flex-col gap-0.5 min-w-0">
-          <p class="text-xs leading-snug text-foreground">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p class="text-foreground text-xs leading-snug">
             {activity.message}
           </p>
-          <div class="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <div class="text-muted-foreground flex items-center gap-2 text-[10px]">
             {#if activity.agentName}
               <span>{activity.agentName}</span>
               <span>·</span>

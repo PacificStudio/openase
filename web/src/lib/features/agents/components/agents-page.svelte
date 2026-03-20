@@ -39,14 +39,17 @@
         if (cancelled) return
 
         const ticketMap = new Map(ticketPayload.tickets.map((ticket) => [ticket.id, ticket]))
-        const providerMap = new Map(providerPayload.providers.map((provider) => [provider.id, provider]))
+        const providerMap = new Map(
+          providerPayload.providers.map((provider) => [provider.id, provider]),
+        )
 
         providers = providerPayload.providers.map((provider) => ({
           id: provider.id,
           name: provider.name,
           adapterType: provider.adapter_type,
           modelName: provider.model_name,
-          agentCount: agentPayload.agents.filter((agent) => agent.provider_id === provider.id).length,
+          agentCount: agentPayload.agents.filter((agent) => agent.provider_id === provider.id)
+            .length,
           isDefault: appStore.currentOrg?.default_agent_provider_id === provider.id,
         }))
 
@@ -133,7 +136,7 @@
 
 <div class="space-y-4">
   <div class="flex items-center justify-between">
-    <h1 class="text-lg font-semibold text-foreground">Agents</h1>
+    <h1 class="text-foreground text-lg font-semibold">Agents</h1>
     <Button size="sm" disabled title="Agent registration is not exposed by the current API">
       <Plus class="size-3.5" />
       Register Agent
@@ -141,11 +144,15 @@
   </div>
 
   {#if loading}
-    <div class="rounded-md border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+    <div
+      class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
+    >
       Loading agents…
     </div>
   {:else if error}
-    <div class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <div
+      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+    >
       {error}
     </div>
   {:else}

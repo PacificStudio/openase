@@ -1,25 +1,21 @@
 <script lang="ts">
-import { appStore } from '$lib/stores/app.svelte'
-import { ApiError } from '$lib/api/client'
-import {
-  bindWorkflowSkills,
-  saveWorkflowHarness,
-  unbindWorkflowSkills,
-  validateHarness,
-} from '$lib/api/openase'
-import Button from '$ui/button/button.svelte'
-import { Plus, PanelRightClose, PanelRight } from '@lucide/svelte'
-import type { HarnessValidationIssue } from '$lib/api/contracts'
-import type { WorkflowSummary, HarnessContent } from '../types'
-import {
-  type SkillState,
-  extractBody,
-  extractFrontmatter,
-} from '../model'
-import { createDefaultWorkflow, loadWorkflowHarness, loadWorkflowIndex } from '../data'
-import WorkflowList from './workflow-list.svelte'
-import WorkflowDetailPanel from './workflow-detail-panel.svelte'
-import WorkflowEditorPanel from './workflow-editor-panel.svelte'
+  import { appStore } from '$lib/stores/app.svelte'
+  import { ApiError } from '$lib/api/client'
+  import {
+    bindWorkflowSkills,
+    saveWorkflowHarness,
+    unbindWorkflowSkills,
+    validateHarness,
+  } from '$lib/api/openase'
+  import Button from '$ui/button/button.svelte'
+  import { Plus, PanelRightClose, PanelRight } from '@lucide/svelte'
+  import type { HarnessValidationIssue } from '$lib/api/contracts'
+  import type { WorkflowSummary, HarnessContent } from '../types'
+  import { type SkillState, extractBody, extractFrontmatter } from '../model'
+  import { createDefaultWorkflow, loadWorkflowHarness, loadWorkflowIndex } from '../data'
+  import WorkflowList from './workflow-list.svelte'
+  import WorkflowDetailPanel from './workflow-detail-panel.svelte'
+  import WorkflowEditorPanel from './workflow-editor-panel.svelte'
 
   let showDetail = $state(true)
   let loading = $state(false)
@@ -72,8 +68,7 @@ import WorkflowEditorPanel from './workflow-editor-panel.svelte'
         statuses = payload.statuses
       } catch (caughtError) {
         if (cancelled) return
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
       } finally {
         if (!cancelled) {
           loading = false
@@ -111,8 +106,7 @@ import WorkflowEditorPanel from './workflow-editor-panel.svelte'
         skillStates = payload.skillStates
       } catch (caughtError) {
         if (cancelled) return
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load harness.'
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load harness.'
       }
     }
 
@@ -211,15 +205,15 @@ import WorkflowEditorPanel from './workflow-editor-panel.svelte'
       )
       statusMessage = `Bound ${skill.name}.`
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow skills.'
+      error =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow skills.'
     }
   }
-
 </script>
 
 <div class="flex h-full flex-col">
-  <div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-    <h1 class="text-sm font-semibold text-foreground">Workflows</h1>
+  <div class="border-border flex items-center justify-between border-b px-4 py-2.5">
+    <h1 class="text-foreground text-sm font-semibold">Workflows</h1>
     <div class="flex items-center gap-2">
       <Button variant="ghost" size="sm" onclick={() => (showDetail = !showDetail)}>
         {#if showDetail}
@@ -236,34 +230,30 @@ import WorkflowEditorPanel from './workflow-editor-panel.svelte'
   </div>
 
   {#if loading}
-    <div class="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+    <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
       Loading workflows…
     </div>
   {:else if error && workflows.length === 0}
-    <div class="m-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <div
+      class="border-destructive/40 bg-destructive/10 text-destructive m-4 rounded-md border px-4 py-3 text-sm"
+    >
       {error}
     </div>
   {:else}
     <div class="flex flex-1 overflow-hidden">
       <div class="w-60 shrink-0">
-        <WorkflowList
-          {workflows}
-          {selectedId}
-          onselect={(id) => (selectedId = id)}
-        />
+        <WorkflowList {workflows} {selectedId} onselect={(id) => (selectedId = id)} />
       </div>
 
       <WorkflowEditorPanel
         {selectedWorkflow}
-        harness={
-          harness
-            ? {
-                frontmatter: extractFrontmatter(draftHarness),
-                body: extractBody(draftHarness),
-                rawContent: draftHarness,
-              }
-            : null
-        }
+        harness={harness
+          ? {
+              frontmatter: extractFrontmatter(draftHarness),
+              body: extractBody(draftHarness),
+              rawContent: draftHarness,
+            }
+          : null}
         {skillStates}
         {validationIssues}
         {statusMessage}
