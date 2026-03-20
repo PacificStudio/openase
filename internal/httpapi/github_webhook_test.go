@@ -524,6 +524,7 @@ func newGitHubWebhookLifecycleFixture(
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	return gitHubWebhookLifecycleFixture{
