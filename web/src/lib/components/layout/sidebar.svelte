@@ -1,31 +1,11 @@
 <script lang="ts">
-  import { organizationPath, projectPath } from '$lib/features/app-shell/context'
+  import { buildGlobalNav, buildProjectNav, type SidebarNavItem } from './sidebar-nav'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Badge } from '$ui/badge'
   import { Separator } from '$ui/separator'
   import * as Tooltip from '$ui/tooltip'
-  import {
-    LayoutDashboard,
-    Bot,
-    Server,
-    TicketCheck,
-    Activity,
-    Settings,
-    KanbanSquare,
-    Workflow,
-    ChevronsLeft,
-    ChevronsRight,
-  } from '@lucide/svelte'
-  import type { Component } from 'svelte'
-
-  type NavItem = {
-    label: string
-    href: string
-    icon: Component
-    badge?: string | number
-    active?: boolean
-  }
+  import { ChevronsLeft, ChevronsRight } from '@lucide/svelte'
 
   let {
     collapsed = false,
@@ -49,114 +29,10 @@
     onToggleCollapse?: () => void
   } = $props()
 
-  const globalNav: NavItem[] = $derived([
-    {
-      label: 'Dashboard',
-      href: currentOrgId ? organizationPath(currentOrgId) : '/',
-      icon: LayoutDashboard,
-      active: currentOrgId ? currentPath === organizationPath(currentOrgId) : currentPath === '/',
-    },
-  ])
-
-  const projectNav: NavItem[] = $derived([
-    {
-      label: 'Overview',
-      href:
-        currentOrgId && currentProjectId
-          ? projectPath(currentOrgId, currentProjectId)
-          : '/projects',
-      icon: LayoutDashboard,
-      active:
-        currentOrgId && currentProjectId
-          ? currentPath === projectPath(currentOrgId, currentProjectId)
-          : false,
-    },
-    {
-      label: 'Board',
-      href:
-        currentOrgId && currentProjectId
-          ? projectPath(currentOrgId, currentProjectId, 'board')
-          : '/board',
-      icon: KanbanSquare,
-      active:
-        currentOrgId && currentProjectId
-          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'board'))
-          : currentPath.startsWith('/board'),
-    },
-    {
-      label: 'Tickets',
-      href:
-        currentOrgId && currentProjectId
-          ? projectPath(currentOrgId, currentProjectId, 'tickets')
-          : '/tickets',
-      icon: TicketCheck,
-      active:
-        currentOrgId && currentProjectId
-          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'tickets'))
-          : currentPath.startsWith('/tickets'),
-    },
-    {
-      label: 'Agents',
-      href:
-        currentOrgId && currentProjectId
-          ? projectPath(currentOrgId, currentProjectId, 'agents')
-          : '/agents',
-      icon: Bot,
-      badge: agentCount || undefined,
-      active:
-        currentOrgId && currentProjectId
-          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'agents'))
-          : currentPath.startsWith('/agents'),
-    },
-    {
-      label: 'Machines',
-      href:
-        currentOrgId && currentProjectId
-          ? projectPath(currentOrgId, currentProjectId, 'machines')
-          : '/machines',
-      icon: Server,
-      active:
-        currentOrgId && currentProjectId
-          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'machines'))
-          : currentPath.startsWith('/machines'),
-    },
-    {
-      label: 'Activity',
-      href:
-        currentOrgId && currentProjectId
-          ? projectPath(currentOrgId, currentProjectId, 'activity')
-          : '/activity',
-      icon: Activity,
-      active:
-        currentOrgId && currentProjectId
-          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'activity'))
-          : currentPath.startsWith('/activity'),
-    },
-    {
-      label: 'Workflows',
-      href:
-        currentOrgId && currentProjectId
-          ? projectPath(currentOrgId, currentProjectId, 'workflows')
-          : '/workflows',
-      icon: Workflow,
-      active:
-        currentOrgId && currentProjectId
-          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'workflows'))
-          : currentPath.startsWith('/workflows'),
-    },
-    {
-      label: 'Settings',
-      href:
-        currentOrgId && currentProjectId
-          ? projectPath(currentOrgId, currentProjectId, 'settings')
-          : '/settings',
-      icon: Settings,
-      active:
-        currentOrgId && currentProjectId
-          ? currentPath.startsWith(projectPath(currentOrgId, currentProjectId, 'settings'))
-          : currentPath.startsWith('/settings'),
-    },
-  ])
+  const globalNav: SidebarNavItem[] = $derived(buildGlobalNav(currentPath, currentOrgId))
+  const projectNav: SidebarNavItem[] = $derived(
+    buildProjectNav({ currentPath, currentOrgId, currentProjectId, agentCount }),
+  )
 
   const healthColor = $derived(
     projectHealth === 'healthy'
@@ -218,7 +94,6 @@
         {/if}
       {/each}
     </div>
-
     {#if projectSelected}
       <Separator class="my-3" />
       {#if !collapsed}
