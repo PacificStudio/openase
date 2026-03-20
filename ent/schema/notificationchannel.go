@@ -33,6 +33,7 @@ func (NotificationChannel) Edges() []ent.Edge {
 			Field("organization_id").
 			Unique().
 			Required(),
+		edge.To("notification_rules", NotificationRule.Type),
 	}
 }
 

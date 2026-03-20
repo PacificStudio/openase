@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -255,6 +256,21 @@ func (_c *ProjectCreate) AddActivityEvents(v ...*ActivityEvent) *ProjectCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddActivityEventIDs(ids...)
+}
+
+// AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
+func (_c *ProjectCreate) AddNotificationRuleIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddNotificationRuleIDs(ids...)
+	return _c
+}
+
+// AddNotificationRules adds the "notification_rules" edges to the NotificationRule entity.
+func (_c *ProjectCreate) AddNotificationRules(v ...*NotificationRule) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddNotificationRuleIDs(ids...)
 }
 
 // SetDefaultWorkflow sets the "default_workflow" edge to the Workflow entity.
@@ -544,6 +560,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.NotificationRulesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.NotificationRulesTable,
+			Columns: []string{project.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

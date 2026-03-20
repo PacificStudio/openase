@@ -304,6 +304,29 @@ func HasOrganizationWith(preds ...predicate.Organization) predicate.Notification
 	})
 }
 
+// HasNotificationRules applies the HasEdge predicate on the "notification_rules" edge.
+func HasNotificationRules() predicate.NotificationChannel {
+	return predicate.NotificationChannel(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, NotificationRulesTable, NotificationRulesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasNotificationRulesWith applies the HasEdge predicate on the "notification_rules" edge with a given conditions (other predicates).
+func HasNotificationRulesWith(preds ...predicate.NotificationRule) predicate.NotificationChannel {
+	return predicate.NotificationChannel(func(s *sql.Selector) {
+		step := newNotificationRulesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.NotificationChannel) predicate.NotificationChannel {
 	return predicate.NotificationChannel(sql.AndPredicates(predicates...))
