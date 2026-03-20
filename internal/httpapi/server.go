@@ -165,6 +165,7 @@ func (s *Server) registerRoutes() {
 	}
 	s.registerTicketRoutes(api)
 	s.registerWorkflowRoutes(api)
+	s.registerSkillRoutes(api)
 	s.registerTicketStatusRoutes()
 
 	uiHandler := echo.WrapHandler(webui.Handler())

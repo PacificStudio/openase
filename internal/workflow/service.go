@@ -112,6 +112,7 @@ type Service struct {
 	logger       *slog.Logger
 	repoRoot     string
 	harnessRoot  string
+	skillRoot    string
 	registry     *harnessRegistry
 	hookExecutor *workflowHookExecutor
 }
@@ -133,11 +134,16 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 	}
 
 	harnessRoot := filepath.Join(repoRoot, ".openase", "harnesses")
+	skillRoot := filepath.Join(repoRoot, ".openase", "skills")
+	if err := os.MkdirAll(skillRoot, 0o755); err != nil {
+		return nil, fmt.Errorf("create skill root: %w", err)
+	}
 	service := &Service{
 		client:       client,
 		logger:       logger.With("component", "workflow-service"),
 		repoRoot:     repoRoot,
 		harnessRoot:  harnessRoot,
+		skillRoot:    skillRoot,
 		hookExecutor: newWorkflowHookExecutor(repoRoot, logger),
 	}
 
