@@ -145,7 +145,7 @@ func TestManagerStartCancelsProcessViaContext(t *testing.T) {
 func TestRunningProcessStopTerminatesRunningProcess(t *testing.T) {
 	command := requirePOSIXShell(t)
 	manager := NewManager(ManagerOptions{StopGracePeriod: 500 * time.Millisecond})
-	spec := newShellSpec(t, command, "sleep 30")
+	spec := newShellSpec(t, command, "trap '' INT; exec sleep 30")
 
 	process, err := manager.Start(context.Background(), spec)
 	if err != nil {

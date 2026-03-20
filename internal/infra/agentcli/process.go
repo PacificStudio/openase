@@ -168,7 +168,7 @@ func (p *runningProcess) Stop(ctx context.Context) error {
 			return err
 		}
 		<-p.done
-		return ctx.Err()
+		return nil
 	}
 }
 
