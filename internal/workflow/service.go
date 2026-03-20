@@ -15,6 +15,7 @@ import (
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/google/uuid"
 )
 
@@ -157,6 +158,32 @@ func (s *Service) Close() error {
 	return s.registry.Close()
 }
 
+func validateConfiguredHooks(raw map[string]any) (workflowHooksConfig, error) {
+	parsedWorkflowHooks, err := parseWorkflowHooks(raw)
+	if err != nil {
+		return workflowHooksConfig{}, err
+	}
+	if _, err := infrahook.ParseTicketHooks(raw); err != nil {
+		return workflowHooksConfig{}, mapTicketHookConfigError(err)
+	}
+
+	return parsedWorkflowHooks, nil
+}
+
+func mapTicketHookConfigError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	message := err.Error()
+	if errors.Is(err, infrahook.ErrConfigInvalid) {
+		prefix := infrahook.ErrConfigInvalid.Error() + ": "
+		message = strings.TrimPrefix(message, prefix)
+	}
+
+	return fmt.Errorf("%w: %s", ErrHookConfigInvalid, message)
+}
+
 func (s *Service) List(ctx context.Context, projectID uuid.UUID) ([]Workflow, error) {
 	if s.client == nil {
 		return nil, ErrUnavailable
@@ -223,7 +250,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureHarnessPathAvailable(ctx, harnessPath, uuid.Nil); err != nil {
 		return WorkflowDetail{}, err
 	}
-	parsedHooks, err := parseWorkflowHooks(input.Hooks)
+	parsedHooks, err := validateConfiguredHooks(input.Hooks)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -329,7 +356,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if input.Hooks.Set {
 		nextHooksRaw = input.Hooks.Value
 	}
-	parsedHooks, err := parseWorkflowHooks(nextHooksRaw)
+	parsedHooks, err := validateConfiguredHooks(nextHooksRaw)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -497,7 +524,7 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for harness update", err)
 	}
-	parsedHooks, err := parseWorkflowHooks(item.Hooks)
+	parsedHooks, err := validateConfiguredHooks(item.Hooks)
 	if err != nil {
 		return HarnessDocument{}, err
 	}
@@ -649,7 +676,7 @@ func (s *Service) handleHarnessReload(event harnessReloadEvent) {
 		return
 	}
 
-	parsedHooks, err := parseWorkflowHooks(item.Hooks)
+	parsedHooks, err := validateConfiguredHooks(item.Hooks)
 	if err != nil {
 		s.logger.Error("parse workflow hooks for reload", "error", err, "workflow_id", item.ID, "path", event.RelativePath)
 		return
