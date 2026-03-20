@@ -2,10 +2,12 @@ package httpapi
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -40,6 +42,15 @@ type rawUpdateTicketRequest struct {
 type rawAddDependencyRequest struct {
 	TargetTicketID string `json:"target_ticket_id"`
 	Type           string `json:"type"`
+}
+
+type rawAddExternalLinkRequest struct {
+	Type       string  `json:"type"`
+	URL        string  `json:"url"`
+	ExternalID string  `json:"external_id"`
+	Title      *string `json:"title"`
+	Status     *string `json:"status"`
+	Relation   *string `json:"relation"`
 }
 
 func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (ticketservice.CreateInput, error) {
@@ -185,12 +196,58 @@ func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) 
 	}, nil
 }
 
+func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkRequest) (ticketservice.AddExternalLinkInput, error) {
+	linkType, err := parseExternalLinkType(raw.Type)
+	if err != nil {
+		return ticketservice.AddExternalLinkInput{}, err
+	}
+
+	trimmedURL := strings.TrimSpace(raw.URL)
+	parsedURL, err := url.ParseRequestURI(trimmedURL)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return ticketservice.AddExternalLinkInput{}, fmt.Errorf("url must be a valid absolute URL")
+	}
+
+	externalID := strings.TrimSpace(raw.ExternalID)
+	if externalID == "" {
+		return ticketservice.AddExternalLinkInput{}, fmt.Errorf("external_id must not be empty")
+	}
+
+	relation := entticketexternallink.DefaultRelation
+	if raw.Relation != nil {
+		relation, err = parseExternalLinkRelation(*raw.Relation)
+		if err != nil {
+			return ticketservice.AddExternalLinkInput{}, err
+		}
+	}
+
+	input := ticketservice.AddExternalLinkInput{
+		TicketID:   ticketID,
+		LinkType:   linkType,
+		URL:        trimmedURL,
+		ExternalID: externalID,
+		Relation:   relation,
+	}
+	if raw.Title != nil {
+		input.Title = strings.TrimSpace(*raw.Title)
+	}
+	if raw.Status != nil {
+		input.Status = strings.TrimSpace(*raw.Status)
+	}
+
+	return input, nil
+}
+
 func parseTicketID(c echo.Context) (uuid.UUID, error) {
 	return parseUUIDPathParamValue(c, "ticketId")
 }
 
 func parseDependencyID(c echo.Context) (uuid.UUID, error) {
 	return parseUUIDPathParamValue(c, "dependencyId")
+}
+
+func parseExternalLinkID(c echo.Context) (uuid.UUID, error) {
+	return parseUUIDPathParamValue(c, "externalLinkId")
 }
 
 func parseTicketPriority(raw string) (entticket.Priority, error) {
@@ -220,6 +277,24 @@ func parseDependencyType(raw string) (entticketdependency.Type, error) {
 	default:
 		return "", fmt.Errorf("type must be one of blocks, sub_issue")
 	}
+}
+
+func parseExternalLinkType(raw string) (entticketexternallink.LinkType, error) {
+	linkType := entticketexternallink.LinkType(strings.ToLower(strings.TrimSpace(raw)))
+	if err := entticketexternallink.LinkTypeValidator(linkType); err != nil {
+		return "", fmt.Errorf("type must be one of github_issue, gitlab_issue, jira_ticket, github_pr, gitlab_mr, custom")
+	}
+
+	return linkType, nil
+}
+
+func parseExternalLinkRelation(raw string) (entticketexternallink.Relation, error) {
+	relation := entticketexternallink.Relation(strings.ToLower(strings.TrimSpace(raw)))
+	if err := entticketexternallink.RelationValidator(relation); err != nil {
+		return "", fmt.Errorf("relation must be one of resolves, related, caused_by")
+	}
+
+	return relation, nil
 }
 
 func parseCSVQueryValues(c echo.Context, name string) []string {

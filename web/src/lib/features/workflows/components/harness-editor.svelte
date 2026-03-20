@@ -2,14 +2,13 @@
   import { tick } from 'svelte'
   import { cn } from '$lib/utils'
   import { FileCode, Copy, Check } from '@lucide/svelte'
-  import type { HarnessContent, HarnessVariableGroup } from '../types'
   import {
     filterSuggestions,
     findCompletionState,
     flattenSuggestions,
-    type CompletionState,
-    type Suggestion,
-  } from '../harness-editor-completion'
+  } from './harness-editor-autocomplete'
+  import type { CompletionState, Suggestion } from './harness-editor-autocomplete'
+  import type { HarnessContent, HarnessVariableGroup } from '../types'
 
   let {
     content,
