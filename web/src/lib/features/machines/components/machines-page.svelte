@@ -1,31 +1,41 @@
 <script lang="ts">
+  import { invalidate } from '$app/navigation'
   import { ApiError } from '$lib/api/client'
   import {
     createMachine,
     deleteMachine,
     getMachineResources,
-    listMachines,
     testMachineConnection,
     updateMachine,
   } from '$lib/api/openase'
   import PageHeader from '$lib/components/layout/page-header.svelte'
-  import { appStore } from '$lib/stores/app.svelte'
   import MachinePageActions from './machine-page-actions.svelte'
   import MachineWorkspace from './machine-workspace.svelte'
   import {
     createEmptyMachineDraft,
     filterMachines,
-    machineToDraft,
     parseMachineDraft,
     parseMachineSnapshot,
   } from '../model'
+  import {
+    createEditorSelectionState,
+    createEmptyState,
+    createListErrorState,
+    createNoOrgState,
+    createStartCreateState,
+    type MachinesPageViewState,
+  } from '../page-state'
   import type {
     MachineDraft,
     MachineDraftField,
     MachineItem,
     MachineProbeResult,
+    MachinesPageData,
     MachineSnapshot,
+    MachineWorkspaceState,
   } from '../types'
+
+  let { data }: { data: MachinesPageData } = $props()
 
   let loading = $state(false)
   let refreshing = $state(false)
@@ -33,7 +43,10 @@
   let saving = $state(false)
   let testing = $state(false)
   let deleting = $state(false)
-  let error = $state('')
+  let workspaceState = $state<MachineWorkspaceState>('loading')
+  let routeOrgId = $state('')
+  let listMessage = $state('')
+  let editorError = $state('')
   let feedback = $state('')
   let machines = $state<MachineItem[]>([])
   let selectedId = $state('')
@@ -47,65 +60,54 @@
   const filteredMachines = $derived(filterMachines(machines, searchQuery))
 
   $effect(() => {
-    const orgId = appStore.currentOrg?.id
-    if (!orgId) {
-      machines = []
-      selectedId = ''
-      mode = 'edit'
-      snapshot = null
-      probe = null
-      draft = createEmptyMachineDraft()
-      return
-    }
-
-    void loadMachines(orgId, { initial: true })
+    void syncFromRouteData(data)
   })
 
-  async function loadMachines(orgId: string, options: { initial?: boolean } = {}) {
-    if (options.initial) {
-      loading = true
-    } else {
-      refreshing = true
+  async function syncFromRouteData(nextData: MachinesPageData) {
+    loading = false
+    refreshing = false
+
+    if (nextData.orgContext.kind === 'no-org') return applyViewState(createNoOrgState())
+    if (nextData.orgContext.kind === 'error') {
+      return applyViewState(createListErrorState(nextData.orgContext.message))
     }
-    error = ''
 
-    try {
-      const payload = await listMachines(orgId)
-      machines = payload.machines
-
-      if (mode === 'create') {
-        return
-      }
-
-      const nextMachine =
-        payload.machines.find((machine) => machine.id === selectedId) ?? payload.machines[0] ?? null
-      if (!nextMachine) {
-        selectedId = ''
-        draft = createEmptyMachineDraft()
-        snapshot = null
-        probe = null
-        return
-      }
-
-      await openMachine(nextMachine)
-    } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load machines.'
-    } finally {
-      loading = false
-      refreshing = false
+    const nextOrgId = nextData.orgContext.org.id
+    if (nextData.initialListError) {
+      return applyViewState(createListErrorState(nextData.initialListError))
     }
+    if (nextData.initialMachines.length === 0) {
+      return applyViewState(createEmptyState(nextOrgId))
+    }
+
+    const nextMachine =
+      nextData.initialMachines.find((machine) => machine.id === selectedId) ??
+      nextData.initialMachines[0]
+    applyViewState(
+      createEditorSelectionState(nextOrgId, nextData.initialMachines, nextMachine, feedback, true),
+    )
+    await loadMachineResources(nextMachine.id)
+  }
+
+  function applyViewState(nextState: MachinesPageViewState) {
+    routeOrgId = nextState.routeOrgId
+    machines = nextState.machines
+    searchQuery = nextState.searchQuery
+    workspaceState = nextState.workspaceState
+    listMessage = nextState.listMessage
+    selectedId = nextState.selectedId
+    mode = nextState.mode
+    draft = nextState.draft
+    snapshot = nextState.snapshot
+    probe = nextState.probe
+    editorError = nextState.editorError
+    feedback = nextState.feedback
   }
 
   async function openMachine(machine: MachineItem, options: { preserveFeedback?: boolean } = {}) {
-    mode = 'edit'
-    selectedId = machine.id
-    draft = machineToDraft(machine)
-    if (!options.preserveFeedback) {
-      feedback = ''
-    }
-    error = ''
-    probe = null
-    snapshot = parseMachineSnapshot(machine.resources)
+    applyViewState(
+      createEditorSelectionState(routeOrgId, machines, machine, feedback, options.preserveFeedback),
+    )
     await loadMachineResources(machine.id)
   }
 
@@ -116,7 +118,7 @@
       const payload = await getMachineResources(machineId)
       snapshot = parseMachineSnapshot(payload.resources)
     } catch (caughtError) {
-      error =
+      editorError =
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to load machine resources.'
     } finally {
       loadingHealth = false
@@ -124,48 +126,53 @@
   }
 
   function startCreate(options: { preserveFeedback?: boolean } = {}) {
-    mode = 'create'
-    selectedId = ''
-    draft = createEmptyMachineDraft()
-    probe = null
-    snapshot = null
-    if (!options.preserveFeedback) {
-      feedback = ''
-    }
-    error = ''
+    if (!routeOrgId) return applyViewState(createNoOrgState())
+    applyViewState(createStartCreateState(routeOrgId, machines, feedback, options.preserveFeedback))
   }
 
   function resetDraft() {
     if (mode === 'create') {
       draft = createEmptyMachineDraft()
       feedback = ''
-      error = ''
+      editorError = ''
       return
     }
 
     if (selectedMachine) {
-      draft = machineToDraft(selectedMachine)
+      draft = createEditorSelectionState(routeOrgId, machines, selectedMachine).draft
       feedback = ''
-      error = ''
+      editorError = ''
+    }
+  }
+
+  async function handleRefresh() {
+    if (loading || refreshing) return
+    if (workspaceState === 'error' || workspaceState === 'no-org') loading = true
+    else refreshing = true
+
+    try {
+      await invalidate('openase:machines-page')
+    } finally {
+      loading = false
+      refreshing = false
     }
   }
 
   async function handleSave() {
-    const orgId = appStore.currentOrg?.id
     const parsed = parseMachineDraft(draft)
-    if (!orgId || !parsed.ok) {
-      error = parsed.ok ? 'Organization context is unavailable.' : parsed.error
+    if (!routeOrgId || !parsed.ok) {
+      editorError = parsed.ok ? 'Organization context is unavailable.' : parsed.error
       feedback = ''
       return
     }
 
     saving = true
-    error = ''
+    editorError = ''
     feedback = ''
 
     try {
       if (mode === 'create') {
-        const payload = await createMachine(orgId, parsed.value)
+        const payload = await createMachine(routeOrgId, parsed.value)
         machines = [payload.machine, ...machines]
         await openMachine(payload.machine, { preserveFeedback: true })
         feedback = 'Machine created.'
@@ -178,19 +185,16 @@
         feedback = 'Machine updated.'
       }
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save machine.'
+      editorError = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save machine.'
     } finally {
       saving = false
     }
   }
 
   async function handleTest() {
-    if (!selectedMachine) {
-      return
-    }
-
+    if (!selectedMachine) return
     testing = true
-    error = ''
+    editorError = ''
     feedback = ''
 
     try {
@@ -202,7 +206,7 @@
       probe = payload.probe
       feedback = 'Connection test completed.'
     } catch (caughtError) {
-      error =
+      editorError =
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to run connection test.'
     } finally {
       testing = false
@@ -210,12 +214,9 @@
   }
 
   async function handleDelete() {
-    if (!selectedMachine) {
-      return
-    }
-
+    if (!selectedMachine) return
     deleting = true
-    error = ''
+    editorError = ''
     feedback = ''
 
     try {
@@ -229,10 +230,11 @@
       if (nextMachine) {
         await openMachine(nextMachine, { preserveFeedback: true })
       } else {
-        startCreate({ preserveFeedback: true })
+        applyViewState(createEmptyState(routeOrgId, feedback, true))
       }
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete machine.'
+      editorError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete machine.'
     } finally {
       deleting = false
     }
@@ -242,12 +244,9 @@
 {#snippet actions()}
   <MachinePageActions
     {refreshing}
-    onRefresh={() => {
-      const orgId = appStore.currentOrg?.id
-      if (orgId) {
-        void loadMachines(orgId)
-      }
-    }}
+    refreshDisabled={loading}
+    createDisabled={!routeOrgId}
+    onRefresh={() => void handleRefresh()}
     onCreate={startCreate}
   />
 {/snippet}
@@ -259,7 +258,7 @@
 />
 
 <MachineWorkspace
-  orgReady={Boolean(appStore.currentOrg)}
+  state={workspaceState}
   {loading}
   machines={filteredMachines}
   {selectedId}
@@ -274,19 +273,20 @@
   {testing}
   {deleting}
   {feedback}
-  {error}
+  stateMessage={listMessage}
+  {editorError}
   onSearchChange={(value) => {
     searchQuery = value
   }}
   onSelectMachine={(machineId) => {
     const nextMachine = machines.find((machine) => machine.id === machineId)
-    if (nextMachine) {
-      void openMachine(nextMachine)
-    }
+    if (nextMachine) void openMachine(nextMachine)
   }}
   onDraftChange={(field: MachineDraftField, value: string) => {
     draft = { ...draft, [field]: value }
   }}
+  onCreate={startCreate}
+  onRetry={() => void handleRefresh()}
   onSave={() => void handleSave()}
   onTest={() => void handleTest()}
   onDelete={() => void handleDelete()}

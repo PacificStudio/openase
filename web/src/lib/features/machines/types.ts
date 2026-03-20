@@ -1,4 +1,4 @@
-import type { Machine, MachineProbe } from '$lib/api/contracts'
+import type { Machine, MachineProbe, Organization } from '$lib/api/contracts'
 
 export type ResourceMap = Record<string, unknown>
 
@@ -86,3 +86,16 @@ export type MachineDraftField = keyof MachineDraft
 export type MachineEditorMode = 'create' | 'edit'
 
 export type MachineItem = Machine
+
+export type MachineWorkspaceState = 'no-org' | 'loading' | 'error' | 'empty' | 'ready'
+
+export type MachinesPageOrgContext =
+  | { kind: 'ready'; org: Organization }
+  | { kind: 'no-org' }
+  | { kind: 'error'; message: string }
+
+export type MachinesPageData = {
+  orgContext: MachinesPageOrgContext
+  initialMachines: MachineItem[]
+  initialListError: string | null
+}

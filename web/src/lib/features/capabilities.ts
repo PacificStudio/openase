@@ -44,9 +44,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Status CRUD, default selection, reset, and ordering are wired in Settings, and dependent views refresh after changes.',
   },
   agentRegistration: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Agent registration backend support exists at POST /api/v1/projects/{projectId}/agents, but this page still lacks a registration form.',
+      'Agent registration is available from the Agents page and submits to POST /api/v1/projects/{projectId}/agents.',
   },
   providerConfigure: {
     state: 'unwired',

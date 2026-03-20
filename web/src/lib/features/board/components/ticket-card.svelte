@@ -8,6 +8,7 @@
     RotateCcw,
     ShieldAlert,
     Wallet,
+    GripVertical,
   } from '@lucide/svelte'
   import type { BoardTicket } from '../types'
 
@@ -15,10 +16,18 @@
     ticket,
     class: className = '',
     onclick,
+    ondragstartticket,
+    ondragendticket,
+    isDragging = false,
+    isPendingMove = false,
   }: {
     ticket: BoardTicket
     class?: string
     onclick?: (ticket: BoardTicket) => void
+    ondragstartticket?: (ticket: BoardTicket) => void
+    ondragendticket?: () => void
+    isDragging?: boolean
+    isPendingMove?: boolean
   } = $props()
 
   const priorityColors: Record<string, string> = {
@@ -46,7 +55,12 @@
     budget_exhausted: { label: 'Budget exhausted', variant: 'destructive', icon: Wallet },
   }
 
+  let suppressClickUntil = 0
+
   function handleClick() {
+    if (Date.now() < suppressClickUntil || isDragging) {
+      return
+    }
     onclick?.(ticket)
   }
 
@@ -56,24 +70,56 @@
       handleClick()
     }
   }
+
+  function handleDragStart(event: DragEvent) {
+    if (isPendingMove) {
+      event.preventDefault()
+      return
+    }
+
+    suppressClickUntil = Date.now() + 250
+    event.dataTransfer?.setData('application/x-openase-ticket-id', ticket.id)
+    event.dataTransfer?.setData('text/plain', ticket.id)
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move'
+    }
+    ondragstartticket?.(ticket)
+  }
+
+  function handleDragEnd() {
+    suppressClickUntil = Date.now() + 250
+    ondragendticket?.()
+  }
 </script>
 
 <button
   type="button"
+  draggable={!isPendingMove}
   class={cn(
-    'border-border bg-card w-full cursor-pointer rounded-md border p-2.5 text-left',
+    'border-border bg-card w-full rounded-md border p-2.5 text-left',
+    'cursor-grab active:cursor-grabbing',
     'hover:border-border/80 hover:bg-accent/50 transition-colors',
     'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
+    isDragging && 'border-primary/60 bg-primary/5 opacity-70 shadow-sm',
+    isPendingMove && 'cursor-progress opacity-80',
     className,
   )}
+  aria-grabbed={isDragging}
+  disabled={isPendingMove}
   onclick={handleClick}
   onkeydown={handleKeydown}
+  ondragstart={handleDragStart}
+  ondragend={handleDragEnd}
 >
   <div class="flex items-start gap-2">
     <span class={cn('mt-1.5 size-2 shrink-0 rounded-full', priorityColors[ticket.priority])}></span>
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5">
+        <GripVertical class="text-muted-foreground/70 size-3.5 shrink-0" />
         <span class="text-muted-foreground text-xs font-medium">{ticket.identifier}</span>
+        {#if isPendingMove}
+          <span class="text-muted-foreground text-[10px]">Moving…</span>
+        {/if}
       </div>
       <p class="text-foreground mt-0.5 text-sm leading-snug font-medium">
         {truncate(ticket.title, 60)}
