@@ -154,6 +154,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Ensure Embedded Web Placeholder
+        run: |
+          mkdir -p internal/webui/static
+          printf 'lint placeholder for embedded web assets\n' > internal/webui/static/lint-placeholder.txt
+
       - name: Set Up Go
         uses: actions/setup-go@v5
         with:

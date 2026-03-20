@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
+	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -87,21 +88,22 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			activityevent.Table:      activityevent.ValidColumn,
-			agent.Table:              agent.ValidColumn,
-			agentprovider.Table:      agentprovider.ValidColumn,
-			agenttoken.Table:         agenttoken.ValidColumn,
-			approvalgate.Table:       approvalgate.ValidColumn,
-			organization.Table:       organization.ValidColumn,
-			project.Table:            project.ValidColumn,
-			projectrepo.Table:        projectrepo.ValidColumn,
-			scheduledjob.Table:       scheduledjob.ValidColumn,
-			ticket.Table:             ticket.ValidColumn,
-			ticketdependency.Table:   ticketdependency.ValidColumn,
-			ticketexternallink.Table: ticketexternallink.ValidColumn,
-			ticketreposcope.Table:    ticketreposcope.ValidColumn,
-			ticketstatus.Table:       ticketstatus.ValidColumn,
-			workflow.Table:           workflow.ValidColumn,
+			activityevent.Table:       activityevent.ValidColumn,
+			agent.Table:               agent.ValidColumn,
+			agentprovider.Table:       agentprovider.ValidColumn,
+			agenttoken.Table:          agenttoken.ValidColumn,
+			approvalgate.Table:        approvalgate.ValidColumn,
+			notificationchannel.Table: notificationchannel.ValidColumn,
+			organization.Table:        organization.ValidColumn,
+			project.Table:             project.ValidColumn,
+			projectrepo.Table:         projectrepo.ValidColumn,
+			scheduledjob.Table:        scheduledjob.ValidColumn,
+			ticket.Table:              ticket.ValidColumn,
+			ticketdependency.Table:    ticketdependency.ValidColumn,
+			ticketexternallink.Table:  ticketexternallink.ValidColumn,
+			ticketreposcope.Table:     ticketreposcope.ValidColumn,
+			ticketstatus.Table:        ticketstatus.ValidColumn,
+			workflow.Table:            workflow.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

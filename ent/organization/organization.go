@@ -23,6 +23,8 @@ const (
 	EdgeProjects = "projects"
 	// EdgeProviders holds the string denoting the providers edge name in mutations.
 	EdgeProviders = "providers"
+	// EdgeNotificationChannels holds the string denoting the notification_channels edge name in mutations.
+	EdgeNotificationChannels = "notification_channels"
 	// EdgeDefaultAgentProvider holds the string denoting the default_agent_provider edge name in mutations.
 	EdgeDefaultAgentProvider = "default_agent_provider"
 	// Table holds the table name of the organization in the database.
@@ -41,6 +43,13 @@ const (
 	ProvidersInverseTable = "agent_providers"
 	// ProvidersColumn is the table column denoting the providers relation/edge.
 	ProvidersColumn = "organization_id"
+	// NotificationChannelsTable is the table that holds the notification_channels relation/edge.
+	NotificationChannelsTable = "notification_channels"
+	// NotificationChannelsInverseTable is the table name for the NotificationChannel entity.
+	// It exists in this package in order to avoid circular dependency with the "notificationchannel" package.
+	NotificationChannelsInverseTable = "notification_channels"
+	// NotificationChannelsColumn is the table column denoting the notification_channels relation/edge.
+	NotificationChannelsColumn = "organization_id"
 	// DefaultAgentProviderTable is the table that holds the default_agent_provider relation/edge.
 	DefaultAgentProviderTable = "organizations"
 	// DefaultAgentProviderInverseTable is the table name for the AgentProvider entity.
@@ -128,6 +137,20 @@ func ByProviders(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByNotificationChannelsCount orders the results by notification_channels count.
+func ByNotificationChannelsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newNotificationChannelsStep(), opts...)
+	}
+}
+
+// ByNotificationChannels orders the results by notification_channels terms.
+func ByNotificationChannels(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newNotificationChannelsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDefaultAgentProviderField orders the results by default_agent_provider field.
 func ByDefaultAgentProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -146,6 +169,13 @@ func newProvidersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProvidersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ProvidersTable, ProvidersColumn),
+	)
+}
+func newNotificationChannelsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(NotificationChannelsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, NotificationChannelsTable, NotificationChannelsColumn),
 	)
 }
 func newDefaultAgentProviderStep() *sqlgraph.Step {

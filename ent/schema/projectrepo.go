@@ -21,9 +21,7 @@ func (ProjectRepo) Fields() []ent.Field {
 		field.String("default_branch").Default("main"),
 		field.String("clone_path").Optional(),
 		field.Bool("is_primary").Default(false),
-		field.Strings("labels").
-			SchemaType(textArrayColumn()).
-			Optional(),
+		textArrayField("labels"),
 	}
 }
 
