@@ -29,6 +29,7 @@ var (
 	ErrUnavailable          = errors.New("ticket service unavailable")
 	ErrProjectNotFound      = errors.New("project not found")
 	ErrTicketNotFound       = errors.New("ticket not found")
+	ErrTicketConflict       = errors.New("ticket identifier already exists in project")
 	ErrStatusNotFound       = errors.New("ticket status not found")
 	ErrWorkflowNotFound     = errors.New("workflow not found")
 	ErrParentTicketNotFound = errors.New("parent ticket not found")
@@ -569,7 +570,15 @@ func (s *Service) mapTicketReadError(action string, err error) error {
 func (s *Service) mapTicketWriteError(action string, err error) error {
 	switch {
 	case ent.IsConstraintError(err):
-		return ErrDependencyConflict
+		switch message := strings.ToLower(err.Error()); {
+		case strings.Contains(message, "ticketdependency_source_ticket_id_target_ticket_id_type"):
+			return ErrDependencyConflict
+		case strings.Contains(message, "ticket_project_id_identifier"),
+			strings.Contains(message, "ticket_identifier"):
+			return ErrTicketConflict
+		default:
+			return fmt.Errorf("%s: %w", action, err)
+		}
 	case ent.IsNotFound(err):
 		return ErrTicketNotFound
 	default:

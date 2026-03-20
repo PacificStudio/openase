@@ -229,8 +229,8 @@ CREATE TABLE "tickets" (
   PRIMARY KEY ("id"),
   CONSTRAINT "tickets_tickets_children" FOREIGN KEY ("parent_ticket_id") REFERENCES "tickets" ("id") ON UPDATE NO ACTION ON DELETE SET NULL
 );
--- Create index "ticket_identifier" to table: "tickets"
-CREATE UNIQUE INDEX "ticket_identifier" ON "tickets" ("identifier");
+-- Create index "ticket_project_id_identifier" to table: "tickets"
+CREATE UNIQUE INDEX "ticket_project_id_identifier" ON "tickets" ("project_id", "identifier");
 -- Create index "ticket_project_id_external_ref" to table: "tickets"
 CREATE INDEX "ticket_project_id_external_ref" ON "tickets" ("project_id", "external_ref");
 -- Create index "ticket_project_id_status_id" to table: "tickets"
