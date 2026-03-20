@@ -26,21 +26,23 @@ cd openase
 
 ## 2. Build The Binary
 
-For normal source builds, the committed UI assets in `internal/webui/static/` are already embedded, so Go is enough:
+Build the embedded frontend and Go binary together from the repo root:
 
 ```bash
-go build -o ./bin/openase ./cmd/openase
+make build-web
 ```
 
-Only rebuild the frontend when you changed files under `web/`:
+The equivalent explicit commands are:
 
 ```bash
-npm --prefix web install
+npm --prefix web ci
 npm --prefix web run build
 go build -o ./bin/openase ./cmd/openase
 ```
 
-If your checkout does not currently contain `internal/webui/static/`, `go build` and `go run` will fail because `internal/webui/ui.go` embeds that directory. In that case, build `web/` first even if you did not change the frontend:
+`make build` compiles the Go binary against whatever is currently present under `internal/webui/static/`. In a fresh checkout that means the tracked placeholder only, so the root UI will return a 503 build hint until you regenerate `web/`.
+
+If you intentionally want to refresh the embedded frontend without using `make build-web`, run:
 
 ```bash
 npm --prefix web ci
@@ -233,9 +235,9 @@ curl -fsS http://127.0.0.1:19836/api/v1/healthz
 
 ## 8. Common Operational Notes
 
-- `go build ./cmd/openase` is enough for normal backend-only work because the embedded UI assets are already checked in.
+- `make build-web` is the safe source-build path because it regenerates the embedded UI before compiling the Go binary.
 - Rebuild `web/` before compiling if you changed the Svelte app, otherwise the binary will still embed the old frontend output.
-- If `internal/webui/static/` is missing in the current checkout, rebuild `web/` before any `go build` or `go run`.
+- `make build` only compiles the Go binary against the current contents of `internal/webui/static/`; with only the tracked placeholder present, the root UI will serve a 503 guidance response until you rebuild `web/`.
 - `setup` requires the primary repo path to be a real Git repository. A plain directory is rejected.
 - `up` should be run from a compiled binary path you intend to keep, because the managed service stores the executable path it was installed with.
 - `serve`, `orchestrate`, and `all-in-one` all accept `--config`, and `serve` / `all-in-one` also accept host and port overrides.

@@ -10,7 +10,7 @@ OPENASE_BIN := ./bin/openase
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test check hooks-install hooks-run web-install web-check web-build build build-web run doctor lint lint-all lint-depguard
+.PHONY: help format fmt-check test check hooks-install hooks-run web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard
 
 help:
 	@printf '%s\n' \
@@ -22,11 +22,14 @@ help:
 		'  make hooks-install Install Git hooks via lefthook' \
 		'  make hooks-run     Run the pre-commit hook against all files' \
 		'  make web-install   Install frontend dependencies with npm ci' \
+		'  make web-lint      Run frontend ESLint checks' \
+		'  make web-format-check Verify frontend formatting with Prettier' \
 		'  make web-check     Run the Svelte type checks' \
+		'  make web-validate  Run frontend format, lint, and type checks' \
 		'  make web-build     Rebuild embedded frontend assets' \
-		'  make build         Build openase from committed embedded assets' \
+		'  make build         Build openase from the current embedded frontend output' \
 		'  make build-web     Rebuild frontend assets, then build openase' \
-		'  make run           Run the API server with committed embedded assets' \
+		'  make run           Run the API server with the current embedded frontend output' \
 		'  make doctor        Run local environment diagnostics' \
 		'  make lint          Run lint on changes since merge-base with origin/main' \
 		'  make lint-all      Run the full lint suite' \
@@ -83,8 +86,16 @@ hooks-run:
 web-install:
 	$(NPM) --prefix $(WEB_DIR) ci
 
+web-lint: web-install
+	$(NPM) --prefix $(WEB_DIR) run lint
+
+web-format-check: web-install
+	$(NPM) --prefix $(WEB_DIR) run format:check
+
 web-check: web-install
 	$(NPM) --prefix $(WEB_DIR) run check
+
+web-validate: web-format-check web-lint web-check
 
 web-build: web-install
 	$(NPM) --prefix $(WEB_DIR) run build

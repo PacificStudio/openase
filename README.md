@@ -21,7 +21,7 @@ The repository has moved beyond the initial scaffold. The current vertical slice
 ## Product Shape
 
 - `All-Go monolith`: API server, orchestrator, setup flow, and embedded UI live in one repository and ship as one binary.
-- `Binary-first`: the prerendered UI under `internal/webui/static/` is committed and embedded with `go:embed`, so Node.js is only needed when you actively change the frontend.
+- `Binary-first`: release binaries ship the web UI embedded with `go:embed`, so end users do not need Node.js at runtime.
 - `Issue-driven orchestration`: tickets, workflows, statuses, and activity are the core operating model.
 - `Multi-agent adapters`: setup currently detects and can seed providers for Claude Code, OpenAI Codex, and Gemini CLI.
 - `Git-backed behavior`: workflow harnesses and scaffolded skills live in `.openase/` inside the target repo, not hidden in a database.
@@ -33,19 +33,30 @@ Common local developer entrypoints now live in the root `Makefile`:
 ```bash
 make hooks-install
 make check
-make build
+make build-web
 ```
 
-For the checked-in UI assets, Go is enough:
-
-```bash
-make build
-```
-
-Rebuild the embedded frontend only when you modify `web/`:
+For a source build that refreshes the embedded frontend before compiling the Go binary, run:
 
 ```bash
 make build-web
+```
+
+The equivalent explicit commands are:
+
+```bash
+npm --prefix web ci
+npm --prefix web run build
+go build -o ./bin/openase ./cmd/openase
+```
+
+Frontend quality gates can be run from the repo root:
+
+```bash
+make web-format-check
+make web-lint
+make web-check
+make web-validate
 ```
 
 For a complete zero-to-run source deployment guide, see [`docs/source-build-and-run.md`](./docs/source-build-and-run.md).
@@ -167,7 +178,7 @@ These commands read `OPENASE_API_URL`, `OPENASE_AGENT_TOKEN`, `OPENASE_PROJECT_I
 - `internal/agentplatform/`: agent token issuance and authentication
 - `internal/setup/`: first-run setup service and wizard
 - `internal/builtin/`: built-in role and skill templates
-- `internal/webui/static/`: built frontend assets embedded into the binary
+- `internal/webui/static/`: generated frontend output embedded into the binary during source builds
 - `web/`: SvelteKit source for the control plane
 
 ## Validation
@@ -176,10 +187,11 @@ Focused validation commands used frequently during development:
 
 ```bash
 make check
+make web-validate
 make web-check
-./bin/openase --help
-./bin/openase project --help
-./bin/openase ticket --help
+go run ./cmd/openase --help
+go run ./cmd/openase project --help
+go run ./cmd/openase ticket --help
 ```
 
 If you change the web app, rebuild `web/` before compiling or running the Go binary so the embedded assets stay in sync.
