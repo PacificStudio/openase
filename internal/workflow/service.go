@@ -127,7 +127,7 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 		if err != nil {
 			return nil, fmt.Errorf("resolve current working directory: %w", err)
 		}
-		repoRoot, err = detectRepoRoot(cwd)
+		repoRoot, err = DetectRepoRoot(cwd)
 		if err != nil {
 			return nil, err
 		}
@@ -162,6 +162,14 @@ func (s *Service) Close() error {
 	}
 
 	return s.registry.Close()
+}
+
+func (s *Service) RepoRoot() string {
+	if s == nil {
+		return ""
+	}
+
+	return s.repoRoot
 }
 
 func validateConfiguredHooks(raw map[string]any) (workflowHooksConfig, error) {
@@ -854,7 +862,7 @@ func slugify(raw string) string {
 	return strings.Trim(trimmed, "-")
 }
 
-func detectRepoRoot(start string) (string, error) {
+func DetectRepoRoot(start string) (string, error) {
 	current := start
 	for {
 		if _, err := os.Stat(filepath.Join(current, ".git")); err == nil {

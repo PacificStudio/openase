@@ -11,11 +11,13 @@ export type WorkflowSummary = {
   id: string
   name: string
   type: WorkflowType
+  harnessPath: string
   pickupStatus: string
   finishStatus: string
   maxConcurrent: number
   maxRetry: number
   timeoutMinutes: number
+  stallTimeoutMinutes: number
   isActive: boolean
   lastModified: string
   recentSuccessRate: number
@@ -26,4 +28,16 @@ export type HarnessContent = {
   frontmatter: string
   body: string
   rawContent: string
+}
+
+export type HarnessVariableMetadata = {
+  path: string
+  type: string
+  description: string
+  example?: string
+}
+
+export type HarnessVariableGroup = {
+  name: string
+  variables: HarnessVariableMetadata[]
 }
