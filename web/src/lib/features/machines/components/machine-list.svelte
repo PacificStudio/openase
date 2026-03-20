@@ -6,10 +6,12 @@
   let {
     machines,
     selectedId = '',
+    emptyMessage = 'No machines match the current filter.',
     onSelect,
   }: {
     machines: MachineItem[]
     selectedId?: string
+    emptyMessage?: string
     onSelect?: (machineId: string) => void
   } = $props()
 
@@ -35,7 +37,7 @@
     <div
       class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-center text-sm"
     >
-      No machines match the current filter.
+      {emptyMessage}
     </div>
   {:else}
     {#each machines as machine (machine.id)}
