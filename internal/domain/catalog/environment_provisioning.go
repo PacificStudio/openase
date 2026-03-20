@@ -234,10 +234,10 @@ func buildProvisioningTicketDescription(machine Machine, plan MachineEnvironment
 	var builder strings.Builder
 	builder.WriteString("Environment Provisioner should repair the target machine.\n\n")
 	builder.WriteString("Target machine:\n")
-	builder.WriteString(fmt.Sprintf("- Name: %s\n", machine.Name))
-	builder.WriteString(fmt.Sprintf("- Host: %s\n", machine.Host))
-	builder.WriteString(fmt.Sprintf("- Status: %s\n", machine.Status))
-	builder.WriteString(fmt.Sprintf("- Runnable over SSH: %t\n", plan.Runnable))
+	_, _ = fmt.Fprintf(&builder, "- Name: %s\n", machine.Name)
+	_, _ = fmt.Fprintf(&builder, "- Host: %s\n", machine.Host)
+	_, _ = fmt.Fprintf(&builder, "- Status: %s\n", machine.Status)
+	_, _ = fmt.Fprintf(&builder, "- Runnable over SSH: %t\n", plan.Runnable)
 	builder.WriteString("\nDetected issues:\n")
 	if len(plan.Issues) == 0 {
 		builder.WriteString("- None.\n")
