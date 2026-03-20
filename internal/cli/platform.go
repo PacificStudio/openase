@@ -285,15 +285,18 @@ func newTicketReportUsageCommand(options *ticketCommandOptions, client platformC
 			if err != nil {
 				return err
 			}
+			inputTokensSet := cmd.Flags().Changed("input-tokens")
+			outputTokensSet := cmd.Flags().Changed("output-tokens")
+			costUSDSet := cmd.Flags().Changed("cost-usd")
 
 			input, err := platform.parseTicketReportUsageInput(ticketReportUsageInput{
 				ticketID:        firstNonEmpty(firstArg(args), options.ticketID),
-				inputTokens:     int64PointerWhen(cmd.Flags().Changed("input-tokens"), inputTokens),
-				outputTokens:    int64PointerWhen(cmd.Flags().Changed("output-tokens"), outputTokens),
-				costUSD:         float64PointerWhen(cmd.Flags().Changed("cost-usd"), costUSD),
-				inputTokensSet:  cmd.Flags().Changed("input-tokens"),
-				outputTokensSet: cmd.Flags().Changed("output-tokens"),
-				costUSDSet:      cmd.Flags().Changed("cost-usd"),
+				inputTokens:     int64PointerWhen(inputTokensSet, inputTokens),
+				outputTokens:    int64PointerWhen(outputTokensSet, outputTokens),
+				costUSD:         float64PointerWhen(costUSDSet, costUSD),
+				inputTokensSet:  inputTokensSet,
+				outputTokensSet: outputTokensSet,
+				costUSDSet:      costUSDSet,
 			})
 			if err != nil {
 				return err

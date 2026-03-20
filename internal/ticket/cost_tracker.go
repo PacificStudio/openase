@@ -69,7 +69,7 @@ func (s *Service) RecordUsage(
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return RecordUsageResult{}, fmt.Errorf("get agent for usage: %w", ErrTicketNotFound)
+			return RecordUsageResult{}, fmt.Errorf("agent %s not found", input.AgentID)
 		}
 		return RecordUsageResult{}, fmt.Errorf("get agent for usage: %w", err)
 	}

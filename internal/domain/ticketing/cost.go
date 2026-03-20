@@ -61,7 +61,7 @@ func (u UsageDelta) ResolveCostUSD(pricing ModelPricing) (float64, error) {
 		return 0, fmt.Errorf("cost_per_output_token must be greater than or equal to zero")
 	}
 	if u.ExplicitCostUSD != nil {
-		return RoundUSD(*u.ExplicitCostUSD), nil
+		return *u.ExplicitCostUSD, nil
 	}
 
 	costUSD := float64(u.InputTokens)*pricing.CostPerInputToken +
