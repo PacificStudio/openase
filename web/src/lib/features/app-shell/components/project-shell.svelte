@@ -131,7 +131,6 @@
 
     navigateToContext(data.currentOrg?.id ?? null, projectId)
   }
-
 </script>
 
 <div class="bg-background flex h-screen flex-col overflow-hidden">
