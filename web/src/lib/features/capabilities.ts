@@ -35,19 +35,18 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'Search stays disabled because no search endpoint is exported in the current API.',
   },
   newTicket: {
-    state: 'unwired',
-    summary:
-      'Ticket creation backend support exists at POST /api/v1/projects/{projectId}/tickets, but this UI slice still lacks a create flow.',
+    state: 'available',
+    summary: 'Ticket creation is wired to POST /api/v1/projects/{projectId}/tickets.',
   },
   statusMutation: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Status create/update/delete/reset routes exist, but the settings and board mutation UI are not wired yet.',
+      'Status CRUD, default selection, reset, and ordering are wired in Settings, and dependent views refresh after changes.',
   },
   agentRegistration: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Agent registration backend support exists at POST /api/v1/projects/{projectId}/agents, but this page still lacks a registration form.',
+      'Agent registration is available from the Agents page and submits to POST /api/v1/projects/{projectId}/agents.',
   },
   providerConfigure: {
     state: 'unwired',
@@ -72,9 +71,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Repository settings now wire project repo list/create/update/delete flows and primary repo management to the existing catalog API.',
   },
   statusesSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Statuses are readable today, and status mutation routes now exist in the contract, but the editable settings UI is still pending.',
+      'Statuses can now be created, edited, deleted, reset, and reordered directly from Settings.',
   },
   workflowsSettings: {
     state: 'unwired',

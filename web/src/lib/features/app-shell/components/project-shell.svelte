@@ -1,16 +1,20 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import type { Organization, Project } from '$lib/api/contracts'
   import { connectEventStream } from '$lib/api/sse'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { capabilityCatalog } from '$lib/features/capabilities'
+  import { NewTicketDialog } from '$lib/features/tickets'
   import { TicketDrawer } from '$lib/features/ticket-detail'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
   import type { Snippet } from 'svelte'
 
   type ShellData = {
+    organizations: Organization[]
+    projects: Project[]
     currentOrg: Organization | null
     currentProject: Project | null
     agentCount: number
@@ -21,6 +25,18 @@
   let currentPath = $derived(page.url.pathname)
   let currentTicketId = $derived(
     appStore.rightPanelContent?.type === 'ticket' ? appStore.rightPanelContent.id : null,
+  )
+  let organizationOptions = $derived(
+    data.organizations.map((organization) => ({
+      id: organization.id,
+      name: organization.name,
+    })),
+  )
+  let projectOptions = $derived(
+    data.projects.map((project) => ({
+      id: project.id,
+      name: project.name,
+    })),
   )
 
   const projectHealth = $derived.by(() => {
@@ -61,11 +77,60 @@
   }
 
   function handleNewTicket() {
-    return
+    appStore.openNewTicketDialog()
   }
 
   function handleToggleTheme() {
     appStore.toggleTheme()
+  }
+
+  function buildContextHref(orgId: string | null, projectId: string | null) {
+    const nextUrl = new URL(page.url)
+
+    if (orgId) {
+      nextUrl.searchParams.set('orgId', orgId)
+    } else {
+      nextUrl.searchParams.delete('orgId')
+    }
+
+    if (projectId) {
+      nextUrl.searchParams.set('projectId', projectId)
+    } else {
+      nextUrl.searchParams.delete('projectId')
+    }
+
+    return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+  }
+
+  function navigateToContext(orgId: string | null, projectId: string | null, replaceState = false) {
+    const nextHref = buildContextHref(orgId, projectId)
+    const currentHref = `${page.url.pathname}${page.url.search}${page.url.hash}`
+
+    if (nextHref === currentHref) {
+      return
+    }
+
+    void goto(nextHref, {
+      replaceState,
+      noScroll: true,
+      keepFocus: true,
+    })
+  }
+
+  function handleSelectOrg(orgId: string) {
+    if (orgId === data.currentOrg?.id) {
+      return
+    }
+
+    navigateToContext(orgId, null)
+  }
+
+  function handleSelectProject(projectId: string) {
+    if (projectId === data.currentProject?.id) {
+      return
+    }
+
+    navigateToContext(data.currentOrg?.id ?? null, projectId)
   }
 </script>
 
@@ -73,14 +138,20 @@
   <TopBar
     orgName={data.currentOrg?.name ?? 'No organization'}
     projectName={data.currentProject?.name ?? ''}
+    organizations={organizationOptions}
+    projects={projectOptions}
+    currentOrgId={data.currentOrg?.id ?? null}
+    currentProjectId={data.currentProject?.id ?? null}
     sseStatus={appStore.sseStatus}
     searchEnabled={searchCapability.state === 'available'}
-    newTicketEnabled={newTicketCapability.state === 'available'}
+    newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
     searchTitle={searchCapability.summary}
     newTicketTitle={newTicketCapability.summary}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
     onOpenSearch={handleOpenSearch}
+    onSelectOrg={handleSelectOrg}
+    onSelectProject={handleSelectProject}
   />
 
   <div class="flex flex-1 overflow-hidden">
@@ -116,4 +187,6 @@
       }
     }}
   />
+
+  <NewTicketDialog />
 </div>
