@@ -4,12 +4,12 @@
   import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '$ui/sheet'
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '$ui/tabs'
   import { ApiError } from '$lib/api/client'
-import TicketHeader from './ticket-header.svelte'
-import TicketSummary from './ticket-summary.svelte'
-import TicketRepos from './ticket-repos.svelte'
-import TicketHooks from './ticket-hooks.svelte'
-import TicketActivityList from './ticket-activity.svelte'
-import type { TicketDetail, HookExecution, TicketActivity } from '../types'
+  import TicketHeader from './ticket-header.svelte'
+  import TicketSummary from './ticket-summary.svelte'
+  import TicketRepos from './ticket-repos.svelte'
+  import TicketHooks from './ticket-hooks.svelte'
+  import TicketActivityList from './ticket-activity.svelte'
+  import type { TicketDetail, HookExecution, TicketActivity } from '../types'
   let {
     open = $bindable(false),
     projectId,
