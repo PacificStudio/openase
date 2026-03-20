@@ -376,14 +376,18 @@ func TestMachineRoutes(t *testing.T) {
 	}
 
 	var resourcesPayload struct {
-		MachineID       string         `json:"machine_id"`
-		Status          string         `json:"status"`
-		LastHeartbeatAt *string        `json:"last_heartbeat_at"`
-		Resources       map[string]any `json:"resources"`
+		MachineID               string                                    `json:"machine_id"`
+		Status                  string                                    `json:"status"`
+		LastHeartbeatAt         *string                                   `json:"last_heartbeat_at"`
+		Resources               map[string]any                            `json:"resources"`
+		EnvironmentProvisioning domain.MachineEnvironmentProvisioningPlan `json:"environment_provisioning"`
 	}
 	decodeResponse(t, resourcesRec, &resourcesPayload)
 	if resourcesPayload.Status != "online" || resourcesPayload.Resources["transport"] != "ssh" {
 		t.Fatalf("unexpected machine resources payload: %+v", resourcesPayload)
+	}
+	if resourcesPayload.EnvironmentProvisioning.Available {
+		t.Fatalf("expected empty machine resources to have no provisioning plan, got %+v", resourcesPayload.EnvironmentProvisioning)
 	}
 
 	deleteMachineRec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/machines/"+createMachinePayload.Machine.ID, "")
@@ -413,6 +417,82 @@ func TestCatalogRoutesRejectInvalidInput(t *testing.T) {
 	badUUIDRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs/not-a-uuid", "")
 	if badUUIDRec.Code != http.StatusBadRequest {
 		t.Fatalf("expected bad uuid to return 400, got %d", badUUIDRec.Code)
+	}
+}
+
+func TestMachineResourcesExposeEnvironmentProvisioningPlan(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgID := uuid.New()
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	machineID := uuid.New()
+	service.machines[machineID] = domain.Machine{
+		ID:             machineID,
+		OrganizationID: orgID,
+		Name:           "builder-01",
+		Host:           "10.0.1.13",
+		Status:         "degraded",
+		Resources: map[string]any{
+			"last_success": true,
+			"monitor": map[string]any{
+				"l1": map[string]any{
+					"reachable": true,
+				},
+			},
+			"agent_environment": map[string]any{
+				"claude_code": map[string]any{
+					"installed":   false,
+					"auth_status": "unknown",
+				},
+				"codex": map[string]any{
+					"installed":   true,
+					"auth_status": "not_logged_in",
+				},
+			},
+			"full_audit": map[string]any{
+				"git": map[string]any{
+					"installed":  true,
+					"user_name":  "OpenASE",
+					"user_email": "",
+				},
+				"gh_cli": map[string]any{
+					"installed":   true,
+					"auth_status": "not_logged_in",
+				},
+				"network": map[string]any{
+					"github_reachable": true,
+					"pypi_reachable":   false,
+					"npm_reachable":    false,
+				},
+			},
+		},
+	}
+
+	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+machineID.String()+"/resources", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected machine resources 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		EnvironmentProvisioning domain.MachineEnvironmentProvisioningPlan `json:"environment_provisioning"`
+	}
+	decodeResponse(t, rec, &payload)
+	if !payload.EnvironmentProvisioning.Available || !payload.EnvironmentProvisioning.Runnable {
+		t.Fatalf("expected runnable environment provisioning plan, got %+v", payload.EnvironmentProvisioning)
+	}
+	if len(payload.EnvironmentProvisioning.RequiredSkills) != 4 {
+		t.Fatalf("expected 4 required skills, got %+v", payload.EnvironmentProvisioning)
 	}
 }
 

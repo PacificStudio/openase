@@ -1250,6 +1250,25 @@ export interface operations {
         }
         content: {
           'application/json': {
+            environment_provisioning?: {
+              available?: boolean
+              issues?: {
+                code?: string
+                detail?: string
+                skill_name?: string | null
+                source?: string
+                title?: string
+              }[]
+              needed?: boolean
+              notes?: string[]
+              required_skills?: string[]
+              role_name?: string
+              role_slug?: string
+              runnable?: boolean
+              summary?: string
+              ticket_description?: string
+              ticket_title?: string
+            }
             last_heartbeat_at?: string | null
             machine_id?: string
             resources?: {

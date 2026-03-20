@@ -63,3 +63,32 @@ func TestHarnessOptimizerRoleTemplate(t *testing.T) {
 		}
 	}
 }
+
+func TestEnvProvisionerRoleTemplate(t *testing.T) {
+	role, ok := RoleBySlug("env-provisioner")
+	if !ok {
+		t.Fatalf("expected env provisioner role to exist")
+	}
+
+	if role.Name != "Environment Provisioner" {
+		t.Fatalf("Name=%q, want Environment Provisioner", role.Name)
+	}
+	if role.WorkflowType != "custom" {
+		t.Fatalf("WorkflowType=%q, want custom", role.WorkflowType)
+	}
+
+	for _, want := range []string{
+		`pickup: "环境修复"`,
+		`finish: "环境就绪"`,
+		`- install-claude-code`,
+		`- install-codex`,
+		`- setup-git`,
+		`- setup-gh-cli`,
+		"target machine environment over SSH",
+		"makes the machine dispatchable again",
+	} {
+		if !strings.Contains(role.Content, want) {
+			t.Fatalf("expected env provisioner content to contain %q, got:\n%s", want, role.Content)
+		}
+	}
+}
