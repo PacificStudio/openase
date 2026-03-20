@@ -110,6 +110,66 @@ func TestMetricsRouteExportsHTTPMetrics(t *testing.T) {
 	}
 }
 
+func TestHealthRouteCreatesTracingSpan(t *testing.T) {
+	traceProvider := &recordingTraceProvider{
+		span: &recordingSpan{
+			traceID: "trace-123",
+			spanID:  "span-456",
+		},
+	}
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithTraceProvider(traceProvider),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if traceProvider.startName != "GET /healthz" {
+		t.Fatalf("expected span name GET /healthz, got %q", traceProvider.startName)
+	}
+	if traceProvider.startKind != provider.SpanKindServer {
+		t.Fatalf("expected server span kind, got %q", traceProvider.startKind)
+	}
+	if got := rec.Header().Get(traceIDHeader); got != "trace-123" {
+		t.Fatalf("expected %s header trace-123, got %q", traceIDHeader, got)
+	}
+	if got := rec.Header().Get("Traceparent"); got != "injected" {
+		t.Fatalf("expected Traceparent header injected, got %q", got)
+	}
+	if traceProvider.span.status != provider.SpanStatusOK {
+		t.Fatalf("expected span status ok, got %q", traceProvider.span.status)
+	}
+	if !traceProvider.span.ended {
+		t.Fatal("expected span to end")
+	}
+	if got := findRecordedAttribute(traceProvider.span.attrs, "http.status_code").Int64Value; got != http.StatusOK {
+		t.Fatalf("expected http.status_code attribute %d, got %d", http.StatusOK, got)
+	}
+	if got := findRecordedAttribute(traceProvider.span.attrs, "http.request_id").StringValue; got == "" {
+		t.Fatal("expected http.request_id attribute")
+	}
+	if got := findRecordedAttribute(traceProvider.startAttrs, "http.method").StringValue; got != http.MethodGet {
+		t.Fatalf("expected http.method attribute %q, got %q", http.MethodGet, got)
+	}
+	if got := findRecordedAttribute(traceProvider.startAttrs, "http.route").StringValue; got != "/healthz" {
+		t.Fatalf("expected http.route attribute /healthz, got %q", got)
+	}
+}
+
 func TestEmbeddedUIRoutes(t *testing.T) {
 	server := NewServer(config.ServerConfig{Port: 40023}, config.GitHubConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil, nil, nil, nil)
 	uiHandler := webui.Handler()
@@ -363,4 +423,69 @@ func readSSEBody(t *testing.T, response *http.Response, cancel context.CancelFun
 		t.Fatal("timed out waiting for SSE response body")
 		return ""
 	}
+}
+
+type recordingTraceProvider struct {
+	startName  string
+	startKind  provider.SpanKind
+	startAttrs []provider.SpanAttribute
+	span       *recordingSpan
+}
+
+func (p *recordingTraceProvider) ExtractHTTPContext(ctx context.Context, _ http.Header) context.Context {
+	return ctx
+}
+
+func (p *recordingTraceProvider) InjectHTTPHeaders(_ context.Context, header http.Header) {
+	header.Set("Traceparent", "injected")
+}
+
+func (p *recordingTraceProvider) StartSpan(ctx context.Context, name string, opts ...provider.SpanStartOption) (context.Context, provider.Span) {
+	p.startName = name
+	p.startKind, p.startAttrs = provider.ResolveSpanStartOptions(opts...)
+	return ctx, p.span
+}
+
+func (p *recordingTraceProvider) Shutdown(context.Context) error {
+	return nil
+}
+
+type recordingSpan struct {
+	traceID string
+	spanID  string
+	attrs   []provider.SpanAttribute
+	status  provider.SpanStatusCode
+	ended   bool
+}
+
+func (s *recordingSpan) End() {
+	s.ended = true
+}
+
+func (s *recordingSpan) RecordError(error) {}
+
+func (s *recordingSpan) SetAttributes(attrs ...provider.SpanAttribute) {
+	s.attrs = append(s.attrs, attrs...)
+}
+
+func (s *recordingSpan) SetStatus(code provider.SpanStatusCode, _ string) {
+	s.status = code
+}
+
+func (s *recordingSpan) TraceID() string {
+	return s.traceID
+}
+
+func (s *recordingSpan) SpanID() string {
+	return s.spanID
+}
+
+func findRecordedAttribute(attrs []provider.SpanAttribute, key string) provider.SpanAttribute {
+	for _, attr := range attrs {
+		if attr.Key == key {
+			return attr
+		}
+	}
+
+	return provider.SpanAttribute{}
 }

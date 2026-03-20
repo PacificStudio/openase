@@ -22,14 +22,6 @@
     icon: Component
   }
 
-  const iconMap: Record<string, Component> = {
-    circle: Circle,
-    loader: Loader,
-    check: CheckCircle,
-    eye: Eye,
-    archive: Archive,
-  }
-
   let statuses = $state<StatusItem[]>([
     { id: '1', name: 'Backlog', color: '#6b7280', icon: Archive },
     { id: '2', name: 'Todo', color: '#3b82f6', icon: Circle },
@@ -84,8 +76,8 @@
 
 <div class="max-w-lg space-y-6">
   <div>
-    <h2 class="text-base font-semibold text-foreground">Statuses</h2>
-    <p class="mt-1 text-sm text-muted-foreground">
+    <h2 class="text-foreground text-base font-semibold">Statuses</h2>
+    <p class="text-muted-foreground mt-1 text-sm">
       Manage the columns on your board. Drag to reorder.
     </p>
   </div>
@@ -105,18 +97,13 @@
           dragIndex === i && 'opacity-50',
         )}
       >
-        <GripVertical
-          class="size-4 shrink-0 cursor-grab text-muted-foreground/50"
-        />
+        <GripVertical class="text-muted-foreground/50 size-4 shrink-0 cursor-grab" />
         <input
           type="color"
           bind:value={status.color}
           class="size-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
         />
-        <Input
-          bind:value={status.name}
-          class="h-8 flex-1 text-sm"
-        />
+        <Input bind:value={status.name} class="h-8 flex-1 text-sm" />
         <Button
           variant="ghost"
           size="icon-xs"
@@ -136,9 +123,7 @@
   </div>
 
   {#if confirmDeleteId}
-    <p class="text-xs text-red-400">
-      Click the trash icon again to confirm deletion.
-    </p>
+    <p class="text-xs text-red-400">Click the trash icon again to confirm deletion.</p>
   {/if}
 
   <Button variant="outline" size="sm" onclick={addStatus}>

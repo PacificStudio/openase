@@ -70,6 +70,7 @@ type EventConfig struct {
 
 type ObservabilityConfig struct {
 	Metrics MetricsConfig
+	Tracing TraceConfig
 }
 
 type MetricsConfig struct {
@@ -80,6 +81,13 @@ type MetricsConfig struct {
 type MetricsExportConfig struct {
 	Prometheus   bool
 	OTLPEndpoint string
+}
+
+type TraceConfig struct {
+	Enabled     bool
+	Endpoint    string
+	ServiceName string
+	SampleRatio float64
 }
 
 type EventDriver string
@@ -134,6 +142,10 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("observability.metrics.enabled", true)
 	v.SetDefault("observability.metrics.export.prometheus", false)
 	v.SetDefault("observability.metrics.export.otlp_endpoint", "")
+	v.SetDefault("observability.tracing.enabled", false)
+	v.SetDefault("observability.tracing.endpoint", "")
+	v.SetDefault("observability.tracing.service_name", "openase")
+	v.SetDefault("observability.tracing.sample_ratio", 1.0)
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", string(LogFormatText))
 }
@@ -245,6 +257,26 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("parse observability.metrics.export.otlp_endpoint: %w", err)
 	}
 
+	traceEnabled, err := parseBool(v.Get("observability.tracing.enabled"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.tracing.enabled: %w", err)
+	}
+
+	traceEndpoint, err := parseOptionalString(v.Get("observability.tracing.endpoint"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.tracing.endpoint: %w", err)
+	}
+
+	traceServiceName, err := parseNonEmptyString(v.Get("observability.tracing.service_name"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.tracing.service_name: %w", err)
+	}
+
+	traceSampleRatio, err := parseUnitInterval(v.Get("observability.tracing.sample_ratio"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.tracing.sample_ratio: %w", err)
+	}
+
 	logLevel, err := parseLogLevel(v.Get("log.level"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse log.level: %w", err)
@@ -283,6 +315,12 @@ func parseConfig(v *viper.Viper) (Config, error) {
 					Prometheus:   prometheusEnabled,
 					OTLPEndpoint: otlpEndpoint,
 				},
+			},
+			Tracing: TraceConfig{
+				Enabled:     traceEnabled,
+				Endpoint:    traceEndpoint,
+				ServiceName: traceServiceName,
+				SampleRatio: traceSampleRatio,
 			},
 		},
 		Logging: LoggingConfig{
@@ -342,6 +380,21 @@ func parsePort(raw any) (int, error) {
 	}
 }
 
+func parseBool(raw any) (bool, error) {
+	switch value := raw.(type) {
+	case bool:
+		return value, nil
+	case string:
+		parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+		if err != nil {
+			return false, fmt.Errorf("invalid bool %q", value)
+		}
+		return parsed, nil
+	default:
+		return false, fmt.Errorf("unsupported bool type %T", raw)
+	}
+}
+
 func parseDuration(raw any) (time.Duration, error) {
 	switch value := raw.(type) {
 	case time.Duration:
@@ -357,6 +410,28 @@ func parseDuration(raw any) (time.Duration, error) {
 		return parseDuration(parsed)
 	default:
 		return 0, fmt.Errorf("unsupported duration type %T", raw)
+	}
+}
+
+func parseUnitInterval(raw any) (float64, error) {
+	switch value := raw.(type) {
+	case float64:
+		if value < 0 || value > 1 {
+			return 0, fmt.Errorf("value %v must be between 0 and 1", value)
+		}
+		return value, nil
+	case int:
+		return parseUnitInterval(float64(value))
+	case int64:
+		return parseUnitInterval(float64(value))
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid float %q", value)
+		}
+		return parseUnitInterval(parsed)
+	default:
+		return 0, fmt.Errorf("unsupported float type %T", raw)
 	}
 }
 
@@ -410,21 +485,6 @@ func parseLogLevel(raw any) (slog.Level, error) {
 		return level, nil
 	default:
 		return 0, fmt.Errorf("unsupported slog level type %T", raw)
-	}
-}
-
-func parseBool(raw any) (bool, error) {
-	switch value := raw.(type) {
-	case bool:
-		return value, nil
-	case string:
-		parsed, err := strconv.ParseBool(strings.TrimSpace(value))
-		if err != nil {
-			return false, fmt.Errorf("invalid bool %q", value)
-		}
-		return parsed, nil
-	default:
-		return false, fmt.Errorf("unsupported bool type %T", raw)
 	}
 }
 

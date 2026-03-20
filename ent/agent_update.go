@@ -131,6 +131,60 @@ func (_u *AgentUpdate) ClearSessionID() *AgentUpdate {
 	return _u
 }
 
+// SetRuntimePhase sets the "runtime_phase" field.
+func (_u *AgentUpdate) SetRuntimePhase(v agent.RuntimePhase) *AgentUpdate {
+	_u.mutation.SetRuntimePhase(v)
+	return _u
+}
+
+// SetNillableRuntimePhase sets the "runtime_phase" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentUpdate {
+	if v != nil {
+		_u.SetRuntimePhase(*v)
+	}
+	return _u
+}
+
+// SetRuntimeStartedAt sets the "runtime_started_at" field.
+func (_u *AgentUpdate) SetRuntimeStartedAt(v time.Time) *AgentUpdate {
+	_u.mutation.SetRuntimeStartedAt(v)
+	return _u
+}
+
+// SetNillableRuntimeStartedAt sets the "runtime_started_at" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableRuntimeStartedAt(v *time.Time) *AgentUpdate {
+	if v != nil {
+		_u.SetRuntimeStartedAt(*v)
+	}
+	return _u
+}
+
+// ClearRuntimeStartedAt clears the value of the "runtime_started_at" field.
+func (_u *AgentUpdate) ClearRuntimeStartedAt() *AgentUpdate {
+	_u.mutation.ClearRuntimeStartedAt()
+	return _u
+}
+
+// SetLastError sets the "last_error" field.
+func (_u *AgentUpdate) SetLastError(v string) *AgentUpdate {
+	_u.mutation.SetLastError(v)
+	return _u
+}
+
+// SetNillableLastError sets the "last_error" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableLastError(v *string) *AgentUpdate {
+	if v != nil {
+		_u.SetLastError(*v)
+	}
+	return _u
+}
+
+// ClearLastError clears the value of the "last_error" field.
+func (_u *AgentUpdate) ClearLastError() *AgentUpdate {
+	_u.mutation.ClearLastError()
+	return _u
+}
+
 // SetWorkspacePath sets the "workspace_path" field.
 func (_u *AgentUpdate) SetWorkspacePath(v string) *AgentUpdate {
 	_u.mutation.SetWorkspacePath(v)
@@ -410,6 +464,11 @@ func (_u *AgentUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Agent.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RuntimePhase(); ok {
+		if err := agent.RuntimePhaseValidator(v); err != nil {
+			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
+		}
+	}
 	if _u.mutation.ProviderCleared() && len(_u.mutation.ProviderIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Agent.provider"`)
 	}
@@ -442,6 +501,21 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.SessionIDCleared() {
 		_spec.ClearField(agent.FieldSessionID, field.TypeString)
+	}
+	if value, ok := _u.mutation.RuntimePhase(); ok {
+		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.RuntimeStartedAt(); ok {
+		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)
+	}
+	if _u.mutation.RuntimeStartedAtCleared() {
+		_spec.ClearField(agent.FieldRuntimeStartedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LastError(); ok {
+		_spec.SetField(agent.FieldLastError, field.TypeString, value)
+	}
+	if _u.mutation.LastErrorCleared() {
+		_spec.ClearField(agent.FieldLastError, field.TypeString)
 	}
 	if value, ok := _u.mutation.WorkspacePath(); ok {
 		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)
@@ -811,6 +885,60 @@ func (_u *AgentUpdateOne) ClearSessionID() *AgentUpdateOne {
 	return _u
 }
 
+// SetRuntimePhase sets the "runtime_phase" field.
+func (_u *AgentUpdateOne) SetRuntimePhase(v agent.RuntimePhase) *AgentUpdateOne {
+	_u.mutation.SetRuntimePhase(v)
+	return _u
+}
+
+// SetNillableRuntimePhase sets the "runtime_phase" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentUpdateOne {
+	if v != nil {
+		_u.SetRuntimePhase(*v)
+	}
+	return _u
+}
+
+// SetRuntimeStartedAt sets the "runtime_started_at" field.
+func (_u *AgentUpdateOne) SetRuntimeStartedAt(v time.Time) *AgentUpdateOne {
+	_u.mutation.SetRuntimeStartedAt(v)
+	return _u
+}
+
+// SetNillableRuntimeStartedAt sets the "runtime_started_at" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableRuntimeStartedAt(v *time.Time) *AgentUpdateOne {
+	if v != nil {
+		_u.SetRuntimeStartedAt(*v)
+	}
+	return _u
+}
+
+// ClearRuntimeStartedAt clears the value of the "runtime_started_at" field.
+func (_u *AgentUpdateOne) ClearRuntimeStartedAt() *AgentUpdateOne {
+	_u.mutation.ClearRuntimeStartedAt()
+	return _u
+}
+
+// SetLastError sets the "last_error" field.
+func (_u *AgentUpdateOne) SetLastError(v string) *AgentUpdateOne {
+	_u.mutation.SetLastError(v)
+	return _u
+}
+
+// SetNillableLastError sets the "last_error" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableLastError(v *string) *AgentUpdateOne {
+	if v != nil {
+		_u.SetLastError(*v)
+	}
+	return _u
+}
+
+// ClearLastError clears the value of the "last_error" field.
+func (_u *AgentUpdateOne) ClearLastError() *AgentUpdateOne {
+	_u.mutation.ClearLastError()
+	return _u
+}
+
 // SetWorkspacePath sets the "workspace_path" field.
 func (_u *AgentUpdateOne) SetWorkspacePath(v string) *AgentUpdateOne {
 	_u.mutation.SetWorkspacePath(v)
@@ -1103,6 +1231,11 @@ func (_u *AgentUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Agent.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RuntimePhase(); ok {
+		if err := agent.RuntimePhaseValidator(v); err != nil {
+			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
+		}
+	}
 	if _u.mutation.ProviderCleared() && len(_u.mutation.ProviderIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Agent.provider"`)
 	}
@@ -1152,6 +1285,21 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if _u.mutation.SessionIDCleared() {
 		_spec.ClearField(agent.FieldSessionID, field.TypeString)
+	}
+	if value, ok := _u.mutation.RuntimePhase(); ok {
+		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.RuntimeStartedAt(); ok {
+		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)
+	}
+	if _u.mutation.RuntimeStartedAtCleared() {
+		_spec.ClearField(agent.FieldRuntimeStartedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LastError(); ok {
+		_spec.SetField(agent.FieldLastError, field.TypeString, value)
+	}
+	if _u.mutation.LastErrorCleared() {
+		_spec.ClearField(agent.FieldLastError, field.TypeString)
 	}
 	if value, ok := _u.mutation.WorkspacePath(); ok {
 		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)

@@ -30,6 +30,7 @@ type Server struct {
 	github              config.GitHubConfig
 	logger              *slog.Logger
 	events              provider.EventProvider
+	trace               provider.TraceProvider
 	metrics             provider.MetricsProvider
 	metricsHandler      http.Handler
 	echo                *echo.Echo
@@ -48,6 +49,12 @@ type ServerOption func(*Server)
 func WithNotificationService(service *notificationservice.Service) ServerOption {
 	return func(server *Server) {
 		server.notificationService = service
+	}
+}
+
+func WithTraceProvider(trace provider.TraceProvider) ServerOption {
+	return func(server *Server) {
+		server.trace = trace
 	}
 }
 
@@ -101,8 +108,9 @@ func NewServer(
 			opt(server)
 		}
 	}
-	server.echo.Use(server.metricsMiddleware())
-	server.echo.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+	e.Use(server.traceRequest())
+	e.Use(server.metricsMiddleware())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogStatus: true,
 		LogURI:    true,
 		LogMethod: true,
@@ -113,6 +121,8 @@ func NewServer(
 				"uri", values.URI,
 				"status", values.Status,
 				"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
+				"trace_id", traceValue(c, traceIDContextKey),
+				"span_id", traceValue(c, spanIDContextKey),
 			)
 			if values.Error != nil || values.Status >= http.StatusInternalServerError {
 				log.Error("http request completed", "error", values.Error)

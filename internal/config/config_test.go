@@ -47,6 +47,18 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Observability.Metrics.Export.Prometheus {
 		t.Fatal("expected prometheus export to be disabled by default")
 	}
+
+	if cfg.Observability.Tracing.Enabled {
+		t.Fatal("expected tracing to be disabled by default")
+	}
+
+	if cfg.Observability.Tracing.ServiceName != "openase" {
+		t.Fatalf("expected default tracing service name, got %q", cfg.Observability.Tracing.ServiceName)
+	}
+
+	if cfg.Observability.Tracing.SampleRatio != 1 {
+		t.Fatalf("expected default tracing sample ratio 1, got %v", cfg.Observability.Tracing.SampleRatio)
+	}
 }
 
 func TestLoadFromEnvironment(t *testing.T) {
@@ -60,6 +72,10 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("OPENASE_OBSERVABILITY_METRICS_ENABLED", "false")
 	t.Setenv("OPENASE_OBSERVABILITY_METRICS_EXPORT_PROMETHEUS", "true")
 	t.Setenv("OPENASE_OBSERVABILITY_METRICS_EXPORT_OTLP_ENDPOINT", "collector.internal:4318")
+	t.Setenv("OPENASE_OBSERVABILITY_TRACING_ENABLED", "true")
+	t.Setenv("OPENASE_OBSERVABILITY_TRACING_ENDPOINT", "http://collector.internal:4318/v1/traces")
+	t.Setenv("OPENASE_OBSERVABILITY_TRACING_SERVICE_NAME", "openase-dev")
+	t.Setenv("OPENASE_OBSERVABILITY_TRACING_SAMPLE_RATIO", "0.5")
 	t.Setenv("OPENASE_LOG_FORMAT", "json")
 	t.Setenv("OPENASE_LOG_LEVEL", "debug")
 
@@ -104,6 +120,22 @@ func TestLoadFromEnvironment(t *testing.T) {
 		t.Fatalf("expected OTLP endpoint from env, got %q", cfg.Observability.Metrics.Export.OTLPEndpoint)
 	}
 
+	if !cfg.Observability.Tracing.Enabled {
+		t.Fatal("expected tracing enabled from env")
+	}
+
+	if cfg.Observability.Tracing.Endpoint != "http://collector.internal:4318/v1/traces" {
+		t.Fatalf("expected tracing endpoint from env, got %q", cfg.Observability.Tracing.Endpoint)
+	}
+
+	if cfg.Observability.Tracing.ServiceName != "openase-dev" {
+		t.Fatalf("expected tracing service name from env, got %q", cfg.Observability.Tracing.ServiceName)
+	}
+
+	if cfg.Observability.Tracing.SampleRatio != 0.5 {
+		t.Fatalf("expected tracing sample ratio 0.5, got %v", cfg.Observability.Tracing.SampleRatio)
+	}
+
 	if cfg.Logging.Format != LogFormatJSON {
 		t.Fatalf("expected json log format, got %q", cfg.Logging.Format)
 	}
@@ -138,6 +170,11 @@ observability:
     export:
       prometheus: true
       otlp_endpoint: https://collector.example.test/v1/metrics
+  tracing:
+    enabled: true
+    endpoint: http://collector.internal:4318/v1/traces
+    service_name: openase-prod
+    sample_ratio: 0.25
 log:
   level: warn
   format: json
@@ -192,6 +229,22 @@ log:
 		t.Fatalf("expected OTLP endpoint from config file, got %q", cfg.Observability.Metrics.Export.OTLPEndpoint)
 	}
 
+	if !cfg.Observability.Tracing.Enabled {
+		t.Fatal("expected tracing enabled from config file")
+	}
+
+	if cfg.Observability.Tracing.Endpoint != "http://collector.internal:4318/v1/traces" {
+		t.Fatalf("expected tracing endpoint from config file, got %q", cfg.Observability.Tracing.Endpoint)
+	}
+
+	if cfg.Observability.Tracing.ServiceName != "openase-prod" {
+		t.Fatalf("expected tracing service name from config file, got %q", cfg.Observability.Tracing.ServiceName)
+	}
+
+	if cfg.Observability.Tracing.SampleRatio != 0.25 {
+		t.Fatalf("expected tracing sample ratio 0.25, got %v", cfg.Observability.Tracing.SampleRatio)
+	}
+
 	if cfg.Logging.Level != slog.LevelWarn {
 		t.Fatalf("expected warn log level, got %s", cfg.Logging.Level)
 	}
@@ -222,6 +275,15 @@ func TestLoadRejectsMissingDatabaseDSNForResolvedPGNotify(t *testing.T) {
 
 	if _, err := Load(LoadOptions{}); err == nil {
 		t.Fatal("expected missing database dsn error")
+	}
+}
+
+func TestLoadRejectsInvalidTracingSampleRatio(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENASE_OBSERVABILITY_TRACING_SAMPLE_RATIO", "1.2")
+
+	if _, err := Load(LoadOptions{}); err == nil {
+		t.Fatal("expected invalid tracing sample ratio error")
 	}
 }
 

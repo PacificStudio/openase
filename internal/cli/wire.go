@@ -95,3 +95,16 @@ func buildMetricsProvider(cfg config.Config, logger *slog.Logger) (metricsRuntim
 		},
 	}, nil
 }
+
+func buildTraceProvider(cfg config.Config, logger *slog.Logger) (provider.TraceProvider, error) {
+	if !cfg.Observability.Tracing.Enabled {
+		logger.Info("configured trace provider", "exporter", "noop", "service_name", cfg.Observability.Tracing.ServiceName)
+		return provider.NewNoopTraceProvider(), nil
+	}
+
+	return otelinfra.NewTraceProvider(otelinfra.TraceConfig{
+		ServiceName: cfg.Observability.Tracing.ServiceName,
+		Endpoint:    cfg.Observability.Tracing.Endpoint,
+		SampleRatio: cfg.Observability.Tracing.SampleRatio,
+	}, logger)
+}
