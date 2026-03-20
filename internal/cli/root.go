@@ -33,6 +33,7 @@ func NewRootCommand(version string) *cobra.Command {
 	rootCmd.AddCommand(newOrchestrateCommand(options))
 	rootCmd.AddCommand(newAllInOneCommand(options))
 	rootCmd.AddCommand(newUpCommand(options))
+	rootCmd.AddCommand(newSetupCommand())
 	rootCmd.AddCommand(newDownCommand(options))
 	rootCmd.AddCommand(newRestartCommand(options))
 	rootCmd.AddCommand(newLogsCommand(options))
