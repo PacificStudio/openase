@@ -136,9 +136,7 @@ export function relocateTicket(
     if (column.id === location.columnId && column.id === targetColumnId) {
       const nextTickets = column.tickets.slice()
       nextTickets.splice(location.index, 1)
-      const targetIndex = clampIndex(options.targetIndex ?? nextTickets.length, nextTickets.length)
-      nextTickets.splice(targetIndex, 0, movedTicket)
-      return { ...column, tickets: nextTickets }
+      return { ...column, tickets: insertTicket(nextTickets, movedTicket, options.targetIndex) }
     }
 
     if (column.id === location.columnId) {
@@ -149,14 +147,22 @@ export function relocateTicket(
     }
 
     if (column.id === targetColumnId) {
-      const nextTickets = column.tickets.slice()
-      const targetIndex = clampIndex(options.targetIndex ?? nextTickets.length, nextTickets.length)
-      nextTickets.splice(targetIndex, 0, movedTicket)
-      return { ...column, tickets: nextTickets }
+      return { ...column, tickets: insertTicket(column.tickets, movedTicket, options.targetIndex) }
     }
 
     return column
   })
+}
+
+function insertTicket(
+  tickets: BoardTicket[],
+  ticket: BoardTicket,
+  targetIndex: number | undefined,
+): BoardTicket[] {
+  const nextTickets = tickets.slice()
+  const insertIndex = clampIndex(targetIndex ?? nextTickets.length, nextTickets.length)
+  nextTickets.splice(insertIndex, 0, ticket)
+  return nextTickets
 }
 
 function clampIndex(index: number, length: number) {

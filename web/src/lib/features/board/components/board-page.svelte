@@ -44,19 +44,8 @@
     error = ''
   }
 
-  function canApplyLoadedBoard(
-    projectId: string,
-    requestVersion: number,
-    mode: 'initial' | 'background',
-  ) {
-    if (isStaleLoad(projectId, requestVersion)) {
-      return false
-    }
-    if (mode === 'background' && pendingMoveByTicket.size > 0) {
-      queuedReload = true
-      return false
-    }
-    return true
+  function shouldDeferLoadedBoard(mode: 'initial' | 'background') {
+    return mode === 'background' && pendingMoveByTicket.size > 0
   }
 
   function finishInitialLoad(
@@ -79,7 +68,11 @@
         listTickets(projectId),
         listWorkflows(projectId),
       ])
-      if (!canApplyLoadedBoard(projectId, requestVersion, mode)) {
+      if (isStaleLoad(projectId, requestVersion)) {
+        return
+      }
+      if (shouldDeferLoadedBoard(mode)) {
+        queuedReload = true
         return
       }
 
