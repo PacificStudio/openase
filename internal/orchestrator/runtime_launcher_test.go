@@ -19,6 +19,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
@@ -140,7 +141,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 
 	manager := &runtimeFakeProcessManager{}
-	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, workflowSvc)
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, workflowSvc)
 	launcher.now = func() time.Time {
 		return now
 	}
@@ -200,6 +201,127 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 	if strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "dev-01=") {
 		t.Fatalf("expected non-whitelisted machine to stay out of developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
+	}
+}
+
+func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	if _, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx); err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-401").
+		SetTitle("Launch Codex on remote machine").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	repoItem, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL("git@github.com:acme/backend.git").
+		SetDefaultBranch("main").
+		SetClonePath("backend").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+	if _, err := client.TicketRepoScope.Create().
+		SetTicketID(ticketItem.ID).
+		SetRepoID(repoItem.ID).
+		SetBranchName("agent/codex-01/ASE-401").
+		SetPrStatus("none").
+		SetCiStatus("pending").
+		SetIsPrimaryScope(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket repo scope: %v", err)
+	}
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-01.pem"
+	workspaceRoot := "/srv/openase/workspaces"
+	agentCLIPath := "/usr/local/bin/codex"
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("gpu-01").
+		SetHost("10.0.1.10").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetWorkspaceRoot(workspaceRoot).
+		SetAgentCliPath(agentCLIPath).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx); err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-01").
+		SetStatus(entagent.StatusClaimed).
+		SetCurrentTicketID(ticketItem.ID).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetWorkspacePath("/srv/openase/workspaces/ASE-401").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+
+	prepareSession := &runtimeSSHPrepareSession{}
+	processSession := newRuntimeSSHProcessSession()
+	sshPool := sshinfra.NewPool("/tmp/openase",
+		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{prepareSession, processSession}}}),
+		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+	)
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusRunning {
+		t.Fatalf("expected running status, got %s", agentAfter.Status)
+	}
+	if agentAfter.SessionID != "thread-runtime-1" {
+		t.Fatalf("expected thread-runtime-1 session id, got %q", agentAfter.SessionID)
+	}
+	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/ASE-401/backend'") {
+		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
+	}
+	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/ASE-401'") {
+		t.Fatalf("expected remote process to cd into workspace, got %q", processSession.startedCommand)
+	}
+	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
+		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
 	}
 }
 
@@ -398,4 +520,176 @@ func mustMarshalRuntimeJSON(value any) json.RawMessage {
 		panic(err)
 	}
 	return payload
+}
+
+type runtimeSSHDialer struct {
+	client sshinfra.Client
+}
+
+func (d *runtimeSSHDialer) DialContext(context.Context, sshinfra.DialConfig) (sshinfra.Client, error) {
+	return d.client, nil
+}
+
+type runtimeSSHClient struct {
+	sessions   []sshinfra.Session
+	sessionIdx int
+}
+
+func (c *runtimeSSHClient) NewSession() (sshinfra.Session, error) {
+	if c.sessionIdx >= len(c.sessions) {
+		return nil, fmt.Errorf("unexpected ssh session request %d", c.sessionIdx)
+	}
+	session := c.sessions[c.sessionIdx]
+	c.sessionIdx++
+	return session, nil
+}
+
+func (c *runtimeSSHClient) SendRequest(string, bool, []byte) (bool, []byte, error) {
+	return true, nil, nil
+}
+
+func (c *runtimeSSHClient) Close() error {
+	return nil
+}
+
+type runtimeSSHPrepareSession struct {
+	command string
+}
+
+func (s *runtimeSSHPrepareSession) CombinedOutput(cmd string) ([]byte, error) {
+	s.command = cmd
+	return nil, nil
+}
+
+func (s *runtimeSSHPrepareSession) StdinPipe() (io.WriteCloser, error) {
+	return nil, fmt.Errorf("not supported")
+}
+
+func (s *runtimeSSHPrepareSession) StdoutPipe() (io.Reader, error) { return strings.NewReader(""), nil }
+
+func (s *runtimeSSHPrepareSession) StderrPipe() (io.Reader, error) { return strings.NewReader(""), nil }
+
+func (s *runtimeSSHPrepareSession) Start(string) error { return fmt.Errorf("not supported") }
+
+func (s *runtimeSSHPrepareSession) Signal(string) error { return nil }
+
+func (s *runtimeSSHPrepareSession) Wait() error { return nil }
+
+func (s *runtimeSSHPrepareSession) Close() error { return nil }
+
+type runtimeSSHProcessSession struct {
+	stdinRead  *io.PipeReader
+	stdinWrite *io.PipeWriter
+
+	stdoutRead  *io.PipeReader
+	stdoutWrite *io.PipeWriter
+
+	stderrRead  *io.PipeReader
+	stderrWrite *io.PipeWriter
+
+	done chan error
+
+	startedCommand string
+}
+
+func newRuntimeSSHProcessSession() *runtimeSSHProcessSession {
+	stdinRead, stdinWrite := io.Pipe()
+	stdoutRead, stdoutWrite := io.Pipe()
+	stderrRead, stderrWrite := io.Pipe()
+	return &runtimeSSHProcessSession{
+		stdinRead:   stdinRead,
+		stdinWrite:  stdinWrite,
+		stdoutRead:  stdoutRead,
+		stdoutWrite: stdoutWrite,
+		stderrRead:  stderrRead,
+		stderrWrite: stderrWrite,
+		done:        make(chan error, 1),
+	}
+}
+
+func (s *runtimeSSHProcessSession) CombinedOutput(string) ([]byte, error) {
+	return nil, fmt.Errorf("not supported")
+}
+
+func (s *runtimeSSHProcessSession) StdinPipe() (io.WriteCloser, error) { return s.stdinWrite, nil }
+
+func (s *runtimeSSHProcessSession) StdoutPipe() (io.Reader, error) { return s.stdoutRead, nil }
+
+func (s *runtimeSSHProcessSession) StderrPipe() (io.Reader, error) { return s.stderrRead, nil }
+
+func (s *runtimeSSHProcessSession) Start(cmd string) error {
+	s.startedCommand = cmd
+	go func() {
+		s.done <- runRuntimeSSHHandshake(s)
+	}()
+	return nil
+}
+
+func (s *runtimeSSHProcessSession) Signal(string) error {
+	return s.Close()
+}
+
+func (s *runtimeSSHProcessSession) Wait() error {
+	return <-s.done
+}
+
+func (s *runtimeSSHProcessSession) Close() error {
+	_ = s.stdinRead.Close()
+	_ = s.stdinWrite.Close()
+	_ = s.stdoutRead.Close()
+	_ = s.stdoutWrite.Close()
+	_ = s.stderrRead.Close()
+	_ = s.stderrWrite.Close()
+	return nil
+}
+
+func runRuntimeSSHHandshake(session *runtimeSSHProcessSession) error {
+	decoder := json.NewDecoder(session.stdinRead)
+	encoder := json.NewEncoder(session.stdoutWrite)
+
+	initialize, err := readRuntimeMessage(decoder)
+	if err != nil {
+		return err
+	}
+	if initialize.Method != "initialize" {
+		return fmt.Errorf("expected initialize, got %s", initialize.Method)
+	}
+	if err := encoder.Encode(runtimeJSONRPCMessage{
+		JSONRPC: "2.0",
+		ID:      initialize.ID,
+		Result: mustMarshalRuntimeJSON(map[string]any{
+			"userAgent":      "codex-cli/test",
+			"platformFamily": "unix",
+			"platformOs":     "linux",
+		}),
+	}); err != nil {
+		return err
+	}
+
+	initialized, err := readRuntimeMessage(decoder)
+	if err != nil {
+		return err
+	}
+	if initialized.Method != "initialized" {
+		return fmt.Errorf("expected initialized, got %s", initialized.Method)
+	}
+
+	threadStart, err := readRuntimeMessage(decoder)
+	if err != nil {
+		return err
+	}
+	if threadStart.Method != "thread/start" {
+		return fmt.Errorf("expected thread/start, got %s", threadStart.Method)
+	}
+	if err := encoder.Encode(runtimeJSONRPCMessage{
+		JSONRPC: "2.0",
+		ID:      threadStart.ID,
+		Result: mustMarshalRuntimeJSON(map[string]any{
+			"thread": map[string]any{"id": "thread-runtime-1"},
+		}),
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
