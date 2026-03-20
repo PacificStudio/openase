@@ -3,6 +3,7 @@
   import { connectEventStream } from '$lib/api/sse'
   import { listStatuses, listTickets, listWorkflows } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
+  import { statusSync } from '$lib/features/statuses/public'
   import type { BoardColumn, BoardFilter, BoardTicket } from '../types'
   import BoardToolbar from './board-toolbar.svelte'
   import BoardView from './board-view.svelte'
@@ -35,6 +36,7 @@
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
+    const statusVersion = statusSync.version
     if (!projectId) {
       allColumns = []
       workflows = []
@@ -46,6 +48,7 @@
     const load = async () => {
       loading = true
       error = ''
+      void statusVersion
 
       try {
         const [statusPayload, ticketPayload, workflowPayload] = await Promise.all([
