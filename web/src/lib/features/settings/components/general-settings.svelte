@@ -1,33 +1,99 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
+  import { listWorkflows, updateProject } from '$lib/api/openase'
+  import { ApiError } from '$lib/api/client'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Button } from '$ui/button'
   import * as Select from '$ui/select'
   import { Separator } from '$ui/separator'
 
-  let projectName = $state('OpenASE Demo')
-  let description = $state('Autonomous software engineering with AI agents')
-  let defaultWorkflow = $state('standard')
-  let maxConcurrentAgents = $state('4')
+  let projectName = $state('')
+  let description = $state('')
+  let defaultWorkflow = $state('')
+  let maxConcurrentAgents = $state('1')
+  let workflows = $state<Array<{ value: string; label: string }>>([])
+  let saving = $state(false)
+  let feedback = $state('')
+  let error = $state('')
 
-  const workflows = [
-    { value: 'standard', label: 'Standard' },
-    { value: 'fast-track', label: 'Fast Track' },
-    { value: 'review-heavy', label: 'Review Heavy' },
-    { value: 'custom', label: 'Custom' },
-  ]
+  $effect(() => {
+    const project = appStore.currentProject
+    if (!project) {
+      projectName = ''
+      description = ''
+      defaultWorkflow = ''
+      maxConcurrentAgents = '1'
+      return
+    }
 
-  function handleSave() {
-    // TODO: persist settings via API
+    projectName = project.name
+    description = project.description
+    defaultWorkflow = project.default_workflow_id ?? ''
+    maxConcurrentAgents = String(project.max_concurrent_agents)
+  })
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      workflows = []
+      return
+    }
+
+    let cancelled = false
+
+    const load = async () => {
+      try {
+        const payload = await listWorkflows(projectId)
+        if (cancelled) return
+        workflows = payload.workflows.map((workflow) => ({
+          value: workflow.id,
+          label: workflow.name,
+        }))
+      } catch {
+        if (!cancelled) {
+          workflows = []
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  })
+
+  async function handleSave() {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+
+    saving = true
+    feedback = ''
+    error = ''
+
+    try {
+      const payload = await updateProject(projectId, {
+        name: projectName,
+        description,
+        default_workflow_id: defaultWorkflow || null,
+        max_concurrent_agents: Number(maxConcurrentAgents),
+      })
+      appStore.currentProject = payload.project
+      feedback = 'Project settings saved.'
+    } catch (caughtError) {
+      error =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save project settings.'
+    } finally {
+      saving = false
+    }
   }
 </script>
 
 <div class="max-w-lg space-y-6">
   <div>
-    <h2 class="text-base font-semibold text-foreground">General</h2>
-    <p class="mt-1 text-sm text-muted-foreground">
-      Core project configuration.
-    </p>
+    <h2 class="text-foreground text-base font-semibold">General</h2>
+    <p class="text-muted-foreground mt-1 text-sm">Core project configuration.</p>
   </div>
 
   <Separator />
@@ -47,10 +113,12 @@
       <Label>Default workflow</Label>
       <Select.Root
         type="single"
-        onValueChange={(v) => { defaultWorkflow = v || 'standard' }}
+        onValueChange={(v) => {
+          defaultWorkflow = v || ''
+        }}
       >
         <Select.Trigger class="w-full">
-          {workflows.find((w) => w.value === defaultWorkflow)?.label ?? 'Select'}
+          {workflows.find((w) => w.value === defaultWorkflow)?.label ?? 'No default workflow'}
         </Select.Trigger>
         <Select.Content>
           {#each workflows as w (w.value)}
@@ -62,19 +130,24 @@
 
     <div class="space-y-2">
       <Label for="max-agents">Max concurrent agents</Label>
-      <Input
-        id="max-agents"
-        type="number"
-        bind:value={maxConcurrentAgents}
-        class="w-24"
-      />
-      <p class="text-xs text-muted-foreground">
+      <Input id="max-agents" type="number" bind:value={maxConcurrentAgents} class="w-24" />
+      <p class="text-muted-foreground text-xs">
         Limit the number of agents running simultaneously.
       </p>
     </div>
   </div>
 
   <div class="flex justify-start pt-2">
-    <Button onclick={handleSave}>Save changes</Button>
+    <Button onclick={handleSave} disabled={saving}>
+      {saving ? 'Saving…' : 'Save changes'}
+    </Button>
   </div>
+
+  {#if feedback}
+    <p class="text-sm text-emerald-400">{feedback}</p>
+  {/if}
+
+  {#if error}
+    <p class="text-destructive text-sm">{error}</p>
+  {/if}
 </div>

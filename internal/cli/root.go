@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/app"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -164,6 +165,18 @@ func runWithConfig(
 	logger := logging.New(cfg.Logging)
 	slog.SetDefault(logger)
 
+	traceProvider, err := buildTraceProvider(cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if closeErr := traceProvider.Shutdown(shutdownCtx); closeErr != nil {
+			logger.Error("shutdown trace provider", "error", closeErr)
+		}
+	}()
+
 	eventProvider, err := buildEventProvider(cfg, logger)
 	if err != nil {
 		return err
@@ -177,5 +190,5 @@ func runWithConfig(
 	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	return run(ctx, app.New(cfg, logger, eventProvider))
+	return run(ctx, app.New(cfg, logger, eventProvider, traceProvider))
 }

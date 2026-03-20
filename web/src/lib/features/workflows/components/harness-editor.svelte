@@ -33,16 +33,16 @@
 </script>
 
 <div class={cn('flex h-full flex-col overflow-hidden', className)}>
-  <div class="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2">
+  <div class="border-border bg-muted/30 flex items-center justify-between border-b px-4 py-2">
     <div class="flex items-center gap-2 text-sm">
-      <FileCode class="size-4 text-muted-foreground" />
-      <span class="font-mono text-xs text-muted-foreground">{filePath}</span>
-      <span class="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      <FileCode class="text-muted-foreground size-4" />
+      <span class="text-muted-foreground font-mono text-xs">{filePath}</span>
+      <span class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
         v{version}
       </span>
     </div>
     <button
-      class="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      class="text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
       onclick={copyContent}
     >
       {#if copied}
@@ -58,7 +58,7 @@
   <div class="relative flex-1 overflow-hidden bg-[#0d1117]">
     <div class="flex h-full overflow-auto">
       <div
-        class="sticky left-0 shrink-0 select-none border-r border-neutral-800 bg-[#0d1117] px-3 py-3 text-right font-mono text-xs leading-6 text-neutral-600"
+        class="sticky left-0 shrink-0 border-r border-neutral-800 bg-[#0d1117] px-3 py-3 text-right font-mono text-xs leading-6 text-neutral-600 select-none"
         aria-hidden="true"
       >
         {#each lines as _, i}

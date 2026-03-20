@@ -54,11 +54,11 @@ func init() {
 	// agent.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	agent.NameValidator = agentDescName.Validators[0].(func(string) error)
 	// agentDescTotalTokensUsed is the schema descriptor for total_tokens_used field.
-	agentDescTotalTokensUsed := agentFields[9].Descriptor()
+	agentDescTotalTokensUsed := agentFields[12].Descriptor()
 	// agent.DefaultTotalTokensUsed holds the default value on creation for the total_tokens_used field.
 	agent.DefaultTotalTokensUsed = agentDescTotalTokensUsed.Default.(int64)
 	// agentDescTotalTicketsCompleted is the schema descriptor for total_tickets_completed field.
-	agentDescTotalTicketsCompleted := agentFields[10].Descriptor()
+	agentDescTotalTicketsCompleted := agentFields[13].Descriptor()
 	// agent.DefaultTotalTicketsCompleted holds the default value on creation for the total_tickets_completed field.
 	agent.DefaultTotalTicketsCompleted = agentDescTotalTicketsCompleted.Default.(int)
 	// agentDescID is the schema descriptor for id field.

@@ -4,13 +4,17 @@
   import { Separator } from '$ui/separator'
   import Copy from '@lucide/svelte/icons/copy'
   import Check from '@lucide/svelte/icons/check'
-  import ExternalLink from '@lucide/svelte/icons/external-link'
   import X from '@lucide/svelte/icons/x'
-  import ChevronDown from '@lucide/svelte/icons/chevron-down'
   import { cn } from '$lib/utils'
   import type { TicketDetail } from '../types'
 
-  let { ticket }: { ticket: TicketDetail } = $props()
+  let {
+    ticket,
+    onClose,
+  }: {
+    ticket: TicketDetail
+    onClose?: () => void
+  } = $props()
 
   let copied = $state(false)
 
@@ -40,7 +44,7 @@
     <div class="flex items-center gap-2">
       <button
         onclick={copyIdentifier}
-        class="flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-xs text-muted-foreground hover:bg-muted transition-colors"
+        class="text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-xs transition-colors"
       >
         {ticket.identifier}
         {#if copied}
@@ -57,28 +61,22 @@
       </Badge>
     </div>
     <div class="flex items-center gap-1">
-      <Button variant="ghost" size="icon-sm">
-        <ExternalLink class="size-3.5" />
-      </Button>
-      <Button variant="ghost" size="icon-sm">
+      <Button variant="ghost" size="icon-sm" onclick={onClose}>
         <X class="size-3.5" />
       </Button>
     </div>
   </div>
 
-  <h2 class="text-sm font-medium leading-snug">{ticket.title}</h2>
+  <h2 class="text-sm leading-snug font-medium">{ticket.title}</h2>
 
   <div class="flex items-center gap-2">
     <Badge
       class="text-[10px]"
-      style="background-color: {ticket.status.color}20; color: {ticket.status.color}; border-color: {ticket.status.color}30"
+      style="background-color: {ticket.status.color}20; color: {ticket.status
+        .color}; border-color: {ticket.status.color}30"
     >
       {ticket.status.name}
     </Badge>
-    <Button variant="outline" size="sm" class="h-6 gap-1 px-2 text-[11px]">
-      Change Status
-      <ChevronDown class="size-3" />
-    </Button>
   </div>
 </div>
 <Separator />

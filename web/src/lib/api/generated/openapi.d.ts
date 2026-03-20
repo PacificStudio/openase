@@ -384,6 +384,40 @@ export interface paths {
     patch: operations['updateTicket']
     trace?: never
   }
+  '/api/v1/tickets/{ticketId}/external-links': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Add an external link to a ticket */
+    post: operations['addTicketExternalLink']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticketId}/external-links/{externalLinkId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an external link from a ticket */
+    delete: operations['deleteTicketExternalLink']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/workflows/{workflowId}': {
     parameters: {
       query?: never
@@ -1489,10 +1523,13 @@ export interface operations {
               capabilities?: string[]
               current_ticket_id?: string | null
               id?: string
+              last_error?: string
               last_heartbeat_at?: string | null
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_phase?: string
+              runtime_started_at?: string | null
               session_id?: string
               status?: string
               total_tickets_completed?: number
@@ -1921,6 +1958,16 @@ export interface operations {
                 type?: string
               }[]
               description?: string
+              external_links?: {
+                created_at?: string
+                external_id?: string
+                id?: string
+                relation?: string
+                status?: string
+                title?: string
+                type?: string
+                url?: string
+              }[]
               external_ref?: string
               id?: string
               identifier?: string
@@ -2123,6 +2170,16 @@ export interface operations {
                 type?: string
               }[]
               description?: string
+              external_links?: {
+                created_at?: string
+                external_id?: string
+                id?: string
+                relation?: string
+                status?: string
+                title?: string
+                type?: string
+                url?: string
+              }[]
               external_ref?: string
               id?: string
               identifier?: string
@@ -2592,6 +2649,16 @@ export interface operations {
                 type?: string
               }[]
               description?: string
+              external_links?: {
+                created_at?: string
+                external_id?: string
+                id?: string
+                relation?: string
+                status?: string
+                title?: string
+                type?: string
+                url?: string
+              }[]
               external_ref?: string
               id?: string
               identifier?: string
@@ -2642,6 +2709,163 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  addTicketExternalLink: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    /** @description Add an external link to a ticket request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          external_id?: string
+          relation?: string | null
+          status?: string | null
+          title?: string | null
+          type?: string
+          url?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Add an external link to a ticket response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            external_link?: {
+              created_at?: string
+              external_id?: string
+              id?: string
+              relation?: string
+              status?: string
+              title?: string
+              type?: string
+              url?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteTicketExternalLink: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+        /** @description External link ID. */
+        externalLinkId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete an external link from a ticket response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            deleted_external_link_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }

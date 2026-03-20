@@ -27,6 +27,12 @@ const (
 	FieldCurrentTicketID = "current_ticket_id"
 	// FieldSessionID holds the string denoting the session_id field in the database.
 	FieldSessionID = "session_id"
+	// FieldRuntimePhase holds the string denoting the runtime_phase field in the database.
+	FieldRuntimePhase = "runtime_phase"
+	// FieldRuntimeStartedAt holds the string denoting the runtime_started_at field in the database.
+	FieldRuntimeStartedAt = "runtime_started_at"
+	// FieldLastError holds the string denoting the last_error field in the database.
+	FieldLastError = "last_error"
 	// FieldWorkspacePath holds the string denoting the workspace_path field in the database.
 	FieldWorkspacePath = "workspace_path"
 	// FieldCapabilities holds the string denoting the capabilities field in the database.
@@ -104,6 +110,9 @@ var Columns = []string{
 	FieldStatus,
 	FieldCurrentTicketID,
 	FieldSessionID,
+	FieldRuntimePhase,
+	FieldRuntimeStartedAt,
+	FieldLastError,
 	FieldWorkspacePath,
 	FieldCapabilities,
 	FieldTotalTokensUsed,
@@ -161,6 +170,34 @@ func StatusValidator(s Status) error {
 	}
 }
 
+// RuntimePhase defines the type for the "runtime_phase" enum field.
+type RuntimePhase string
+
+// RuntimePhaseNone is the default value of the RuntimePhase enum.
+const DefaultRuntimePhase = RuntimePhaseNone
+
+// RuntimePhase values.
+const (
+	RuntimePhaseNone      RuntimePhase = "none"
+	RuntimePhaseLaunching RuntimePhase = "launching"
+	RuntimePhaseReady     RuntimePhase = "ready"
+	RuntimePhaseFailed    RuntimePhase = "failed"
+)
+
+func (rp RuntimePhase) String() string {
+	return string(rp)
+}
+
+// RuntimePhaseValidator is a validator for the "runtime_phase" field enum values. It is called by the builders before save.
+func RuntimePhaseValidator(rp RuntimePhase) error {
+	switch rp {
+	case RuntimePhaseNone, RuntimePhaseLaunching, RuntimePhaseReady, RuntimePhaseFailed:
+		return nil
+	default:
+		return fmt.Errorf("agent: invalid enum value for runtime_phase field: %q", rp)
+	}
+}
+
 // OrderOption defines the ordering options for the Agent queries.
 type OrderOption func(*sql.Selector)
 
@@ -197,6 +234,21 @@ func ByCurrentTicketID(opts ...sql.OrderTermOption) OrderOption {
 // BySessionID orders the results by the session_id field.
 func BySessionID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSessionID, opts...).ToFunc()
+}
+
+// ByRuntimePhase orders the results by the runtime_phase field.
+func ByRuntimePhase(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRuntimePhase, opts...).ToFunc()
+}
+
+// ByRuntimeStartedAt orders the results by the runtime_started_at field.
+func ByRuntimeStartedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRuntimeStartedAt, opts...).ToFunc()
+}
+
+// ByLastError orders the results by the last_error field.
+func ByLastError(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastError, opts...).ToFunc()
 }
 
 // ByWorkspacePath orders the results by the workspace_path field.

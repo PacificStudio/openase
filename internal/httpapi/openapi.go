@@ -70,6 +70,9 @@ type OpenAPIAgent struct {
 	Status                string   `json:"status"`
 	CurrentTicketID       *string  `json:"current_ticket_id,omitempty"`
 	SessionID             string   `json:"session_id"`
+	RuntimePhase          string   `json:"runtime_phase"`
+	RuntimeStartedAt      *string  `json:"runtime_started_at,omitempty"`
+	LastError             string   `json:"last_error"`
 	WorkspacePath         string   `json:"workspace_path"`
 	Capabilities          []string `json:"capabilities"`
 	TotalTokensUsed       int64    `json:"total_tokens_used"`

@@ -930,6 +930,9 @@ type AgentMutation struct {
 	name                       *string
 	status                     *agent.Status
 	session_id                 *string
+	runtime_phase              *agent.RuntimePhase
+	runtime_started_at         *time.Time
+	last_error                 *string
 	workspace_path             *string
 	capabilities               *pgarray.StringArray
 	total_tokens_used          *int64
@@ -1302,6 +1305,140 @@ func (m *AgentMutation) SessionIDCleared() bool {
 func (m *AgentMutation) ResetSessionID() {
 	m.session_id = nil
 	delete(m.clearedFields, agent.FieldSessionID)
+}
+
+// SetRuntimePhase sets the "runtime_phase" field.
+func (m *AgentMutation) SetRuntimePhase(ap agent.RuntimePhase) {
+	m.runtime_phase = &ap
+}
+
+// RuntimePhase returns the value of the "runtime_phase" field in the mutation.
+func (m *AgentMutation) RuntimePhase() (r agent.RuntimePhase, exists bool) {
+	v := m.runtime_phase
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRuntimePhase returns the old "runtime_phase" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldRuntimePhase(ctx context.Context) (v agent.RuntimePhase, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRuntimePhase is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRuntimePhase requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRuntimePhase: %w", err)
+	}
+	return oldValue.RuntimePhase, nil
+}
+
+// ResetRuntimePhase resets all changes to the "runtime_phase" field.
+func (m *AgentMutation) ResetRuntimePhase() {
+	m.runtime_phase = nil
+}
+
+// SetRuntimeStartedAt sets the "runtime_started_at" field.
+func (m *AgentMutation) SetRuntimeStartedAt(t time.Time) {
+	m.runtime_started_at = &t
+}
+
+// RuntimeStartedAt returns the value of the "runtime_started_at" field in the mutation.
+func (m *AgentMutation) RuntimeStartedAt() (r time.Time, exists bool) {
+	v := m.runtime_started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRuntimeStartedAt returns the old "runtime_started_at" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldRuntimeStartedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRuntimeStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRuntimeStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRuntimeStartedAt: %w", err)
+	}
+	return oldValue.RuntimeStartedAt, nil
+}
+
+// ClearRuntimeStartedAt clears the value of the "runtime_started_at" field.
+func (m *AgentMutation) ClearRuntimeStartedAt() {
+	m.runtime_started_at = nil
+	m.clearedFields[agent.FieldRuntimeStartedAt] = struct{}{}
+}
+
+// RuntimeStartedAtCleared returns if the "runtime_started_at" field was cleared in this mutation.
+func (m *AgentMutation) RuntimeStartedAtCleared() bool {
+	_, ok := m.clearedFields[agent.FieldRuntimeStartedAt]
+	return ok
+}
+
+// ResetRuntimeStartedAt resets all changes to the "runtime_started_at" field.
+func (m *AgentMutation) ResetRuntimeStartedAt() {
+	m.runtime_started_at = nil
+	delete(m.clearedFields, agent.FieldRuntimeStartedAt)
+}
+
+// SetLastError sets the "last_error" field.
+func (m *AgentMutation) SetLastError(s string) {
+	m.last_error = &s
+}
+
+// LastError returns the value of the "last_error" field in the mutation.
+func (m *AgentMutation) LastError() (r string, exists bool) {
+	v := m.last_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastError returns the old "last_error" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldLastError(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastError: %w", err)
+	}
+	return oldValue.LastError, nil
+}
+
+// ClearLastError clears the value of the "last_error" field.
+func (m *AgentMutation) ClearLastError() {
+	m.last_error = nil
+	m.clearedFields[agent.FieldLastError] = struct{}{}
+}
+
+// LastErrorCleared returns if the "last_error" field was cleared in this mutation.
+func (m *AgentMutation) LastErrorCleared() bool {
+	_, ok := m.clearedFields[agent.FieldLastError]
+	return ok
+}
+
+// ResetLastError resets all changes to the "last_error" field.
+func (m *AgentMutation) ResetLastError() {
+	m.last_error = nil
+	delete(m.clearedFields, agent.FieldLastError)
 }
 
 // SetWorkspacePath sets the "workspace_path" field.
@@ -1840,7 +1977,7 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 14)
 	if m.provider != nil {
 		fields = append(fields, agent.FieldProviderID)
 	}
@@ -1858,6 +1995,15 @@ func (m *AgentMutation) Fields() []string {
 	}
 	if m.session_id != nil {
 		fields = append(fields, agent.FieldSessionID)
+	}
+	if m.runtime_phase != nil {
+		fields = append(fields, agent.FieldRuntimePhase)
+	}
+	if m.runtime_started_at != nil {
+		fields = append(fields, agent.FieldRuntimeStartedAt)
+	}
+	if m.last_error != nil {
+		fields = append(fields, agent.FieldLastError)
 	}
 	if m.workspace_path != nil {
 		fields = append(fields, agent.FieldWorkspacePath)
@@ -1894,6 +2040,12 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 		return m.CurrentTicketID()
 	case agent.FieldSessionID:
 		return m.SessionID()
+	case agent.FieldRuntimePhase:
+		return m.RuntimePhase()
+	case agent.FieldRuntimeStartedAt:
+		return m.RuntimeStartedAt()
+	case agent.FieldLastError:
+		return m.LastError()
 	case agent.FieldWorkspacePath:
 		return m.WorkspacePath()
 	case agent.FieldCapabilities:
@@ -1925,6 +2077,12 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldCurrentTicketID(ctx)
 	case agent.FieldSessionID:
 		return m.OldSessionID(ctx)
+	case agent.FieldRuntimePhase:
+		return m.OldRuntimePhase(ctx)
+	case agent.FieldRuntimeStartedAt:
+		return m.OldRuntimeStartedAt(ctx)
+	case agent.FieldLastError:
+		return m.OldLastError(ctx)
 	case agent.FieldWorkspacePath:
 		return m.OldWorkspacePath(ctx)
 	case agent.FieldCapabilities:
@@ -1985,6 +2143,27 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSessionID(v)
+		return nil
+	case agent.FieldRuntimePhase:
+		v, ok := value.(agent.RuntimePhase)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRuntimePhase(v)
+		return nil
+	case agent.FieldRuntimeStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRuntimeStartedAt(v)
+		return nil
+	case agent.FieldLastError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastError(v)
 		return nil
 	case agent.FieldWorkspacePath:
 		v, ok := value.(string)
@@ -2084,6 +2263,12 @@ func (m *AgentMutation) ClearedFields() []string {
 	if m.FieldCleared(agent.FieldSessionID) {
 		fields = append(fields, agent.FieldSessionID)
 	}
+	if m.FieldCleared(agent.FieldRuntimeStartedAt) {
+		fields = append(fields, agent.FieldRuntimeStartedAt)
+	}
+	if m.FieldCleared(agent.FieldLastError) {
+		fields = append(fields, agent.FieldLastError)
+	}
 	if m.FieldCleared(agent.FieldWorkspacePath) {
 		fields = append(fields, agent.FieldWorkspacePath)
 	}
@@ -2112,6 +2297,12 @@ func (m *AgentMutation) ClearField(name string) error {
 		return nil
 	case agent.FieldSessionID:
 		m.ClearSessionID()
+		return nil
+	case agent.FieldRuntimeStartedAt:
+		m.ClearRuntimeStartedAt()
+		return nil
+	case agent.FieldLastError:
+		m.ClearLastError()
 		return nil
 	case agent.FieldWorkspacePath:
 		m.ClearWorkspacePath()
@@ -2147,6 +2338,15 @@ func (m *AgentMutation) ResetField(name string) error {
 		return nil
 	case agent.FieldSessionID:
 		m.ResetSessionID()
+		return nil
+	case agent.FieldRuntimePhase:
+		m.ResetRuntimePhase()
+		return nil
+	case agent.FieldRuntimeStartedAt:
+		m.ResetRuntimeStartedAt()
+		return nil
+	case agent.FieldLastError:
+		m.ResetLastError()
 		return nil
 	case agent.FieldWorkspacePath:
 		m.ResetWorkspacePath()

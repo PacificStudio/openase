@@ -3,9 +3,13 @@ export type AgentInstance = {
   name: string
   providerName: string
   modelName: string
-  status: 'idle' | 'running' | 'offline' | 'stalled'
+  status: 'idle' | 'claimed' | 'running' | 'failed' | 'terminated'
+  runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
   currentTicket?: { id: string; identifier: string; title: string }
-  lastHeartbeat: string
+  lastHeartbeat?: string | null
+  runtimeStartedAt?: string | null
+  sessionId?: string
+  lastError?: string
   todayCompleted: number
   todayCost: number
   capabilities: string[]
