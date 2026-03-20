@@ -37,18 +37,36 @@ var (
 )
 
 type App struct {
-	config config.Config
-	logger *slog.Logger
-	events provider.EventProvider
-	trace  provider.TraceProvider
+	config         config.Config
+	logger         *slog.Logger
+	events         provider.EventProvider
+	trace          provider.TraceProvider
+	metrics        provider.MetricsProvider
+	metricsHandler http.Handler
 }
 
-func New(cfg config.Config, logger *slog.Logger, events provider.EventProvider, trace provider.TraceProvider) *App {
+func New(
+	cfg config.Config,
+	logger *slog.Logger,
+	events provider.EventProvider,
+	trace provider.TraceProvider,
+	metrics provider.MetricsProvider,
+	metricsHandler http.Handler,
+) *App {
+	if trace == nil {
+		trace = provider.NewNoopTraceProvider()
+	}
+	if metrics == nil {
+		metrics = provider.NewNoopMetricsProvider()
+	}
+
 	return &App{
-		config: cfg,
-		logger: logger,
-		events: events,
-		trace:  trace,
+		config:         cfg,
+		logger:         logger,
+		events:         events,
+		trace:          trace,
+		metrics:        metrics,
+		metricsHandler: metricsHandler,
 	}
 }
 
@@ -117,6 +135,8 @@ func (a *App) RunServe(ctx context.Context) error {
 		catalogSvc,
 		workflowSvc,
 		httpapi.WithTraceProvider(a.trace),
+		httpapi.WithMetricsProvider(a.metrics),
+		httpapi.WithMetricsHandler(a.metricsHandler),
 		httpapi.WithNotificationService(notificationSvc),
 		httpapi.WithChatService(chatSvc),
 	)
@@ -179,6 +199,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					provider.StringAttribute("tick.time", tick.UTC().Format(time.RFC3339)),
 				),
 			)
+			start := time.Now()
 			healthReport, healthErr := healthChecker.Run(tickCtx)
 			report, runErr := scheduler.RunTick(tickCtx)
 			launchErr := runtimeLauncher.RunTick(tickCtx)
@@ -198,6 +219,10 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"time", tick.UTC().Format(time.RFC3339),
 					"error", combinedErr,
 				)
+				a.metrics.Counter("openase.orchestrator.tick_total", provider.Tags{
+					"mode":   string(a.config.Server.Mode),
+					"result": "error",
+				}).Add(1)
 			} else {
 				span.SetStatus(provider.SpanStatusOK, "")
 				a.logger.Info(
@@ -211,7 +236,14 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"tickets_dispatched", report.TicketsDispatched,
 					"tickets_skipped", report.TicketsSkipped,
 				)
+				a.metrics.Counter("openase.orchestrator.tick_total", provider.Tags{
+					"mode":   string(a.config.Server.Mode),
+					"result": "ok",
+				}).Add(1)
 			}
+			a.metrics.Histogram("openase.orchestrator.tick_duration_seconds", provider.Tags{
+				"mode": string(a.config.Server.Mode),
+			}).Record(time.Since(start).Seconds())
 			span.SetAttributes(
 				provider.IntAttribute("orchestrator.health.claims_checked", healthReport.ClaimsChecked),
 				provider.IntAttribute("orchestrator.health.stalled_claims", healthReport.StalledClaims),
