@@ -24,6 +24,8 @@ export {
   hasAutomationSignal,
   heartbeatBadgeClass,
   heartbeatLabel,
+  runtimePhaseBadgeClass,
+  runtimeStateLabel,
   stalledAgentCount,
   streamBadgeClass,
 } from './metrics'

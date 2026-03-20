@@ -97,6 +97,48 @@ export function heartbeatBadgeClass(timestamp: string | null | undefined, heartb
   }
 }
 
+export function runtimePhaseBadgeClass(phase: string, status: string) {
+  if (status === 'failed' || phase === 'failed') {
+    return 'border-rose-500/25 bg-rose-500/10 text-rose-700'
+  }
+  switch (phase) {
+    case 'ready':
+      return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700'
+    case 'launching':
+      return 'border-sky-500/25 bg-sky-500/10 text-sky-700'
+    default:
+      return 'border-border/80 bg-background text-muted-foreground'
+  }
+}
+
+export function runtimeStateLabel(agent: Agent) {
+  if (agent.status === 'failed' || agent.runtime_phase === 'failed') {
+    return 'Launch failed'
+  }
+  if (agent.status === 'terminated') {
+    return 'Terminated'
+  }
+  if (agent.runtime_phase === 'launching') {
+    return 'Launching Codex session'
+  }
+  if (agent.status === 'claimed' && agent.runtime_phase === 'none') {
+    return 'Claimed, waiting for launcher'
+  }
+  if (agent.status === 'running' && agent.runtime_phase === 'ready' && agent.session_id) {
+    return 'Ready'
+  }
+  if (agent.status === 'running') {
+    return 'Running'
+  }
+  if (agent.status === 'claimed') {
+    return 'Claimed'
+  }
+  if (agent.status === 'idle') {
+    return 'Idle'
+  }
+  return agent.status
+}
+
 export function stalledAgentCount(agents: Agent[], heartbeatNow: number) {
   return agents.filter((item) => heartbeatTone(item.last_heartbeat_at, heartbeatNow) === 'stalled')
     .length

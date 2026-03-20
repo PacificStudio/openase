@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
+	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
@@ -105,8 +107,16 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
-	scheduler := orchestrator.NewScheduler(client, a.logger)
+	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
+	runtimeLauncher := orchestrator.NewRuntimeLauncher(client, a.logger, a.events, agentcli.NewManager(agentcli.ManagerOptions{}))
+	defer func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtimeLauncher.Close(stopCtx); err != nil {
+			a.logger.Warn("close runtime launcher", "error", err)
+		}
+	}()
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
 		return err
@@ -132,13 +142,14 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		case tick := <-ticker.C:
 			healthReport, healthErr := healthChecker.Run(ctx)
 			report, runErr := scheduler.RunTick(ctx)
+			launchErr := runtimeLauncher.RunTick(ctx)
 			payload := map[string]any{
 				"mode":          string(a.config.Server.Mode),
 				"time":          tick.UTC().Format(time.RFC3339),
 				"health_report": healthReport,
 				"report":        report,
 			}
-			combinedErr := joinOrchestratorTickErrors(healthErr, runErr)
+			combinedErr := joinOrchestratorTickErrors(healthErr, runErr, launchErr)
 			if combinedErr != nil {
 				payload["error"] = combinedErr.Error()
 				a.logger.Error(
@@ -166,15 +177,22 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	}
 }
 
-func joinOrchestratorTickErrors(healthErr error, schedulerErr error) error {
-	if healthErr == nil {
-		return schedulerErr
+func joinOrchestratorTickErrors(healthErr error, schedulerErr error, launcherErr error) error {
+	parts := make([]string, 0, 3)
+	if healthErr != nil {
+		parts = append(parts, fmt.Sprintf("health check: %v", healthErr))
 	}
-	if schedulerErr == nil {
-		return fmt.Errorf("health check: %w", healthErr)
+	if schedulerErr != nil {
+		parts = append(parts, fmt.Sprintf("scheduler: %v", schedulerErr))
+	}
+	if launcherErr != nil {
+		parts = append(parts, fmt.Sprintf("runtime launcher: %v", launcherErr))
+	}
+	if len(parts) == 0 {
+		return nil
 	}
 
-	return fmt.Errorf("health check: %w; scheduler: %v", healthErr, schedulerErr)
+	return fmt.Errorf("%s", strings.Join(parts, "; "))
 }
 
 func (a *App) RunAllInOne(ctx context.Context) error {

@@ -11,6 +11,8 @@
   import {
     heartbeatBadgeClass,
     heartbeatLabel,
+    runtimePhaseBadgeClass,
+    runtimeStateLabel,
     streamBadgeClass,
     type Agent,
   } from '$lib/features/workspace'
@@ -85,6 +87,9 @@
                 <p class="text-sm font-semibold">{agent.name}</p>
                 <Badge variant={agent.id === selectedAgentId ? 'secondary' : 'outline'}>
                   {agent.status}
+                </Badge>
+                <Badge class={runtimePhaseBadgeClass(agent.runtime_phase, agent.status)}>
+                  {runtimeStateLabel(agent)}
                 </Badge>
               </div>
               <p

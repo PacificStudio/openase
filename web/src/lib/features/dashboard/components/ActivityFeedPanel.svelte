@@ -41,7 +41,7 @@
       <div
         class="text-muted-foreground border-border/70 bg-muted/30 rounded-3xl border border-dashed px-4 py-5 text-sm"
       >
-        No activity events yet for the current selection.
+        No runtime activity events yet for the current selection.
       </div>
     {:else}
       {#each activityEvents as event}

@@ -9,8 +9,11 @@
     CardTitle,
   } from '$lib/components/ui/card'
   import {
+    formatTimestamp,
     heartbeatBadgeClass,
     heartbeatLabel,
+    runtimePhaseBadgeClass,
+    runtimeStateLabel,
     type Agent,
     type Project,
   } from '$lib/features/workspace'
@@ -41,6 +44,9 @@
     {#if agent}
       <div class="flex flex-wrap items-center gap-2">
         <Badge variant="secondary">{agent.status}</Badge>
+        <Badge class={runtimePhaseBadgeClass(agent.runtime_phase, agent.status)}>
+          {runtimeStateLabel(agent)}
+        </Badge>
         <Badge class={heartbeatBadgeClass(agent.last_heartbeat_at, heartbeatNow)}>
           {heartbeatLabel(agent.last_heartbeat_at, heartbeatNow)}
         </Badge>
@@ -81,7 +87,20 @@
         </div>
         <div class="border-border/70 bg-background/60 rounded-2xl border px-4 py-3">
           <p class="text-muted-foreground text-xs tracking-[0.18em] uppercase">Session</p>
-          <p class="mt-2 text-sm font-semibold break-all">{agent.session_id}</p>
+          <p class="mt-2 text-sm font-semibold break-all">{agent.session_id || 'Not started yet'}</p>
+        </div>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="border-border/70 bg-background/60 rounded-2xl border px-4 py-3">
+          <p class="text-muted-foreground text-xs tracking-[0.18em] uppercase">Runtime started</p>
+          <p class="mt-2 text-sm font-semibold">
+            {agent.runtime_started_at ? formatTimestamp(agent.runtime_started_at) : 'Not started yet'}
+          </p>
+        </div>
+        <div class="border-border/70 bg-background/60 rounded-2xl border px-4 py-3">
+          <p class="text-muted-foreground text-xs tracking-[0.18em] uppercase">Last error</p>
+          <p class="mt-2 text-sm font-semibold break-all">{agent.last_error || 'Healthy'}</p>
         </div>
       </div>
 
@@ -101,7 +120,7 @@
       <div
         class="text-muted-foreground border-border/70 bg-muted/30 rounded-3xl border border-dashed px-4 py-5 text-sm"
       >
-        Select an agent to inspect its live session details.
+        Select an agent to inspect its runtime readiness details.
       </div>
     {/if}
   </CardContent>

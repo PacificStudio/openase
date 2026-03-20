@@ -33,6 +33,9 @@ type Agent struct {
 	Status                entagent.Status
 	CurrentTicketID       *uuid.UUID
 	SessionID             string
+	RuntimePhase          entagent.RuntimePhase
+	RuntimeStartedAt      *time.Time
+	LastError             string
 	WorkspacePath         string
 	Capabilities          []string
 	TotalTokensUsed       int64
@@ -54,16 +57,10 @@ type AgentProviderInput struct {
 }
 
 type AgentInput struct {
-	ProviderID            string   `json:"provider_id"`
-	Name                  string   `json:"name"`
-	Status                string   `json:"status"`
-	CurrentTicketID       *string  `json:"current_ticket_id"`
-	SessionID             string   `json:"session_id"`
-	WorkspacePath         string   `json:"workspace_path"`
-	Capabilities          []string `json:"capabilities"`
-	TotalTokensUsed       *int64   `json:"total_tokens_used"`
-	TotalTicketsCompleted *int     `json:"total_tickets_completed"`
-	LastHeartbeatAt       *string  `json:"last_heartbeat_at"`
+	ProviderID    string   `json:"provider_id"`
+	Name          string   `json:"name"`
+	WorkspacePath string   `json:"workspace_path"`
+	Capabilities  []string `json:"capabilities"`
 }
 
 type CreateAgentProvider struct {
@@ -102,6 +99,9 @@ type CreateAgent struct {
 	Status                entagent.Status
 	CurrentTicketID       *uuid.UUID
 	SessionID             string
+	RuntimePhase          entagent.RuntimePhase
+	RuntimeStartedAt      *time.Time
+	LastError             string
 	WorkspacePath         string
 	Capabilities          []string
 	TotalTokensUsed       int64
@@ -198,32 +198,7 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		return CreateAgent{}, err
 	}
 
-	status, err := parseAgentStatus(raw.Status)
-	if err != nil {
-		return CreateAgent{}, err
-	}
-
-	currentTicketID, err := parseOptionalUUID("current_ticket_id", raw.CurrentTicketID)
-	if err != nil {
-		return CreateAgent{}, err
-	}
-
 	capabilities, err := parseStringList("capabilities", raw.Capabilities)
-	if err != nil {
-		return CreateAgent{}, err
-	}
-
-	totalTokensUsed, err := parseNonNegativeInt64("total_tokens_used", raw.TotalTokensUsed, entagent.DefaultTotalTokensUsed)
-	if err != nil {
-		return CreateAgent{}, err
-	}
-
-	totalTicketsCompleted, err := parseNonNegativeInt("total_tickets_completed", raw.TotalTicketsCompleted, entagent.DefaultTotalTicketsCompleted)
-	if err != nil {
-		return CreateAgent{}, err
-	}
-
-	lastHeartbeatAt, err := parseOptionalRFC3339Time("last_heartbeat_at", raw.LastHeartbeatAt)
 	if err != nil {
 		return CreateAgent{}, err
 	}
@@ -232,14 +207,12 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		ProjectID:             projectID,
 		ProviderID:            providerID,
 		Name:                  name,
-		Status:                status,
-		CurrentTicketID:       currentTicketID,
-		SessionID:             strings.TrimSpace(raw.SessionID),
+		Status:                entagent.DefaultStatus,
+		RuntimePhase:          entagent.DefaultRuntimePhase,
 		WorkspacePath:         strings.TrimSpace(raw.WorkspacePath),
 		Capabilities:          capabilities,
-		TotalTokensUsed:       totalTokensUsed,
-		TotalTicketsCompleted: totalTicketsCompleted,
-		LastHeartbeatAt:       lastHeartbeatAt,
+		TotalTokensUsed:       entagent.DefaultTotalTokensUsed,
+		TotalTicketsCompleted: entagent.DefaultTotalTicketsCompleted,
 	}, nil
 }
 

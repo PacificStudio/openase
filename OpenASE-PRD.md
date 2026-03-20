@@ -804,12 +804,22 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 | name | String | Agent 名称 |
 | status | Enum | idle / claimed / running / failed / terminated |
 | current_ticket_id | FK | 当前执行的工单 |
-| session_id | String | 当前会话 ID |
+| session_id | String | Runtime 建立成功后的只读会话 / thread ID |
+| runtime_phase | Enum | none / launching / ready / failed（只读，Runtime 托管） |
+| runtime_started_at | DateTime | Runtime 成功启动时间（只读） |
+| last_error | String | 最近一次 Runtime 启动 / 会话错误（健康时为空） |
 | workspace_path | String | 工作目录路径 |
 | capabilities | TEXT[] | 能力标签（如 `{"frontend", "backend", "go"}`），PostgreSQL 原生数组 |
 | total_tokens_used | BigInt | 累计 Token 消耗 |
 | total_tickets_completed | Integer | 累计完成工单数 |
-| last_heartbeat_at | DateTime | 最后心跳 |
+| last_heartbeat_at | DateTime | Runtime 托管的最后心跳时间（只读） |
+
+**Coding Agent Runtime Readiness Contract**
+
+- `claimed` 只表示调度器已经占有 Agent + Ticket，不等于 Codex 已经启动成功。
+- 确定性的启动成功条件是：`status == running`、`runtime_phase == ready`、`session_id != ""`、`last_heartbeat_at` 已填充且足够新。
+- Catalog CRUD 不允许用户手工写入 `session_id`、`runtime_phase`、`runtime_started_at`、`last_error`、`last_heartbeat_at`；这些字段只能由 Runtime 启动路径写入。
+- 前端必须使用这些 Runtime 字段展示 `waiting -> launching -> ready -> failed`，不能把“没有 activity 文本”解释成启动失败。
 
 ### 6.9 ApprovalGate（审批门控）
 
@@ -4419,9 +4429,18 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | 方法 | 路径 | 事件类型 |
 |------|------|---------|
 | GET | `/api/v1/projects/:projectId/tickets/stream` | `ticket.created`, `ticket.status_changed`, `ticket.updated` |
-| GET | `/api/v1/projects/:projectId/agents/stream` | `agent.claimed`, `agent.progress`, `agent.completed`, `agent.stalled` |
-| GET | `/api/v1/projects/:projectId/activity/stream` | `activity.new`（全局活动流） |
+| GET | `/api/v1/projects/:projectId/agents/stream` | `agent.claimed`, `agent.launching`, `agent.ready`, `agent.heartbeat`, `agent.failed`, `agent.terminated` |
+| GET | `/api/v1/projects/:projectId/activity/stream` | Runtime 生命周期镜像活动流；activity 是历史遥测，不是启动真值来源 |
 | GET | `/api/v1/projects/:projectId/hooks/stream` | `hook.started`, `hook.passed`, `hook.failed` |
+
+**Coding Agent Launch Verification**
+
+- `claimed + runtime_phase=none`：显示 “Claimed, waiting for launcher”
+- `claimed/running + runtime_phase=launching`：显示 “Launching Codex session”
+- `running + runtime_phase=ready + session_id`：显示 “Ready”
+- `failed` 或 `runtime_phase=failed`：显示失败态和 `last_error`
+- activity 面板为空时显示 “No runtime activity events yet”，不能把 0 行输出当成未启动或失败
+- Black-box 验收至少覆盖：创建 idle Agent + pickup Ticket，观测 `claimed`，再观测 `running + ready + session_id + heartbeat`，并收到 `agent.ready`（stream 或镜像 activity）
 
 **Webhook 接收**
 
@@ -4580,8 +4599,8 @@ func (s *Scheduler) recoverOnStartup(ctx context.Context) {
     orphans, _ := s.ticketRepo.ListByStatus(ctx, ticket.StatusInProgress)
 
     for _, t := range orphans {
-        // 2. 检查 Agent 进程是否还在运行（通过 PID 文件或 session_id）
-        if !s.isAgentAlive(t.SessionID) {
+        // 2. 检查 Runtime readiness / heartbeat，而不是宿主机 PID
+        if !s.isRuntimeReady(t.AgentRuntimePhase, t.LastHeartbeatAt) {
             // 3. 重置为 todo，下个 Tick 重新分发
             t.TransitionTo(ticket.StatusTodo)
             t.AttemptCount++  // 计为一次失败尝试
