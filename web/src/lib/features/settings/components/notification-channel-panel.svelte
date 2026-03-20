@@ -173,9 +173,15 @@
         <p class="text-muted-foreground text-sm">No channels yet.</p>
       {:else}
         {#each channels as channel (channel.id)}
-          <button type="button" class={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-            selectedId === channel.id ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-muted/50'
-          }`} onclick={() => selectChannel(channel.id)}>
+          <button
+            type="button"
+            class={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
+              selectedId === channel.id
+                ? 'border-primary/40 bg-primary/5'
+                : 'border-border hover:bg-muted/50'
+            }`}
+            onclick={() => selectChannel(channel.id)}
+          >
             <div class="flex items-center justify-between gap-2">
               <span class="text-sm font-medium">{channel.name}</span>
               <Badge variant="outline">{channel.is_enabled ? 'Enabled' : 'Disabled'}</Badge>
@@ -215,7 +221,11 @@
               {testing ? 'Sending…' : 'Send test'}
             </Button>
           {/if}
-          <Button size="sm" onclick={handleSave} disabled={saving || deleting || testing || toggling}>
+          <Button
+            size="sm"
+            onclick={handleSave}
+            disabled={saving || deleting || testing || toggling}
+          >
             {saving ? 'Saving…' : selectedChannel ? 'Save changes' : 'Create channel'}
           </Button>
           {#if selectedChannel}

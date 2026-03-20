@@ -71,7 +71,11 @@
           {toggling ? 'Updating…' : selectedRule.is_enabled ? 'Disable' : 'Enable'}
         </Button>
       {/if}
-      <Button size="sm" onclick={onSave} disabled={!canCreateRule || saving || deleting || toggling}>
+      <Button
+        size="sm"
+        onclick={onSave}
+        disabled={!canCreateRule || saving || deleting || toggling}
+      >
         {saving ? 'Saving…' : selectedRule ? 'Save changes' : 'Create rule'}
       </Button>
       {#if selectedRule}

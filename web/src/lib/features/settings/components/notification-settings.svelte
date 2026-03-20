@@ -200,10 +200,7 @@
     }
   }
 
-  async function handleToggleRule(
-    ruleId: string,
-    isEnabled: boolean,
-  ): Promise<NotificationRule> {
+  async function handleToggleRule(ruleId: string, isEnabled: boolean): Promise<NotificationRule> {
     try {
       const payload = await updateNotificationRule(ruleId, { is_enabled: isEnabled })
       await refreshRules()

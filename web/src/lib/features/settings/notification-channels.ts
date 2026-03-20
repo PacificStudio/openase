@@ -1,6 +1,11 @@
 import type { NotificationChannel } from '$lib/api/contracts'
 
-import { formatJSONObject, parseJSONObject, type JSONObject, type ParseResult } from './notification-support'
+import {
+  formatJSONObject,
+  parseJSONObject,
+  type JSONObject,
+  type ParseResult,
+} from './notification-support'
 
 export type ChannelDraft = {
   id: string | null

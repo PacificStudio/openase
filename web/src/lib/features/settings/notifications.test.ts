@@ -6,9 +6,7 @@ import {
   createChannelDraft,
 } from './notification-channels'
 import { formatJSONObject } from './notification-support'
-import {
-  applyRuleEventType,
-} from './notification-rules'
+import { applyRuleEventType } from './notification-rules'
 
 describe('settings notifications helpers', () => {
   it('keeps masked channel config out of update payloads when config is untouched', () => {

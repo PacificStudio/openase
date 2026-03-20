@@ -1,6 +1,11 @@
 import type { NotificationRule, NotificationRuleEventType } from '$lib/api/contracts'
 
-import { formatJSONObject, parseJSONObject, type JSONObject, type ParseResult } from './notification-support'
+import {
+  formatJSONObject,
+  parseJSONObject,
+  type JSONObject,
+  type ParseResult,
+} from './notification-support'
 
 export type RuleDraft = {
   id: string | null
