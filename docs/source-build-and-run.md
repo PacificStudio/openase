@@ -20,13 +20,13 @@ cd openase
 
 ## 2. Build The Binary
 
-For normal source builds, the committed UI assets in `internal/webui/static/` are already embedded, so Go is enough:
+Build the embedded frontend and Go binary together from the repo root:
 
 ```bash
-go build -o ./bin/openase ./cmd/openase
+make build
 ```
 
-Only rebuild the frontend when you changed files under `web/`:
+The equivalent explicit commands are:
 
 ```bash
 npm --prefix web install
@@ -170,7 +170,7 @@ Recommended validation sequence after build or doc-driven startup changes:
 
 ## 8. Common Operational Notes
 
-- `go build ./cmd/openase` is enough for normal backend-only work because the embedded UI assets are already checked in.
+- `make build` is the safe source-build path because it regenerates the embedded UI before compiling the Go binary.
 - Rebuild `web/` before compiling if you changed the Svelte app, otherwise the binary will still embed the old frontend output.
 - `setup` requires the primary repo path to be a real Git repository. A plain directory is rejected.
 - `up` should be run from a compiled binary path you intend to keep, because the managed service stores the executable path it was installed with.

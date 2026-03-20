@@ -13,13 +13,26 @@ import (
 //go:embed all:static
 var assets embed.FS
 
+const missingAssetsMessage = "OpenASE web UI assets are not built. Run `npm --prefix web install && npm --prefix web run build` (or `make build`) before rebuilding the Go binary."
+
 func Handler() http.Handler {
 	staticFS, err := fs.Sub(assets, "static")
 	if err != nil {
 		panic(err)
 	}
 
+	return handlerForFS(staticFS)
+}
+
+func handlerForFS(staticFS fs.FS) http.Handler {
+	hasIndex := fileExists(staticFS, "index.html")
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !hasIndex {
+			serveMissingAssets(w)
+			return
+		}
+
 		requestPath := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 		if requestPath == "." || requestPath == "" {
 			requestPath = "index.html"
@@ -37,6 +50,17 @@ func Handler() http.Handler {
 
 		http.NotFound(w, r)
 	})
+}
+
+func fileExists(fsys fs.FS, name string) bool {
+	_, err := fs.Stat(fsys, name)
+	return err == nil
+}
+
+func serveMissingAssets(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	_, _ = io.WriteString(w, missingAssetsMessage+"\n")
 }
 
 func serveFile(staticFS fs.FS, w http.ResponseWriter, r *http.Request, name string) {
