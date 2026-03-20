@@ -43,6 +43,8 @@ type ticketResponse struct {
 	Dependencies      []ticketDependencyResponse `json:"dependencies"`
 	ExternalRef       string                     `json:"external_ref"`
 	BudgetUSD         float64                    `json:"budget_usd"`
+	CostTokensInput   int64                      `json:"cost_tokens_input"`
+	CostTokensOutput  int64                      `json:"cost_tokens_output"`
 	CostAmount        float64                    `json:"cost_amount"`
 	AttemptCount      int                        `json:"attempt_count"`
 	ConsecutiveErrors int                        `json:"consecutive_errors"`
@@ -427,6 +429,8 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 		Dependencies:      []ticketDependencyResponse{},
 		ExternalRef:       item.ExternalRef,
 		BudgetUSD:         item.BudgetUSD,
+		CostTokensInput:   item.CostTokensInput,
+		CostTokensOutput:  item.CostTokensOutput,
 		CostAmount:        item.CostAmount,
 		AttemptCount:      item.AttemptCount,
 		ConsecutiveErrors: item.ConsecutiveErrors,

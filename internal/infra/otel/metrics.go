@@ -110,7 +110,7 @@ func (p *MetricsProvider) Counter(name string, tags provider.Tags) provider.Coun
 		return existing.(provider.Counter)
 	}
 
-	instrument, err := p.meter.Int64Counter(spec.name)
+	instrument, err := p.meter.Float64Counter(spec.name)
 	if err != nil {
 		p.logger.Error("create counter instrument", "name", spec.name, "error", err)
 		return provider.NewNoopMetricsProvider().Counter("", nil)
@@ -174,11 +174,11 @@ func (p *MetricsProvider) Shutdown(ctx context.Context) error {
 }
 
 type otelCounter struct {
-	instrument otelmetric.Int64Counter
+	instrument otelmetric.Float64Counter
 	attributes []attribute.KeyValue
 }
 
-func (c otelCounter) Add(value int64) {
+func (c otelCounter) Add(value float64) {
 	c.instrument.Add(context.Background(), value, otelmetric.WithAttributes(c.attributes...))
 }
 

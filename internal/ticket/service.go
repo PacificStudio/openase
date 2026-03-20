@@ -83,6 +83,8 @@ type Ticket struct {
 	Dependencies      []Dependency       `json:"dependencies"`
 	ExternalRef       string             `json:"external_ref"`
 	BudgetUSD         float64            `json:"budget_usd"`
+	CostTokensInput   int64              `json:"cost_tokens_input"`
+	CostTokensOutput  int64              `json:"cost_tokens_output"`
 	CostAmount        float64            `json:"cost_amount"`
 	AttemptCount      int                `json:"attempt_count"`
 	ConsecutiveErrors int                `json:"consecutive_errors"`
@@ -823,6 +825,8 @@ func mapTicket(item *ent.Ticket) Ticket {
 		Dependencies:      []Dependency{},
 		ExternalRef:       item.ExternalRef,
 		BudgetUSD:         item.BudgetUsd,
+		CostTokensInput:   item.CostTokensInput,
+		CostTokensOutput:  item.CostTokensOutput,
 		CostAmount:        item.CostAmount,
 		AttemptCount:      item.AttemptCount,
 		ConsecutiveErrors: item.ConsecutiveErrors,

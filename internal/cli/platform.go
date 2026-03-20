@@ -70,6 +70,16 @@ type ticketUpdateInput struct {
 	externalRefSet bool
 }
 
+type ticketReportUsageInput struct {
+	ticketID        string
+	inputTokens     *int64
+	outputTokens    *int64
+	costUSD         *float64
+	inputTokensSet  bool
+	outputTokensSet bool
+	costUSDSet      bool
+}
+
 type projectUpdateInput struct {
 	projectID   string
 	description string
@@ -103,6 +113,7 @@ func newTicketCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	bindPlatformFlags(command.PersistentFlags(), &options.rawPlatformContext)
 	command.AddCommand(newTicketListCommand(options, client))
 	command.AddCommand(newTicketCreateCommand(options, client))
+	command.AddCommand(newTicketReportUsageCommand(options, client))
 	command.AddCommand(newTicketUpdateCommand(options, client))
 
 	return command
@@ -256,6 +267,49 @@ func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient
 	command.Flags().StringVar(&title, "title", "", "Updated ticket title.")
 	command.Flags().StringVar(&description, "description", "", "Updated ticket description.")
 	command.Flags().StringVar(&externalRef, "external-ref", "", "Updated external reference.")
+
+	return command
+}
+
+func newTicketReportUsageCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
+	var inputTokens int64
+	var outputTokens int64
+	var costUSD float64
+
+	command := &cobra.Command{
+		Use:   "report-usage [ticket-id]",
+		Short: "Report token and cost usage for the current ticket.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			platform, err := options.resolve()
+			if err != nil {
+				return err
+			}
+
+			input, err := platform.parseTicketReportUsageInput(ticketReportUsageInput{
+				ticketID:        firstNonEmpty(firstArg(args), options.ticketID),
+				inputTokens:     int64PointerWhen(cmd.Flags().Changed("input-tokens"), inputTokens),
+				outputTokens:    int64PointerWhen(cmd.Flags().Changed("output-tokens"), outputTokens),
+				costUSD:         float64PointerWhen(cmd.Flags().Changed("cost-usd"), costUSD),
+				inputTokensSet:  cmd.Flags().Changed("input-tokens"),
+				outputTokensSet: cmd.Flags().Changed("output-tokens"),
+				costUSDSet:      cmd.Flags().Changed("cost-usd"),
+			})
+			if err != nil {
+				return err
+			}
+
+			body, err := client.reportTicketUsage(cmd.Context(), platform, input)
+			if err != nil {
+				return err
+			}
+			return writePrettyJSON(cmd.OutOrStdout(), body)
+		},
+	}
+
+	command.Flags().Int64Var(&inputTokens, "input-tokens", 0, "Prompt/input token delta to record.")
+	command.Flags().Int64Var(&outputTokens, "output-tokens", 0, "Completion/output token delta to record.")
+	command.Flags().Float64Var(&costUSD, "cost-usd", 0, "Explicit USD cost delta to record.")
 
 	return command
 }
@@ -439,6 +493,35 @@ func (platform platformContext) parseTicketUpdateInput(raw ticketUpdateInput) (t
 	}, nil
 }
 
+func (platform platformContext) parseTicketReportUsageInput(raw ticketReportUsageInput) (ticketReportUsageInput, error) {
+	ticketID := strings.TrimSpace(firstNonEmpty(raw.ticketID, platform.ticketID))
+	if ticketID == "" {
+		return ticketReportUsageInput{}, fmt.Errorf("ticket id is required via positional argument, --ticket-id, or OPENASE_TICKET_ID")
+	}
+	if !raw.inputTokensSet && !raw.outputTokensSet && !raw.costUSDSet {
+		return ticketReportUsageInput{}, fmt.Errorf("at least one of --input-tokens, --output-tokens, or --cost-usd must be set")
+	}
+	if raw.inputTokens != nil && *raw.inputTokens < 0 {
+		return ticketReportUsageInput{}, fmt.Errorf("input-tokens must be greater than or equal to zero")
+	}
+	if raw.outputTokens != nil && *raw.outputTokens < 0 {
+		return ticketReportUsageInput{}, fmt.Errorf("output-tokens must be greater than or equal to zero")
+	}
+	if raw.costUSD != nil && *raw.costUSD < 0 {
+		return ticketReportUsageInput{}, fmt.Errorf("cost-usd must be greater than or equal to zero")
+	}
+
+	return ticketReportUsageInput{
+		ticketID:        ticketID,
+		inputTokens:     raw.inputTokens,
+		outputTokens:    raw.outputTokens,
+		costUSD:         raw.costUSD,
+		inputTokensSet:  raw.inputTokensSet,
+		outputTokensSet: raw.outputTokensSet,
+		costUSDSet:      raw.costUSDSet,
+	}, nil
+}
+
 func (platform platformContext) parseProjectUpdateInput(raw projectUpdateInput) (projectUpdateInput, error) {
 	projectID := strings.TrimSpace(firstNonEmpty(raw.projectID, platform.projectID))
 	if projectID == "" {
@@ -541,6 +624,21 @@ func (client platformClient) updateTicket(ctx context.Context, platform platform
 	}
 
 	return client.doJSON(ctx, platform, http.MethodPatch, "/tickets/"+url.PathEscape(input.ticketID), payload)
+}
+
+func (client platformClient) reportTicketUsage(ctx context.Context, platform platformContext, input ticketReportUsageInput) ([]byte, error) {
+	payload := map[string]any{}
+	if input.inputTokensSet {
+		payload["input_tokens"] = *input.inputTokens
+	}
+	if input.outputTokensSet {
+		payload["output_tokens"] = *input.outputTokens
+	}
+	if input.costUSDSet {
+		payload["cost_usd"] = *input.costUSD
+	}
+
+	return client.doJSON(ctx, platform, http.MethodPost, "/tickets/"+url.PathEscape(input.ticketID)+"/usage", payload)
 }
 
 func (client platformClient) updateProject(ctx context.Context, platform platformContext, input projectUpdateInput) ([]byte, error) {
@@ -651,4 +749,20 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func int64PointerWhen(enabled bool, value int64) *int64 {
+	if !enabled {
+		return nil
+	}
+
+	return &value
+}
+
+func float64PointerWhen(enabled bool, value float64) *float64 {
+	if !enabled {
+		return nil
+	}
+
+	return &value
 }

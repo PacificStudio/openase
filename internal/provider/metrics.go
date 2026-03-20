@@ -5,7 +5,7 @@ type Tags map[string]string
 
 // Counter records additive totals.
 type Counter interface {
-	Add(int64)
+	Add(float64)
 }
 
 // Histogram records sampled floating point values.
@@ -46,7 +46,7 @@ func (noopMetricsProvider) Gauge(string, Tags) Gauge {
 
 type noopCounter struct{}
 
-func (noopCounter) Add(int64) {}
+func (noopCounter) Add(float64) {}
 
 type noopHistogram struct{}
 

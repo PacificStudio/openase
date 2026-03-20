@@ -3961,6 +3961,14 @@
                             "format": "double",
                             "type": "number"
                           },
+                          "cost_tokens_input": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "cost_tokens_output": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
                           "created_at": {
                             "type": "string"
                           },
@@ -4414,6 +4422,14 @@
                         "cost_amount": {
                           "format": "double",
                           "type": "number"
+                        },
+                        "cost_tokens_input": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
                         },
                         "created_at": {
                           "type": "string"
@@ -5346,6 +5362,14 @@
                         "cost_amount": {
                           "format": "double",
                           "type": "number"
+                        },
+                        "cost_tokens_input": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
                         },
                         "created_at": {
                           "type": "string"
