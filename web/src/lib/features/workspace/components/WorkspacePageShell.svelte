@@ -16,7 +16,7 @@
     children,
   }: {
     workspace: ReturnType<typeof createWorkspaceController>
-    selectedPage?: 'board' | 'workflows' | 'agents'
+    selectedPage?: 'board' | 'workflows' | 'agents' | 'notifications'
     drawerTitle?: string
     drawerDescription?: string
     drawerPane?: Snippet

@@ -26,7 +26,7 @@
     projects?: Project[]
     selectedOrgId?: string
     selectedProjectId?: string
-    selectedPage?: 'board' | 'workflows' | 'agents'
+    selectedPage?: 'board' | 'workflows' | 'agents' | 'notifications'
     workflowCount?: number
     ticketCount?: number
     onSelectOrganization?: (organization: Organization) => void
@@ -37,6 +37,7 @@
     { key: 'board', label: 'Board', href: '/' },
     { key: 'workflows', label: 'Workflows', href: '/workflows' },
     { key: 'agents', label: 'Agents', href: '/agents' },
+    { key: 'notifications', label: 'Notifications', href: '/notifications' },
   ] as const
 
   function pageHref(path: string) {
