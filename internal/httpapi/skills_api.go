@@ -9,7 +9,9 @@ import (
 
 type skillResponse struct {
 	Name           string                         `json:"name"`
+	Description    string                         `json:"description"`
 	Path           string                         `json:"path"`
+	IsBuiltin      bool                           `json:"is_builtin"`
 	BoundWorkflows []skillWorkflowBindingResponse `json:"bound_workflows"`
 }
 
@@ -188,7 +190,9 @@ func mapSkillResponses(items []workflowservice.Skill) []skillResponse {
 func mapSkillResponse(item workflowservice.Skill) skillResponse {
 	return skillResponse{
 		Name:           item.Name,
+		Description:    item.Description,
 		Path:           item.Path,
+		IsBuiltin:      item.IsBuiltin,
 		BoundWorkflows: mapSkillWorkflowBindings(item.BoundWorkflows),
 	}
 }
