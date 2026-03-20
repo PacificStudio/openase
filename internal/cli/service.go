@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -13,17 +15,41 @@ var managedServiceName = provider.MustParseServiceName("openase")
 
 const managedServiceDescription = "OpenASE -- Auto Software Engineering Platform"
 
+type upCommandDeps struct {
+	resolveConfigPath              func(string) (provider.AbsolutePath, error)
+	runSetupWizard                 func(context.Context, io.Writer) error
+	buildUserServiceManager        func() (provider.UserServiceManager, error)
+	buildManagedServiceInstallSpec func(string) (provider.UserServiceInstallSpec, error)
+}
+
 func newUpCommand(options *rootOptions) *cobra.Command {
+	return newUpCommandWithDeps(options, upCommandDeps{
+		resolveConfigPath:              resolveManagedServiceConfigPath,
+		runSetupWizard:                 runDefaultSetupWizard,
+		buildUserServiceManager:        buildUserServiceManager,
+		buildManagedServiceInstallSpec: buildManagedServiceInstallSpec,
+	})
+}
+
+func newUpCommandWithDeps(options *rootOptions, deps upCommandDeps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "up",
-		Short: "Install or update the user service, then start OpenASE.",
+		Short: "Start setup wizard on first run, otherwise install or update the user service.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			manager, err := buildUserServiceManager()
+			configPath, err := deps.resolveConfigPath(options.configFile)
+			if err != nil {
+				return err
+			}
+			if configPath == "" {
+				return deps.runSetupWizard(cmd.Context(), cmd.OutOrStdout())
+			}
+
+			manager, err := deps.buildUserServiceManager()
 			if err != nil {
 				return err
 			}
 
-			spec, err := buildManagedServiceInstallSpec(options.configFile)
+			spec, err := deps.buildManagedServiceInstallSpec(configPath.String())
 			if err != nil {
 				return err
 			}
@@ -199,10 +225,11 @@ func resolveManagedServiceConfigPath(configFile string) (provider.AbsolutePath, 
 }
 
 func managedServiceConfigCandidates(cwd string, homeDir string) []string {
-	candidates := make([]string, 0, 8)
+	candidates := make([]string, 0, 9)
 	for _, extension := range []string{"yaml", "yml", "json", "toml"} {
 		candidates = append(candidates, filepath.Join(cwd, "openase."+extension))
 	}
+	candidates = append(candidates, filepath.Join(homeDir, ".openase", "config.yaml"))
 	for _, extension := range []string{"yaml", "yml", "json", "toml"} {
 		candidates = append(candidates, filepath.Join(homeDir, ".openase", "openase."+extension))
 	}
