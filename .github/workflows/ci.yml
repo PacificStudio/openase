@@ -8,9 +8,71 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      go_changed: ${{ steps.detect.outputs.go_changed }}
+      web_changed: ${{ steps.detect.outputs.web_changed }}
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Changed Paths
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_rev="${{ github.event.pull_request.base.sha }}"
+          else
+            git fetch --no-tags origin main
+            base_rev="$(git merge-base origin/main HEAD)"
+          fi
+
+          mapfile -t changed_files < <(git diff --name-only "${base_rev}"...HEAD)
+
+          printf 'Comparing against %s\n' "${base_rev}"
+          if [[ "${#changed_files[@]}" -eq 0 ]]; then
+            printf 'Changed files:\n  (none)\n'
+          else
+            printf 'Changed files:\n'
+            printf '  %s\n' "${changed_files[@]}"
+          fi
+
+          go_changed=false
+          web_changed=false
+
+          for file in "${changed_files[@]}"; do
+            case "${file}" in
+              .github/workflows/*)
+                go_changed=true
+                web_changed=true
+                ;;
+              *.go|go.mod|go.sum|Makefile|.golangci.yml|.golangci.yaml)
+                go_changed=true
+                ;;
+              scripts/ci/*)
+                go_changed=true
+                ;;
+              web/*)
+                web_changed=true
+                ;;
+            esac
+          done
+
+          printf 'go_changed=%s\n' "${go_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'web_changed=%s\n' "${web_changed}" >> "${GITHUB_OUTPUT}"
+
   frontend:
     name: Frontend Checks
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.web_changed == 'true'
     defaults:
       run:
         working-directory: web
@@ -56,13 +118,19 @@ jobs:
   backend:
     name: Backend Checks
     runs-on: ubuntu-latest
-    needs: frontend
+    needs:
+      - changes
+      - frontend
+    if: |
+      needs.changes.outputs.go_changed == 'true' &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
 
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v4
 
       - name: Download Embedded Web Assets
+        if: needs.changes.outputs.web_changed == 'true'
         uses: actions/download-artifact@v4
         with:
           name: embedded-web-assets
@@ -72,6 +140,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
           cache-dependency-path: |
             go.mod
             go.sum
@@ -85,6 +154,8 @@ jobs:
   go-lint:
     name: Go Lint
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go_changed == 'true'
 
     steps:
       - name: Check Out Repository
@@ -92,30 +163,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set Up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
-
-      - name: Set Up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-
-      - name: Install Web Dependencies
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Build Web Assets
-        working-directory: web
-        run: pnpm run build
-
       - name: Set Up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
           cache-dependency-path: |
             go.mod
             go.sum
