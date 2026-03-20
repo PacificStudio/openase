@@ -52,7 +52,7 @@ Feature modules own their `api.ts`, `stores.ts`, `types.ts`, `mappers.ts`, and `
 
 ## File Budgets
 
-These budgets are enforced by `npm run lint:structure` and mirrored in ESLint where practical.
+These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint where practical.
 
 | File type                           | Soft limit | Hard limit           |
 | ----------------------------------- | ---------- | -------------------- |
@@ -74,20 +74,20 @@ Those files are explicitly tracked as refactor debt. New oversized route files a
 ## Quality Gates
 
 ```sh
-npm install
-npm run lint
-npm run lint:structure
-npm run lint:deps
-npm run check
-npm run build
-npm run ci
+pnpm install
+pnpm run lint
+pnpm run lint:structure
+pnpm run lint:deps
+pnpm run check
+pnpm run build
+pnpm run ci
 ```
 
-- `npm run lint`: ESLint with complexity, file-size, and cycle checks.
-- `npm run lint:structure`: custom file budget enforcement with explicit waivers for current debt only.
-- `npm run lint:deps`: dependency boundary enforcement for `ui -> layout -> features -> routes`.
-- `npm run check`: `svelte-check` type validation.
-- `npm run ci`: unified local and CI entrypoint for the frontend gate.
+- `pnpm run lint`: ESLint with complexity, file-size, and cycle checks.
+- `pnpm run lint:structure`: custom file budget enforcement with explicit waivers for current debt only.
+- `pnpm run lint:deps`: dependency boundary enforcement for `ui -> layout -> features -> routes`.
+- `pnpm run check`: `svelte-check` type validation.
+- `pnpm run ci`: unified local and CI entrypoint for the frontend gate.
 
 ## Review Checklist
 

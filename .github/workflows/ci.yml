@@ -19,18 +19,23 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v4
 
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
       - name: Set Up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Install Web Dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run Web CI
-        run: npm run ci
+        run: pnpm run ci
 
       - name: Upload Embedded Web Assets
         uses: actions/upload-artifact@v4
@@ -78,6 +83,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install Web Dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Web Assets
+        working-directory: web
+        run: pnpm run build
+
       - name: Set Up Go
         uses: actions/setup-go@v5
         with:
@@ -89,6 +114,10 @@ jobs:
       - name: Fetch Base Branch
         if: github.event_name == 'pull_request'
         run: git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Fetch Main Branch
+        if: github.event_name != 'pull_request'
+        run: git fetch --no-tags origin main
 
       - name: Run Incremental Lint
         if: github.event_name == 'pull_request'

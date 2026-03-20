@@ -623,8 +623,6 @@ func (s *Session) waitLoop() {
 		s.shutdown(fmt.Errorf("codex app server exited: %w%s", err, s.stderrSuffix()))
 		return
 	}
-
-	s.shutdown(s.sessionError())
 }
 
 func (s *Session) captureStderr() {
