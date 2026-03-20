@@ -8,7 +8,7 @@ This guide covers the current repository state for building OpenASE from source,
 - PostgreSQL reachable from the machine that will run OpenASE
 - `git`
 - A local checkout of the primary repository you want OpenASE to manage
-- Optional: `pnpm` only when you modify files under `web/` (or use the bundled `corepack pnpm` path from Node.js)
+- Optional: `pnpm` via `corepack pnpm` when you modify files under `web/`
 - Optional: `codex`, `claude`, or `gemini` on `PATH` if you want setup to seed detected agent providers
 
 If `go` is not already on `PATH`, this workspace commonly uses one of these paths:
@@ -36,6 +36,7 @@ The equivalent explicit commands are:
 
 ```bash
 corepack pnpm --dir web install --frozen-lockfile
+corepack pnpm --dir web run api:generate
 corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
 ```
@@ -46,9 +47,36 @@ If you intentionally want to refresh the embedded frontend without using `make b
 
 ```bash
 corepack pnpm --dir web install --frozen-lockfile
+corepack pnpm --dir web run api:generate
 corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
 ```
+
+## API Contract Generation
+
+OpenASE now keeps the backend-exported OpenAPI contract and the frontend-generated TypeScript contract under version control.
+
+Regenerate both artifacts from the repo root with:
+
+```bash
+make openapi-generate
+```
+
+The explicit commands are:
+
+```bash
+go run ./cmd/openase openapi generate --output api/openapi.json
+corepack pnpm --dir web install --frozen-lockfile
+corepack pnpm --dir web run api:generate
+```
+
+To verify that committed artifacts are up to date, run:
+
+```bash
+make openapi-check
+```
+
+CI runs the same diff check and fails the PR when `api/openapi.json` or `web/src/lib/api/generated/openapi.d.ts` is stale.
 
 Use the compiled binary for service management commands such as `up`, `down`, `restart`, and `logs`. Those commands install or control a managed user service and should point at a stable executable path, not a temporary `go run` build artifact.
 

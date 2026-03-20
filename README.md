@@ -45,8 +45,8 @@ make build-web
 The equivalent explicit commands are:
 
 ```bash
-npm --prefix web ci
-npm --prefix web run build
+corepack pnpm --dir web install --frozen-lockfile
+corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
 ```
 

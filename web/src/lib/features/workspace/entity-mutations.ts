@@ -1,6 +1,12 @@
 import { api, toErrorMessage } from './api'
 import { defaultProjectForm } from './mappers'
-import type { Organization, Project, ProjectForm } from './types'
+import type {
+  Organization,
+  OrganizationResponse,
+  Project,
+  ProjectForm,
+  ProjectResponse,
+} from './types'
 
 type WorkspaceState = {
   orgBusy: boolean
@@ -28,7 +34,7 @@ export function createEntityMutationActions({
 }: Dependencies) {
   async function createOrganization() {
     await runOrgMutation(async () => {
-      const payload = await api<{ organization: Organization }>('/api/v1/orgs', {
+      const payload = await api<OrganizationResponse>('/api/v1/orgs', {
         method: 'POST',
         body: JSON.stringify(state.createOrgForm),
       })
@@ -61,7 +67,7 @@ export function createEntityMutationActions({
     }
 
     await runProjectMutation(async () => {
-      const payload = await api<{ project: Project }>(`/api/v1/orgs/${selectedOrg.id}/projects`, {
+      const payload = await api<ProjectResponse>(`/api/v1/orgs/${selectedOrg.id}/projects`, {
         method: 'POST',
         body: JSON.stringify({
           name: state.createProjectForm.name,

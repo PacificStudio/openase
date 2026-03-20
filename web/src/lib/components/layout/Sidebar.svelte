@@ -27,7 +27,7 @@
     projects?: Project[]
     selectedOrgId?: string
     selectedProjectId?: string
-    selectedPage?: 'board' | 'workflows' | 'agents' | 'connectors'
+    selectedPage?: 'board' | 'workflows' | 'agents' | 'connectors' | 'notifications'
     workflowCount?: number
     ticketCount?: number
     connectorCount?: number
@@ -40,6 +40,7 @@
     { key: 'workflows', label: 'Workflows', href: '/workflows' },
     { key: 'agents', label: 'Agents', href: '/agents' },
     { key: 'connectors', label: 'Connectors', href: '/connectors' },
+    { key: 'notifications', label: 'Notifications', href: '/notifications' },
   ] as const
 
   function pageHref(path: string) {
@@ -92,8 +93,8 @@
       <span>Navigation</span>
     </CardTitle>
     <CardDescription>
-      Keep the same project context while moving between board, workflow, agent, and connector
-      surfaces.
+      Keep the same project context while moving between board, workflow, agent, connector, and
+      notification surfaces.
     </CardDescription>
   </CardHeader>
   <CardContent class="grid gap-2">

@@ -1,5 +1,5 @@
 import { api } from '$lib/features/workspace'
-import type { Project } from '$lib/features/workspace'
+import type { ProjectResponse } from '$lib/features/workspace'
 import type { TicketDetailData, TicketDetailPayload } from './types'
 
 export async function loadTicketDetailData(
@@ -8,7 +8,7 @@ export async function loadTicketDetailData(
 ): Promise<TicketDetailData> {
   const [detailPayload, projectPayload] = await Promise.all([
     api<TicketDetailPayload>(`/api/v1/projects/${projectId}/tickets/${ticketId}/detail`),
-    api<{ project: Project }>(`/api/v1/projects/${projectId}`),
+    api<ProjectResponse>(`/api/v1/projects/${projectId}`),
   ])
 
   return {

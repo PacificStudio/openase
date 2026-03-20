@@ -53,7 +53,7 @@ jobs:
                 go_changed=true
                 web_changed=true
                 ;;
-              *.go|go.mod|go.sum|Makefile|.golangci.yml|.golangci.yaml)
+              *.go|go.mod|go.sum|Makefile|.golangci.yml|.golangci.yaml|api/*)
                 go_changed=true
                 ;;
               scripts/ci/*)
@@ -68,10 +68,44 @@ jobs:
           printf 'go_changed=%s\n' "${go_changed}" >> "${GITHUB_OUTPUT}"
           printf 'web_changed=%s\n' "${web_changed}" >> "${GITHUB_OUTPUT}"
 
+  api-contract:
+    name: API Contract Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.mod
+            go.sum
+
+      - name: Verify Generated OpenAPI Artifacts
+        run: make openapi-check
+
   frontend:
     name: Frontend Checks
     runs-on: ubuntu-latest
-    needs: changes
+    needs:
+      - changes
+      - api-contract
     if: needs.changes.outputs.web_changed == 'true'
     defaults:
       run:
@@ -111,6 +145,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - changes
+      - api-contract
       - frontend
     if: |
       needs.changes.outputs.go_changed == 'true' &&
