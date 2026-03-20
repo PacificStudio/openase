@@ -221,7 +221,7 @@ func ParseUpdateChannel(channelID uuid.UUID, raw ChannelPatchInput) (UpdateChann
 func ParseChannelConfig(channelType ChannelType, raw map[string]any) (ChannelConfig, error) {
 	switch channelType {
 	case ChannelTypeWebhook:
-		urlValue, err := requireHTTPSURL(raw, "url")
+		urlValue, err := requireHTTPURL(raw, "url")
 		if err != nil {
 			return nil, err
 		}
@@ -252,7 +252,7 @@ func ParseChannelConfig(channelType ChannelType, raw map[string]any) (ChannelCon
 			ChatID:   chatID,
 		}, nil
 	case ChannelTypeSlack:
-		webhookURL, err := requireHTTPSURL(raw, "webhook_url")
+		webhookURL, err := requireHTTPURL(raw, "webhook_url")
 		if err != nil {
 			return nil, err
 		}
@@ -350,27 +350,43 @@ func cloneRawConfig(raw map[string]any) (map[string]any, error) {
 
 	copied := make(map[string]any, len(raw))
 	for key, value := range raw {
-		switch typed := value.(type) {
-		case string:
-			copied[key] = typed
-		case bool:
-			copied[key] = typed
-		case float64:
-			copied[key] = typed
-		case int:
-			copied[key] = typed
-		case map[string]any:
-			nested, err := cloneRawConfig(typed)
-			if err != nil {
-				return nil, err
-			}
-			copied[key] = nested
-		default:
-			return nil, fmt.Errorf("config.%s must contain JSON scalar or object values", key)
+		cloned, err := cloneRawConfigValue(key, value)
+		if err != nil {
+			return nil, err
 		}
+		copied[key] = cloned
 	}
 
 	return copied, nil
+}
+
+func cloneRawConfigValue(path string, value any) (any, error) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, nil
+	case string:
+		return typed, nil
+	case bool:
+		return typed, nil
+	case float64:
+		return typed, nil
+	case int:
+		return typed, nil
+	case map[string]any:
+		return cloneRawConfig(typed)
+	case []any:
+		items := make([]any, 0, len(typed))
+		for idx, item := range typed {
+			cloned, err := cloneRawConfigValue(fmt.Sprintf("%s[%d]", path, idx), item)
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, cloned)
+		}
+		return items, nil
+	default:
+		return nil, fmt.Errorf("config.%s must contain JSON scalar, array, or object values", path)
+	}
 }
 
 func requireString(raw map[string]any, field string) (string, error) {
@@ -406,7 +422,7 @@ func optionalString(raw map[string]any, field string) (string, error) {
 	return strings.TrimSpace(text), nil
 }
 
-func requireHTTPSURL(raw map[string]any, field string) (string, error) {
+func requireHTTPURL(raw map[string]any, field string) (string, error) {
 	value, err := requireString(raw, field)
 	if err != nil {
 		return "", err
