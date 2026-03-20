@@ -10,7 +10,7 @@ OPENASE_BIN := ./bin/openase
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test check hooks-install hooks-run web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard
+.PHONY: help format fmt-check test check hooks-install hooks-run openapi-generate openapi-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard
 
 help:
 	@printf '%s\n' \
@@ -21,6 +21,8 @@ help:
 		'  make check         Run Go formatting and test checks' \
 		'  make hooks-install Install Git hooks via lefthook' \
 		'  make hooks-run     Run the pre-commit hook against all files' \
+		'  make openapi-generate Regenerate api/openapi.json and frontend generated API types' \
+		'  make openapi-check Regenerate OpenAPI artifacts and fail if git diff is non-empty' \
 		'  make web-install   Install frontend dependencies with pnpm install --frozen-lockfile' \
 		'  make web-lint      Run frontend ESLint checks' \
 		'  make web-format-check Verify frontend formatting with Prettier' \
@@ -82,6 +84,13 @@ hooks-install:
 
 hooks-run:
 	$(GO) tool lefthook run pre-commit --all-files --no-auto-install
+
+openapi-generate: web-install
+	$(GO) run $(OPENASE_MAIN) openapi generate --output api/openapi.json
+	$(PNPM) --dir $(WEB_DIR) run api:generate
+
+openapi-check: openapi-generate
+	git diff --exit-code -- api/openapi.json web/src/lib/api/generated/openapi.d.ts
 
 web-install:
 	$(PNPM) --dir $(WEB_DIR) install --frozen-lockfile

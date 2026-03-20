@@ -5,6 +5,8 @@
   "packageManager": "pnpm@10.32.1",
   "type": "module",
   "scripts": {
+    "api:generate": "openapi-typescript ../api/openapi.json -o src/lib/api/generated/openapi.d.ts",
+    "api:check": "pnpm run api:generate && git diff --exit-code -- ../api/openapi.json src/lib/api/generated/openapi.d.ts",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
@@ -31,6 +33,7 @@
     "eslint-plugin-sonarjs": "^3.0.5",
     "eslint-plugin-svelte": "^3.12.5",
     "globals": "^16.5.0",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.6.2",
     "prettier-plugin-svelte": "^3.4.0",
     "prettier-plugin-tailwindcss": "^0.7.1",

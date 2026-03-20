@@ -7,12 +7,14 @@ import type {
   Organization,
   OrganizationForm,
   Project,
+  ProjectStatus,
   ProjectForm,
   Skill,
   Ticket,
   TicketPriority,
   TicketStatus,
   Workflow,
+  WorkflowType,
   WorkflowForm,
 } from './types'
 
@@ -122,7 +124,7 @@ export function toProjectForm(item: Project): ProjectForm {
     name: item.name,
     slug: item.slug,
     description: item.description,
-    status: item.status,
+    status: item.status as ProjectStatus,
     maxConcurrentAgents: item.max_concurrent_agents,
   }
 }
@@ -130,7 +132,7 @@ export function toProjectForm(item: Project): ProjectForm {
 export function toWorkflowForm(item: Workflow): WorkflowForm {
   return {
     name: item.name,
-    type: item.type,
+    type: item.type as WorkflowType,
     pickupStatusId: item.pickup_status_id,
     finishStatusId: item.finish_status_id ?? '',
     maxConcurrent: item.max_concurrent,

@@ -13,7 +13,7 @@ import (
 //go:embed all:static
 var assets embed.FS
 
-const missingAssetsMessage = "OpenASE web UI assets are not built. Run `npm --prefix web install && npm --prefix web run build` (or `make build`) before rebuilding the Go binary."
+const missingAssetsMessage = "OpenASE web UI assets are not built. Run `corepack pnpm --dir web install --frozen-lockfile && corepack pnpm --dir web run build` (or `make build`) before rebuilding the Go binary."
 
 func Handler() http.Handler {
 	staticFS, err := fs.Sub(assets, "static")

@@ -7,6 +7,7 @@ import {
   toErrorMessage,
   type Ticket,
   type TicketPayload,
+  type TicketResponse,
   type TicketStatus,
 } from '$lib/features/workspace'
 
@@ -159,7 +160,7 @@ export function createBoardStore(onTicketMutation?: TicketMutationCallback) {
     )
 
     try {
-      const payload = await api<{ ticket: Ticket }>(`/api/v1/tickets/${ticket.id}`, {
+      const payload = await api<TicketResponse>(`/api/v1/tickets/${ticket.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ status_id: statusID }),
       })
