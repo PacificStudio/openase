@@ -239,19 +239,6 @@ func parseAgentProviderAdapterType(raw string) (entagentprovider.AdapterType, er
 	return adapterType, nil
 }
 
-func parseAgentStatus(raw string) (entagent.Status, error) {
-	if strings.TrimSpace(raw) == "" {
-		return entagent.DefaultStatus, nil
-	}
-
-	status := entagent.Status(strings.TrimSpace(strings.ToLower(raw)))
-	if err := entagent.StatusValidator(status); err != nil {
-		return "", fmt.Errorf("status must be one of idle, claimed, running, failed, terminated")
-	}
-
-	return status, nil
-}
-
 func parseStringList(fieldName string, raw []string) ([]string, error) {
 	if raw == nil {
 		return nil, nil
@@ -280,28 +267,6 @@ func parsePositiveInt(fieldName string, raw *int, defaultValue int) (int, error)
 	return *raw, nil
 }
 
-func parseNonNegativeInt(fieldName string, raw *int, defaultValue int) (int, error) {
-	if raw == nil {
-		return defaultValue, nil
-	}
-	if *raw < 0 {
-		return 0, fmt.Errorf("%s must be greater than or equal to zero", fieldName)
-	}
-
-	return *raw, nil
-}
-
-func parseNonNegativeInt64(fieldName string, raw *int64, defaultValue int64) (int64, error) {
-	if raw == nil {
-		return defaultValue, nil
-	}
-	if *raw < 0 {
-		return 0, fmt.Errorf("%s must be greater than or equal to zero", fieldName)
-	}
-
-	return *raw, nil
-}
-
 func parseNonNegativeFloat(fieldName string, raw *float64, defaultValue float64) (float64, error) {
 	if raw == nil {
 		return defaultValue, nil
@@ -311,25 +276,6 @@ func parseNonNegativeFloat(fieldName string, raw *float64, defaultValue float64)
 	}
 
 	return *raw, nil
-}
-
-func parseOptionalRFC3339Time(fieldName string, raw *string) (*time.Time, error) {
-	if raw == nil {
-		return nil, nil
-	}
-
-	trimmed := strings.TrimSpace(*raw)
-	if trimmed == "" {
-		return nil, nil
-	}
-
-	parsed, err := time.Parse(time.RFC3339, trimmed)
-	if err != nil {
-		return nil, fmt.Errorf("%s must be a valid RFC3339 timestamp", fieldName)
-	}
-
-	parsed = parsed.UTC()
-	return &parsed, nil
 }
 
 func cloneAnyMap(raw map[string]any) map[string]any {
