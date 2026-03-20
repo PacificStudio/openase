@@ -106,7 +106,6 @@
         name: parsed.value.name,
         color: parsed.value.color,
         is_default: parsed.value.isDefault,
-        position: statuses.length,
       })
       await reloadStatuses(projectId)
       statusSync.touch()
@@ -158,17 +157,13 @@
     const nextStatuses = moveStatus(statuses, statusId, direction)
     if (nextStatuses === statuses) return
 
-    const previousById = new Map(statuses.map((status) => [status.id, status.position]))
-    const changed = nextStatuses.filter((status) => previousById.get(status.id) !== status.position)
-    if (changed.length === 0) return
-
     statuses = nextStatuses
     busyStatusId = statusId
     error = ''
     feedback = ''
 
     try {
-      for (const status of changed) {
+      for (const status of nextStatuses) {
         await updateStatus(status.id, { position: status.position })
       }
       await reloadStatuses(projectId)
@@ -275,6 +270,7 @@
         {#each statuses as status, index (status.id)}
           <StatusSettingsRow
             {status}
+            order={index}
             busy={busyStatusId === status.id || resetting || loading}
             canMoveUp={index > 0}
             canMoveDown={index < statuses.length - 1}

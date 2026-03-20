@@ -27,12 +27,12 @@ export function normalizeStatuses(statuses: TicketStatus[]): EditableStatus[] {
   return statuses
     .slice()
     .sort((left, right) => left.position - right.position)
-    .map((status, index) => ({
+    .map((status) => ({
       id: status.id,
       name: status.name,
       color: status.color || '#94a3b8',
       isDefault: status.is_default,
-      position: index,
+      position: status.position,
     }))
 }
 

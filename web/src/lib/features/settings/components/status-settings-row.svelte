@@ -13,6 +13,7 @@
 
   let {
     status,
+    order,
     busy = false,
     canMoveUp = false,
     canMoveDown = false,
@@ -22,6 +23,7 @@
     onMoveDown,
   }: {
     status: EditableStatus
+    order: number
     busy?: boolean
     canMoveUp?: boolean
     canMoveDown?: boolean
@@ -69,7 +71,7 @@
   <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
     <div class="flex min-w-0 flex-1 items-center gap-3">
       <span class="text-muted-foreground w-7 shrink-0 text-xs font-medium">
-        {status.position + 1}.
+        {order + 1}.
       </span>
       <input
         type="color"
