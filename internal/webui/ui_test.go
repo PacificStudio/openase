@@ -20,7 +20,9 @@ func TestHandlerForFSMissingAssets(t *testing.T) {
 	}).ServeHTTP(rec, req)
 
 	res := rec.Result()
-	defer res.Body.Close()
+	defer func() {
+		_ = res.Body.Close()
+	}()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
@@ -69,7 +71,9 @@ func TestHandlerForFSServesIndexAndSPAPath(t *testing.T) {
 			handlerForFS(fsys).ServeHTTP(rec, req)
 
 			res := rec.Result()
-			defer res.Body.Close()
+			defer func() {
+				_ = res.Body.Close()
+			}()
 
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
