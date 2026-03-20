@@ -28,6 +28,7 @@ type Project struct {
 	Status                 entproject.Status
 	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
+	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
 }
 
@@ -60,13 +61,14 @@ type OrganizationInput struct {
 }
 
 type ProjectInput struct {
-	Name                   string  `json:"name"`
-	Slug                   string  `json:"slug"`
-	Description            string  `json:"description"`
-	Status                 string  `json:"status"`
-	DefaultWorkflowID      *string `json:"default_workflow_id"`
-	DefaultAgentProviderID *string `json:"default_agent_provider_id"`
-	MaxConcurrentAgents    *int    `json:"max_concurrent_agents"`
+	Name                   string   `json:"name"`
+	Slug                   string   `json:"slug"`
+	Description            string   `json:"description"`
+	Status                 string   `json:"status"`
+	DefaultWorkflowID      *string  `json:"default_workflow_id"`
+	DefaultAgentProviderID *string  `json:"default_agent_provider_id"`
+	AccessibleMachineIDs   []string `json:"accessible_machine_ids"`
+	MaxConcurrentAgents    *int     `json:"max_concurrent_agents"`
 }
 
 type ProjectRepoInput struct {
@@ -108,6 +110,7 @@ type CreateProject struct {
 	Status                 entproject.Status
 	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
+	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
 }
 
@@ -120,6 +123,7 @@ type UpdateProject struct {
 	Status                 entproject.Status
 	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
+	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
 }
 
@@ -224,6 +228,10 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 	if err != nil {
 		return CreateProject{}, err
 	}
+	accessibleMachineIDs, err := parseUUIDList("accessible_machine_ids", raw.AccessibleMachineIDs)
+	if err != nil {
+		return CreateProject{}, err
+	}
 
 	status, err := parseProjectStatus(raw.Status)
 	if err != nil {
@@ -243,6 +251,7 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 		Status:                 status,
 		DefaultWorkflowID:      defaultWorkflowID,
 		DefaultAgentProviderID: defaultAgentProviderID,
+		AccessibleMachineIDs:   accessibleMachineIDs,
 		MaxConcurrentAgents:    maxConcurrentAgents,
 	}, nil
 }
@@ -262,6 +271,7 @@ func ParseUpdateProject(id uuid.UUID, organizationID uuid.UUID, raw ProjectInput
 		Status:                 input.Status,
 		DefaultWorkflowID:      input.DefaultWorkflowID,
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
+		AccessibleMachineIDs:   input.AccessibleMachineIDs,
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,
 	}, nil
 }
@@ -461,6 +471,27 @@ func parseOptionalUUID(fieldName string, raw *string) (*uuid.UUID, error) {
 	}
 
 	return &parsed, nil
+}
+
+func parseUUIDList(fieldName string, raw []string) ([]uuid.UUID, error) {
+	parsed := make([]uuid.UUID, 0, len(raw))
+	seen := make(map[uuid.UUID]struct{}, len(raw))
+	for index, item := range raw {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			return nil, fmt.Errorf("%s[%d] must not be empty", fieldName, index)
+		}
+		value, err := uuid.Parse(trimmed)
+		if err != nil {
+			return nil, fmt.Errorf("%s[%d] must be a valid UUID", fieldName, index)
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		parsed = append(parsed, value)
+	}
+	return parsed, nil
 }
 
 func parseProjectStatus(raw string) (entproject.Status, error) {

@@ -106,6 +106,44 @@ func TestTicketUpdateCommandFallsBackToCurrentTicketEnv(t *testing.T) {
 	}
 }
 
+func TestTicketReportUsageCommandPostsUsagePayload(t *testing.T) {
+	var method string
+	var path string
+	var payload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		path = r.URL.RequestURI()
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ticket":{"id":"ticket-9","cost_tokens_input":120,"cost_tokens_output":45,"cost_amount":0.21},"applied":{"input_tokens":120,"output_tokens":45,"cost_usd":0.21},"budget_exceeded":true}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
+
+	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"report-usage", "--input-tokens", "120", "--output-tokens", "45", "--cost-usd", "0.21"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if method != http.MethodPost {
+		t.Fatalf("expected POST, got %s", method)
+	}
+	if path != "/tickets/ticket-9/usage" {
+		t.Fatalf("expected ticket usage path, got %q", path)
+	}
+	if payload["input_tokens"] != float64(120) || payload["output_tokens"] != float64(45) || payload["cost_usd"] != 0.21 {
+		t.Fatalf("unexpected usage payload: %+v", payload)
+	}
+}
+
 func TestProjectAddRepoCommandPostsRepoPayload(t *testing.T) {
 	var method string
 	var path string

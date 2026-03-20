@@ -55,6 +55,18 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	targetMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("gpu-01").
+		SetHost("10.0.1.10").
+		SetPort(22).
+		SetSSHUser("openase").
+		SetSSHKeyPath("/tmp/gpu-01.pem").
+		SetDescription("GPU worker").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create target machine: %v", err)
+	}
 
 	statusSvc := ticketstatus.NewService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
@@ -85,13 +97,14 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
 		map[string]any{
-			"title":       "Implement ticket API",
-			"description": "cover create/list/detail/update",
-			"priority":    "high",
-			"type":        "epic",
-			"workflow_id": workflowItem.ID.String(),
-			"created_by":  "user:gary",
-			"budget_usd":  3.5,
+			"title":             "Implement ticket API",
+			"description":       "cover create/list/detail/update",
+			"priority":          "high",
+			"type":              "epic",
+			"workflow_id":       workflowItem.ID.String(),
+			"target_machine_id": targetMachine.ID.String(),
+			"created_by":        "user:gary",
+			"budget_usd":        3.5,
 		},
 		http.StatusCreated,
 		&parentCreateResp,
@@ -101,6 +114,9 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	}
 	if parentCreateResp.Ticket.StatusName != "Backlog" || parentCreateResp.Ticket.CreatedBy != "user:gary" {
 		t.Fatalf("unexpected parent create response: %+v", parentCreateResp.Ticket)
+	}
+	if parentCreateResp.Ticket.TargetMachineID == nil || *parentCreateResp.Ticket.TargetMachineID != targetMachine.ID.String() {
+		t.Fatalf("expected target machine binding %s, got %+v", targetMachine.ID, parentCreateResp.Ticket.TargetMachineID)
 	}
 
 	childCreateResp := struct {
@@ -171,12 +187,13 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/tickets/%s", childCreateResp.Ticket.ID),
 		map[string]any{
-			"title":            "Implement dependency HTTP routes",
-			"priority":         "low",
-			"status_id":        doneID.String(),
-			"external_ref":     "BetterAndBetterII/openase#6",
-			"budget_usd":       1.25,
-			"parent_ticket_id": "",
+			"title":             "Implement dependency HTTP routes",
+			"priority":          "low",
+			"status_id":         doneID.String(),
+			"external_ref":      "BetterAndBetterII/openase#6",
+			"budget_usd":        1.25,
+			"target_machine_id": "",
+			"parent_ticket_id":  "",
 		},
 		http.StatusOK,
 		&childUpdateResp,
@@ -186,6 +203,9 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	}
 	if childUpdateResp.Ticket.StatusID != doneID.String() || childUpdateResp.Ticket.ExternalRef != "BetterAndBetterII/openase#6" {
 		t.Fatalf("unexpected child patch response: %+v", childUpdateResp.Ticket)
+	}
+	if childUpdateResp.Ticket.TargetMachineID != nil {
+		t.Fatalf("expected patch to clear target machine binding, got %+v", childUpdateResp.Ticket.TargetMachineID)
 	}
 
 	peerCreateResp := struct {

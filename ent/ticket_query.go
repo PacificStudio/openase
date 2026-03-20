@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -36,6 +37,7 @@ type TicketQuery struct {
 	withProject              *ProjectQuery
 	withStatus               *TicketStatusQuery
 	withWorkflow             *WorkflowQuery
+	withTargetMachine        *MachineQuery
 	withAssignedAgent        *AgentQuery
 	withParent               *TicketQuery
 	withChildren             *TicketQuery
@@ -140,6 +142,28 @@ func (_q *TicketQuery) QueryWorkflow() *WorkflowQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
 			sqlgraph.To(workflow.Table, workflow.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, ticket.WorkflowTable, ticket.WorkflowColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryTargetMachine chains the current query on the "target_machine" edge.
+func (_q *TicketQuery) QueryTargetMachine() *MachineQuery {
+	query := (&MachineClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
+			sqlgraph.To(machine.Table, machine.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticket.TargetMachineTable, ticket.TargetMachineColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -540,6 +564,7 @@ func (_q *TicketQuery) Clone() *TicketQuery {
 		withProject:              _q.withProject.Clone(),
 		withStatus:               _q.withStatus.Clone(),
 		withWorkflow:             _q.withWorkflow.Clone(),
+		withTargetMachine:        _q.withTargetMachine.Clone(),
 		withAssignedAgent:        _q.withAssignedAgent.Clone(),
 		withParent:               _q.withParent.Clone(),
 		withChildren:             _q.withChildren.Clone(),
@@ -585,6 +610,17 @@ func (_q *TicketQuery) WithWorkflow(opts ...func(*WorkflowQuery)) *TicketQuery {
 		opt(query)
 	}
 	_q.withWorkflow = query
+	return _q
+}
+
+// WithTargetMachine tells the query-builder to eager-load the nodes that are connected to
+// the "target_machine" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TicketQuery) WithTargetMachine(opts ...func(*MachineQuery)) *TicketQuery {
+	query := (&MachineClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withTargetMachine = query
 	return _q
 }
 
@@ -765,10 +801,11 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 	var (
 		nodes       = []*Ticket{}
 		_spec       = _q.querySpec()
-		loadedTypes = [12]bool{
+		loadedTypes = [13]bool{
 			_q.withProject != nil,
 			_q.withStatus != nil,
 			_q.withWorkflow != nil,
+			_q.withTargetMachine != nil,
 			_q.withAssignedAgent != nil,
 			_q.withParent != nil,
 			_q.withChildren != nil,
@@ -813,6 +850,12 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 	if query := _q.withWorkflow; query != nil {
 		if err := _q.loadWorkflow(ctx, query, nodes, nil,
 			func(n *Ticket, e *Workflow) { n.Edges.Workflow = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withTargetMachine; query != nil {
+		if err := _q.loadTargetMachine(ctx, query, nodes, nil,
+			func(n *Ticket, e *Machine) { n.Edges.TargetMachine = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -967,6 +1010,38 @@ func (_q *TicketQuery) loadWorkflow(ctx context.Context, query *WorkflowQuery, n
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "workflow_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *TicketQuery) loadTargetMachine(ctx context.Context, query *MachineQuery, nodes []*Ticket, init func(*Ticket), assign func(*Ticket, *Machine)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Ticket)
+	for i := range nodes {
+		if nodes[i].TargetMachineID == nil {
+			continue
+		}
+		fk := *nodes[i].TargetMachineID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(machine.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "target_machine_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -1288,6 +1363,9 @@ func (_q *TicketQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withWorkflow != nil {
 			_spec.Node.AddColumnOnce(ticket.FieldWorkflowID)
+		}
+		if _q.withTargetMachine != nil {
+			_spec.Node.AddColumnOnce(ticket.FieldTargetMachineID)
 		}
 		if _q.withAssignedAgent != nil {
 			_spec.Node.AddColumnOnce(ticket.FieldAssignedAgentID)

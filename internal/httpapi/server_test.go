@@ -15,6 +15,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	otelinfra "github.com/BetterAndBetterII/openase/internal/infra/otel"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	"github.com/BetterAndBetterII/openase/internal/webui"
 	"github.com/labstack/echo/v4"
 )
@@ -52,6 +53,56 @@ func TestMetricsRouteDisabledByDefault(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected disabled metrics route to return 404, got %d", rec.Code)
+	}
+}
+
+func TestSystemDashboardRouteReturnsMemorySnapshot(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProcessMemoryCollector(staticProcessMemoryCollector{snapshot: runtimeobservability.ProcessMemorySnapshot{
+			ObservedAt:        time.Date(2026, time.March, 20, 9, 15, 0, 0, time.UTC),
+			Goroutines:        11,
+			AllocBytes:        2048,
+			TotalAllocBytes:   4096,
+			SysBytes:          8192,
+			HeapAllocBytes:    1024,
+			HeapInuseBytes:    1536,
+			HeapIdleBytes:     2560,
+			HeapReleasedBytes: 512,
+			StackInuseBytes:   768,
+			NextGCBytes:       6144,
+			GCCycles:          5,
+		}}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/dashboard", http.NoBody)
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected system dashboard route to return 200, got %d", rec.Code)
+	}
+
+	var payload OpenAPISystemDashboardResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("expected JSON payload: %v", err)
+	}
+	if payload.Memory.ObservedAt != "2026-03-20T09:15:00Z" {
+		t.Fatalf("expected observed_at to round-trip, got %q", payload.Memory.ObservedAt)
+	}
+	if payload.Memory.HeapInuseBytes != 1536 {
+		t.Fatalf("expected heap_inuse_bytes 1536, got %d", payload.Memory.HeapInuseBytes)
+	}
+	if payload.Memory.GCCycles != 5 {
+		t.Fatalf("expected gc_cycles 5, got %d", payload.Memory.GCCycles)
 	}
 }
 
@@ -108,6 +159,14 @@ func TestMetricsRouteExportsHTTPMetrics(t *testing.T) {
 			t.Fatalf("expected metrics scrape to contain %q, got %q", expected, body)
 		}
 	}
+}
+
+type staticProcessMemoryCollector struct {
+	snapshot runtimeobservability.ProcessMemorySnapshot
+}
+
+func (c staticProcessMemoryCollector) Snapshot() runtimeobservability.ProcessMemorySnapshot {
+	return c.snapshot
 }
 
 func TestHealthRouteCreatesTracingSpan(t *testing.T) {

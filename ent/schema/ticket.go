@@ -28,6 +28,9 @@ func (Ticket) Fields() []ent.Field {
 		field.UUID("workflow_id", uuidZero()).
 			Optional().
 			Nillable(),
+		field.UUID("target_machine_id", uuidZero()).
+			Optional().
+			Nillable(),
 		field.UUID("assigned_agent_id", uuidZero()).
 			Optional().
 			Nillable(),
@@ -74,6 +77,10 @@ func (Ticket) Edges() []ent.Edge {
 		edge.From("workflow", Workflow.Type).
 			Ref("tickets").
 			Field("workflow_id").
+			Unique(),
+		edge.From("target_machine", Machine.Type).
+			Ref("target_tickets").
+			Field("target_machine_id").
 			Unique(),
 		edge.From("assigned_agent", Agent.Type).
 			Ref("assigned_tickets").

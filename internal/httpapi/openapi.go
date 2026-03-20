@@ -26,15 +26,16 @@ type OpenAPIOrganization struct {
 }
 
 type OpenAPIProject struct {
-	ID                     string  `json:"id"`
-	OrganizationID         string  `json:"organization_id"`
-	Name                   string  `json:"name"`
-	Slug                   string  `json:"slug"`
-	Description            string  `json:"description"`
-	Status                 string  `json:"status"`
-	DefaultWorkflowID      *string `json:"default_workflow_id,omitempty"`
-	DefaultAgentProviderID *string `json:"default_agent_provider_id,omitempty"`
-	MaxConcurrentAgents    int     `json:"max_concurrent_agents"`
+	ID                     string   `json:"id"`
+	OrganizationID         string   `json:"organization_id"`
+	Name                   string   `json:"name"`
+	Slug                   string   `json:"slug"`
+	Description            string   `json:"description"`
+	Status                 string   `json:"status"`
+	DefaultWorkflowID      *string  `json:"default_workflow_id,omitempty"`
+	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
+	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
+	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
 }
 
 type OpenAPIMachine struct {
@@ -153,6 +154,7 @@ type OpenAPITicket struct {
 	Priority          string                      `json:"priority"`
 	Type              string                      `json:"type"`
 	WorkflowID        *string                     `json:"workflow_id,omitempty"`
+	TargetMachineID   *string                     `json:"target_machine_id,omitempty"`
 	CreatedBy         string                      `json:"created_by"`
 	Parent            *OpenAPITicketReference     `json:"parent,omitempty"`
 	Children          []OpenAPITicketReference    `json:"children"`
@@ -160,6 +162,8 @@ type OpenAPITicket struct {
 	ExternalLinks     []OpenAPITicketExternalLink `json:"external_links"`
 	ExternalRef       string                      `json:"external_ref"`
 	BudgetUSD         float64                     `json:"budget_usd"`
+	CostTokensInput   int64                       `json:"cost_tokens_input"`
+	CostTokensOutput  int64                       `json:"cost_tokens_output"`
 	CostAmount        float64                     `json:"cost_amount"`
 	AttemptCount      int                         `json:"attempt_count"`
 	ConsecutiveErrors int                         `json:"consecutive_errors"`
@@ -206,21 +210,22 @@ type OpenAPITicketStatus struct {
 }
 
 type OpenAPIWorkflow struct {
-	ID                  string         `json:"id"`
-	ProjectID           string         `json:"project_id"`
-	Name                string         `json:"name"`
-	Type                string         `json:"type"`
-	HarnessPath         string         `json:"harness_path"`
-	HarnessContent      *string        `json:"harness_content,omitempty"`
-	Hooks               map[string]any `json:"hooks"`
-	MaxConcurrent       int            `json:"max_concurrent"`
-	MaxRetryAttempts    int            `json:"max_retry_attempts"`
-	TimeoutMinutes      int            `json:"timeout_minutes"`
-	StallTimeoutMinutes int            `json:"stall_timeout_minutes"`
-	Version             int            `json:"version"`
-	IsActive            bool           `json:"is_active"`
-	PickupStatusID      string         `json:"pickup_status_id"`
-	FinishStatusID      *string        `json:"finish_status_id,omitempty"`
+	ID                    string         `json:"id"`
+	ProjectID             string         `json:"project_id"`
+	Name                  string         `json:"name"`
+	Type                  string         `json:"type"`
+	HarnessPath           string         `json:"harness_path"`
+	HarnessContent        *string        `json:"harness_content,omitempty"`
+	Hooks                 map[string]any `json:"hooks"`
+	RequiredMachineLabels []string       `json:"required_machine_labels,omitempty"`
+	MaxConcurrent         int            `json:"max_concurrent"`
+	MaxRetryAttempts      int            `json:"max_retry_attempts"`
+	TimeoutMinutes        int            `json:"timeout_minutes"`
+	StallTimeoutMinutes   int            `json:"stall_timeout_minutes"`
+	Version               int            `json:"version"`
+	IsActive              bool           `json:"is_active"`
+	PickupStatusID        string         `json:"pickup_status_id"`
+	FinishStatusID        *string        `json:"finish_status_id,omitempty"`
 }
 
 type OpenAPIHarnessDocument struct {
@@ -488,6 +493,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			Schemas: openapi3.Schemas{},
 		},
 		Tags: openapi3.Tags{
+			{Name: "system"},
 			{Name: "catalog"},
 			{Name: "tickets"},
 			{Name: "workflows"},
@@ -499,6 +505,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 	}
 
 	builder := openAPISpecBuilder{doc: doc}
+	if err := builder.addSystemOperations(); err != nil {
+		return nil, err
+	}
 	if err := builder.addCatalogOperations(); err != nil {
 		return nil, err
 	}
@@ -551,6 +560,24 @@ func (s *Server) handleOpenAPI(c echo.Context) error {
 
 type openAPISpecBuilder struct {
 	doc *openapi3.T
+}
+
+func (b openAPISpecBuilder) addSystemOperations() error {
+	dashboardGet, err := b.jsonOperation(
+		"getSystemDashboard",
+		"Get process memory and runtime dashboard metrics",
+		[]string{"system"},
+		http.StatusOK,
+		OpenAPISystemDashboardResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/system/dashboard", http.MethodGet, dashboardGet)
+
+	return nil
 }
 
 func (b openAPISpecBuilder) addCatalogOperations() error {

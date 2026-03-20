@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -34,6 +35,8 @@ type Project struct {
 	DefaultWorkflowID *uuid.UUID `json:"default_workflow_id,omitempty"`
 	// DefaultAgentProviderID holds the value of the "default_agent_provider_id" field.
 	DefaultAgentProviderID *uuid.UUID `json:"default_agent_provider_id,omitempty"`
+	// AccessibleMachineIds holds the value of the "accessible_machine_ids" field.
+	AccessibleMachineIds []uuid.UUID `json:"accessible_machine_ids,omitempty"`
 	// MaxConcurrentAgents holds the value of the "max_concurrent_agents" field.
 	MaxConcurrentAgents int `json:"max_concurrent_agents,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -194,6 +197,8 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case project.FieldDefaultWorkflowID, project.FieldDefaultAgentProviderID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case project.FieldAccessibleMachineIds:
+			values[i] = new([]byte)
 		case project.FieldMaxConcurrentAgents:
 			values[i] = new(sql.NullInt64)
 		case project.FieldName, project.FieldSlug, project.FieldDescription, project.FieldStatus:
@@ -264,6 +269,14 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.DefaultAgentProviderID = new(uuid.UUID)
 				*_m.DefaultAgentProviderID = *value.S.(*uuid.UUID)
+			}
+		case project.FieldAccessibleMachineIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field accessible_machine_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.AccessibleMachineIds); err != nil {
+					return fmt.Errorf("unmarshal field accessible_machine_ids: %w", err)
+				}
 			}
 		case project.FieldMaxConcurrentAgents:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -391,6 +404,9 @@ func (_m *Project) String() string {
 		builder.WriteString("default_agent_provider_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("accessible_machine_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AccessibleMachineIds))
 	builder.WriteString(", ")
 	builder.WriteString("max_concurrent_agents=")
 	builder.WriteString(fmt.Sprintf("%v", _m.MaxConcurrentAgents))

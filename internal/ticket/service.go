@@ -10,6 +10,8 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
@@ -27,18 +29,19 @@ const (
 
 var (
 	// Ticket service errors describe invalid or missing ticket resources.
-	ErrUnavailable          = errors.New("ticket service unavailable")
-	ErrProjectNotFound      = errors.New("project not found")
-	ErrTicketNotFound       = errors.New("ticket not found")
-	ErrTicketConflict       = errors.New("ticket identifier already exists in project")
-	ErrStatusNotFound       = errors.New("ticket status not found")
-	ErrWorkflowNotFound     = errors.New("workflow not found")
-	ErrParentTicketNotFound = errors.New("parent ticket not found")
-	ErrDependencyNotFound   = errors.New("ticket dependency not found")
-	ErrDependencyConflict   = errors.New("ticket dependency already exists")
-	ErrExternalLinkNotFound = errors.New("ticket external link not found")
-	ErrExternalLinkConflict = errors.New("ticket external link already exists")
-	ErrInvalidDependency    = errors.New("invalid ticket dependency")
+	ErrUnavailable           = errors.New("ticket service unavailable")
+	ErrProjectNotFound       = errors.New("project not found")
+	ErrTicketNotFound        = errors.New("ticket not found")
+	ErrTicketConflict        = errors.New("ticket identifier already exists in project")
+	ErrStatusNotFound        = errors.New("ticket status not found")
+	ErrWorkflowNotFound      = errors.New("workflow not found")
+	ErrParentTicketNotFound  = errors.New("parent ticket not found")
+	ErrTargetMachineNotFound = errors.New("target machine not found in project organization")
+	ErrDependencyNotFound    = errors.New("ticket dependency not found")
+	ErrDependencyConflict    = errors.New("ticket dependency already exists")
+	ErrExternalLinkNotFound  = errors.New("ticket external link not found")
+	ErrExternalLinkConflict  = errors.New("ticket external link already exists")
+	ErrInvalidDependency     = errors.New("invalid ticket dependency")
 )
 
 // Optional captures whether a value was provided for a partial update.
@@ -92,6 +95,7 @@ type Ticket struct {
 	Priority          entticket.Priority `json:"priority"`
 	Type              entticket.Type     `json:"type"`
 	WorkflowID        *uuid.UUID         `json:"workflow_id,omitempty"`
+	TargetMachineID   *uuid.UUID         `json:"target_machine_id,omitempty"`
 	CreatedBy         string             `json:"created_by"`
 	Parent            *TicketReference   `json:"parent,omitempty"`
 	Children          []TicketReference  `json:"children"`
@@ -99,6 +103,8 @@ type Ticket struct {
 	ExternalLinks     []ExternalLink     `json:"external_links"`
 	ExternalRef       string             `json:"external_ref"`
 	BudgetUSD         float64            `json:"budget_usd"`
+	CostTokensInput   int64              `json:"cost_tokens_input"`
+	CostTokensOutput  int64              `json:"cost_tokens_output"`
 	CostAmount        float64            `json:"cost_amount"`
 	AttemptCount      int                `json:"attempt_count"`
 	ConsecutiveErrors int                `json:"consecutive_errors"`
@@ -118,32 +124,34 @@ type ListInput struct {
 
 // CreateInput carries the fields required to create a ticket.
 type CreateInput struct {
-	ProjectID      uuid.UUID
-	Title          string
-	Description    string
-	StatusID       *uuid.UUID
-	Priority       entticket.Priority
-	Type           entticket.Type
-	WorkflowID     *uuid.UUID
-	CreatedBy      string
-	ParentTicketID *uuid.UUID
-	ExternalRef    string
-	BudgetUSD      float64
+	ProjectID       uuid.UUID
+	Title           string
+	Description     string
+	StatusID        *uuid.UUID
+	Priority        entticket.Priority
+	Type            entticket.Type
+	WorkflowID      *uuid.UUID
+	TargetMachineID *uuid.UUID
+	CreatedBy       string
+	ParentTicketID  *uuid.UUID
+	ExternalRef     string
+	BudgetUSD       float64
 }
 
 // UpdateInput carries a partial ticket update request.
 type UpdateInput struct {
-	TicketID       uuid.UUID
-	Title          Optional[string]
-	Description    Optional[string]
-	StatusID       Optional[uuid.UUID]
-	Priority       Optional[entticket.Priority]
-	Type           Optional[entticket.Type]
-	WorkflowID     Optional[*uuid.UUID]
-	CreatedBy      Optional[string]
-	ParentTicketID Optional[*uuid.UUID]
-	ExternalRef    Optional[string]
-	BudgetUSD      Optional[float64]
+	TicketID        uuid.UUID
+	Title           Optional[string]
+	Description     Optional[string]
+	StatusID        Optional[uuid.UUID]
+	Priority        Optional[entticket.Priority]
+	Type            Optional[entticket.Type]
+	WorkflowID      Optional[*uuid.UUID]
+	TargetMachineID Optional[*uuid.UUID]
+	CreatedBy       Optional[string]
+	ParentTicketID  Optional[*uuid.UUID]
+	ExternalRef     Optional[string]
+	BudgetUSD       Optional[float64]
 }
 
 // AddDependencyInput adds a dependency edge to a ticket.
@@ -284,6 +292,11 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error)
 			return Ticket{}, err
 		}
 	}
+	if input.TargetMachineID != nil {
+		if err := ensureTargetMachineBelongsToProjectOrganization(ctx, tx, input.ProjectID, *input.TargetMachineID); err != nil {
+			return Ticket{}, err
+		}
+	}
 	if input.ParentTicketID != nil {
 		if err := ensureTicketBelongsToProject(ctx, tx, input.ProjectID, *input.ParentTicketID, ErrParentTicketNotFound); err != nil {
 			return Ticket{}, err
@@ -308,6 +321,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error)
 
 	if input.WorkflowID != nil {
 		builder.SetWorkflowID(*input.WorkflowID)
+	}
+	if input.TargetMachineID != nil {
+		builder.SetTargetMachineID(*input.TargetMachineID)
 	}
 	if input.ParentTicketID != nil {
 		builder.SetParentTicketID(*input.ParentTicketID)
@@ -353,6 +369,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 
 	builder := tx.Ticket.UpdateOneID(current.ID)
 	statusChanged := false
+	targetMachineChanged := false
 
 	if input.Title.Set {
 		builder.SetTitle(input.Title.Value)
@@ -381,6 +398,20 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 				return Ticket{}, err
 			}
 			builder.SetWorkflowID(*input.WorkflowID.Value)
+		}
+	}
+	if input.TargetMachineID.Set {
+		if input.TargetMachineID.Value == nil {
+			builder.ClearTargetMachineID()
+		} else {
+			if err := ensureTargetMachineBelongsToProjectOrganization(ctx, tx, current.ProjectID, *input.TargetMachineID.Value); err != nil {
+				return Ticket{}, err
+			}
+			builder.SetTargetMachineID(*input.TargetMachineID.Value)
+		}
+		targetMachineChanged = !optionalUUIDPointerEqual(current.TargetMachineID, input.TargetMachineID.Value)
+		if targetMachineChanged {
+			builder.ClearAssignedAgentID()
 		}
 	}
 	if input.CreatedBy.Set {
@@ -420,7 +451,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	if _, err := builder.Save(ctx); err != nil {
 		return Ticket{}, s.mapTicketWriteError("update ticket", err)
 	}
-	if statusChanged {
+	if statusChanged || targetMachineChanged {
 		if err := releaseTicketAgentClaim(ctx, tx, current); err != nil {
 			return Ticket{}, err
 		}
@@ -787,6 +818,23 @@ func ensureTicketBelongsToProject(ctx context.Context, tx *ent.Tx, projectID uui
 	return nil
 }
 
+func ensureTargetMachineBelongsToProjectOrganization(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, machineID uuid.UUID) error {
+	exists, err := tx.Machine.Query().
+		Where(
+			entmachine.IDEQ(machineID),
+			entmachine.HasOrganizationWith(entorganization.HasProjectsWith(project.ID(projectID))),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check target machine existence: %w", err)
+	}
+	if !exists {
+		return ErrTargetMachineNotFound
+	}
+
+	return nil
+}
+
 func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ticket) error {
 	if ticketItem == nil || ticketItem.AssignedAgentID == nil {
 		return nil
@@ -957,6 +1005,17 @@ func resolveCreatedBy(raw string) string {
 	return strings.TrimSpace(raw)
 }
 
+func optionalUUIDPointerEqual(left *uuid.UUID, right *uuid.UUID) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return *left == *right
+	}
+}
+
 func mapTicket(item *ent.Ticket) Ticket {
 	result := Ticket{
 		ID:                item.ID,
@@ -968,12 +1027,15 @@ func mapTicket(item *ent.Ticket) Ticket {
 		Priority:          item.Priority,
 		Type:              item.Type,
 		WorkflowID:        item.WorkflowID,
+		TargetMachineID:   item.TargetMachineID,
 		CreatedBy:         item.CreatedBy,
 		Children:          []TicketReference{},
 		Dependencies:      []Dependency{},
 		ExternalLinks:     []ExternalLink{},
 		ExternalRef:       item.ExternalRef,
 		BudgetUSD:         item.BudgetUsd,
+		CostTokensInput:   item.CostTokensInput,
+		CostTokensOutput:  item.CostTokensOutput,
 		CostAmount:        item.CostAmount,
 		AttemptCount:      item.AttemptCount,
 		ConsecutiveErrors: item.ConsecutiveErrors,

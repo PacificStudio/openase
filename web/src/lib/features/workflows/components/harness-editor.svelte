@@ -35,9 +35,7 @@
   let filteredSuggestions = $derived(filterSuggestions(suggestions, completionState))
 
   $effect(() => {
-    if (activeSuggestionIndex >= filteredSuggestions.length) {
-      activeSuggestionIndex = 0
-    }
+    if (activeSuggestionIndex >= filteredSuggestions.length) activeSuggestionIndex = 0
   })
 
   $effect(() => {
@@ -100,9 +98,7 @@
   }
 
   async function applySuggestion(suggestion: Suggestion | undefined) {
-    if (!suggestion || !completionState || !textareaElement) {
-      return
-    }
+    if (!suggestion || !completionState || !textareaElement) return
 
     const cursor = textareaElement.selectionStart
     const nextValue =
@@ -117,9 +113,7 @@
 
     textareaElement?.focus()
     textareaElement?.setSelectionRange(nextCursor, nextCursor)
-    if (textareaElement) {
-      refreshCompletion(textareaElement)
-    }
+    if (textareaElement) refreshCompletion(textareaElement)
   }
 </script>
 
