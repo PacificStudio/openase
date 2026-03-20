@@ -1,4 +1,5 @@
-import { formatJSONObject, type NotificationChannel, type NotificationRule } from './types'
+import { areJSONValuesEqual } from './parsers'
+import type { JSONObject, NotificationChannel, NotificationRule } from './types'
 import type { NotificationsState } from './editor'
 
 export function buildChannelCreateInput(state: NotificationsState) {
@@ -59,7 +60,7 @@ export function buildRuleUpdateInput(
   if (state.ruleForm.channelId !== rule.channel_id) {
     patch.channel_id = state.ruleForm.channelId
   }
-  if (formatJSONObject(parsedFilter) !== formatJSONObject(rule.filter)) {
+  if (!areJSONValuesEqual(parsedFilter, rule.filter)) {
     patch.filter = parsedFilter
   }
   if (state.ruleForm.template.trim() !== rule.template) {
@@ -74,7 +75,7 @@ export function buildRuleUpdateInput(
   return patch
 }
 
-function parseChannelConfig(state: NotificationsState) {
+function parseChannelConfig(state: NotificationsState): JSONObject {
   switch (state.channelForm.type) {
     case 'webhook':
       return {
@@ -113,7 +114,7 @@ function parseJSONObject(raw: string, label: string) {
   if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
     throw new Error(`${label} must be a JSON object.`)
   }
-  return parsed as Record<string, unknown>
+  return parsed as JSONObject
 }
 
 function requireNonEmpty(value: string, label: string) {

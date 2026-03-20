@@ -1,14 +1,54 @@
 export type NotificationChannelType = 'webhook' | 'telegram' | 'slack' | 'wecom'
 
-export type NotificationChannel = {
+export type JSONPrimitive = string | number | boolean | null
+export type JSONArray = JSONValue[]
+export type JSONObject = { [key: string]: JSONValue }
+export type JSONValue = JSONPrimitive | JSONArray | JSONObject
+
+export type WebhookChannelConfig = {
+  url?: string
+  headers: JSONObject
+  secret?: string
+}
+
+export type TelegramChannelConfig = {
+  bot_token?: string
+  chat_id?: string
+}
+
+export type SlackChannelConfig = {
+  webhook_url?: string
+}
+
+export type WeComChannelConfig = {
+  webhook_key?: string
+}
+
+type NotificationChannelBase = {
   id: string
   organization_id: string
   name: string
-  type: NotificationChannelType
-  config: Record<string, unknown>
   is_enabled: boolean
   created_at: string
 }
+
+export type NotificationChannel =
+  | (NotificationChannelBase & {
+      type: 'webhook'
+      config: WebhookChannelConfig
+    })
+  | (NotificationChannelBase & {
+      type: 'telegram'
+      config: TelegramChannelConfig
+    })
+  | (NotificationChannelBase & {
+      type: 'slack'
+      config: SlackChannelConfig
+    })
+  | (NotificationChannelBase & {
+      type: 'wecom'
+      config: WeComChannelConfig
+    })
 
 export type NotificationRuleEventType = {
   event_type: string
@@ -22,7 +62,7 @@ export type NotificationRule = {
   channel_id: string
   name: string
   event_type: string
-  filter: Record<string, unknown>
+  filter: JSONObject
   template: string
   is_enabled: boolean
   created_at: string
@@ -99,7 +139,7 @@ export function toRuleForm(rule: NotificationRule): NotificationRuleForm {
   }
 }
 
-export function formatJSONObject(value: Record<string, unknown> | undefined) {
+export function formatJSONObject(value: JSONObject | undefined) {
   return JSON.stringify(value ?? {}, null, 2)
 }
 
@@ -140,12 +180,12 @@ export function configSummaryLines(channel: NotificationChannel) {
   }
 }
 
-function summarizeObject(value: unknown) {
-  if (!value || typeof value !== 'object') {
+function summarizeObject(value: JSONObject | undefined) {
+  if (!value) {
     return ''
   }
 
-  const keys = Object.keys(value as Record<string, unknown>)
+  const keys = Object.keys(value)
   return keys.length > 0 ? keys.join(', ') : ''
 }
 
