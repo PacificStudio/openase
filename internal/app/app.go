@@ -140,9 +140,20 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve user home directory: %w", err)
+	}
+	sshPool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
+	defer func() {
+		if closeErr := sshPool.Close(); closeErr != nil {
+			a.logger.Error("close ssh pool", "error", closeErr)
+		}
+	}()
+
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
-	runtimeLauncher := orchestrator.NewRuntimeLauncher(client, a.logger, a.events, agentcli.NewManager(agentcli.ManagerOptions{}))
+	runtimeLauncher := orchestrator.NewRuntimeLauncher(client, a.logger, a.events, agentcli.NewManager(agentcli.ManagerOptions{}), sshPool)
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

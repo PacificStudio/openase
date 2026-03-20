@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/user"
@@ -19,6 +20,12 @@ import (
 
 type Session interface {
 	CombinedOutput(cmd string) ([]byte, error)
+	StdinPipe() (io.WriteCloser, error)
+	StdoutPipe() (io.Reader, error)
+	StderrPipe() (io.Reader, error)
+	Start(cmd string) error
+	Signal(signal string) error
+	Wait() error
 	Close() error
 }
 
@@ -309,6 +316,30 @@ type realSession struct {
 
 func (s *realSession) CombinedOutput(cmd string) ([]byte, error) {
 	return s.session.CombinedOutput(cmd)
+}
+
+func (s *realSession) StdinPipe() (io.WriteCloser, error) {
+	return s.session.StdinPipe()
+}
+
+func (s *realSession) StdoutPipe() (io.Reader, error) {
+	return s.session.StdoutPipe()
+}
+
+func (s *realSession) StderrPipe() (io.Reader, error) {
+	return s.session.StderrPipe()
+}
+
+func (s *realSession) Start(cmd string) error {
+	return s.session.Start(cmd)
+}
+
+func (s *realSession) Signal(signal string) error {
+	return s.session.Signal(gossh.Signal(signal))
+}
+
+func (s *realSession) Wait() error {
+	return s.session.Wait()
 }
 
 func (s *realSession) Close() error {
