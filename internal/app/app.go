@@ -2,10 +2,10 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -178,21 +178,21 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 }
 
 func joinOrchestratorTickErrors(healthErr error, schedulerErr error, launcherErr error) error {
-	parts := make([]string, 0, 3)
+	errs := make([]error, 0, 3)
 	if healthErr != nil {
-		parts = append(parts, fmt.Sprintf("health check: %v", healthErr))
+		errs = append(errs, fmt.Errorf("health check: %w", healthErr))
 	}
 	if schedulerErr != nil {
-		parts = append(parts, fmt.Sprintf("scheduler: %v", schedulerErr))
+		errs = append(errs, fmt.Errorf("scheduler: %w", schedulerErr))
 	}
 	if launcherErr != nil {
-		parts = append(parts, fmt.Sprintf("runtime launcher: %v", launcherErr))
+		errs = append(errs, fmt.Errorf("runtime launcher: %w", launcherErr))
 	}
-	if len(parts) == 0 {
+	if len(errs) == 0 {
 		return nil
 	}
 
-	return fmt.Errorf("%s", strings.Join(parts, "; "))
+	return errors.Join(errs...)
 }
 
 func (a *App) RunAllInOne(ctx context.Context) error {

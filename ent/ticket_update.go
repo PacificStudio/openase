@@ -14,7 +14,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
-	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -395,20 +394,6 @@ func (_u *TicketUpdate) AddHarnessVersion(v int) *TicketUpdate {
 	return _u
 }
 
-// SetApprovalRequired sets the "approval_required" field.
-func (_u *TicketUpdate) SetApprovalRequired(v bool) *TicketUpdate {
-	_u.mutation.SetApprovalRequired(v)
-	return _u
-}
-
-// SetNillableApprovalRequired sets the "approval_required" field if the given value is not nil.
-func (_u *TicketUpdate) SetNillableApprovalRequired(v *bool) *TicketUpdate {
-	if v != nil {
-		_u.SetApprovalRequired(*v)
-	}
-	return _u
-}
-
 // SetBudgetUsd sets the "budget_usd" field.
 func (_u *TicketUpdate) SetBudgetUsd(v float64) *TicketUpdate {
 	_u.mutation.ResetBudgetUsd()
@@ -638,21 +623,6 @@ func (_u *TicketUpdate) AddAgentTokens(v ...*AgentToken) *TicketUpdate {
 	return _u.AddAgentTokenIDs(ids...)
 }
 
-// AddApprovalGateIDs adds the "approval_gates" edge to the ApprovalGate entity by IDs.
-func (_u *TicketUpdate) AddApprovalGateIDs(ids ...uuid.UUID) *TicketUpdate {
-	_u.mutation.AddApprovalGateIDs(ids...)
-	return _u
-}
-
-// AddApprovalGates adds the "approval_gates" edges to the ApprovalGate entity.
-func (_u *TicketUpdate) AddApprovalGates(v ...*ApprovalGate) *TicketUpdate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddApprovalGateIDs(ids...)
-}
-
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by IDs.
 func (_u *TicketUpdate) AddActivityEventIDs(ids ...uuid.UUID) *TicketUpdate {
 	_u.mutation.AddActivityEventIDs(ids...)
@@ -815,27 +785,6 @@ func (_u *TicketUpdate) RemoveAgentTokens(v ...*AgentToken) *TicketUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentTokenIDs(ids...)
-}
-
-// ClearApprovalGates clears all "approval_gates" edges to the ApprovalGate entity.
-func (_u *TicketUpdate) ClearApprovalGates() *TicketUpdate {
-	_u.mutation.ClearApprovalGates()
-	return _u
-}
-
-// RemoveApprovalGateIDs removes the "approval_gates" edge to ApprovalGate entities by IDs.
-func (_u *TicketUpdate) RemoveApprovalGateIDs(ids ...uuid.UUID) *TicketUpdate {
-	_u.mutation.RemoveApprovalGateIDs(ids...)
-	return _u
-}
-
-// RemoveApprovalGates removes "approval_gates" edges to ApprovalGate entities.
-func (_u *TicketUpdate) RemoveApprovalGates(v ...*ApprovalGate) *TicketUpdate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveApprovalGateIDs(ids...)
 }
 
 // ClearActivityEvents clears all "activity_events" edges to the ActivityEvent entity.
@@ -1047,9 +996,6 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedHarnessVersion(); ok {
 		_spec.AddField(ticket.FieldHarnessVersion, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.ApprovalRequired(); ok {
-		_spec.SetField(ticket.FieldApprovalRequired, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.BudgetUsd(); ok {
 		_spec.SetField(ticket.FieldBudgetUsd, field.TypeFloat64, value)
@@ -1408,51 +1354,6 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ApprovalGatesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   ticket.ApprovalGatesTable,
-			Columns: []string{ticket.ApprovalGatesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(approvalgate.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedApprovalGatesIDs(); len(nodes) > 0 && !_u.mutation.ApprovalGatesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   ticket.ApprovalGatesTable,
-			Columns: []string{ticket.ApprovalGatesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(approvalgate.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ApprovalGatesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   ticket.ApprovalGatesTable,
-			Columns: []string{ticket.ApprovalGatesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(approvalgate.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1971,20 +1872,6 @@ func (_u *TicketUpdateOne) AddHarnessVersion(v int) *TicketUpdateOne {
 	return _u
 }
 
-// SetApprovalRequired sets the "approval_required" field.
-func (_u *TicketUpdateOne) SetApprovalRequired(v bool) *TicketUpdateOne {
-	_u.mutation.SetApprovalRequired(v)
-	return _u
-}
-
-// SetNillableApprovalRequired sets the "approval_required" field if the given value is not nil.
-func (_u *TicketUpdateOne) SetNillableApprovalRequired(v *bool) *TicketUpdateOne {
-	if v != nil {
-		_u.SetApprovalRequired(*v)
-	}
-	return _u
-}
-
 // SetBudgetUsd sets the "budget_usd" field.
 func (_u *TicketUpdateOne) SetBudgetUsd(v float64) *TicketUpdateOne {
 	_u.mutation.ResetBudgetUsd()
@@ -2214,21 +2101,6 @@ func (_u *TicketUpdateOne) AddAgentTokens(v ...*AgentToken) *TicketUpdateOne {
 	return _u.AddAgentTokenIDs(ids...)
 }
 
-// AddApprovalGateIDs adds the "approval_gates" edge to the ApprovalGate entity by IDs.
-func (_u *TicketUpdateOne) AddApprovalGateIDs(ids ...uuid.UUID) *TicketUpdateOne {
-	_u.mutation.AddApprovalGateIDs(ids...)
-	return _u
-}
-
-// AddApprovalGates adds the "approval_gates" edges to the ApprovalGate entity.
-func (_u *TicketUpdateOne) AddApprovalGates(v ...*ApprovalGate) *TicketUpdateOne {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddApprovalGateIDs(ids...)
-}
-
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by IDs.
 func (_u *TicketUpdateOne) AddActivityEventIDs(ids ...uuid.UUID) *TicketUpdateOne {
 	_u.mutation.AddActivityEventIDs(ids...)
@@ -2391,27 +2263,6 @@ func (_u *TicketUpdateOne) RemoveAgentTokens(v ...*AgentToken) *TicketUpdateOne 
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentTokenIDs(ids...)
-}
-
-// ClearApprovalGates clears all "approval_gates" edges to the ApprovalGate entity.
-func (_u *TicketUpdateOne) ClearApprovalGates() *TicketUpdateOne {
-	_u.mutation.ClearApprovalGates()
-	return _u
-}
-
-// RemoveApprovalGateIDs removes the "approval_gates" edge to ApprovalGate entities by IDs.
-func (_u *TicketUpdateOne) RemoveApprovalGateIDs(ids ...uuid.UUID) *TicketUpdateOne {
-	_u.mutation.RemoveApprovalGateIDs(ids...)
-	return _u
-}
-
-// RemoveApprovalGates removes "approval_gates" edges to ApprovalGate entities.
-func (_u *TicketUpdateOne) RemoveApprovalGates(v ...*ApprovalGate) *TicketUpdateOne {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveApprovalGateIDs(ids...)
 }
 
 // ClearActivityEvents clears all "activity_events" edges to the ActivityEvent entity.
@@ -2653,9 +2504,6 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 	}
 	if value, ok := _u.mutation.AddedHarnessVersion(); ok {
 		_spec.AddField(ticket.FieldHarnessVersion, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.ApprovalRequired(); ok {
-		_spec.SetField(ticket.FieldApprovalRequired, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.BudgetUsd(); ok {
 		_spec.SetField(ticket.FieldBudgetUsd, field.TypeFloat64, value)
@@ -3014,51 +2862,6 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ApprovalGatesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   ticket.ApprovalGatesTable,
-			Columns: []string{ticket.ApprovalGatesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(approvalgate.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedApprovalGatesIDs(); len(nodes) > 0 && !_u.mutation.ApprovalGatesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   ticket.ApprovalGatesTable,
-			Columns: []string{ticket.ApprovalGatesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(approvalgate.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ApprovalGatesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   ticket.ApprovalGatesTable,
-			Columns: []string{ticket.ApprovalGatesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(approvalgate.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

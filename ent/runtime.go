@@ -9,7 +9,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
-	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -122,24 +121,6 @@ func init() {
 	agenttokenDescID := agenttokenFields[0].Descriptor()
 	// agenttoken.DefaultID holds the default value on creation for the id field.
 	agenttoken.DefaultID = agenttokenDescID.Default.(func() uuid.UUID)
-	approvalgateFields := schema.ApprovalGate{}.Fields()
-	_ = approvalgateFields
-	// approvalgateDescTriggerStatus is the schema descriptor for trigger_status field.
-	approvalgateDescTriggerStatus := approvalgateFields[2].Descriptor()
-	// approvalgate.TriggerStatusValidator is a validator for the "trigger_status" field. It is called by the builders before save.
-	approvalgate.TriggerStatusValidator = approvalgateDescTriggerStatus.Validators[0].(func(string) error)
-	// approvalgateDescHookResults is the schema descriptor for hook_results field.
-	approvalgateDescHookResults := approvalgateFields[6].Descriptor()
-	// approvalgate.DefaultHookResults holds the default value on creation for the hook_results field.
-	approvalgate.DefaultHookResults = approvalgateDescHookResults.Default.(func() map[string]interface{})
-	// approvalgateDescCreatedAt is the schema descriptor for created_at field.
-	approvalgateDescCreatedAt := approvalgateFields[7].Descriptor()
-	// approvalgate.DefaultCreatedAt holds the default value on creation for the created_at field.
-	approvalgate.DefaultCreatedAt = approvalgateDescCreatedAt.Default.(func() time.Time)
-	// approvalgateDescID is the schema descriptor for id field.
-	approvalgateDescID := approvalgateFields[0].Descriptor()
-	// approvalgate.DefaultID holds the default value on creation for the id field.
-	approvalgate.DefaultID = approvalgateDescID.Default.(func() uuid.UUID)
 	notificationchannelFields := schema.NotificationChannel{}.Fields()
 	_ = notificationchannelFields
 	// notificationchannelDescName is the schema descriptor for name field.
@@ -302,32 +283,28 @@ func init() {
 	ticketDescHarnessVersion := ticketFields[20].Descriptor()
 	// ticket.DefaultHarnessVersion holds the default value on creation for the harness_version field.
 	ticket.DefaultHarnessVersion = ticketDescHarnessVersion.Default.(int)
-	// ticketDescApprovalRequired is the schema descriptor for approval_required field.
-	ticketDescApprovalRequired := ticketFields[21].Descriptor()
-	// ticket.DefaultApprovalRequired holds the default value on creation for the approval_required field.
-	ticket.DefaultApprovalRequired = ticketDescApprovalRequired.Default.(bool)
 	// ticketDescBudgetUsd is the schema descriptor for budget_usd field.
-	ticketDescBudgetUsd := ticketFields[22].Descriptor()
+	ticketDescBudgetUsd := ticketFields[21].Descriptor()
 	// ticket.DefaultBudgetUsd holds the default value on creation for the budget_usd field.
 	ticket.DefaultBudgetUsd = ticketDescBudgetUsd.Default.(float64)
 	// ticketDescCostTokensInput is the schema descriptor for cost_tokens_input field.
-	ticketDescCostTokensInput := ticketFields[23].Descriptor()
+	ticketDescCostTokensInput := ticketFields[22].Descriptor()
 	// ticket.DefaultCostTokensInput holds the default value on creation for the cost_tokens_input field.
 	ticket.DefaultCostTokensInput = ticketDescCostTokensInput.Default.(int64)
 	// ticketDescCostTokensOutput is the schema descriptor for cost_tokens_output field.
-	ticketDescCostTokensOutput := ticketFields[24].Descriptor()
+	ticketDescCostTokensOutput := ticketFields[23].Descriptor()
 	// ticket.DefaultCostTokensOutput holds the default value on creation for the cost_tokens_output field.
 	ticket.DefaultCostTokensOutput = ticketDescCostTokensOutput.Default.(int64)
 	// ticketDescCostAmount is the schema descriptor for cost_amount field.
-	ticketDescCostAmount := ticketFields[25].Descriptor()
+	ticketDescCostAmount := ticketFields[24].Descriptor()
 	// ticket.DefaultCostAmount holds the default value on creation for the cost_amount field.
 	ticket.DefaultCostAmount = ticketDescCostAmount.Default.(float64)
 	// ticketDescMetadata is the schema descriptor for metadata field.
-	ticketDescMetadata := ticketFields[26].Descriptor()
+	ticketDescMetadata := ticketFields[25].Descriptor()
 	// ticket.DefaultMetadata holds the default value on creation for the metadata field.
 	ticket.DefaultMetadata = ticketDescMetadata.Default.(func() map[string]interface{})
 	// ticketDescCreatedAt is the schema descriptor for created_at field.
-	ticketDescCreatedAt := ticketFields[29].Descriptor()
+	ticketDescCreatedAt := ticketFields[28].Descriptor()
 	// ticket.DefaultCreatedAt holds the default value on creation for the created_at field.
 	ticket.DefaultCreatedAt = ticketDescCreatedAt.Default.(func() time.Time)
 	// ticketDescID is the schema descriptor for id field.

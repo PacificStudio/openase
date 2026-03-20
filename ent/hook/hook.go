@@ -57,18 +57,6 @@ func (f AgentTokenFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTokenMutation", m)
 }
 
-// The ApprovalGateFunc type is an adapter to allow the use of ordinary
-// function as ApprovalGate mutator.
-type ApprovalGateFunc func(context.Context, *ent.ApprovalGateMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f ApprovalGateFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ApprovalGateMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ApprovalGateMutation", m)
-}
-
 // The NotificationChannelFunc type is an adapter to allow the use of ordinary
 // function as NotificationChannel mutator.
 type NotificationChannelFunc func(context.Context, *ent.NotificationChannelMutation) (ent.Value, error)

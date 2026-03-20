@@ -1,1 +1,1 @@
-export { default as WorkflowsPage } from './components/WorkflowsPage.svelte'
+export { default as WorkflowsPage } from './components/workflows-page.svelte'

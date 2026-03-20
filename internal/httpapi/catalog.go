@@ -723,7 +723,7 @@ func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 		DefaultBranch: item.DefaultBranch,
 		ClonePath:     item.ClonePath,
 		IsPrimary:     item.IsPrimary,
-		Labels:        append([]string(nil), item.Labels...),
+		Labels:        cloneStringSlice(item.Labels),
 	}
 }
 

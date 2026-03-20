@@ -20,8 +20,6 @@ type Tx struct {
 	AgentProvider *AgentProviderClient
 	// AgentToken is the client for interacting with the AgentToken builders.
 	AgentToken *AgentTokenClient
-	// ApprovalGate is the client for interacting with the ApprovalGate builders.
-	ApprovalGate *ApprovalGateClient
 	// NotificationChannel is the client for interacting with the NotificationChannel builders.
 	NotificationChannel *NotificationChannelClient
 	// NotificationRule is the client for interacting with the NotificationRule builders.
@@ -181,7 +179,6 @@ func (tx *Tx) init() {
 	tx.Agent = NewAgentClient(tx.config)
 	tx.AgentProvider = NewAgentProviderClient(tx.config)
 	tx.AgentToken = NewAgentTokenClient(tx.config)
-	tx.ApprovalGate = NewApprovalGateClient(tx.config)
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)
 	tx.NotificationRule = NewNotificationRuleClient(tx.config)
 	tx.Organization = NewOrganizationClient(tx.config)

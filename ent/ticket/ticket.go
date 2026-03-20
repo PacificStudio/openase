@@ -56,8 +56,6 @@ const (
 	FieldRetryToken = "retry_token"
 	// FieldHarnessVersion holds the string denoting the harness_version field in the database.
 	FieldHarnessVersion = "harness_version"
-	// FieldApprovalRequired holds the string denoting the approval_required field in the database.
-	FieldApprovalRequired = "approval_required"
 	// FieldBudgetUsd holds the string denoting the budget_usd field in the database.
 	FieldBudgetUsd = "budget_usd"
 	// FieldCostTokensInput holds the string denoting the cost_tokens_input field in the database.
@@ -92,8 +90,6 @@ const (
 	EdgeExternalLinks = "external_links"
 	// EdgeAgentTokens holds the string denoting the agent_tokens edge name in mutations.
 	EdgeAgentTokens = "agent_tokens"
-	// EdgeApprovalGates holds the string denoting the approval_gates edge name in mutations.
-	EdgeApprovalGates = "approval_gates"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
 	EdgeActivityEvents = "activity_events"
 	// EdgeOutgoingDependencies holds the string denoting the outgoing_dependencies edge name in mutations.
@@ -159,13 +155,6 @@ const (
 	AgentTokensInverseTable = "agent_tokens"
 	// AgentTokensColumn is the table column denoting the agent_tokens relation/edge.
 	AgentTokensColumn = "ticket_id"
-	// ApprovalGatesTable is the table that holds the approval_gates relation/edge.
-	ApprovalGatesTable = "approval_gates"
-	// ApprovalGatesInverseTable is the table name for the ApprovalGate entity.
-	// It exists in this package in order to avoid circular dependency with the "approvalgate" package.
-	ApprovalGatesInverseTable = "approval_gates"
-	// ApprovalGatesColumn is the table column denoting the approval_gates relation/edge.
-	ApprovalGatesColumn = "ticket_id"
 	// ActivityEventsTable is the table that holds the activity_events relation/edge.
 	ActivityEventsTable = "activity_events"
 	// ActivityEventsInverseTable is the table name for the ActivityEvent entity.
@@ -212,7 +201,6 @@ var Columns = []string{
 	FieldStallCount,
 	FieldRetryToken,
 	FieldHarnessVersion,
-	FieldApprovalRequired,
 	FieldBudgetUsd,
 	FieldCostTokensInput,
 	FieldCostTokensOutput,
@@ -250,8 +238,6 @@ var (
 	DefaultStallCount int
 	// DefaultHarnessVersion holds the default value on creation for the "harness_version" field.
 	DefaultHarnessVersion int
-	// DefaultApprovalRequired holds the default value on creation for the "approval_required" field.
-	DefaultApprovalRequired bool
 	// DefaultBudgetUsd holds the default value on creation for the "budget_usd" field.
 	DefaultBudgetUsd float64
 	// DefaultCostTokensInput holds the default value on creation for the "cost_tokens_input" field.
@@ -433,11 +419,6 @@ func ByHarnessVersion(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldHarnessVersion, opts...).ToFunc()
 }
 
-// ByApprovalRequired orders the results by the approval_required field.
-func ByApprovalRequired(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldApprovalRequired, opts...).ToFunc()
-}
-
 // ByBudgetUsd orders the results by the budget_usd field.
 func ByBudgetUsd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldBudgetUsd, opts...).ToFunc()
@@ -564,20 +545,6 @@ func ByAgentTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
-// ByApprovalGatesCount orders the results by approval_gates count.
-func ByApprovalGatesCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newApprovalGatesStep(), opts...)
-	}
-}
-
-// ByApprovalGates orders the results by approval_gates terms.
-func ByApprovalGates(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newApprovalGatesStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByActivityEventsCount orders the results by activity_events count.
 func ByActivityEventsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -680,13 +647,6 @@ func newAgentTokensStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentTokensInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentTokensTable, AgentTokensColumn),
-	)
-}
-func newApprovalGatesStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(ApprovalGatesInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, ApprovalGatesTable, ApprovalGatesColumn),
 	)
 }
 func newActivityEventsStep() *sqlgraph.Step {

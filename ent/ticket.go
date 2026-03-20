@@ -63,8 +63,6 @@ type Ticket struct {
 	RetryToken string `json:"retry_token,omitempty"`
 	// HarnessVersion holds the value of the "harness_version" field.
 	HarnessVersion int `json:"harness_version,omitempty"`
-	// ApprovalRequired holds the value of the "approval_required" field.
-	ApprovalRequired bool `json:"approval_required,omitempty"`
 	// BudgetUsd holds the value of the "budget_usd" field.
 	BudgetUsd float64 `json:"budget_usd,omitempty"`
 	// CostTokensInput holds the value of the "cost_tokens_input" field.
@@ -107,8 +105,6 @@ type TicketEdges struct {
 	ExternalLinks []*TicketExternalLink `json:"external_links,omitempty"`
 	// AgentTokens holds the value of the agent_tokens edge.
 	AgentTokens []*AgentToken `json:"agent_tokens,omitempty"`
-	// ApprovalGates holds the value of the approval_gates edge.
-	ApprovalGates []*ApprovalGate `json:"approval_gates,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
 	// OutgoingDependencies holds the value of the outgoing_dependencies edge.
@@ -117,7 +113,7 @@ type TicketEdges struct {
 	IncomingDependencies []*TicketDependency `json:"incoming_dependencies,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [13]bool
+	loadedTypes [12]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -211,19 +207,10 @@ func (e TicketEdges) AgentTokensOrErr() ([]*AgentToken, error) {
 	return nil, &NotLoadedError{edge: "agent_tokens"}
 }
 
-// ApprovalGatesOrErr returns the ApprovalGates value or an error if the edge
-// was not loaded in eager-loading.
-func (e TicketEdges) ApprovalGatesOrErr() ([]*ApprovalGate, error) {
-	if e.loadedTypes[9] {
-		return e.ApprovalGates, nil
-	}
-	return nil, &NotLoadedError{edge: "approval_gates"}
-}
-
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[9] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -232,7 +219,7 @@ func (e TicketEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
 // OutgoingDependenciesOrErr returns the OutgoingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[10] {
 		return e.OutgoingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "outgoing_dependencies"}
@@ -241,7 +228,7 @@ func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
 // IncomingDependenciesOrErr returns the IncomingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) IncomingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[11] {
 		return e.IncomingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "incoming_dependencies"}
@@ -256,7 +243,7 @@ func (*Ticket) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case ticket.FieldMetadata:
 			values[i] = new([]byte)
-		case ticket.FieldRetryPaused, ticket.FieldApprovalRequired:
+		case ticket.FieldRetryPaused:
 			values[i] = new(sql.NullBool)
 		case ticket.FieldBudgetUsd, ticket.FieldCostAmount:
 			values[i] = new(sql.NullFloat64)
@@ -413,12 +400,6 @@ func (_m *Ticket) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.HarnessVersion = int(value.Int64)
 			}
-		case ticket.FieldApprovalRequired:
-			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field approval_required", values[i])
-			} else if value.Valid {
-				_m.ApprovalRequired = value.Bool
-			}
 		case ticket.FieldBudgetUsd:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field budget_usd", values[i])
@@ -529,11 +510,6 @@ func (_m *Ticket) QueryAgentTokens() *AgentTokenQuery {
 	return NewTicketClient(_m.config).QueryAgentTokens(_m)
 }
 
-// QueryApprovalGates queries the "approval_gates" edge of the Ticket entity.
-func (_m *Ticket) QueryApprovalGates() *ApprovalGateQuery {
-	return NewTicketClient(_m.config).QueryApprovalGates(_m)
-}
-
 // QueryActivityEvents queries the "activity_events" edge of the Ticket entity.
 func (_m *Ticket) QueryActivityEvents() *ActivityEventQuery {
 	return NewTicketClient(_m.config).QueryActivityEvents(_m)
@@ -639,9 +615,6 @@ func (_m *Ticket) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("harness_version=")
 	builder.WriteString(fmt.Sprintf("%v", _m.HarnessVersion))
-	builder.WriteString(", ")
-	builder.WriteString("approval_required=")
-	builder.WriteString(fmt.Sprintf("%v", _m.ApprovalRequired))
 	builder.WriteString(", ")
 	builder.WriteString("budget_usd=")
 	builder.WriteString(fmt.Sprintf("%v", _m.BudgetUsd))

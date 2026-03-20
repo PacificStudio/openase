@@ -146,11 +146,6 @@ func HarnessVersion(v int) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldHarnessVersion, v))
 }
 
-// ApprovalRequired applies equality check predicate on the "approval_required" field. It's identical to ApprovalRequiredEQ.
-func ApprovalRequired(v bool) predicate.Ticket {
-	return predicate.Ticket(sql.FieldEQ(FieldApprovalRequired, v))
-}
-
 // BudgetUsd applies equality check predicate on the "budget_usd" field. It's identical to BudgetUsdEQ.
 func BudgetUsd(v float64) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldBudgetUsd, v))
@@ -1071,16 +1066,6 @@ func HarnessVersionLTE(v int) predicate.Ticket {
 	return predicate.Ticket(sql.FieldLTE(FieldHarnessVersion, v))
 }
 
-// ApprovalRequiredEQ applies the EQ predicate on the "approval_required" field.
-func ApprovalRequiredEQ(v bool) predicate.Ticket {
-	return predicate.Ticket(sql.FieldEQ(FieldApprovalRequired, v))
-}
-
-// ApprovalRequiredNEQ applies the NEQ predicate on the "approval_required" field.
-func ApprovalRequiredNEQ(v bool) predicate.Ticket {
-	return predicate.Ticket(sql.FieldNEQ(FieldApprovalRequired, v))
-}
-
 // BudgetUsdEQ applies the EQ predicate on the "budget_usd" field.
 func BudgetUsdEQ(v float64) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldBudgetUsd, v))
@@ -1580,29 +1565,6 @@ func HasAgentTokens() predicate.Ticket {
 func HasAgentTokensWith(preds ...predicate.AgentToken) predicate.Ticket {
 	return predicate.Ticket(func(s *sql.Selector) {
 		step := newAgentTokensStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasApprovalGates applies the HasEdge predicate on the "approval_gates" edge.
-func HasApprovalGates() predicate.Ticket {
-	return predicate.Ticket(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ApprovalGatesTable, ApprovalGatesColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasApprovalGatesWith applies the HasEdge predicate on the "approval_gates" edge with a given conditions (other predicates).
-func HasApprovalGatesWith(preds ...predicate.ApprovalGate) predicate.Ticket {
-	return predicate.Ticket(func(s *sql.Selector) {
-		step := newApprovalGatesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
