@@ -275,15 +275,13 @@ func freePort(t *testing.T) uint32 {
 	if err != nil {
 		t.Fatalf("allocate free port: %v", err)
 	}
-	t.Cleanup(func() {
-		if err := listener.Close(); err != nil {
-			t.Errorf("close listener: %v", err)
-		}
-	})
 
 	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {
 		t.Fatalf("expected TCP address, got %T", listener.Addr())
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close listener: %v", err)
 	}
 	if tcpAddr.Port < 0 || tcpAddr.Port > math.MaxUint16 {
 		t.Fatalf("expected TCP port in uint16 range, got %d", tcpAddr.Port)
