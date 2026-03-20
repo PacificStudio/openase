@@ -1650,6 +1650,71 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "environment_provisioning": {
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "issues": {
+                          "items": {
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": "string"
+                              },
+                              "skill_name": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "needed": {
+                          "type": "boolean"
+                        },
+                        "notes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "required_skills": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "role_name": {
+                          "type": "string"
+                        },
+                        "role_slug": {
+                          "type": "string"
+                        },
+                        "runnable": {
+                          "type": "boolean"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "ticket_description": {
+                          "type": "string"
+                        },
+                        "ticket_title": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
                     "last_heartbeat_at": {
                       "nullable": true,
                       "type": "string"

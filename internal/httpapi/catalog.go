@@ -480,10 +480,11 @@ func (s *Server) getMachineResources(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"machine_id":        item.ID.String(),
-		"status":            item.Status.String(),
-		"last_heartbeat_at": timeToStringPointer(item.LastHeartbeatAt),
-		"resources":         cloneMap(item.Resources),
+		"machine_id":               item.ID.String(),
+		"status":                   item.Status.String(),
+		"last_heartbeat_at":        timeToStringPointer(item.LastHeartbeatAt),
+		"resources":                cloneMap(item.Resources),
+		"environment_provisioning": domain.PlanMachineEnvironmentProvisioning(item),
 	})
 }
 

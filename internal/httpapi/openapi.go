@@ -415,10 +415,33 @@ type OpenAPIMachineTestResponse struct {
 }
 
 type OpenAPIMachineResourcesResponse struct {
-	MachineID       string         `json:"machine_id"`
-	Status          string         `json:"status"`
-	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
-	Resources       map[string]any `json:"resources"`
+	MachineID               string                                `json:"machine_id"`
+	Status                  string                                `json:"status"`
+	LastHeartbeatAt         *string                               `json:"last_heartbeat_at,omitempty"`
+	Resources               map[string]any                        `json:"resources"`
+	EnvironmentProvisioning OpenAPIMachineEnvironmentProvisioning `json:"environment_provisioning"`
+}
+
+type OpenAPIMachineEnvironmentProvisioning struct {
+	Available         bool                             `json:"available"`
+	Needed            bool                             `json:"needed"`
+	Runnable          bool                             `json:"runnable"`
+	RoleSlug          string                           `json:"role_slug"`
+	RoleName          string                           `json:"role_name"`
+	RequiredSkills    []string                         `json:"required_skills"`
+	Summary           string                           `json:"summary"`
+	Issues            []OpenAPIMachineEnvironmentIssue `json:"issues"`
+	Notes             []string                         `json:"notes"`
+	TicketTitle       string                           `json:"ticket_title"`
+	TicketDescription string                           `json:"ticket_description"`
+}
+
+type OpenAPIMachineEnvironmentIssue struct {
+	Code      string  `json:"code"`
+	Source    string  `json:"source"`
+	Title     string  `json:"title"`
+	Detail    string  `json:"detail"`
+	SkillName *string `json:"skill_name,omitempty"`
 }
 
 type OpenAPIAgentProvidersResponse struct {

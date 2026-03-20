@@ -199,4 +199,76 @@ var builtinSkills = []SkillTemplate{
 发现问题时给出可复现路径和修复建议。
 `) + "\n",
 	},
+	{
+		Name:        "install-claude-code",
+		Title:       "Install Claude Code",
+		Description: "Install Claude Code on a target machine and verify the CLI is available for remote execution.",
+		Content: strings.TrimSpace(`
+# Install Claude Code
+
+目标：让目标机器具备可用的 `+"`claude`"+` 命令，并记录安装结果。
+
+执行时遵循：
+
+- 先确认当前系统类型、包管理器和是否已安装 `+"`claude`"+`。
+- 使用官方支持的安装方式完成安装，避免下载来源不明的二进制。
+- 安装后至少验证 `+"`claude --version`"+`，并记录可执行路径。
+- 如果还需要登录或额外认证，明确记录当前状态和缺失前置条件。
+
+不要把令牌或凭据写入仓库。
+`) + "\n",
+	},
+	{
+		Name:        "install-codex",
+		Title:       "Install Codex CLI",
+		Description: "Install the Codex CLI on a target machine and verify it can start successfully.",
+		Content: strings.TrimSpace(`
+# Install Codex CLI
+
+目标：让目标机器具备可用的 `+"`codex`"+` 命令，并验证 CLI 能正常启动。
+
+执行时遵循：
+
+- 先检查 `+"`codex`"+` 是否已存在以及当前版本。
+- 使用官方支持的安装方式安装或升级 Codex CLI。
+- 安装后验证 `+"`codex --version`"+`，必要时补充最小认证检查。
+- 如果网络、Python、Node 或系统依赖阻塞安装，记录准确阻塞点，不要留下半安装状态。
+`) + "\n",
+	},
+	{
+		Name:        "setup-git",
+		Title:       "Setup Git",
+		Description: "Install or repair git plus the minimum identity and credential configuration needed for agent work.",
+		Content: strings.TrimSpace(`
+# Setup Git
+
+目标：让目标机器具备可用的 `+"`git`"+`，并补齐最小身份配置。
+
+执行时遵循：
+
+- 检查 `+"`git --version`"+` 是否可用；如果不可用，先安装 git。
+- 检查 `+"`git config --global user.name`"+` 和 `+"`git config --global user.email`"+`；缺失时按工单上下文补齐。
+- 仅在确有凭据问题时修复 git 认证，避免覆盖已有可用配置。
+- 最后用非破坏性命令确认 git 基础能力可用，并记录生效配置。
+`) + "\n",
+	},
+	{
+		Name:        "setup-gh-cli",
+		Title:       "Setup GitHub CLI",
+		Description: "Install or repair the GitHub CLI and confirm authentication status on the target machine.",
+		Content: strings.TrimSpace(`
+# Setup GitHub CLI
+
+目标：让目标机器具备可用的 `+"`gh`"+`，并确认 GitHub 认证状态。
+
+执行时遵循：
+
+- 检查 `+"`gh --version`"+` 和 `+"`gh auth status`"+` 的当前输出。
+- 如果 `+"`gh`"+` 缺失，使用官方支持的安装方式安装。
+- 如果 `+"`gh`"+` 已安装但未认证，补齐认证并再次验证状态。
+- 认证失败时记录准确原因，例如网络、令牌缺失或主机不可达。
+
+不要把明文令牌写入 shell 历史或仓库文件。
+`) + "\n",
+	},
 }

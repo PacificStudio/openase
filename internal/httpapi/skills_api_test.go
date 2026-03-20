@@ -276,8 +276,8 @@ func TestBuiltinRoleLibraryRoute(t *testing.T) {
 		http.StatusOK,
 		&resp,
 	)
-	if len(resp.Roles) != 16 {
-		t.Fatalf("expected 16 builtin roles, got %+v", resp.Roles)
+	if len(resp.Roles) != 17 {
+		t.Fatalf("expected 17 builtin roles, got %+v", resp.Roles)
 	}
 	if resp.Roles[0].HarnessPath == "" || resp.Roles[0].Content == "" {
 		t.Fatalf("expected role payload to include harness path and content, got %+v", resp.Roles[0])
@@ -286,6 +286,7 @@ func TestBuiltinRoleLibraryRoute(t *testing.T) {
 		t.Fatalf("expected dispatcher to be included in builtin role payload, got %+v", resp.Roles[0])
 	}
 	findBuiltinRoleResponse(t, resp.Roles, "harness-optimizer")
+	findBuiltinRoleResponse(t, resp.Roles, "env-provisioner")
 }
 
 func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {

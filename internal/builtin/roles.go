@@ -171,9 +171,54 @@ Improve an existing workflow harness using recent execution history, current har
 	}
 }
 
+func buildEnvProvisionerRoleTemplate() RoleTemplate {
+	content := strings.TrimSpace(`
+---
+workflow:
+  name: "Environment Provisioner"
+  type: "custom"
+  role: "env-provisioner"
+status:
+  pickup: "环境修复"
+  finish: "环境就绪"
+skills:
+  - openase-platform
+  - install-claude-code
+  - install-codex
+  - setup-git
+  - setup-gh-cli
+---
+
+# Environment Provisioner
+
+Repair the target machine environment over SSH so it becomes ready for remote OpenASE agents again.
+
+## Responsibilities
+
+- Read the machine context and detected environment issues from the ticket before changing anything.
+- Use the matching built-in skill to install missing CLIs, repair authentication, and restore git or gh bootstrap prerequisites.
+- Verify the repaired commands in-place and leave a concise record of what changed.
+
+## Delivery Standard
+
+- Prefer the smallest set of changes that makes the machine dispatchable again.
+- Do not leave partially configured credentials or half-installed CLIs without noting the remaining blocker in the ticket.
+`) + "\n"
+
+	return RoleTemplate{
+		Slug:         "env-provisioner",
+		Name:         "Environment Provisioner",
+		WorkflowType: "custom",
+		Summary:      "Repair remote machine agent prerequisites over SSH using built-in environment setup skills.",
+		HarnessPath:  filepath.ToSlash(filepath.Join(".openase", "harnesses", "roles", "env-provisioner.md")),
+		Content:      content,
+	}
+}
+
 var builtinRoles = []RoleTemplate{
 	buildDispatcherRoleTemplate(),
 	buildHarnessOptimizerRoleTemplate(),
+	buildEnvProvisionerRoleTemplate(),
 	buildRoleTemplate(
 		"fullstack-developer",
 		"Fullstack Developer",
