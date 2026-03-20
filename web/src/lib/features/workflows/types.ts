@@ -12,7 +12,9 @@ export type WorkflowSummary = {
   name: string
   type: WorkflowType
   harnessPath: string
+  pickupStatusId: string
   pickupStatus: string
+  finishStatusId: string | null
   finishStatus: string
   maxConcurrent: number
   maxRetry: number
@@ -22,6 +24,11 @@ export type WorkflowSummary = {
   lastModified: string
   recentSuccessRate: number
   version: number
+}
+
+export type WorkflowStatusOption = {
+  id: string
+  name: string
 }
 
 export type HarnessContent = {

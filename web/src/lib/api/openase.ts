@@ -3,6 +3,7 @@ import type {
   ActivityPayload,
   AgentPayload,
   AgentResponse,
+  AgentProvider,
   AgentProviderListPayload,
   BuiltinRolePayload,
   HarnessPayload,
@@ -40,7 +41,9 @@ import type {
   TicketRepoScopePayload,
   TicketRepoScopeResponse,
   WorkflowDetailPayload,
+  WorkflowDeleteResponse,
   WorkflowListPayload,
+  WorkflowUpdateResponse,
 } from './contracts'
 
 type MachineMutationBody = {
@@ -377,6 +380,30 @@ export function getWorkflow(workflowId: string) {
   return api.get<WorkflowDetailPayload>(`/api/v1/workflows/${workflowId}`)
 }
 
+export function updateWorkflow(
+  workflowId: string,
+  body: {
+    finish_status_id?: string | null
+    harness_path?: string | null
+    hooks?: Record<string, unknown> | null
+    is_active?: boolean | null
+    max_concurrent?: number | null
+    max_retry_attempts?: number | null
+    name?: string | null
+    pickup_status_id?: string | null
+    required_machine_labels?: string[] | null
+    stall_timeout_minutes?: number | null
+    timeout_minutes?: number | null
+    type?: string | null
+  },
+) {
+  return api.patch<WorkflowUpdateResponse>(`/api/v1/workflows/${workflowId}`, { body })
+}
+
+export function deleteWorkflow(workflowId: string) {
+  return api.delete<WorkflowDeleteResponse>(`/api/v1/workflows/${workflowId}`)
+}
+
 export function getWorkflowHarness(workflowId: string) {
   return api.get<HarnessPayload>(`/api/v1/workflows/${workflowId}/harness`)
 }
@@ -432,7 +459,7 @@ export function updateProvider(
     cost_per_output_token?: number
   },
 ) {
-  return api.patch(`/api/v1/providers/${providerId}`, { body })
+  return api.patch<{ provider?: AgentProvider }>(`/api/v1/providers/${providerId}`, { body })
 }
 
 export function listNotificationEventTypes() {
