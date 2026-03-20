@@ -11,6 +11,7 @@ import (
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -52,7 +53,7 @@ func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.Cr
 		SetName(input.Name).
 		SetAdapterType(input.AdapterType).
 		SetCliCommand(input.CliCommand).
-		SetCliArgs(input.CliArgs).
+		SetCliArgs(pgarray.StringArray(input.CliArgs)).
 		SetAuthConfig(input.AuthConfig).
 		SetModelName(input.ModelName).
 		SetModelTemperature(input.ModelTemperature).
@@ -82,7 +83,7 @@ func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.Up
 		SetName(input.Name).
 		SetAdapterType(input.AdapterType).
 		SetCliCommand(input.CliCommand).
-		SetCliArgs(input.CliArgs).
+		SetCliArgs(pgarray.StringArray(input.CliArgs)).
 		SetAuthConfig(input.AuthConfig).
 		SetModelName(input.ModelName).
 		SetModelTemperature(input.ModelTemperature).
@@ -140,7 +141,7 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		SetStatus(input.Status).
 		SetSessionID(input.SessionID).
 		SetWorkspacePath(input.WorkspacePath).
-		SetCapabilities(input.Capabilities).
+		SetCapabilities(pgarray.StringArray(input.Capabilities)).
 		SetTotalTokensUsed(input.TotalTokensUsed).
 		SetTotalTicketsCompleted(input.TotalTicketsCompleted)
 	if input.CurrentTicketID != nil {

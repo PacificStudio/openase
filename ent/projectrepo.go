@@ -3,7 +3,6 @@
 package ent
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -32,7 +32,7 @@ type ProjectRepo struct {
 	// IsPrimary holds the value of the "is_primary" field.
 	IsPrimary bool `json:"is_primary,omitempty"`
 	// Labels holds the value of the "labels" field.
-	Labels []string `json:"labels,omitempty"`
+	Labels pgarray.StringArray `json:"labels,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectRepoQuery when eager-loading is set.
 	Edges        ProjectRepoEdges `json:"edges"`
@@ -76,7 +76,7 @@ func (*ProjectRepo) scanValues(columns []string) ([]any, error) {
 	for i := range columns {
 		switch columns[i] {
 		case projectrepo.FieldLabels:
-			values[i] = new([]byte)
+			values[i] = new(pgarray.StringArray)
 		case projectrepo.FieldIsPrimary:
 			values[i] = new(sql.NullBool)
 		case projectrepo.FieldName, projectrepo.FieldRepositoryURL, projectrepo.FieldDefaultBranch, projectrepo.FieldClonePath:
@@ -141,12 +141,10 @@ func (_m *ProjectRepo) assignValues(columns []string, values []any) error {
 				_m.IsPrimary = value.Bool
 			}
 		case projectrepo.FieldLabels:
-			if value, ok := values[i].(*[]byte); !ok {
+			if value, ok := values[i].(*pgarray.StringArray); !ok {
 				return fmt.Errorf("unexpected type %T for field labels", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &_m.Labels); err != nil {
-					return fmt.Errorf("unmarshal field labels: %w", err)
-				}
+			} else if value != nil {
+				_m.Labels = *value
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])

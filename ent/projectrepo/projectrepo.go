@@ -122,6 +122,11 @@ func ByIsPrimary(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsPrimary, opts...).ToFunc()
 }
 
+// ByLabels orders the results by the labels field.
+func ByLabels(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLabels, opts...).ToFunc()
+}
+
 // ByProjectField orders the results by project field.
 func ByProjectField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {

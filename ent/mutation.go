@@ -28,6 +28,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -930,8 +931,7 @@ type AgentMutation struct {
 	status                     *agent.Status
 	session_id                 *string
 	workspace_path             *string
-	capabilities               *[]string
-	appendcapabilities         []string
+	capabilities               *pgarray.StringArray
 	total_tokens_used          *int64
 	addtotal_tokens_used       *int64
 	total_tickets_completed    *int
@@ -1354,13 +1354,12 @@ func (m *AgentMutation) ResetWorkspacePath() {
 }
 
 // SetCapabilities sets the "capabilities" field.
-func (m *AgentMutation) SetCapabilities(s []string) {
-	m.capabilities = &s
-	m.appendcapabilities = nil
+func (m *AgentMutation) SetCapabilities(pa pgarray.StringArray) {
+	m.capabilities = &pa
 }
 
 // Capabilities returns the value of the "capabilities" field in the mutation.
-func (m *AgentMutation) Capabilities() (r []string, exists bool) {
+func (m *AgentMutation) Capabilities() (r pgarray.StringArray, exists bool) {
 	v := m.capabilities
 	if v == nil {
 		return
@@ -1371,7 +1370,7 @@ func (m *AgentMutation) Capabilities() (r []string, exists bool) {
 // OldCapabilities returns the old "capabilities" field's value of the Agent entity.
 // If the Agent object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AgentMutation) OldCapabilities(ctx context.Context) (v []string, err error) {
+func (m *AgentMutation) OldCapabilities(ctx context.Context) (v pgarray.StringArray, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldCapabilities is only allowed on UpdateOne operations")
 	}
@@ -1385,23 +1384,9 @@ func (m *AgentMutation) OldCapabilities(ctx context.Context) (v []string, err er
 	return oldValue.Capabilities, nil
 }
 
-// AppendCapabilities adds s to the "capabilities" field.
-func (m *AgentMutation) AppendCapabilities(s []string) {
-	m.appendcapabilities = append(m.appendcapabilities, s...)
-}
-
-// AppendedCapabilities returns the list of values that were appended to the "capabilities" field in this mutation.
-func (m *AgentMutation) AppendedCapabilities() ([]string, bool) {
-	if len(m.appendcapabilities) == 0 {
-		return nil, false
-	}
-	return m.appendcapabilities, true
-}
-
 // ClearCapabilities clears the value of the "capabilities" field.
 func (m *AgentMutation) ClearCapabilities() {
 	m.capabilities = nil
-	m.appendcapabilities = nil
 	m.clearedFields[agent.FieldCapabilities] = struct{}{}
 }
 
@@ -1414,7 +1399,6 @@ func (m *AgentMutation) CapabilitiesCleared() bool {
 // ResetCapabilities resets all changes to the "capabilities" field.
 func (m *AgentMutation) ResetCapabilities() {
 	m.capabilities = nil
-	m.appendcapabilities = nil
 	delete(m.clearedFields, agent.FieldCapabilities)
 }
 
@@ -2010,7 +1994,7 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 		m.SetWorkspacePath(v)
 		return nil
 	case agent.FieldCapabilities:
-		v, ok := value.([]string)
+		v, ok := value.(pgarray.StringArray)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -2382,8 +2366,7 @@ type AgentProviderMutation struct {
 	name                     *string
 	adapter_type             *agentprovider.AdapterType
 	cli_command              *string
-	cli_args                 *[]string
-	appendcli_args           []string
+	cli_args                 *pgarray.StringArray
 	auth_config              *map[string]interface{}
 	model_name               *string
 	model_temperature        *float64
@@ -2654,13 +2637,12 @@ func (m *AgentProviderMutation) ResetCliCommand() {
 }
 
 // SetCliArgs sets the "cli_args" field.
-func (m *AgentProviderMutation) SetCliArgs(s []string) {
-	m.cli_args = &s
-	m.appendcli_args = nil
+func (m *AgentProviderMutation) SetCliArgs(pa pgarray.StringArray) {
+	m.cli_args = &pa
 }
 
 // CliArgs returns the value of the "cli_args" field in the mutation.
-func (m *AgentProviderMutation) CliArgs() (r []string, exists bool) {
+func (m *AgentProviderMutation) CliArgs() (r pgarray.StringArray, exists bool) {
 	v := m.cli_args
 	if v == nil {
 		return
@@ -2671,7 +2653,7 @@ func (m *AgentProviderMutation) CliArgs() (r []string, exists bool) {
 // OldCliArgs returns the old "cli_args" field's value of the AgentProvider entity.
 // If the AgentProvider object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AgentProviderMutation) OldCliArgs(ctx context.Context) (v []string, err error) {
+func (m *AgentProviderMutation) OldCliArgs(ctx context.Context) (v pgarray.StringArray, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldCliArgs is only allowed on UpdateOne operations")
 	}
@@ -2685,23 +2667,9 @@ func (m *AgentProviderMutation) OldCliArgs(ctx context.Context) (v []string, err
 	return oldValue.CliArgs, nil
 }
 
-// AppendCliArgs adds s to the "cli_args" field.
-func (m *AgentProviderMutation) AppendCliArgs(s []string) {
-	m.appendcli_args = append(m.appendcli_args, s...)
-}
-
-// AppendedCliArgs returns the list of values that were appended to the "cli_args" field in this mutation.
-func (m *AgentProviderMutation) AppendedCliArgs() ([]string, bool) {
-	if len(m.appendcli_args) == 0 {
-		return nil, false
-	}
-	return m.appendcli_args, true
-}
-
 // ClearCliArgs clears the value of the "cli_args" field.
 func (m *AgentProviderMutation) ClearCliArgs() {
 	m.cli_args = nil
-	m.appendcli_args = nil
 	m.clearedFields[agentprovider.FieldCliArgs] = struct{}{}
 }
 
@@ -2714,7 +2682,6 @@ func (m *AgentProviderMutation) CliArgsCleared() bool {
 // ResetCliArgs resets all changes to the "cli_args" field.
 func (m *AgentProviderMutation) ResetCliArgs() {
 	m.cli_args = nil
-	m.appendcli_args = nil
 	delete(m.clearedFields, agentprovider.FieldCliArgs)
 }
 
@@ -3262,7 +3229,7 @@ func (m *AgentProviderMutation) SetField(name string, value ent.Value) error {
 		m.SetCliCommand(v)
 		return nil
 	case agentprovider.FieldCliArgs:
-		v, ok := value.([]string)
+		v, ok := value.(pgarray.StringArray)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -8328,8 +8295,7 @@ type ProjectRepoMutation struct {
 	default_branch       *string
 	clone_path           *string
 	is_primary           *bool
-	labels               *[]string
-	appendlabels         []string
+	labels               *pgarray.StringArray
 	clearedFields        map[string]struct{}
 	project              *uuid.UUID
 	clearedproject       bool
@@ -8675,13 +8641,12 @@ func (m *ProjectRepoMutation) ResetIsPrimary() {
 }
 
 // SetLabels sets the "labels" field.
-func (m *ProjectRepoMutation) SetLabels(s []string) {
-	m.labels = &s
-	m.appendlabels = nil
+func (m *ProjectRepoMutation) SetLabels(pa pgarray.StringArray) {
+	m.labels = &pa
 }
 
 // Labels returns the value of the "labels" field in the mutation.
-func (m *ProjectRepoMutation) Labels() (r []string, exists bool) {
+func (m *ProjectRepoMutation) Labels() (r pgarray.StringArray, exists bool) {
 	v := m.labels
 	if v == nil {
 		return
@@ -8692,7 +8657,7 @@ func (m *ProjectRepoMutation) Labels() (r []string, exists bool) {
 // OldLabels returns the old "labels" field's value of the ProjectRepo entity.
 // If the ProjectRepo object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectRepoMutation) OldLabels(ctx context.Context) (v []string, err error) {
+func (m *ProjectRepoMutation) OldLabels(ctx context.Context) (v pgarray.StringArray, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldLabels is only allowed on UpdateOne operations")
 	}
@@ -8706,23 +8671,9 @@ func (m *ProjectRepoMutation) OldLabels(ctx context.Context) (v []string, err er
 	return oldValue.Labels, nil
 }
 
-// AppendLabels adds s to the "labels" field.
-func (m *ProjectRepoMutation) AppendLabels(s []string) {
-	m.appendlabels = append(m.appendlabels, s...)
-}
-
-// AppendedLabels returns the list of values that were appended to the "labels" field in this mutation.
-func (m *ProjectRepoMutation) AppendedLabels() ([]string, bool) {
-	if len(m.appendlabels) == 0 {
-		return nil, false
-	}
-	return m.appendlabels, true
-}
-
 // ClearLabels clears the value of the "labels" field.
 func (m *ProjectRepoMutation) ClearLabels() {
 	m.labels = nil
-	m.appendlabels = nil
 	m.clearedFields[projectrepo.FieldLabels] = struct{}{}
 }
 
@@ -8735,7 +8686,6 @@ func (m *ProjectRepoMutation) LabelsCleared() bool {
 // ResetLabels resets all changes to the "labels" field.
 func (m *ProjectRepoMutation) ResetLabels() {
 	m.labels = nil
-	m.appendlabels = nil
 	delete(m.clearedFields, projectrepo.FieldLabels)
 }
 
@@ -8973,7 +8923,7 @@ func (m *ProjectRepoMutation) SetField(name string, value ent.Value) error {
 		m.SetIsPrimary(v)
 		return nil
 	case projectrepo.FieldLabels:
-		v, ok := value.([]string)
+		v, ok := value.(pgarray.StringArray)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}

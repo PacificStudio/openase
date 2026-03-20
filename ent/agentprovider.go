@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -28,7 +29,7 @@ type AgentProvider struct {
 	// CliCommand holds the value of the "cli_command" field.
 	CliCommand string `json:"cli_command,omitempty"`
 	// CliArgs holds the value of the "cli_args" field.
-	CliArgs []string `json:"cli_args,omitempty"`
+	CliArgs pgarray.StringArray `json:"cli_args,omitempty"`
 	// AuthConfig holds the value of the "auth_config" field.
 	AuthConfig map[string]interface{} `json:"auth_config,omitempty"`
 	// ModelName holds the value of the "model_name" field.
@@ -83,8 +84,10 @@ func (*AgentProvider) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case agentprovider.FieldCliArgs, agentprovider.FieldAuthConfig:
+		case agentprovider.FieldAuthConfig:
 			values[i] = new([]byte)
+		case agentprovider.FieldCliArgs:
+			values[i] = new(pgarray.StringArray)
 		case agentprovider.FieldModelTemperature, agentprovider.FieldCostPerInputToken, agentprovider.FieldCostPerOutputToken:
 			values[i] = new(sql.NullFloat64)
 		case agentprovider.FieldModelMaxTokens:
@@ -139,12 +142,10 @@ func (_m *AgentProvider) assignValues(columns []string, values []any) error {
 				_m.CliCommand = value.String
 			}
 		case agentprovider.FieldCliArgs:
-			if value, ok := values[i].(*[]byte); !ok {
+			if value, ok := values[i].(*pgarray.StringArray); !ok {
 				return fmt.Errorf("unexpected type %T for field cli_args", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &_m.CliArgs); err != nil {
-					return fmt.Errorf("unmarshal field cli_args: %w", err)
-				}
+			} else if value != nil {
+				_m.CliArgs = *value
 			}
 		case agentprovider.FieldAuthConfig:
 			if value, ok := values[i].(*[]byte); !ok {

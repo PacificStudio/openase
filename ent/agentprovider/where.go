@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -67,6 +68,11 @@ func Name(v string) predicate.AgentProvider {
 // CliCommand applies equality check predicate on the "cli_command" field. It's identical to CliCommandEQ.
 func CliCommand(v string) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldCliCommand, v))
+}
+
+// CliArgs applies equality check predicate on the "cli_args" field. It's identical to CliArgsEQ.
+func CliArgs(v pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldCliArgs, v))
 }
 
 // ModelName applies equality check predicate on the "model_name" field. It's identical to ModelNameEQ.
@@ -262,6 +268,46 @@ func CliCommandEqualFold(v string) predicate.AgentProvider {
 // CliCommandContainsFold applies the ContainsFold predicate on the "cli_command" field.
 func CliCommandContainsFold(v string) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldContainsFold(FieldCliCommand, v))
+}
+
+// CliArgsEQ applies the EQ predicate on the "cli_args" field.
+func CliArgsEQ(v pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldCliArgs, v))
+}
+
+// CliArgsNEQ applies the NEQ predicate on the "cli_args" field.
+func CliArgsNEQ(v pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNEQ(FieldCliArgs, v))
+}
+
+// CliArgsIn applies the In predicate on the "cli_args" field.
+func CliArgsIn(vs ...pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldIn(FieldCliArgs, vs...))
+}
+
+// CliArgsNotIn applies the NotIn predicate on the "cli_args" field.
+func CliArgsNotIn(vs ...pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNotIn(FieldCliArgs, vs...))
+}
+
+// CliArgsGT applies the GT predicate on the "cli_args" field.
+func CliArgsGT(v pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldGT(FieldCliArgs, v))
+}
+
+// CliArgsGTE applies the GTE predicate on the "cli_args" field.
+func CliArgsGTE(v pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldGTE(FieldCliArgs, v))
+}
+
+// CliArgsLT applies the LT predicate on the "cli_args" field.
+func CliArgsLT(v pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldLT(FieldCliArgs, v))
+}
+
+// CliArgsLTE applies the LTE predicate on the "cli_args" field.
+func CliArgsLTE(v pgarray.StringArray) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldLTE(FieldCliArgs, v))
 }
 
 // CliArgsIsNil applies the IsNil predicate on the "cli_args" field.
