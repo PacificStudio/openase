@@ -295,9 +295,9 @@ func TestMachineMonitorRunTickCapturesL4AndL5WithoutChangingMachineStatus(t *tes
 			CollectedAt:  now,
 			Dispatchable: true,
 			CLIs: []domain.MachineAgentCLI{
-				{Name: "claude_code", Installed: false, AuthStatus: domain.MachineAgentAuthStatusUnknown},
-				{Name: "codex", Installed: true, Version: "0.0.1", AuthStatus: domain.MachineAgentAuthStatusLoggedIn, Ready: true},
-				{Name: "gemini", Installed: true, Version: "1.2.3", AuthStatus: domain.MachineAgentAuthStatusUnknown, Ready: true},
+				{Name: "claude_code", Installed: false, AuthStatus: domain.MachineAgentAuthStatusUnknown, AuthMode: domain.MachineAgentAuthModeUnknown},
+				{Name: "codex", Installed: true, Version: "0.0.1", AuthStatus: domain.MachineAgentAuthStatusLoggedIn, AuthMode: domain.MachineAgentAuthModeLogin, Ready: true},
+				{Name: "gemini", Installed: true, Version: "1.2.3", AuthStatus: domain.MachineAgentAuthStatusUnknown, AuthMode: domain.MachineAgentAuthModeUnknown, Ready: true},
 			},
 		},
 		fullAudit: domain.MachineFullAudit{
@@ -343,7 +343,7 @@ func TestMachineMonitorRunTickCapturesL4AndL5WithoutChangingMachineStatus(t *tes
 	monitorMap := machineAfter.Resources["monitor"].(map[string]any)
 	l4 := monitorMap["l4"].(map[string]any)
 	codex := l4["codex"].(map[string]any)
-	if codex["installed"] != true || codex["auth_status"] != "logged_in" || codex["ready"] != true {
+	if codex["installed"] != true || codex["auth_status"] != "logged_in" || codex["auth_mode"] != "login" || codex["ready"] != true {
 		t.Fatalf("expected codex l4 snapshot, got %+v", codex)
 	}
 

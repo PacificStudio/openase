@@ -429,6 +429,7 @@ func updateL4Resources(resources map[string]any, agentEnvironment domain.Machine
 			"installed":   cli.Installed,
 			"version":     cli.Version,
 			"auth_status": string(cli.AuthStatus),
+			"auth_mode":   string(cli.AuthMode),
 			"ready":       cli.Ready,
 		}
 		levelMap[cli.Name] = cloneResourceMap(snapshot)

@@ -52,11 +52,20 @@ const (
 	MachineAgentAuthStatusNotLoggedIn MachineAgentAuthStatus = "not_logged_in"
 )
 
+type MachineAgentAuthMode string
+
+const (
+	MachineAgentAuthModeUnknown MachineAgentAuthMode = "unknown"
+	MachineAgentAuthModeLogin   MachineAgentAuthMode = "login"
+	MachineAgentAuthModeAPIKey  MachineAgentAuthMode = "api_key"
+)
+
 type MachineAgentCLI struct {
 	Name       string
 	Installed  bool
 	Version    string
 	AuthStatus MachineAgentAuthStatus
+	AuthMode   MachineAgentAuthMode
 	Ready      bool
 }
 
@@ -204,8 +213,8 @@ func ParseMachineAgentEnvironment(raw string, collectedAt time.Time) (MachineAge
 
 	parsed := make(map[string]MachineAgentCLI, len(records))
 	for index, record := range records {
-		if len(record) != 4 {
-			return MachineAgentEnvironment{}, fmt.Errorf("agent environment row %d must have 4 columns", index)
+		if len(record) != 4 && len(record) != 5 {
+			return MachineAgentEnvironment{}, fmt.Errorf("agent environment row %d must have 4 or 5 columns", index)
 		}
 
 		name := strings.TrimSpace(record[0])
@@ -224,13 +233,21 @@ func ParseMachineAgentEnvironment(raw string, collectedAt time.Time) (MachineAge
 		if err != nil {
 			return MachineAgentEnvironment{}, fmt.Errorf("parse agent environment auth status on row %d: %w", index, err)
 		}
+		authMode := MachineAgentAuthModeUnknown
+		if len(record) == 5 {
+			authMode, err = parseMachineAgentAuthMode(record[4])
+			if err != nil {
+				return MachineAgentEnvironment{}, fmt.Errorf("parse agent environment auth mode on row %d: %w", index, err)
+			}
+		}
 
 		parsed[name] = MachineAgentCLI{
 			Name:       name,
 			Installed:  installed,
 			Version:    strings.TrimSpace(record[2]),
 			AuthStatus: authStatus,
-			Ready:      installed && authStatus != MachineAgentAuthStatusNotLoggedIn,
+			AuthMode:   authMode,
+			Ready:      installed && (authMode == MachineAgentAuthModeAPIKey || authStatus != MachineAgentAuthStatusNotLoggedIn),
 		}
 	}
 
@@ -410,6 +427,16 @@ func parseMachineAgentAuthStatus(raw string) (MachineAgentAuthStatus, error) {
 		return status, nil
 	default:
 		return "", fmt.Errorf("unsupported auth status %q", strings.TrimSpace(raw))
+	}
+}
+
+func parseMachineAgentAuthMode(raw string) (MachineAgentAuthMode, error) {
+	mode := MachineAgentAuthMode(strings.ToLower(strings.TrimSpace(raw)))
+	switch mode {
+	case MachineAgentAuthModeUnknown, MachineAgentAuthModeLogin, MachineAgentAuthModeAPIKey:
+		return mode, nil
+	default:
+		return "", fmt.Errorf("unsupported auth mode %q", strings.TrimSpace(raw))
 	}
 }
 

@@ -61,28 +61,34 @@ if command -v claude >/dev/null 2>&1; then
   else
     claude_auth=not_logged_in
   fi
-  printf 'claude_code\ttrue\t%s\t%s\n' "$claude_version" "$claude_auth"
+  printf 'claude_code\ttrue\t%s\t%s\tlogin\n' "$claude_version" "$claude_auth"
 else
-  printf 'claude_code\tfalse\t\tunknown\n'
+  printf 'claude_code\tfalse\t\tunknown\tunknown\n'
 fi
 
 if [ -n "$codex_cmd" ]; then
   codex_version=$(sanitize_field "$("$codex_cmd" --version 2>/dev/null || echo unknown)")
-  if "$codex_cmd" login status 2>/dev/null | grep -q '^Logged in'; then
+  codex_auth_mode=unknown
+  if [ -n "${OPENAI_API_KEY:-}" ]; then
+    codex_auth=unknown
+    codex_auth_mode=api_key
+  elif "$codex_cmd" login status 2>/dev/null | grep -q '^Logged in'; then
     codex_auth=logged_in
+    codex_auth_mode=login
   else
     codex_auth=not_logged_in
+    codex_auth_mode=login
   fi
-  printf 'codex\ttrue\t%s\t%s\n' "$codex_version" "$codex_auth"
+  printf 'codex\ttrue\t%s\t%s\t%s\n' "$codex_version" "$codex_auth" "$codex_auth_mode"
 else
-  printf 'codex\tfalse\t\tunknown\n'
+  printf 'codex\tfalse\t\tunknown\tunknown\n'
 fi
 
 if command -v gemini >/dev/null 2>&1; then
   gemini_version=$(sanitize_field "$(gemini --version 2>/dev/null || echo unknown)")
-  printf 'gemini\ttrue\t%s\tunknown\n' "$gemini_version"
+  printf 'gemini\ttrue\t%s\tunknown\tunknown\n' "$gemini_version"
 else
-  printf 'gemini\tfalse\t\tunknown\n'
+  printf 'gemini\tfalse\t\tunknown\tunknown\n'
 fi
 `
 	fullAuditScript = `
@@ -223,6 +229,7 @@ func (c *MonitorCollector) CollectFullAudit(ctx context.Context, machine domain.
 }
 
 func (c *MonitorCollector) runScript(ctx context.Context, machine domain.Machine, script string) ([]byte, error) {
+	script = prefixEnvironmentScript(machine.EnvVars, script)
 	if machine.Host == domain.LocalMachineHost {
 		if c == nil || c.runLocal == nil {
 			return nil, fmt.Errorf("local monitor runner unavailable")
@@ -269,4 +276,25 @@ func buildAgentEnvironmentScript(machine domain.Machine) string {
 	}
 
 	return strings.Replace(agentEnvironmentScriptTemplate, "__CODEX_PATH__", shellQuote(codexPath), 1)
+}
+
+func prefixEnvironmentScript(environment []string, script string) string {
+	if len(environment) == 0 {
+		return script
+	}
+
+	var builder strings.Builder
+	for _, entry := range environment {
+		name, value, found := strings.Cut(strings.TrimSpace(entry), "=")
+		if !found || strings.TrimSpace(name) == "" {
+			continue
+		}
+		builder.WriteString("export ")
+		builder.WriteString(name)
+		builder.WriteString("=")
+		builder.WriteString(shellQuote(value))
+		builder.WriteString("\n")
+	}
+	builder.WriteString(script)
+	return builder.String()
 }
