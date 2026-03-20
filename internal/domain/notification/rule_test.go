@@ -11,7 +11,7 @@ func TestRuleMatchesSupportsFlatAndNestedFields(t *testing.T) {
 
 	rule := Rule{
 		Filter: map[string]any{
-			"priority":          "high",
+			"priority":           "high",
 			"ticket.status_name": "In Progress",
 		},
 	}
