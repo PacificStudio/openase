@@ -25,23 +25,29 @@ type ticketDependencyResponse struct {
 }
 
 type ticketResponse struct {
-	ID           string                     `json:"id"`
-	ProjectID    string                     `json:"project_id"`
-	Identifier   string                     `json:"identifier"`
-	Title        string                     `json:"title"`
-	Description  string                     `json:"description"`
-	StatusID     string                     `json:"status_id"`
-	StatusName   string                     `json:"status_name"`
-	Priority     string                     `json:"priority"`
-	Type         string                     `json:"type"`
-	WorkflowID   *string                    `json:"workflow_id,omitempty"`
-	CreatedBy    string                     `json:"created_by"`
-	Parent       *ticketReferenceResponse   `json:"parent,omitempty"`
-	Children     []ticketReferenceResponse  `json:"children"`
-	Dependencies []ticketDependencyResponse `json:"dependencies"`
-	ExternalRef  string                     `json:"external_ref"`
-	BudgetUSD    float64                    `json:"budget_usd"`
-	CreatedAt    string                     `json:"created_at"`
+	ID                string                     `json:"id"`
+	ProjectID         string                     `json:"project_id"`
+	Identifier        string                     `json:"identifier"`
+	Title             string                     `json:"title"`
+	Description       string                     `json:"description"`
+	StatusID          string                     `json:"status_id"`
+	StatusName        string                     `json:"status_name"`
+	Priority          string                     `json:"priority"`
+	Type              string                     `json:"type"`
+	WorkflowID        *string                    `json:"workflow_id,omitempty"`
+	CreatedBy         string                     `json:"created_by"`
+	Parent            *ticketReferenceResponse   `json:"parent,omitempty"`
+	Children          []ticketReferenceResponse  `json:"children"`
+	Dependencies      []ticketDependencyResponse `json:"dependencies"`
+	ExternalRef       string                     `json:"external_ref"`
+	BudgetUSD         float64                    `json:"budget_usd"`
+	CostAmount        float64                    `json:"cost_amount"`
+	AttemptCount      int                        `json:"attempt_count"`
+	ConsecutiveErrors int                        `json:"consecutive_errors"`
+	NextRetryAt       *string                    `json:"next_retry_at,omitempty"`
+	RetryPaused       bool                       `json:"retry_paused"`
+	PauseReason       string                     `json:"pause_reason,omitempty"`
+	CreatedAt         string                     `json:"created_at"`
 }
 
 func (s *Server) registerTicketRoutes(api *echo.Group) {
@@ -260,25 +266,34 @@ func mapTicketResponses(items []ticketservice.Ticket) []ticketResponse {
 
 func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 	response := ticketResponse{
-		ID:           item.ID.String(),
-		ProjectID:    item.ProjectID.String(),
-		Identifier:   item.Identifier,
-		Title:        item.Title,
-		Description:  item.Description,
-		StatusID:     item.StatusID.String(),
-		StatusName:   item.StatusName,
-		Priority:     string(item.Priority),
-		Type:         string(item.Type),
-		CreatedBy:    item.CreatedBy,
-		Children:     []ticketReferenceResponse{},
-		Dependencies: []ticketDependencyResponse{},
-		ExternalRef:  item.ExternalRef,
-		BudgetUSD:    item.BudgetUSD,
-		CreatedAt:    item.CreatedAt.UTC().Format(time.RFC3339),
+		ID:                item.ID.String(),
+		ProjectID:         item.ProjectID.String(),
+		Identifier:        item.Identifier,
+		Title:             item.Title,
+		Description:       item.Description,
+		StatusID:          item.StatusID.String(),
+		StatusName:        item.StatusName,
+		Priority:          string(item.Priority),
+		Type:              string(item.Type),
+		CreatedBy:         item.CreatedBy,
+		Children:          []ticketReferenceResponse{},
+		Dependencies:      []ticketDependencyResponse{},
+		ExternalRef:       item.ExternalRef,
+		BudgetUSD:         item.BudgetUSD,
+		CostAmount:        item.CostAmount,
+		AttemptCount:      item.AttemptCount,
+		ConsecutiveErrors: item.ConsecutiveErrors,
+		RetryPaused:       item.RetryPaused,
+		PauseReason:       item.PauseReason,
+		CreatedAt:         item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	if item.WorkflowID != nil {
 		workflowID := item.WorkflowID.String()
 		response.WorkflowID = &workflowID
+	}
+	if item.NextRetryAt != nil {
+		nextRetryAt := item.NextRetryAt.UTC().Format(time.RFC3339)
+		response.NextRetryAt = &nextRetryAt
 	}
 	if item.Parent != nil {
 		parent := mapTicketReferenceResponse(*item.Parent)

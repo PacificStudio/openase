@@ -15,6 +15,7 @@ import (
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
 
@@ -59,23 +60,29 @@ type Dependency struct {
 }
 
 type Ticket struct {
-	ID           uuid.UUID          `json:"id"`
-	ProjectID    uuid.UUID          `json:"project_id"`
-	Identifier   string             `json:"identifier"`
-	Title        string             `json:"title"`
-	Description  string             `json:"description"`
-	StatusID     uuid.UUID          `json:"status_id"`
-	StatusName   string             `json:"status_name"`
-	Priority     entticket.Priority `json:"priority"`
-	Type         entticket.Type     `json:"type"`
-	WorkflowID   *uuid.UUID         `json:"workflow_id,omitempty"`
-	CreatedBy    string             `json:"created_by"`
-	Parent       *TicketReference   `json:"parent,omitempty"`
-	Children     []TicketReference  `json:"children"`
-	Dependencies []Dependency       `json:"dependencies"`
-	ExternalRef  string             `json:"external_ref"`
-	BudgetUSD    float64            `json:"budget_usd"`
-	CreatedAt    time.Time          `json:"created_at"`
+	ID                uuid.UUID          `json:"id"`
+	ProjectID         uuid.UUID          `json:"project_id"`
+	Identifier        string             `json:"identifier"`
+	Title             string             `json:"title"`
+	Description       string             `json:"description"`
+	StatusID          uuid.UUID          `json:"status_id"`
+	StatusName        string             `json:"status_name"`
+	Priority          entticket.Priority `json:"priority"`
+	Type              entticket.Type     `json:"type"`
+	WorkflowID        *uuid.UUID         `json:"workflow_id,omitempty"`
+	CreatedBy         string             `json:"created_by"`
+	Parent            *TicketReference   `json:"parent,omitempty"`
+	Children          []TicketReference  `json:"children"`
+	Dependencies      []Dependency       `json:"dependencies"`
+	ExternalRef       string             `json:"external_ref"`
+	BudgetUSD         float64            `json:"budget_usd"`
+	CostAmount        float64            `json:"cost_amount"`
+	AttemptCount      int                `json:"attempt_count"`
+	ConsecutiveErrors int                `json:"consecutive_errors"`
+	NextRetryAt       *time.Time         `json:"next_retry_at,omitempty"`
+	RetryPaused       bool               `json:"retry_paused"`
+	PauseReason       string             `json:"pause_reason,omitempty"`
+	CreatedAt         time.Time          `json:"created_at"`
 }
 
 type ListInput struct {
@@ -332,6 +339,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	}
 	if input.BudgetUSD.Set {
 		builder.SetBudgetUsd(input.BudgetUSD.Value)
+		reconcileBudgetPauseState(builder, current, input.BudgetUSD.Value)
 	}
 	if input.ParentTicketID.Set {
 		if input.ParentTicketID.Value == nil {
@@ -768,21 +776,27 @@ func resolveCreatedBy(raw string) string {
 
 func mapTicket(item *ent.Ticket) Ticket {
 	result := Ticket{
-		ID:           item.ID,
-		ProjectID:    item.ProjectID,
-		Identifier:   item.Identifier,
-		Title:        item.Title,
-		Description:  item.Description,
-		StatusID:     item.StatusID,
-		Priority:     item.Priority,
-		Type:         item.Type,
-		WorkflowID:   item.WorkflowID,
-		CreatedBy:    item.CreatedBy,
-		Children:     []TicketReference{},
-		Dependencies: []Dependency{},
-		ExternalRef:  item.ExternalRef,
-		BudgetUSD:    item.BudgetUsd,
-		CreatedAt:    item.CreatedAt,
+		ID:                item.ID,
+		ProjectID:         item.ProjectID,
+		Identifier:        item.Identifier,
+		Title:             item.Title,
+		Description:       item.Description,
+		StatusID:          item.StatusID,
+		Priority:          item.Priority,
+		Type:              item.Type,
+		WorkflowID:        item.WorkflowID,
+		CreatedBy:         item.CreatedBy,
+		Children:          []TicketReference{},
+		Dependencies:      []Dependency{},
+		ExternalRef:       item.ExternalRef,
+		BudgetUSD:         item.BudgetUsd,
+		CostAmount:        item.CostAmount,
+		AttemptCount:      item.AttemptCount,
+		ConsecutiveErrors: item.ConsecutiveErrors,
+		NextRetryAt:       item.NextRetryAt,
+		RetryPaused:       item.RetryPaused,
+		PauseReason:       item.PauseReason,
+		CreatedAt:         item.CreatedAt,
 	}
 
 	if item.Edges.Status != nil {
@@ -833,4 +847,25 @@ func rollback(tx *ent.Tx) {
 		return
 	}
 	_ = tx.Rollback()
+}
+
+func reconcileBudgetPauseState(builder *ent.TicketUpdateOne, current *ent.Ticket, budgetUSD float64) {
+	if builder == nil || current == nil {
+		return
+	}
+
+	if ticketing.ShouldPauseForBudget(current.CostAmount, budgetUSD) {
+		if !current.RetryPaused || current.PauseReason == "" || current.PauseReason == ticketing.PauseReasonBudgetExhausted.String() {
+			builder.SetRetryPaused(true).
+				SetPauseReason(ticketing.PauseReasonBudgetExhausted.String())
+		}
+		return
+	}
+
+	if current.PauseReason == ticketing.PauseReasonBudgetExhausted.String() {
+		if current.RetryPaused {
+			builder.SetRetryPaused(false)
+		}
+		builder.ClearPauseReason()
+	}
 }

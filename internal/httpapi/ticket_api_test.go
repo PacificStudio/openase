@@ -11,6 +11,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -423,5 +424,110 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	}
 	if agentAfterStatusChange.Status != entagent.StatusIdle || agentAfterStatusChange.CurrentTicketID != nil {
 		t.Fatalf("expected status update to release agent, got %+v", agentAfterStatusChange)
+	}
+}
+
+func TestTicketBudgetUpdatesSyncBudgetExhaustedPauseState(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Adjust retry budget").
+		SetStatusID(todoID).
+		SetBudgetUsd(5).
+		SetCostAmount(5).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	increaseResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
+		map[string]any{"budget_usd": 8.0},
+		http.StatusOK,
+		&increaseResp,
+	)
+
+	if increaseResp.Ticket.BudgetUSD != 8 || increaseResp.Ticket.CostAmount != 5 {
+		t.Fatalf("unexpected ticket budget fields after increase: %+v", increaseResp.Ticket)
+	}
+	if increaseResp.Ticket.RetryPaused || increaseResp.Ticket.PauseReason != "" {
+		t.Fatalf("expected budget increase to resume retry, got %+v", increaseResp.Ticket)
+	}
+
+	ticketAfterIncrease, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after increase: %v", err)
+	}
+	if ticketAfterIncrease.RetryPaused || ticketAfterIncrease.PauseReason != "" {
+		t.Fatalf("expected budget increase to clear budget pause, got %+v", ticketAfterIncrease)
+	}
+
+	decreaseResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
+		map[string]any{"budget_usd": 4.0},
+		http.StatusOK,
+		&decreaseResp,
+	)
+
+	if !decreaseResp.Ticket.RetryPaused || decreaseResp.Ticket.PauseReason != ticketing.PauseReasonBudgetExhausted.String() {
+		t.Fatalf("expected lowered budget to pause retry again, got %+v", decreaseResp.Ticket)
+	}
+
+	ticketAfterDecrease, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after decrease: %v", err)
+	}
+	if !ticketAfterDecrease.RetryPaused || ticketAfterDecrease.PauseReason != ticketing.PauseReasonBudgetExhausted.String() {
+		t.Fatalf("expected lowered budget to persist budget pause, got %+v", ticketAfterDecrease)
 	}
 }

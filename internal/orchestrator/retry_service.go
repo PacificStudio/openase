@@ -1,0 +1,137 @@
+package orchestrator
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/BetterAndBetterII/openase/ent"
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	"github.com/google/uuid"
+)
+
+type RetryResult struct {
+	TicketID          uuid.UUID             `json:"ticket_id"`
+	AttemptCount      int                   `json:"attempt_count"`
+	ConsecutiveErrors int                   `json:"consecutive_errors"`
+	NextRetryAt       time.Time             `json:"next_retry_at"`
+	RetryPaused       bool                  `json:"retry_paused"`
+	PauseReason       ticketing.PauseReason `json:"pause_reason"`
+	ReleasedAgentID   *uuid.UUID            `json:"released_agent_id,omitempty"`
+}
+
+type RetryService struct {
+	client *ent.Client
+	logger *slog.Logger
+	now    func() time.Time
+}
+
+func NewRetryService(client *ent.Client, logger *slog.Logger) *RetryService {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	return &RetryService{
+		client: client,
+		logger: logger.With("component", "retry-service"),
+		now:    time.Now,
+	}
+}
+
+func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID) (RetryResult, error) {
+	if s == nil || s.client == nil {
+		return RetryResult{}, fmt.Errorf("retry service unavailable")
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return RetryResult{}, fmt.Errorf("start retry tx: %w", err)
+	}
+	defer rollback(tx)
+
+	current, err := tx.Ticket.Get(ctx, ticketID)
+	if err != nil {
+		return RetryResult{}, fmt.Errorf("load ticket %s for retry: %w", ticketID, err)
+	}
+
+	releasedAgentID := current.AssignedAgentID
+	nextAttemptCount := current.AttemptCount + 1
+	nextConsecutiveErrors := current.ConsecutiveErrors + 1
+	nextRetryAt := s.now().UTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount))
+
+	update := tx.Ticket.UpdateOneID(current.ID).
+		ClearAssignedAgentID().
+		SetAttemptCount(nextAttemptCount).
+		SetConsecutiveErrors(nextConsecutiveErrors).
+		SetNextRetryAt(nextRetryAt)
+
+	pauseReason := ticketing.PauseReason("")
+	if ticketing.ShouldPauseForBudget(current.CostAmount, current.BudgetUsd) {
+		pauseReason = ticketing.PauseReasonBudgetExhausted
+		update.SetRetryPaused(true).
+			SetPauseReason(pauseReason.String())
+	}
+
+	if _, err := update.Save(ctx); err != nil {
+		return RetryResult{}, fmt.Errorf("update ticket %s retry state: %w", ticketID, err)
+	}
+
+	if err := releaseAssignedAgentClaim(ctx, tx, current); err != nil {
+		return RetryResult{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return RetryResult{}, fmt.Errorf("commit retry tx: %w", err)
+	}
+
+	s.logger.Info(
+		"ticket retry scheduled",
+		"ticket_id", current.ID,
+		"attempt_count", nextAttemptCount,
+		"next_retry_at", nextRetryAt.Format(time.RFC3339),
+		"retry_paused", pauseReason != "",
+		"pause_reason", pauseReason.String(),
+	)
+
+	return RetryResult{
+		TicketID:          current.ID,
+		AttemptCount:      nextAttemptCount,
+		ConsecutiveErrors: nextConsecutiveErrors,
+		NextRetryAt:       nextRetryAt,
+		RetryPaused:       pauseReason != "",
+		PauseReason:       pauseReason,
+		ReleasedAgentID:   releasedAgentID,
+	}, nil
+}
+
+func releaseAssignedAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ticket) error {
+	if ticketItem == nil || ticketItem.AssignedAgentID == nil {
+		return nil
+	}
+
+	if _, err := tx.Agent.Update().
+		Where(
+			entagent.IDEQ(*ticketItem.AssignedAgentID),
+			entagent.CurrentTicketIDEQ(ticketItem.ID),
+			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
+		).
+		ClearCurrentTicketID().
+		SetStatus(entagent.StatusIdle).
+		Save(ctx); err != nil {
+		return fmt.Errorf("release assigned agent to idle: %w", err)
+	}
+
+	if _, err := tx.Agent.Update().
+		Where(
+			entagent.IDEQ(*ticketItem.AssignedAgentID),
+			entagent.CurrentTicketIDEQ(ticketItem.ID),
+		).
+		ClearCurrentTicketID().
+		Save(ctx); err != nil {
+		return fmt.Errorf("clear assigned agent current ticket: %w", err)
+	}
+
+	return nil
+}
