@@ -193,7 +193,7 @@ func parseMetricFloat(values map[string]string, key string) (float64, error) {
 }
 
 func kilobytesToGigabytes(value float64) float64 {
-	return roundTwoDecimals(value / 1024.0 / 1024.0)
+	return roundTwoDecimals(value / (1024.0 * 1024.0))
 }
 
 func percentage(part float64, total float64) float64 {

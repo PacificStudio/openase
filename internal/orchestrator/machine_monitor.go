@@ -125,6 +125,18 @@ type monitoredMachine struct {
 	Resources       map[string]any
 }
 
+func (m monitoredMachine) toDomain() domain.Machine {
+	return domain.Machine{
+		ID:         m.ID,
+		Name:       m.Name,
+		Host:       m.Host,
+		Port:       m.Port,
+		SSHUser:    m.SSHUser,
+		SSHKeyPath: m.SSHKeyPath,
+		Labels:     append([]string(nil), m.Labels...),
+	}
+}
+
 func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMachine, now time.Time, report *MachineMonitorReport) (monitoredMachine, bool) {
 	level1Due := machineMonitorDue(machine.Resources, "l1", now, machineMonitorLevel1Interval)
 	level2Due := machineMonitorDue(machine.Resources, "l2", now, machineMonitorLevel2Interval)
@@ -142,18 +154,11 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	hardReachabilityFailure := false
 	softReachabilityFailure := false
 	systemProbeFailure := false
+	domainMachine := machine.toDomain()
 
 	if level1Due {
 		report.L1Checks++
-		reachability, err := m.collector.CollectReachability(ctx, domain.Machine{
-			ID:         machine.ID,
-			Name:       machine.Name,
-			Host:       machine.Host,
-			Port:       machine.Port,
-			SSHUser:    machine.SSHUser,
-			SSHKeyPath: machine.SSHKeyPath,
-			Labels:     append([]string(nil), machine.Labels...),
-		})
+		reachability, err := m.collector.CollectReachability(ctx, domainMachine)
 		lastHeartbeatAt = reachability.CheckedAt
 		if lastHeartbeatAt.IsZero() {
 			lastHeartbeatAt = now
@@ -175,15 +180,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 
 	if level2Due && !softReachabilityFailure && !hardReachabilityFailure {
 		report.L2Checks++
-		systemResources, err := m.collector.CollectSystemResources(ctx, domain.Machine{
-			ID:         machine.ID,
-			Name:       machine.Name,
-			Host:       machine.Host,
-			Port:       machine.Port,
-			SSHUser:    machine.SSHUser,
-			SSHKeyPath: machine.SSHKeyPath,
-			Labels:     append([]string(nil), machine.Labels...),
-		})
+		systemResources, err := m.collector.CollectSystemResources(ctx, domainMachine)
 		if err != nil {
 			systemProbeFailure = true
 			setMachineMonitorError(resources, "l2", err.Error())
@@ -195,15 +192,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 
 	if level3Due && !softReachabilityFailure && !hardReachabilityFailure {
 		report.L3Checks++
-		gpuResources, err := m.collector.CollectGPUResources(ctx, domain.Machine{
-			ID:         machine.ID,
-			Name:       machine.Name,
-			Host:       machine.Host,
-			Port:       machine.Port,
-			SSHUser:    machine.SSHUser,
-			SSHKeyPath: machine.SSHKeyPath,
-			Labels:     append([]string(nil), machine.Labels...),
-		})
+		gpuResources, err := m.collector.CollectGPUResources(ctx, domainMachine)
 		if err != nil {
 			setMachineMonitorError(resources, "l3", err.Error())
 		} else {
@@ -368,7 +357,8 @@ func updateL3Resources(resources map[string]any, gpuResources domain.MachineGPUR
 
 	if !gpuResources.Available {
 		resources["gpu"] = []map[string]any{}
-		levelMap["gpu_dispatchable"] = true
+		levelMap["gpu_dispatchable"] = false
+		resources["gpu_dispatchable"] = false
 		return
 	}
 

@@ -77,9 +77,9 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 		}, fmt.Errorf("ssh pool unavailable")
 	}
 
-	startedAt := time.Now()
+	startedAt := c.now().UTC()
 	_, err := c.pool.Get(ctx, machine)
-	latency := time.Since(startedAt).Milliseconds()
+	latency := c.now().UTC().Sub(startedAt).Milliseconds()
 	if err != nil {
 		return domain.MachineReachability{
 			CheckedAt:    checkedAt,

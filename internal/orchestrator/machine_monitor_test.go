@@ -187,6 +187,79 @@ func TestMachineMonitorRunTickCollectsL2AndL3Snapshots(t *testing.T) {
 	}
 }
 
+func TestMachineMonitorRunTickMarksNoGPUMachineUndispatchable(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-03.pem"
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName("gpu-03").
+		SetHost("10.0.1.12").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetLabels([]string{"gpu"}).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{
+			"gpu_dispatchable": true,
+			"gpu":              []map[string]any{{"index": 0}},
+		}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create gpu machine: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 16, 5, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{
+		now: func() time.Time { return now },
+		systemResources: domain.MachineSystemResources{
+			CollectedAt:            now,
+			CPUCores:               32,
+			CPUUsagePercent:        12.5,
+			MemoryTotalGB:          256,
+			MemoryUsedGB:           64,
+			MemoryAvailableGB:      192,
+			MemoryAvailablePercent: 75,
+			DiskTotalGB:            2000,
+			DiskAvailableGB:        1500,
+			DiskAvailablePercent:   75,
+		},
+		gpuResources: domain.MachineGPUResources{
+			CollectedAt: now,
+			Available:   false,
+		},
+	}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	report, err := monitor.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.L3Checks != 1 {
+		t.Fatalf("expected one L3 check, got %+v", report)
+	}
+
+	machineAfter, err := client.Machine.Get(ctx, machineItem.ID)
+	if err != nil {
+		t.Fatalf("reload machine: %v", err)
+	}
+	if machineAfter.Resources["gpu_dispatchable"] != false {
+		t.Fatalf("expected unavailable gpu machine to be undispatchable, got %+v", machineAfter.Resources)
+	}
+	monitorMap := machineAfter.Resources["monitor"].(map[string]any)
+	l3 := monitorMap["l3"].(map[string]any)
+	if l3["gpu_dispatchable"] != false {
+		t.Fatalf("expected l3 monitor state to record gpu_dispatchable=false, got %+v", l3)
+	}
+	if gpuItems, ok := machineAfter.Resources["gpu"].([]interface{}); !ok || len(gpuItems) != 0 {
+		t.Fatalf("expected empty gpu inventory, got %+v", machineAfter.Resources["gpu"])
+	}
+}
+
 func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Client) uuid.UUID {
 	t.Helper()
 	org, err := client.Organization.Create().
