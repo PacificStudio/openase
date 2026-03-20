@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +12,13 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
@@ -23,6 +30,7 @@ type RuntimeLauncher struct {
 	logger         *slog.Logger
 	events         provider.EventProvider
 	processManager provider.AgentCLIProcessManager
+	sshPool        *sshinfra.Pool
 	now            func() time.Time
 
 	sessionsMu sync.Mutex
@@ -34,6 +42,7 @@ func NewRuntimeLauncher(
 	logger *slog.Logger,
 	events provider.EventProvider,
 	processManager provider.AgentCLIProcessManager,
+	sshPool *sshinfra.Pool,
 ) *RuntimeLauncher {
 	if logger == nil {
 		logger = slog.Default()
@@ -44,6 +53,7 @@ func NewRuntimeLauncher(
 		logger:         logger.With("component", "runtime-launcher"),
 		events:         events,
 		processManager: processManager,
+		sshPool:        sshPool,
 		now:            time.Now,
 		sessions:       map[uuid.UUID]*codex.Session{},
 	}
@@ -336,36 +346,65 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 }
 
 func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.Agent) (*codex.Session, error) {
-	if agentItem == nil {
-		return nil, fmt.Errorf("agent must not be nil")
+	launchContext, err := l.loadLaunchContext(ctx, agentItem)
+	if err != nil {
+		return nil, err
 	}
-	if agentItem.Edges.Provider == nil {
-		return nil, fmt.Errorf("agent provider must be loaded")
-	}
-	if agentItem.Edges.Provider.AdapterType != entagentprovider.AdapterTypeCodexAppServer {
-		return nil, fmt.Errorf("unsupported adapter type %s", agentItem.Edges.Provider.AdapterType)
+	if launchContext.agent.Edges.Provider.AdapterType != entagentprovider.AdapterTypeCodexAppServer {
+		return nil, fmt.Errorf("unsupported adapter type %s", launchContext.agent.Edges.Provider.AdapterType)
 	}
 
-	command, err := provider.ParseAgentCLICommand(agentItem.Edges.Provider.CliCommand)
+	machine, remote, err := l.resolveLaunchMachine(ctx, launchContext)
+	if err != nil {
+		return nil, err
+	}
+
+	commandString := launchContext.agent.Edges.Provider.CliCommand
+	if machine.AgentCLIPath != nil {
+		commandString = *machine.AgentCLIPath
+	}
+
+	command, err := provider.ParseAgentCLICommand(commandString)
 	if err != nil {
 		return nil, fmt.Errorf("parse agent cli command: %w", err)
 	}
-	workingDirectory, err := provider.ParseAbsolutePath(agentItem.WorkspacePath)
+
+	workingDirectoryValue := strings.TrimSpace(launchContext.agent.WorkspacePath)
+	if remote {
+		if l.sshPool == nil {
+			return nil, fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+		}
+		workspaceRequest, err := buildRemoteWorkspaceRequest(launchContext, machine)
+		if err != nil {
+			return nil, err
+		}
+		workspaceItem, err := workspaceinfra.NewRemoteManager(l.sshPool).Prepare(ctx, machine, workspaceRequest)
+		if err != nil {
+			return nil, err
+		}
+		workingDirectoryValue = workspaceItem.Path
+	}
+	workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
 	if err != nil {
 		return nil, fmt.Errorf("parse agent workspace path: %w", err)
 	}
 
+	processManager := l.processManager
+	if remote {
+		processManager = sshinfra.NewProcessManager(l.sshPool, machine)
+	}
+
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,
-		agentItem.Edges.Provider.CliArgs,
+		launchContext.agent.Edges.Provider.CliArgs,
 		&workingDirectory,
-		nil,
+		append([]string(nil), machine.EnvVars...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("build codex process spec: %w", err)
 	}
 
-	adapter, err := codex.NewAdapter(codex.AdapterOptions{ProcessManager: l.processManager})
+	adapter, err := codex.NewAdapter(codex.AdapterOptions{ProcessManager: processManager})
 	if err != nil {
 		return nil, fmt.Errorf("construct codex adapter: %w", err)
 	}
@@ -379,10 +418,209 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 		},
 		Thread: codex.ThreadStartParams{
 			WorkingDirectory: workingDirectory.String(),
-			Model:            agentItem.Edges.Provider.ModelName,
+			Model:            launchContext.agent.Edges.Provider.ModelName,
 			ServiceName:      "openase",
 		},
 	})
+}
+
+type runtimeLaunchContext struct {
+	agent        *ent.Agent
+	project      *ent.Project
+	ticket       *ent.Ticket
+	projectRepos []*ent.ProjectRepo
+	ticketScopes []*ent.TicketRepoScope
+}
+
+func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentItem *ent.Agent) (runtimeLaunchContext, error) {
+	if agentItem == nil {
+		return runtimeLaunchContext{}, fmt.Errorf("agent must not be nil")
+	}
+
+	loaded, err := l.client.Agent.Query().
+		Where(entagent.IDEQ(agentItem.ID)).
+		WithProvider().
+		WithProject(func(query *ent.ProjectQuery) {
+			query.WithRepos(func(repoQuery *ent.ProjectRepoQuery) {
+				repoQuery.Order(entprojectrepo.ByName())
+			})
+		}).
+		WithCurrentTicket(func(query *ent.TicketQuery) {
+			query.WithRepoScopes(func(scopeQuery *ent.TicketRepoScopeQuery) {
+				scopeQuery.Order(
+					entticketreposcope.ByIsPrimaryScope(),
+					entticketreposcope.ByRepoID(),
+				)
+			})
+		}).
+		Only(ctx)
+	if err != nil {
+		return runtimeLaunchContext{}, fmt.Errorf("load runtime launch context for agent %s: %w", agentItem.ID, err)
+	}
+	if loaded.Edges.Provider == nil {
+		return runtimeLaunchContext{}, fmt.Errorf("agent provider must be loaded")
+	}
+	if loaded.Edges.Project == nil {
+		return runtimeLaunchContext{}, fmt.Errorf("agent project must be loaded")
+	}
+	if loaded.Edges.CurrentTicket == nil {
+		return runtimeLaunchContext{}, fmt.Errorf("agent current ticket must be loaded")
+	}
+
+	return runtimeLaunchContext{
+		agent:        loaded,
+		project:      loaded.Edges.Project,
+		ticket:       loaded.Edges.CurrentTicket,
+		projectRepos: loaded.Edges.Project.Edges.Repos,
+		ticketScopes: loaded.Edges.CurrentTicket.Edges.RepoScopes,
+	}, nil
+}
+
+func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContext runtimeLaunchContext) (domain.Machine, bool, error) {
+	machines, err := l.client.Machine.Query().
+		Where(entmachine.OrganizationID(launchContext.project.OrganizationID)).
+		Order(entmachine.ByName()).
+		All(ctx)
+	if err != nil {
+		return domain.Machine{}, false, fmt.Errorf("list machines for runtime launch: %w", err)
+	}
+
+	workspacePath := strings.TrimSpace(launchContext.agent.WorkspacePath)
+	var matched *ent.Machine
+	for _, machineItem := range machines {
+		if machineItem.Host == domain.LocalMachineHost || strings.TrimSpace(machineItem.WorkspaceRoot) == "" {
+			continue
+		}
+		if pathWithinRoot(workspacePath, machineItem.WorkspaceRoot) {
+			if matched != nil {
+				return domain.Machine{}, false, fmt.Errorf("workspace path %q matches multiple remote machines", workspacePath)
+			}
+			matched = machineItem
+		}
+	}
+	if matched != nil {
+		return mapRuntimeMachine(matched), true, nil
+	}
+
+	for _, machineItem := range machines {
+		if machineItem.Host == domain.LocalMachineHost {
+			return mapRuntimeMachine(machineItem), false, nil
+		}
+	}
+
+	return domain.Machine{
+		Name: domain.LocalMachineName,
+		Host: domain.LocalMachineHost,
+	}, false, nil
+}
+
+func buildRemoteWorkspaceRequest(launchContext runtimeLaunchContext, machine domain.Machine) (workspaceinfra.SetupRequest, error) {
+	if machine.WorkspaceRoot == nil {
+		return workspaceinfra.SetupRequest{}, fmt.Errorf("machine %s is missing workspace_root", machine.Name)
+	}
+	if len(launchContext.projectRepos) == 0 {
+		return workspaceinfra.SetupRequest{}, fmt.Errorf("project %s has no repos configured for remote workspace", launchContext.project.ID)
+	}
+
+	repoInputs := buildWorkspaceRepoInputs(launchContext.projectRepos, launchContext.ticketScopes)
+	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
+		WorkspaceRoot:    *machine.WorkspaceRoot,
+		AgentName:        launchContext.agent.Name,
+		TicketIdentifier: launchContext.ticket.Identifier,
+		Repos:            repoInputs,
+	})
+	if err != nil {
+		return workspaceinfra.SetupRequest{}, fmt.Errorf("build remote workspace request: %w", err)
+	}
+
+	if current := strings.TrimSpace(launchContext.agent.WorkspacePath); current != "" {
+		expected := filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)
+		if filepath.Clean(current) != expected {
+			return workspaceinfra.SetupRequest{}, fmt.Errorf("agent workspace path %q does not match remote workspace %q", current, expected)
+		}
+	}
+
+	return request, nil
+}
+
+func buildWorkspaceRepoInputs(projectRepos []*ent.ProjectRepo, ticketScopes []*ent.TicketRepoScope) []workspaceinfra.RepoInput {
+	scopeByRepoID := make(map[uuid.UUID]*ent.TicketRepoScope, len(ticketScopes))
+	for _, scope := range ticketScopes {
+		scopeByRepoID[scope.RepoID] = scope
+	}
+
+	selectedRepos := projectRepos
+	if len(scopeByRepoID) > 0 {
+		selectedRepos = make([]*ent.ProjectRepo, 0, len(scopeByRepoID))
+		for _, repo := range projectRepos {
+			if _, ok := scopeByRepoID[repo.ID]; ok {
+				selectedRepos = append(selectedRepos, repo)
+			}
+		}
+	}
+
+	inputs := make([]workspaceinfra.RepoInput, 0, len(selectedRepos))
+	for _, repo := range selectedRepos {
+		input := workspaceinfra.RepoInput{
+			Name:          repo.Name,
+			RepositoryURL: repo.RepositoryURL,
+			DefaultBranch: repo.DefaultBranch,
+		}
+		if clonePath := strings.TrimSpace(repo.ClonePath); clonePath != "" {
+			input.ClonePath = &clonePath
+		}
+		if scope, ok := scopeByRepoID[repo.ID]; ok {
+			branchName := scope.BranchName
+			input.BranchName = &branchName
+		}
+		inputs = append(inputs, input)
+	}
+
+	return inputs
+}
+
+func pathWithinRoot(path string, root string) bool {
+	trimmedPath := strings.TrimSpace(path)
+	trimmedRoot := strings.TrimSpace(root)
+	if trimmedPath == "" || trimmedRoot == "" {
+		return false
+	}
+
+	cleanPath := filepath.Clean(trimmedPath)
+	cleanRoot := filepath.Clean(trimmedRoot)
+	if cleanPath == cleanRoot {
+		return true
+	}
+
+	relative, err := filepath.Rel(cleanRoot, cleanPath)
+	return err == nil && relative != "." && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+func mapRuntimeMachine(item *ent.Machine) domain.Machine {
+	return domain.Machine{
+		ID:             item.ID,
+		OrganizationID: item.OrganizationID,
+		Name:           item.Name,
+		Host:           item.Host,
+		Port:           item.Port,
+		SSHUser:        optionalRuntimeString(item.SSHUser),
+		SSHKeyPath:     optionalRuntimeString(item.SSHKeyPath),
+		Description:    item.Description,
+		Labels:         append([]string(nil), item.Labels...),
+		Status:         item.Status,
+		WorkspaceRoot:  optionalRuntimeString(item.WorkspaceRoot),
+		AgentCLIPath:   optionalRuntimeString(item.AgentCliPath),
+		EnvVars:        append([]string(nil), item.EnvVars...),
+	}
+}
+
+func optionalRuntimeString(raw string) *string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+
+	value := raw
+	return &value
 }
 
 func (l *RuntimeLauncher) storeSession(agentID uuid.UUID, session *codex.Session) {
