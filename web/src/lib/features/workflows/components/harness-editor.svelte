@@ -45,13 +45,11 @@
   let filteredSuggestions = $derived(filterSuggestions(suggestions, completionState))
 
   $effect(() => {
-    if (activeSuggestionIndex >= filteredSuggestions.length) {
-      activeSuggestionIndex = 0
-    }
+    if (activeSuggestionIndex >= filteredSuggestions.length) activeSuggestionIndex = 0
   })
 
   $effect(() => {
-    filePath
+    void filePath
     completionState = null
     activeSuggestionIndex = 0
   })
@@ -109,9 +107,7 @@
   }
 
   async function applySuggestion(suggestion: Suggestion | undefined) {
-    if (!suggestion || !completionState || !textareaElement) {
-      return
-    }
+    if (!suggestion || !completionState || !textareaElement) return
 
     const cursor = textareaElement.selectionStart
     const nextValue =
@@ -126,9 +122,7 @@
 
     textareaElement?.focus()
     textareaElement?.setSelectionRange(nextCursor, nextCursor)
-    if (textareaElement) {
-      refreshCompletion(textareaElement)
-    }
+    if (textareaElement) refreshCompletion(textareaElement)
   }
 
   function flattenSuggestions(groups: HarnessVariableGroup[]): Suggestion[] {
@@ -148,9 +142,7 @@
   }
 
   function filterSuggestions(items: Suggestion[], state: CompletionState | null): Suggestion[] {
-    if (!state) {
-      return []
-    }
+    if (!state) return []
 
     const normalizedQuery = state.query.trim().toLowerCase()
     return items
@@ -176,42 +168,26 @@
   function findCompletionState(rawContent: string, cursor: number): CompletionState | null {
     const beforeCursor = rawContent.slice(0, cursor)
     const expressionStart = Math.max(beforeCursor.lastIndexOf('{{'), beforeCursor.lastIndexOf('{%'))
-    if (expressionStart === -1) {
-      return null
-    }
+    if (expressionStart === -1) return null
 
     const latestClose = Math.max(beforeCursor.lastIndexOf('}}'), beforeCursor.lastIndexOf('%}'))
-    if (latestClose > expressionStart) {
-      return null
-    }
+    if (latestClose > expressionStart) return null
 
     const segment = beforeCursor.slice(expressionStart + 2)
-    if (segment.includes('\n')) {
-      return null
-    }
+    if (segment.includes('\n')) return null
 
     const pipeIndex = segment.lastIndexOf('|')
     if (pipeIndex >= 0) {
       const afterPipe = segment.slice(pipeIndex + 1)
       const trimmed = afterPipe.replace(/^\s+/, '')
-      return {
-        mode: 'filter',
-        query: trimmed,
-        tokenStart: cursor - trimmed.length,
-      }
+      return { mode: 'filter', query: trimmed, tokenStart: cursor - trimmed.length }
     }
 
-    const match = segment.match(/([A-Za-z_][\w.\[\]]*)?$/)
-    if (!match) {
-      return null
-    }
+    const match = segment.match(/([A-Za-z_](?:[\w.]|\[|\])*)?$/)
+    if (!match) return null
 
     const query = match[1] ?? ''
-    return {
-      mode: 'variable',
-      query,
-      tokenStart: cursor - query.length,
-    }
+    return { mode: 'variable', query, tokenStart: cursor - query.length }
   }
 </script>
 
