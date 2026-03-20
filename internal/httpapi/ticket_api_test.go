@@ -296,6 +296,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
 		config.ServerConfig{Port: 40024},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		ticketservice.NewService(client),
