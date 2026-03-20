@@ -59,7 +59,7 @@
   } = $props()
 </script>
 
-<div class="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+<div class="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
   <ProjectHealthPanel
     {project}
     {workflowCount}
@@ -71,7 +71,7 @@
     {hrAdvisorError}
   />
 
-  <div class="grid gap-6">
+    <div class="grid gap-4">
     <RunningNowPanel
       {agents}
       busy={dashboardBusy}
@@ -90,7 +90,7 @@
     />
   </div>
 
-  <div class="xl:col-span-2">
+      <div class="xl:col-span-2">
     <ActivityFeedPanel {activityEvents} {activityStreamState} {selectedAgentName} />
   </div>
 </div>

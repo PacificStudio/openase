@@ -1,5 +1,6 @@
 <script lang="ts">
   import { BellRing, FileText, PencilLine, Trash2 } from '@lucide/svelte'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import {
@@ -43,7 +44,8 @@
       {/each}
     </div>
 
-    <div class="grid gap-3">
+    <ScrollPane class="max-h-[22rem]">
+      <div class="grid gap-3">
       {#if controller.state.rules.length === 0}
         <div
           class="border-border/70 bg-muted/30 rounded-3xl border border-dashed px-4 py-5 text-sm"
@@ -100,7 +102,8 @@
           </article>
         {/each}
       {/if}
-    </div>
+      </div>
+    </ScrollPane>
 
     <form
       class="space-y-4 rounded-[1.75rem] border border-teal-500/20 bg-teal-500/5 p-5"

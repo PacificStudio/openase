@@ -1,13 +1,8 @@
 <script lang="ts">
   import { Bot, HeartPulse } from '@lucide/svelte'
   import { Badge } from '$lib/components/ui/badge'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-  } from '$lib/components/ui/card'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
+  import SurfacePanel from '$lib/components/layout/SurfacePanel.svelte'
   import {
     heartbeatBadgeClass,
     heartbeatLabel,
@@ -35,21 +30,21 @@
   } = $props()
 </script>
 
-<Card class="border-border/80 bg-background/80 backdrop-blur">
-  <CardHeader>
+<SurfacePanel class="h-full">
+  {#snippet header()}
     <div class="flex items-center justify-between gap-3">
       <div>
-        <CardTitle class="flex items-center gap-2">
+        <div class="flex items-center gap-2 text-sm font-semibold">
           <Bot class="size-4" />
           <span>Running now</span>
-        </CardTitle>
-        <CardDescription>Current agents and heartbeat freshness.</CardDescription>
+        </div>
+        <p class="text-muted-foreground mt-1 text-xs">Current agents and heartbeat freshness.</p>
       </div>
       <Badge class={streamBadgeClass(agentStreamState)}>{agentStreamState}</Badge>
     </div>
-  </CardHeader>
+  {/snippet}
 
-  <CardContent class="space-y-3">
+  <ScrollPane class="max-h-[26rem] space-y-3 px-4 py-4">
     {#if busy}
       <div
         class="text-muted-foreground border-border/70 bg-muted/30 rounded-3xl border px-4 py-5 text-sm"
@@ -107,7 +102,7 @@
             </div>
           </div>
         </button>
-      {/each}
-    {/if}
-  </CardContent>
-</Card>
+        {/each}
+      {/if}
+  </ScrollPane>
+</SurfacePanel>

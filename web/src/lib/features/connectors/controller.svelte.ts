@@ -1,10 +1,10 @@
 import {
-  createWorkspaceController,
   toErrorMessage,
   type Organization,
   type Project,
-  type WorkspaceStartOptions,
 } from '$lib/features/workspace'
+import { createWorkspaceController, type WorkspaceStartOptions } from '$lib/features/workspace/controller.svelte'
+import type { WorkspaceController } from '$lib/features/workspace/context'
 import {
   createConnector,
   deleteConnector,
@@ -32,8 +32,9 @@ import {
 } from './storage'
 type ConnectorAction = '' | 'save' | 'sync' | 'test' | 'toggle-status' | 'delete'
 
-export function createConnectorsController() {
-  const workspace = createWorkspaceController()
+export function createConnectorsController(options: { workspace?: WorkspaceController } = {}) {
+  const workspace = options.workspace ?? createWorkspaceController()
+  const ownsWorkspace = !options.workspace
   let connectors = $state<IssueConnector[]>([])
   let selectedConnectorId = $state('')
   let form = $state<ConnectorForm>(defaultConnectorForm())
@@ -44,11 +45,16 @@ export function createConnectorsController() {
   let pendingAction = $state<ConnectorAction>('')
   let persistenceMode = $state<'api' | 'local'>('api')
   async function start(options: WorkspaceStartOptions = {}) {
-    await workspace.start(options)
+    if (ownsWorkspace) {
+      await workspace.start(options)
+    }
+
     await refreshConnectors()
   }
   function destroy() {
-    workspace.destroy()
+    if (ownsWorkspace) {
+      workspace.destroy()
+    }
   }
   async function refreshConnectors(preferredConnectorId = selectedConnectorId) {
     const projectId = workspace.state.selectedProjectId

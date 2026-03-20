@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Menu, PanelsTopLeft, Sparkles } from '@lucide/svelte'
+  import { FolderKanban, Menu, PanelRightOpen, RadioTower, Ticket, Workflow } from '@lucide/svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import type { Organization, Project } from '$lib/types/workspace-shell'
@@ -7,90 +7,99 @@
   let {
     selectedOrg = null,
     selectedProject = null,
-    notice = '',
-    errorMessage = '',
-    pageTags = ['Feature-first shell', 'Dashboard', 'Board', 'SSE streams'],
-    pageEyebrow = 'OpenASE control plane',
-    pageTitle = 'Project shell, live dashboard, and board now ship as separate features.',
-    pageDescription = 'Keep routing tickets from the board, watch agent telemetry update through SSE, and edit workflow settings from the drawer without stuffing page logic back into the route file.',
+    pageTitle = 'Overview',
+    pageLabel = 'Project workspace',
+    pageStatus = 'idle',
+    runningAgentCount = 0,
+    ticketCount = 0,
+    workflowCount = 0,
+    statusMessage = '',
+    onToggleSidebar,
     onToggleDrawer,
   }: {
     selectedOrg?: Organization | null
     selectedProject?: Project | null
-    notice?: string
-    errorMessage?: string
-    pageTags?: string[]
-    pageEyebrow?: string
     pageTitle?: string
-    pageDescription?: string
+    pageLabel?: string
+    pageStatus?: string
+    runningAgentCount?: number
+    ticketCount?: number
+    workflowCount?: number
+    statusMessage?: string
+    onToggleSidebar?: () => void
     onToggleDrawer?: () => void
   } = $props()
 </script>
 
-<div class="space-y-4">
-  <div
-    class="border-border/70 bg-background/80 rounded-[2rem] border px-5 py-5 shadow-sm backdrop-blur"
-  >
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="space-y-3">
-        <div class="flex flex-wrap items-center gap-2">
-          {#each pageTags as tag}
-            <Badge variant="outline">{tag}</Badge>
-          {/each}
-        </div>
+<div class="border-border/70 bg-background/86 rounded-[1.6rem] border px-4 py-3 shadow-sm backdrop-blur">
+  <div class="flex min-h-14 flex-wrap items-center justify-between gap-3">
+    <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+      <Button type="button" variant="outline" size="icon" class="xl:hidden" onclick={onToggleSidebar}>
+        <Menu class="size-4" />
+      </Button>
 
-        <div class="space-y-2">
-          <p class="text-muted-foreground text-xs font-medium tracking-[0.28em] uppercase">
-            {pageEyebrow}
-          </p>
-          <div class="flex flex-wrap items-center gap-3">
-            <h1 class="text-3xl font-semibold tracking-[-0.05em] text-balance sm:text-4xl">
-              {pageTitle}
-            </h1>
-          </div>
-          <p class="text-muted-foreground max-w-3xl text-sm leading-7 sm:text-base">
-            {pageDescription}
-          </p>
+      <a
+        href="/"
+        class="bg-foreground text-background inline-flex size-10 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold tracking-[0.24em]"
+      >
+        OA
+      </a>
+
+      <div class="min-w-0">
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
+          <p class="truncate text-sm font-semibold">{pageTitle}</p>
+          <Badge variant="outline">{pageLabel}</Badge>
+          {#if statusMessage}
+            <Badge variant={pageStatus === 'error' ? 'destructive' : 'outline'}>{statusMessage}</Badge>
+          {/if}
         </div>
+        <p class="text-muted-foreground mt-1 truncate text-xs">
+          {selectedOrg ? `${selectedOrg.name}` : 'No organization selected'}
+          {#if selectedProject}
+            <span> / {selectedProject.name}</span>
+          {/if}
+          {#if !selectedProject}
+            <span> / pick a project in the sidebar</span>
+          {/if}
+        </p>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="hidden items-center gap-2 lg:flex">
+        <span class="border-border/70 bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs">
+          <RadioTower class="size-3.5" />
+          {pageStatus}
+        </span>
+        <span class="border-border/70 bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs">
+          <FolderKanban class="size-3.5" />
+          {runningAgentCount} running
+        </span>
+        <span class="border-border/70 bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs">
+          <Ticket class="size-3.5" />
+          {ticketCount} tickets
+        </span>
+        <span class="border-border/70 bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs">
+          <Workflow class="size-3.5" />
+          {workflowCount} workflows
+        </span>
       </div>
 
-      <div class="flex flex-wrap items-center gap-3">
-        <div
-          class="border-border/70 bg-background/70 hidden rounded-2xl border px-4 py-3 text-sm lg:block"
+      <Button type="button" variant="outline" onclick={onToggleDrawer}>
+        <PanelRightOpen class="mr-2 size-4" />
+        Context
+      </Button>
+
+      {#if selectedProject}
+        <a
+          href={`/board?org=${encodeURIComponent(selectedOrg?.id ?? '')}&project=${encodeURIComponent(selectedProject.id)}`}
+          class="bg-foreground text-background inline-flex items-center rounded-full px-4 py-2 text-sm font-medium"
         >
-          <div class="flex items-center gap-2 font-medium">
-            <PanelsTopLeft class="size-4" />
-            <span>{selectedProject?.name ?? 'No project selected'}</span>
-          </div>
-          <p class="text-muted-foreground mt-1 text-xs">
-            {selectedOrg ? `${selectedOrg.name} / ${selectedOrg.slug}` : 'Select an organization'}
-          </p>
-        </div>
-
-        <Button type="button" variant="outline" class="lg:hidden" onclick={onToggleDrawer}>
-          <Menu class="mr-2 size-4" />
-          Drawer
-        </Button>
-      </div>
+          Open board
+        </a>
+      {:else}
+        <span class="text-muted-foreground hidden text-xs lg:inline">Select a project to activate the workspace.</span>
+      {/if}
     </div>
   </div>
-
-  {#if notice}
-    <div
-      class="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-950"
-    >
-      <div class="flex items-center gap-2">
-        <Sparkles class="size-4" />
-        <span>{notice}</span>
-      </div>
-    </div>
-  {/if}
-
-  {#if errorMessage}
-    <div
-      class="text-destructive border-destructive/25 bg-destructive/10 rounded-3xl border px-5 py-4 text-sm"
-    >
-      {errorMessage}
-    </div>
-  {/if}
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MasterDetailLayout from '$lib/components/layout/MasterDetailLayout.svelte'
   import {
     createWorkspaceController,
     HarnessPanel,
@@ -20,9 +21,8 @@
   <title>Workflows · OpenASE</title>
 </svelte:head>
 
-<div class="space-y-6">
-  <div class="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
-    <div class="space-y-6">
+<MasterDetailLayout detailWidthClass="xl:grid-cols-[22rem_minmax(0,1fr)]">
+  {#snippet main()}
       <WorkflowPanel
         selectedProject={controller.state.selectedProject}
         selectedWorkflowId={controller.state.selectedWorkflowId}
@@ -49,9 +49,9 @@
         hrAdvisor={controller.dashboard.hrAdvisor}
         onLoadRecommendedRole={controller.loadRecommendedRole}
       />
-    </div>
+  {/snippet}
 
-    <div class="space-y-6">
+  {#snippet detail()}
       <HarnessPanel
         selectedWorkflow={controller.state.selectedWorkflow}
         harnessPath={controller.state.harnessPath}
@@ -82,6 +82,5 @@
         harnessDirty={controller.harnessDirty()}
         onToggleSkill={controller.toggleSkillBinding}
       />
-    </div>
-  </div>
-</div>
+  {/snippet}
+</MasterDetailLayout>

@@ -1,13 +1,8 @@
 <script lang="ts">
   import { Activity } from '@lucide/svelte'
   import { Badge } from '$lib/components/ui/badge'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-  } from '$lib/components/ui/card'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
+  import SurfacePanel from '$lib/components/layout/SurfacePanel.svelte'
   import { formatTimestamp, streamBadgeClass, type ActivityEvent } from '$lib/features/workspace'
   import type { StreamConnectionState } from '$lib/api/sse'
 
@@ -22,21 +17,23 @@
   } = $props()
 </script>
 
-<Card class="border-border/80 bg-background/80 backdrop-blur">
-  <CardHeader>
+<SurfacePanel class="h-full">
+  {#snippet header()}
     <div class="flex items-center justify-between gap-3">
       <div>
-        <CardTitle class="flex items-center gap-2">
+        <div class="flex items-center gap-2 text-sm font-semibold">
           <Activity class="size-4" />
           <span>Activity feed</span>
-        </CardTitle>
-        <CardDescription>Recent events for {selectedAgentName.toLowerCase()}.</CardDescription>
+        </div>
+        <p class="text-muted-foreground mt-1 text-xs">
+          Recent events for {selectedAgentName.toLowerCase()}.
+        </p>
       </div>
       <Badge class={streamBadgeClass(activityStreamState)}>{activityStreamState}</Badge>
     </div>
-  </CardHeader>
+  {/snippet}
 
-  <CardContent class="space-y-3">
+  <ScrollPane class="max-h-[34rem] space-y-3 px-4 py-4">
     {#if activityEvents.length === 0}
       <div
         class="text-muted-foreground border-border/70 bg-muted/30 rounded-3xl border border-dashed px-4 py-5 text-sm"
@@ -54,5 +51,5 @@
         </div>
       {/each}
     {/if}
-  </CardContent>
-</Card>
+  </ScrollPane>
+</SurfacePanel>

@@ -1,10 +1,10 @@
 import {
   toErrorMessage,
-  createWorkspaceController,
   type Organization,
   type Project,
-  type WorkspaceStartOptions,
 } from '$lib/features/workspace/public'
+import { createWorkspaceController, type WorkspaceStartOptions } from '$lib/features/workspace/controller.svelte'
+import type { WorkspaceController } from '$lib/features/workspace/context'
 import {
   createNotificationChannel,
   createNotificationRule,
@@ -35,15 +35,21 @@ import {
   buildRuleUpdateInput,
 } from './payloads'
 
-export function createNotificationsController() {
-  const workspace = createWorkspaceController()
+export function createNotificationsController(options: { workspace?: WorkspaceController } = {}) {
+  const workspace = options.workspace ?? createWorkspaceController()
+  const ownsWorkspace = !options.workspace
   const state = $state(createNotificationsState())
   async function start(options: WorkspaceStartOptions = {}) {
-    await workspace.start(options)
+    if (ownsWorkspace) {
+      await workspace.start(options)
+    }
+
     await Promise.all([refreshEventTypes(), refreshChannels(), refreshRules()])
   }
   function destroy() {
-    workspace.destroy()
+    if (ownsWorkspace) {
+      workspace.destroy()
+    }
   }
   async function refreshEventTypes() {
     state.eventTypes = await loadNotificationEventTypes()

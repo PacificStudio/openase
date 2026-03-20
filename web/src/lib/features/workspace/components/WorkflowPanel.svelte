@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Plus, Save, Sparkles, Trash2 } from '@lucide/svelte'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import {
@@ -177,7 +178,8 @@
           No workflows in the active project yet.
         </div>
       {:else}
-        <div class="grid gap-2">
+        <ScrollPane class="max-h-64">
+          <div class="grid gap-2">
           {#each workflows as workflow}
             <button
               type="button"
@@ -196,7 +198,8 @@
               </div>
             </button>
           {/each}
-        </div>
+          </div>
+        </ScrollPane>
       {/if}
     </div>
 

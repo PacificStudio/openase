@@ -1,26 +1,32 @@
 import {
-  createWorkspaceController,
   toErrorMessage,
   type Organization,
   type Project,
-  type WorkspaceStartOptions,
 } from '$lib/features/workspace'
+import { createWorkspaceController, type WorkspaceStartOptions } from '$lib/features/workspace/controller.svelte'
+import type { WorkspaceController } from '$lib/features/workspace/context'
 import { loadAgentProviders } from './api'
 import type { AgentProvider } from './types'
 
-export function createAgentsController() {
-  const workspace = createWorkspaceController()
+export function createAgentsController(options: { workspace?: WorkspaceController } = {}) {
+  const workspace = options.workspace ?? createWorkspaceController()
+  const ownsWorkspace = !options.workspace
   let providers = $state<AgentProvider[]>([])
   let providerBusy = $state(false)
   let providerError = $state('')
 
   async function start(options: WorkspaceStartOptions = {}) {
-    await workspace.start(options)
+    if (ownsWorkspace) {
+      await workspace.start(options)
+    }
+
     await refreshProviders()
   }
 
   function destroy() {
-    workspace.destroy()
+    if (ownsWorkspace) {
+      workspace.destroy()
+    }
   }
 
   async function refreshProviders() {

@@ -1,13 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { PanelRightOpen } from '@lucide/svelte'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-  } from '$lib/components/ui/card'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
+  import SurfacePanel from '$lib/components/layout/SurfacePanel.svelte'
 
   let {
     children,
@@ -20,15 +15,20 @@
   } = $props()
 </script>
 
-<Card class="border-border/80 bg-background/80 sticky top-5 backdrop-blur">
-  <CardHeader>
-    <CardTitle class="flex items-center gap-2">
-      <PanelRightOpen class="size-4" />
-      <span>{title}</span>
-    </CardTitle>
-    <CardDescription>{description}</CardDescription>
-  </CardHeader>
-  <CardContent class="space-y-6">
-    {@render children?.()}
-  </CardContent>
-</Card>
+<SurfacePanel class="h-full">
+  {#snippet header()}
+    <div>
+      <div class="flex items-center gap-2">
+        <PanelRightOpen class="size-4" />
+        <p class="text-sm font-semibold">{title}</p>
+      </div>
+      <p class="text-muted-foreground mt-1 text-xs leading-5">{description}</p>
+    </div>
+  {/snippet}
+
+  <ScrollPane class="h-full px-4 py-4">
+    <div class="space-y-4">
+      {@render children?.()}
+    </div>
+  </ScrollPane>
+</SurfacePanel>

@@ -1,12 +1,7 @@
 <script lang="ts">
   import { Activity, Clock3, Waypoints } from '@lucide/svelte'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-  } from '$lib/components/ui/card'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
+  import SurfacePanel from '$lib/components/layout/SurfacePanel.svelte'
   import MetadataViewer from '$lib/components/metadata-viewer.svelte'
   import { formatTimestamp, type ActivityEvent } from '$lib/features/workspace'
 
@@ -25,20 +20,22 @@
   } = $props()
 </script>
 
-<Card class="border-border/80 bg-background/85 backdrop-blur">
-  <CardHeader>
-    <CardTitle class="flex items-center gap-2">
+<SurfacePanel class="h-full">
+  {#snippet header()}
+    <div>
+      <div class="flex items-center gap-2 text-sm font-semibold">
       {#if variant === 'hooks'}
         <Waypoints class="size-4" />
       {:else}
         <Activity class="size-4" />
       {/if}
       <span>{title}</span>
-    </CardTitle>
-    <CardDescription>{description}</CardDescription>
-  </CardHeader>
+      </div>
+      <p class="text-muted-foreground mt-1 text-xs leading-5">{description}</p>
+    </div>
+  {/snippet}
 
-  <CardContent class="space-y-3">
+  <ScrollPane class="max-h-[30rem] space-y-3 px-4 py-4">
     {#if events.length === 0}
       <div
         class="border-border/80 bg-muted/30 text-muted-foreground rounded-3xl border border-dashed px-4 py-6 text-sm"
@@ -64,5 +61,5 @@
         </div>
       {/each}
     {/if}
-  </CardContent>
-</Card>
+  </ScrollPane>
+</SurfacePanel>

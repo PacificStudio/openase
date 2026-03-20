@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Cable, Plus } from '@lucide/svelte'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import {
@@ -84,44 +85,46 @@
           No connectors yet. Add one to seed the connector management surface.
         </div>
       {:else}
-        {#each controller.connectors as connector}
-          <button
-            type="button"
-            class={`w-full rounded-3xl border px-4 py-4 text-left transition ${
-              controller.selectedConnectorId === connector.id
-                ? 'border-foreground/30 bg-foreground text-background shadow-lg shadow-black/10'
-                : 'border-border/70 bg-background/65 hover:border-foreground/15 hover:bg-background'
-            }`}
-            onclick={() => controller.selectConnector(connector.id)}
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold">{connector.name || 'Untitled connector'}</p>
-                <p
-                  class={`mt-1 text-xs font-medium uppercase ${
-                    controller.selectedConnectorId === connector.id
-                      ? 'text-background/70'
-                      : 'text-muted-foreground'
-                  }`}
-                >
-                  {connector.type} · {connectorSummary(connector)}
-                </p>
-              </div>
-              <Badge variant={statusBadgeVariant(connector.status)}>{connector.status}</Badge>
-            </div>
-            <div
-              class={`mt-4 grid gap-2 text-xs ${
+        <ScrollPane class="max-h-[28rem] space-y-3">
+          {#each controller.connectors as connector}
+            <button
+              type="button"
+              class={`w-full rounded-3xl border px-4 py-4 text-left transition ${
                 controller.selectedConnectorId === connector.id
-                  ? 'text-background/75'
-                  : 'text-muted-foreground'
+                  ? 'border-foreground/30 bg-foreground text-background shadow-lg shadow-black/10'
+                  : 'border-border/70 bg-background/65 hover:border-foreground/15 hover:bg-background'
               }`}
+              onclick={() => controller.selectConnector(connector.id)}
             >
-              <p>Project ref: {connector.config.project_ref || 'Not set'}</p>
-              <p>Last sync: {formatTimestamp(connector.last_sync_at)}</p>
-              <p>Total synced: {connector.stats.total_synced}</p>
-            </div>
-          </button>
-        {/each}
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm font-semibold">{connector.name || 'Untitled connector'}</p>
+                  <p
+                    class={`mt-1 text-xs font-medium uppercase ${
+                      controller.selectedConnectorId === connector.id
+                        ? 'text-background/70'
+                        : 'text-muted-foreground'
+                    }`}
+                  >
+                    {connector.type} · {connectorSummary(connector)}
+                  </p>
+                </div>
+                <Badge variant={statusBadgeVariant(connector.status)}>{connector.status}</Badge>
+              </div>
+              <div
+                class={`mt-4 grid gap-2 text-xs ${
+                  controller.selectedConnectorId === connector.id
+                    ? 'text-background/75'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                <p>Project ref: {connector.config.project_ref || 'Not set'}</p>
+                <p>Last sync: {formatTimestamp(connector.last_sync_at)}</p>
+                <p>Total synced: {connector.stats.total_synced}</p>
+              </div>
+            </button>
+          {/each}
+        </ScrollPane>
       {/if}
     </CardContent>
   </Card>

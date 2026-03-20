@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Badge } from '$lib/components/ui/badge'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
   import TicketCard from './TicketCard.svelte'
   import type { Ticket, TicketStatus } from '$lib/features/workspace'
 
@@ -47,7 +48,8 @@
     <Badge variant="outline">{tickets.length}</Badge>
   </div>
 
-  <div class="mt-4 grid gap-3">
+  <ScrollPane class="mt-4 max-h-[30rem]">
+    <div class="grid gap-3">
     {#if tickets.length === 0}
       <div
         class="text-muted-foreground border-border/70 bg-background/70 rounded-3xl border border-dashed px-4 py-5 text-sm"
@@ -65,5 +67,6 @@
         />
       {/each}
     {/if}
-  </div>
+    </div>
+  </ScrollPane>
 </div>

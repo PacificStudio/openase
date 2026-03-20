@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MasterDetailLayout from '$lib/components/layout/MasterDetailLayout.svelte'
   import { ActivityFeedPanel, RunningNowPanel } from '$lib/features/dashboard'
   import type { createAgentsController } from '../controller.svelte'
   import AgentDetailPanel from './AgentDetailPanel.svelte'
@@ -15,8 +16,8 @@
   <title>Agents · OpenASE</title>
 </svelte:head>
 
-<div class="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
-  <div class="space-y-6">
+<MasterDetailLayout detailWidthClass="xl:grid-cols-[22rem_minmax(0,1fr)]">
+  {#snippet main()}
     <RunningNowPanel
       agents={controller.workspace.dashboard.agents}
       busy={controller.workspace.dashboard.busy}
@@ -34,9 +35,9 @@
       error={controller.providerError}
       countAgentsForProvider={controller.agentsForProvider}
     />
-  </div>
+  {/snippet}
 
-  <div class="space-y-6">
+  {#snippet detail()}
     <AgentDetailPanel
       agent={controller.selectedAgent()}
       project={controller.workspace.state.selectedProject}
@@ -48,5 +49,5 @@
       activityStreamState={controller.workspace.dashboard.activityStreamState}
       selectedAgentName={controller.workspace.dashboard.selectedAgentName()}
     />
-  </div>
-</div>
+  {/snippet}
+</MasterDetailLayout>

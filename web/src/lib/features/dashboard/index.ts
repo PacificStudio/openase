@@ -1,3 +1,5 @@
 export { createDashboardStore } from './store.svelte'
 export { default as ActivityFeedPanel } from './components/ActivityFeedPanel.svelte'
+export { default as ExceptionsPanel } from './components/ExceptionsPanel.svelte'
+export { default as ProjectHealthPanel } from './components/ProjectHealthPanel.svelte'
 export { default as RunningNowPanel } from './components/RunningNowPanel.svelte'

@@ -1,13 +1,8 @@
 <script lang="ts">
   import { ExternalLink, GitBranch } from '@lucide/svelte'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
+  import SurfacePanel from '$lib/components/layout/SurfacePanel.svelte'
   import { Badge } from '$lib/components/ui/badge'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-  } from '$lib/components/ui/card'
   import type { TicketRepoScope } from '../types'
 
   let {
@@ -37,18 +32,20 @@
   }
 </script>
 
-<Card class="border-border/80 bg-background/85 backdrop-blur">
-  <CardHeader>
-    <CardTitle class="flex items-center gap-2">
+<SurfacePanel class="h-full">
+  {#snippet header()}
+    <div>
+      <div class="flex items-center gap-2 text-sm font-semibold">
       <GitBranch class="size-4" />
       <span>Repo / PR Status</span>
-    </CardTitle>
-    <CardDescription>
-      Each repo scope tracks branch, PR URL, review status, and CI health for this ticket.
-    </CardDescription>
-  </CardHeader>
+      </div>
+      <p class="text-muted-foreground mt-1 text-xs leading-5">
+        Each repo scope tracks branch, PR URL, review status, and CI health for this ticket.
+      </p>
+    </div>
+  {/snippet}
 
-  <CardContent class="space-y-3">
+  <ScrollPane class="max-h-[22rem] space-y-3 px-4 py-4">
     {#if repoScopes.length === 0}
       <div
         class="border-border/80 bg-muted/30 text-muted-foreground rounded-3xl border border-dashed px-4 py-6 text-sm"
@@ -105,5 +102,5 @@
         </div>
       {/each}
     {/if}
-  </CardContent>
-</Card>
+  </ScrollPane>
+</SurfacePanel>

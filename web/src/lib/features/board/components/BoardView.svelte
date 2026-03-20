@@ -46,7 +46,7 @@
     {streamState}
   />
 
-  <CardContent class="p-4 sm:p-6">
+  <CardContent class="p-4 sm:p-5">
     {#if statuses.length === 0}
       <div
         class="text-muted-foreground border-border/70 bg-muted/30 rounded-[1.75rem] border border-dashed px-4 py-8 text-sm"

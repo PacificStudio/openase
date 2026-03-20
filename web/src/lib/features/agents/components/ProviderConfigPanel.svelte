@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Cable } from '@lucide/svelte'
+  import ScrollPane from '$lib/components/layout/ScrollPane.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import {
     Card,
@@ -82,7 +83,7 @@
         </div>
       {/if}
 
-      <div class="space-y-3">
+      <ScrollPane class="max-h-64 space-y-3">
         {#each providers as item}
           <div class="border-border/70 bg-background/60 rounded-3xl border px-4 py-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -101,7 +102,7 @@
             </div>
           </div>
         {/each}
-      </div>
+      </ScrollPane>
     {/if}
   </CardContent>
 </Card>

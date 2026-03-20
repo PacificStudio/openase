@@ -44,6 +44,7 @@ export function createWorkspaceController() {
   const state = createWorkspaceState()
   let heartbeatTimer: number | null = null
   let streamCleanup: (() => void) | null = null
+  let started = false
   const entityActions = createEntityMutationActions({ state, loadOrganizations, loadProjects })
   const workflowEditor = createWorkflowEditorActions({
     state,
@@ -66,14 +67,21 @@ export function createWorkspaceController() {
   }
 
   async function start(options: WorkspaceStartOptions = {}) {
-    heartbeatTimer = window.setInterval(() => dashboard.tickHeartbeat(), 15000)
+    if (!started) {
+      heartbeatTimer = window.setInterval(() => dashboard.tickHeartbeat(), 15000)
+      started = true
+    }
+
     await bootstrap(options)
   }
 
   function destroy() {
+    started = false
     if (heartbeatTimer) {
       window.clearInterval(heartbeatTimer)
     }
+
+    heartbeatTimer = null
     destroyWorkflowEditor()
     disconnectProjectStreams()
   }
