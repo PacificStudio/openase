@@ -10,6 +10,9 @@
   import MemorySnapshotPanel from './memory-snapshot-panel.svelte'
   import { Bot, Ticket, ShieldCheck } from '@lucide/svelte'
   import type { ActivityItem, DashboardStats, ExceptionItem, MemorySnapshot, ProjectSummary } from '../types'
+
+  const dashboardPollIntervalMs = 5000
+
   let loading = $state(false)
   let error = $state('')
   let stats = $state<DashboardStats>({
@@ -39,10 +42,16 @@
     }
 
     let cancelled = false
+    let hasLoaded = false
+    let inFlight = false
 
-    const load = async () => {
-      loading = true
-      error = ''
+    const load = async (showLoading: boolean) => {
+      if (inFlight) return
+
+      inFlight = true
+      if (showLoading) {
+        loading = true
+      }
 
       try {
         const [projectPayload, agentPayload, ticketPayload, activityPayload, systemPayload] = await Promise.all([
@@ -114,20 +123,31 @@
             message: event.message,
             timestamp: event.created_at,
           }))
+
+        error = ''
+        hasLoaded = true
       } catch (caughtError) {
         if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
+        if (!hasLoaded) {
+          error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
+        }
       } finally {
-        if (!cancelled) {
+        inFlight = false
+        if (showLoading && !cancelled) {
           loading = false
         }
       }
     }
 
-    void load()
+    void load(true)
+
+    const interval = window.setInterval(() => {
+      void load(false)
+    }, dashboardPollIntervalMs)
 
     return () => {
       cancelled = true
+      window.clearInterval(interval)
     }
   })
 
