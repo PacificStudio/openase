@@ -115,6 +115,12 @@ export type WorkflowListPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/workflows', 'get'>
 >
 export type WorkflowResponse = DeepRequired<ResponseFor<'/api/v1/workflows/{workflowId}', 'get'>>
+export type WorkflowUpdateResponse = DeepRequired<
+  ResponseFor<'/api/v1/workflows/{workflowId}', 'patch'>
+>
+export type WorkflowDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/workflows/{workflowId}', 'delete'>
+>
 export type Workflow = ItemOf<WorkflowListPayload['workflows']>
 export type WorkflowDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/workflows/{workflowId}', 'get'>
