@@ -1,0 +1,245 @@
+package orchestrator
+
+import (
+	"context"
+	"errors"
+	"io"
+	"log/slog"
+	"testing"
+	"time"
+
+	"github.com/BetterAndBetterII/openase/ent"
+	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/google/uuid"
+)
+
+func TestMachineMonitorRunTickSkipsSingleLocalMachine(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	if _, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName(domain.LocalMachineName).
+		SetHost(domain.LocalMachineHost).
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{}).
+		Save(ctx); err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 14, 0, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{now: func() time.Time { return now }}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	report, err := monitor.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report != (MachineMonitorReport{}) {
+		t.Fatalf("expected empty report, got %+v", report)
+	}
+	if collector.reachabilityCalls != 0 || collector.systemCalls != 0 || collector.gpuCalls != 0 {
+		t.Fatalf("expected collector to be skipped, got %+v", collector)
+	}
+}
+
+func TestMachineMonitorRunTickMarksRemoteMachineOfflineAfterThreeReachabilityFailures(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-01.pem"
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName("gpu-01").
+		SetHost("10.0.1.10").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create remote machine: %v", err)
+	}
+
+	tickTime := time.Date(2026, 3, 20, 15, 0, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{
+		now:               func() time.Time { return tickTime },
+		reachabilityError: errors.New("dial machine gpu-01: i/o timeout"),
+	}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return tickTime }
+
+	for attempt := 1; attempt <= 3; attempt++ {
+		report, err := monitor.RunTick(ctx)
+		if err != nil {
+			t.Fatalf("run tick %d: %v", attempt, err)
+		}
+		if report.L1Checks != 1 {
+			t.Fatalf("expected one L1 check on attempt %d, got %+v", attempt, report)
+		}
+		tickTime = tickTime.Add(16 * time.Second)
+	}
+
+	machineAfter, err := client.Machine.Get(ctx, machineItem.ID)
+	if err != nil {
+		t.Fatalf("reload machine: %v", err)
+	}
+	if machineAfter.Status != entmachine.StatusOffline {
+		t.Fatalf("expected machine to be offline, got %+v", machineAfter)
+	}
+	monitorMap := machineAfter.Resources["monitor"].(map[string]any)
+	l1 := monitorMap["l1"].(map[string]any)
+	if l1["consecutive_failures"] != float64(3) {
+		t.Fatalf("expected 3 consecutive failures, got %+v", l1)
+	}
+	if machineAfter.LastHeartbeatAt == nil {
+		t.Fatalf("expected heartbeat to be stamped after failures, got %+v", machineAfter)
+	}
+}
+
+func TestMachineMonitorRunTickCollectsL2AndL3Snapshots(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-02.pem"
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName("gpu-02").
+		SetHost("10.0.1.11").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetLabels([]string{"gpu", "a100"}).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create gpu machine: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 16, 0, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{
+		now: func() time.Time { return now },
+		systemResources: domain.MachineSystemResources{
+			CollectedAt:            now,
+			CPUCores:               32,
+			CPUUsagePercent:        45.2,
+			MemoryTotalGB:          256,
+			MemoryUsedGB:           120,
+			MemoryAvailableGB:      136,
+			MemoryAvailablePercent: 53.13,
+			DiskTotalGB:            2000,
+			DiskAvailableGB:        1200,
+			DiskAvailablePercent:   60,
+		},
+		gpuResources: domain.MachineGPUResources{
+			CollectedAt: now,
+			Available:   true,
+			GPUs: []domain.MachineGPU{
+				{Index: 1, Name: "A100-80G", MemoryTotalGB: 80, MemoryUsedGB: 80, UtilizationPercent: 100},
+				{Index: 0, Name: "A100-80G", MemoryTotalGB: 80, MemoryUsedGB: 80, UtilizationPercent: 97},
+			},
+		},
+	}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	report, err := monitor.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.L1Checks != 1 || report.L2Checks != 1 || report.L3Checks != 1 {
+		t.Fatalf("unexpected monitor report: %+v", report)
+	}
+
+	machineAfter, err := client.Machine.Get(ctx, machineItem.ID)
+	if err != nil {
+		t.Fatalf("reload machine: %v", err)
+	}
+	if machineAfter.Status != entmachine.StatusOnline {
+		t.Fatalf("expected machine to stay online, got %+v", machineAfter)
+	}
+	if machineAfter.Resources["cpu_cores"] != float64(32) {
+		t.Fatalf("expected cpu snapshot, got %+v", machineAfter.Resources)
+	}
+	if machineAfter.Resources["gpu_dispatchable"] != false {
+		t.Fatalf("expected saturated gpus to block gpu dispatch, got %+v", machineAfter.Resources)
+	}
+	gpuItems, ok := machineAfter.Resources["gpu"].([]interface{})
+	if !ok {
+		t.Fatalf("expected gpu slice in resources, got %+v", machineAfter.Resources["gpu"])
+	}
+	if len(gpuItems) != 2 {
+		t.Fatalf("expected 2 gpu snapshots, got %+v", gpuItems)
+	}
+	firstGPU := gpuItems[0].(map[string]any)
+	if firstGPU["index"] != float64(0) {
+		t.Fatalf("expected gpu snapshots to be index-sorted, got %+v", gpuItems)
+	}
+}
+
+func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Client) uuid.UUID {
+	t.Helper()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-machine-monitor").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	return org.ID
+}
+
+type fakeMachineMonitorCollector struct {
+	now               func() time.Time
+	reachabilityError error
+	systemError       error
+	gpuError          error
+	systemResources   domain.MachineSystemResources
+	gpuResources      domain.MachineGPUResources
+	reachabilityCalls int
+	systemCalls       int
+	gpuCalls          int
+}
+
+func (f *fakeMachineMonitorCollector) CollectReachability(context.Context, domain.Machine) (domain.MachineReachability, error) {
+	f.reachabilityCalls++
+	checkedAt := time.Now().UTC()
+	if f.now != nil {
+		checkedAt = f.now().UTC()
+	}
+	reachability := domain.MachineReachability{
+		CheckedAt: checkedAt,
+		Transport: "ssh",
+		Reachable: f.reachabilityError == nil,
+	}
+	if f.reachabilityError != nil {
+		reachability.FailureCause = f.reachabilityError.Error()
+	}
+	return reachability, f.reachabilityError
+}
+
+func (f *fakeMachineMonitorCollector) CollectSystemResources(context.Context, domain.Machine) (domain.MachineSystemResources, error) {
+	f.systemCalls++
+	if f.systemError != nil {
+		return domain.MachineSystemResources{}, f.systemError
+	}
+	return f.systemResources, nil
+}
+
+func (f *fakeMachineMonitorCollector) CollectGPUResources(context.Context, domain.Machine) (domain.MachineGPUResources, error) {
+	f.gpuCalls++
+	if f.gpuError != nil {
+		return domain.MachineGPUResources{}, f.gpuError
+	}
+	return f.gpuResources, nil
+}
