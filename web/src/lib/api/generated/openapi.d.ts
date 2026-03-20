@@ -3965,6 +3965,16 @@ export interface operations {
                 type?: string
               }[]
               description?: string
+              external_links?: {
+                created_at?: string
+                external_id?: string
+                id?: string
+                relation?: string
+                status?: string
+                title?: string
+                type?: string
+                url?: string
+              }[]
               external_ref?: string
               id?: string
               identifier?: string
