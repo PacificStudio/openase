@@ -9,9 +9,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -323,6 +328,326 @@ func TestValidateHarnessRoute(t *testing.T) {
 	}
 	if len(invalidResp.Issues) == 0 || invalidResp.Issues[0].Level != "error" {
 		t.Fatalf("expected validation issues, got %+v", invalidResp)
+	}
+
+	templateInvalidRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/harness/validate",
+		`{"content":"---\nworkflow:\n  name: coding\nstatus:\n  pickup: Todo\n---\n\n{% if ticket.title %}\nmissing endif\n"}`,
+	)
+	if templateInvalidRec.Code != http.StatusOK {
+		t.Fatalf("expected template validate response, got %d body=%s", templateInvalidRec.Code, templateInvalidRec.Body.String())
+	}
+	var templateInvalidResp harnessValidationResponse
+	if err := json.Unmarshal(templateInvalidRec.Body.Bytes(), &templateInvalidResp); err != nil {
+		t.Fatalf("decode template invalid response: %v", err)
+	}
+	if templateInvalidResp.Valid {
+		t.Fatalf("expected invalid gonja template response, got %+v", templateInvalidResp)
+	}
+	if len(templateInvalidResp.Issues) == 0 || templateInvalidResp.Issues[0].Level != "error" {
+		t.Fatalf("expected gonja validation issues, got %+v", templateInvalidResp)
+	}
+	if !strings.Contains(templateInvalidResp.Issues[0].Message, "endif") {
+		t.Fatalf("expected gonja validation message to mention endif, got %+v", templateInvalidResp.Issues[0])
+	}
+}
+
+func TestHarnessVariablesRoute(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/harness/variables",
+		"",
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected variables route success, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var response harnessVariablesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode harness variables response: %v", err)
+	}
+	if len(response.Groups) == 0 {
+		t.Fatalf("expected harness variable groups, got %+v", response)
+	}
+
+	foundTicket := false
+	foundMarkdownEscape := false
+	for _, group := range response.Groups {
+		if group.Name == "ticket" {
+			foundTicket = true
+		}
+		for _, variable := range group.Variables {
+			if variable.Path == "markdown_escape" {
+				foundMarkdownEscape = true
+			}
+		}
+	}
+
+	if !foundTicket {
+		t.Fatalf("expected ticket variable group, got %+v", response.Groups)
+	}
+	if !foundMarkdownEscape {
+		t.Fatalf("expected markdown_escape filter metadata, got %+v", response.Groups)
+	}
+}
+
+func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o755); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetStatus("active").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+
+	templateContent := `---
+workflow:
+  role_name: "fullstack-developer"
+status:
+  pickup: "Todo"
+  finish: "Done"
+---
+Ticket {{ ticket.identifier }} {{ ticket.title | markdown_escape }}
+Status {{ ticket.status }} parent={{ ticket.parent_identifier }} attempts={{ attempt }}/{{ max_attempts }}
+Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].relation }}
+Deps {% for dep in ticket.dependencies %}{{ dep.identifier }}:{{ dep.type }}:{{ dep.status }}{% endfor %}
+Repos {% for repo in repos %}{{ repo.name }}@{{ repo.branch }} labels={{ repo.labels | join(",") }} path={{ repo.path }}{% endfor %}
+All {{ all_repos | map(attribute="name") | join(",") }}
+Agent {{ agent.name }} {{ agent.provider }} {{ agent.adapter_type }} {{ agent.model }} {{ agent.total_tickets_completed }}
+Machine {{ machine.name }} {{ accessible_machines[0].ssh_user }}
+Workflow {{ workflow.name }} {{ workflow.type }} {{ workflow.role_name }} {{ workflow.pickup_status }} {{ workflow.finish_status }}
+Platform {{ platform.api_url }} {{ platform.project_id }} {{ platform.ticket_id }}
+Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
+{% if attempt > 1 %}retry{% endif %}
+`
+
+	createdWorkflow, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
+		ProjectID:           project.ID,
+		Name:                "Coding Workflow",
+		Type:                "coding",
+		HarnessContent:      templateContent,
+		Hooks:               map[string]any{},
+		MaxConcurrent:       3,
+		MaxRetryAttempts:    3,
+		TimeoutMinutes:      60,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusID:      todoID,
+		FinishStatusID:      &doneID,
+	})
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	if _, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend").
+		SetDefaultBranch("main").
+		SetIsPrimary(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create backend repo: %v", err)
+	}
+	frontendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("frontend").
+		SetRepositoryURL("https://github.com/acme/frontend").
+		SetDefaultBranch("develop").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create frontend repo: %v", err)
+	}
+
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetName("Claude Code").
+		SetAdapterType(entagentprovider.AdapterTypeClaudeCodeCli).
+		SetCliCommand("claude").
+		SetModelName("claude-sonnet-4-6").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("claude-01").
+		SetStatus(entagent.StatusIdle).
+		SetTotalTicketsCompleted(47).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	parentTicket, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-30").
+		SetTitle("Parent ticket").
+		SetStatusID(doneID).
+		SetPriority(entticket.PriorityMedium).
+		SetCreatedBy("user:gary").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create parent ticket: %v", err)
+	}
+	dependencyTarget, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-31").
+		SetTitle("Dependency ticket").
+		SetStatusID(doneID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:gary").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create dependency target: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-42").
+		SetTitle("Escape * markdown").
+		SetDescription("Render the harness body").
+		SetStatusID(todoID).
+		SetPriority(entticket.PriorityHigh).
+		SetType(entticket.TypeBugfix).
+		SetCreatedBy("user:gary").
+		SetParentTicketID(parentTicket.ID).
+		SetAttemptCount(2).
+		SetBudgetUsd(5.0).
+		SetExternalRef("BetterAndBetterII/openase#20").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	if _, err := client.TicketRepoScope.Create().
+		SetTicketID(ticketItem.ID).
+		SetRepoID(frontendRepo.ID).
+		SetBranchName("agent/claude-01/ASE-42").
+		SetIsPrimaryScope(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket repo scope: %v", err)
+	}
+	if _, err := client.TicketExternalLink.Create().
+		SetTicketID(ticketItem.ID).
+		SetLinkType("github_issue").
+		SetURL("https://github.com/acme/backend/issues/42").
+		SetExternalID("42").
+		SetTitle("Login validation broken on Safari").
+		SetStatus("open").
+		SetRelation("resolves").
+		Save(ctx); err != nil {
+		t.Fatalf("create external link: %v", err)
+	}
+	if _, err := client.TicketDependency.Create().
+		SetSourceTicketID(ticketItem.ID).
+		SetTargetTicketID(dependencyTarget.ID).
+		SetType(entticketdependency.TypeBlocks).
+		Save(ctx); err != nil {
+		t.Fatalf("create dependency: %v", err)
+	}
+
+	data, err := workflowSvc.BuildHarnessTemplateData(ctx, workflowservice.BuildHarnessTemplateDataInput{
+		WorkflowID:     createdWorkflow.ID,
+		TicketID:       ticketItem.ID,
+		AgentID:        &agent.ID,
+		Workspace:      "/workspaces/ASE-42",
+		Timestamp:      time.Date(2026, 3, 20, 10, 30, 0, 0, time.UTC),
+		OpenASEVersion: "0.3.1",
+		TicketURL:      "http://localhost:19836/tickets/ASE-42",
+		Platform: workflowservice.HarnessPlatformData{
+			APIURL:     "http://localhost:19836/api/v1",
+			AgentToken: "ase_agent_token",
+		},
+		Machine: workflowservice.HarnessMachineData{
+			Name:          "gpu-01",
+			Host:          "10.0.1.10",
+			Description:   "NVIDIA A100 x4",
+			Labels:        []string{"gpu", "a100"},
+			WorkspaceRoot: "/workspaces",
+		},
+		AccessibleMachines: []workflowservice.HarnessAccessibleMachineData{{
+			Name:        "storage",
+			Host:        "10.0.1.20",
+			Description: "Artifact storage",
+			Labels:      []string{"storage", "nfs"},
+			SSHUser:     "openase",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("build harness template data: %v", err)
+	}
+
+	rendered, err := workflowservice.RenderHarnessBody(templateContent, data)
+	if err != nil {
+		t.Fatalf("render harness body: %v", err)
+	}
+
+	for _, want := range []string{
+		`Ticket ASE-42 Escape \* markdown`,
+		"parent=ASE-30 attempts=2/3",
+		"Links 1 github_issue resolves",
+		"ASE-31:blocks:Done",
+		"frontend@agent/claude-01/ASE-42 labels= path=/workspaces/ASE-42/frontend",
+		"All backend,frontend",
+		"Agent claude-01 Claude Code claude-code-cli claude-sonnet-4-6 47",
+		"Machine gpu-01 openase",
+		"Workflow Coding Workflow coding fullstack-developer Todo Done",
+		fmt.Sprintf("Platform http://localhost:19836/api/v1 %s %s", project.ID, ticketItem.ID),
+		"Timestamp 2026-03-20T10:30:00Z Version 0.3.1 URL http://localhost:19836/tickets/ASE-42",
+		"retry",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("expected rendered harness to contain %q, got:\n%s", want, rendered)
+		}
 	}
 }
 

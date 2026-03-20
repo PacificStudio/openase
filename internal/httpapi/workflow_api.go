@@ -38,6 +38,10 @@ type harnessValidationResponse struct {
 	Issues []workflowservice.ValidationIssue `json:"issues"`
 }
 
+type harnessVariablesResponse struct {
+	Groups []workflowservice.HarnessVariableGroup `json:"groups"`
+}
+
 func (s *Server) registerWorkflowRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/workflows", s.handleListWorkflows)
 	api.POST("/projects/:projectId/workflows", s.handleCreateWorkflow)
@@ -46,6 +50,7 @@ func (s *Server) registerWorkflowRoutes(api *echo.Group) {
 	api.DELETE("/workflows/:workflowId", s.handleDeleteWorkflow)
 	api.GET("/workflows/:workflowId/harness", s.handleGetWorkflowHarness)
 	api.PUT("/workflows/:workflowId/harness", s.handleUpdateWorkflowHarness)
+	api.GET("/harness/variables", s.handleListHarnessVariables)
 	api.POST("/harness/validate", s.handleValidateHarness)
 }
 
@@ -229,6 +234,12 @@ func (s *Server) handleValidateHarness(c echo.Context) error {
 	return c.JSON(http.StatusOK, harnessValidationResponse{
 		Valid:  result.Valid,
 		Issues: result.Issues,
+	})
+}
+
+func (s *Server) handleListHarnessVariables(c echo.Context) error {
+	return c.JSON(http.StatusOK, harnessVariablesResponse{
+		Groups: workflowservice.HarnessVariableDictionary(),
 	})
 }
 
