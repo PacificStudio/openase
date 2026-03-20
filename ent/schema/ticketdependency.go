@@ -7,10 +7,12 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
+// TicketDependency defines the ent schema for ticket dependency edges.
 type TicketDependency struct {
 	ent.Schema
 }
 
+// Fields returns the TicketDependency schema fields.
 func (TicketDependency) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
@@ -22,6 +24,7 @@ func (TicketDependency) Fields() []ent.Field {
 	}
 }
 
+// Edges returns the TicketDependency schema edges.
 func (TicketDependency) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("source_ticket", Ticket.Type).
@@ -37,6 +40,7 @@ func (TicketDependency) Edges() []ent.Edge {
 	}
 }
 
+// Indexes returns the TicketDependency schema indexes.
 func (TicketDependency) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("source_ticket_id", "target_ticket_id", "type").Unique(),

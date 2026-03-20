@@ -57,12 +57,9 @@ func TestManagerStartKeepsCapturedOutputReadableAfterProcessExit(t *testing.T) {
 		t.Fatalf("Start returned error: %v", err)
 	}
 
-	running, ok := process.(*runningProcess)
-	if !ok {
-		t.Fatalf("expected *runningProcess, got %T", process)
+	if err := process.Wait(); err != nil {
+		t.Fatalf("Wait returned error: %v", err)
 	}
-
-	<-running.done
 
 	stdout, err := io.ReadAll(process.Stdout())
 	if err != nil {
@@ -71,9 +68,6 @@ func TestManagerStartKeepsCapturedOutputReadableAfterProcessExit(t *testing.T) {
 	stderr, err := io.ReadAll(process.Stderr())
 	if err != nil {
 		t.Fatalf("ReadAll(stderr) returned error after exit: %v", err)
-	}
-	if err := process.Wait(); err != nil {
-		t.Fatalf("Wait returned error: %v", err)
 	}
 
 	if string(stdout) != "stdout-line" {

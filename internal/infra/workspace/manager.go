@@ -16,6 +16,7 @@ import (
 
 var safeSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
+// SetupInput is the raw boundary input for workspace preparation.
 type SetupInput struct {
 	WorkspaceRoot    string
 	AgentName        string
@@ -23,6 +24,7 @@ type SetupInput struct {
 	Repos            []RepoInput
 }
 
+// RepoInput describes one repository to materialize in a workspace.
 type RepoInput struct {
 	Name          string
 	RepositoryURL string
@@ -31,6 +33,7 @@ type RepoInput struct {
 	BranchName    *string
 }
 
+// SetupRequest is the parsed workspace preparation request.
 type SetupRequest struct {
 	WorkspaceRoot    string
 	TicketIdentifier string
@@ -38,6 +41,7 @@ type SetupRequest struct {
 	Repos            []RepoRequest
 }
 
+// RepoRequest is the parsed repository setup request.
 type RepoRequest struct {
 	Name          string
 	RepositoryURL string
@@ -46,12 +50,14 @@ type RepoRequest struct {
 	BranchName    string
 }
 
+// Workspace describes a prepared ticket workspace on disk.
 type Workspace struct {
 	Path       string
 	BranchName string
 	Repos      []PreparedRepo
 }
 
+// PreparedRepo describes one repository that was prepared inside a workspace.
 type PreparedRepo struct {
 	Name          string
 	RepositoryURL string
@@ -61,12 +67,15 @@ type PreparedRepo struct {
 	Path          string
 }
 
+// Manager prepares ticket workspaces and repository clones.
 type Manager struct{}
 
+// NewManager constructs a workspace preparation manager.
 func NewManager() *Manager {
 	return &Manager{}
 }
 
+// ParseSetupRequest validates raw workspace setup input into a parsed request.
 func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
 	workspaceRoot, err := parseWorkspaceRoot(input.WorkspaceRoot)
 	if err != nil {
@@ -110,20 +119,21 @@ func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
 	}, nil
 }
 
+// Prepare creates the workspace root and materializes each configured repository.
 func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	workspacePath := filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)
-	if err := os.MkdirAll(workspacePath, 0o755); err != nil {
+	if err := os.MkdirAll(workspacePath, 0o750); err != nil {
 		return Workspace{}, fmt.Errorf("create workspace root %s: %w", workspacePath, err)
 	}
 
 	preparedRepos := make([]PreparedRepo, 0, len(request.Repos))
 	for _, repo := range request.Repos {
 		repoPath := filepath.Join(workspacePath, filepath.FromSlash(repo.ClonePath))
-		if err := os.MkdirAll(filepath.Dir(repoPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(repoPath), 0o750); err != nil {
 			return Workspace{}, fmt.Errorf("create parent directory for repo %s: %w", repo.Name, err)
 		}
 

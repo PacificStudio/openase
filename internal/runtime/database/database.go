@@ -8,10 +8,12 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
+	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
 	_ "github.com/lib/pq"
 )
 
+// Open connects to PostgreSQL and applies the current schema migration set.
 func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 	trimmedDSN := strings.TrimSpace(dsn)
 	if trimmedDSN == "" {

@@ -7,10 +7,12 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
+// TicketExternalLink defines the ent schema for external ticket links.
 type TicketExternalLink struct {
 	ent.Schema
 }
 
+// Fields returns the TicketExternalLink schema fields.
 func (TicketExternalLink) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
@@ -28,6 +30,7 @@ func (TicketExternalLink) Fields() []ent.Field {
 	}
 }
 
+// Edges returns the TicketExternalLink schema edges.
 func (TicketExternalLink) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("ticket", Ticket.Type).
@@ -38,6 +41,7 @@ func (TicketExternalLink) Edges() []ent.Edge {
 	}
 }
 
+// Indexes returns the TicketExternalLink schema indexes.
 func (TicketExternalLink) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("ticket_id", "external_id").Unique(),

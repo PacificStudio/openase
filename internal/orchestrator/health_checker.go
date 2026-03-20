@@ -16,12 +16,14 @@ const (
 	stalledRetryDelay   = time.Second
 )
 
+// HealthCheckReport summarizes the orchestrator health snapshot.
 type HealthCheckReport struct {
 	ClaimsChecked  int `json:"claims_checked"`
 	StalledClaims  int `json:"stalled_claims"`
 	AgentsReleased int `json:"agents_released"`
 }
 
+// HealthChecker inspects orchestrator state and reports unhealthy agents or tickets.
 type HealthChecker struct {
 	client *ent.Client
 	logger *slog.Logger
@@ -36,6 +38,7 @@ type claimHealthState struct {
 	age           time.Duration
 }
 
+// NewHealthChecker constructs a health checker for the orchestrator runtime.
 func NewHealthChecker(client *ent.Client, logger *slog.Logger) *HealthChecker {
 	if logger == nil {
 		logger = slog.Default()
@@ -48,6 +51,7 @@ func NewHealthChecker(client *ent.Client, logger *slog.Logger) *HealthChecker {
 	}
 }
 
+// Run evaluates the current orchestrator health.
 func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 	report := HealthCheckReport{}
 	if h == nil || h.client == nil {

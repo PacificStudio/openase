@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	// Ticket status service errors describe invalid or conflicting status operations.
 	ErrUnavailable             = errors.New("ticket status service unavailable")
 	ErrProjectNotFound         = errors.New("project not found")
 	ErrStatusNotFound          = errors.New("ticket status not found")
@@ -25,15 +26,18 @@ var (
 	ErrReplacementStatusAbsent = errors.New("replacement ticket status not found")
 )
 
+// Optional captures whether a value was provided for a partial update.
 type Optional[T any] struct {
 	Set   bool
 	Value T
 }
 
+// Some marks an optional value as explicitly set.
 func Some[T any](value T) Optional[T] {
 	return Optional[T]{Set: true, Value: value}
 }
 
+// Status is the API-facing ticket status model.
 type Status struct {
 	ID          uuid.UUID `json:"id"`
 	ProjectID   uuid.UUID `json:"project_id"`
@@ -45,6 +49,7 @@ type Status struct {
 	Description string    `json:"description"`
 }
 
+// CreateInput carries the fields required to create a ticket status.
 type CreateInput struct {
 	ProjectID   uuid.UUID
 	Name        string
@@ -55,6 +60,7 @@ type CreateInput struct {
 	Description string
 }
 
+// UpdateInput carries a partial ticket status update request.
 type UpdateInput struct {
 	StatusID    uuid.UUID
 	Name        Optional[string]
@@ -65,19 +71,23 @@ type UpdateInput struct {
 	Description Optional[string]
 }
 
+// DeleteResult reports which status was deleted and which status replaced it.
 type DeleteResult struct {
 	DeletedStatusID     uuid.UUID `json:"deleted_status_id"`
 	ReplacementStatusID uuid.UUID `json:"replacement_status_id"`
 }
 
+// Service provides project ticket status management.
 type Service struct {
 	client *ent.Client
 }
 
+// NewService constructs a ticket status service backed by the provided ent client.
 func NewService(client *ent.Client) *Service {
 	return &Service{client: client}
 }
 
+// List returns the ordered statuses for a project.
 func (s *Service) List(ctx context.Context, projectID uuid.UUID) ([]Status, error) {
 	if s.client == nil {
 		return nil, ErrUnavailable
@@ -97,6 +107,7 @@ func (s *Service) List(ctx context.Context, projectID uuid.UUID) ([]Status, erro
 	return mapStatuses(statuses), nil
 }
 
+// Create persists a new ticket status in a project.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Status, error) {
 	if s.client == nil {
 		return Status{}, ErrUnavailable
@@ -157,6 +168,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Status, error)
 	return mapStatus(created), nil
 }
 
+// Update applies a partial update to an existing ticket status.
 func (s *Service) Update(ctx context.Context, input UpdateInput) (Status, error) {
 	if s.client == nil {
 		return Status{}, ErrUnavailable
@@ -235,6 +247,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Status, error)
 	return mapStatus(updated), nil
 }
 
+// Delete removes a ticket status and reassigns affected tickets when required.
 func (s *Service) Delete(ctx context.Context, statusID uuid.UUID) (DeleteResult, error) {
 	if s.client == nil {
 		return DeleteResult{}, ErrUnavailable
@@ -290,6 +303,7 @@ func (s *Service) Delete(ctx context.Context, statusID uuid.UUID) (DeleteResult,
 	}, nil
 }
 
+// ResetToDefaultTemplate replaces project statuses with the built-in default template.
 func (s *Service) ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUID) ([]Status, error) {
 	if s.client == nil {
 		return nil, ErrUnavailable
@@ -575,6 +589,7 @@ func templateNameSet() map[string]bool {
 	return names
 }
 
+// DefaultTemplateNames returns the built-in default status names in display order.
 func DefaultTemplateNames() []string {
 	names := make([]string, 0, len(defaultTemplate))
 	for _, item := range defaultTemplate {

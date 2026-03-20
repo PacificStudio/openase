@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// SyncRepoScopePRStatusInput describes a repo-scope PR status update from an external system.
 type SyncRepoScopePRStatusInput struct {
 	RepositoryURL      string
 	RepositoryFullName string
@@ -21,20 +22,26 @@ type SyncRepoScopePRStatusInput struct {
 	PRStatus           ticketreposcope.PrStatus
 }
 
+// RepoScopePRStatusSyncOutcome reports whether syncing changed ticket execution state.
 type RepoScopePRStatusSyncOutcome string
 
 const (
-	RepoScopePRStatusSyncOutcomeNone     RepoScopePRStatusSyncOutcome = ""
-	RepoScopePRStatusSyncOutcomeRetried  RepoScopePRStatusSyncOutcome = "retried"
+	// RepoScopePRStatusSyncOutcomeNone means no ticket status transition was triggered.
+	RepoScopePRStatusSyncOutcomeNone RepoScopePRStatusSyncOutcome = ""
+	// RepoScopePRStatusSyncOutcomeRetried means the ticket was moved back into retry.
+	RepoScopePRStatusSyncOutcomeRetried RepoScopePRStatusSyncOutcome = "retried"
+	// RepoScopePRStatusSyncOutcomeFinished means the ticket was finished from merged scopes.
 	RepoScopePRStatusSyncOutcomeFinished RepoScopePRStatusSyncOutcome = "finished"
 )
 
+// RepoScopePRStatusSyncResult captures the ticket impact of a repo-scope PR sync.
 type RepoScopePRStatusSyncResult struct {
 	Matched bool
 	Outcome RepoScopePRStatusSyncOutcome
 	Ticket  *Ticket
 }
 
+// SyncRepoScopePRStatus reconciles a PR status update back into the owning ticket.
 func (s *Service) SyncRepoScopePRStatus(ctx context.Context, input SyncRepoScopePRStatusInput) (RepoScopePRStatusSyncResult, error) {
 	if s.client == nil {
 		return RepoScopePRStatusSyncResult{}, ErrUnavailable

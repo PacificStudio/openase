@@ -135,7 +135,7 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 
 	harnessRoot := filepath.Join(repoRoot, ".openase", "harnesses")
 	skillRoot := filepath.Join(repoRoot, ".openase", "skills")
-	if err := os.MkdirAll(skillRoot, 0o755); err != nil {
+	if err := os.MkdirAll(skillRoot, 0o750); err != nil {
 		return nil, fmt.Errorf("create skill root: %w", err)
 	}
 	service := &Service{
@@ -605,7 +605,7 @@ func (s *Service) ensureStatusBelongsToProject(ctx context.Context, projectID uu
 	return nil
 }
 
-func (s *Service) resolveCreateHarnessPath(ctx context.Context, projectID uuid.UUID, name string, rawPath *string) (string, error) {
+func (s *Service) resolveCreateHarnessPath(_ context.Context, projectID uuid.UUID, name string, rawPath *string) (string, error) {
 	if rawPath != nil {
 		return normalizeHarnessPath(*rawPath)
 	}
@@ -832,12 +832,12 @@ func defaultHarnessContent(name string, workflowType entworkflow.Type, pickupSta
 	var builder strings.Builder
 	builder.WriteString("---\n")
 	builder.WriteString("workflow:\n")
-	builder.WriteString(fmt.Sprintf("  name: %q\n", name))
-	builder.WriteString(fmt.Sprintf("  type: %q\n", workflowType.String()))
+	_, _ = fmt.Fprintf(&builder, "  name: %q\n", name)
+	_, _ = fmt.Fprintf(&builder, "  type: %q\n", workflowType.String())
 	builder.WriteString("status:\n")
-	builder.WriteString(fmt.Sprintf("  pickup: %q\n", pickupStatusName))
+	_, _ = fmt.Fprintf(&builder, "  pickup: %q\n", pickupStatusName)
 	if finishStatusName != "" {
-		builder.WriteString(fmt.Sprintf("  finish: %q\n", finishStatusName))
+		_, _ = fmt.Fprintf(&builder, "  finish: %q\n", finishStatusName)
 	}
 	builder.WriteString("---\n\n")
 	builder.WriteString("# ")

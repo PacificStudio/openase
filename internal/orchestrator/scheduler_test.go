@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,7 @@ import (
 func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(t, ctx, client)
+	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
 
 	codingWorkflow, err := client.Workflow.Create().
@@ -53,9 +54,9 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 		t.Fatalf("create review workflow: %v", err)
 	}
 
-	codingAgent := fixture.createAgent(t, ctx, "coding-01", 0)
-	reviewAgent := fixture.createAgent(t, ctx, "review-01", 1)
-	fixture.createAgent(t, ctx, "general-01", 10)
+	codingAgent := fixture.createAgent(ctx, t, "coding-01", 0)
+	reviewAgent := fixture.createAgent(ctx, t, "review-01", 1)
+	fixture.createAgent(ctx, t, "general-01", 10)
 
 	codingTicket, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -129,7 +130,7 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(t, ctx, client)
+	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 11, 0, 0, 0, time.UTC)
 
 	if _, err := client.Workflow.Create().
@@ -143,7 +144,7 @@ func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
-	fixture.createAgent(t, ctx, "coding-01", 0)
+	fixture.createAgent(ctx, t, "coding-01", 0)
 
 	blocker, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -197,7 +198,7 @@ func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(t, ctx, client)
+	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 
 	workflow, err := client.Workflow.Create().
@@ -213,8 +214,8 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 		t.Fatalf("create workflow: %v", err)
 	}
 
-	busyAgent := fixture.createAgent(t, ctx, "busy-01", 0)
-	idleAgent := fixture.createAgent(t, ctx, "idle-01", 1)
+	busyAgent := fixture.createAgent(ctx, t, "busy-01", 0)
+	idleAgent := fixture.createAgent(ctx, t, "idle-01", 1)
 
 	runningTicket, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -283,7 +284,7 @@ type projectFixture struct {
 	statusIDs  map[string]uuid.UUID
 }
 
-func seedProjectFixture(t *testing.T, ctx context.Context, client *ent.Client) projectFixture {
+func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) projectFixture {
 	t.Helper()
 
 	org, err := client.Organization.Create().
@@ -334,7 +335,7 @@ func seedProjectFixture(t *testing.T, ctx context.Context, client *ent.Client) p
 	}
 }
 
-func (f projectFixture) createAgent(t *testing.T, ctx context.Context, name string, totalTicketsCompleted int) *ent.Agent {
+func (f projectFixture) createAgent(ctx context.Context, t *testing.T, name string, totalTicketsCompleted int) *ent.Agent {
 	t.Helper()
 
 	agentItem, err := f.client.Agent.Create().
@@ -407,11 +408,16 @@ func freePort(t *testing.T) uint32 {
 	if err != nil {
 		t.Fatalf("allocate free port: %v", err)
 	}
-	defer listener.Close()
 
 	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {
 		t.Fatalf("expected TCP address, got %T", listener.Addr())
 	}
-	return uint32(tcpAddr.Port)
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close listener: %v", err)
+	}
+	if tcpAddr.Port < 0 || tcpAddr.Port > math.MaxUint16 {
+		t.Fatalf("expected TCP port in uint16 range, got %d", tcpAddr.Port)
+	}
+	return uint32(tcpAddr.Port) //nolint:gosec // validated above to fit the TCP port range
 }

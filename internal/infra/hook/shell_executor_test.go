@@ -71,7 +71,7 @@ func TestParseTicketHooksRejectsInvalidWorkdirType(t *testing.T) {
 func TestShellExecutorInjectsEnvironmentAndResolvesRelativeWorkdir(t *testing.T) {
 	workspace := t.TempDir()
 	frontendDir := filepath.Join(workspace, "frontend")
-	if err := os.MkdirAll(frontendDir, 0o755); err != nil {
+	if err := os.MkdirAll(frontendDir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%q) returned error: %v", frontendDir, err)
 	}
 
@@ -138,6 +138,7 @@ printf '%s' "$OPENASE_AGENT_TOKEN" > agent_token.txt`,
 	assertFileContent(t, filepath.Join(frontendDir, "agent_token.txt"), "ase_agent_token")
 
 	var repos []Repo
+	//nolint:gosec // test reads a file from the controlled temporary workspace
 	reposRaw, err := os.ReadFile(filepath.Join(frontendDir, "repos.json"))
 	if err != nil {
 		t.Fatalf("ReadFile(repos.json) returned error: %v", err)
@@ -261,6 +262,7 @@ func TestShellExecutorRejectsEscapingWorkdir(t *testing.T) {
 func assertFileContent(t *testing.T, path string, want string) {
 	t.Helper()
 
+	//nolint:gosec // test reads a file from the controlled temporary workspace
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ReadFile(%q) returned error: %v", path, err)

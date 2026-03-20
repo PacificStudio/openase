@@ -8,10 +8,12 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
+// ApprovalGate defines the ent schema for ticket approval gates.
 type ApprovalGate struct {
 	ent.Schema
 }
 
+// Fields returns the ApprovalGate schema fields.
 func (ApprovalGate) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
@@ -28,6 +30,7 @@ func (ApprovalGate) Fields() []ent.Field {
 	}
 }
 
+// Edges returns the ApprovalGate schema edges.
 func (ApprovalGate) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("ticket", Ticket.Type).
@@ -38,6 +41,7 @@ func (ApprovalGate) Edges() []ent.Edge {
 	}
 }
 
+// Indexes returns the ApprovalGate schema indexes.
 func (ApprovalGate) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("status").

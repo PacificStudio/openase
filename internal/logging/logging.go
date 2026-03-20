@@ -7,6 +7,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 )
 
+// New builds the process logger from runtime logging configuration.
 func New(cfg config.LoggingConfig) *slog.Logger {
 	options := &slog.HandlerOptions{Level: cfg.Level}
 
