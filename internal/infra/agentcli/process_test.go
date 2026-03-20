@@ -44,6 +44,43 @@ func TestManagerStartCapturesStdoutAndStderr(t *testing.T) {
 	}
 }
 
+func TestManagerStartKeepsCapturedOutputReadableAfterProcessExit(t *testing.T) {
+	command := requirePOSIXShell(t)
+	manager := NewManager(ManagerOptions{})
+	spec := newShellSpec(t, command, "printf 'stdout-line'; printf 'stderr-line' >&2")
+
+	process, err := manager.Start(context.Background(), spec)
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	running, ok := process.(*runningProcess)
+	if !ok {
+		t.Fatalf("expected *runningProcess, got %T", process)
+	}
+
+	<-running.done
+
+	stdout, err := io.ReadAll(process.Stdout())
+	if err != nil {
+		t.Fatalf("ReadAll(stdout) returned error after exit: %v", err)
+	}
+	stderr, err := io.ReadAll(process.Stderr())
+	if err != nil {
+		t.Fatalf("ReadAll(stderr) returned error after exit: %v", err)
+	}
+	if err := process.Wait(); err != nil {
+		t.Fatalf("Wait returned error: %v", err)
+	}
+
+	if string(stdout) != "stdout-line" {
+		t.Fatalf("unexpected stdout: %q", string(stdout))
+	}
+	if string(stderr) != "stderr-line" {
+		t.Fatalf("unexpected stderr: %q", string(stderr))
+	}
+}
+
 func TestManagerStartHonorsWorkingDirectoryAndEnvironment(t *testing.T) {
 	command := requirePOSIXShell(t)
 	manager := NewManager(ManagerOptions{})
