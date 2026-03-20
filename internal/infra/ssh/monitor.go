@@ -41,6 +41,91 @@ if ! command -v nvidia-smi >/dev/null 2>&1; then
 fi
 nvidia-smi --query-gpu=index,name,memory.total,memory.used,utilization.gpu --format=csv,noheader,nounits
 `
+	agentEnvironmentScriptTemplate = `
+sanitize_field() {
+  printf '%s' "$1" | tr '\t\r\n' '   '
+}
+
+codex_cmd=''
+codex_path=__CODEX_PATH__
+if [ -n "$codex_path" ] && [ -x "$codex_path" ]; then
+  codex_cmd="$codex_path"
+elif command -v codex >/dev/null 2>&1; then
+  codex_cmd=$(command -v codex)
+fi
+
+if command -v claude >/dev/null 2>&1; then
+  claude_version=$(sanitize_field "$(claude --version 2>/dev/null || echo unknown)")
+  if claude auth status --text 2>/dev/null | grep -q 'Logged in'; then
+    claude_auth=logged_in
+  else
+    claude_auth=not_logged_in
+  fi
+  printf 'claude_code\ttrue\t%s\t%s\n' "$claude_version" "$claude_auth"
+else
+  printf 'claude_code\tfalse\t\tunknown\n'
+fi
+
+if [ -n "$codex_cmd" ]; then
+  codex_version=$(sanitize_field "$("$codex_cmd" --version 2>/dev/null || echo unknown)")
+  if "$codex_cmd" login status 2>/dev/null | grep -q '^Logged in'; then
+    codex_auth=logged_in
+  else
+    codex_auth=not_logged_in
+  fi
+  printf 'codex\ttrue\t%s\t%s\n' "$codex_version" "$codex_auth"
+else
+  printf 'codex\tfalse\t\tunknown\n'
+fi
+
+if command -v gemini >/dev/null 2>&1; then
+  gemini_version=$(sanitize_field "$(gemini --version 2>/dev/null || echo unknown)")
+  printf 'gemini\ttrue\t%s\tunknown\n' "$gemini_version"
+else
+  printf 'gemini\tfalse\t\tunknown\n'
+fi
+`
+	fullAuditScript = `
+sanitize_field() {
+  printf '%s' "$1" | tr '\t\r\n' '   '
+}
+
+if command -v git >/dev/null 2>&1; then
+  git_name=$(sanitize_field "$(git config --global user.name 2>/dev/null)")
+  git_email=$(sanitize_field "$(git config --global user.email 2>/dev/null)")
+  printf 'git\ttrue\t%s\t%s\n' "$git_name" "$git_email"
+else
+  printf 'git\tfalse\t\t\n'
+fi
+
+if command -v gh >/dev/null 2>&1; then
+  if gh auth status >/dev/null 2>&1; then
+    gh_auth=logged_in
+  else
+    gh_auth=not_logged_in
+  fi
+  printf 'gh_cli\ttrue\t%s\n' "$gh_auth"
+else
+  printf 'gh_cli\tfalse\tunknown\n'
+fi
+
+github_reachable=false
+if curl -fsS --max-time 5 https://api.github.com >/dev/null 2>&1; then
+  github_reachable=true
+fi
+
+pypi_reachable=false
+if curl -fsS --max-time 5 https://pypi.org >/dev/null 2>&1; then
+  pypi_reachable=true
+fi
+
+npm_reachable=false
+if curl -fsS --max-time 5 https://registry.npmjs.org >/dev/null 2>&1; then
+  npm_reachable=true
+fi
+
+printf 'network\t%s\t%s\t%s\n' "$github_reachable" "$pypi_reachable" "$npm_reachable"
+`
 )
 
 type MonitorCollector struct {
@@ -117,6 +202,26 @@ func (c *MonitorCollector) CollectGPUResources(ctx context.Context, machine doma
 	return domain.ParseMachineGPUResources(string(output), collectedAt)
 }
 
+func (c *MonitorCollector) CollectAgentEnvironment(ctx context.Context, machine domain.Machine) (domain.MachineAgentEnvironment, error) {
+	collectedAt := c.now().UTC()
+	output, err := c.runScript(ctx, machine, buildAgentEnvironmentScript(machine))
+	if err != nil {
+		return domain.MachineAgentEnvironment{}, err
+	}
+
+	return domain.ParseMachineAgentEnvironment(string(output), collectedAt)
+}
+
+func (c *MonitorCollector) CollectFullAudit(ctx context.Context, machine domain.Machine) (domain.MachineFullAudit, error) {
+	collectedAt := c.now().UTC()
+	output, err := c.runScript(ctx, machine, fullAuditScript)
+	if err != nil {
+		return domain.MachineFullAudit{}, err
+	}
+
+	return domain.ParseMachineFullAudit(string(output), collectedAt)
+}
+
 func (c *MonitorCollector) runScript(ctx context.Context, machine domain.Machine, script string) ([]byte, error) {
 	if machine.Host == domain.LocalMachineHost {
 		if c == nil || c.runLocal == nil {
@@ -155,4 +260,13 @@ func (c *MonitorCollector) runScript(ctx context.Context, machine domain.Machine
 
 func shellQuote(raw string) string {
 	return "'" + strings.ReplaceAll(raw, "'", `'"'"'`) + "'"
+}
+
+func buildAgentEnvironmentScript(machine domain.Machine) string {
+	codexPath := ""
+	if machine.AgentCLIPath != nil {
+		codexPath = strings.TrimSpace(*machine.AgentCLIPath)
+	}
+
+	return strings.Replace(agentEnvironmentScriptTemplate, "__CODEX_PATH__", shellQuote(codexPath), 1)
 }
