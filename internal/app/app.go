@@ -9,6 +9,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
@@ -82,6 +83,17 @@ func (a *App) RunServe(ctx context.Context) error {
 }
 
 func (a *App) RunOrchestrate(ctx context.Context) error {
+	client, err := database.Open(ctx, a.config.Database.DSN)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := client.Close(); closeErr != nil {
+			a.logger.Error("close database", "error", closeErr)
+		}
+	}()
+
+	scheduler := orchestrator.NewScheduler(client, a.logger)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
 		return err
@@ -105,13 +117,28 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			a.logger.Info("orchestrator runtime stopping")
 			return nil
 		case tick := <-ticker.C:
-			if err := a.publishRuntimeEvent(ctx, runtimeTickType, map[string]string{
-				"mode": string(a.config.Server.Mode),
-				"time": tick.UTC().Format(time.RFC3339),
-			}); err != nil {
+			report, runErr := scheduler.RunTick(ctx)
+			payload := map[string]any{
+				"mode":   string(a.config.Server.Mode),
+				"time":   tick.UTC().Format(time.RFC3339),
+				"report": report,
+			}
+			if runErr != nil {
+				payload["error"] = runErr.Error()
+				a.logger.Error("scheduler tick failed", "time", tick.UTC().Format(time.RFC3339), "error", runErr)
+			} else {
+				a.logger.Info(
+					"scheduler tick completed",
+					"time", tick.UTC().Format(time.RFC3339),
+					"workflows_scanned", report.WorkflowsScanned,
+					"candidates_scanned", report.CandidatesScanned,
+					"tickets_dispatched", report.TicketsDispatched,
+					"tickets_skipped", report.TicketsSkipped,
+				)
+			}
+			if err := a.publishRuntimeEvent(ctx, runtimeTickType, payload); err != nil {
 				return fmt.Errorf("publish scheduler tick: %w", err)
 			}
-			a.logger.Info("scheduler tick", "time", tick.UTC().Format(time.RFC3339))
 		}
 	}
 }
