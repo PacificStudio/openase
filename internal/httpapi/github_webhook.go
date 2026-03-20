@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/labstack/echo/v4"
 )
 
@@ -129,6 +132,20 @@ func (s *Server) handleGitHubWebhook(c echo.Context) error {
 		logArgs = append(logArgs, "review_state", delivery.Review.State)
 	}
 	s.logger.Info("github webhook accepted", logArgs...)
+
+	if err := s.syncGitHubRepoScopeStatus(c.Request().Context(), delivery); err != nil {
+		s.logger.Error(
+			"github webhook sync failed",
+			"event", delivery.Event,
+			"delivery_id", delivery.DeliveryID,
+			"action", delivery.Action,
+			"repository", delivery.Repository.CloneURL,
+			"pull_request_number", delivery.PullRequest.Number,
+			"branch", delivery.PullRequest.Branch,
+			"error", err,
+		)
+		return writeAPIError(c, http.StatusInternalServerError, "WEBHOOK_SYNC_FAILED", err.Error())
+	}
 
 	return c.NoContent(gitHubWebhookAcceptedStatusCode)
 }
@@ -254,4 +271,80 @@ func parseGitHubWebhookEnvelope(
 	}
 
 	return delivery, nil
+}
+
+func (s *Server) syncGitHubRepoScopeStatus(ctx context.Context, delivery gitHubWebhookEnvelope) error {
+	if s.ticketService == nil {
+		return nil
+	}
+
+	input, ok := mapGitHubWebhookRepoScopeSyncInput(delivery)
+	if !ok {
+		return nil
+	}
+
+	matched, err := s.ticketService.SyncRepoScopePRStatus(ctx, input)
+	if err != nil {
+		return err
+	}
+	if !matched {
+		s.logger.Info(
+			"github webhook did not match ticket repo scope",
+			"event", delivery.Event,
+			"delivery_id", delivery.DeliveryID,
+			"action", delivery.Action,
+			"repository", delivery.Repository.CloneURL,
+			"branch", delivery.PullRequest.Branch,
+		)
+	}
+
+	return nil
+}
+
+func mapGitHubWebhookRepoScopeSyncInput(
+	delivery gitHubWebhookEnvelope,
+) (ticketservice.SyncRepoScopePRStatusInput, bool) {
+	switch delivery.Event {
+	case gitHubWebhookEventPullRequest:
+		status, ok := mapGitHubPullRequestActionToStatus(delivery.Action, delivery.PullRequest.Merged)
+		if !ok {
+			return ticketservice.SyncRepoScopePRStatusInput{}, false
+		}
+
+		return ticketservice.SyncRepoScopePRStatusInput{
+			RepositoryURL:      delivery.Repository.CloneURL,
+			RepositoryFullName: delivery.Repository.FullName,
+			BranchName:         delivery.PullRequest.Branch,
+			PullRequestURL:     delivery.PullRequest.URL,
+			PRStatus:           status,
+		}, true
+	case gitHubWebhookEventPullRequestReview:
+		if delivery.Review == nil || !strings.EqualFold(strings.TrimSpace(delivery.Review.State), "changes_requested") {
+			return ticketservice.SyncRepoScopePRStatusInput{}, false
+		}
+
+		return ticketservice.SyncRepoScopePRStatusInput{
+			RepositoryURL:      delivery.Repository.CloneURL,
+			RepositoryFullName: delivery.Repository.FullName,
+			BranchName:         delivery.PullRequest.Branch,
+			PullRequestURL:     delivery.PullRequest.URL,
+			PRStatus:           ticketreposcope.PrStatusChangesRequested,
+		}, true
+	default:
+		return ticketservice.SyncRepoScopePRStatusInput{}, false
+	}
+}
+
+func mapGitHubPullRequestActionToStatus(action string, merged bool) (ticketreposcope.PrStatus, bool) {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "opened", "reopened", "ready_for_review":
+		return ticketreposcope.PrStatusOpen, true
+	case "closed":
+		if merged {
+			return ticketreposcope.PrStatusMerged, true
+		}
+		return ticketreposcope.PrStatusClosed, true
+	default:
+		return "", false
+	}
 }
