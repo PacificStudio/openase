@@ -51,6 +51,10 @@ func reconcileLegacyTicketIdentifierIndex(ctx context.Context, dsn string) error
 		_ = db.Close()
 	}()
 
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database for ticket index reconciliation: %w", err)
+	}
+
 	if _, err := db.ExecContext(ctx, `DROP INDEX IF EXISTS "ticket_identifier"`); err != nil {
 		return fmt.Errorf("drop legacy ticket identifier index: %w", err)
 	}
