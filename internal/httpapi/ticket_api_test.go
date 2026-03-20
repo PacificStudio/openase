@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -286,5 +288,138 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	)
 	if peerAfterDeleteResp.Ticket.Parent != nil {
 		t.Fatalf("expected sub_issue delete to clear parent, got %+v", peerAfterDeleteResp.Ticket)
+	}
+}
+
+func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40024},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+
+	assignedAgent, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(provider.ID).
+		SetName("coding-01").
+		SetStatus(entagent.StatusClaimed).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Implement pickup/finish state transitions").
+		SetStatusID(todoID).
+		SetAssignedAgentID(assignedAgent.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	if _, err := client.Agent.UpdateOneID(assignedAgent.ID).
+		SetCurrentTicketID(ticketItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("claim agent for ticket: %v", err)
+	}
+
+	titleOnlyResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
+		map[string]any{"title": "Implement ticket pickup/finish transitions"},
+		http.StatusOK,
+		&titleOnlyResp,
+	)
+
+	ticketAfterTitleOnly, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after title update: %v", err)
+	}
+	if ticketAfterTitleOnly.AssignedAgentID == nil || *ticketAfterTitleOnly.AssignedAgentID != assignedAgent.ID {
+		t.Fatalf("expected non-status update to keep assignment, got %+v", ticketAfterTitleOnly.AssignedAgentID)
+	}
+	agentAfterTitleOnly, err := client.Agent.Get(ctx, assignedAgent.ID)
+	if err != nil {
+		t.Fatalf("reload agent after title update: %v", err)
+	}
+	if agentAfterTitleOnly.Status != entagent.StatusClaimed || agentAfterTitleOnly.CurrentTicketID == nil || *agentAfterTitleOnly.CurrentTicketID != ticketItem.ID {
+		t.Fatalf("expected non-status update to keep agent claim, got %+v", agentAfterTitleOnly)
+	}
+
+	statusResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
+		map[string]any{"status_id": doneID.String()},
+		http.StatusOK,
+		&statusResp,
+	)
+
+	ticketAfterStatusChange, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after status update: %v", err)
+	}
+	if ticketAfterStatusChange.StatusID != doneID {
+		t.Fatalf("expected ticket status %s, got %s", doneID, ticketAfterStatusChange.StatusID)
+	}
+	if ticketAfterStatusChange.AssignedAgentID != nil {
+		t.Fatalf("expected status update to clear assignment, got %+v", ticketAfterStatusChange.AssignedAgentID)
+	}
+
+	agentAfterStatusChange, err := client.Agent.Get(ctx, assignedAgent.ID)
+	if err != nil {
+		t.Fatalf("reload agent after status update: %v", err)
+	}
+	if agentAfterStatusChange.Status != entagent.StatusIdle || agentAfterStatusChange.CurrentTicketID != nil {
+		t.Fatalf("expected status update to release agent, got %+v", agentAfterStatusChange)
 	}
 }

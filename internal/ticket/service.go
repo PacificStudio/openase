@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
@@ -288,6 +289,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	}
 
 	builder := tx.Ticket.UpdateOneID(current.ID)
+	statusChanged := false
 
 	if input.Title.Set {
 		builder.SetTitle(input.Title.Value)
@@ -299,6 +301,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 		if err := ensureStatusBelongsToProject(ctx, tx, current.ProjectID, input.StatusID.Value); err != nil {
 			return Ticket{}, err
 		}
+		statusChanged = input.StatusID.Value != current.StatusID
 		builder.SetStatusID(input.StatusID.Value)
 	}
 	if input.Priority.Set {
@@ -346,9 +349,17 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 			builder.SetParentTicketID(*input.ParentTicketID.Value)
 		}
 	}
+	if statusChanged {
+		builder.ClearAssignedAgentID()
+	}
 
 	if _, err := builder.Save(ctx); err != nil {
 		return Ticket{}, s.mapTicketWriteError("update ticket", err)
+	}
+	if statusChanged {
+		if err := releaseTicketAgentClaim(ctx, tx, current); err != nil {
+			return Ticket{}, err
+		}
 	}
 
 	if input.ParentTicketID.Set {
@@ -585,6 +596,36 @@ func ensureTicketBelongsToProject(ctx context.Context, tx *ent.Tx, projectID uui
 	}
 	if !exists {
 		return notFound
+	}
+
+	return nil
+}
+
+func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ticket) error {
+	if ticketItem == nil || ticketItem.AssignedAgentID == nil {
+		return nil
+	}
+
+	if _, err := tx.Agent.Update().
+		Where(
+			entagent.IDEQ(*ticketItem.AssignedAgentID),
+			entagent.CurrentTicketIDEQ(ticketItem.ID),
+			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
+		).
+		ClearCurrentTicketID().
+		SetStatus(entagent.StatusIdle).
+		Save(ctx); err != nil {
+		return fmt.Errorf("release assigned agent to idle: %w", err)
+	}
+
+	if _, err := tx.Agent.Update().
+		Where(
+			entagent.IDEQ(*ticketItem.AssignedAgentID),
+			entagent.CurrentTicketIDEQ(ticketItem.ID),
+		).
+		ClearCurrentTicketID().
+		Save(ctx); err != nil {
+		return fmt.Errorf("clear assigned agent current ticket: %w", err)
 	}
 
 	return nil
