@@ -23,6 +23,8 @@ const (
 	EdgeProjects = "projects"
 	// EdgeProviders holds the string denoting the providers edge name in mutations.
 	EdgeProviders = "providers"
+	// EdgeMachines holds the string denoting the machines edge name in mutations.
+	EdgeMachines = "machines"
 	// EdgeNotificationChannels holds the string denoting the notification_channels edge name in mutations.
 	EdgeNotificationChannels = "notification_channels"
 	// EdgeDefaultAgentProvider holds the string denoting the default_agent_provider edge name in mutations.
@@ -43,6 +45,13 @@ const (
 	ProvidersInverseTable = "agent_providers"
 	// ProvidersColumn is the table column denoting the providers relation/edge.
 	ProvidersColumn = "organization_id"
+	// MachinesTable is the table that holds the machines relation/edge.
+	MachinesTable = "machines"
+	// MachinesInverseTable is the table name for the Machine entity.
+	// It exists in this package in order to avoid circular dependency with the "machine" package.
+	MachinesInverseTable = "machines"
+	// MachinesColumn is the table column denoting the machines relation/edge.
+	MachinesColumn = "organization_id"
 	// NotificationChannelsTable is the table that holds the notification_channels relation/edge.
 	NotificationChannelsTable = "notification_channels"
 	// NotificationChannelsInverseTable is the table name for the NotificationChannel entity.
@@ -137,6 +146,20 @@ func ByProviders(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByMachinesCount orders the results by machines count.
+func ByMachinesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMachinesStep(), opts...)
+	}
+}
+
+// ByMachines orders the results by machines terms.
+func ByMachines(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMachinesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByNotificationChannelsCount orders the results by notification_channels count.
 func ByNotificationChannelsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -169,6 +192,13 @@ func newProvidersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProvidersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ProvidersTable, ProvidersColumn),
+	)
+}
+func newMachinesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MachinesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, MachinesTable, MachinesColumn),
 	)
 }
 func newNotificationChannelsStep() *sqlgraph.Step {

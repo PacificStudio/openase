@@ -57,6 +57,18 @@ func (f AgentTokenFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTokenMutation", m)
 }
 
+// The MachineFunc type is an adapter to allow the use of ordinary
+// function as Machine mutator.
+type MachineFunc func(context.Context, *ent.MachineMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MachineFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MachineMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MachineMutation", m)
+}
+
 // The NotificationChannelFunc type is an adapter to allow the use of ordinary
 // function as NotificationChannel mutator.
 type NotificationChannelFunc func(context.Context, *ent.NotificationChannelMutation) (ent.Value, error)

@@ -415,7 +415,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	}()
 
 	repo := catalogrepo.NewEntRepository(client)
-	service := catalogservice.New(repo, executable.NewPathResolver())
+	service := catalogservice.New(repo, executable.NewPathResolver(), nil)
 
 	orgSlug := safeSlug(string(input.Mode) + "-" + input.Project.Name)
 	orgCreate, err := catalogdomain.ParseCreateOrganization(catalogdomain.OrganizationInput{

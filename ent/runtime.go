@@ -9,6 +9,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -121,6 +122,28 @@ func init() {
 	agenttokenDescID := agenttokenFields[0].Descriptor()
 	// agenttoken.DefaultID holds the default value on creation for the id field.
 	agenttoken.DefaultID = agenttokenDescID.Default.(func() uuid.UUID)
+	machineFields := schema.Machine{}.Fields()
+	_ = machineFields
+	// machineDescName is the schema descriptor for name field.
+	machineDescName := machineFields[2].Descriptor()
+	// machine.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	machine.NameValidator = machineDescName.Validators[0].(func(string) error)
+	// machineDescHost is the schema descriptor for host field.
+	machineDescHost := machineFields[3].Descriptor()
+	// machine.HostValidator is a validator for the "host" field. It is called by the builders before save.
+	machine.HostValidator = machineDescHost.Validators[0].(func(string) error)
+	// machineDescPort is the schema descriptor for port field.
+	machineDescPort := machineFields[4].Descriptor()
+	// machine.DefaultPort holds the default value on creation for the port field.
+	machine.DefaultPort = machineDescPort.Default.(int)
+	// machineDescResources is the schema descriptor for resources field.
+	machineDescResources := machineFields[14].Descriptor()
+	// machine.DefaultResources holds the default value on creation for the resources field.
+	machine.DefaultResources = machineDescResources.Default.(func() map[string]interface{})
+	// machineDescID is the schema descriptor for id field.
+	machineDescID := machineFields[0].Descriptor()
+	// machine.DefaultID holds the default value on creation for the id field.
+	machine.DefaultID = machineDescID.Default.(func() uuid.UUID)
 	notificationchannelFields := schema.NotificationChannel{}.Fields()
 	_ = notificationchannelFields
 	// notificationchannelDescName is the schema descriptor for name field.

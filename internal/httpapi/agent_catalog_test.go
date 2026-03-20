@@ -140,7 +140,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 

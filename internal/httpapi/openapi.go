@@ -36,6 +36,31 @@ type OpenAPIProject struct {
 	MaxConcurrentAgents    int     `json:"max_concurrent_agents"`
 }
 
+type OpenAPIMachine struct {
+	ID              string         `json:"id"`
+	OrganizationID  string         `json:"organization_id"`
+	Name            string         `json:"name"`
+	Host            string         `json:"host"`
+	Port            int            `json:"port"`
+	SSHUser         *string        `json:"ssh_user,omitempty"`
+	SSHKeyPath      *string        `json:"ssh_key_path,omitempty"`
+	Description     string         `json:"description"`
+	Labels          []string       `json:"labels,omitempty"`
+	Status          string         `json:"status"`
+	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
+	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
+	EnvVars         []string       `json:"env_vars,omitempty"`
+	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
+	Resources       map[string]any `json:"resources"`
+}
+
+type OpenAPIMachineProbe struct {
+	CheckedAt string         `json:"checked_at"`
+	Transport string         `json:"transport"`
+	Output    string         `json:"output"`
+	Resources map[string]any `json:"resources"`
+}
+
 type OpenAPIProjectRepo struct {
 	ID            string   `json:"id"`
 	ProjectID     string   `json:"project_id"`
@@ -262,6 +287,26 @@ type OpenAPIProjectResponse struct {
 	Project OpenAPIProject `json:"project"`
 }
 
+type OpenAPIMachinesResponse struct {
+	Machines []OpenAPIMachine `json:"machines"`
+}
+
+type OpenAPIMachineResponse struct {
+	Machine OpenAPIMachine `json:"machine"`
+}
+
+type OpenAPIMachineTestResponse struct {
+	Machine OpenAPIMachine      `json:"machine"`
+	Probe   OpenAPIMachineProbe `json:"probe"`
+}
+
+type OpenAPIMachineResourcesResponse struct {
+	MachineID       string         `json:"machine_id"`
+	Status          string         `json:"status"`
+	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
+	Resources       map[string]any `json:"resources"`
+}
+
 type OpenAPIAgentProvidersResponse struct {
 	Providers []OpenAPIAgentProvider `json:"providers"`
 }
@@ -330,6 +375,8 @@ type OpenAPICreateAgentProviderRequest domain.AgentProviderInput
 type OpenAPIUpdateAgentProviderRequest agentProviderPatchRequest
 type OpenAPICreateProjectRequest domain.ProjectInput
 type OpenAPIUpdateProjectRequest projectPatchRequest
+type OpenAPICreateMachineRequest domain.MachineInput
+type OpenAPIUpdateMachineRequest machinePatchRequest
 type OpenAPICreateWorkflowRequest rawCreateWorkflowRequest
 type OpenAPIUpdateWorkflowRequest rawUpdateWorkflowRequest
 type OpenAPIUpdateHarnessRequest rawUpdateHarnessRequest
@@ -473,6 +520,40 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	orgProjectsPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/projects", http.MethodPost, orgProjectsPost)
 
+	machinesGet, err := b.jsonOperation(
+		"listMachines",
+		"List machines for an organization",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachinesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machinesGet.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/machines", http.MethodGet, machinesGet)
+
+	machinesPost, err := b.jsonOperation(
+		"createMachine",
+		"Create a machine",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPIMachineResponse{},
+		OpenAPICreateMachineRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machinesPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/machines", http.MethodPost, machinesPost)
+
 	providersGet, err := b.jsonOperation(
 		"listAgentProviders",
 		"List agent providers for an organization",
@@ -506,6 +587,95 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	providersPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/providers", http.MethodPost, providersPost)
+
+	machineGet, err := b.jsonOperation(
+		"getMachine",
+		"Get a machine",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineGet.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}", http.MethodGet, machineGet)
+
+	machinePatch, err := b.jsonOperation(
+		"updateMachine",
+		"Update a machine",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineResponse{},
+		OpenAPIUpdateMachineRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machinePatch.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}", http.MethodPatch, machinePatch)
+
+	machineDelete, err := b.jsonOperation(
+		"deleteMachine",
+		"Delete a machine",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineDelete.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}", http.MethodDelete, machineDelete)
+
+	machineTest, err := b.jsonOperation(
+		"testMachineConnection",
+		"Test a machine SSH connection",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineTestResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineTest.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}/test", http.MethodPost, machineTest)
+
+	machineResources, err := b.jsonOperation(
+		"getMachineResources",
+		"Get machine resources",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineResourcesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineResources.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}/resources", http.MethodGet, machineResources)
 
 	orgPatch, err := b.jsonOperation(
 		"updateOrganization",
