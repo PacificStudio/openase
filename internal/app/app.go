@@ -176,6 +176,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
+	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, sshinfra.NewMonitorCollector(sshPool))
 	runtimeLauncher := orchestrator.NewRuntimeLauncher(client, a.logger, a.events, agentcli.NewManager(agentcli.ManagerOptions{}), sshPool)
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -215,15 +216,17 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			)
 			start := time.Now()
 			healthReport, healthErr := healthChecker.Run(tickCtx)
+			machineReport, machineErr := machineMonitor.RunTick(tickCtx)
 			report, runErr := scheduler.RunTick(tickCtx)
 			launchErr := runtimeLauncher.RunTick(tickCtx)
 			payload := map[string]any{
-				"mode":          string(a.config.Server.Mode),
-				"time":          tick.UTC().Format(time.RFC3339),
-				"health_report": healthReport,
-				"report":        report,
+				"mode":           string(a.config.Server.Mode),
+				"time":           tick.UTC().Format(time.RFC3339),
+				"health_report":  healthReport,
+				"machine_report": machineReport,
+				"report":         report,
 			}
-			combinedErr := joinOrchestratorTickErrors(healthErr, runErr, launchErr)
+			combinedErr := joinOrchestratorTickErrors(healthErr, machineErr, runErr, launchErr)
 			if combinedErr != nil {
 				payload["error"] = combinedErr.Error()
 				span.RecordError(combinedErr)
@@ -245,6 +248,11 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"claims_checked", healthReport.ClaimsChecked,
 					"stalled_claims", healthReport.StalledClaims,
 					"agents_released", healthReport.AgentsReleased,
+					"machines_scanned", machineReport.MachinesScanned,
+					"machines_updated", machineReport.MachinesUpdated,
+					"machine_l1_checks", machineReport.L1Checks,
+					"machine_l2_checks", machineReport.L2Checks,
+					"machine_l3_checks", machineReport.L3Checks,
 					"workflows_scanned", report.WorkflowsScanned,
 					"candidates_scanned", report.CandidatesScanned,
 					"tickets_dispatched", report.TicketsDispatched,
@@ -262,6 +270,11 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 				provider.IntAttribute("orchestrator.health.claims_checked", healthReport.ClaimsChecked),
 				provider.IntAttribute("orchestrator.health.stalled_claims", healthReport.StalledClaims),
 				provider.IntAttribute("orchestrator.health.agents_released", healthReport.AgentsReleased),
+				provider.IntAttribute("orchestrator.machine.machines_scanned", machineReport.MachinesScanned),
+				provider.IntAttribute("orchestrator.machine.machines_updated", machineReport.MachinesUpdated),
+				provider.IntAttribute("orchestrator.machine.l1_checks", machineReport.L1Checks),
+				provider.IntAttribute("orchestrator.machine.l2_checks", machineReport.L2Checks),
+				provider.IntAttribute("orchestrator.machine.l3_checks", machineReport.L3Checks),
 				provider.IntAttribute("orchestrator.report.workflows_scanned", report.WorkflowsScanned),
 				provider.IntAttribute("orchestrator.report.candidates_scanned", report.CandidatesScanned),
 				provider.IntAttribute("orchestrator.report.tickets_dispatched", report.TicketsDispatched),
@@ -292,10 +305,13 @@ func sumSkipCounts(values map[string]int) int {
 	return total
 }
 
-func joinOrchestratorTickErrors(healthErr error, schedulerErr error, launcherErr error) error {
-	errs := make([]error, 0, 3)
+func joinOrchestratorTickErrors(healthErr error, machineErr error, schedulerErr error, launcherErr error) error {
+	errs := make([]error, 0, 4)
 	if healthErr != nil {
 		errs = append(errs, fmt.Errorf("health check: %w", healthErr))
+	}
+	if machineErr != nil {
+		errs = append(errs, fmt.Errorf("machine monitor: %w", machineErr))
 	}
 	if schedulerErr != nil {
 		errs = append(errs, fmt.Errorf("scheduler: %w", schedulerErr))
