@@ -45,6 +45,7 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_PORT", "41000")
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
+	t.Setenv("OPENASE_GITHUB_WEBHOOK_SECRET", "topsecret")
 	t.Setenv("OPENASE_DATABASE_DSN", "postgres://openase:secret@localhost:5432/openase?sslmode=disable")
 	t.Setenv("OPENASE_ORCHESTRATOR_TICK_INTERVAL", "2s")
 	t.Setenv("OPENASE_EVENT_DRIVER", "pgnotify")
@@ -62,6 +63,10 @@ func TestLoadFromEnvironment(t *testing.T) {
 
 	if cfg.Server.Mode != ServerModeServe {
 		t.Fatalf("expected serve mode, got %q", cfg.Server.Mode)
+	}
+
+	if cfg.GitHub.WebhookSecret != "topsecret" {
+		t.Fatalf("expected GitHub webhook secret from env, got %q", cfg.GitHub.WebhookSecret)
 	}
 
 	if cfg.Database.DSN == "" {
@@ -96,6 +101,8 @@ server:
   read_timeout: 20s
   write_timeout: 25s
   shutdown_timeout: 12s
+github:
+  webhook_secret: config-file-secret
 database:
   dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable
 orchestrator:
@@ -122,6 +129,10 @@ log:
 
 	if cfg.Server.Mode != ServerModeServe {
 		t.Fatalf("expected serve mode, got %q", cfg.Server.Mode)
+	}
+
+	if cfg.GitHub.WebhookSecret != "config-file-secret" {
+		t.Fatalf("expected config file GitHub webhook secret, got %q", cfg.GitHub.WebhookSecret)
 	}
 
 	if cfg.Database.DSN == "" {

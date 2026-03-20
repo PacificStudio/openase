@@ -24,6 +24,7 @@ import (
 
 type Server struct {
 	cfg                 config.ServerConfig
+	github              config.GitHubConfig
 	logger              *slog.Logger
 	echo                *echo.Echo
 	sseHub              *sse.Hub
@@ -35,6 +36,7 @@ type Server struct {
 
 func NewServer(
 	cfg config.ServerConfig,
+	github config.GitHubConfig,
 	logger *slog.Logger,
 	events provider.EventProvider,
 	ticketService *ticketservice.Service,
@@ -70,6 +72,7 @@ func NewServer(
 
 	server := &Server{
 		cfg:                 cfg,
+		github:              github,
 		logger:              logger.With("component", "http-server"),
 		echo:                e,
 		sseHub:              sse.NewHub(events, logger),
@@ -143,6 +146,7 @@ func (s *Server) registerRoutes() {
 	api := s.echo.Group("/api/v1")
 	api.GET("/healthz", healthHandler)
 	api.GET("/events/stream", s.handleEventStream)
+	api.POST("/webhooks/github", s.handleGitHubWebhook)
 	api.GET("/projects/:projectId/tickets/stream", s.handleTicketStream)
 	api.GET("/projects/:projectId/agents/stream", s.handleAgentStream)
 	api.GET("/projects/:projectId/hooks/stream", s.handleHookStream)

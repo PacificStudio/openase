@@ -16,6 +16,7 @@ import (
 func TestListActivityEventsRoute(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
@@ -87,6 +88,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 func TestListActivityEventsRouteRejectsInvalidQuery(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,

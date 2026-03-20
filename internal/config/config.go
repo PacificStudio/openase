@@ -22,6 +22,7 @@ const (
 
 type Config struct {
 	Server       ServerConfig
+	GitHub       GitHubConfig
 	Database     DatabaseConfig
 	Orchestrator OrchestratorConfig
 	Event        EventConfig
@@ -40,6 +41,10 @@ type ServerConfig struct {
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	ShutdownTimeout time.Duration
+}
+
+type GitHubConfig struct {
+	WebhookSecret string
 }
 
 type ServerMode string
@@ -107,6 +112,7 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("server.read_timeout", 15*time.Second)
 	v.SetDefault("server.write_timeout", 15*time.Second)
 	v.SetDefault("server.shutdown_timeout", 10*time.Second)
+	v.SetDefault("github.webhook_secret", "")
 	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
 	v.SetDefault("event.driver", string(EventDriverAuto))
@@ -186,6 +192,11 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("parse server.shutdown_timeout: %w", err)
 	}
 
+	gitHubWebhookSecret, err := parseOptionalString(v.Get("github.webhook_secret"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse github.webhook_secret: %w", err)
+	}
+
 	databaseDSN, err := parseOptionalString(v.Get("database.dsn"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse database.dsn: %w", err)
@@ -219,6 +230,9 @@ func parseConfig(v *viper.Viper) (Config, error) {
 			ReadTimeout:     readTimeout,
 			WriteTimeout:    writeTimeout,
 			ShutdownTimeout: shutdownTimeout,
+		},
+		GitHub: GitHubConfig{
+			WebhookSecret: gitHubWebhookSecret,
 		},
 		Database: DatabaseConfig{
 			DSN: databaseDSN,

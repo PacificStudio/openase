@@ -68,6 +68,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	}()
 	server := httpapi.NewServer(
 		a.config.Server,
+		a.config.GitHub,
 		a.logger,
 		a.events,
 		ticketservice.NewService(client),

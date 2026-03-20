@@ -37,6 +37,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
@@ -276,6 +277,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 func TestValidateHarnessRoute(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,

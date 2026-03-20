@@ -54,6 +54,7 @@ func newFakeCatalogService() *fakeCatalogService {
 func TestCatalogCRUDRoutes(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
@@ -268,6 +269,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 func TestCatalogRoutesRejectInvalidInput(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
@@ -291,6 +293,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
@@ -993,6 +996,7 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,

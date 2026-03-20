@@ -21,6 +21,7 @@ import (
 func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
@@ -128,6 +129,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
