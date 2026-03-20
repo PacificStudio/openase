@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
@@ -424,6 +426,92 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	}
 	if agentAfterStatusChange.Status != entagent.StatusIdle || agentAfterStatusChange.CurrentTicketID != nil {
 		t.Fatalf("expected status update to release agent, got %+v", agentAfterStatusChange)
+	}
+}
+
+func TestTicketRoutesPublishSSEEvents(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40025},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	doneID := findStatusIDByName(t, statuses, "Done")
+
+	createResponse, cancelCreate := openSSERequest(t, testServer.URL+fmt.Sprintf("/api/v1/projects/%s/tickets/stream", project.ID))
+	defer createResponse.Body.Close()
+	createPayload := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
+		map[string]any{
+			"title":       "Implement board realtime updates",
+			"description": "publish ticket.created when a ticket is added",
+		},
+		http.StatusCreated,
+		&createPayload,
+	)
+	createBody := readSSEBody(t, createResponse, cancelCreate)
+	if !strings.Contains(createBody, "event: ticket.created\n") {
+		t.Fatalf("expected ticket.created frame, got %q", createBody)
+	}
+	if !strings.Contains(createBody, createPayload.Ticket.Identifier) {
+		t.Fatalf("expected created ticket identifier in SSE payload, got %q", createBody)
+	}
+
+	updateResponse, cancelUpdate := openSSERequest(t, testServer.URL+fmt.Sprintf("/api/v1/projects/%s/tickets/stream", project.ID))
+	defer updateResponse.Body.Close()
+	updatePayload := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", createPayload.Ticket.ID),
+		map[string]any{"status_id": doneID.String()},
+		http.StatusOK,
+		&updatePayload,
+	)
+	updateBody := readSSEBody(t, updateResponse, cancelUpdate)
+	if !strings.Contains(updateBody, "event: ticket.status_changed\n") {
+		t.Fatalf("expected ticket.status_changed frame, got %q", updateBody)
+	}
+	if !strings.Contains(updateBody, doneID.String()) {
+		t.Fatalf("expected updated status id in SSE payload, got %q", updateBody)
 	}
 }
 

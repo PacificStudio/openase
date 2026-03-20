@@ -26,6 +26,7 @@ type Server struct {
 	cfg                 config.ServerConfig
 	github              config.GitHubConfig
 	logger              *slog.Logger
+	events              provider.EventProvider
 	echo                *echo.Echo
 	sseHub              *sse.Hub
 	ticketService       *ticketservice.Service
@@ -74,6 +75,7 @@ func NewServer(
 		cfg:                 cfg,
 		github:              github,
 		logger:              logger.With("component", "http-server"),
+		events:              events,
 		echo:                e,
 		sseHub:              sse.NewHub(events, logger),
 		ticketService:       ticketService,

@@ -122,6 +122,9 @@ func (s *Server) handleCreateTicket(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
+	if err := s.publishTicketEvent(c.Request().Context(), ticketCreatedEventType, item); err != nil {
+		return writeTicketError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"ticket": mapTicketResponse(item),
@@ -170,6 +173,13 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 
 	item, err := s.ticketService.Update(c.Request().Context(), input)
 	if err != nil {
+		return writeTicketError(c, err)
+	}
+	eventType := ticketUpdatedEventType
+	if input.StatusID.Set {
+		eventType = ticketStatusEventType
+	}
+	if err := s.publishTicketEvent(c.Request().Context(), eventType, item); err != nil {
 		return writeTicketError(c, err)
 	}
 

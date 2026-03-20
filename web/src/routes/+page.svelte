@@ -74,6 +74,46 @@ type Agent = {
 	created_at: string;
 };
 
+	type TicketReference = {
+		id: string;
+		identifier: string;
+		title: string;
+		status_id: string;
+		status_name: string;
+	};
+
+	type TicketDependency = {
+		id: string;
+		type: string;
+		target: TicketReference;
+	};
+
+	type Ticket = {
+		id: string;
+		project_id: string;
+		identifier: string;
+		title: string;
+		description: string;
+		status_id: string;
+		status_name: string;
+		priority: 'urgent' | 'high' | 'medium' | 'low';
+		type: string;
+		workflow_id?: string | null;
+		created_by: string;
+		parent?: TicketReference | null;
+		children: TicketReference[];
+		dependencies: TicketDependency[];
+		external_ref: string;
+		budget_usd: number;
+		cost_amount: number;
+		attempt_count: number;
+		consecutive_errors: number;
+		next_retry_at?: string | null;
+		retry_paused: boolean;
+		pause_reason: string;
+		created_at: string;
+	};
+
 	type TicketStatus = {
 		id: string;
 		project_id: string;
@@ -135,6 +175,7 @@ type Agent = {
 		published_at: string;
 	};
 	type StatusPayload = { statuses: TicketStatus[] };
+	type TicketPayload = { tickets: Ticket[] };
 	type WorkflowListPayload = { workflows: Workflow[] };
 	type WorkflowDetailPayload = { workflow: Workflow };
 	type HarnessPayload = { harness: HarnessDocument };
@@ -202,6 +243,7 @@ You are handling {{ ticket.identifier }}.
 	let organizations = $state<Organization[]>([]);
 	let projects = $state<Project[]>([]);
 	let ticketStatuses = $state<TicketStatus[]>([]);
+	let tickets = $state<Ticket[]>([]);
 	let workflows = $state<Workflow[]>([]);
 
 	let selectedOrgId = $state('');
@@ -216,6 +258,12 @@ You are handling {{ ticket.identifier }}.
 	let selectedWorkflow = $state<Workflow | null>(null);
 	let notice = $state('');
 	let errorMessage = $state('');
+	let ticketBoardBusy = $state(false);
+	let ticketBoardError = $state('');
+	let ticketStreamState = $state<StreamConnectionState>('idle');
+	let draggingTicketId = $state('');
+	let dragTargetStatusId = $state('');
+	let ticketMutationIds = $state<string[]>([]);
 	let agentConsoleBusy = $state(false);
 	let agentConsoleError = $state('');
 	let agentStreamState = $state<StreamConnectionState>('idle');
@@ -254,6 +302,8 @@ You are handling {{ ticket.identifier }}.
 	let lastValidatedContent = $state('');
 	let validationRunID = 0;
 	let validationTimer: ReturnType<typeof setTimeout> | null = null;
+	let ticketLoadInFlight = false;
+	let ticketReloadQueued = false;
 
 	const harnessDirty = $derived(
 		selectedWorkflow ? harnessDraft !== (selectedWorkflow.harness_content ?? '') : false
@@ -280,6 +330,7 @@ You are handling {{ ticket.identifier }}.
 		const projectId = selectedProjectId;
 		if (!projectId) {
 			resetAgentConsole();
+			resetTicketBoard();
 			return;
 		}
 
@@ -383,9 +434,10 @@ You are handling {{ ticket.identifier }}.
 			api<StatusPayload>(`/api/v1/projects/${projectId}/statuses`),
 			api<WorkflowListPayload>(`/api/v1/projects/${projectId}/workflows`)
 		]);
-		ticketStatuses = statusPayload.statuses;
+		ticketStatuses = orderTicketStatuses(statusPayload.statuses);
 		workflows = workflowPayload.workflows;
 		createWorkflowForm = defaultWorkflowForm(ticketStatuses);
+		await loadTickets(projectId);
 
 		const nextWorkflow =
 			workflows.find((item) => item.id === preferredWorkflowId) ??
@@ -430,6 +482,40 @@ You are handling {{ ticket.identifier }}.
 			await loadProjects(org.id);
 		} catch (error) {
 			errorMessage = toErrorMessage(error);
+		}
+	}
+
+	async function loadTickets(projectId: string, options: { silent?: boolean } = {}) {
+		const silent = options.silent ?? false;
+		if (!silent) {
+			ticketBoardBusy = true;
+		}
+
+		ticketLoadInFlight = true;
+		try {
+			const payload = await api<TicketPayload>(`/api/v1/projects/${projectId}/tickets`);
+			if (projectId !== selectedProjectId) {
+				return;
+			}
+
+			tickets = orderTickets(payload.tickets);
+			ticketBoardError = '';
+		} catch (error) {
+			if (projectId !== selectedProjectId) {
+				return;
+			}
+			ticketBoardError = toErrorMessage(error);
+		} finally {
+			const shouldReload = ticketReloadQueued;
+			ticketReloadQueued = false;
+			ticketLoadInFlight = false;
+
+			if (projectId === selectedProjectId && !silent) {
+				ticketBoardBusy = false;
+			}
+			if (shouldReload && projectId === selectedProjectId) {
+				void loadTickets(projectId, { silent: true });
+			}
 		}
 	}
 
@@ -498,6 +584,16 @@ You are handling {{ ticket.identifier }}.
 	}
 
 	function connectProjectStreams(projectId: string) {
+		const closeTicketStream = connectEventStream(`/api/v1/projects/${projectId}/tickets/stream`, {
+			onEvent: (frame) => handleTicketFrame(projectId, frame),
+			onStateChange: (state) => {
+				ticketStreamState = state;
+			},
+			onError: (error) => {
+				ticketBoardError = toErrorMessage(error);
+			}
+		});
+
 		const closeAgentStream = connectEventStream(`/api/v1/projects/${projectId}/agents/stream`, {
 			onEvent: (frame) => handleAgentFrame(projectId, frame),
 			onStateChange: (state) => {
@@ -519,9 +615,19 @@ You are handling {{ ticket.identifier }}.
 		});
 
 		return () => {
+			closeTicketStream();
 			closeAgentStream();
 			closeActivityStream();
 		};
+	}
+
+	function handleTicketFrame(projectId: string, frame: SSEFrame) {
+		const envelope = parseStreamEnvelope(frame);
+		if (!envelope || projectId !== selectedProjectId) {
+			return;
+		}
+
+		queueTicketReload(projectId);
 	}
 
 	function handleAgentFrame(projectId: string, frame: SSEFrame) {
@@ -569,6 +675,18 @@ You are handling {{ ticket.identifier }}.
 		agentConsoleError = '';
 		agentStreamState = 'idle';
 		activityStreamState = 'idle';
+	}
+
+	function resetTicketBoard() {
+		tickets = [];
+		ticketBoardBusy = false;
+		ticketBoardError = '';
+		ticketStreamState = 'idle';
+		draggingTicketId = '';
+		dragTargetStatusId = '';
+		ticketMutationIds = [];
+		ticketLoadInFlight = false;
+		ticketReloadQueued = false;
 	}
 
 	async function createOrganization() {
@@ -907,9 +1025,161 @@ You are handling {{ ticket.identifier }}.
 
 	function clearWorkflowState() {
 		ticketStatuses = [];
+		resetTicketBoard();
 		workflows = [];
 		createWorkflowForm = defaultWorkflowForm();
 		resetSelectedWorkflow();
+	}
+
+	function queueTicketReload(projectId: string) {
+		if (projectId !== selectedProjectId) {
+			return;
+		}
+		if (ticketLoadInFlight) {
+			ticketReloadQueued = true;
+			return;
+		}
+
+		void loadTickets(projectId, { silent: true });
+	}
+
+	function orderTicketStatuses(statuses: TicketStatus[]) {
+		return [...statuses].sort((left, right) => {
+			const positionDelta = left.position - right.position;
+			if (positionDelta !== 0) {
+				return positionDelta;
+			}
+
+			return left.name.localeCompare(right.name);
+		});
+	}
+
+	function orderTickets(items: Ticket[]) {
+		return [...items].sort((left, right) => {
+			const priorityDelta = ticketPriorityRank(left.priority) - ticketPriorityRank(right.priority);
+			if (priorityDelta !== 0) {
+				return priorityDelta;
+			}
+
+			const createdDelta = Date.parse(left.created_at) - Date.parse(right.created_at);
+			if (!Number.isNaN(createdDelta) && createdDelta !== 0) {
+				return createdDelta;
+			}
+
+			return left.identifier.localeCompare(right.identifier);
+		});
+	}
+
+	function ticketPriorityRank(priority: Ticket['priority']) {
+		switch (priority) {
+			case 'urgent':
+				return 0;
+			case 'high':
+				return 1;
+			case 'medium':
+				return 2;
+			default:
+				return 3;
+		}
+	}
+
+	function ticketsForStatus(statusID: string) {
+		return tickets.filter((ticket) => ticket.status_id === statusID);
+	}
+
+	function workflowName(workflowID?: string | null) {
+		if (!workflowID) {
+			return 'No workflow';
+		}
+
+		return workflows.find((workflow) => workflow.id === workflowID)?.name ?? 'Detached workflow';
+	}
+
+	function isTicketMutationPending(ticketID: string) {
+		return ticketMutationIds.includes(ticketID);
+	}
+
+	function ticketPriorityBadgeClass(priority: Ticket['priority']) {
+		switch (priority) {
+			case 'urgent':
+				return 'border-rose-500/25 bg-rose-500/10 text-rose-700';
+			case 'high':
+				return 'border-amber-500/25 bg-amber-500/10 text-amber-700';
+			case 'medium':
+				return 'border-sky-500/25 bg-sky-500/10 text-sky-700';
+			default:
+				return 'border-border/80 bg-background text-muted-foreground';
+		}
+	}
+
+	function handleTicketDragStart(event: DragEvent, ticket: Ticket) {
+		draggingTicketId = ticket.id;
+		dragTargetStatusId = ticket.status_id;
+		event.dataTransfer?.setData('text/plain', ticket.id);
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+		}
+	}
+
+	function handleStatusDragOver(event: DragEvent, statusID: string) {
+		event.preventDefault();
+		dragTargetStatusId = statusID;
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = 'move';
+		}
+	}
+
+	async function handleStatusDrop(event: DragEvent, statusID: string) {
+		event.preventDefault();
+		const ticketID = draggingTicketId || event.dataTransfer?.getData('text/plain') || '';
+		dragTargetStatusId = '';
+		const ticket = tickets.find((item) => item.id === ticketID);
+		if (!ticket) {
+			return;
+		}
+
+		await moveTicketToStatus(ticket, statusID);
+	}
+
+	async function moveTicketToStatus(ticket: Ticket, statusID: string) {
+		if (ticket.status_id === statusID || isTicketMutationPending(ticket.id)) {
+			return;
+		}
+
+		const previousStatusID = ticket.status_id;
+		const previousStatusName = ticket.status_name;
+		ticketBoardError = '';
+		ticketMutationIds = [...ticketMutationIds, ticket.id];
+		tickets = orderTickets(
+			tickets.map((item) =>
+				item.id === ticket.id
+					? { ...item, status_id: statusID, status_name: statusName(statusID) }
+					: item
+			)
+		);
+
+		try {
+			const payload = await api<{ ticket: Ticket }>(`/api/v1/tickets/${ticket.id}`, {
+				method: 'PATCH',
+				body: JSON.stringify({ status_id: statusID })
+			});
+			tickets = orderTickets(
+				tickets.map((item) => (item.id === payload.ticket.id ? payload.ticket : item))
+			);
+		} catch (error) {
+			tickets = orderTickets(
+				tickets.map((item) =>
+					item.id === ticket.id
+						? { ...item, status_id: previousStatusID, status_name: previousStatusName }
+						: item
+				)
+			);
+			ticketBoardError = toErrorMessage(error);
+		} finally {
+			ticketMutationIds = ticketMutationIds.filter((itemID) => itemID !== ticket.id);
+			draggingTicketId = '';
+			dragTargetStatusId = '';
+		}
 	}
 
 	function fillOrgSlug() {
@@ -1329,9 +1599,9 @@ You are handling {{ ticket.identifier }}.
 		<div class="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
 			<div class="space-y-5">
 				<div class="flex flex-wrap items-center gap-3">
-					<Badge variant="outline">F26 + F27</Badge>
+					<Badge variant="outline">F24 board</Badge>
 					<Badge variant="outline">Agent console</Badge>
-					<Badge variant="outline">F27 vertical slice</Badge>
+					<Badge variant="outline">Realtime SSE</Badge>
 					<Badge variant="outline">Workflow management</Badge>
 					<Badge variant="outline">Harness editor</Badge>
 				</div>
@@ -1341,12 +1611,12 @@ You are handling {{ ticket.identifier }}.
 						OpenASE control plane
 					</p>
 					<h1 class="max-w-4xl text-5xl leading-none font-semibold tracking-[-0.06em] text-balance sm:text-6xl">
-						Live agent telemetry and workflow harness editing now share one control plane.
+						Kanban routing, live agent telemetry, and workflow harness editing now share one control plane.
 					</h1>
 					<p class="max-w-3xl text-lg leading-8 text-muted-foreground">
-						Pick a project, monitor agent state and activity in real time, then manage workflows
-						and edit Git-backed harness instructions with syntax highlighting plus YAML
-						frontmatter validation before the content lands on disk.
+						Pick a project, drag tickets across custom status columns, watch SSE-driven updates land
+						in real time, then manage workflows and edit Git-backed harness instructions without
+						leaving the same embedded surface.
 					</p>
 				</div>
 			</div>
@@ -1873,6 +2143,187 @@ You are handling {{ ticket.identifier }}.
 							</Card>
 						</div>
 					</div>
+
+					<Card class="overflow-hidden border-border/80 bg-background/80 backdrop-blur">
+						<CardHeader class="border-b border-border/70 bg-muted/20">
+							<div class="flex flex-wrap items-center justify-between gap-4">
+								<div>
+									<CardTitle class="flex items-center gap-2">
+										<FolderKanban class="size-4" />
+										<span>Kanban board</span>
+									</CardTitle>
+									<CardDescription>
+										Custom statuses become columns. Drag a ticket between columns to persist its
+										`status_id`, while SSE keeps the board fresh.
+									</CardDescription>
+								</div>
+								<div class="flex flex-wrap items-center gap-2">
+									{#if selectedProject}
+										<Badge variant="outline">{tickets.length} tickets</Badge>
+									{/if}
+									<span class={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${streamBadgeClass(ticketStreamState)}`}>
+										<Cable class="mr-1.5 size-3.5" />
+										Board {ticketStreamState}
+									</span>
+								</div>
+							</div>
+						</CardHeader>
+						<CardContent class="space-y-5 p-6">
+							{#if ticketBoardError}
+								<div class="rounded-3xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+									{ticketBoardError}
+								</div>
+							{/if}
+
+							{#if !selectedProject}
+								<div class="rounded-3xl border border-dashed border-border/80 bg-muted/35 px-4 py-8 text-sm text-muted-foreground">
+									Select a project to load its custom status columns and ticket board.
+								</div>
+							{:else if ticketBoardBusy && tickets.length === 0}
+								<div class="flex min-h-72 items-center justify-center rounded-[2rem] border border-border/70 bg-background/60">
+									<div class="flex items-center gap-3 text-sm text-muted-foreground">
+										<LoaderCircle class="size-4 animate-spin" />
+										<span>Loading board columns and tickets…</span>
+									</div>
+								</div>
+							{:else if ticketStatuses.length === 0}
+								<div class="rounded-3xl border border-dashed border-border/80 bg-muted/35 px-4 py-8 text-sm text-muted-foreground">
+									No ticket statuses are configured for this project yet.
+								</div>
+							{:else}
+								<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
+									<p>
+										<span class="font-medium text-foreground">{selectedProject.name}</span>
+										uses {ticketStatuses.length} custom columns ordered by status position.
+									</p>
+									<p>Drop a card into any column to trigger a ticket status change.</p>
+								</div>
+
+								<div class="overflow-x-auto pb-2">
+									<div class="flex min-w-max gap-4">
+										{#each ticketStatuses as status}
+											<div
+												class={`min-h-[30rem] w-[19rem] shrink-0 rounded-[1.75rem] border px-4 py-4 transition ${
+													dragTargetStatusId === status.id
+														? 'border-foreground/25 bg-background shadow-lg shadow-black/5'
+														: 'border-border/70 bg-background/60'
+												}`}
+												style={`box-shadow: inset 0 3px 0 ${status.color};`}
+												role="list"
+												aria-label={`${status.name} tickets`}
+												ondragover={(event) => handleStatusDragOver(event, status.id)}
+												ondragenter={() => {
+													dragTargetStatusId = status.id;
+												}}
+												ondrop={(event) => void handleStatusDrop(event, status.id)}
+											>
+												<div class="flex items-start justify-between gap-3">
+													<div class="min-w-0">
+														<div class="flex items-center gap-2">
+															<span
+																class="size-3 rounded-full border border-white/60"
+																style={`background-color: ${status.color};`}
+															></span>
+															<p class="truncate text-sm font-semibold">{status.name}</p>
+														</div>
+														{#if status.description}
+															<p class="mt-2 text-xs leading-5 text-muted-foreground">
+																{status.description}
+															</p>
+														{/if}
+													</div>
+													<div class="flex flex-col items-end gap-2">
+														<Badge variant={status.is_default ? 'secondary' : 'outline'}>
+															{ticketsForStatus(status.id).length}
+														</Badge>
+														{#if status.is_default}
+															<span class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+																default
+															</span>
+														{/if}
+													</div>
+												</div>
+
+												<div class="mt-4 space-y-3">
+													{#if ticketsForStatus(status.id).length === 0}
+														<div class="rounded-3xl border border-dashed border-border/70 bg-muted/35 px-4 py-6 text-sm text-muted-foreground">
+															Drop a ticket here to move it into {status.name}.
+														</div>
+													{:else}
+														{#each ticketsForStatus(status.id) as ticket}
+															<button
+																type="button"
+																class={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+																	draggingTicketId === ticket.id
+																		? 'border-foreground/20 bg-muted/40 opacity-60'
+																		: 'border-border/70 bg-background hover:border-foreground/15 hover:bg-background'
+																}`}
+																draggable={!isTicketMutationPending(ticket.id)}
+																ondragstart={(event) => handleTicketDragStart(event, ticket)}
+																ondragend={() => {
+																	draggingTicketId = '';
+																	dragTargetStatusId = '';
+																}}
+															>
+																<div class="flex items-start justify-between gap-3">
+																	<div class="min-w-0">
+																		<p class="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+																			{ticket.identifier}
+																		</p>
+																		<p class="mt-2 text-sm font-semibold text-foreground">
+																			{ticket.title}
+																		</p>
+																	</div>
+																	<span class={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${ticketPriorityBadgeClass(ticket.priority)}`}>
+																		{ticket.priority}
+																	</span>
+																</div>
+
+																<p class="mt-3 text-sm leading-6 text-muted-foreground">
+																	{ticket.description || 'No description yet.'}
+																</p>
+
+																<div class="mt-4 flex flex-wrap gap-2 text-[11px]">
+																	<span class="inline-flex rounded-full border border-border/80 bg-background px-2.5 py-1 text-muted-foreground">
+																		{ticket.type}
+																	</span>
+																	{#if ticket.workflow_id}
+																		<span class="inline-flex rounded-full border border-border/80 bg-background px-2.5 py-1 text-muted-foreground">
+																			{workflowName(ticket.workflow_id)}
+																		</span>
+																	{/if}
+																	{#if ticket.consecutive_errors > 0}
+																		<span class="inline-flex rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-amber-700">
+																			retry {ticket.consecutive_errors}
+																		</span>
+																	{/if}
+																	{#if ticket.retry_paused}
+																		<span class="inline-flex rounded-full border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-rose-700">
+																			{ticket.pause_reason || 'paused'}
+																		</span>
+																	{/if}
+																</div>
+
+																<div class="mt-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+																	<span>{formatTimestamp(ticket.created_at)}</span>
+																	{#if isTicketMutationPending(ticket.id)}
+																		<span class="inline-flex items-center gap-1">
+																			<LoaderCircle class="size-3 animate-spin" />
+																			Updating
+																		</span>
+																	{/if}
+																</div>
+															</button>
+														{/each}
+													{/if}
+												</div>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						</CardContent>
+					</Card>
 
 					<Card class="overflow-hidden border-border/80 bg-background/80 backdrop-blur">
 						<CardHeader class="border-b border-border/70 bg-muted/25">
