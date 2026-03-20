@@ -9,6 +9,7 @@ export type BoardColumn = {
 
 export type BoardTicket = {
   id: string
+  statusId: string
   identifier: string
   title: string
   priority: 'urgent' | 'high' | 'medium' | 'low'
@@ -18,6 +19,7 @@ export type BoardTicket = {
   prStatus?: string
   anomaly?: 'retry' | 'hook_failed' | 'awaiting_approval' | 'budget_exhausted'
   updatedAt: string
+  isMoving?: boolean
   labels?: string[]
 }
 

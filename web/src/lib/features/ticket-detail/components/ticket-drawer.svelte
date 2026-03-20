@@ -8,6 +8,7 @@
     updateTicket,
     updateTicketRepoScope,
   } from '$lib/api/openase'
+  import { statusSync } from '$lib/features/statuses/public'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import { createTicketDrawerState } from '../drawer-state.svelte'
   import { runOptimisticTicketMutation } from '../optimistic'
@@ -31,7 +32,6 @@
   import { connectTicketDetailStreams } from '../streams'
   import TicketDrawerContent from './ticket-drawer-content.svelte'
   import type { TicketDetail } from '../types'
-
   let {
     open = $bindable(false),
     projectId,
@@ -51,12 +51,16 @@
   })
 
   $effect(() => {
-    if (!open || !projectId || !ticketId) {
+    const currentProjectId = projectId
+    const currentTicketId = ticketId
+    const statusVersion = statusSync.version
+    if (!open || !currentProjectId || !currentTicketId) {
       if (!open) drawerState.reset()
       return
     }
 
-    void drawerState.load(projectId, ticketId)
+    void statusVersion
+    void drawerState.load(currentProjectId, currentTicketId)
   })
 
   $effect(() => {

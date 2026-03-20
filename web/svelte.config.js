@@ -6,6 +6,7 @@ const config = {
     adapter: adapter({
       assets: '../internal/webui/static',
       pages: '../internal/webui/static',
+      fallback: 'index.html',
     }),
     alias: {
       $components: 'src/lib/components',

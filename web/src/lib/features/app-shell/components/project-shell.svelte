@@ -5,15 +5,19 @@
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { capabilityCatalog } from '$lib/features/capabilities'
+  import { NewTicketDialog } from '$lib/features/tickets'
   import { TicketDrawer } from '$lib/features/ticket-detail'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
   import type { Snippet } from 'svelte'
 
   type ShellData = {
+    organizations: Organization[]
+    projects: Project[]
     currentOrg: Organization | null
     currentProject: Project | null
     agentCount: number
+    currentSection: import('$lib/stores/app-context').ProjectSection
   }
 
   let { children, data }: { children: Snippet; data: ShellData } = $props()
@@ -22,7 +26,6 @@
   let currentTicketId = $derived(
     appStore.rightPanelContent?.type === 'ticket' ? appStore.rightPanelContent.id : null,
   )
-
   const projectHealth = $derived.by(() => {
     const status = data.currentProject?.status?.toLowerCase()
     if (status === 'healthy' || status === 'active') return 'healthy'
@@ -61,7 +64,7 @@
   }
 
   function handleNewTicket() {
-    return
+    appStore.openNewTicketDialog()
   }
 
   function handleToggleTheme() {
@@ -71,11 +74,16 @@
 
 <div class="bg-background flex h-screen flex-col overflow-hidden">
   <TopBar
+    organizations={data.organizations}
+    projects={data.projects}
+    currentOrgId={data.currentOrg?.id ?? null}
+    currentProjectId={data.currentProject?.id ?? null}
+    currentSection={data.currentSection}
     orgName={data.currentOrg?.name ?? 'No organization'}
     projectName={data.currentProject?.name ?? ''}
     sseStatus={appStore.sseStatus}
     searchEnabled={searchCapability.state === 'available'}
-    newTicketEnabled={newTicketCapability.state === 'available'}
+    newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
     searchTitle={searchCapability.summary}
     newTicketTitle={newTicketCapability.summary}
     onToggleTheme={handleToggleTheme}
@@ -93,6 +101,8 @@
       <Sidebar
         collapsed={appStore.sidebarCollapsed}
         {currentPath}
+        currentOrgId={data.currentOrg?.id ?? null}
+        currentProjectId={data.currentProject?.id ?? null}
         projectSelected={Boolean(data.currentProject)}
         projectName={data.currentProject?.name ?? ''}
         {projectHealth}
@@ -116,4 +126,6 @@
       }
     }}
   />
+
+  <NewTicketDialog />
 </div>

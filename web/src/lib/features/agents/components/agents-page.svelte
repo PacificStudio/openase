@@ -1,67 +1,69 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
-  import { listAgents, listProviders, listTickets } from '$lib/api/openase'
+  import { createAgent, updateProvider } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
-  import { capabilityCatalog } from '$lib/features/capabilities'
-  import { Button } from '$ui/button'
-  import * as Tabs from '$ui/tabs'
-  import { Plus } from '@lucide/svelte'
-  import AgentList from './agent-list.svelte'
-  import ProviderList from './provider-list.svelte'
-  import type { AgentPayload, AgentProvider, Ticket } from '$lib/api/contracts'
-  import type { AgentInstance, ProviderConfig } from '../types'
+  import type { AgentProvider } from '$lib/api/contracts'
+  import { loadAgentsPageData } from '../data'
+  import {
+    applyUpdatedProviderState,
+    createEmptyProviderDraft,
+    parseProviderDraft,
+    providerToDraft,
+  } from '../model'
+  import {
+    createAgentRegistrationDraft,
+    parseAgentRegistrationDraft,
+    type AgentRegistrationDraft,
+    type AgentRegistrationDraftField,
+  } from '../registration'
+  import type { AgentInstance, ProviderConfig, ProviderDraftField } from '../types'
+  import AgentsPageDrawers from './agents-page-drawers.svelte'
+  import AgentsPagePanel from './agents-page-panel.svelte'
+
   let activeTab = $state('instances')
   let agents = $state<AgentInstance[]>([])
   let providers = $state<ProviderConfig[]>([])
-  let loading = $state(false)
-  let error = $state('')
-  const agentRegistrationCapability = capabilityCatalog.agentRegistration
+  let providerItems = $state<AgentProvider[]>([])
+  let loading = $state(false),
+    error = $state('')
+  let registerSheetOpen = $state(false)
+  let registerSaving = $state(false)
+  let registerError = $state(''),
+    registerFeedback = $state(''),
+    pageFeedback = $state('')
+  let registrationDraft = $state<AgentRegistrationDraft>(
+    createAgentRegistrationDraft([], appStore.currentOrg?.default_agent_provider_id),
+  )
+  let providerConfigOpen = $state(false),
+    selectedProviderId = $state<string | null>(null)
+  let providerDraft = $state(createEmptyProviderDraft())
+  let providerSaving = $state(false),
+    providerFeedback = $state(''),
+    providerError = $state('')
+  let loadVersion = 0
+
+  const selectedProvider = $derived(
+    providers.find((provider) => provider.id === selectedProviderId) ?? null,
+  )
 
   $effect(() => {
-    const projectId = appStore.currentProject?.id
-    const orgId = appStore.currentOrg?.id
+    const projectId = appStore.currentProject?.id,
+      orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
       agents = []
       providers = []
+      providerItems = []
+      resetRegistrationDraft()
+      resetProviderEditor()
       return
     }
 
-    let cancelled = false
-
-    const load = async () => {
-      loading = true
-      error = ''
-
-      try {
-        const [agentPayload, providerPayload, ticketPayload] = await Promise.all([
-          listAgents(projectId),
-          listProviders(orgId),
-          listTickets(projectId),
-        ])
-        if (cancelled) return
-
-        providers = buildProviderCards(providerPayload.providers, agentPayload.agents)
-        agents = buildAgentRows(
-          providerPayload.providers,
-          ticketPayload.tickets,
-          agentPayload.agents,
-        )
-      } catch (caughtError) {
-        if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agents.'
-      } finally {
-        if (!cancelled) {
-          loading = false
-        }
-      }
-    }
-
-    void load()
+    void loadData({ projectId, orgId, showLoading: true })
 
     const disconnect = connectEventStream(`/api/v1/projects/${projectId}/agents/stream`, {
       onEvent: () => {
-        void load()
+        void loadData({ projectId, orgId, showLoading: false })
       },
       onError: (streamError) => {
         console.error('Agents stream error:', streamError)
@@ -69,125 +71,229 @@
     })
 
     return () => {
-      cancelled = true
+      loadVersion += 1
       disconnect()
     }
   })
 
-  function normalizeAgentStatus(status: string): AgentInstance['status'] {
-    if (
-      status === 'idle' ||
-      status === 'claimed' ||
-      status === 'running' ||
-      status === 'failed' ||
-      status === 'terminated'
-    ) {
-      return status
+  $effect(() => {
+    if (!providerConfigOpen) {
+      providerFeedback = providerError = ''
+      providerSaving = false
     }
+  })
 
-    return status === 'active' ? 'running' : 'idle'
-  }
-
-  function normalizeRuntimePhase(runtimePhase: string): AgentInstance['runtimePhase'] {
-    if (
-      runtimePhase === 'none' ||
-      runtimePhase === 'launching' ||
-      runtimePhase === 'ready' ||
-      runtimePhase === 'failed'
-    ) {
-      return runtimePhase
+  async function loadData({
+    projectId,
+    orgId,
+    showLoading,
+  }: {
+    projectId: string
+    orgId: string
+    showLoading: boolean
+  }) {
+    const requestVersion = ++loadVersion
+    if (showLoading) {
+      loading = true
     }
+    error = ''
 
-    return 'none'
-  }
+    try {
+      const nextData = await loadAgentsPageData(
+        projectId,
+        orgId,
+        appStore.currentOrg?.default_agent_provider_id ?? null,
+      )
+      if (requestVersion !== loadVersion) return
 
-  function buildProviderCards(
-    providerItems: AgentProvider[],
-    agentItems: AgentPayload['agents'],
-  ): ProviderConfig[] {
-    return providerItems.map((provider) => ({
-      id: provider.id,
-      name: provider.name,
-      adapterType: provider.adapter_type,
-      modelName: provider.model_name,
-      agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,
-      isDefault: appStore.currentOrg?.default_agent_provider_id === provider.id,
-    }))
-  }
-
-  function buildAgentRows(
-    providerItems: AgentProvider[],
-    ticketItems: Ticket[],
-    agentItems: AgentPayload['agents'],
-  ): AgentInstance[] {
-    const ticketMap = new Map(ticketItems.map((ticket) => [ticket.id, ticket]))
-    const providerMap = new Map(providerItems.map((provider) => [provider.id, provider]))
-
-    return agentItems.map((agent) => {
-      const provider = providerMap.get(agent.provider_id)
-      const currentTicket = agent.current_ticket_id ? ticketMap.get(agent.current_ticket_id) : null
-
-      return {
-        id: agent.id,
-        name: agent.name,
-        providerName: provider?.name ?? 'Unknown provider',
-        modelName: provider?.model_name ?? 'Unknown model',
-        status: normalizeAgentStatus(agent.status),
-        runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
-        currentTicket: currentTicket
-          ? {
-              id: currentTicket.id,
-              identifier: currentTicket.identifier,
-              title: currentTicket.title,
-            }
-          : undefined,
-        lastHeartbeat: agent.last_heartbeat_at,
-        todayCompleted: agent.total_tickets_completed,
-        todayCost: 0,
-        capabilities: agent.capabilities,
+      providerItems = nextData.providerItems
+      providers = nextData.providers
+      agents = nextData.agents
+    } catch (caughtError) {
+      if (requestVersion !== loadVersion) return
+      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agents.'
+    } finally {
+      if (requestVersion === loadVersion && showLoading) {
+        loading = false
       }
-    })
+    }
+  }
+
+  function updateRegistrationDraft(field: AgentRegistrationDraftField, value: string) {
+    registrationDraft = {
+      ...registrationDraft,
+      [field]: value,
+    }
+  }
+
+  function resetRegistrationDraft() {
+    registrationDraft = createAgentRegistrationDraft(
+      providerItems,
+      appStore.currentOrg?.default_agent_provider_id,
+    )
+    registerError = registerFeedback = ''
+  }
+
+  function handleRegisterOpenChange(open: boolean) {
+    registerSheetOpen = open
+    if (open) {
+      resetRegistrationDraft()
+      pageFeedback = ''
+      return
+    }
+
+    registerError = registerFeedback = ''
+  }
+
+  async function handleRegisterAgent() {
+    const projectId = appStore.currentProject?.id,
+      orgId = appStore.currentOrg?.id
+    if (!projectId || !orgId) {
+      registerError = 'Project context is unavailable.'
+      return
+    }
+
+    const parsed = parseAgentRegistrationDraft(registrationDraft, providerItems)
+    if (!parsed.ok) {
+      registerError = parsed.error
+      return
+    }
+
+    registerSaving = true
+    registerError = ''
+    registerFeedback = ''
+
+    try {
+      await createAgent(projectId, {
+        provider_id: parsed.value.providerId,
+        name: parsed.value.name,
+        workspace_path: parsed.value.workspacePath,
+        capabilities: parsed.value.capabilities,
+      })
+
+      registerFeedback = 'Agent created. Refreshing list...'
+      await loadData({ projectId, orgId, showLoading: false })
+      pageFeedback = `Registered ${parsed.value.name}.`
+      registerSheetOpen = false
+      resetRegistrationDraft()
+    } catch (caughtError) {
+      registerError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to register agent.'
+    } finally {
+      registerSaving = false
+    }
+  }
+
+  function resetProviderEditor() {
+    providerConfigOpen = false
+    selectedProviderId = null
+    providerDraft = createEmptyProviderDraft()
+    providerSaving = false
+    providerFeedback = providerError = ''
+  }
+
+  function handleConfigureProvider(provider: ProviderConfig) {
+    selectedProviderId = provider.id
+    providerDraft = providerToDraft(provider)
+    providerConfigOpen = true
+    providerSaving = false
+    providerFeedback = providerError = ''
+  }
+
+  function handleProviderDraftChange(field: ProviderDraftField, value: string) {
+    providerDraft = {
+      ...providerDraft,
+      [field]: value,
+    }
+  }
+
+  async function handleProviderSave() {
+    if (!selectedProvider) {
+      providerError = 'Select a provider to configure.'
+      return
+    }
+
+    const parsed = parseProviderDraft(providerDraft)
+    if (!parsed.ok) {
+      providerError = parsed.error
+      providerFeedback = ''
+      return
+    }
+
+    providerSaving = true
+    providerFeedback = ''
+    providerError = ''
+
+    try {
+      const payload = await updateProvider(selectedProvider.id, parsed.value)
+      if (payload.provider) {
+        applyUpdatedProvider(payload.provider)
+        providerFeedback = 'Provider updated.'
+        return
+      }
+
+      providerError =
+        'Provider updated, but the latest provider data could not be refreshed. Please reload the page.'
+    } catch (caughtError) {
+      providerError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save provider.'
+    } finally {
+      providerSaving = false
+    }
+  }
+
+  function applyUpdatedProvider(updatedProvider: AgentProvider) {
+    providerItems = providerItems.map((provider) =>
+      provider.id === updatedProvider.id ? updatedProvider : provider,
+    )
+
+    const nextState = applyUpdatedProviderState(providers, agents, updatedProvider)
+    providers = nextState.providers
+    agents = nextState.agents
+    if (nextState.provider) {
+      providerDraft = providerToDraft(nextState.provider)
+    }
   }
 </script>
 
 <div class="space-y-4">
-  <div class="flex items-center justify-between">
-    <h1 class="text-foreground text-lg font-semibold">Agents</h1>
-    <Button size="sm" disabled title={agentRegistrationCapability.summary}>
-      <Plus class="size-3.5" />
-      Register Agent
-    </Button>
-  </div>
-
-  {#if loading}
-    <div
-      class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
-    >
-      Loading agents…
-    </div>
-  {:else if error}
-    <div
-      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-    >
-      {error}
-    </div>
-  {:else}
-    <Tabs.Root bind:value={activeTab}>
-      <Tabs.List variant="line">
-        <Tabs.Trigger value="instances">Instances</Tabs.Trigger>
-        <Tabs.Trigger value="providers">Providers</Tabs.Trigger>
-      </Tabs.List>
-      <Tabs.Content value="instances" class="pt-3">
-        <AgentList
-          {agents}
-          onSelectTicket={(ticketId) => {
-            appStore.openRightPanel({ type: 'ticket', id: ticketId })
-          }}
-        />
-      </Tabs.Content>
-      <Tabs.Content value="providers" class="pt-3">
-        <ProviderList {providers} />
-      </Tabs.Content>
-    </Tabs.Root>
-  {/if}
+  <AgentsPagePanel
+    bind:activeTab
+    {agents}
+    {providers}
+    {loading}
+    {error}
+    {pageFeedback}
+    canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
+    registerButtonTitle={providerItems.length === 0
+      ? 'Register a provider before creating agents.'
+      : appStore.currentProject?.id
+        ? undefined
+        : 'Project context is unavailable.'}
+    onOpenRegister={() => handleRegisterOpenChange(true)}
+    onSelectTicket={(ticketId) => {
+      appStore.openRightPanel({ type: 'ticket', id: ticketId })
+    }}
+    onConfigureProvider={handleConfigureProvider}
+  />
 </div>
+
+<AgentsPageDrawers
+  bind:registerSheetOpen
+  bind:providerConfigOpen
+  {providerItems}
+  {registrationDraft}
+  {registerSaving}
+  {registerError}
+  {registerFeedback}
+  onRegistrationDraftChange={updateRegistrationDraft}
+  onRegisterAgent={handleRegisterAgent}
+  onRegisterOpenChange={handleRegisterOpenChange}
+  {selectedProvider}
+  {providerDraft}
+  {providerSaving}
+  {providerFeedback}
+  {providerError}
+  onProviderDraftChange={handleProviderDraftChange}
+  onProviderSave={handleProviderSave}
+/>

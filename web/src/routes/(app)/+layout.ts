@@ -1,71 +1,83 @@
-import type { LayoutLoad } from './$types'
+import {
+  loadOrganizationContext,
+  loadOrganizations,
+  loadProjectAgentCount,
+} from '$lib/api/app-context'
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
+import {
+  parseAppRouteContext,
+  projectSectionFromPathname,
+  type ProjectSection,
+} from '$lib/stores/app-context'
+import { error } from '@sveltejs/kit'
+import type { LayoutLoad } from './$types'
 
-type OrgResponse = {
-  organizations?: Organization[]
+type AppLayoutData = {
+  organizations: Organization[]
+  currentOrg: Organization | null
+  currentProject: Project | null
+  projects: Project[]
+  providers: AgentProvider[]
+  agentCount: number
+  currentSection: ProjectSection
 }
 
-type ProjectResponse = {
-  projects?: Project[]
+const emptyLayoutData: AppLayoutData = {
+  organizations: [],
+  currentOrg: null,
+  currentProject: null,
+  projects: [],
+  providers: [],
+  agentCount: 0,
+  currentSection: 'dashboard',
 }
 
-type ProviderResponse = {
-  providers?: AgentProvider[]
-}
-
-type AgentResponse = {
-  agents?: unknown[]
-}
-
-export const load: LayoutLoad = async ({ fetch }) => {
-  const orgResponse = await fetch('/api/v1/orgs')
-  if (!orgResponse.ok) {
-    return {
-      currentOrg: null,
-      currentProject: null,
-      providers: [],
-      agentCount: 0,
-    }
+export const load: LayoutLoad = async ({ fetch, params, url }) => {
+  const organizations = await loadOrganizations(fetch)
+  if (organizations.length === 0 && !params.orgId) {
+    return emptyLayoutData
   }
 
-  const orgData = (await orgResponse.json()) as OrgResponse
-  const currentOrg = orgData.organizations?.[0] ?? null
-  if (!currentOrg) {
-    return {
-      currentOrg: null,
-      currentProject: null,
-      providers: [],
-      agentCount: 0,
-    }
+  const routeContext = parseAppRouteContext(params)
+  const currentOrg = routeContext.orgId
+    ? (organizations.find((organization) => organization.id === routeContext.orgId) ?? null)
+    : null
+
+  if (routeContext.scope !== 'none' && !currentOrg) {
+    throw error(404, 'Organization not found')
   }
 
-  const [projectResponse, providerResponse] = await Promise.all([
-    fetch(`/api/v1/orgs/${currentOrg.id}/projects`),
-    fetch(`/api/v1/orgs/${currentOrg.id}/providers`),
-  ])
+  const { projects, providers } = currentOrg
+    ? await loadOrganizationContext(fetch, currentOrg.id)
+    : { projects: [], providers: [] }
 
-  const projectData = projectResponse.ok
-    ? ((await projectResponse.json()) as ProjectResponse)
-    : { projects: [] }
-  const providerData = providerResponse.ok
-    ? ((await providerResponse.json()) as ProviderResponse)
-    : { providers: [] }
+  const currentProject =
+    routeContext.scope === 'project'
+      ? (projects.find((project) => project.id === routeContext.projectId) ?? null)
+      : null
 
-  const currentProject = projectData.projects?.[0] ?? null
-  let agentCount = 0
-
-  if (currentProject) {
-    const agentResponse = await fetch(`/api/v1/projects/${currentProject.id}/agents`)
-    if (agentResponse.ok) {
-      const agentData = (await agentResponse.json()) as AgentResponse
-      agentCount = agentData.agents?.length ?? 0
-    }
+  if (routeContext.scope === 'project' && !currentProject) {
+    throw error(404, 'Project not found')
   }
+
+  const agentCount = currentProject ? await loadAgentCount(fetch, currentProject.id) : 0
 
   return {
+    organizations,
     currentOrg,
     currentProject,
-    providers: providerData.providers ?? [],
+    projects,
+    providers,
     agentCount,
+    currentSection:
+      currentProject && currentOrg
+        ? projectSectionFromPathname(url.pathname, {
+            scope: 'project',
+            orgId: currentOrg.id,
+            projectId: currentProject.id,
+          })
+        : 'dashboard',
   }
 }
+
+const loadAgentCount = loadProjectAgentCount

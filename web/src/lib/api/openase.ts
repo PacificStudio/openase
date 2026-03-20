@@ -3,6 +3,7 @@ import type {
   ActivityPayload,
   AgentPayload,
   AgentResponse,
+  AgentProvider,
   AgentProviderListPayload,
   BuiltinRolePayload,
   HarnessPayload,
@@ -432,7 +433,7 @@ export function updateProvider(
     cost_per_output_token?: number
   },
 ) {
-  return api.patch(`/api/v1/providers/${providerId}`, { body })
+  return api.patch<{ provider?: AgentProvider }>(`/api/v1/providers/${providerId}`, { body })
 }
 
 export function listNotificationEventTypes() {
