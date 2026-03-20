@@ -275,6 +275,29 @@ func HasProvidersWith(preds ...predicate.AgentProvider) predicate.Organization {
 	})
 }
 
+// HasNotificationChannels applies the HasEdge predicate on the "notification_channels" edge.
+func HasNotificationChannels() predicate.Organization {
+	return predicate.Organization(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, NotificationChannelsTable, NotificationChannelsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasNotificationChannelsWith applies the HasEdge predicate on the "notification_channels" edge with a given conditions (other predicates).
+func HasNotificationChannelsWith(preds ...predicate.NotificationChannel) predicate.Organization {
+	return predicate.Organization(func(s *sql.Selector) {
+		step := newNotificationChannelsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasDefaultAgentProvider applies the HasEdge predicate on the "default_agent_provider" edge.
 func HasDefaultAgentProvider() predicate.Organization {
 	return predicate.Organization(func(s *sql.Selector) {

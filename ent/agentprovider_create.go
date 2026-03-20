@@ -12,6 +12,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -47,7 +48,7 @@ func (_c *AgentProviderCreate) SetCliCommand(v string) *AgentProviderCreate {
 }
 
 // SetCliArgs sets the "cli_args" field.
-func (_c *AgentProviderCreate) SetCliArgs(v []string) *AgentProviderCreate {
+func (_c *AgentProviderCreate) SetCliArgs(v pgarray.StringArray) *AgentProviderCreate {
 	_c.mutation.SetCliArgs(v)
 	return _c
 }
@@ -318,7 +319,7 @@ func (_c *AgentProviderCreate) createSpec() (*AgentProvider, *sqlgraph.CreateSpe
 		_node.CliCommand = value
 	}
 	if value, ok := _c.mutation.CliArgs(); ok {
-		_spec.SetField(agentprovider.FieldCliArgs, field.TypeJSON, value)
+		_spec.SetField(agentprovider.FieldCliArgs, field.TypeOther, value)
 		_node.CliArgs = value
 	}
 	if value, ok := _c.mutation.AuthConfig(); ok {

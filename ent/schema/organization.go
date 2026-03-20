@@ -29,6 +29,7 @@ func (Organization) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("projects", Project.Type),
 		edge.To("providers", AgentProvider.Type),
+		edge.To("notification_channels", NotificationChannel.Type),
 		edge.To("default_agent_provider", AgentProvider.Type).
 			Field("default_agent_provider_id").
 			Unique(),

@@ -10,7 +10,6 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
@@ -19,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -152,14 +152,8 @@ func (_u *AgentUpdate) ClearWorkspacePath() *AgentUpdate {
 }
 
 // SetCapabilities sets the "capabilities" field.
-func (_u *AgentUpdate) SetCapabilities(v []string) *AgentUpdate {
+func (_u *AgentUpdate) SetCapabilities(v pgarray.StringArray) *AgentUpdate {
 	_u.mutation.SetCapabilities(v)
-	return _u
-}
-
-// AppendCapabilities appends value to the "capabilities" field.
-func (_u *AgentUpdate) AppendCapabilities(v []string) *AgentUpdate {
-	_u.mutation.AppendCapabilities(v)
 	return _u
 }
 
@@ -456,15 +450,10 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		_spec.ClearField(agent.FieldWorkspacePath, field.TypeString)
 	}
 	if value, ok := _u.mutation.Capabilities(); ok {
-		_spec.SetField(agent.FieldCapabilities, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedCapabilities(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, agent.FieldCapabilities, value)
-		})
+		_spec.SetField(agent.FieldCapabilities, field.TypeOther, value)
 	}
 	if _u.mutation.CapabilitiesCleared() {
-		_spec.ClearField(agent.FieldCapabilities, field.TypeJSON)
+		_spec.ClearField(agent.FieldCapabilities, field.TypeOther)
 	}
 	if value, ok := _u.mutation.TotalTokensUsed(); ok {
 		_spec.SetField(agent.FieldTotalTokensUsed, field.TypeInt64, value)
@@ -843,14 +832,8 @@ func (_u *AgentUpdateOne) ClearWorkspacePath() *AgentUpdateOne {
 }
 
 // SetCapabilities sets the "capabilities" field.
-func (_u *AgentUpdateOne) SetCapabilities(v []string) *AgentUpdateOne {
+func (_u *AgentUpdateOne) SetCapabilities(v pgarray.StringArray) *AgentUpdateOne {
 	_u.mutation.SetCapabilities(v)
-	return _u
-}
-
-// AppendCapabilities appends value to the "capabilities" field.
-func (_u *AgentUpdateOne) AppendCapabilities(v []string) *AgentUpdateOne {
-	_u.mutation.AppendCapabilities(v)
 	return _u
 }
 
@@ -1177,15 +1160,10 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 		_spec.ClearField(agent.FieldWorkspacePath, field.TypeString)
 	}
 	if value, ok := _u.mutation.Capabilities(); ok {
-		_spec.SetField(agent.FieldCapabilities, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedCapabilities(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, agent.FieldCapabilities, value)
-		})
+		_spec.SetField(agent.FieldCapabilities, field.TypeOther, value)
 	}
 	if _u.mutation.CapabilitiesCleared() {
-		_spec.ClearField(agent.FieldCapabilities, field.TypeJSON)
+		_spec.ClearField(agent.FieldCapabilities, field.TypeOther)
 	}
 	if value, ok := _u.mutation.TotalTokensUsed(); ok {
 		_spec.SetField(agent.FieldTotalTokensUsed, field.TypeInt64, value)

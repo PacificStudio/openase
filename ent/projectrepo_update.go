@@ -9,12 +9,12 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -122,14 +122,8 @@ func (_u *ProjectRepoUpdate) SetNillableIsPrimary(v *bool) *ProjectRepoUpdate {
 }
 
 // SetLabels sets the "labels" field.
-func (_u *ProjectRepoUpdate) SetLabels(v []string) *ProjectRepoUpdate {
+func (_u *ProjectRepoUpdate) SetLabels(v pgarray.StringArray) *ProjectRepoUpdate {
 	_u.mutation.SetLabels(v)
-	return _u
-}
-
-// AppendLabels appends value to the "labels" field.
-func (_u *ProjectRepoUpdate) AppendLabels(v []string) *ProjectRepoUpdate {
-	_u.mutation.AppendLabels(v)
 	return _u
 }
 
@@ -267,15 +261,10 @@ func (_u *ProjectRepoUpdate) sqlSave(ctx context.Context) (_node int, err error)
 		_spec.SetField(projectrepo.FieldIsPrimary, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Labels(); ok {
-		_spec.SetField(projectrepo.FieldLabels, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedLabels(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, projectrepo.FieldLabels, value)
-		})
+		_spec.SetField(projectrepo.FieldLabels, field.TypeOther, value)
 	}
 	if _u.mutation.LabelsCleared() {
-		_spec.ClearField(projectrepo.FieldLabels, field.TypeJSON)
+		_spec.ClearField(projectrepo.FieldLabels, field.TypeOther)
 	}
 	if _u.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -462,14 +451,8 @@ func (_u *ProjectRepoUpdateOne) SetNillableIsPrimary(v *bool) *ProjectRepoUpdate
 }
 
 // SetLabels sets the "labels" field.
-func (_u *ProjectRepoUpdateOne) SetLabels(v []string) *ProjectRepoUpdateOne {
+func (_u *ProjectRepoUpdateOne) SetLabels(v pgarray.StringArray) *ProjectRepoUpdateOne {
 	_u.mutation.SetLabels(v)
-	return _u
-}
-
-// AppendLabels appends value to the "labels" field.
-func (_u *ProjectRepoUpdateOne) AppendLabels(v []string) *ProjectRepoUpdateOne {
-	_u.mutation.AppendLabels(v)
 	return _u
 }
 
@@ -637,15 +620,10 @@ func (_u *ProjectRepoUpdateOne) sqlSave(ctx context.Context) (_node *ProjectRepo
 		_spec.SetField(projectrepo.FieldIsPrimary, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Labels(); ok {
-		_spec.SetField(projectrepo.FieldLabels, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedLabels(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, projectrepo.FieldLabels, value)
-		})
+		_spec.SetField(projectrepo.FieldLabels, field.TypeOther, value)
 	}
 	if _u.mutation.LabelsCleared() {
-		_spec.ClearField(projectrepo.FieldLabels, field.TypeJSON)
+		_spec.ClearField(projectrepo.FieldLabels, field.TypeOther)
 	}
 	if _u.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
