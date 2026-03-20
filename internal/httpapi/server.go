@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
@@ -39,6 +40,7 @@ type Server struct {
 	catalog             catalogservice.Service
 	workflowService     *workflowservice.Service
 	notificationService *notificationservice.Service
+	chatService         *chatservice.Service
 }
 
 type ServerOption func(*Server)
@@ -46,6 +48,12 @@ type ServerOption func(*Server)
 func WithNotificationService(service *notificationservice.Service) ServerOption {
 	return func(server *Server) {
 		server.notificationService = service
+	}
+}
+
+func WithChatService(service *chatservice.Service) ServerOption {
+	return func(server *Server) {
+		server.chatService = service
 	}
 }
 
@@ -195,6 +203,7 @@ func (s *Server) registerRoutes() {
 		s.registerCatalogRoutes(api)
 	}
 	s.registerTicketRoutes(api)
+	s.registerChatRoutes(api)
 	s.registerWorkflowRoutes(api)
 	s.registerNotificationRoutes(api)
 	s.registerSkillRoutes(api)

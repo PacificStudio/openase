@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
+	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
 	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
@@ -91,18 +93,32 @@ func (a *App) RunServe(ctx context.Context) error {
 			a.logger.Error("close workflow service", "error", closeErr)
 		}
 	}()
+	chatWorkingDirectory, err := provider.ParseAbsolutePath(workflowSvc.RepoRoot())
+	if err != nil {
+		return fmt.Errorf("resolve chat working directory: %w", err)
+	}
+	ticketSvc := ticketservice.NewService(client)
+	chatSvc := chatservice.NewService(
+		a.logger,
+		claudecodeadapter.NewAdapter(agentcli.NewManager(agentcli.ManagerOptions{})),
+		catalogSvc,
+		ticketSvc,
+		workflowSvc,
+		chatWorkingDirectory,
+	)
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,
 		a.logger,
 		a.events,
-		ticketservice.NewService(client),
+		ticketSvc,
 		ticketstatus.NewService(client),
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
 		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithNotificationService(notificationSvc),
+		httpapi.WithChatService(chatSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
