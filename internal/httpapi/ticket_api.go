@@ -26,30 +26,42 @@ type ticketDependencyResponse struct {
 	Target ticketReferenceResponse `json:"target"`
 }
 
+type ticketExternalLinkResponse struct {
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	URL        string `json:"url"`
+	ExternalID string `json:"external_id"`
+	Title      string `json:"title,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Relation   string `json:"relation"`
+	CreatedAt  string `json:"created_at"`
+}
+
 type ticketResponse struct {
-	ID                string                     `json:"id"`
-	ProjectID         string                     `json:"project_id"`
-	Identifier        string                     `json:"identifier"`
-	Title             string                     `json:"title"`
-	Description       string                     `json:"description"`
-	StatusID          string                     `json:"status_id"`
-	StatusName        string                     `json:"status_name"`
-	Priority          string                     `json:"priority"`
-	Type              string                     `json:"type"`
-	WorkflowID        *string                    `json:"workflow_id,omitempty"`
-	CreatedBy         string                     `json:"created_by"`
-	Parent            *ticketReferenceResponse   `json:"parent,omitempty"`
-	Children          []ticketReferenceResponse  `json:"children"`
-	Dependencies      []ticketDependencyResponse `json:"dependencies"`
-	ExternalRef       string                     `json:"external_ref"`
-	BudgetUSD         float64                    `json:"budget_usd"`
-	CostAmount        float64                    `json:"cost_amount"`
-	AttemptCount      int                        `json:"attempt_count"`
-	ConsecutiveErrors int                        `json:"consecutive_errors"`
-	NextRetryAt       *string                    `json:"next_retry_at,omitempty"`
-	RetryPaused       bool                       `json:"retry_paused"`
-	PauseReason       string                     `json:"pause_reason,omitempty"`
-	CreatedAt         string                     `json:"created_at"`
+	ID                string                       `json:"id"`
+	ProjectID         string                       `json:"project_id"`
+	Identifier        string                       `json:"identifier"`
+	Title             string                       `json:"title"`
+	Description       string                       `json:"description"`
+	StatusID          string                       `json:"status_id"`
+	StatusName        string                       `json:"status_name"`
+	Priority          string                       `json:"priority"`
+	Type              string                       `json:"type"`
+	WorkflowID        *string                      `json:"workflow_id,omitempty"`
+	CreatedBy         string                       `json:"created_by"`
+	Parent            *ticketReferenceResponse     `json:"parent,omitempty"`
+	Children          []ticketReferenceResponse    `json:"children"`
+	Dependencies      []ticketDependencyResponse   `json:"dependencies"`
+	ExternalLinks     []ticketExternalLinkResponse `json:"external_links"`
+	ExternalRef       string                       `json:"external_ref"`
+	BudgetUSD         float64                      `json:"budget_usd"`
+	CostAmount        float64                      `json:"cost_amount"`
+	AttemptCount      int                          `json:"attempt_count"`
+	ConsecutiveErrors int                          `json:"consecutive_errors"`
+	NextRetryAt       *string                      `json:"next_retry_at,omitempty"`
+	RetryPaused       bool                         `json:"retry_paused"`
+	PauseReason       string                       `json:"pause_reason,omitempty"`
+	CreatedAt         string                       `json:"created_at"`
 }
 
 type ticketRepoScopeDetailResponse struct {
@@ -72,6 +84,8 @@ func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)
 	api.POST("/tickets/:ticketId/dependencies", s.handleAddTicketDependency)
 	api.DELETE("/tickets/:ticketId/dependencies/:dependencyId", s.handleDeleteTicketDependency)
+	api.POST("/tickets/:ticketId/external-links", s.handleAddTicketExternalLink)
+	api.DELETE("/tickets/:ticketId/external-links/:externalLinkId", s.handleDeleteTicketExternalLink)
 }
 
 func (s *Server) handleListTickets(c echo.Context) error {
@@ -304,6 +318,58 @@ func (s *Server) handleDeleteTicketDependency(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+func (s *Server) handleAddTicketExternalLink(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+
+	var raw rawAddExternalLinkRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseAddExternalLinkRequest(ticketID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	externalLink, err := s.ticketService.AddExternalLink(c.Request().Context(), input)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"external_link": mapTicketExternalLinkResponse(externalLink),
+	})
+}
+
+func (s *Server) handleDeleteTicketExternalLink(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	externalLinkID, err := parseExternalLinkID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_EXTERNAL_LINK_ID", err.Error())
+	}
+
+	result, err := s.ticketService.RemoveExternalLink(c.Request().Context(), ticketID, externalLinkID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
 func writeTicketError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, ticketservice.ErrUnavailable):
@@ -316,6 +382,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "TICKET_CONFLICT", err.Error())
 	case errors.Is(err, ticketservice.ErrDependencyNotFound):
 		return writeAPIError(c, http.StatusNotFound, "DEPENDENCY_NOT_FOUND", err.Error())
+	case errors.Is(err, ticketservice.ErrExternalLinkNotFound):
+		return writeAPIError(c, http.StatusNotFound, "EXTERNAL_LINK_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrStatusNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrWorkflowNotFound):
@@ -324,6 +392,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "PARENT_TICKET_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrDependencyConflict):
 		return writeAPIError(c, http.StatusConflict, "DEPENDENCY_CONFLICT", err.Error())
+	case errors.Is(err, ticketservice.ErrExternalLinkConflict):
+		return writeAPIError(c, http.StatusConflict, "EXTERNAL_LINK_CONFLICT", err.Error())
 	case errors.Is(err, ticketservice.ErrInvalidDependency):
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_DEPENDENCY", err.Error())
 	default:
@@ -425,6 +495,7 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 		CreatedBy:         item.CreatedBy,
 		Children:          []ticketReferenceResponse{},
 		Dependencies:      []ticketDependencyResponse{},
+		ExternalLinks:     []ticketExternalLinkResponse{},
 		ExternalRef:       item.ExternalRef,
 		BudgetUSD:         item.BudgetUSD,
 		CostAmount:        item.CostAmount,
@@ -452,6 +523,9 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 	for _, dependency := range item.Dependencies {
 		response.Dependencies = append(response.Dependencies, mapTicketDependencyResponse(dependency))
 	}
+	for _, externalLink := range item.ExternalLinks {
+		response.ExternalLinks = append(response.ExternalLinks, mapTicketExternalLinkResponse(externalLink))
+	}
 
 	return response
 }
@@ -471,6 +545,19 @@ func mapTicketReferenceResponse(item ticketservice.TicketReference) ticketRefere
 		Title:      item.Title,
 		StatusID:   item.StatusID.String(),
 		StatusName: item.StatusName,
+	}
+}
+
+func mapTicketExternalLinkResponse(item ticketservice.ExternalLink) ticketExternalLinkResponse {
+	return ticketExternalLinkResponse{
+		ID:         item.ID.String(),
+		Type:       item.LinkType.String(),
+		URL:        item.URL,
+		ExternalID: item.ExternalID,
+		Title:      item.Title,
+		Status:     item.Status,
+		Relation:   item.Relation.String(),
+		CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

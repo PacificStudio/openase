@@ -19,6 +19,15 @@ export type TicketDetail = {
   costAmount: number
   budgetUsd: number
   dependencies: Array<{ id: string; identifier: string; title: string; relation: string }>
+  externalLinks: Array<{
+    id: string
+    type: string
+    url: string
+    externalId: string
+    title?: string
+    status?: string
+    relation: string
+  }>
   children: Array<{ id: string; identifier: string; title: string; status: string }>
   createdBy: string
   createdAt: string
