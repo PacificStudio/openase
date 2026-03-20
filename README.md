@@ -28,18 +28,24 @@ The repository has moved beyond the initial scaffold. The current vertical slice
 
 ## Build
 
+Common local developer entrypoints now live in the root `Makefile`:
+
+```bash
+make hooks-install
+make check
+make build
+```
+
 For the checked-in UI assets, Go is enough:
 
 ```bash
-go build ./cmd/openase
+make build
 ```
 
 Rebuild the embedded frontend only when you modify `web/`:
 
 ```bash
-npm --prefix web install
-npm --prefix web run build
-go build ./cmd/openase
+make build-web
 ```
 
 ## Quick Start
@@ -167,7 +173,8 @@ These commands read `OPENASE_API_URL`, `OPENASE_AGENT_TOKEN`, `OPENASE_PROJECT_I
 Focused validation commands used frequently during development:
 
 ```bash
-go test ./...
+make check
+make web-check
 go run ./cmd/openase --help
 go run ./cmd/openase project --help
 go run ./cmd/openase ticket --help

@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: make fmt-check
+    go-test:
+      glob: "*.go"
+      run: make test
+    web-check:
+      glob: "web/**/*.{css,html,js,json,svelte,ts}"
+      run: make web-check
