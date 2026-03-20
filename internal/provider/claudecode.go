@@ -1,0 +1,192 @@
+package provider
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+)
+
+type ClaudeCodeSessionID string
+
+func ParseClaudeCodeSessionID(raw string) (ClaudeCodeSessionID, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("claude code session id must not be empty")
+	}
+
+	return ClaudeCodeSessionID(trimmed), nil
+}
+
+func MustParseClaudeCodeSessionID(raw string) ClaudeCodeSessionID {
+	sessionID, err := ParseClaudeCodeSessionID(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return sessionID
+}
+
+func (s ClaudeCodeSessionID) String() string {
+	return string(s)
+}
+
+type ClaudeCodeEventKind string
+
+const (
+	ClaudeCodeEventKindUnknown      ClaudeCodeEventKind = "unknown"
+	ClaudeCodeEventKindSystem       ClaudeCodeEventKind = "system"
+	ClaudeCodeEventKindAssistant    ClaudeCodeEventKind = "assistant"
+	ClaudeCodeEventKindUser         ClaudeCodeEventKind = "user"
+	ClaudeCodeEventKindResult       ClaudeCodeEventKind = "result"
+	ClaudeCodeEventKindStream       ClaudeCodeEventKind = "stream_event"
+	ClaudeCodeEventKindTaskStart    ClaudeCodeEventKind = "task_started"
+	ClaudeCodeEventKindTaskProgress ClaudeCodeEventKind = "task_progress"
+	ClaudeCodeEventKindTaskNotice   ClaudeCodeEventKind = "task_notification"
+)
+
+type ClaudeCodeEvent struct {
+	Kind            ClaudeCodeEventKind
+	Raw             json.RawMessage
+	UnknownType     string
+	Subtype         string
+	SessionID       string
+	ParentToolUseID string
+	Message         json.RawMessage
+	Data            json.RawMessage
+	Result          string
+	Model           string
+	Usage           json.RawMessage
+	Event           json.RawMessage
+	UUID            string
+	IsError         bool
+	NumTurns        int
+	DurationMS      int
+	DurationAPIMS   int
+	TotalCostUSD    *float64
+}
+
+type ClaudeCodeTurnInput struct {
+	Prompt string
+}
+
+func NewClaudeCodeTurnInput(prompt string) (ClaudeCodeTurnInput, error) {
+	trimmed := strings.TrimSpace(prompt)
+	if trimmed == "" {
+		return ClaudeCodeTurnInput{}, fmt.Errorf("claude code turn prompt must not be empty")
+	}
+
+	return ClaudeCodeTurnInput{Prompt: trimmed}, nil
+}
+
+type ClaudeCodeSessionSpec struct {
+	Command                AgentCLICommand
+	BaseArgs               []string
+	WorkingDirectory       *AbsolutePath
+	Environment            []string
+	AllowedTools           []string
+	AppendSystemPrompt     string
+	MaxTurns               *int
+	MaxBudgetUSD           *float64
+	ResumeSessionID        *ClaudeCodeSessionID
+	IncludePartialMessages bool
+}
+
+func NewClaudeCodeSessionSpec(
+	command AgentCLICommand,
+	baseArgs []string,
+	workingDirectory *AbsolutePath,
+	environment []string,
+	allowedTools []string,
+	appendSystemPrompt string,
+	maxTurns *int,
+	maxBudgetUSD *float64,
+	resumeSessionID *ClaudeCodeSessionID,
+	includePartialMessages bool,
+) (ClaudeCodeSessionSpec, error) {
+	if command == "" {
+		return ClaudeCodeSessionSpec{}, fmt.Errorf("claude code command must not be empty")
+	}
+	if workingDirectory != nil && *workingDirectory == "" {
+		return ClaudeCodeSessionSpec{}, fmt.Errorf("working directory must not be empty when provided")
+	}
+
+	normalizedEnvironment := make([]string, 0, len(environment))
+	for _, entry := range environment {
+		if err := validateProcessEnvironmentEntry(entry); err != nil {
+			return ClaudeCodeSessionSpec{}, err
+		}
+		normalizedEnvironment = append(normalizedEnvironment, entry)
+	}
+
+	normalizedAllowedTools := make([]string, 0, len(allowedTools))
+	for _, tool := range allowedTools {
+		trimmed := strings.TrimSpace(tool)
+		if trimmed == "" {
+			return ClaudeCodeSessionSpec{}, fmt.Errorf("allowed tools must not contain empty entries")
+		}
+		normalizedAllowedTools = append(normalizedAllowedTools, trimmed)
+	}
+
+	if maxTurns != nil && *maxTurns <= 0 {
+		return ClaudeCodeSessionSpec{}, fmt.Errorf("max turns must be positive when provided")
+	}
+	if maxBudgetUSD != nil && *maxBudgetUSD <= 0 {
+		return ClaudeCodeSessionSpec{}, fmt.Errorf("max budget usd must be positive when provided")
+	}
+	if resumeSessionID != nil && *resumeSessionID == "" {
+		return ClaudeCodeSessionSpec{}, fmt.Errorf("resume session id must not be empty when provided")
+	}
+
+	return ClaudeCodeSessionSpec{
+		Command:                command,
+		BaseArgs:               append([]string(nil), baseArgs...),
+		WorkingDirectory:       workingDirectory,
+		Environment:            normalizedEnvironment,
+		AllowedTools:           normalizedAllowedTools,
+		AppendSystemPrompt:     strings.TrimSpace(appendSystemPrompt),
+		MaxTurns:               cloneIntPointer(maxTurns),
+		MaxBudgetUSD:           cloneFloatPointer(maxBudgetUSD),
+		ResumeSessionID:        cloneClaudeCodeSessionIDPointer(resumeSessionID),
+		IncludePartialMessages: includePartialMessages,
+	}, nil
+}
+
+func cloneIntPointer(value *int) *int {
+	if value == nil {
+		return nil
+	}
+
+	cloned := *value
+	return &cloned
+}
+
+func cloneFloatPointer(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+
+	cloned := *value
+	return &cloned
+}
+
+func cloneClaudeCodeSessionIDPointer(value *ClaudeCodeSessionID) *ClaudeCodeSessionID {
+	if value == nil {
+		return nil
+	}
+
+	cloned := *value
+	return &cloned
+}
+
+type ClaudeCodeSession interface {
+	SessionID() (ClaudeCodeSessionID, bool)
+	Events() <-chan ClaudeCodeEvent
+	Errors() <-chan error
+	Send(context.Context, ClaudeCodeTurnInput) error
+	Close(context.Context) error
+}
+
+type ClaudeCodeAdapter interface {
+	Start(context.Context, ClaudeCodeSessionSpec) (ClaudeCodeSession, error)
+}
