@@ -186,7 +186,7 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	}
 }
 
-func TestHRAdvisorRouteReturnsEmptyArraysForFreshProject(t *testing.T) {
+func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := t.TempDir()
 	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {

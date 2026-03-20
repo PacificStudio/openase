@@ -14,6 +14,16 @@ import type {
   Workflow,
   WorkflowListPayload,
 } from './types'
+import {
+  asRecord,
+  parseArray,
+  parseStringArray,
+  parseUnknownRecord,
+  readBoolean,
+  readNullableString,
+  readNumber,
+  readString,
+} from './payload-helpers'
 
 export function parseAgentPayload(raw: unknown): AgentPayload {
   const source = asRecord(raw)
@@ -259,63 +269,4 @@ function parseHRAdvisorRecommendation(raw: unknown): HRAdvisorRecommendation | n
     activation_ready: readBoolean(source, 'activation_ready'),
     active_workflow_name: readNullableString(source, 'active_workflow_name'),
   }
-}
-
-function parseArray<T>(raw: unknown, parseItem: (item: unknown) => T | null): T[] {
-  if (!Array.isArray(raw)) {
-    return []
-  }
-
-  return raw.map(parseItem).filter((item): item is T => item !== null)
-}
-
-function parseStringArray(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {
-    return []
-  }
-
-  return raw.map((item) => (typeof item === 'string' ? item : '')).filter(Boolean)
-}
-
-function parseUnknownRecord(raw: unknown): Record<string, unknown> {
-  if (!isRecord(raw)) {
-    return {}
-  }
-
-  return { ...raw }
-}
-
-function asRecord(raw: unknown): Record<string, unknown> {
-  if (!isRecord(raw)) {
-    return {}
-  }
-
-  return raw
-}
-
-function readString(source: Record<string, unknown>, key: string) {
-  const value = source[key]
-  return typeof value === 'string' ? value : ''
-}
-
-function readNullableString(source: Record<string, unknown>, key: string) {
-  const value = source[key]
-  if (value === null) {
-    return null
-  }
-
-  return typeof value === 'string' ? value : null
-}
-
-function readNumber(source: Record<string, unknown>, key: string) {
-  const value = source[key]
-  return typeof value === 'number' ? value : 0
-}
-
-function readBoolean(source: Record<string, unknown>, key: string) {
-  return source[key] === true
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
