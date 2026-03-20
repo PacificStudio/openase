@@ -57,7 +57,6 @@
 </script>
 
 <header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
-  <!-- Logo -->
   <a
     href={currentOrgId ? organizationPath(currentOrgId) : '/'}
     class="text-foreground mr-1 flex items-center gap-1.5 text-sm font-semibold"
@@ -67,7 +66,6 @@
 
   <Separator orientation="vertical" class="mx-1 h-5" />
 
-  <!-- Org Switcher -->
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
       {#snippet child({ props })}
@@ -85,20 +83,24 @@
     </DropdownMenu.Trigger>
     <DropdownMenu.Content class="w-56">
       <DropdownMenu.Label>Organizations</DropdownMenu.Label>
-      {#each organizations as organization (organization.id)}
-        <DropdownMenu.Item onclick={() => void handleOrgSelect(organization.id)}>
-          <span class="flex w-full items-center gap-2">
-            {#if organization.id === currentOrgId}
-              <Check class="size-4" />
-            {:else}
-              <span class="size-4"></span>
-            {/if}
-            <span class={organization.id === currentOrgId ? 'font-medium' : ''}>
-              {organization.name}
+      {#if organizations.length > 0}
+        {#each organizations as organization (organization.id)}
+          <DropdownMenu.Item onclick={() => void handleOrgSelect(organization.id)}>
+            <span class="flex w-full items-center gap-2">
+              {#if organization.id === currentOrgId}
+                <Check class="size-4" />
+              {:else}
+                <span class="size-4"></span>
+              {/if}
+              <span class={organization.id === currentOrgId ? 'font-medium' : ''}>
+                {organization.name}
+              </span>
             </span>
-          </span>
-        </DropdownMenu.Item>
-      {/each}
+          </DropdownMenu.Item>
+        {/each}
+      {:else}
+        <DropdownMenu.Item disabled>No organizations available</DropdownMenu.Item>
+      {/if}
     </DropdownMenu.Content>
   </DropdownMenu.Root>
 
@@ -117,28 +119,30 @@
       </DropdownMenu.Trigger>
       <DropdownMenu.Content class="w-64">
         <DropdownMenu.Label>Projects</DropdownMenu.Label>
-        {#each projects as project (project.id)}
-          <DropdownMenu.Item onclick={() => void handleProjectSelect(project.id)}>
-            <span class="flex w-full items-center gap-2">
-              {#if project.id === currentProjectId}
-                <Check class="size-4" />
-              {:else}
-                <span class="size-4"></span>
-              {/if}
-              <span class={project.id === currentProjectId ? 'font-medium' : ''}>
-                {project.name}
+        {#if projects.length > 0}
+          {#each projects as project (project.id)}
+            <DropdownMenu.Item onclick={() => void handleProjectSelect(project.id)}>
+              <span class="flex w-full items-center gap-2">
+                {#if project.id === currentProjectId}
+                  <Check class="size-4" />
+                {:else}
+                  <span class="size-4"></span>
+                {/if}
+                <span class={project.id === currentProjectId ? 'font-medium' : ''}>
+                  {project.name}
+                </span>
               </span>
-            </span>
-          </DropdownMenu.Item>
-        {/each}
+            </DropdownMenu.Item>
+          {/each}
+        {:else}
+          <DropdownMenu.Item disabled>No projects available</DropdownMenu.Item>
+        {/if}
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   {/if}
 
-  <!-- Spacer -->
   <div class="flex-1"></div>
 
-  <!-- Search Trigger -->
   <Button
     variant="outline"
     size="sm"
@@ -154,7 +158,6 @@
 
   <Separator orientation="vertical" class="mx-1 h-5" />
 
-  <!-- New Ticket -->
   <Button
     size="sm"
     class="gap-1.5"
@@ -168,7 +171,6 @@
     <span class="hidden text-xs sm:inline">New Ticket</span>
   </Button>
 
-  <!-- SSE Status Indicator -->
   <div class="text-muted-foreground flex items-center gap-1.5 text-xs" title="SSE: {sseStatus}">
     {#if sseStatus === 'live'}
       <span class="bg-success size-1.5 rounded-full"></span>
@@ -179,7 +181,6 @@
     {/if}
   </div>
 
-  <!-- User Menu -->
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
       {#snippet child({ props })}

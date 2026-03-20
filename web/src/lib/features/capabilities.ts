@@ -35,9 +35,8 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'Search stays disabled because no search endpoint is exported in the current API.',
   },
   newTicket: {
-    state: 'unwired',
-    summary:
-      'Ticket creation backend support exists at POST /api/v1/projects/{projectId}/tickets, but this UI slice still lacks a create flow.',
+    state: 'available',
+    summary: 'Ticket creation is wired to POST /api/v1/projects/{projectId}/tickets.',
   },
   statusMutation: {
     state: 'unwired',
@@ -45,9 +44,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Status create/update/delete/reset routes exist, but the settings and board mutation UI are not wired yet.',
   },
   agentRegistration: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Agent registration backend support exists at POST /api/v1/projects/{projectId}/agents, but this page still lacks a registration form.',
+      'Agent registration is available from the Agents page and submits to POST /api/v1/projects/{projectId}/agents.',
   },
   providerConfigure: {
     state: 'unwired',

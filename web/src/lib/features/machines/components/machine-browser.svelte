@@ -8,12 +8,14 @@
     searchQuery = '',
     machines,
     selectedId = '',
+    emptyMessage = 'No machines match the current filter.',
     onSearchChange,
     onSelect,
   }: {
     searchQuery?: string
     machines: MachineItem[]
     selectedId?: string
+    emptyMessage?: string
     onSearchChange?: (value: string) => void
     onSelect?: (machineId: string) => void
   } = $props()
@@ -30,5 +32,5 @@
     />
   </div>
 
-  <MachineList {machines} {selectedId} {onSelect} />
+  <MachineList {machines} {selectedId} {onSelect} {emptyMessage} />
 </section>

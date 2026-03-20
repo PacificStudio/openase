@@ -79,4 +79,5 @@ export const load: LayoutLoad = async ({ fetch, params, url }) => {
         : 'dashboard',
   }
 }
+
 const loadAgentCount = loadProjectAgentCount
