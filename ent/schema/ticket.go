@@ -97,7 +97,7 @@ func (Ticket) Edges() []ent.Edge {
 
 func (Ticket) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("identifier").Unique(),
+		index.Fields("project_id", "identifier").Unique(),
 		index.Fields("project_id", "status_id", "assigned_agent_id", "priority", "created_at"),
 		index.Fields("project_id", "status_id"),
 		index.Fields("project_id", "external_ref"),

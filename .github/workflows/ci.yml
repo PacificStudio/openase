@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Check Out Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -79,7 +79,7 @@ jobs:
 
     steps:
       - name: Check Out Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -87,7 +87,7 @@ jobs:
           version: 10.32.1
 
       - name: Set Up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -100,7 +100,7 @@ jobs:
         run: pnpm run ci
 
       - name: Upload Embedded Web Assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: embedded-web-assets
           path: internal/webui/static
@@ -118,17 +118,17 @@ jobs:
 
     steps:
       - name: Check Out Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download Embedded Web Assets
         if: needs.changes.outputs.web_changed == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: embedded-web-assets
           path: internal/webui/static
 
       - name: Set Up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -150,12 +150,17 @@ jobs:
 
     steps:
       - name: Check Out Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
+      - name: Ensure Embedded Web Placeholder
+        run: |
+          mkdir -p internal/webui/static
+          printf 'lint placeholder for embedded web assets\n' > internal/webui/static/lint-placeholder.txt
+
       - name: Set Up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true

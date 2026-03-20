@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -20,6 +22,7 @@ import (
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 )
 
 func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
@@ -296,6 +299,115 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	)
 	if peerAfterDeleteResp.Ticket.Parent != nil {
 		t.Fatalf("expected sub_issue delete to clear parent, got %+v", peerAfterDeleteResp.Ticket)
+	}
+}
+
+func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-two-projects").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+
+	for index := range 2 {
+		project, err := client.Project.Create().
+			SetOrganizationID(org.ID).
+			SetName(fmt.Sprintf("OpenASE %d", index+1)).
+			SetSlug(fmt.Sprintf("openase-%d", index+1)).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("create project %d: %v", index+1, err)
+		}
+
+		statuses := struct {
+			Statuses []ticketstatus.Status `json:"statuses"`
+		}{}
+		executeJSON(
+			t,
+			server,
+			http.MethodPost,
+			fmt.Sprintf("/api/v1/projects/%s/statuses/reset", project.ID),
+			nil,
+			http.StatusOK,
+			&statuses,
+		)
+		todoID := findStatusIDByName(t, statuses.Statuses, "Todo")
+		doneID := findStatusIDByName(t, statuses.Statuses, "Done")
+
+		workflowResp := struct {
+			Workflow workflowResponse `json:"workflow"`
+		}{}
+		executeJSON(
+			t,
+			server,
+			http.MethodPost,
+			fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+			map[string]any{
+				"name":             fmt.Sprintf("Coding Workflow %d", index+1),
+				"type":             "coding",
+				"pickup_status_id": todoID.String(),
+				"finish_status_id": doneID.String(),
+				"harness_content":  "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			},
+			http.StatusCreated,
+			&workflowResp,
+		)
+
+		createResp := struct {
+			Ticket ticketResponse `json:"ticket"`
+		}{}
+		executeJSON(
+			t,
+			server,
+			http.MethodPost,
+			fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
+			map[string]any{
+				"title":       fmt.Sprintf("Ticket %d", index+1),
+				"priority":    "high",
+				"workflow_id": workflowResp.Workflow.ID,
+				"created_by":  "user:blackbox",
+			},
+			http.StatusCreated,
+			&createResp,
+		)
+
+		if createResp.Ticket.Identifier != "ASE-1" {
+			t.Fatalf("expected first ticket in project %d to use ASE-1, got %+v", index+1, createResp.Ticket)
+		}
+		if createResp.Ticket.WorkflowID == nil || *createResp.Ticket.WorkflowID != workflowResp.Workflow.ID {
+			t.Fatalf("expected created ticket to keep workflow reference for project %d, got %+v", index+1, createResp.Ticket)
+		}
 	}
 }
 

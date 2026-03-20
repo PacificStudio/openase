@@ -204,6 +204,11 @@ func ByWorkspacePath(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWorkspacePath, opts...).ToFunc()
 }
 
+// ByCapabilities orders the results by the capabilities field.
+func ByCapabilities(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCapabilities, opts...).ToFunc()
+}
+
 // ByTotalTokensUsed orders the results by the total_tokens_used field.
 func ByTotalTokensUsed(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTotalTokensUsed, opts...).ToFunc()

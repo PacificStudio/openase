@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -82,6 +83,11 @@ func ClonePath(v string) predicate.ProjectRepo {
 // IsPrimary applies equality check predicate on the "is_primary" field. It's identical to IsPrimaryEQ.
 func IsPrimary(v bool) predicate.ProjectRepo {
 	return predicate.ProjectRepo(sql.FieldEQ(FieldIsPrimary, v))
+}
+
+// Labels applies equality check predicate on the "labels" field. It's identical to LabelsEQ.
+func Labels(v pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldEQ(FieldLabels, v))
 }
 
 // ProjectIDEQ applies the EQ predicate on the "project_id" field.
@@ -382,6 +388,46 @@ func IsPrimaryEQ(v bool) predicate.ProjectRepo {
 // IsPrimaryNEQ applies the NEQ predicate on the "is_primary" field.
 func IsPrimaryNEQ(v bool) predicate.ProjectRepo {
 	return predicate.ProjectRepo(sql.FieldNEQ(FieldIsPrimary, v))
+}
+
+// LabelsEQ applies the EQ predicate on the "labels" field.
+func LabelsEQ(v pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldEQ(FieldLabels, v))
+}
+
+// LabelsNEQ applies the NEQ predicate on the "labels" field.
+func LabelsNEQ(v pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldNEQ(FieldLabels, v))
+}
+
+// LabelsIn applies the In predicate on the "labels" field.
+func LabelsIn(vs ...pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldIn(FieldLabels, vs...))
+}
+
+// LabelsNotIn applies the NotIn predicate on the "labels" field.
+func LabelsNotIn(vs ...pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldNotIn(FieldLabels, vs...))
+}
+
+// LabelsGT applies the GT predicate on the "labels" field.
+func LabelsGT(v pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldGT(FieldLabels, v))
+}
+
+// LabelsGTE applies the GTE predicate on the "labels" field.
+func LabelsGTE(v pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldGTE(FieldLabels, v))
+}
+
+// LabelsLT applies the LT predicate on the "labels" field.
+func LabelsLT(v pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldLT(FieldLabels, v))
+}
+
+// LabelsLTE applies the LTE predicate on the "labels" field.
+func LabelsLTE(v pgarray.StringArray) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldLTE(FieldLabels, v))
 }
 
 // LabelsIsNil applies the IsNil predicate on the "labels" field.

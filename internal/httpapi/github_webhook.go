@@ -8,22 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/labstack/echo/v4"
 )
 
 const (
-	gitHubWebhookEventHeader        = "X-GitHub-Event"
-	gitHubWebhookDeliveryIDHeader   = "X-GitHub-Delivery"
-	gitHubWebhookSignatureHeader    = "X-Hub-Signature-256"
-	gitHubWebhookSignaturePrefix    = "sha256="
-	gitHubWebhookMaxPayloadBytes    = 1 << 20
-	gitHubWebhookAcceptedStatusCode = http.StatusAccepted
+	gitHubWebhookEventHeader      = "X-GitHub-Event"
+	gitHubWebhookDeliveryIDHeader = "X-GitHub-Delivery"
+	gitHubWebhookSignatureHeader  = "X-Hub-Signature-256"
+	gitHubWebhookSignaturePrefix  = "sha256="
+	gitHubWebhookMaxPayloadBytes  = 1 << 20
 )
 
 type gitHubWebhookEvent string
@@ -88,78 +84,85 @@ type rawGitHubWebhookReview struct {
 	State string `json:"state"`
 }
 
-var errGitHubWebhookPayloadTooLarge = errors.New("request body exceeds 1048576 bytes")
-
-func (s *Server) handleGitHubWebhook(c echo.Context) error {
-	payload, err := readGitHubWebhookPayload(c.Request())
-	if err != nil {
-		if errors.Is(err, errGitHubWebhookPayloadTooLarge) {
-			return writeAPIError(c, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", err.Error())
-		}
-
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("read request body: %v", err))
-	}
-
-	event, err := parseGitHubWebhookEvent(c.Request().Header.Get(gitHubWebhookEventHeader))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_EVENT", err.Error())
-	}
-
-	if err := verifyGitHubWebhookSignature(s.github.WebhookSecret, payload, c.Request().Header.Get(gitHubWebhookSignatureHeader)); err != nil {
-		return writeAPIError(c, http.StatusUnauthorized, "INVALID_SIGNATURE", err.Error())
-	}
-
-	deliveryID := strings.TrimSpace(c.Request().Header.Get(gitHubWebhookDeliveryIDHeader))
-	if !event.isSupported() {
-		s.logger.Info("github webhook ignored", "event", event, "delivery_id", deliveryID)
-		return c.NoContent(gitHubWebhookAcceptedStatusCode)
-	}
-
-	delivery, err := parseGitHubWebhookEnvelope(event, deliveryID, payload)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	logArgs := []any{
-		"event", delivery.Event,
-		"delivery_id", delivery.DeliveryID,
-		"action", delivery.Action,
-		"repository", delivery.Repository.CloneURL,
-		"pull_request_number", delivery.PullRequest.Number,
-		"branch", delivery.PullRequest.Branch,
-	}
-	if delivery.Review != nil {
-		logArgs = append(logArgs, "review_state", delivery.Review.State)
-	}
-	s.logger.Info("github webhook accepted", logArgs...)
-
-	if err := s.syncGitHubRepoScopeStatus(c.Request().Context(), delivery); err != nil {
-		s.logger.Error(
-			"github webhook sync failed",
-			"event", delivery.Event,
-			"delivery_id", delivery.DeliveryID,
-			"action", delivery.Action,
-			"repository", delivery.Repository.CloneURL,
-			"pull_request_number", delivery.PullRequest.Number,
-			"branch", delivery.PullRequest.Branch,
-			"error", err,
-		)
-		return writeAPIError(c, http.StatusInternalServerError, "WEBHOOK_SYNC_FAILED", err.Error())
-	}
-
-	return c.NoContent(gitHubWebhookAcceptedStatusCode)
+type gitHubRepoScopeWebhookEndpoint struct {
+	server *Server
 }
 
-func readGitHubWebhookPayload(request *http.Request) ([]byte, error) {
-	payload, err := io.ReadAll(io.LimitReader(request.Body, gitHubWebhookMaxPayloadBytes+1))
-	if err != nil {
-		return nil, err
-	}
-	if len(payload) > gitHubWebhookMaxPayloadBytes {
-		return nil, errGitHubWebhookPayloadTooLarge
+func newGitHubRepoScopeWebhookEndpoint(server *Server) gitHubRepoScopeWebhookEndpoint {
+	return gitHubRepoScopeWebhookEndpoint{server: server}
+}
+
+func (e gitHubRepoScopeWebhookEndpoint) Target() inboundWebhookTarget {
+	return ticketRepoScopeWebhookTarget
+}
+
+func (e gitHubRepoScopeWebhookEndpoint) MaxPayloadBytes() int64 {
+	return gitHubWebhookMaxPayloadBytes
+}
+
+func (e gitHubRepoScopeWebhookEndpoint) VerifySignature(request inboundWebhookRequest) error {
+	if err := verifyGitHubWebhookSignature(
+		e.server.github.WebhookSecret,
+		request.Payload,
+		request.Headers.Get(gitHubWebhookSignatureHeader),
+	); err != nil {
+		return &inboundWebhookError{
+			StatusCode: 401,
+			Code:       "INVALID_SIGNATURE",
+			Message:    err.Error(),
+		}
 	}
 
-	return payload, nil
+	return nil
+}
+
+func (e gitHubRepoScopeWebhookEndpoint) ParseEvent(request inboundWebhookRequest) (inboundWebhookDispatch, error) {
+	event, err := parseGitHubWebhookEvent(request.Headers.Get(gitHubWebhookEventHeader))
+	if err != nil {
+		return inboundWebhookDispatch{}, &inboundWebhookError{
+			StatusCode: 400,
+			Code:       "INVALID_EVENT",
+			Message:    err.Error(),
+		}
+	}
+
+	deliveryID := strings.TrimSpace(request.Headers.Get(gitHubWebhookDeliveryIDHeader))
+	if !event.isSupported() {
+		return inboundWebhookDispatch{
+			Ignore: true,
+			Summary: inboundWebhookSummary{
+				Event:      string(event),
+				DeliveryID: deliveryID,
+				LogArgs: []any{
+					"event", event,
+					"delivery_id", deliveryID,
+				},
+			},
+		}, nil
+	}
+
+	delivery, err := parseGitHubWebhookEnvelope(event, deliveryID, request.Payload)
+	if err != nil {
+		return inboundWebhookDispatch{}, &inboundWebhookError{
+			StatusCode: 400,
+			Code:       "INVALID_REQUEST",
+			Message:    err.Error(),
+		}
+	}
+
+	return inboundWebhookDispatch{
+		Summary: delivery.summary(),
+		Payload: delivery,
+	}, nil
+}
+
+func (e gitHubRepoScopeWebhookEndpoint) Dispatch(ctx context.Context, dispatch inboundWebhookDispatch) error {
+	delivery, ok := dispatch.Payload.(gitHubWebhookEnvelope)
+	if !ok {
+		return fmt.Errorf("github repo-scope webhook dispatch requires gitHubWebhookEnvelope payload")
+	}
+
+	return e.server.syncGitHubRepoScopeStatus(ctx, delivery)
 }
 
 func parseGitHubWebhookEvent(raw string) (gitHubWebhookEvent, error) {
@@ -271,6 +274,27 @@ func parseGitHubWebhookEnvelope(
 	}
 
 	return delivery, nil
+}
+
+func (delivery gitHubWebhookEnvelope) summary() inboundWebhookSummary {
+	logArgs := []any{
+		"event", delivery.Event,
+		"delivery_id", delivery.DeliveryID,
+		"action", delivery.Action,
+		"repository", delivery.Repository.CloneURL,
+		"pull_request_number", delivery.PullRequest.Number,
+		"branch", delivery.PullRequest.Branch,
+	}
+	if delivery.Review != nil {
+		logArgs = append(logArgs, "review_state", delivery.Review.State)
+	}
+
+	return inboundWebhookSummary{
+		Event:      string(delivery.Event),
+		DeliveryID: delivery.DeliveryID,
+		Action:     delivery.Action,
+		LogArgs:    logArgs,
+	}
 }
 
 func (s *Server) syncGitHubRepoScopeStatus(ctx context.Context, delivery gitHubWebhookEnvelope) error {

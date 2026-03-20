@@ -62,13 +62,15 @@ type ProjectEdges struct {
 	ScheduledJobs []*ScheduledJob `json:"scheduled_jobs,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
+	// NotificationRules holds the value of the notification_rules edge.
+	NotificationRules []*NotificationRule `json:"notification_rules,omitempty"`
 	// DefaultWorkflow holds the value of the default_workflow edge.
 	DefaultWorkflow *Workflow `json:"default_workflow,omitempty"`
 	// DefaultAgentProvider holds the value of the default_agent_provider edge.
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [11]bool
+	loadedTypes [12]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -154,12 +156,21 @@ func (e ProjectEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
 	return nil, &NotLoadedError{edge: "activity_events"}
 }
 
+// NotificationRulesOrErr returns the NotificationRules value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) NotificationRulesOrErr() ([]*NotificationRule, error) {
+	if e.loadedTypes[9] {
+		return e.NotificationRules, nil
+	}
+	return nil, &NotLoadedError{edge: "notification_rules"}
+}
+
 // DefaultWorkflowOrErr returns the DefaultWorkflow value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ProjectEdges) DefaultWorkflowOrErr() (*Workflow, error) {
 	if e.DefaultWorkflow != nil {
 		return e.DefaultWorkflow, nil
-	} else if e.loadedTypes[9] {
+	} else if e.loadedTypes[10] {
 		return nil, &NotFoundError{label: workflow.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_workflow"}
@@ -170,7 +181,7 @@ func (e ProjectEdges) DefaultWorkflowOrErr() (*Workflow, error) {
 func (e ProjectEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[10] {
+	} else if e.loadedTypes[11] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -316,6 +327,11 @@ func (_m *Project) QueryScheduledJobs() *ScheduledJobQuery {
 // QueryActivityEvents queries the "activity_events" edge of the Project entity.
 func (_m *Project) QueryActivityEvents() *ActivityEventQuery {
 	return NewProjectClient(_m.config).QueryActivityEvents(_m)
+}
+
+// QueryNotificationRules queries the "notification_rules" edge of the Project entity.
+func (_m *Project) QueryNotificationRules() *NotificationRuleQuery {
+	return NewProjectClient(_m.config).QueryNotificationRules(_m)
 }
 
 // QueryDefaultWorkflow queries the "default_workflow" edge of the Project entity.

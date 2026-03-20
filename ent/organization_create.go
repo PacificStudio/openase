@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/google/uuid"
@@ -90,6 +91,21 @@ func (_c *OrganizationCreate) AddProviders(v ...*AgentProvider) *OrganizationCre
 		ids[i] = v[i].ID
 	}
 	return _c.AddProviderIDs(ids...)
+}
+
+// AddNotificationChannelIDs adds the "notification_channels" edge to the NotificationChannel entity by IDs.
+func (_c *OrganizationCreate) AddNotificationChannelIDs(ids ...uuid.UUID) *OrganizationCreate {
+	_c.mutation.AddNotificationChannelIDs(ids...)
+	return _c
+}
+
+// AddNotificationChannels adds the "notification_channels" edges to the NotificationChannel entity.
+func (_c *OrganizationCreate) AddNotificationChannels(v ...*NotificationChannel) *OrganizationCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddNotificationChannelIDs(ids...)
 }
 
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
@@ -224,6 +240,22 @@ func (_c *OrganizationCreate) createSpec() (*Organization, *sqlgraph.CreateSpec)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.NotificationChannelsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.NotificationChannelsTable,
+			Columns: []string{organization.NotificationChannelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationchannel.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

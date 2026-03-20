@@ -65,7 +65,7 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"idle", "claimed", "running", "failed", "terminated"}, Default: "idle"},
 		{Name: "session_id", Type: field.TypeString, Nullable: true},
 		{Name: "workspace_path", Type: field.TypeString, Nullable: true},
-		{Name: "capabilities", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "capabilities", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "total_tokens_used", Type: field.TypeInt64, Default: 0},
 		{Name: "total_tickets_completed", Type: field.TypeInt, Default: 0},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
@@ -125,7 +125,7 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "adapter_type", Type: field.TypeEnum, Enums: []string{"claude-code-cli", "codex-app-server", "gemini-cli", "custom"}},
 		{Name: "cli_command", Type: field.TypeString},
-		{Name: "cli_args", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "cli_args", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "auth_config", Type: field.TypeJSON},
 		{Name: "model_name", Type: field.TypeString},
 		{Name: "model_temperature", Type: field.TypeFloat64, Default: 0},
@@ -251,6 +251,91 @@ var (
 			},
 		},
 	}
+	// NotificationChannelsColumns holds the columns for the "notification_channels" table.
+	NotificationChannelsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "type", Type: field.TypeString},
+		{Name: "config", Type: field.TypeJSON},
+		{Name: "is_enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "organization_id", Type: field.TypeUUID},
+	}
+	// NotificationChannelsTable holds the schema information for the "notification_channels" table.
+	NotificationChannelsTable = &schema.Table{
+		Name:       "notification_channels",
+		Columns:    NotificationChannelsColumns,
+		PrimaryKey: []*schema.Column{NotificationChannelsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "notification_channels_organizations_notification_channels",
+				Columns:    []*schema.Column{NotificationChannelsColumns[6]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "notificationchannel_organization_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{NotificationChannelsColumns[6], NotificationChannelsColumns[1]},
+			},
+			{
+				Name:    "notificationchannel_organization_id_type",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationChannelsColumns[6], NotificationChannelsColumns[2]},
+			},
+		},
+	}
+	// NotificationRulesColumns holds the columns for the "notification_rules" table.
+	NotificationRulesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "event_type", Type: field.TypeString},
+		{Name: "filter", Type: field.TypeJSON},
+		{Name: "template", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "is_enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "channel_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+	}
+	// NotificationRulesTable holds the schema information for the "notification_rules" table.
+	NotificationRulesTable = &schema.Table{
+		Name:       "notification_rules",
+		Columns:    NotificationRulesColumns,
+		PrimaryKey: []*schema.Column{NotificationRulesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "notification_rules_notification_channels_notification_rules",
+				Columns:    []*schema.Column{NotificationRulesColumns[7]},
+				RefColumns: []*schema.Column{NotificationChannelsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "notification_rules_projects_notification_rules",
+				Columns:    []*schema.Column{NotificationRulesColumns[8]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "notificationrule_project_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{NotificationRulesColumns[8], NotificationRulesColumns[1]},
+			},
+			{
+				Name:    "notificationrule_project_id_event_type",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationRulesColumns[8], NotificationRulesColumns[2]},
+			},
+			{
+				Name:    "notificationrule_channel_id",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationRulesColumns[7]},
+			},
+		},
+	}
 	// OrganizationsColumns holds the columns for the "organizations" table.
 	OrganizationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -332,7 +417,7 @@ var (
 		{Name: "default_branch", Type: field.TypeString, Default: "main"},
 		{Name: "clone_path", Type: field.TypeString, Nullable: true},
 		{Name: "is_primary", Type: field.TypeBool, Default: false},
-		{Name: "labels", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "labels", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "project_id", Type: field.TypeUUID},
 	}
 	// ProjectReposTable holds the schema information for the "project_repos" table.
@@ -483,9 +568,9 @@ var (
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "ticket_identifier",
+				Name:    "ticket_project_id_identifier",
 				Unique:  true,
-				Columns: []*schema.Column{TicketsColumns[1]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[1]},
 			},
 			{
 				Name:    "ticket_project_id_status_id_assigned_agent_id_priority_created_at",
@@ -733,6 +818,8 @@ var (
 		AgentProvidersTable,
 		AgentTokensTable,
 		ApprovalGatesTable,
+		NotificationChannelsTable,
+		NotificationRulesTable,
 		OrganizationsTable,
 		ProjectsTable,
 		ProjectReposTable,
@@ -758,6 +845,9 @@ func init() {
 	AgentTokensTable.ForeignKeys[1].RefTable = ProjectsTable
 	AgentTokensTable.ForeignKeys[2].RefTable = TicketsTable
 	ApprovalGatesTable.ForeignKeys[0].RefTable = TicketsTable
+	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
+	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable
+	NotificationRulesTable.ForeignKeys[1].RefTable = ProjectsTable
 	OrganizationsTable.ForeignKeys[0].RefTable = AgentProvidersTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = WorkflowsTable

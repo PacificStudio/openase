@@ -49,6 +49,8 @@ const (
 	EdgeScheduledJobs = "scheduled_jobs"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
 	EdgeActivityEvents = "activity_events"
+	// EdgeNotificationRules holds the string denoting the notification_rules edge name in mutations.
+	EdgeNotificationRules = "notification_rules"
 	// EdgeDefaultWorkflow holds the string denoting the default_workflow edge name in mutations.
 	EdgeDefaultWorkflow = "default_workflow"
 	// EdgeDefaultAgentProvider holds the string denoting the default_agent_provider edge name in mutations.
@@ -118,6 +120,13 @@ const (
 	ActivityEventsInverseTable = "activity_events"
 	// ActivityEventsColumn is the table column denoting the activity_events relation/edge.
 	ActivityEventsColumn = "project_id"
+	// NotificationRulesTable is the table that holds the notification_rules relation/edge.
+	NotificationRulesTable = "notification_rules"
+	// NotificationRulesInverseTable is the table name for the NotificationRule entity.
+	// It exists in this package in order to avoid circular dependency with the "notificationrule" package.
+	NotificationRulesInverseTable = "notification_rules"
+	// NotificationRulesColumn is the table column denoting the notification_rules relation/edge.
+	NotificationRulesColumn = "project_id"
 	// DefaultWorkflowTable is the table that holds the default_workflow relation/edge.
 	DefaultWorkflowTable = "projects"
 	// DefaultWorkflowInverseTable is the table name for the Workflow entity.
@@ -363,6 +372,20 @@ func ByActivityEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByNotificationRulesCount orders the results by notification_rules count.
+func ByNotificationRulesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newNotificationRulesStep(), opts...)
+	}
+}
+
+// ByNotificationRules orders the results by notification_rules terms.
+func ByNotificationRules(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newNotificationRulesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDefaultWorkflowField orders the results by default_workflow field.
 func ByDefaultWorkflowField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -437,6 +460,13 @@ func newActivityEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ActivityEventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ActivityEventsTable, ActivityEventsColumn),
+	)
+}
+func newNotificationRulesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(NotificationRulesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, NotificationRulesTable, NotificationRulesColumn),
 	)
 }
 func newDefaultWorkflowStep() *sqlgraph.Step {

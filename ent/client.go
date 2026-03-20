@@ -21,6 +21,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
+	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
+	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -48,6 +50,10 @@ type Client struct {
 	AgentToken *AgentTokenClient
 	// ApprovalGate is the client for interacting with the ApprovalGate builders.
 	ApprovalGate *ApprovalGateClient
+	// NotificationChannel is the client for interacting with the NotificationChannel builders.
+	NotificationChannel *NotificationChannelClient
+	// NotificationRule is the client for interacting with the NotificationRule builders.
+	NotificationRule *NotificationRuleClient
 	// Organization is the client for interacting with the Organization builders.
 	Organization *OrganizationClient
 	// Project is the client for interacting with the Project builders.
@@ -84,6 +90,8 @@ func (c *Client) init() {
 	c.AgentProvider = NewAgentProviderClient(c.config)
 	c.AgentToken = NewAgentTokenClient(c.config)
 	c.ApprovalGate = NewApprovalGateClient(c.config)
+	c.NotificationChannel = NewNotificationChannelClient(c.config)
+	c.NotificationRule = NewNotificationRuleClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.ProjectRepo = NewProjectRepoClient(c.config)
@@ -184,23 +192,25 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                ctx,
-		config:             cfg,
-		ActivityEvent:      NewActivityEventClient(cfg),
-		Agent:              NewAgentClient(cfg),
-		AgentProvider:      NewAgentProviderClient(cfg),
-		AgentToken:         NewAgentTokenClient(cfg),
-		ApprovalGate:       NewApprovalGateClient(cfg),
-		Organization:       NewOrganizationClient(cfg),
-		Project:            NewProjectClient(cfg),
-		ProjectRepo:        NewProjectRepoClient(cfg),
-		ScheduledJob:       NewScheduledJobClient(cfg),
-		Ticket:             NewTicketClient(cfg),
-		TicketDependency:   NewTicketDependencyClient(cfg),
-		TicketExternalLink: NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:    NewTicketRepoScopeClient(cfg),
-		TicketStatus:       NewTicketStatusClient(cfg),
-		Workflow:           NewWorkflowClient(cfg),
+		ctx:                 ctx,
+		config:              cfg,
+		ActivityEvent:       NewActivityEventClient(cfg),
+		Agent:               NewAgentClient(cfg),
+		AgentProvider:       NewAgentProviderClient(cfg),
+		AgentToken:          NewAgentTokenClient(cfg),
+		ApprovalGate:        NewApprovalGateClient(cfg),
+		NotificationChannel: NewNotificationChannelClient(cfg),
+		NotificationRule:    NewNotificationRuleClient(cfg),
+		Organization:        NewOrganizationClient(cfg),
+		Project:             NewProjectClient(cfg),
+		ProjectRepo:         NewProjectRepoClient(cfg),
+		ScheduledJob:        NewScheduledJobClient(cfg),
+		Ticket:              NewTicketClient(cfg),
+		TicketDependency:    NewTicketDependencyClient(cfg),
+		TicketExternalLink:  NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:     NewTicketRepoScopeClient(cfg),
+		TicketStatus:        NewTicketStatusClient(cfg),
+		Workflow:            NewWorkflowClient(cfg),
 	}, nil
 }
 
@@ -218,23 +228,25 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                ctx,
-		config:             cfg,
-		ActivityEvent:      NewActivityEventClient(cfg),
-		Agent:              NewAgentClient(cfg),
-		AgentProvider:      NewAgentProviderClient(cfg),
-		AgentToken:         NewAgentTokenClient(cfg),
-		ApprovalGate:       NewApprovalGateClient(cfg),
-		Organization:       NewOrganizationClient(cfg),
-		Project:            NewProjectClient(cfg),
-		ProjectRepo:        NewProjectRepoClient(cfg),
-		ScheduledJob:       NewScheduledJobClient(cfg),
-		Ticket:             NewTicketClient(cfg),
-		TicketDependency:   NewTicketDependencyClient(cfg),
-		TicketExternalLink: NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:    NewTicketRepoScopeClient(cfg),
-		TicketStatus:       NewTicketStatusClient(cfg),
-		Workflow:           NewWorkflowClient(cfg),
+		ctx:                 ctx,
+		config:              cfg,
+		ActivityEvent:       NewActivityEventClient(cfg),
+		Agent:               NewAgentClient(cfg),
+		AgentProvider:       NewAgentProviderClient(cfg),
+		AgentToken:          NewAgentTokenClient(cfg),
+		ApprovalGate:        NewApprovalGateClient(cfg),
+		NotificationChannel: NewNotificationChannelClient(cfg),
+		NotificationRule:    NewNotificationRuleClient(cfg),
+		Organization:        NewOrganizationClient(cfg),
+		Project:             NewProjectClient(cfg),
+		ProjectRepo:         NewProjectRepoClient(cfg),
+		ScheduledJob:        NewScheduledJobClient(cfg),
+		Ticket:              NewTicketClient(cfg),
+		TicketDependency:    NewTicketDependencyClient(cfg),
+		TicketExternalLink:  NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:     NewTicketRepoScopeClient(cfg),
+		TicketStatus:        NewTicketStatusClient(cfg),
+		Workflow:            NewWorkflowClient(cfg),
 	}, nil
 }
 
@@ -265,9 +277,9 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.ApprovalGate,
-		c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob, c.Ticket,
-		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus,
-		c.Workflow,
+		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
+		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketDependency,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
 	} {
 		n.Use(hooks...)
 	}
@@ -278,9 +290,9 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.ApprovalGate,
-		c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob, c.Ticket,
-		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus,
-		c.Workflow,
+		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
+		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketDependency,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -299,6 +311,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AgentToken.mutate(ctx, m)
 	case *ApprovalGateMutation:
 		return c.ApprovalGate.mutate(ctx, m)
+	case *NotificationChannelMutation:
+		return c.NotificationChannel.mutate(ctx, m)
+	case *NotificationRuleMutation:
+		return c.NotificationRule.mutate(ctx, m)
 	case *OrganizationMutation:
 		return c.Organization.mutate(ctx, m)
 	case *ProjectMutation:
@@ -1229,6 +1245,336 @@ func (c *ApprovalGateClient) mutate(ctx context.Context, m *ApprovalGateMutation
 	}
 }
 
+// NotificationChannelClient is a client for the NotificationChannel schema.
+type NotificationChannelClient struct {
+	config
+}
+
+// NewNotificationChannelClient returns a client for the NotificationChannel from the given config.
+func NewNotificationChannelClient(c config) *NotificationChannelClient {
+	return &NotificationChannelClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `notificationchannel.Hooks(f(g(h())))`.
+func (c *NotificationChannelClient) Use(hooks ...Hook) {
+	c.hooks.NotificationChannel = append(c.hooks.NotificationChannel, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `notificationchannel.Intercept(f(g(h())))`.
+func (c *NotificationChannelClient) Intercept(interceptors ...Interceptor) {
+	c.inters.NotificationChannel = append(c.inters.NotificationChannel, interceptors...)
+}
+
+// Create returns a builder for creating a NotificationChannel entity.
+func (c *NotificationChannelClient) Create() *NotificationChannelCreate {
+	mutation := newNotificationChannelMutation(c.config, OpCreate)
+	return &NotificationChannelCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of NotificationChannel entities.
+func (c *NotificationChannelClient) CreateBulk(builders ...*NotificationChannelCreate) *NotificationChannelCreateBulk {
+	return &NotificationChannelCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *NotificationChannelClient) MapCreateBulk(slice any, setFunc func(*NotificationChannelCreate, int)) *NotificationChannelCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &NotificationChannelCreateBulk{err: fmt.Errorf("calling to NotificationChannelClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*NotificationChannelCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &NotificationChannelCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for NotificationChannel.
+func (c *NotificationChannelClient) Update() *NotificationChannelUpdate {
+	mutation := newNotificationChannelMutation(c.config, OpUpdate)
+	return &NotificationChannelUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *NotificationChannelClient) UpdateOne(_m *NotificationChannel) *NotificationChannelUpdateOne {
+	mutation := newNotificationChannelMutation(c.config, OpUpdateOne, withNotificationChannel(_m))
+	return &NotificationChannelUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *NotificationChannelClient) UpdateOneID(id uuid.UUID) *NotificationChannelUpdateOne {
+	mutation := newNotificationChannelMutation(c.config, OpUpdateOne, withNotificationChannelID(id))
+	return &NotificationChannelUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for NotificationChannel.
+func (c *NotificationChannelClient) Delete() *NotificationChannelDelete {
+	mutation := newNotificationChannelMutation(c.config, OpDelete)
+	return &NotificationChannelDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *NotificationChannelClient) DeleteOne(_m *NotificationChannel) *NotificationChannelDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *NotificationChannelClient) DeleteOneID(id uuid.UUID) *NotificationChannelDeleteOne {
+	builder := c.Delete().Where(notificationchannel.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &NotificationChannelDeleteOne{builder}
+}
+
+// Query returns a query builder for NotificationChannel.
+func (c *NotificationChannelClient) Query() *NotificationChannelQuery {
+	return &NotificationChannelQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeNotificationChannel},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a NotificationChannel entity by its id.
+func (c *NotificationChannelClient) Get(ctx context.Context, id uuid.UUID) (*NotificationChannel, error) {
+	return c.Query().Where(notificationchannel.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *NotificationChannelClient) GetX(ctx context.Context, id uuid.UUID) *NotificationChannel {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOrganization queries the organization edge of a NotificationChannel.
+func (c *NotificationChannelClient) QueryOrganization(_m *NotificationChannel) *OrganizationQuery {
+	query := (&OrganizationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(notificationchannel.Table, notificationchannel.FieldID, id),
+			sqlgraph.To(organization.Table, organization.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, notificationchannel.OrganizationTable, notificationchannel.OrganizationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryNotificationRules queries the notification_rules edge of a NotificationChannel.
+func (c *NotificationChannelClient) QueryNotificationRules(_m *NotificationChannel) *NotificationRuleQuery {
+	query := (&NotificationRuleClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(notificationchannel.Table, notificationchannel.FieldID, id),
+			sqlgraph.To(notificationrule.Table, notificationrule.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, notificationchannel.NotificationRulesTable, notificationchannel.NotificationRulesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *NotificationChannelClient) Hooks() []Hook {
+	return c.hooks.NotificationChannel
+}
+
+// Interceptors returns the client interceptors.
+func (c *NotificationChannelClient) Interceptors() []Interceptor {
+	return c.inters.NotificationChannel
+}
+
+func (c *NotificationChannelClient) mutate(ctx context.Context, m *NotificationChannelMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&NotificationChannelCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&NotificationChannelUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&NotificationChannelUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&NotificationChannelDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown NotificationChannel mutation op: %q", m.Op())
+	}
+}
+
+// NotificationRuleClient is a client for the NotificationRule schema.
+type NotificationRuleClient struct {
+	config
+}
+
+// NewNotificationRuleClient returns a client for the NotificationRule from the given config.
+func NewNotificationRuleClient(c config) *NotificationRuleClient {
+	return &NotificationRuleClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `notificationrule.Hooks(f(g(h())))`.
+func (c *NotificationRuleClient) Use(hooks ...Hook) {
+	c.hooks.NotificationRule = append(c.hooks.NotificationRule, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `notificationrule.Intercept(f(g(h())))`.
+func (c *NotificationRuleClient) Intercept(interceptors ...Interceptor) {
+	c.inters.NotificationRule = append(c.inters.NotificationRule, interceptors...)
+}
+
+// Create returns a builder for creating a NotificationRule entity.
+func (c *NotificationRuleClient) Create() *NotificationRuleCreate {
+	mutation := newNotificationRuleMutation(c.config, OpCreate)
+	return &NotificationRuleCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of NotificationRule entities.
+func (c *NotificationRuleClient) CreateBulk(builders ...*NotificationRuleCreate) *NotificationRuleCreateBulk {
+	return &NotificationRuleCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *NotificationRuleClient) MapCreateBulk(slice any, setFunc func(*NotificationRuleCreate, int)) *NotificationRuleCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &NotificationRuleCreateBulk{err: fmt.Errorf("calling to NotificationRuleClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*NotificationRuleCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &NotificationRuleCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for NotificationRule.
+func (c *NotificationRuleClient) Update() *NotificationRuleUpdate {
+	mutation := newNotificationRuleMutation(c.config, OpUpdate)
+	return &NotificationRuleUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *NotificationRuleClient) UpdateOne(_m *NotificationRule) *NotificationRuleUpdateOne {
+	mutation := newNotificationRuleMutation(c.config, OpUpdateOne, withNotificationRule(_m))
+	return &NotificationRuleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *NotificationRuleClient) UpdateOneID(id uuid.UUID) *NotificationRuleUpdateOne {
+	mutation := newNotificationRuleMutation(c.config, OpUpdateOne, withNotificationRuleID(id))
+	return &NotificationRuleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for NotificationRule.
+func (c *NotificationRuleClient) Delete() *NotificationRuleDelete {
+	mutation := newNotificationRuleMutation(c.config, OpDelete)
+	return &NotificationRuleDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *NotificationRuleClient) DeleteOne(_m *NotificationRule) *NotificationRuleDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *NotificationRuleClient) DeleteOneID(id uuid.UUID) *NotificationRuleDeleteOne {
+	builder := c.Delete().Where(notificationrule.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &NotificationRuleDeleteOne{builder}
+}
+
+// Query returns a query builder for NotificationRule.
+func (c *NotificationRuleClient) Query() *NotificationRuleQuery {
+	return &NotificationRuleQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeNotificationRule},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a NotificationRule entity by its id.
+func (c *NotificationRuleClient) Get(ctx context.Context, id uuid.UUID) (*NotificationRule, error) {
+	return c.Query().Where(notificationrule.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *NotificationRuleClient) GetX(ctx context.Context, id uuid.UUID) *NotificationRule {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a NotificationRule.
+func (c *NotificationRuleClient) QueryProject(_m *NotificationRule) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(notificationrule.Table, notificationrule.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, notificationrule.ProjectTable, notificationrule.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryChannel queries the channel edge of a NotificationRule.
+func (c *NotificationRuleClient) QueryChannel(_m *NotificationRule) *NotificationChannelQuery {
+	query := (&NotificationChannelClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(notificationrule.Table, notificationrule.FieldID, id),
+			sqlgraph.To(notificationchannel.Table, notificationchannel.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, notificationrule.ChannelTable, notificationrule.ChannelColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *NotificationRuleClient) Hooks() []Hook {
+	return c.hooks.NotificationRule
+}
+
+// Interceptors returns the client interceptors.
+func (c *NotificationRuleClient) Interceptors() []Interceptor {
+	return c.inters.NotificationRule
+}
+
+func (c *NotificationRuleClient) mutate(ctx context.Context, m *NotificationRuleMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&NotificationRuleCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&NotificationRuleUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&NotificationRuleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&NotificationRuleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown NotificationRule mutation op: %q", m.Op())
+	}
+}
+
 // OrganizationClient is a client for the Organization schema.
 type OrganizationClient struct {
 	config
@@ -1362,6 +1708,22 @@ func (c *OrganizationClient) QueryProviders(_m *Organization) *AgentProviderQuer
 			sqlgraph.From(organization.Table, organization.FieldID, id),
 			sqlgraph.To(agentprovider.Table, agentprovider.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, organization.ProvidersTable, organization.ProvidersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryNotificationChannels queries the notification_channels edge of a Organization.
+func (c *OrganizationClient) QueryNotificationChannels(_m *Organization) *NotificationChannelQuery {
+	query := (&NotificationChannelClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, id),
+			sqlgraph.To(notificationchannel.Table, notificationchannel.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.NotificationChannelsTable, organization.NotificationChannelsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -1655,6 +2017,22 @@ func (c *ProjectClient) QueryActivityEvents(_m *Project) *ActivityEventQuery {
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(activityevent.Table, activityevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ActivityEventsTable, project.ActivityEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryNotificationRules queries the notification_rules edge of a Project.
+func (c *ProjectClient) QueryNotificationRules(_m *Project) *NotificationRuleQuery {
+	query := (&NotificationRuleClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(notificationrule.Table, notificationrule.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.NotificationRulesTable, project.NotificationRulesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3282,13 +3660,15 @@ func (c *WorkflowClient) mutate(ctx context.Context, m *WorkflowMutation) (Value
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		ActivityEvent, Agent, AgentProvider, AgentToken, ApprovalGate, Organization,
-		Project, ProjectRepo, ScheduledJob, Ticket, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketStatus, Workflow []ent.Hook
+		ActivityEvent, Agent, AgentProvider, AgentToken, ApprovalGate,
+		NotificationChannel, NotificationRule, Organization, Project, ProjectRepo,
+		ScheduledJob, Ticket, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketStatus, Workflow []ent.Hook
 	}
 	inters struct {
-		ActivityEvent, Agent, AgentProvider, AgentToken, ApprovalGate, Organization,
-		Project, ProjectRepo, ScheduledJob, Ticket, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketStatus, Workflow []ent.Interceptor
+		ActivityEvent, Agent, AgentProvider, AgentToken, ApprovalGate,
+		NotificationChannel, NotificationRule, Organization, Project, ProjectRepo,
+		ScheduledJob, Ticket, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketStatus, Workflow []ent.Interceptor
 	}
 )
