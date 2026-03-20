@@ -14,7 +14,7 @@ run: web-build
 	go run ./cmd/openase serve
 
 lint:
-	OPENASE_LINT_NEW_FROM_REV=$$(git merge-base origin/main HEAD) $(LINT_SCRIPT)
+	OPENASE_LINT_NEW_FROM_REV=$${LINT_BASE_REV:-$$(git merge-base origin/main HEAD)} $(LINT_SCRIPT)
 
 lint-all:
 	$(LINT_SCRIPT)
