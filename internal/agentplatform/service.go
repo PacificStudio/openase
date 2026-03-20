@@ -56,12 +56,18 @@ type Scope string
 
 type ScopeSet []Scope
 
+type ScopeWhitelist struct {
+	Configured bool
+	Scopes     []string
+}
+
 type IssueInput struct {
-	AgentID   uuid.UUID
-	ProjectID uuid.UUID
-	TicketID  uuid.UUID
-	Scopes    []string
-	TTL       time.Duration
+	AgentID        uuid.UUID
+	ProjectID      uuid.UUID
+	TicketID       uuid.UUID
+	Scopes         []string
+	ScopeWhitelist ScopeWhitelist
+	TTL            time.Duration
 }
 
 type IssuedToken struct {
@@ -102,6 +108,10 @@ func (s *Service) IssueToken(ctx context.Context, input IssueInput) (IssuedToken
 	}
 
 	scopes, err := parseScopes(input.Scopes)
+	if err != nil {
+		return IssuedToken{}, err
+	}
+	scopes, err = constrainScopes(scopes, input.ScopeWhitelist)
 	if err != nil {
 		return IssuedToken{}, err
 	}
@@ -257,6 +267,10 @@ func parseScopes(raw []string) (ScopeSet, error) {
 		return append(ScopeSet(nil), defaultAgentScopes...), nil
 	}
 
+	return parseExplicitScopes(raw)
+}
+
+func parseExplicitScopes(raw []string) (ScopeSet, error) {
 	parsed := make(ScopeSet, 0, len(raw))
 	for _, item := range raw {
 		scope := Scope(strings.TrimSpace(item))
@@ -272,6 +286,25 @@ func parseScopes(raw []string) (ScopeSet, error) {
 	}
 	slices.Sort(parsed)
 	return parsed, nil
+}
+
+func constrainScopes(requested ScopeSet, whitelist ScopeWhitelist) (ScopeSet, error) {
+	if !whitelist.Configured {
+		return requested, nil
+	}
+
+	allowed, err := parseExplicitScopes(whitelist.Scopes)
+	if err != nil {
+		return nil, err
+	}
+
+	constrained := make(ScopeSet, 0, len(requested))
+	for _, scope := range requested {
+		if slices.Contains(allowed, scope) {
+			constrained = append(constrained, scope)
+		}
+	}
+	return constrained, nil
 }
 
 func resolveTTL(raw time.Duration) time.Duration {

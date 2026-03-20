@@ -22,6 +22,7 @@ import (
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -226,6 +227,89 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 	)
 	if repoResp.Repo.Name != "worker-tools" {
 		t.Fatalf("unexpected repo create payload: %+v", repoResp.Repo)
+	}
+}
+
+func TestAgentPlatformHarnessWhitelistConstrainsTokenScopes(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(t, ctx, client)
+	platformService := agentplatform.NewService(client)
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		nil,
+	)
+
+	access, err := workflowservice.ParsePlatformAccess(`---
+platform_access:
+  allowed:
+    - "tickets.list"
+---
+# Dispatcher`)
+	if err != nil {
+		t.Fatalf("ParsePlatformAccess returned error: %v", err)
+	}
+
+	issued, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+		ScopeWhitelist: agentplatform.ScopeWhitelist{
+			Configured: access.Configured,
+			Scopes:     access.Allowed,
+		},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+
+	listResp := struct {
+		Tickets []ticketResponse `json:"tickets"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&listResp,
+	)
+	if len(listResp.Tickets) != 2 {
+		t.Fatalf("expected two tickets in list, got %+v", listResp.Tickets)
+	}
+
+	forbiddenCreateRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID),
+		`{"title":"should fail"}`,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
+	)
+	if forbiddenCreateRec.Code != http.StatusForbidden {
+		t.Fatalf("expected ticket create without whitelisted scope to return 403, got %d: %s", forbiddenCreateRec.Code, forbiddenCreateRec.Body.String())
+	}
+
+	forbiddenUpdateRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		`{"description":"should fail"}`,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
+	)
+	if forbiddenUpdateRec.Code != http.StatusForbidden {
+		t.Fatalf("expected ticket update without whitelisted scope to return 403, got %d: %s", forbiddenUpdateRec.Code, forbiddenUpdateRec.Body.String())
 	}
 }
 

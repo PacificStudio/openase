@@ -82,6 +82,47 @@ func TestIssueTokenUsesDefaultScopes(t *testing.T) {
 	}
 }
 
+func TestIssueTokenConstrainsScopesToWhitelist(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, ticketID := seedAgentPlatformFixture(t, ctx, client)
+
+	service := NewService(client)
+	issued, err := service.IssueToken(ctx, IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  ticketID,
+		Scopes: []string{
+			string(ScopeProjectsUpdate),
+			string(ScopeTicketsCreate),
+			string(ScopeTicketsList),
+		},
+		ScopeWhitelist: ScopeWhitelist{
+			Configured: true,
+			Scopes: []string{
+				string(ScopeProjectsUpdate),
+				string(ScopeTicketsList),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+
+	claims, err := service.Authenticate(ctx, issued.Token)
+	if err != nil {
+		t.Fatalf("Authenticate returned error: %v", err)
+	}
+
+	got := append([]string(nil), claims.Scopes...)
+	want := []string{string(ScopeProjectsUpdate), string(ScopeTicketsList)}
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Fatalf("Scopes=%v, want %v", got, want)
+	}
+}
+
 func TestAuthenticateRejectsExpiredToken(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
