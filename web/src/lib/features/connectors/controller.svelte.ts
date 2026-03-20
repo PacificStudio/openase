@@ -1,6 +1,10 @@
-import { toErrorMessage } from '$lib/features/workspace/api'
-import { createWorkspaceController, type WorkspaceStartOptions } from '$lib/features/workspace/controller.svelte'
-import type { Organization, Project } from '$lib/features/workspace/types'
+import {
+  createWorkspaceController,
+  toErrorMessage,
+  type Organization,
+  type Project,
+  type WorkspaceStartOptions,
+} from '$lib/features/workspace'
 import {
   createConnector,
   deleteConnector,
@@ -17,6 +21,7 @@ import {
   type ConnectorForm,
   type IssueConnector,
 } from './types'
+import { deriveSelectionState, deriveUpdatedForm, findConnector } from './state'
 import {
   deleteLocalConnector,
   readLocalConnectors,
@@ -25,7 +30,6 @@ import {
   simulateLocalTest,
   upsertLocalConnector,
 } from './storage'
-
 type ConnectorAction = '' | 'save' | 'sync' | 'test' | 'toggle-status' | 'delete'
 
 export function createConnectorsController() {
@@ -39,16 +43,13 @@ export function createConnectorsController() {
   let pendingConnectorId = $state('')
   let pendingAction = $state<ConnectorAction>('')
   let persistenceMode = $state<'api' | 'local'>('api')
-
   async function start(options: WorkspaceStartOptions = {}) {
     await workspace.start(options)
     await refreshConnectors()
   }
-
   function destroy() {
     workspace.destroy()
   }
-
   async function refreshConnectors(preferredConnectorId = selectedConnectorId) {
     const projectId = workspace.state.selectedProjectId
     if (!projectId) {
@@ -81,85 +82,45 @@ export function createConnectorsController() {
       syncSelection(preferredConnectorId)
     }
   }
-
   async function selectOrganization(organization: Organization) {
     await workspace.selectOrganization(organization)
     await refreshConnectors('')
   }
-
   async function selectProject(project: Project) {
     await workspace.selectProject(project)
     await refreshConnectors('')
   }
-
   function syncSelection(preferredConnectorId = selectedConnectorId) {
-    const nextSelection =
-      connectors.find((item) => item.id === preferredConnectorId) ??
-      connectors[0] ??
-      null
-
-    if (!nextSelection) {
-      selectedConnectorId = ''
-      form = defaultConnectorForm()
-      return
-    }
-
-    selectedConnectorId = nextSelection.id
-    form = toConnectorForm(nextSelection)
+    const nextState = deriveSelectionState(connectors, preferredConnectorId)
+    selectedConnectorId = nextState.selectedConnectorId
+    form = nextState.form
   }
-
   function selectedConnector() {
-    return connectors.find((item) => item.id === selectedConnectorId) ?? null
+    return findConnector(connectors, selectedConnectorId)
   }
-
   function startCreate() {
     selectedConnectorId = ''
     form = defaultConnectorForm()
     error = ''
   }
-
   function selectConnector(connectorId: string) {
-    const connector = connectors.find((item) => item.id === connectorId)
+    const connector = findConnector(connectors, connectorId)
     if (!connector) {
       return
     }
-
     selectedConnectorId = connector.id
     form = toConnectorForm(connector)
     error = ''
   }
-
   function updateForm<K extends keyof ConnectorForm>(key: K, value: ConnectorForm[K]) {
-    form = {
-      ...form,
-      [key]: value,
-    }
-
-    if (key === 'type' && value === 'inbound-webhook') {
-      form = {
-        ...form,
-        base_url: '',
-        auth_token: '',
-        project_ref: form.project_ref,
-        sync_direction: 'push_only',
-      }
-    }
-
-    if (key === 'type' && value === 'github' && !form.base_url) {
-      form = {
-        ...form,
-        base_url: 'https://api.github.com',
-      }
-    }
+    form = deriveUpdatedForm(form, key, value)
   }
-
   async function saveCurrent() {
     const projectId = workspace.state.selectedProjectId
     if (!projectId) {
       error = 'Select a project before editing connectors.'
       return
     }
-
     pendingAction = 'save'
     pendingConnectorId = selectedConnectorId
     error = ''
@@ -175,7 +136,9 @@ export function createConnectorsController() {
       }
 
       connectors = upsertLocalConnector(projectId, selectedConnectorId, input)
-      notice = selectedConnectorId ? 'Connector draft updated locally.' : 'Connector draft created locally.'
+      notice = selectedConnectorId
+        ? 'Connector draft updated locally.'
+        : 'Connector draft created locally.'
       syncSelection(selectedConnectorId || connectors[0]?.id || '')
     } catch (saveError) {
       if (isConnectorAPIUnavailable(saveError)) {
@@ -191,7 +154,6 @@ export function createConnectorsController() {
       pendingConnectorId = ''
     }
   }
-
   async function runSync(connectorId: string) {
     await runConnectorAction(connectorId, 'sync', async (projectId) => {
       if (persistenceMode === 'api') {
@@ -206,7 +168,6 @@ export function createConnectorsController() {
       syncSelection(connectorId)
     })
   }
-
   async function runTest(connectorId: string) {
     await runConnectorAction(connectorId, 'test', async (projectId) => {
       if (persistenceMode === 'api') {
@@ -221,9 +182,8 @@ export function createConnectorsController() {
       syncSelection(connectorId)
     })
   }
-
   async function toggleStatus(connectorId: string) {
-    const connector = connectors.find((item) => item.id === connectorId)
+    const connector = findConnector(connectors, connectorId)
     if (!connector) {
       return
     }
@@ -241,11 +201,13 @@ export function createConnectorsController() {
       }
 
       connectors = setLocalConnectorStatus(projectId, connectorId, nextStatus)
-      notice = nextStatus === 'paused' ? 'Connector paused in local draft mode.' : 'Connector resumed in local draft mode.'
+      notice =
+        nextStatus === 'paused'
+          ? 'Connector paused in local draft mode.'
+          : 'Connector resumed in local draft mode.'
       syncSelection(connectorId)
     })
   }
-
   async function removeCurrent() {
     const projectId = workspace.state.selectedProjectId
     if (!projectId || !selectedConnectorId) {
@@ -267,7 +229,6 @@ export function createConnectorsController() {
       syncSelection('')
     })
   }
-
   async function runConnectorAction(
     connectorId: string,
     action: ConnectorAction,
@@ -291,19 +252,6 @@ export function createConnectorsController() {
       pendingAction = ''
     }
   }
-
-  function activeCount() {
-    return connectors.filter((item) => item.status === 'active').length
-  }
-
-  function pausedCount() {
-    return connectors.filter((item) => item.status === 'paused').length
-  }
-
-  function errorCount() {
-    return connectors.filter((item) => item.status === 'error').length
-  }
-
   return {
     workspace,
     get connectors() {
@@ -347,8 +295,5 @@ export function createConnectorsController() {
     runTest,
     toggleStatus,
     removeCurrent,
-    activeCount,
-    pausedCount,
-    errorCount,
   }
 }

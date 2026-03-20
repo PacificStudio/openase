@@ -1,26 +1,15 @@
-export const connectorTypes = [
-  'github',
-  'gitlab',
-  'jira',
-  'inbound-webhook',
-  'custom',
-] as const
-
+export const connectorTypes = ['github', 'gitlab', 'jira', 'inbound-webhook', 'custom'] as const
 export const connectorStatuses = ['active', 'paused', 'error'] as const
-
 export const syncDirections = ['pull_only', 'push_only', 'bidirectional'] as const
-
 export type ConnectorType = (typeof connectorTypes)[number]
 export type ConnectorStatus = (typeof connectorStatuses)[number]
 export type SyncDirection = (typeof syncDirections)[number]
-
 export type ConnectorFilters = {
   labels: string[]
   exclude_labels: string[]
   states: string[]
   authors: string[]
 }
-
 export type ConnectorConfig = {
   type: ConnectorType
   base_url: string
@@ -33,13 +22,11 @@ export type ConnectorConfig = {
   webhook_secret: string
   auto_workflow: string
 }
-
 export type ConnectorStats = {
   total_synced: number
   synced_24h: number
   failed_count: number
 }
-
 export type IssueConnector = {
   id: string
   project_id: string
@@ -51,14 +38,12 @@ export type IssueConnector = {
   last_error: string
   stats: ConnectorStats
 }
-
 export type ConnectorInput = {
   type: ConnectorType
   name: string
   status: ConnectorStatus
   config: ConnectorConfig
 }
-
 export type ConnectorForm = {
   type: ConnectorType
   name: string
@@ -157,12 +142,17 @@ export function parseConnectorPayload(raw: unknown): IssueConnector | null {
 
 export function parseConnector(raw: unknown): IssueConnector | null {
   const source = asRecord(raw)
+  const id = readString(source, ['id'])
+  if (!id) {
+    return null
+  }
+
   const type = parseConnectorType(readString(source, ['type'])) ?? 'custom'
   const status = parseConnectorStatus(readString(source, ['status'])) ?? 'active'
   const config = parseConnectorConfig(readValue(source, ['config']), type)
 
   return {
-    id: readString(source, ['id']),
+    id,
     project_id: readString(source, ['project_id', 'projectId', 'ProjectID']),
     type,
     name: readString(source, ['name']),
@@ -176,9 +166,7 @@ export function parseConnector(raw: unknown): IssueConnector | null {
 
 function parseConnectorConfig(raw: unknown, fallbackType: ConnectorType): ConnectorConfig {
   const source = asRecord(raw)
-  const type =
-    parseConnectorType(readString(source, ['type'])) ??
-    fallbackType
+  const type = parseConnectorType(readString(source, ['type'])) ?? fallbackType
 
   return {
     type,
@@ -187,10 +175,13 @@ function parseConnectorConfig(raw: unknown, fallbackType: ConnectorType): Connec
     project_ref: readString(source, ['project_ref', 'projectRef', 'ProjectRef']),
     poll_interval: readString(source, ['poll_interval', 'pollInterval', 'PollInterval']) || '5m',
     sync_direction:
-      parseSyncDirection(readString(source, ['sync_direction', 'syncDirection', 'SyncDirection'])) ??
-      'bidirectional',
+      parseSyncDirection(
+        readString(source, ['sync_direction', 'syncDirection', 'SyncDirection']),
+      ) ?? 'bidirectional',
     filters: parseConnectorFilters(readValue(source, ['filters'])),
-    status_mapping: parseStatusMappingRecord(readValue(source, ['status_mapping', 'statusMapping', 'StatusMapping'])),
+    status_mapping: parseStatusMappingRecord(
+      readValue(source, ['status_mapping', 'statusMapping', 'StatusMapping']),
+    ),
     webhook_secret: readString(source, ['webhook_secret', 'webhookSecret', 'WebhookSecret']),
     auto_workflow: readString(source, ['auto_workflow', 'autoWorkflow', 'AutoWorkflow']),
   }
@@ -200,7 +191,9 @@ function parseConnectorFilters(raw: unknown): ConnectorFilters {
   const source = asRecord(raw)
   return {
     labels: parseStringList(readValue(source, ['labels'])),
-    exclude_labels: parseStringList(readValue(source, ['exclude_labels', 'excludeLabels', 'ExcludeLabels'])),
+    exclude_labels: parseStringList(
+      readValue(source, ['exclude_labels', 'excludeLabels', 'ExcludeLabels']),
+    ),
     states: parseStringList(readValue(source, ['states'])),
     authors: parseStringList(readValue(source, ['authors'])),
   }
@@ -258,9 +251,7 @@ function parseStringList(raw: unknown) {
     return []
   }
 
-  return raw
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean)
+  return raw.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
 }
 
 function parseConnectorType(raw: string): ConnectorType | null {
@@ -276,7 +267,9 @@ function parseSyncDirection(raw: string): SyncDirection | null {
 }
 
 function asRecord(raw: unknown): Record<string, unknown> {
-  return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  return raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : {}
 }
 
 function readValue(source: Record<string, unknown>, keys: string[]) {

@@ -1,9 +1,4 @@
-import {
-  parseConnectorListPayload,
-  parseConnectorPayload,
-  type ConnectorInput,
-  type IssueConnector,
-} from './types'
+import { parseConnectorListPayload, parseConnectorPayload, type ConnectorInput } from './types'
 
 export class ConnectorAPIError extends Error {
   status: number

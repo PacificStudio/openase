@@ -26,7 +26,12 @@
   workspace={connectors.workspace}
   selectedPage="connectors"
   connectorCount={connectors.connectors.length}
-  headerTags={['Phase 2 UI', 'Settings', 'Connectors', connectors.persistenceMode === 'api' ? 'API-backed' : 'Local draft']}
+  headerTags={[
+    'Phase 2 UI',
+    'Settings',
+    'Connectors',
+    connectors.persistenceMode === 'api' ? 'API-backed' : 'Local draft',
+  ]}
   headerEyebrow="OpenASE connector control"
   headerTitle="Manage issue connectors without leaving the project shell."
   headerDescription="Create connector configs, inspect sync health, and trigger test or sync actions from a dedicated settings surface that matches the Phase 2 frontend split."
