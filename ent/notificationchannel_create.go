@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
+	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/google/uuid"
 )
@@ -91,6 +92,21 @@ func (_c *NotificationChannelCreate) SetNillableID(v *uuid.UUID) *NotificationCh
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_c *NotificationChannelCreate) SetOrganization(v *Organization) *NotificationChannelCreate {
 	return _c.SetOrganizationID(v.ID)
+}
+
+// AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
+func (_c *NotificationChannelCreate) AddNotificationRuleIDs(ids ...uuid.UUID) *NotificationChannelCreate {
+	_c.mutation.AddNotificationRuleIDs(ids...)
+	return _c
+}
+
+// AddNotificationRules adds the "notification_rules" edges to the NotificationRule entity.
+func (_c *NotificationChannelCreate) AddNotificationRules(v ...*NotificationRule) *NotificationChannelCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddNotificationRuleIDs(ids...)
 }
 
 // Mutation returns the NotificationChannelMutation object of the builder.
@@ -249,6 +265,22 @@ func (_c *NotificationChannelCreate) createSpec() (*NotificationChannel, *sqlgra
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.OrganizationID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.NotificationRulesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   notificationchannel.NotificationRulesTable,
+			Columns: []string{notificationchannel.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
