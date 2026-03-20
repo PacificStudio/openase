@@ -18,12 +18,12 @@
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
 
   let showDetail = $state(true)
-  let loading = $state(false)
-  let error = $state('')
-  let saving = $state(false)
-  let validating = $state(false)
-  let creating = $state(false)
-  let statusMessage = $state('')
+  let loading = $state(false),
+    saving = $state(false),
+    validating = $state(false),
+    creating = $state(false)
+  let error = $state(''),
+    statusMessage = $state('')
   let workflows = $state<WorkflowSummary[]>([])
   let selectedId = $state('')
   let harness = $state<ReturnType<typeof toHarnessContent> | null>(null)
@@ -278,19 +278,11 @@
         {saving}
         {validating}
         {isDirty}
-        onDraftChange={(raw) => {
-          draftHarness = raw
-        }}
+        onDraftChange={(raw) => (draftHarness = raw)}
         onApplyAssistantDraft={handleApplyAssistantDraft}
-        onSave={() => {
-          void handleSave()
-        }}
-        onValidate={() => {
-          void handleValidate()
-        }}
-        onToggleSkill={(skill) => {
-          void handleToggleSkill(skill)
-        }}
+        onSave={() => void handleSave()}
+        onValidate={() => void handleValidate()}
+        onToggleSkill={(skill) => void handleToggleSkill(skill)}
       />
 
       {#if showDetail && selectedWorkflow}
