@@ -209,6 +209,13 @@
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow skills.'
     }
   }
+
+  function handleApplyAssistantDraft(content: string) {
+    draftHarness = content
+    validationIssues = []
+    error = ''
+    statusMessage = 'Applied AI suggestion to the harness draft.'
+  }
 </script>
 
 <div class="flex h-full flex-col">
@@ -247,6 +254,7 @@
 
       <WorkflowEditorPanel
         {selectedWorkflow}
+        projectId={appStore.currentProject?.id}
         harness={harness
           ? {
               frontmatter: extractFrontmatter(draftHarness),
@@ -264,6 +272,7 @@
         onDraftChange={(raw) => {
           draftHarness = raw
         }}
+        onApplyAssistantDraft={handleApplyAssistantDraft}
         onSave={() => {
           void handleSave()
         }}

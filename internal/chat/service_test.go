@@ -1,9 +1,14 @@
 package chat
 
 import (
+	"context"
+	"strings"
 	"testing"
 
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 )
 
 func TestParseStartInputRequiresTicketForTicketDetail(t *testing.T) {
@@ -57,6 +62,58 @@ func TestParseActionProposalTextAcceptsCodeFenceWithWhitespace(t *testing.T) {
 	}
 }
 
+func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
+	workflowID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	service := NewService(nil, nil, nil, nil, harnessWorkflowReader{
+		detail: workflowservice.WorkflowDetail{
+			Workflow: workflowservice.Workflow{
+				Name: "Coding Workflow",
+				Type: "coding",
+			},
+			HarnessContent: "---\ntype: coding\n---\n\nWrite code.\n",
+		},
+	}, "")
+
+	prompt, err := service.buildSystemPrompt(
+		context.Background(),
+		StartInput{
+			Source: SourceHarnessEditor,
+			Context: Context{
+				ProjectID:  uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
+				WorkflowID: &workflowID,
+			},
+		},
+		catalogdomain.Project{Name: "OpenASE"},
+	)
+	if err != nil {
+		t.Fatalf("build system prompt: %v", err)
+	}
+	if !containsAll(prompt,
+		"Harness 编辑器回复要求",
+		"完整 Harness 必须放在一个 ```markdown 代码块中",
+		"普通 Harness 建议不要输出 action_proposal",
+	) {
+		t.Fatalf("expected harness-editor response instructions in prompt, got %q", prompt)
+	}
+}
+
+type harnessWorkflowReader struct {
+	detail workflowservice.WorkflowDetail
+}
+
+func (r harnessWorkflowReader) Get(context.Context, uuid.UUID) (workflowservice.WorkflowDetail, error) {
+	return r.detail, nil
+}
+
 func stringPointer(value string) *string {
 	return &value
+}
+
+func containsAll(value string, expected ...string) bool {
+	for _, item := range expected {
+		if !strings.Contains(value, item) {
+			return false
+		}
+	}
+	return true
 }
