@@ -21,11 +21,7 @@ export const load: PageLoad = async ({ fetch, depends }) => {
   try {
     const machinesResponse = await fetch(`/api/v1/orgs/${orgContext.org.id}/machines`)
     if (!machinesResponse.ok) {
-      return {
-        orgContext,
-        initialMachines: [],
-        initialListError: 'Failed to load machines.',
-      } satisfies MachinesPageData
+      return createMachinesErrorData(orgContext)
     }
 
     const machineData = (await machinesResponse.json()) as MachinePayload
@@ -35,11 +31,7 @@ export const load: PageLoad = async ({ fetch, depends }) => {
       initialListError: null,
     } satisfies MachinesPageData
   } catch {
-    return {
-      orgContext,
-      initialMachines: [],
-      initialListError: 'Failed to load machines.',
-    } satisfies MachinesPageData
+    return createMachinesErrorData(orgContext)
   }
 }
 
@@ -49,7 +41,7 @@ async function loadOrgContext(
   try {
     const orgResponse = await fetch('/api/v1/orgs')
     if (!orgResponse.ok) {
-      return { kind: 'error', message: 'Failed to load organizations.' }
+      return createOrgErrorContext()
     }
 
     const orgData = (await orgResponse.json()) as OrgResponse
@@ -60,8 +52,25 @@ async function loadOrgContext(
 
     return { kind: 'ready', org }
   } catch {
-    return { kind: 'error', message: 'Failed to load organizations.' }
+    return createOrgErrorContext()
   }
+}
+
+function createMachinesErrorData(
+  orgContext: Extract<MachinesPageData['orgContext'], { kind: 'ready' }>,
+) {
+  return {
+    orgContext,
+    initialMachines: [],
+    initialListError: 'Failed to load machines.',
+  } satisfies MachinesPageData
+}
+
+function createOrgErrorContext() {
+  return {
+    kind: 'error',
+    message: 'Failed to load organizations.',
+  } satisfies MachinesPageData['orgContext']
 }
 
 type PageLoadEvent = Parameters<PageLoad>[0]

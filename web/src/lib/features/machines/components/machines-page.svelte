@@ -139,10 +139,7 @@
     }
 
     if (selectedMachine) {
-      draft = {
-        ...draft,
-        ...createEditorSelectionState(routeOrgId, machines, selectedMachine).draft,
-      }
+      draft = createEditorSelectionState(routeOrgId, machines, selectedMachine).draft
       feedback = ''
       editorError = ''
     }
