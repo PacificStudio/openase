@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -105,7 +106,8 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		t.Fatalf("expected organization patch 200, got %d: %s", patchOrgRec.Code, patchOrgRec.Body.String())
 	}
 
-	projectBody := `{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"active","max_concurrent_agents":8}`
+	accessibleMachineID := uuid.NewString()
+	projectBody := fmt.Sprintf(`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"active","accessible_machine_ids":["%s"],"max_concurrent_agents":8}`, accessibleMachineID)
 	projectRec := performJSONRequest(
 		t,
 		server,
@@ -123,6 +125,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, projectRec, &createProjectPayload)
 	if createProjectPayload.Project.Status != "active" || createProjectPayload.Project.MaxConcurrentAgents != 8 {
 		t.Fatalf("unexpected created project payload: %+v", createProjectPayload.Project)
+	}
+	if len(createProjectPayload.Project.AccessibleMachineIDs) != 1 || createProjectPayload.Project.AccessibleMachineIDs[0] != accessibleMachineID {
+		t.Fatalf("expected project accessible machines to round-trip, got %+v", createProjectPayload.Project)
 	}
 
 	listProjectRec := performJSONRequest(
@@ -144,12 +149,13 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		t.Fatalf("expected 1 project, got %d", len(listProjectPayload.Projects))
 	}
 
+	updatedAccessibleMachineID := uuid.NewString()
 	patchProjectRec := performJSONRequest(
 		t,
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+createProjectPayload.Project.ID,
-		`{"status":"paused","max_concurrent_agents":3}`,
+		fmt.Sprintf(`{"status":"paused","accessible_machine_ids":["%s"],"max_concurrent_agents":3}`, updatedAccessibleMachineID),
 	)
 	if patchProjectRec.Code != http.StatusOK {
 		t.Fatalf("expected project patch 200, got %d: %s", patchProjectRec.Code, patchProjectRec.Body.String())
@@ -161,6 +167,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, patchProjectRec, &patchProjectPayload)
 	if patchProjectPayload.Project.Status != "paused" || patchProjectPayload.Project.MaxConcurrentAgents != 3 {
 		t.Fatalf("unexpected patched project payload: %+v", patchProjectPayload.Project)
+	}
+	if len(patchProjectPayload.Project.AccessibleMachineIDs) != 1 || patchProjectPayload.Project.AccessibleMachineIDs[0] != updatedAccessibleMachineID {
+		t.Fatalf("expected patched project accessible machines to round-trip, got %+v", patchProjectPayload.Project)
 	}
 
 	repoRec := performJSONRequest(
@@ -860,6 +869,7 @@ func (f *fakeCatalogService) CreateProject(_ context.Context, input domain.Creat
 		Status:                 input.Status,
 		DefaultWorkflowID:      input.DefaultWorkflowID,
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
+		AccessibleMachineIDs:   append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,
 	}
 	f.projects[item.ID] = item
@@ -890,6 +900,7 @@ func (f *fakeCatalogService) UpdateProject(_ context.Context, input domain.Updat
 		Status:                 input.Status,
 		DefaultWorkflowID:      input.DefaultWorkflowID,
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
+		AccessibleMachineIDs:   append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,
 	}
 	f.projects[input.ID] = item

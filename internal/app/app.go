@@ -124,9 +124,19 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
+	workflowSvc, err := workflowservice.NewService(client, a.logger, "")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			a.logger.Error("close workflow service", "error", closeErr)
+		}
+	}()
+
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
-	runtimeLauncher := orchestrator.NewRuntimeLauncher(client, a.logger, a.events, agentcli.NewManager(agentcli.ManagerOptions{}))
+	runtimeLauncher := orchestrator.NewRuntimeLauncher(client, a.logger, a.events, agentcli.NewManager(agentcli.ManagerOptions{}), workflowSvc)
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

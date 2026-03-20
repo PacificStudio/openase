@@ -235,6 +235,7 @@ func (s *Server) handleAgentUpdateProject(c echo.Context) error {
 		Status:                 current.Status.String(),
 		DefaultWorkflowID:      uuidToStringPointer(current.DefaultWorkflowID),
 		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
+		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
 	}
 	input, err := domain.ParseUpdateProject(projectID, current.OrganizationID, request)

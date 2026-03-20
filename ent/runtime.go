@@ -220,8 +220,12 @@ func init() {
 	projectDescSlug := projectFields[3].Descriptor()
 	// project.SlugValidator is a validator for the "slug" field. It is called by the builders before save.
 	project.SlugValidator = projectDescSlug.Validators[0].(func(string) error)
+	// projectDescAccessibleMachineIds is the schema descriptor for accessible_machine_ids field.
+	projectDescAccessibleMachineIds := projectFields[8].Descriptor()
+	// project.DefaultAccessibleMachineIds holds the default value on creation for the accessible_machine_ids field.
+	project.DefaultAccessibleMachineIds = projectDescAccessibleMachineIds.Default.(func() []uuid.UUID)
 	// projectDescMaxConcurrentAgents is the schema descriptor for max_concurrent_agents field.
-	projectDescMaxConcurrentAgents := projectFields[8].Descriptor()
+	projectDescMaxConcurrentAgents := projectFields[9].Descriptor()
 	// project.DefaultMaxConcurrentAgents holds the default value on creation for the max_concurrent_agents field.
 	project.DefaultMaxConcurrentAgents = projectDescMaxConcurrentAgents.Default.(int)
 	// projectDescID is the schema descriptor for id field.
