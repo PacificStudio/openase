@@ -266,6 +266,55 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 	}
 }
 
+func TestListAgentsRouteReturnsEmptyCapabilitiesArray(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	service := server.catalog.(*fakeCatalogService)
+	orgID := uuid.New()
+	projectID := uuid.New()
+	providerID := uuid.New()
+	agentID := uuid.New()
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, Name: "Codex"}
+	service.agents[agentID] = domain.Agent{
+		ID:         agentID,
+		ProviderID: providerID,
+		ProjectID:  projectID,
+		Name:       "worker-1",
+		Status:     "idle",
+	}
+
+	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/projects/"+projectID.String()+"/agents", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected agent list 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"capabilities":[]`) {
+		t.Fatalf("expected empty capabilities array in payload, got %s", rec.Body.String())
+	}
+
+	var payload struct {
+		Agents []agentResponse `json:"agents"`
+	}
+	decodeResponse(t, rec, &payload)
+	if len(payload.Agents) != 1 {
+		t.Fatalf("expected one agent, got %+v", payload.Agents)
+	}
+	if payload.Agents[0].Capabilities == nil || len(payload.Agents[0].Capabilities) != 0 {
+		t.Fatalf("expected non-nil empty capabilities slice, got %+v", payload.Agents[0].Capabilities)
+	}
+}
+
 func (f *fakeCatalogService) ListAgentProviders(_ context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error) {
 	if _, ok := f.organizations[organizationID]; !ok {
 		return nil, catalogservice.ErrNotFound

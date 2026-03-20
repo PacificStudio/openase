@@ -252,6 +252,54 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 	}
 }
 
+func TestListTicketStatusesRouteReturnsEmptyArrayForNewProject(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	rec := performJSONRequest(t, server, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID), "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected ticket status list 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"statuses":[]`) {
+		t.Fatalf("expected empty statuses array in payload, got %s", rec.Body.String())
+	}
+
+	var payload struct {
+		Statuses []ticketstatus.Status `json:"statuses"`
+	}
+	decodeResponse(t, rec, &payload)
+	if payload.Statuses == nil || len(payload.Statuses) != 0 {
+		t.Fatalf("expected non-nil empty statuses slice, got %+v", payload.Statuses)
+	}
+}
+
 func openTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 

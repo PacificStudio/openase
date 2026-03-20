@@ -52,6 +52,8 @@ corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
 ```
 
+The frontend build and Go build are one release unit. `vite build` refreshes files under `internal/webui/static/`, but any already-built or already-running `openase` binary continues serving the older embedded bundle until you rebuild the binary too. If browser stack traces mention chunk names that do not exist under `internal/webui/static/_app/immutable/`, first assume an old binary or cached immutable assets, rebuild `./cmd/openase`, and then hard refresh the page.
+
 ## API Contract Generation
 
 OpenASE now keeps the backend-exported OpenAPI contract and the frontend-generated TypeScript contract under version control.

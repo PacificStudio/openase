@@ -3,6 +3,7 @@ import {
   api,
   orderTicketStatuses,
   orderTickets,
+  parseTicketPayload,
   parseStreamEnvelope,
   toErrorMessage,
   type Ticket,
@@ -58,7 +59,11 @@ export function createBoardStore(onTicketMutation?: TicketMutationCallback) {
 
     ticketLoadInFlight = true
     try {
-      const payload = await api<TicketPayload>(`/api/v1/projects/${projectId}/tickets`)
+      const payload = await api<TicketPayload>(
+        `/api/v1/projects/${projectId}/tickets`,
+        {},
+        parseTicketPayload,
+      )
       if (projectId !== activeProjectId) {
         return
       }

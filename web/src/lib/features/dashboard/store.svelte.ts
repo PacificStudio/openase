@@ -6,8 +6,11 @@ import {
   chooseAgentSelection,
   dedupeActivityEvents,
   hasAutomationSignal,
+  parseActivityPayload,
   parseActivityEvent,
+  parseAgentPayload,
   parseAgentPatch,
+  parseHRAdvisorPayload,
   parseStreamEnvelope,
   stalledAgentCount,
   toErrorMessage,
@@ -64,7 +67,11 @@ export function createDashboardStore() {
     agentConsoleError = ''
 
     try {
-      const payload = await api<AgentPayload>(`/api/v1/projects/${projectId}/agents`)
+      const payload = await api<AgentPayload>(
+        `/api/v1/projects/${projectId}/agents`,
+        {},
+        parseAgentPayload,
+      )
       if (projectId !== activeProjectId) {
         return
       }
@@ -96,6 +103,8 @@ export function createDashboardStore() {
 
       const payload = await api<ActivityPayload>(
         `/api/v1/projects/${projectId}/activity?${query.toString()}`,
+        {},
+        parseActivityPayload,
       )
       if (projectId !== activeProjectId) {
         return
@@ -116,7 +125,11 @@ export function createDashboardStore() {
     hrAdvisorError = ''
 
     try {
-      const payload = await api<HRAdvisorResponse>(`/api/v1/projects/${projectId}/hr-advisor`)
+      const payload = await api<HRAdvisorResponse>(
+        `/api/v1/projects/${projectId}/hr-advisor`,
+        {},
+        parseHRAdvisorPayload,
+      )
       if (projectId === activeProjectId) {
         hrAdvisor = payload
       }

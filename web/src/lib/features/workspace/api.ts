@@ -1,4 +1,8 @@
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  init: RequestInit = {},
+  parse?: (payload: unknown) => T,
+): Promise<T> {
   const headers = new Headers(init.headers)
   if (init.body && !headers.has('content-type')) {
     headers.set('content-type', 'application/json')
@@ -17,6 +21,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error(
       payload.message ?? payload.error ?? `request failed with status ${response.status}`,
     )
+  }
+
+  if (parse) {
+    return parse(payload)
   }
 
   return payload as T

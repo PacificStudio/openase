@@ -696,6 +696,69 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	}
 }
 
+func TestListWorkflowsRouteReturnsEmptyArrayForNewProject(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	rec := performJSONRequest(t, server, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected workflow list 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"workflows":[]`) {
+		t.Fatalf("expected empty workflows array in payload, got %s", rec.Body.String())
+	}
+
+	var payload struct {
+		Workflows []workflowResponse `json:"workflows"`
+	}
+	decodeResponse(t, rec, &payload)
+	if payload.Workflows == nil || len(payload.Workflows) != 0 {
+		t.Fatalf("expected non-nil empty workflows slice, got %+v", payload.Workflows)
+	}
+}
+
 func waitForWorkflowVersion(t *testing.T, server *Server, workflowID string, wantVersion int) {
 	t.Helper()
 
