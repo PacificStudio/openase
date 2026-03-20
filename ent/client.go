@@ -20,7 +20,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
-	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -48,8 +47,6 @@ type Client struct {
 	AgentProvider *AgentProviderClient
 	// AgentToken is the client for interacting with the AgentToken builders.
 	AgentToken *AgentTokenClient
-	// ApprovalGate is the client for interacting with the ApprovalGate builders.
-	ApprovalGate *ApprovalGateClient
 	// NotificationChannel is the client for interacting with the NotificationChannel builders.
 	NotificationChannel *NotificationChannelClient
 	// NotificationRule is the client for interacting with the NotificationRule builders.
@@ -89,7 +86,6 @@ func (c *Client) init() {
 	c.Agent = NewAgentClient(c.config)
 	c.AgentProvider = NewAgentProviderClient(c.config)
 	c.AgentToken = NewAgentTokenClient(c.config)
-	c.ApprovalGate = NewApprovalGateClient(c.config)
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
 	c.NotificationRule = NewNotificationRuleClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
@@ -198,7 +194,6 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Agent:               NewAgentClient(cfg),
 		AgentProvider:       NewAgentProviderClient(cfg),
 		AgentToken:          NewAgentTokenClient(cfg),
-		ApprovalGate:        NewApprovalGateClient(cfg),
 		NotificationChannel: NewNotificationChannelClient(cfg),
 		NotificationRule:    NewNotificationRuleClient(cfg),
 		Organization:        NewOrganizationClient(cfg),
@@ -234,7 +229,6 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Agent:               NewAgentClient(cfg),
 		AgentProvider:       NewAgentProviderClient(cfg),
 		AgentToken:          NewAgentTokenClient(cfg),
-		ApprovalGate:        NewApprovalGateClient(cfg),
 		NotificationChannel: NewNotificationChannelClient(cfg),
 		NotificationRule:    NewNotificationRuleClient(cfg),
 		Organization:        NewOrganizationClient(cfg),
@@ -276,10 +270,10 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.ApprovalGate,
-		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
+		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.NotificationChannel,
+		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
+		c.Ticket, c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
+		c.TicketStatus, c.Workflow,
 	} {
 		n.Use(hooks...)
 	}
@@ -289,10 +283,10 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.ApprovalGate,
-		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
+		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentToken, c.NotificationChannel,
+		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
+		c.Ticket, c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
+		c.TicketStatus, c.Workflow,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -309,8 +303,6 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AgentProvider.mutate(ctx, m)
 	case *AgentTokenMutation:
 		return c.AgentToken.mutate(ctx, m)
-	case *ApprovalGateMutation:
-		return c.ApprovalGate.mutate(ctx, m)
 	case *NotificationChannelMutation:
 		return c.NotificationChannel.mutate(ctx, m)
 	case *NotificationRuleMutation:
@@ -1093,155 +1085,6 @@ func (c *AgentTokenClient) mutate(ctx context.Context, m *AgentTokenMutation) (V
 		return (&AgentTokenDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AgentToken mutation op: %q", m.Op())
-	}
-}
-
-// ApprovalGateClient is a client for the ApprovalGate schema.
-type ApprovalGateClient struct {
-	config
-}
-
-// NewApprovalGateClient returns a client for the ApprovalGate from the given config.
-func NewApprovalGateClient(c config) *ApprovalGateClient {
-	return &ApprovalGateClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `approvalgate.Hooks(f(g(h())))`.
-func (c *ApprovalGateClient) Use(hooks ...Hook) {
-	c.hooks.ApprovalGate = append(c.hooks.ApprovalGate, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `approvalgate.Intercept(f(g(h())))`.
-func (c *ApprovalGateClient) Intercept(interceptors ...Interceptor) {
-	c.inters.ApprovalGate = append(c.inters.ApprovalGate, interceptors...)
-}
-
-// Create returns a builder for creating a ApprovalGate entity.
-func (c *ApprovalGateClient) Create() *ApprovalGateCreate {
-	mutation := newApprovalGateMutation(c.config, OpCreate)
-	return &ApprovalGateCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of ApprovalGate entities.
-func (c *ApprovalGateClient) CreateBulk(builders ...*ApprovalGateCreate) *ApprovalGateCreateBulk {
-	return &ApprovalGateCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *ApprovalGateClient) MapCreateBulk(slice any, setFunc func(*ApprovalGateCreate, int)) *ApprovalGateCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &ApprovalGateCreateBulk{err: fmt.Errorf("calling to ApprovalGateClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*ApprovalGateCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &ApprovalGateCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for ApprovalGate.
-func (c *ApprovalGateClient) Update() *ApprovalGateUpdate {
-	mutation := newApprovalGateMutation(c.config, OpUpdate)
-	return &ApprovalGateUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *ApprovalGateClient) UpdateOne(_m *ApprovalGate) *ApprovalGateUpdateOne {
-	mutation := newApprovalGateMutation(c.config, OpUpdateOne, withApprovalGate(_m))
-	return &ApprovalGateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *ApprovalGateClient) UpdateOneID(id uuid.UUID) *ApprovalGateUpdateOne {
-	mutation := newApprovalGateMutation(c.config, OpUpdateOne, withApprovalGateID(id))
-	return &ApprovalGateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for ApprovalGate.
-func (c *ApprovalGateClient) Delete() *ApprovalGateDelete {
-	mutation := newApprovalGateMutation(c.config, OpDelete)
-	return &ApprovalGateDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *ApprovalGateClient) DeleteOne(_m *ApprovalGate) *ApprovalGateDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *ApprovalGateClient) DeleteOneID(id uuid.UUID) *ApprovalGateDeleteOne {
-	builder := c.Delete().Where(approvalgate.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &ApprovalGateDeleteOne{builder}
-}
-
-// Query returns a query builder for ApprovalGate.
-func (c *ApprovalGateClient) Query() *ApprovalGateQuery {
-	return &ApprovalGateQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeApprovalGate},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a ApprovalGate entity by its id.
-func (c *ApprovalGateClient) Get(ctx context.Context, id uuid.UUID) (*ApprovalGate, error) {
-	return c.Query().Where(approvalgate.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *ApprovalGateClient) GetX(ctx context.Context, id uuid.UUID) *ApprovalGate {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryTicket queries the ticket edge of a ApprovalGate.
-func (c *ApprovalGateClient) QueryTicket(_m *ApprovalGate) *TicketQuery {
-	query := (&TicketClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(approvalgate.Table, approvalgate.FieldID, id),
-			sqlgraph.To(ticket.Table, ticket.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, approvalgate.TicketTable, approvalgate.TicketColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *ApprovalGateClient) Hooks() []Hook {
-	return c.hooks.ApprovalGate
-}
-
-// Interceptors returns the client interceptors.
-func (c *ApprovalGateClient) Interceptors() []Interceptor {
-	return c.inters.ApprovalGate
-}
-
-func (c *ApprovalGateClient) mutate(ctx context.Context, m *ApprovalGateMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&ApprovalGateCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&ApprovalGateUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&ApprovalGateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&ApprovalGateDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown ApprovalGate mutation op: %q", m.Op())
 	}
 }
 
@@ -2679,22 +2522,6 @@ func (c *TicketClient) QueryAgentTokens(_m *Ticket) *AgentTokenQuery {
 	return query
 }
 
-// QueryApprovalGates queries the approval_gates edge of a Ticket.
-func (c *TicketClient) QueryApprovalGates(_m *Ticket) *ApprovalGateQuery {
-	query := (&ApprovalGateClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(ticket.Table, ticket.FieldID, id),
-			sqlgraph.To(approvalgate.Table, approvalgate.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ticket.ApprovalGatesTable, ticket.ApprovalGatesColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // QueryActivityEvents queries the activity_events edge of a Ticket.
 func (c *TicketClient) QueryActivityEvents(_m *Ticket) *ActivityEventQuery {
 	query := (&ActivityEventClient{config: c.config}).Query()
@@ -3660,15 +3487,15 @@ func (c *WorkflowClient) mutate(ctx context.Context, m *WorkflowMutation) (Value
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		ActivityEvent, Agent, AgentProvider, AgentToken, ApprovalGate,
-		NotificationChannel, NotificationRule, Organization, Project, ProjectRepo,
-		ScheduledJob, Ticket, TicketDependency, TicketExternalLink, TicketRepoScope,
-		TicketStatus, Workflow []ent.Hook
+		ActivityEvent, Agent, AgentProvider, AgentToken, NotificationChannel,
+		NotificationRule, Organization, Project, ProjectRepo, ScheduledJob, Ticket,
+		TicketDependency, TicketExternalLink, TicketRepoScope, TicketStatus,
+		Workflow []ent.Hook
 	}
 	inters struct {
-		ActivityEvent, Agent, AgentProvider, AgentToken, ApprovalGate,
-		NotificationChannel, NotificationRule, Organization, Project, ProjectRepo,
-		ScheduledJob, Ticket, TicketDependency, TicketExternalLink, TicketRepoScope,
-		TicketStatus, Workflow []ent.Interceptor
+		ActivityEvent, Agent, AgentProvider, AgentToken, NotificationChannel,
+		NotificationRule, Organization, Project, ProjectRepo, ScheduledJob, Ticket,
+		TicketDependency, TicketExternalLink, TicketRepoScope, TicketStatus,
+		Workflow []ent.Interceptor
 	}
 )

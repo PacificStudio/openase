@@ -210,47 +210,6 @@ var (
 			},
 		},
 	}
-	// ApprovalGatesColumns holds the columns for the "approval_gates" table.
-	ApprovalGatesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID},
-		{Name: "trigger_status", Type: field.TypeString},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "approved", "rejected"}, Default: "pending"},
-		{Name: "reviewer", Type: field.TypeString, Nullable: true},
-		{Name: "comment", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "hook_results", Type: field.TypeJSON},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "resolved_at", Type: field.TypeTime, Nullable: true},
-		{Name: "ticket_id", Type: field.TypeUUID},
-	}
-	// ApprovalGatesTable holds the schema information for the "approval_gates" table.
-	ApprovalGatesTable = &schema.Table{
-		Name:       "approval_gates",
-		Columns:    ApprovalGatesColumns,
-		PrimaryKey: []*schema.Column{ApprovalGatesColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "approval_gates_tickets_approval_gates",
-				Columns:    []*schema.Column{ApprovalGatesColumns[8]},
-				RefColumns: []*schema.Column{TicketsColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "approvalgate_status",
-				Unique:  false,
-				Columns: []*schema.Column{ApprovalGatesColumns[2]},
-				Annotation: &entsql.IndexAnnotation{
-					Where: "status = 'pending'",
-				},
-			},
-			{
-				Name:    "approvalgate_ticket_id_status",
-				Unique:  false,
-				Columns: []*schema.Column{ApprovalGatesColumns[8], ApprovalGatesColumns[2]},
-			},
-		},
-	}
 	// NotificationChannelsColumns holds the columns for the "notification_channels" table.
 	NotificationChannelsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -514,7 +473,6 @@ var (
 		{Name: "stall_count", Type: field.TypeInt, Default: 0},
 		{Name: "retry_token", Type: field.TypeString, Nullable: true},
 		{Name: "harness_version", Type: field.TypeInt, Default: 0},
-		{Name: "approval_required", Type: field.TypeBool, Default: false},
 		{Name: "budget_usd", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(12,2)"}},
 		{Name: "cost_tokens_input", Type: field.TypeInt64, Default: 0},
 		{Name: "cost_tokens_output", Type: field.TypeInt64, Default: 0},
@@ -537,31 +495,31 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "tickets_agents_assigned_tickets",
-				Columns:    []*schema.Column{TicketsColumns[25]},
+				Columns:    []*schema.Column{TicketsColumns[24]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_projects_tickets",
-				Columns:    []*schema.Column{TicketsColumns[26]},
+				Columns:    []*schema.Column{TicketsColumns[25]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tickets_tickets_children",
-				Columns:    []*schema.Column{TicketsColumns[27]},
+				Columns:    []*schema.Column{TicketsColumns[26]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_ticket_status_tickets",
-				Columns:    []*schema.Column{TicketsColumns[28]},
+				Columns:    []*schema.Column{TicketsColumns[27]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tickets_workflows_tickets",
-				Columns:    []*schema.Column{TicketsColumns[29]},
+				Columns:    []*schema.Column{TicketsColumns[28]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -570,22 +528,22 @@ var (
 			{
 				Name:    "ticket_project_id_identifier",
 				Unique:  true,
-				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[1]},
+				Columns: []*schema.Column{TicketsColumns[25], TicketsColumns[1]},
 			},
 			{
 				Name:    "ticket_project_id_status_id_assigned_agent_id_priority_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[28], TicketsColumns[25], TicketsColumns[4], TicketsColumns[24]},
+				Columns: []*schema.Column{TicketsColumns[25], TicketsColumns[27], TicketsColumns[24], TicketsColumns[4], TicketsColumns[23]},
 			},
 			{
 				Name:    "ticket_project_id_status_id",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[28]},
+				Columns: []*schema.Column{TicketsColumns[25], TicketsColumns[27]},
 			},
 			{
 				Name:    "ticket_project_id_external_ref",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[7]},
+				Columns: []*schema.Column{TicketsColumns[25], TicketsColumns[7]},
 			},
 		},
 	}
@@ -817,7 +775,6 @@ var (
 		AgentsTable,
 		AgentProvidersTable,
 		AgentTokensTable,
-		ApprovalGatesTable,
 		NotificationChannelsTable,
 		NotificationRulesTable,
 		OrganizationsTable,
@@ -844,7 +801,6 @@ func init() {
 	AgentTokensTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentTokensTable.ForeignKeys[1].RefTable = ProjectsTable
 	AgentTokensTable.ForeignKeys[2].RefTable = TicketsTable
-	ApprovalGatesTable.ForeignKeys[0].RefTable = TicketsTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable
 	NotificationRulesTable.ForeignKeys[1].RefTable = ProjectsTable

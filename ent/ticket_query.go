@@ -15,7 +15,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
-	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -43,7 +42,6 @@ type TicketQuery struct {
 	withRepoScopes           *TicketRepoScopeQuery
 	withExternalLinks        *TicketExternalLinkQuery
 	withAgentTokens          *AgentTokenQuery
-	withApprovalGates        *ApprovalGateQuery
 	withActivityEvents       *ActivityEventQuery
 	withOutgoingDependencies *TicketDependencyQuery
 	withIncomingDependencies *TicketDependencyQuery
@@ -274,28 +272,6 @@ func (_q *TicketQuery) QueryAgentTokens() *AgentTokenQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
 			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentTokensTable, ticket.AgentTokensColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// QueryApprovalGates chains the current query on the "approval_gates" edge.
-func (_q *TicketQuery) QueryApprovalGates() *ApprovalGateQuery {
-	query := (&ApprovalGateClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
-			sqlgraph.To(approvalgate.Table, approvalgate.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ticket.ApprovalGatesTable, ticket.ApprovalGatesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -570,7 +546,6 @@ func (_q *TicketQuery) Clone() *TicketQuery {
 		withRepoScopes:           _q.withRepoScopes.Clone(),
 		withExternalLinks:        _q.withExternalLinks.Clone(),
 		withAgentTokens:          _q.withAgentTokens.Clone(),
-		withApprovalGates:        _q.withApprovalGates.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
 		withOutgoingDependencies: _q.withOutgoingDependencies.Clone(),
 		withIncomingDependencies: _q.withIncomingDependencies.Clone(),
@@ -676,17 +651,6 @@ func (_q *TicketQuery) WithAgentTokens(opts ...func(*AgentTokenQuery)) *TicketQu
 		opt(query)
 	}
 	_q.withAgentTokens = query
-	return _q
-}
-
-// WithApprovalGates tells the query-builder to eager-load the nodes that are connected to
-// the "approval_gates" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *TicketQuery) WithApprovalGates(opts ...func(*ApprovalGateQuery)) *TicketQuery {
-	query := (&ApprovalGateClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withApprovalGates = query
 	return _q
 }
 
@@ -801,7 +765,7 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 	var (
 		nodes       = []*Ticket{}
 		_spec       = _q.querySpec()
-		loadedTypes = [13]bool{
+		loadedTypes = [12]bool{
 			_q.withProject != nil,
 			_q.withStatus != nil,
 			_q.withWorkflow != nil,
@@ -811,7 +775,6 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 			_q.withRepoScopes != nil,
 			_q.withExternalLinks != nil,
 			_q.withAgentTokens != nil,
-			_q.withApprovalGates != nil,
 			_q.withActivityEvents != nil,
 			_q.withOutgoingDependencies != nil,
 			_q.withIncomingDependencies != nil,
@@ -890,13 +853,6 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 		if err := _q.loadAgentTokens(ctx, query, nodes,
 			func(n *Ticket) { n.Edges.AgentTokens = []*AgentToken{} },
 			func(n *Ticket, e *AgentToken) { n.Edges.AgentTokens = append(n.Edges.AgentTokens, e) }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withApprovalGates; query != nil {
-		if err := _q.loadApprovalGates(ctx, query, nodes,
-			func(n *Ticket) { n.Edges.ApprovalGates = []*ApprovalGate{} },
-			func(n *Ticket, e *ApprovalGate) { n.Edges.ApprovalGates = append(n.Edges.ApprovalGates, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1190,36 +1146,6 @@ func (_q *TicketQuery) loadAgentTokens(ctx context.Context, query *AgentTokenQue
 	}
 	query.Where(predicate.AgentToken(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(ticket.AgentTokensColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.TicketID
-		node, ok := nodeids[fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "ticket_id" returned %v for node %v`, fk, n.ID)
-		}
-		assign(node, n)
-	}
-	return nil
-}
-func (_q *TicketQuery) loadApprovalGates(ctx context.Context, query *ApprovalGateQuery, nodes []*Ticket, init func(*Ticket), assign func(*Ticket, *ApprovalGate)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[uuid.UUID]*Ticket)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-		if init != nil {
-			init(nodes[i])
-		}
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(approvalgate.FieldTicketID)
-	}
-	query.Where(predicate.ApprovalGate(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(ticket.ApprovalGatesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

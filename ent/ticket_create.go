@@ -13,7 +13,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
-	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
@@ -271,20 +270,6 @@ func (_c *TicketCreate) SetNillableHarnessVersion(v *int) *TicketCreate {
 	return _c
 }
 
-// SetApprovalRequired sets the "approval_required" field.
-func (_c *TicketCreate) SetApprovalRequired(v bool) *TicketCreate {
-	_c.mutation.SetApprovalRequired(v)
-	return _c
-}
-
-// SetNillableApprovalRequired sets the "approval_required" field if the given value is not nil.
-func (_c *TicketCreate) SetNillableApprovalRequired(v *bool) *TicketCreate {
-	if v != nil {
-		_c.SetApprovalRequired(*v)
-	}
-	return _c
-}
-
 // SetBudgetUsd sets the "budget_usd" field.
 func (_c *TicketCreate) SetBudgetUsd(v float64) *TicketCreate {
 	_c.mutation.SetBudgetUsd(v)
@@ -502,21 +487,6 @@ func (_c *TicketCreate) AddAgentTokens(v ...*AgentToken) *TicketCreate {
 	return _c.AddAgentTokenIDs(ids...)
 }
 
-// AddApprovalGateIDs adds the "approval_gates" edge to the ApprovalGate entity by IDs.
-func (_c *TicketCreate) AddApprovalGateIDs(ids ...uuid.UUID) *TicketCreate {
-	_c.mutation.AddApprovalGateIDs(ids...)
-	return _c
-}
-
-// AddApprovalGates adds the "approval_gates" edges to the ApprovalGate entity.
-func (_c *TicketCreate) AddApprovalGates(v ...*ApprovalGate) *TicketCreate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddApprovalGateIDs(ids...)
-}
-
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by IDs.
 func (_c *TicketCreate) AddActivityEventIDs(ids ...uuid.UUID) *TicketCreate {
 	_c.mutation.AddActivityEventIDs(ids...)
@@ -625,10 +595,6 @@ func (_c *TicketCreate) defaults() {
 		v := ticket.DefaultHarnessVersion
 		_c.mutation.SetHarnessVersion(v)
 	}
-	if _, ok := _c.mutation.ApprovalRequired(); !ok {
-		v := ticket.DefaultApprovalRequired
-		_c.mutation.SetApprovalRequired(v)
-	}
 	if _, ok := _c.mutation.BudgetUsd(); !ok {
 		v := ticket.DefaultBudgetUsd
 		_c.mutation.SetBudgetUsd(v)
@@ -721,9 +687,6 @@ func (_c *TicketCreate) check() error {
 	}
 	if _, ok := _c.mutation.HarnessVersion(); !ok {
 		return &ValidationError{Name: "harness_version", err: errors.New(`ent: missing required field "Ticket.harness_version"`)}
-	}
-	if _, ok := _c.mutation.ApprovalRequired(); !ok {
-		return &ValidationError{Name: "approval_required", err: errors.New(`ent: missing required field "Ticket.approval_required"`)}
 	}
 	if _, ok := _c.mutation.BudgetUsd(); !ok {
 		return &ValidationError{Name: "budget_usd", err: errors.New(`ent: missing required field "Ticket.budget_usd"`)}
@@ -843,10 +806,6 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.HarnessVersion(); ok {
 		_spec.SetField(ticket.FieldHarnessVersion, field.TypeInt, value)
 		_node.HarnessVersion = value
-	}
-	if value, ok := _c.mutation.ApprovalRequired(); ok {
-		_spec.SetField(ticket.FieldApprovalRequired, field.TypeBool, value)
-		_node.ApprovalRequired = value
 	}
 	if value, ok := _c.mutation.BudgetUsd(); ok {
 		_spec.SetField(ticket.FieldBudgetUsd, field.TypeFloat64, value)
@@ -1022,22 +981,6 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.ApprovalGatesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   ticket.ApprovalGatesTable,
-			Columns: []string{ticket.ApprovalGatesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(approvalgate.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

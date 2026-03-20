@@ -54,23 +54,6 @@ CREATE INDEX "agent_capabilities" ON "agents" USING GIN ("capabilities");
 CREATE UNIQUE INDEX "agent_project_id_name" ON "agents" ("project_id", "name");
 -- Create index "agent_project_id_status_last_heartbeat_at" to table: "agents"
 CREATE INDEX "agent_project_id_status_last_heartbeat_at" ON "agents" ("project_id", "status", "last_heartbeat_at");
--- Create "approval_gates" table
-CREATE TABLE "approval_gates" (
-  "id" uuid NOT NULL,
-  "trigger_status" character varying NOT NULL,
-  "status" character varying NOT NULL DEFAULT 'pending',
-  "reviewer" character varying NULL,
-  "comment" text NULL,
-  "hook_results" jsonb NOT NULL,
-  "created_at" timestamptz NOT NULL,
-  "resolved_at" timestamptz NULL,
-  "ticket_id" uuid NOT NULL,
-  PRIMARY KEY ("id")
-);
--- Create index "approvalgate_status" to table: "approval_gates"
-CREATE INDEX "approvalgate_status" ON "approval_gates" ("status") WHERE ((status)::text = 'pending'::text);
--- Create index "approvalgate_ticket_id_status" to table: "approval_gates"
-CREATE INDEX "approvalgate_ticket_id_status" ON "approval_gates" ("ticket_id", "status");
 -- Create "organizations" table
 CREATE TABLE "organizations" (
   "id" uuid NOT NULL,
@@ -212,7 +195,6 @@ CREATE TABLE "tickets" (
   "stall_count" bigint NOT NULL DEFAULT 0,
   "retry_token" character varying NULL,
   "harness_version" bigint NOT NULL DEFAULT 0,
-  "approval_required" boolean NOT NULL DEFAULT false,
   "budget_usd" numeric(12,2) NOT NULL DEFAULT 0,
   "cost_tokens_input" bigint NOT NULL DEFAULT 0,
   "cost_tokens_output" bigint NOT NULL DEFAULT 0,
@@ -265,8 +247,6 @@ ALTER TABLE "activity_events" ADD CONSTRAINT "activity_events_agents_activity_ev
 ALTER TABLE "agent_providers" ADD CONSTRAINT "agent_providers_organizations_providers" FOREIGN KEY ("organization_id") REFERENCES "organizations" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
 -- Modify "agents" table
 ALTER TABLE "agents" ADD CONSTRAINT "agents_agent_providers_agents" FOREIGN KEY ("provider_id") REFERENCES "agent_providers" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "agents_projects_agents" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "agents_tickets_current_ticket" FOREIGN KEY ("current_ticket_id") REFERENCES "tickets" ("id") ON UPDATE NO ACTION ON DELETE SET NULL;
--- Modify "approval_gates" table
-ALTER TABLE "approval_gates" ADD CONSTRAINT "approval_gates_tickets_approval_gates" FOREIGN KEY ("ticket_id") REFERENCES "tickets" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
 -- Modify "organizations" table
 ALTER TABLE "organizations" ADD CONSTRAINT "organizations_agent_providers_default_agent_provider" FOREIGN KEY ("default_agent_provider_id") REFERENCES "agent_providers" ("id") ON UPDATE NO ACTION ON DELETE SET NULL;
 -- Modify "project_repos" table

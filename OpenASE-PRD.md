@@ -109,8 +109,8 @@ AI Agent 编码领域正在经历从"单 Agent 使用"到"Agent 舰队管理"的
 3. 编排引擎在调度周期中发现可执行的工单，执行 `on_claim` Hook（仓库克隆、密钥解密、工作区准备等），然后分配 Agent
 4. Agent 按照 Workflow Harness 执行工作（编码 + 测试 + PR 创建）
 5. Agent 完成后，编排引擎执行 `on_complete` Hook（运行测试、lint 检查、安全扫描等），Hook 全部通过才允许推进状态
-6. 如果需要审批，创建 ApprovalGate，等待人类或高级 Agent 审核
-7. 审批通过后工单状态转为 done，执行 `on_done` Hook（工作区清理、通知发送等），ActivityEvent 记录全部过程
+6. Agent 完成后，工单移动到非 `pickup` 状态（如 `in_review`），等待人类继续推进
+7. 人类确认完成后将工单移动到 `done`，执行 `on_done` Hook（工作区清理、通知发送等），ActivityEvent 记录全部过程
 
 ### 4.2 多 Workflow 类型
 
@@ -288,7 +288,7 @@ OpenASE 后端采用 DDD（Domain-Driven Design）四层架构，配合 Provider
 │              Domain Layer (领域层)           ║   Provider (横切)  ║
 │  domain/ticket/   domain/workflow/         ║                    ║
 │  domain/agent/    domain/project/          ║  auth.Provider     ║
-│  domain/hook/     domain/approval/         ║  trace.Provider    ║
+│  domain/hook/                              ║  trace.Provider    ║
 │                                            ║  metrics.Provider  ║
 │  每个领域包含：                               ║  event.Provider    ║
 │    entity.go      (实体 + 值对象)            ║  notify.Provider   ║
@@ -320,13 +320,12 @@ OpenASE 后端采用 DDD（Domain-Driven Design）四层架构，配合 Provider
 - `domain/workflow/`：Workflow 实体、Harness 解析/渲染接口、Hook 定义
 - `domain/agent/`：Agent 实体、AgentAdapter 接口（适配器抽象在此定义，实现在 infra 层）
 - `domain/project/`：Project、ProjectRepo、TicketRepoScope 实体和业务规则
-- `domain/approval/`：ApprovalGate 实体、审批流转规则
 - `domain/hook/`：Hook 定义、执行结果、阻塞/非阻塞策略
 - 每个领域子包导出 `Repository` 接口（如 `ticket.Repository`），不依赖任何具体存储实现
 
 **Application Layer（应用层）**——编排用例，不含业务规则。
 
-- `app/command/`：写操作。`CreateTicketCmd`、`ClaimTicketCmd`、`CompleteTicketCmd`、`ApproveGateCmd` 等。每个 Command Handler 调用领域服务 + 仓储接口 + Provider，组装一个完整的业务用例
+- `app/command/`：写操作。`CreateTicketCmd`、`ClaimTicketCmd`、`CompleteTicketCmd` 等。每个 Command Handler 调用领域服务 + 仓储接口 + Provider，组装一个完整的业务用例
 - `app/query/`：读操作。`ListTicketsQuery`、`GetTicketDetailQuery`、`GetAgentStatusQuery` 等。可以绕过领域层直接读仓储（CQRS 读写分离的思路）
 - `app/dto/`：数据传输对象，用于应用层与接口层之间的数据转换
 
@@ -460,9 +459,6 @@ openase/
 │   ├── project/
 │   │   ├── entity.go            # Project, ProjectRepo, TicketRepoScope
 │   │   └── repository.go
-│   ├── approval/
-│   │   ├── entity.go            # ApprovalGate
-│   │   └── repository.go
 │   ├── hook/
 │   │   ├── definition.go        # HookType, HookConfig, HookResult
 │   │   └── executor.go          # type Executor interface { Run(ctx, hook, env) Result }
@@ -586,12 +582,12 @@ Organization → Project → ProjectRepo (1:N)
               Ticket → TicketRepoScope (1:N) → ProjectRepo
                 ↓
               Workflow (含 Hooks 配置), AgentProvider, Agent,
-              ScheduledJob, ActivityEvent, ApprovalGate
+              ScheduledJob, ActivityEvent
 ```
 
 一个 Project 关联多个 ProjectRepo（多仓库支持）。一个 Ticket 通过 TicketRepoScope 声明它涉及哪些 Repo，并独立追踪每个 Repo 中的分支和 PR 状态。Workflow 中内嵌 Hook 配置，定义工单各生命周期阶段的自动化检查。
 
-**JSON 字段使用原则**：内容已知且会被查询过滤的字段用结构化列（如 `max_concurrent`、`auto_assign_workflow`）或 PostgreSQL 原生数组 `TEXT[]`（如 `capabilities`、`labels`）。只有真正动态、形状不确定、不被查询的数据才用 JSONB（如 `Ticket.metadata`、`Workflow.hooks`、`AgentProvider.auth_config`、`ApprovalGate.hook_results`、`ScheduledJob.ticket_template`、`ActivityEvent.metadata`）。
+**JSON 字段使用原则**：内容已知且会被查询过滤的字段用结构化列（如 `max_concurrent`、`auto_assign_workflow`）或 PostgreSQL 原生数组 `TEXT[]`（如 `capabilities`、`labels`）。只有真正动态、形状不确定、不被查询的数据才用 JSONB（如 `Ticket.metadata`、`Workflow.hooks`、`AgentProvider.auth_config`、`ScheduledJob.ticket_template`、`ActivityEvent.metadata`）。
 
 ### 6.2 Organization（组织）
 
@@ -668,7 +664,6 @@ Organization → Project → ProjectRepo (1:N)
 | stall_count | Integer | Stall 次数 |
 | retry_token | String | 重试令牌（防过期重试） |
 | harness_version | Integer | 执行时使用的 Harness 版本号 |
-| approval_required | Boolean | 是否需要审批 |
 | budget_usd | Decimal | 单工单预算上限 |
 | cost_tokens_input | BigInt | 输入 Token 数 |
 | cost_tokens_output | BigInt | 输出 Token 数 |
@@ -811,19 +806,9 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 | total_tickets_completed | Integer | 累计完成工单数 |
 | last_heartbeat_at | DateTime | 最后心跳 |
 
-### 6.9 ApprovalGate（审批门控）
+### 6.9 Manual Review Hold（人工审核挂起）
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | UUID | 主键 |
-| ticket_id | FK | 关联工单 |
-| trigger_status | Enum | 触发审批的状态转换（如 in_review → done） |
-| status | Enum | pending / approved / rejected |
-| reviewer | String | 审批人（用户 ID 或 "system"） |
-| comment | Text | 审批意见 |
-| hook_results | JSON | 触发审批时的 Hook 执行结果快照（供 Reviewer 参考） |
-| created_at | DateTime | 创建时间 |
-| resolved_at | DateTime | 审批/拒绝时间 |
+需要人工确认的工单不再创建单独的 `ApprovalGate` 实体。`on_complete` Hook 通过后，工单直接停留在一个非 `pickup` 状态（如 `in_review` / `awaiting_review`），由人类在看板或详情页上继续移动状态。
 
 ### 6.10 ScheduledJob（定时任务）
 
@@ -1079,32 +1064,14 @@ func (h *TicketHandler) UpdateStatus(c echo.Context) error {
 
 ### 7.5 审批
 
-审批不再绑定特定状态转换。它是一个可选的 Hook——`on_complete` Hook 通过后，如果 Harness 配了 `approval.require_before_finish: true`，则不立即移到 finish 状态，而是创建 ApprovalGate 等待人工确认。
-
-```yaml
----
-status:
-  pickup: "Todo"
-  finish: "Done"
-approval:
-  require_before_finish: true   # 完成后不直接到 Done，等人工审批
----
-```
+审批不再通过单独实体建模。`on_complete` Hook 通过后，编排引擎把工单移动到一个非 `pickup` 状态（通常是 `in_review`），由人类继续决定是否推进到 `finish`。
 
 ```go
 // on_complete Hook 全部通过后
-if wf.RequireApprovalBeforeFinish {
-    // 不移到 finish，创建审批
-    gate := approval.NewGate(t.ID)
-    s.approvalRepo.Save(ctx, gate)
-    s.notifier.Send(ctx, "approval", ...)
-    // 工单留在当前状态，等 Reviewer 操作
-    // Reviewer 通过 → 移到 finish
-    // Reviewer 拒绝 → assigned_agent_id 清空，下个 Tick 重试或留给用户处理
-} else {
-    // 直接移到 finish
-    t.StatusID = wf.FinishStatusID
-}
+// 不直接移到 finish，而是进入人工审核态
+t.StatusID = wf.ReviewStatusID
+s.ticketRepo.Save(ctx, t)
+s.notifier.Send(ctx, "ticket.in_review", ...)
 ```
 
 ---
@@ -1734,7 +1701,6 @@ Settings
 | Tickets | 列表视图，适合批量筛选和搜索 |
 | Workflows | Workflow 列表、Harness 编辑器、版本历史 |
 | Agents | Agent 实例、Provider 配置、能力标签、运行状态 |
-| Approvals | 审批门控、待处理项、历史审批记录 |
 | Activity | 审计日志、系统事件、Hook 执行记录 |
 | Insights | 成本、吞吐、成功率、重试趋势 |
 | Settings | 项目配置、Repo、状态列、Connector、通知、机器 |
@@ -2732,7 +2698,7 @@ linters-settings:
 | Context | 第一个参数 | `func (s *Service) Claim(ctx context.Context, ...) error` |
 | 构造函数 | `New` + 类型名 | `NewScheduler(cfg Config) *Scheduler` |
 | DTO | `XxxRequest` / `XxxResponse` | `CreateTicketRequest`、`TicketDetailResponse` |
-| Command | `XxxCmd` | `ClaimTicketCmd`、`ApproveGateCmd` |
+| Command | `XxxCmd` | `ClaimTicketCmd`、`CompleteTicketCmd` |
 | Domain Event | 过去时 | `TicketClaimed`、`HookFailed`、`AgentStalled` |
 
 **Error 处理**
@@ -3722,24 +3688,18 @@ func (h *CompleteTicketHandler) Handle(ctx context.Context, cmd CompleteTicketCm
     }
     h.ticketRepo.Save(ctx, t)
 
-    // 4. 如果需要审批 → 创建 ApprovalGate
-    if workflow.RequireApproval() {
-        gate := approval.NewGate(t.ID, "in_review→done", results)
-        h.approvalRepo.Save(ctx, gate)
-
-        // 通知 Reviewer
-        h.notifier.Send(ctx, "approval", provider.Notification{
-            Title:   fmt.Sprintf("工单 %s 等待审批", t.Identifier),
-            Body:    fmt.Sprintf("Agent 已完成工作，%d 个 Hook 全部通过。请审批。", len(results)),
-            Link:    fmt.Sprintf("/tickets/%s", t.Identifier),
-        })
-    }
+    // 4. 通知 Reviewer，工单保持在 in_review
+    h.notifier.Send(ctx, "ticket.in_review", provider.Notification{
+        Title:   fmt.Sprintf("工单 %s 等待人工确认", t.Identifier),
+        Body:    fmt.Sprintf("Agent 已完成工作，%d 个 Hook 全部通过。", len(results)),
+        Link:    fmt.Sprintf("/tickets/%s", t.Identifier),
+    })
 
     // 5. 广播
     h.eventBus.Publish(ctx, "ticket.events", ticket.MovedToReviewEvent{
         TicketID:        t.ID,
         HookResults:     results,
-        ApprovalCreated: workflow.RequireApproval(),
+        ApprovalCreated: false,
     })
 
     h.metrics.Histogram("openase.ticket.agent_time_seconds",
@@ -3752,8 +3712,8 @@ func (h *CompleteTicketHandler) Handle(ctx context.Context, cmd CompleteTicketCm
 
 **通知方式：**
 - Hook 失败 → `EventProvider` → SSE → 前端标红显示 + Agent 收到反馈重试
-- Hook 通过 + 需要审批 → `NotifyProvider.Send("approval", ...)` → Slack/Email/Webhook → Reviewer 收到通知
-- Hook 通过 + 不需要审批 → 直接走 `on_done` → 工单完成
+- Hook 通过 → `NotifyProvider.Send("ticket.in_review", ...)` → Slack/Email/Webhook → Reviewer 收到通知
+- 人类把工单移到 finish → 触发 `on_done` → 工单完成
 
 ---
 
@@ -4158,7 +4118,7 @@ export function createTicketStream(projectId: string) {
 | **Token 消耗** | Agent CLI 返回值 | Agent event stream `cost_usd` | Agent CLI → orchestrate | orchestrate → DB |
 | **累计成本** | OpenASE DB | PostgreSQL `tickets.cost_amount` | orchestrate (计算) | serve (仪表盘) |
 | **Hook 执行结果** | 编排引擎运行时 | 脚本 exit code + stderr | HookExecutor | orchestrate → DB (ActivityEvent) |
-| **审批决策** | OpenASE DB | PostgreSQL `approval_gates.status` | serve (Reviewer 操作) | orchestrate (状态推进) |
+| **人工审核结果** | OpenASE DB | PostgreSQL `tickets.status_id` | serve (Reviewer 操作) | serve (API/SSE)、orchestrate |
 | **用户身份** | OIDC Provider | 外部 IdP | OIDC Provider | serve (JWT 验证) |
 | **用户身份缓存** | OpenASE DB | PostgreSQL `users.*` | serve (首次登录同步) | serve (API) |
 | **全局配置** | 文件系统 | `~/.openase/config.yaml` | Setup Wizard / 手动编辑 | serve + orchestrate (启动时读取) |
@@ -4171,7 +4131,6 @@ export function createTicketStream(projectId: string) {
 | 信息 | 为什么不会不一致 |
 |------|----------------|
 | 工单状态 | 所有状态变更都经过 domain/ticket/statemachine.go 的校验，写入同一个 PostgreSQL 事务 |
-| 审批决策 | 只有 serve 进程的 ApproveGateCmd 可以写，单写者 |
 | Workflow 定义 | 只有 serve 进程的 API 可以写 |
 | 累计成本 | 只有 orchestrate 进程的 Worker 在 Agent 事件中累加 |
 
@@ -4396,14 +4355,6 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | GET | `/api/v1/agents/:agentId` | Agent 详情（状态、当前工单、心跳、Token 消耗） |
 | DELETE | `/api/v1/agents/:agentId` | 注销 Agent |
 
-**ApprovalGate**
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/projects/:projectId/approvals` | 列出待审批 `?status=pending` |
-| POST | `/api/v1/approvals/:gateId/approve` | 审批通过 `{comment?}` |
-| POST | `/api/v1/approvals/:gateId/reject` | 审批拒绝 `{comment}` |
-
 **ScheduledJob**
 
 | 方法 | 路径 | 说明 |
@@ -4621,9 +4572,6 @@ CREATE INDEX idx_agents_heartbeat ON agents (project_id, status, last_heartbeat_
 CREATE INDEX idx_activity_ticket ON activity_events (ticket_id, created_at DESC);
 CREATE INDEX idx_activity_project ON activity_events (project_id, created_at DESC);
 
--- 审批待处理列表
-CREATE INDEX idx_approvals_pending ON approval_gates (status) WHERE status = 'pending';
-
 -- 定时任务：下次执行时间
 CREATE INDEX idx_scheduled_next ON scheduled_jobs (next_run_at) WHERE is_enabled = true;
 ```
@@ -4721,9 +4669,6 @@ hooks:
     - cmd: "bash scripts/ci/cleanup.sh"
     - cmd: "bash scripts/ci/notify-slack.sh"
 
-# ═══ 审批 ═══
-approval:
-  require_before_done: true        # in_review → done 需要人工审批
 ---
 
 # Coding Workflow
@@ -4803,8 +4748,6 @@ hooks:
       on_failure: warn
   on_done:
     - cmd: "bash scripts/ci/notify-security-team.sh"
-approval:
-  require_before_done: true
 ---
 
 # Security Scan Workflow
@@ -5179,8 +5122,7 @@ func Test_Transition_InProgressToInReview_BlockedByDependency(t *testing.T) {
 |---------|-----------|---------|
 | `command/create_ticket.go` | `ticket.Repository`, `workflow.Repository`, `EventProvider`, `MetricsProvider` | 创建逻辑、自动 Workflow 匹配、事件发布、指标埋点 |
 | `command/claim_ticket.go` | `ticket.Repository`, `hook.Executor`, `EventProvider` | 状态转换、on_claim Hook 调用顺序、Hook 失败回滚 |
-| `command/complete_ticket.go` | `ticket.Repository`, `hook.Executor`, `approval.Repository`, `NotifyProvider` | on_complete Hook、PR 状态聚合、审批创建、通知发送 |
-| `command/approve_gate.go` | `approval.Repository`, `ticket.Repository`, `EventProvider` | 审批通过/拒绝 → 工单状态推进 |
+| `command/complete_ticket.go` | `ticket.Repository`, `hook.Executor`, `NotifyProvider` | on_complete Hook、PR 状态聚合、通知发送 |
 | `query/list_tickets.go` | `ticket.Repository` | 分页、过滤、排序参数透传 |
 
 ```go
@@ -5393,7 +5335,6 @@ func Test_CreateTicket_Returns400_WhenTitleMissing(t *testing.T) {
 | `agent.Repository` | `domain/agent/repository.go` | `mockery` |
 | `agent.Adapter` | `domain/agent/adapter.go` | `mockery` |
 | `hook.Executor` | `domain/hook/executor.go` | `mockery` |
-| `approval.Repository` | `domain/approval/repository.go` | `mockery` |
 | `project.Repository` | `domain/project/repository.go` | `mockery` |
 | `provider.AuthProvider` | `domain/provider/auth.go` | `mockery` |
 | `provider.TraceProvider` | `domain/provider/trace.go` | `mockery` 或用 `NoopTracer` |
@@ -6724,19 +6665,17 @@ Agent Token 只包含 Harness 中 `platform_access.allowed` 声明的权限。AP
 | 创建定时任务 | 3 次 / 工单生命周期 | 防止配置大量 cron |
 | 更新项目信息 | 10 次 / 工单生命周期 | 防止频繁改写 |
 
-**防线三：审批门控**
+**防线三：显式授权**
 
-高危操作可以配置为需要人工审批（在 Harness 中声明）：
+高危操作必须在 Harness 中显式声明白名单：
 
 ```yaml
 platform_access:
   allowed:
     - "projects.add_repo"
-  require_approval:
-    - "projects.add_repo"   # 注册新仓库需要人工确认
 ```
 
-Agent 调用 `projects.add_repo` 时不会立即执行，而是创建一个 ApprovalGate，等待人工确认后才真正注册。
+未显式授权的平台操作直接拒绝执行，不支持“先挂起等待审批再继续”的中间态。
 
 **防线四：ActivityEvent 全量审计**
 
@@ -8177,7 +8116,6 @@ if stats.BacklogCount > 10 && !stats.HasDispatcherWorkflow {
 ticket.status_changed ──→ "待开发"列有新工单？──→ Telegram
 agent.completed ──────→ Agent 完成了？────────→ 企业微信
 hook.failed ──────────→ Hook 失败了？─────────→ Slack + Email
-approval.created ─────→ 有审批待处理？────────→ Telegram + Webhook
 machine.offline ──────→ 机器掉线了？─────────→ 企业微信
 ```
 
@@ -8294,9 +8232,6 @@ channels:
 | `ticket.retry` | Agent 即将重试 | "🔄 {{ ticket.identifier }} 第 {{ attempt_count }} 次重试（退避 {{ backoff }}）" |
 | `hook.failed` | Hook 执行失败 | "🔧 {{ ticket.identifier }} 的 {{ hook_name }} 失败: {{ error }}" |
 | `hook.passed` | Hook 执行通过 | "✅ {{ ticket.identifier }} 的 {{ hook_name }} 通过" |
-| `approval.created` | 创建审批请求 | "📝 {{ ticket.identifier }} 等待审批" |
-| `approval.approved` | 审批通过 | "👍 {{ ticket.identifier }} 审批通过" |
-| `approval.rejected` | 审批拒绝 | "👎 {{ ticket.identifier }} 审批被拒" |
 | `agent.error` | Agent 执行异常 | "🚨 Agent {{ agent.name }} 异常: {{ error }}" |
 | `machine.offline` | 机器离线 | "🔴 机器 {{ machine.name }} 离线" |
 | `machine.online` | 机器上线 | "🟢 机器 {{ machine.name }} 恢复上线" |
@@ -9404,8 +9339,6 @@ Layer 8 (高级功能，依赖 Layer 6-7)
   F51 Ephemeral Chat (内嵌 AI 助手) → F13, F06
   F52 Harness 编辑器 AI 辅助 (侧栏对话) → F51, F27
   F53 Harness 变量字典 API + 编辑器自动补全 → F20, F27
-  F54 ApprovalGate 审批流程 → F17, F06
-  F55 审批中心 UI → F03, F54
   F56 ScheduledJob 定时任务 → F06, F09
   F57 TicketExternalLink (多 Issue 关联) → F06
   F58 Refine-Harness 元工作流 → F42, F40
@@ -9539,8 +9472,6 @@ Layer 11 (企业级 + 开放生态)
 | F51 | **Ephemeral Chat**（内嵌 AI 助手 + 上下文注入 + action_proposal） | 5d | F13, F06 | 31 |
 | F52 | Harness 编辑器 AI 辅助（侧栏对话 + diff 应用） | 3d | F51, F27 | 31 |
 | F53 | Harness 变量字典 API + 编辑器自动补全 + 实时预览 | 3d | F20, F27 | 30 |
-| F54 | ApprovalGate 审批流程（创建 + 通过/拒绝 + 与 Workflow 集成） | 3d | F17, F06 | 7 |
-| F55 | 审批中心 UI | 2d | F03, F54 | 13 |
 | F56 | ScheduledJob 定时任务（robfig/cron + 工单模板 + UI） | 3d | F06, F09 | 6 |
 | F57 | TicketExternalLink（多 Issue 关联 + API + UI） | 2d | F06 | 6 |
 | F58 | Refine-Harness 元工作流（分析历史 + 自动优化 Harness） | 3d | F42, F40 | 26 |

@@ -44,7 +44,6 @@ func (Ticket) Fields() []ent.Field {
 		field.Int("stall_count").Default(0),
 		field.String("retry_token").Optional(),
 		field.Int("harness_version").Default(0),
-		field.Bool("approval_required").Default(false),
 		field.Float("budget_usd").
 			SchemaType(currencyColumn()).
 			Default(0),
@@ -88,7 +87,6 @@ func (Ticket) Edges() []ent.Edge {
 		edge.To("repo_scopes", TicketRepoScope.Type),
 		edge.To("external_links", TicketExternalLink.Type),
 		edge.To("agent_tokens", AgentToken.Type),
-		edge.To("approval_gates", ApprovalGate.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 		edge.To("outgoing_dependencies", TicketDependency.Type),
 		edge.To("incoming_dependencies", TicketDependency.Type),

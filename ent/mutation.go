@@ -15,7 +15,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
-	"github.com/BetterAndBetterII/openase/ent/approvalgate"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -46,7 +45,6 @@ const (
 	TypeAgent               = "Agent"
 	TypeAgentProvider       = "AgentProvider"
 	TypeAgentToken          = "AgentToken"
-	TypeApprovalGate        = "ApprovalGate"
 	TypeNotificationChannel = "NotificationChannel"
 	TypeNotificationRule    = "NotificationRule"
 	TypeOrganization        = "Organization"
@@ -4419,830 +4417,6 @@ func (m *AgentTokenMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AgentToken edge %s", name)
-}
-
-// ApprovalGateMutation represents an operation that mutates the ApprovalGate nodes in the graph.
-type ApprovalGateMutation struct {
-	config
-	op             Op
-	typ            string
-	id             *uuid.UUID
-	trigger_status *string
-	status         *approvalgate.Status
-	reviewer       *string
-	comment        *string
-	hook_results   *map[string]interface{}
-	created_at     *time.Time
-	resolved_at    *time.Time
-	clearedFields  map[string]struct{}
-	ticket         *uuid.UUID
-	clearedticket  bool
-	done           bool
-	oldValue       func(context.Context) (*ApprovalGate, error)
-	predicates     []predicate.ApprovalGate
-}
-
-var _ ent.Mutation = (*ApprovalGateMutation)(nil)
-
-// approvalgateOption allows management of the mutation configuration using functional options.
-type approvalgateOption func(*ApprovalGateMutation)
-
-// newApprovalGateMutation creates new mutation for the ApprovalGate entity.
-func newApprovalGateMutation(c config, op Op, opts ...approvalgateOption) *ApprovalGateMutation {
-	m := &ApprovalGateMutation{
-		config:        c,
-		op:            op,
-		typ:           TypeApprovalGate,
-		clearedFields: make(map[string]struct{}),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
-}
-
-// withApprovalGateID sets the ID field of the mutation.
-func withApprovalGateID(id uuid.UUID) approvalgateOption {
-	return func(m *ApprovalGateMutation) {
-		var (
-			err   error
-			once  sync.Once
-			value *ApprovalGate
-		)
-		m.oldValue = func(ctx context.Context) (*ApprovalGate, error) {
-			once.Do(func() {
-				if m.done {
-					err = errors.New("querying old values post mutation is not allowed")
-				} else {
-					value, err = m.Client().ApprovalGate.Get(ctx, id)
-				}
-			})
-			return value, err
-		}
-		m.id = &id
-	}
-}
-
-// withApprovalGate sets the old ApprovalGate of the mutation.
-func withApprovalGate(node *ApprovalGate) approvalgateOption {
-	return func(m *ApprovalGateMutation) {
-		m.oldValue = func(context.Context) (*ApprovalGate, error) {
-			return node, nil
-		}
-		m.id = &node.ID
-	}
-}
-
-// Client returns a new `ent.Client` from the mutation. If the mutation was
-// executed in a transaction (ent.Tx), a transactional client is returned.
-func (m ApprovalGateMutation) Client() *Client {
-	client := &Client{config: m.config}
-	client.init()
-	return client
-}
-
-// Tx returns an `ent.Tx` for mutations that were executed in transactions;
-// it returns an error otherwise.
-func (m ApprovalGateMutation) Tx() (*Tx, error) {
-	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("ent: mutation is not running in a transaction")
-	}
-	tx := &Tx{config: m.config}
-	tx.init()
-	return tx, nil
-}
-
-// SetID sets the value of the id field. Note that this
-// operation is only accepted on creation of ApprovalGate entities.
-func (m *ApprovalGateMutation) SetID(id uuid.UUID) {
-	m.id = &id
-}
-
-// ID returns the ID value in the mutation. Note that the ID is only available
-// if it was provided to the builder or after it was returned from the database.
-func (m *ApprovalGateMutation) ID() (id uuid.UUID, exists bool) {
-	if m.id == nil {
-		return
-	}
-	return *m.id, true
-}
-
-// IDs queries the database and returns the entity ids that match the mutation's predicate.
-// That means, if the mutation is applied within a transaction with an isolation level such
-// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
-// or updated by the mutation.
-func (m *ApprovalGateMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
-	switch {
-	case m.op.Is(OpUpdateOne | OpDeleteOne):
-		id, exists := m.ID()
-		if exists {
-			return []uuid.UUID{id}, nil
-		}
-		fallthrough
-	case m.op.Is(OpUpdate | OpDelete):
-		return m.Client().ApprovalGate.Query().Where(m.predicates...).IDs(ctx)
-	default:
-		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
-	}
-}
-
-// SetTicketID sets the "ticket_id" field.
-func (m *ApprovalGateMutation) SetTicketID(u uuid.UUID) {
-	m.ticket = &u
-}
-
-// TicketID returns the value of the "ticket_id" field in the mutation.
-func (m *ApprovalGateMutation) TicketID() (r uuid.UUID, exists bool) {
-	v := m.ticket
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldTicketID returns the old "ticket_id" field's value of the ApprovalGate entity.
-// If the ApprovalGate object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ApprovalGateMutation) OldTicketID(ctx context.Context) (v uuid.UUID, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTicketID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTicketID: %w", err)
-	}
-	return oldValue.TicketID, nil
-}
-
-// ResetTicketID resets all changes to the "ticket_id" field.
-func (m *ApprovalGateMutation) ResetTicketID() {
-	m.ticket = nil
-}
-
-// SetTriggerStatus sets the "trigger_status" field.
-func (m *ApprovalGateMutation) SetTriggerStatus(s string) {
-	m.trigger_status = &s
-}
-
-// TriggerStatus returns the value of the "trigger_status" field in the mutation.
-func (m *ApprovalGateMutation) TriggerStatus() (r string, exists bool) {
-	v := m.trigger_status
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldTriggerStatus returns the old "trigger_status" field's value of the ApprovalGate entity.
-// If the ApprovalGate object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ApprovalGateMutation) OldTriggerStatus(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTriggerStatus is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTriggerStatus requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTriggerStatus: %w", err)
-	}
-	return oldValue.TriggerStatus, nil
-}
-
-// ResetTriggerStatus resets all changes to the "trigger_status" field.
-func (m *ApprovalGateMutation) ResetTriggerStatus() {
-	m.trigger_status = nil
-}
-
-// SetStatus sets the "status" field.
-func (m *ApprovalGateMutation) SetStatus(a approvalgate.Status) {
-	m.status = &a
-}
-
-// Status returns the value of the "status" field in the mutation.
-func (m *ApprovalGateMutation) Status() (r approvalgate.Status, exists bool) {
-	v := m.status
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldStatus returns the old "status" field's value of the ApprovalGate entity.
-// If the ApprovalGate object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ApprovalGateMutation) OldStatus(ctx context.Context) (v approvalgate.Status, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldStatus requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
-	}
-	return oldValue.Status, nil
-}
-
-// ResetStatus resets all changes to the "status" field.
-func (m *ApprovalGateMutation) ResetStatus() {
-	m.status = nil
-}
-
-// SetReviewer sets the "reviewer" field.
-func (m *ApprovalGateMutation) SetReviewer(s string) {
-	m.reviewer = &s
-}
-
-// Reviewer returns the value of the "reviewer" field in the mutation.
-func (m *ApprovalGateMutation) Reviewer() (r string, exists bool) {
-	v := m.reviewer
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldReviewer returns the old "reviewer" field's value of the ApprovalGate entity.
-// If the ApprovalGate object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ApprovalGateMutation) OldReviewer(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldReviewer is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldReviewer requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldReviewer: %w", err)
-	}
-	return oldValue.Reviewer, nil
-}
-
-// ClearReviewer clears the value of the "reviewer" field.
-func (m *ApprovalGateMutation) ClearReviewer() {
-	m.reviewer = nil
-	m.clearedFields[approvalgate.FieldReviewer] = struct{}{}
-}
-
-// ReviewerCleared returns if the "reviewer" field was cleared in this mutation.
-func (m *ApprovalGateMutation) ReviewerCleared() bool {
-	_, ok := m.clearedFields[approvalgate.FieldReviewer]
-	return ok
-}
-
-// ResetReviewer resets all changes to the "reviewer" field.
-func (m *ApprovalGateMutation) ResetReviewer() {
-	m.reviewer = nil
-	delete(m.clearedFields, approvalgate.FieldReviewer)
-}
-
-// SetComment sets the "comment" field.
-func (m *ApprovalGateMutation) SetComment(s string) {
-	m.comment = &s
-}
-
-// Comment returns the value of the "comment" field in the mutation.
-func (m *ApprovalGateMutation) Comment() (r string, exists bool) {
-	v := m.comment
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldComment returns the old "comment" field's value of the ApprovalGate entity.
-// If the ApprovalGate object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ApprovalGateMutation) OldComment(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldComment is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldComment requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldComment: %w", err)
-	}
-	return oldValue.Comment, nil
-}
-
-// ClearComment clears the value of the "comment" field.
-func (m *ApprovalGateMutation) ClearComment() {
-	m.comment = nil
-	m.clearedFields[approvalgate.FieldComment] = struct{}{}
-}
-
-// CommentCleared returns if the "comment" field was cleared in this mutation.
-func (m *ApprovalGateMutation) CommentCleared() bool {
-	_, ok := m.clearedFields[approvalgate.FieldComment]
-	return ok
-}
-
-// ResetComment resets all changes to the "comment" field.
-func (m *ApprovalGateMutation) ResetComment() {
-	m.comment = nil
-	delete(m.clearedFields, approvalgate.FieldComment)
-}
-
-// SetHookResults sets the "hook_results" field.
-func (m *ApprovalGateMutation) SetHookResults(value map[string]interface{}) {
-	m.hook_results = &value
-}
-
-// HookResults returns the value of the "hook_results" field in the mutation.
-func (m *ApprovalGateMutation) HookResults() (r map[string]interface{}, exists bool) {
-	v := m.hook_results
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldHookResults returns the old "hook_results" field's value of the ApprovalGate entity.
-// If the ApprovalGate object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ApprovalGateMutation) OldHookResults(ctx context.Context) (v map[string]interface{}, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldHookResults is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldHookResults requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldHookResults: %w", err)
-	}
-	return oldValue.HookResults, nil
-}
-
-// ResetHookResults resets all changes to the "hook_results" field.
-func (m *ApprovalGateMutation) ResetHookResults() {
-	m.hook_results = nil
-}
-
-// SetCreatedAt sets the "created_at" field.
-func (m *ApprovalGateMutation) SetCreatedAt(t time.Time) {
-	m.created_at = &t
-}
-
-// CreatedAt returns the value of the "created_at" field in the mutation.
-func (m *ApprovalGateMutation) CreatedAt() (r time.Time, exists bool) {
-	v := m.created_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCreatedAt returns the old "created_at" field's value of the ApprovalGate entity.
-// If the ApprovalGate object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ApprovalGateMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
-	}
-	return oldValue.CreatedAt, nil
-}
-
-// ResetCreatedAt resets all changes to the "created_at" field.
-func (m *ApprovalGateMutation) ResetCreatedAt() {
-	m.created_at = nil
-}
-
-// SetResolvedAt sets the "resolved_at" field.
-func (m *ApprovalGateMutation) SetResolvedAt(t time.Time) {
-	m.resolved_at = &t
-}
-
-// ResolvedAt returns the value of the "resolved_at" field in the mutation.
-func (m *ApprovalGateMutation) ResolvedAt() (r time.Time, exists bool) {
-	v := m.resolved_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldResolvedAt returns the old "resolved_at" field's value of the ApprovalGate entity.
-// If the ApprovalGate object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ApprovalGateMutation) OldResolvedAt(ctx context.Context) (v *time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldResolvedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldResolvedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldResolvedAt: %w", err)
-	}
-	return oldValue.ResolvedAt, nil
-}
-
-// ClearResolvedAt clears the value of the "resolved_at" field.
-func (m *ApprovalGateMutation) ClearResolvedAt() {
-	m.resolved_at = nil
-	m.clearedFields[approvalgate.FieldResolvedAt] = struct{}{}
-}
-
-// ResolvedAtCleared returns if the "resolved_at" field was cleared in this mutation.
-func (m *ApprovalGateMutation) ResolvedAtCleared() bool {
-	_, ok := m.clearedFields[approvalgate.FieldResolvedAt]
-	return ok
-}
-
-// ResetResolvedAt resets all changes to the "resolved_at" field.
-func (m *ApprovalGateMutation) ResetResolvedAt() {
-	m.resolved_at = nil
-	delete(m.clearedFields, approvalgate.FieldResolvedAt)
-}
-
-// ClearTicket clears the "ticket" edge to the Ticket entity.
-func (m *ApprovalGateMutation) ClearTicket() {
-	m.clearedticket = true
-	m.clearedFields[approvalgate.FieldTicketID] = struct{}{}
-}
-
-// TicketCleared reports if the "ticket" edge to the Ticket entity was cleared.
-func (m *ApprovalGateMutation) TicketCleared() bool {
-	return m.clearedticket
-}
-
-// TicketIDs returns the "ticket" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// TicketID instead. It exists only for internal usage by the builders.
-func (m *ApprovalGateMutation) TicketIDs() (ids []uuid.UUID) {
-	if id := m.ticket; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetTicket resets all changes to the "ticket" edge.
-func (m *ApprovalGateMutation) ResetTicket() {
-	m.ticket = nil
-	m.clearedticket = false
-}
-
-// Where appends a list predicates to the ApprovalGateMutation builder.
-func (m *ApprovalGateMutation) Where(ps ...predicate.ApprovalGate) {
-	m.predicates = append(m.predicates, ps...)
-}
-
-// WhereP appends storage-level predicates to the ApprovalGateMutation builder. Using this method,
-// users can use type-assertion to append predicates that do not depend on any generated package.
-func (m *ApprovalGateMutation) WhereP(ps ...func(*sql.Selector)) {
-	p := make([]predicate.ApprovalGate, len(ps))
-	for i := range ps {
-		p[i] = ps[i]
-	}
-	m.Where(p...)
-}
-
-// Op returns the operation name.
-func (m *ApprovalGateMutation) Op() Op {
-	return m.op
-}
-
-// SetOp allows setting the mutation operation.
-func (m *ApprovalGateMutation) SetOp(op Op) {
-	m.op = op
-}
-
-// Type returns the node type of this mutation (ApprovalGate).
-func (m *ApprovalGateMutation) Type() string {
-	return m.typ
-}
-
-// Fields returns all fields that were changed during this mutation. Note that in
-// order to get all numeric fields that were incremented/decremented, call
-// AddedFields().
-func (m *ApprovalGateMutation) Fields() []string {
-	fields := make([]string, 0, 8)
-	if m.ticket != nil {
-		fields = append(fields, approvalgate.FieldTicketID)
-	}
-	if m.trigger_status != nil {
-		fields = append(fields, approvalgate.FieldTriggerStatus)
-	}
-	if m.status != nil {
-		fields = append(fields, approvalgate.FieldStatus)
-	}
-	if m.reviewer != nil {
-		fields = append(fields, approvalgate.FieldReviewer)
-	}
-	if m.comment != nil {
-		fields = append(fields, approvalgate.FieldComment)
-	}
-	if m.hook_results != nil {
-		fields = append(fields, approvalgate.FieldHookResults)
-	}
-	if m.created_at != nil {
-		fields = append(fields, approvalgate.FieldCreatedAt)
-	}
-	if m.resolved_at != nil {
-		fields = append(fields, approvalgate.FieldResolvedAt)
-	}
-	return fields
-}
-
-// Field returns the value of a field with the given name. The second boolean
-// return value indicates that this field was not set, or was not defined in the
-// schema.
-func (m *ApprovalGateMutation) Field(name string) (ent.Value, bool) {
-	switch name {
-	case approvalgate.FieldTicketID:
-		return m.TicketID()
-	case approvalgate.FieldTriggerStatus:
-		return m.TriggerStatus()
-	case approvalgate.FieldStatus:
-		return m.Status()
-	case approvalgate.FieldReviewer:
-		return m.Reviewer()
-	case approvalgate.FieldComment:
-		return m.Comment()
-	case approvalgate.FieldHookResults:
-		return m.HookResults()
-	case approvalgate.FieldCreatedAt:
-		return m.CreatedAt()
-	case approvalgate.FieldResolvedAt:
-		return m.ResolvedAt()
-	}
-	return nil, false
-}
-
-// OldField returns the old value of the field from the database. An error is
-// returned if the mutation operation is not UpdateOne, or the query to the
-// database failed.
-func (m *ApprovalGateMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
-	switch name {
-	case approvalgate.FieldTicketID:
-		return m.OldTicketID(ctx)
-	case approvalgate.FieldTriggerStatus:
-		return m.OldTriggerStatus(ctx)
-	case approvalgate.FieldStatus:
-		return m.OldStatus(ctx)
-	case approvalgate.FieldReviewer:
-		return m.OldReviewer(ctx)
-	case approvalgate.FieldComment:
-		return m.OldComment(ctx)
-	case approvalgate.FieldHookResults:
-		return m.OldHookResults(ctx)
-	case approvalgate.FieldCreatedAt:
-		return m.OldCreatedAt(ctx)
-	case approvalgate.FieldResolvedAt:
-		return m.OldResolvedAt(ctx)
-	}
-	return nil, fmt.Errorf("unknown ApprovalGate field %s", name)
-}
-
-// SetField sets the value of a field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *ApprovalGateMutation) SetField(name string, value ent.Value) error {
-	switch name {
-	case approvalgate.FieldTicketID:
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetTicketID(v)
-		return nil
-	case approvalgate.FieldTriggerStatus:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetTriggerStatus(v)
-		return nil
-	case approvalgate.FieldStatus:
-		v, ok := value.(approvalgate.Status)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetStatus(v)
-		return nil
-	case approvalgate.FieldReviewer:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetReviewer(v)
-		return nil
-	case approvalgate.FieldComment:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetComment(v)
-		return nil
-	case approvalgate.FieldHookResults:
-		v, ok := value.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetHookResults(v)
-		return nil
-	case approvalgate.FieldCreatedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCreatedAt(v)
-		return nil
-	case approvalgate.FieldResolvedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetResolvedAt(v)
-		return nil
-	}
-	return fmt.Errorf("unknown ApprovalGate field %s", name)
-}
-
-// AddedFields returns all numeric fields that were incremented/decremented during
-// this mutation.
-func (m *ApprovalGateMutation) AddedFields() []string {
-	return nil
-}
-
-// AddedField returns the numeric value that was incremented/decremented on a field
-// with the given name. The second boolean return value indicates that this field
-// was not set, or was not defined in the schema.
-func (m *ApprovalGateMutation) AddedField(name string) (ent.Value, bool) {
-	return nil, false
-}
-
-// AddField adds the value to the field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *ApprovalGateMutation) AddField(name string, value ent.Value) error {
-	switch name {
-	}
-	return fmt.Errorf("unknown ApprovalGate numeric field %s", name)
-}
-
-// ClearedFields returns all nullable fields that were cleared during this
-// mutation.
-func (m *ApprovalGateMutation) ClearedFields() []string {
-	var fields []string
-	if m.FieldCleared(approvalgate.FieldReviewer) {
-		fields = append(fields, approvalgate.FieldReviewer)
-	}
-	if m.FieldCleared(approvalgate.FieldComment) {
-		fields = append(fields, approvalgate.FieldComment)
-	}
-	if m.FieldCleared(approvalgate.FieldResolvedAt) {
-		fields = append(fields, approvalgate.FieldResolvedAt)
-	}
-	return fields
-}
-
-// FieldCleared returns a boolean indicating if a field with the given name was
-// cleared in this mutation.
-func (m *ApprovalGateMutation) FieldCleared(name string) bool {
-	_, ok := m.clearedFields[name]
-	return ok
-}
-
-// ClearField clears the value of the field with the given name. It returns an
-// error if the field is not defined in the schema.
-func (m *ApprovalGateMutation) ClearField(name string) error {
-	switch name {
-	case approvalgate.FieldReviewer:
-		m.ClearReviewer()
-		return nil
-	case approvalgate.FieldComment:
-		m.ClearComment()
-		return nil
-	case approvalgate.FieldResolvedAt:
-		m.ClearResolvedAt()
-		return nil
-	}
-	return fmt.Errorf("unknown ApprovalGate nullable field %s", name)
-}
-
-// ResetField resets all changes in the mutation for the field with the given name.
-// It returns an error if the field is not defined in the schema.
-func (m *ApprovalGateMutation) ResetField(name string) error {
-	switch name {
-	case approvalgate.FieldTicketID:
-		m.ResetTicketID()
-		return nil
-	case approvalgate.FieldTriggerStatus:
-		m.ResetTriggerStatus()
-		return nil
-	case approvalgate.FieldStatus:
-		m.ResetStatus()
-		return nil
-	case approvalgate.FieldReviewer:
-		m.ResetReviewer()
-		return nil
-	case approvalgate.FieldComment:
-		m.ResetComment()
-		return nil
-	case approvalgate.FieldHookResults:
-		m.ResetHookResults()
-		return nil
-	case approvalgate.FieldCreatedAt:
-		m.ResetCreatedAt()
-		return nil
-	case approvalgate.FieldResolvedAt:
-		m.ResetResolvedAt()
-		return nil
-	}
-	return fmt.Errorf("unknown ApprovalGate field %s", name)
-}
-
-// AddedEdges returns all edge names that were set/added in this mutation.
-func (m *ApprovalGateMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.ticket != nil {
-		edges = append(edges, approvalgate.EdgeTicket)
-	}
-	return edges
-}
-
-// AddedIDs returns all IDs (to other nodes) that were added for the given edge
-// name in this mutation.
-func (m *ApprovalGateMutation) AddedIDs(name string) []ent.Value {
-	switch name {
-	case approvalgate.EdgeTicket:
-		if id := m.ticket; id != nil {
-			return []ent.Value{*id}
-		}
-	}
-	return nil
-}
-
-// RemovedEdges returns all edge names that were removed in this mutation.
-func (m *ApprovalGateMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
-	return edges
-}
-
-// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
-// the given name in this mutation.
-func (m *ApprovalGateMutation) RemovedIDs(name string) []ent.Value {
-	return nil
-}
-
-// ClearedEdges returns all edge names that were cleared in this mutation.
-func (m *ApprovalGateMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.clearedticket {
-		edges = append(edges, approvalgate.EdgeTicket)
-	}
-	return edges
-}
-
-// EdgeCleared returns a boolean which indicates if the edge with the given name
-// was cleared in this mutation.
-func (m *ApprovalGateMutation) EdgeCleared(name string) bool {
-	switch name {
-	case approvalgate.EdgeTicket:
-		return m.clearedticket
-	}
-	return false
-}
-
-// ClearEdge clears the value of the edge with the given name. It returns an error
-// if that edge is not defined in the schema.
-func (m *ApprovalGateMutation) ClearEdge(name string) error {
-	switch name {
-	case approvalgate.EdgeTicket:
-		m.ClearTicket()
-		return nil
-	}
-	return fmt.Errorf("unknown ApprovalGate unique edge %s", name)
-}
-
-// ResetEdge resets all changes to the edge with the given name in this mutation.
-// It returns an error if the edge is not defined in the schema.
-func (m *ApprovalGateMutation) ResetEdge(name string) error {
-	switch name {
-	case approvalgate.EdgeTicket:
-		m.ResetTicket()
-		return nil
-	}
-	return fmt.Errorf("unknown ApprovalGate edge %s", name)
 }
 
 // NotificationChannelMutation represents an operation that mutates the NotificationChannel nodes in the graph.
@@ -10998,7 +10172,6 @@ type TicketMutation struct {
 	retry_token                  *string
 	harness_version              *int
 	addharness_version           *int
-	approval_required            *bool
 	budget_usd                   *float64
 	addbudget_usd                *float64
 	cost_tokens_input            *int64
@@ -11034,9 +10207,6 @@ type TicketMutation struct {
 	agent_tokens                 map[uuid.UUID]struct{}
 	removedagent_tokens          map[uuid.UUID]struct{}
 	clearedagent_tokens          bool
-	approval_gates               map[uuid.UUID]struct{}
-	removedapproval_gates        map[uuid.UUID]struct{}
-	clearedapproval_gates        bool
 	activity_events              map[uuid.UUID]struct{}
 	removedactivity_events       map[uuid.UUID]struct{}
 	clearedactivity_events       bool
@@ -12059,42 +11229,6 @@ func (m *TicketMutation) ResetHarnessVersion() {
 	m.addharness_version = nil
 }
 
-// SetApprovalRequired sets the "approval_required" field.
-func (m *TicketMutation) SetApprovalRequired(b bool) {
-	m.approval_required = &b
-}
-
-// ApprovalRequired returns the value of the "approval_required" field in the mutation.
-func (m *TicketMutation) ApprovalRequired() (r bool, exists bool) {
-	v := m.approval_required
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldApprovalRequired returns the old "approval_required" field's value of the Ticket entity.
-// If the Ticket object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *TicketMutation) OldApprovalRequired(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldApprovalRequired is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldApprovalRequired requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldApprovalRequired: %w", err)
-	}
-	return oldValue.ApprovalRequired, nil
-}
-
-// ResetApprovalRequired resets all changes to the "approval_required" field.
-func (m *TicketMutation) ResetApprovalRequired() {
-	m.approval_required = nil
-}
-
 // SetBudgetUsd sets the "budget_usd" field.
 func (m *TicketMutation) SetBudgetUsd(f float64) {
 	m.budget_usd = &f
@@ -12853,60 +11987,6 @@ func (m *TicketMutation) ResetAgentTokens() {
 	m.removedagent_tokens = nil
 }
 
-// AddApprovalGateIDs adds the "approval_gates" edge to the ApprovalGate entity by ids.
-func (m *TicketMutation) AddApprovalGateIDs(ids ...uuid.UUID) {
-	if m.approval_gates == nil {
-		m.approval_gates = make(map[uuid.UUID]struct{})
-	}
-	for i := range ids {
-		m.approval_gates[ids[i]] = struct{}{}
-	}
-}
-
-// ClearApprovalGates clears the "approval_gates" edge to the ApprovalGate entity.
-func (m *TicketMutation) ClearApprovalGates() {
-	m.clearedapproval_gates = true
-}
-
-// ApprovalGatesCleared reports if the "approval_gates" edge to the ApprovalGate entity was cleared.
-func (m *TicketMutation) ApprovalGatesCleared() bool {
-	return m.clearedapproval_gates
-}
-
-// RemoveApprovalGateIDs removes the "approval_gates" edge to the ApprovalGate entity by IDs.
-func (m *TicketMutation) RemoveApprovalGateIDs(ids ...uuid.UUID) {
-	if m.removedapproval_gates == nil {
-		m.removedapproval_gates = make(map[uuid.UUID]struct{})
-	}
-	for i := range ids {
-		delete(m.approval_gates, ids[i])
-		m.removedapproval_gates[ids[i]] = struct{}{}
-	}
-}
-
-// RemovedApprovalGates returns the removed IDs of the "approval_gates" edge to the ApprovalGate entity.
-func (m *TicketMutation) RemovedApprovalGatesIDs() (ids []uuid.UUID) {
-	for id := range m.removedapproval_gates {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// ApprovalGatesIDs returns the "approval_gates" edge IDs in the mutation.
-func (m *TicketMutation) ApprovalGatesIDs() (ids []uuid.UUID) {
-	for id := range m.approval_gates {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// ResetApprovalGates resets all changes to the "approval_gates" edge.
-func (m *TicketMutation) ResetApprovalGates() {
-	m.approval_gates = nil
-	m.clearedapproval_gates = false
-	m.removedapproval_gates = nil
-}
-
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by ids.
 func (m *TicketMutation) AddActivityEventIDs(ids ...uuid.UUID) {
 	if m.activity_events == nil {
@@ -13103,7 +12183,7 @@ func (m *TicketMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TicketMutation) Fields() []string {
-	fields := make([]string, 0, 29)
+	fields := make([]string, 0, 28)
 	if m.project != nil {
 		fields = append(fields, ticket.FieldProjectID)
 	}
@@ -13163,9 +12243,6 @@ func (m *TicketMutation) Fields() []string {
 	}
 	if m.harness_version != nil {
 		fields = append(fields, ticket.FieldHarnessVersion)
-	}
-	if m.approval_required != nil {
-		fields = append(fields, ticket.FieldApprovalRequired)
 	}
 	if m.budget_usd != nil {
 		fields = append(fields, ticket.FieldBudgetUsd)
@@ -13239,8 +12316,6 @@ func (m *TicketMutation) Field(name string) (ent.Value, bool) {
 		return m.RetryToken()
 	case ticket.FieldHarnessVersion:
 		return m.HarnessVersion()
-	case ticket.FieldApprovalRequired:
-		return m.ApprovalRequired()
 	case ticket.FieldBudgetUsd:
 		return m.BudgetUsd()
 	case ticket.FieldCostTokensInput:
@@ -13306,8 +12381,6 @@ func (m *TicketMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldRetryToken(ctx)
 	case ticket.FieldHarnessVersion:
 		return m.OldHarnessVersion(ctx)
-	case ticket.FieldApprovalRequired:
-		return m.OldApprovalRequired(ctx)
 	case ticket.FieldBudgetUsd:
 		return m.OldBudgetUsd(ctx)
 	case ticket.FieldCostTokensInput:
@@ -13472,13 +12545,6 @@ func (m *TicketMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetHarnessVersion(v)
-		return nil
-	case ticket.FieldApprovalRequired:
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetApprovalRequired(v)
 		return nil
 	case ticket.FieldBudgetUsd:
 		v, ok := value.(float64)
@@ -13807,9 +12873,6 @@ func (m *TicketMutation) ResetField(name string) error {
 	case ticket.FieldHarnessVersion:
 		m.ResetHarnessVersion()
 		return nil
-	case ticket.FieldApprovalRequired:
-		m.ResetApprovalRequired()
-		return nil
 	case ticket.FieldBudgetUsd:
 		m.ResetBudgetUsd()
 		return nil
@@ -13840,7 +12903,7 @@ func (m *TicketMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TicketMutation) AddedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 12)
 	if m.project != nil {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -13867,9 +12930,6 @@ func (m *TicketMutation) AddedEdges() []string {
 	}
 	if m.agent_tokens != nil {
 		edges = append(edges, ticket.EdgeAgentTokens)
-	}
-	if m.approval_gates != nil {
-		edges = append(edges, ticket.EdgeApprovalGates)
 	}
 	if m.activity_events != nil {
 		edges = append(edges, ticket.EdgeActivityEvents)
@@ -13931,12 +12991,6 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case ticket.EdgeApprovalGates:
-		ids := make([]ent.Value, 0, len(m.approval_gates))
-		for id := range m.approval_gates {
-			ids = append(ids, id)
-		}
-		return ids
 	case ticket.EdgeActivityEvents:
 		ids := make([]ent.Value, 0, len(m.activity_events))
 		for id := range m.activity_events {
@@ -13961,7 +13015,7 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TicketMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 12)
 	if m.removedchildren != nil {
 		edges = append(edges, ticket.EdgeChildren)
 	}
@@ -13973,9 +13027,6 @@ func (m *TicketMutation) RemovedEdges() []string {
 	}
 	if m.removedagent_tokens != nil {
 		edges = append(edges, ticket.EdgeAgentTokens)
-	}
-	if m.removedapproval_gates != nil {
-		edges = append(edges, ticket.EdgeApprovalGates)
 	}
 	if m.removedactivity_events != nil {
 		edges = append(edges, ticket.EdgeActivityEvents)
@@ -14017,12 +13068,6 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case ticket.EdgeApprovalGates:
-		ids := make([]ent.Value, 0, len(m.removedapproval_gates))
-		for id := range m.removedapproval_gates {
-			ids = append(ids, id)
-		}
-		return ids
 	case ticket.EdgeActivityEvents:
 		ids := make([]ent.Value, 0, len(m.removedactivity_events))
 		for id := range m.removedactivity_events {
@@ -14047,7 +13092,7 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TicketMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 12)
 	if m.clearedproject {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -14074,9 +13119,6 @@ func (m *TicketMutation) ClearedEdges() []string {
 	}
 	if m.clearedagent_tokens {
 		edges = append(edges, ticket.EdgeAgentTokens)
-	}
-	if m.clearedapproval_gates {
-		edges = append(edges, ticket.EdgeApprovalGates)
 	}
 	if m.clearedactivity_events {
 		edges = append(edges, ticket.EdgeActivityEvents)
@@ -14112,8 +13154,6 @@ func (m *TicketMutation) EdgeCleared(name string) bool {
 		return m.clearedexternal_links
 	case ticket.EdgeAgentTokens:
 		return m.clearedagent_tokens
-	case ticket.EdgeApprovalGates:
-		return m.clearedapproval_gates
 	case ticket.EdgeActivityEvents:
 		return m.clearedactivity_events
 	case ticket.EdgeOutgoingDependencies:
@@ -14177,9 +13217,6 @@ func (m *TicketMutation) ResetEdge(name string) error {
 		return nil
 	case ticket.EdgeAgentTokens:
 		m.ResetAgentTokens()
-		return nil
-	case ticket.EdgeApprovalGates:
-		m.ResetApprovalGates()
 		return nil
 	case ticket.EdgeActivityEvents:
 		m.ResetActivityEvents()
