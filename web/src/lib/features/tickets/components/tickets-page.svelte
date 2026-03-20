@@ -3,6 +3,7 @@
   import { ApiError } from '$lib/api/client'
   import { capabilityCatalog } from '$lib/features/capabilities'
   import { listTickets, listWorkflows } from '$lib/api/openase'
+  import { statusSync } from '$lib/features/statuses/public'
   import PageHeader from '$lib/components/layout/page-header.svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, formatRelativeTime } from '$lib/utils'
@@ -60,6 +61,7 @@
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
+    const statusVersion = statusSync.version
     if (!projectId) {
       tickets = []
       return
@@ -70,6 +72,7 @@
     const load = async () => {
       loading = true
       error = ''
+      void statusVersion
 
       try {
         const [ticketPayload, workflowPayload] = await Promise.all([

@@ -4,6 +4,7 @@
   import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '$ui/sheet'
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '$ui/tabs'
   import { ApiError } from '$lib/api/client'
+  import { statusSync } from '$lib/features/statuses/public'
   import TicketHeader from './ticket-header.svelte'
   import TicketSummary from './ticket-summary.svelte'
   import TicketRepos from './ticket-repos.svelte'
@@ -35,6 +36,7 @@
   $effect(() => {
     const currentProjectId = projectId
     const currentTicketId = ticketId
+    const statusVersion = statusSync.version
     if (!open || !currentProjectId || !currentTicketId) {
       if (!open) {
         ticket = null
@@ -50,6 +52,7 @@
     const load = async () => {
       loading = true
       error = ''
+      void statusVersion
 
       try {
         const [detailPayload, statusPayload, workflowPayload] = await Promise.all([

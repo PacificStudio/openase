@@ -39,9 +39,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'Ticket creation is wired to POST /api/v1/projects/{projectId}/tickets.',
   },
   statusMutation: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Status create/update/delete/reset routes exist, but the settings and board mutation UI are not wired yet.',
+      'Status CRUD, default selection, reset, and ordering are wired in Settings, and dependent views refresh after changes.',
   },
   agentRegistration: {
     state: 'available',
@@ -49,9 +49,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Agent registration is available from the Agents page and submits to POST /api/v1/projects/{projectId}/agents.',
   },
   providerConfigure: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Provider updates are supported by PATCH /api/v1/providers/{providerId}, but the provider configuration UI is not wired yet.',
+      'Providers can be updated from the Agents page via PATCH /api/v1/providers/{providerId}.',
   },
   agentOutput: {
     state: 'backend_missing',
@@ -66,14 +66,14 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'Agent resume stays disabled because no resume endpoint is exported yet.',
   },
   repositoriesSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Repository CRUD routes are available, but repository settings screens have not been wired in this frontend slice yet.',
+      'Repository settings now wire project repo list/create/update/delete flows and primary repo management to the existing catalog API.',
   },
   statusesSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Statuses are readable today, and status mutation routes now exist in the contract, but the editable settings UI is still pending.',
+      'Statuses can now be created, edited, deleted, reset, and reordered directly from Settings.',
   },
   workflowsSettings: {
     state: 'unwired',

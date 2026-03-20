@@ -3,14 +3,22 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
-  import { Bot, Settings, Cpu } from '@lucide/svelte'
+  import { Bot, Cpu, Gem, Settings, Wrench } from '@lucide/svelte'
   import type { ProviderConfig } from '../types'
 
-  let { providers }: { providers: ProviderConfig[] } = $props()
+  let {
+    providers,
+    onConfigure,
+  }: {
+    providers: ProviderConfig[]
+    onConfigure?: (provider: ProviderConfig) => void
+  } = $props()
 
   const adapterIcons: Record<string, typeof Bot> = {
-    claude: Bot,
-    codex: Cpu,
+    'claude-code-cli': Bot,
+    'codex-app-server': Cpu,
+    'gemini-cli': Gem,
+    custom: Wrench,
   }
   const providerConfigureCapability = capabilityCatalog.providerConfigure
 </script>
@@ -50,7 +58,7 @@
           variant="outline"
           size="sm"
           class="w-full"
-          disabled
+          onclick={() => onConfigure?.(provider)}
           title={providerConfigureCapability.summary}
         >
           <Settings class="size-3.5" />

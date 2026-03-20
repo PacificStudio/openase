@@ -1,34 +1,17 @@
 <script lang="ts">
+  import { buildGlobalNav, buildProjectNav, type SidebarNavItem } from './sidebar-nav'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Badge } from '$ui/badge'
   import { Separator } from '$ui/separator'
   import * as Tooltip from '$ui/tooltip'
-  import {
-    LayoutDashboard,
-    Bot,
-    Server,
-    TicketCheck,
-    Activity,
-    Settings,
-    KanbanSquare,
-    Workflow,
-    ChevronsLeft,
-    ChevronsRight,
-  } from '@lucide/svelte'
-  import type { Component } from 'svelte'
-
-  type NavItem = {
-    label: string
-    href: string
-    icon: Component
-    badge?: string | number
-    active?: boolean
-  }
+  import { ChevronsLeft, ChevronsRight } from '@lucide/svelte'
 
   let {
     collapsed = false,
     currentPath = '/',
+    currentOrgId = null,
+    currentProjectId = null,
     projectSelected = false,
     projectName = '',
     projectHealth = 'healthy' as 'healthy' | 'degraded' | 'critical',
@@ -37,6 +20,8 @@
   }: {
     collapsed?: boolean
     currentPath?: string
+    currentOrgId?: string | null
+    currentProjectId?: string | null
     projectSelected?: boolean
     projectName?: string
     projectHealth?: 'healthy' | 'degraded' | 'critical'
@@ -44,55 +29,10 @@
     onToggleCollapse?: () => void
   } = $props()
 
-  const globalNav: NavItem[] = $derived([
-    { label: 'Dashboard', href: '/', icon: LayoutDashboard, active: currentPath === '/' },
-  ])
-
-  const projectNav: NavItem[] = $derived([
-    {
-      label: 'Board',
-      href: '/board',
-      icon: KanbanSquare,
-      active: currentPath.startsWith('/board'),
-    },
-    {
-      label: 'Tickets',
-      href: '/tickets',
-      icon: TicketCheck,
-      active: currentPath.startsWith('/tickets'),
-    },
-    {
-      label: 'Agents',
-      href: '/agents',
-      icon: Bot,
-      badge: agentCount || undefined,
-      active: currentPath.startsWith('/agents'),
-    },
-    {
-      label: 'Machines',
-      href: '/machines',
-      icon: Server,
-      active: currentPath.startsWith('/machines'),
-    },
-    {
-      label: 'Activity',
-      href: '/activity',
-      icon: Activity,
-      active: currentPath.startsWith('/activity'),
-    },
-    {
-      label: 'Workflows',
-      href: '/workflows',
-      icon: Workflow,
-      active: currentPath.startsWith('/workflows'),
-    },
-    {
-      label: 'Settings',
-      href: '/settings',
-      icon: Settings,
-      active: currentPath.startsWith('/settings'),
-    },
-  ])
+  const globalNav: SidebarNavItem[] = $derived(buildGlobalNav(currentPath, currentOrgId))
+  const projectNav: SidebarNavItem[] = $derived(
+    buildProjectNav({ currentPath, currentOrgId, currentProjectId, agentCount }),
+  )
 
   const healthColor = $derived(
     projectHealth === 'healthy'
@@ -104,9 +44,7 @@
 </script>
 
 <nav class="flex h-full flex-col overflow-hidden">
-  <!-- Sidebar content with scroll -->
   <div class="flex-1 overflow-y-auto px-2 py-3">
-    <!-- Global Nav -->
     <div class="space-y-0.5">
       {#each globalNav as item}
         {@const Icon = item.icon}
@@ -156,12 +94,8 @@
         {/if}
       {/each}
     </div>
-
-    <!-- Project Section -->
     {#if projectSelected}
       <Separator class="my-3" />
-
-      <!-- Project Header -->
       {#if !collapsed}
         <div class="mb-2 flex items-center gap-2 px-2.5">
           <span class={cn('size-2 shrink-0 rounded-full', healthColor)}></span>
@@ -172,8 +106,6 @@
           <span class={cn('size-2 rounded-full', healthColor)}></span>
         </div>
       {/if}
-
-      <!-- Project Nav -->
       <div class="space-y-0.5">
         {#each projectNav as item}
           {@const Icon = item.icon}
@@ -233,8 +165,6 @@
       </div>
     {/if}
   </div>
-
-  <!-- Collapse Toggle -->
   <div class="border-border shrink-0 border-t p-2">
     <Button
       variant="ghost"

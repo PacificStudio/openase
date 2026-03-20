@@ -3,6 +3,7 @@
   import SettingsNav from './settings-nav.svelte'
   import GeneralSettings from './general-settings.svelte'
   import NotificationSettings from './notification-settings.svelte'
+  import RepositoriesSettings from './repositories-settings.svelte'
   import SettingsPlaceholder from './settings-placeholder.svelte'
   import StatusSettings from './status-settings.svelte'
 
@@ -22,7 +23,7 @@
     {:else if activeSection === 'statuses'}
       <StatusSettings />
     {:else if activeSection === 'repositories'}
-      <SettingsPlaceholder section="repositories" title="Repositories" />
+      <RepositoriesSettings />
     {:else if activeSection === 'workflows'}
       <SettingsPlaceholder section="workflows" title="Workflows" />
     {:else if activeSection === 'agents'}

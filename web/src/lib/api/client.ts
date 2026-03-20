@@ -34,12 +34,31 @@ async function request<T>(method: string, path: string, opts: FetchOptions = {})
   })
 
   if (!res.ok) {
-    const detail = await res.text().catch(() => res.statusText)
+    const detail = await readErrorDetail(res)
     throw new ApiError(res.status, detail)
   }
 
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
+}
+
+async function readErrorDetail(res: Response) {
+  try {
+    const contentType = res.headers.get('content-type') ?? ''
+    if (contentType.includes('application/json')) {
+      const payload = (await res.json()) as {
+        message?: string
+        detail?: string
+        error?: string
+        code?: string
+      }
+      return payload.message || payload.detail || payload.error || payload.code || res.statusText
+    }
+  } catch {
+    return res.statusText
+  }
+
+  return res.text().catch(() => res.statusText)
 }
 
 export const api = {

@@ -3,6 +3,7 @@
   import { connectEventStream } from '$lib/api/sse'
   import { listStatuses, listTickets, listWorkflows, updateTicket } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
+  import { statusSync } from '$lib/features/statuses/public'
   import type { BoardColumn, BoardFilter, BoardTicket } from '../types'
   import {
     buildBoardColumns,
@@ -30,7 +31,6 @@
   let loadRequestVersion = 0
   let queuedReload = false
   let reloadInFlight = false
-
   let filteredColumns = $derived(filterBoardColumns(allColumns, filter))
 
   function isStaleLoad(projectId: string, requestVersion: number) {
@@ -111,7 +111,6 @@
 
     reloadInFlight = true
     queuedReload = false
-
     try {
       await loadBoard(projectId, 'background')
     } finally {
@@ -124,6 +123,7 @@
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
+    const statusVersion = statusSync.version
     activeProjectId = projectId ?? null
     pendingMoveByTicket.clear()
     queuedReload = false
@@ -140,6 +140,7 @@
       return
     }
 
+    void statusVersion
     void loadBoard(projectId, 'initial')
 
     const disconnect = connectEventStream(`/api/v1/projects/${projectId}/tickets/stream`, {
