@@ -25,17 +25,26 @@ import (
 type fakeCatalogService struct {
 	organizations  map[uuid.UUID]domain.Organization
 	projects       map[uuid.UUID]domain.Project
+	tickets        map[uuid.UUID]fakeCatalogTicket
 	projectRepos   map[uuid.UUID]domain.ProjectRepo
+	ticketScopes   map[uuid.UUID]domain.TicketRepoScope
 	providers      map[uuid.UUID]domain.AgentProvider
 	agents         map[uuid.UUID]domain.Agent
 	activityEvents []domain.ActivityEvent
+}
+
+type fakeCatalogTicket struct {
+	ID        uuid.UUID
+	ProjectID uuid.UUID
 }
 
 func newFakeCatalogService() *fakeCatalogService {
 	return &fakeCatalogService{
 		organizations:  map[uuid.UUID]domain.Organization{},
 		projects:       map[uuid.UUID]domain.Project{},
+		tickets:        map[uuid.UUID]fakeCatalogTicket{},
 		projectRepos:   map[uuid.UUID]domain.ProjectRepo{},
+		ticketScopes:   map[uuid.UUID]domain.TicketRepoScope{},
 		providers:      map[uuid.UUID]domain.AgentProvider{},
 		agents:         map[uuid.UUID]domain.Agent{},
 		activityEvents: []domain.ActivityEvent{},
@@ -273,6 +282,208 @@ func TestCatalogRoutesRejectInvalidInput(t *testing.T) {
 	badUUIDRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs/not-a-uuid", "")
 	if badUUIDRec.Code != http.StatusBadRequest {
 		t.Fatalf("expected bad uuid to return 400, got %d", badUUIDRec.Code)
+	}
+}
+
+func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	status, err := client.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("Todo").
+		SetColor("#111111").
+		SetPosition(1).
+		SetIsDefault(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create status: %v", err)
+	}
+	ticket, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-8").
+		SetTitle("bind repos").
+		SetStatusID(status.ID).
+		SetCreatedBy("codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	backendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create backend repo: %v", err)
+	}
+	frontendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("frontend").
+		SetRepositoryURL("https://github.com/acme/frontend.git").
+		SetDefaultBranch("develop").
+		SetIsPrimary(false).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create frontend repo: %v", err)
+	}
+
+	var backendCreate struct {
+		RepoScope ticketRepoScopeResponse `json:"repo_scope"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes",
+		map[string]any{
+			"repo_id": backendRepo.ID.String(),
+		},
+		http.StatusCreated,
+		&backendCreate,
+	)
+	if !backendCreate.RepoScope.IsPrimaryScope || backendCreate.RepoScope.BranchName != "main" {
+		t.Fatalf("unexpected backend scope payload: %+v", backendCreate.RepoScope)
+	}
+
+	var frontendCreate struct {
+		RepoScope ticketRepoScopeResponse `json:"repo_scope"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes",
+		map[string]any{
+			"repo_id":          frontendRepo.ID.String(),
+			"branch_name":      "agent/codex/ASE-8",
+			"pull_request_url": "https://github.com/acme/frontend/pull/8",
+			"pr_status":        "open",
+			"ci_status":        "pending",
+			"is_primary_scope": true,
+		},
+		http.StatusCreated,
+		&frontendCreate,
+	)
+	if !frontendCreate.RepoScope.IsPrimaryScope || frontendCreate.RepoScope.BranchName != "agent/codex/ASE-8" {
+		t.Fatalf("unexpected frontend scope payload: %+v", frontendCreate.RepoScope)
+	}
+
+	var scopeList struct {
+		RepoScopes []ticketRepoScopeResponse `json:"repo_scopes"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes",
+		nil,
+		http.StatusOK,
+		&scopeList,
+	)
+	if len(scopeList.RepoScopes) != 2 || scopeList.RepoScopes[0].ID != frontendCreate.RepoScope.ID || !scopeList.RepoScopes[0].IsPrimaryScope {
+		t.Fatalf("unexpected scope ordering: %+v", scopeList.RepoScopes)
+	}
+
+	var backendUpdate struct {
+		RepoScope ticketRepoScopeResponse `json:"repo_scope"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+backendCreate.RepoScope.ID,
+		map[string]any{
+			"pr_status":        "approved",
+			"ci_status":        "passing",
+			"is_primary_scope": true,
+		},
+		http.StatusOK,
+		&backendUpdate,
+	)
+	if !backendUpdate.RepoScope.IsPrimaryScope || backendUpdate.RepoScope.PrStatus != "approved" || backendUpdate.RepoScope.CiStatus != "passing" {
+		t.Fatalf("unexpected backend scope after update: %+v", backendUpdate.RepoScope)
+	}
+
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+backendUpdate.RepoScope.ID,
+		nil,
+		http.StatusOK,
+		nil,
+	)
+
+	var finalList struct {
+		RepoScopes []ticketRepoScopeResponse `json:"repo_scopes"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes",
+		nil,
+		http.StatusOK,
+		&finalList,
+	)
+	if len(finalList.RepoScopes) != 1 || finalList.RepoScopes[0].ID != frontendCreate.RepoScope.ID || !finalList.RepoScopes[0].IsPrimaryScope {
+		t.Fatalf("expected surviving scope to stay primary, got %+v", finalList.RepoScopes)
+	}
+
+	otherProject, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Other").
+		SetSlug("other").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create other project: %v", err)
+	}
+	otherRepo, err := client.ProjectRepo.Create().
+		SetProjectID(otherProject.ID).
+		SetName("shared").
+		SetRepositoryURL("https://github.com/acme/shared.git").
+		SetDefaultBranch("main").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create other repo: %v", err)
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes",
+		`{"repo_id":"`+otherRepo.ID.String()+`"}`,
+	)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected cross-project repo scope create to return 404, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -544,9 +755,144 @@ func (f *fakeCatalogService) DeleteProjectRepo(_ context.Context, projectID uuid
 	return item, nil
 }
 
+func (f *fakeCatalogService) ListTicketRepoScopes(_ context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.TicketRepoScope, error) {
+	ticket, ok := f.tickets[ticketID]
+	if !ok || ticket.ProjectID != projectID {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.TicketRepoScope, 0)
+	for _, item := range f.ticketScopes {
+		if item.TicketID == ticketID {
+			items = append(items, item)
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].IsPrimaryScope != items[j].IsPrimaryScope {
+			return items[i].IsPrimaryScope
+		}
+		return items[i].ID.String() < items[j].ID.String()
+	})
+
+	return items, nil
+}
+
+func (f *fakeCatalogService) CreateTicketRepoScope(_ context.Context, input domain.CreateTicketRepoScope) (domain.TicketRepoScope, error) {
+	ticket, ok := f.tickets[input.TicketID]
+	if !ok || ticket.ProjectID != input.ProjectID {
+		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
+	}
+	repo, ok := f.projectRepos[input.RepoID]
+	if !ok || repo.ProjectID != input.ProjectID {
+		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
+	}
+	for _, item := range f.ticketScopes {
+		if item.TicketID == input.TicketID && item.RepoID == input.RepoID {
+			return domain.TicketRepoScope{}, catalogservice.ErrConflict
+		}
+	}
+
+	isPrimary := !f.hasTicketRepoScopes(input.TicketID)
+	if input.RequestedPrimary != nil {
+		isPrimary = *input.RequestedPrimary || !f.hasTicketRepoScopes(input.TicketID)
+	}
+	if isPrimary {
+		f.clearPrimaryScope(input.TicketID, uuid.Nil)
+	}
+
+	branchName := repo.DefaultBranch
+	if input.BranchName != nil {
+		branchName = *input.BranchName
+	}
+	item := domain.TicketRepoScope{
+		ID:             uuid.New(),
+		TicketID:       input.TicketID,
+		RepoID:         input.RepoID,
+		BranchName:     branchName,
+		PullRequestURL: input.PullRequestURL,
+		PrStatus:       input.PrStatus,
+		CiStatus:       input.CiStatus,
+		IsPrimaryScope: isPrimary,
+	}
+	f.ticketScopes[item.ID] = item
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) GetTicketRepoScope(_ context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error) {
+	ticket, ok := f.tickets[ticketID]
+	if !ok || ticket.ProjectID != projectID {
+		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
+	}
+	item, ok := f.ticketScopes[id]
+	if !ok || item.TicketID != ticketID {
+		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
+	}
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) UpdateTicketRepoScope(_ context.Context, input domain.UpdateTicketRepoScope) (domain.TicketRepoScope, error) {
+	ticket, ok := f.tickets[input.TicketID]
+	if !ok || ticket.ProjectID != input.ProjectID {
+		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
+	}
+	item, ok := f.ticketScopes[input.ID]
+	if !ok || item.TicketID != input.TicketID {
+		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
+	}
+
+	if input.IsPrimaryScope {
+		f.clearPrimaryScope(input.TicketID, input.ID)
+	}
+	if input.BranchName != nil {
+		item.BranchName = *input.BranchName
+	}
+	item.PullRequestURL = input.PullRequestURL
+	item.PrStatus = input.PrStatus
+	item.CiStatus = input.CiStatus
+	item.IsPrimaryScope = input.IsPrimaryScope
+	f.ticketScopes[item.ID] = item
+
+	if !item.IsPrimaryScope {
+		f.ensurePrimaryScope(input.TicketID, item.ID)
+		item = f.ticketScopes[item.ID]
+	}
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) DeleteTicketRepoScope(_ context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error) {
+	ticket, ok := f.tickets[ticketID]
+	if !ok || ticket.ProjectID != projectID {
+		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
+	}
+	item, ok := f.ticketScopes[id]
+	if !ok || item.TicketID != ticketID {
+		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
+	}
+
+	delete(f.ticketScopes, id)
+	if item.IsPrimaryScope {
+		f.ensurePrimaryScope(ticketID, uuid.Nil)
+	}
+
+	return item, nil
+}
+
 func (f *fakeCatalogService) hasProjectRepos(projectID uuid.UUID) bool {
 	for _, item := range f.projectRepos {
 		if item.ProjectID == projectID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (f *fakeCatalogService) hasTicketRepoScopes(ticketID uuid.UUID) bool {
+	for _, item := range f.ticketScopes {
+		if item.TicketID == ticketID {
 			return true
 		}
 	}
@@ -595,6 +941,49 @@ func (f *fakeCatalogService) ensurePrimary(projectID uuid.UUID, preferredExclude
 
 	fallback.IsPrimary = true
 	f.projectRepos[fallback.ID] = *fallback
+}
+
+func (f *fakeCatalogService) clearPrimaryScope(ticketID uuid.UUID, exclude uuid.UUID) {
+	for id, item := range f.ticketScopes {
+		if item.TicketID == ticketID && id != exclude {
+			item.IsPrimaryScope = false
+			f.ticketScopes[id] = item
+		}
+	}
+}
+
+func (f *fakeCatalogService) ensurePrimaryScope(ticketID uuid.UUID, preferredExclude uuid.UUID) {
+	for _, item := range f.ticketScopes {
+		if item.TicketID == ticketID && item.IsPrimaryScope {
+			return
+		}
+	}
+
+	var fallback *domain.TicketRepoScope
+	for _, item := range f.ticketScopes {
+		if item.TicketID == ticketID && item.ID != preferredExclude {
+			copied := item
+			if fallback == nil || copied.ID.String() < fallback.ID.String() {
+				fallback = &copied
+			}
+		}
+	}
+	if fallback == nil {
+		for _, item := range f.ticketScopes {
+			if item.TicketID == ticketID {
+				copied := item
+				if fallback == nil || copied.ID.String() < fallback.ID.String() {
+					fallback = &copied
+				}
+			}
+		}
+	}
+	if fallback == nil {
+		return
+	}
+
+	fallback.IsPrimaryScope = true
+	f.ticketScopes[fallback.ID] = *fallback
 }
 
 func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {

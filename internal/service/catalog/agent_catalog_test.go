@@ -183,4 +183,24 @@ func (r *stubRepository) DeleteProjectRepo(context.Context, uuid.UUID, uuid.UUID
 	return domain.ProjectRepo{}, nil
 }
 
+func (r *stubRepository) ListTicketRepoScopes(context.Context, uuid.UUID, uuid.UUID) ([]domain.TicketRepoScope, error) {
+	return nil, nil
+}
+
+func (r *stubRepository) CreateTicketRepoScope(context.Context, domain.CreateTicketRepoScope) (domain.TicketRepoScope, error) {
+	return domain.TicketRepoScope{}, nil
+}
+
+func (r *stubRepository) GetTicketRepoScope(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.TicketRepoScope, error) {
+	return domain.TicketRepoScope{}, nil
+}
+
+func (r *stubRepository) UpdateTicketRepoScope(context.Context, domain.UpdateTicketRepoScope) (domain.TicketRepoScope, error) {
+	return domain.TicketRepoScope{}, nil
+}
+
+func (r *stubRepository) DeleteTicketRepoScope(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.TicketRepoScope, error) {
+	return domain.TicketRepoScope{}, nil
+}
+
 var _ catalogrepo.Repository = (*stubRepository)(nil)

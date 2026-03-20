@@ -11,6 +11,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
 )
@@ -36,6 +38,11 @@ type Repository interface {
 	GetProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
 	UpdateProjectRepo(ctx context.Context, input domain.UpdateProjectRepo) (domain.ProjectRepo, error)
 	DeleteProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
+	ListTicketRepoScopes(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.TicketRepoScope, error)
+	CreateTicketRepoScope(ctx context.Context, input domain.CreateTicketRepoScope) (domain.TicketRepoScope, error)
+	GetTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error)
+	UpdateTicketRepoScope(ctx context.Context, input domain.UpdateTicketRepoScope) (domain.TicketRepoScope, error)
+	DeleteTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error)
 	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error)
 	CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
@@ -390,6 +397,212 @@ func (r *EntRepository) DeleteProjectRepo(ctx context.Context, projectID uuid.UU
 	return deleted, nil
 }
 
+func (r *EntRepository) ListTicketRepoScopes(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.TicketRepoScope, error) {
+	exists, err := r.client.Ticket.Query().
+		Where(entticket.ID(ticketID), entticket.ProjectID(projectID)).
+		Exist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check ticket before listing repo scopes: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	items, err := r.client.TicketRepoScope.Query().
+		Where(entticketreposcope.TicketID(ticketID)).
+		Order(
+			entticketreposcope.ByIsPrimaryScope(entsql.OrderDesc()),
+			entticketreposcope.ByRepoField(entprojectrepo.FieldName),
+			entticketreposcope.ByID(),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list ticket repo scopes: %w", err)
+	}
+
+	return mapTicketRepoScopes(items), nil
+}
+
+func (r *EntRepository) CreateTicketRepoScope(ctx context.Context, input domain.CreateTicketRepoScope) (scope domain.TicketRepoScope, err error) {
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, fmt.Errorf("start create ticket repo scope transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	_, err = tx.Ticket.Query().
+		Where(entticket.ID(input.TicketID), entticket.ProjectID(input.ProjectID)).
+		Only(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, mapReadError("get ticket for repo scope create", err)
+	}
+
+	repoItem, err := tx.ProjectRepo.Query().
+		Where(entprojectrepo.ID(input.RepoID), entprojectrepo.ProjectID(input.ProjectID)).
+		Only(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, mapReadError("get project repo for repo scope create", err)
+	}
+
+	scopeCount, err := tx.TicketRepoScope.Query().
+		Where(entticketreposcope.TicketID(input.TicketID)).
+		Count(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, fmt.Errorf("count ticket repo scopes before create: %w", err)
+	}
+
+	makePrimary := scopeCount == 0
+	if input.RequestedPrimary != nil {
+		makePrimary = *input.RequestedPrimary || scopeCount == 0
+	}
+	if makePrimary {
+		if err := clearPrimaryTicketRepoScope(ctx, tx, input.TicketID); err != nil {
+			return domain.TicketRepoScope{}, err
+		}
+	}
+
+	branchName := repoItem.DefaultBranch
+	if input.BranchName != nil {
+		branchName = *input.BranchName
+	}
+
+	builder := tx.TicketRepoScope.Create().
+		SetTicketID(input.TicketID).
+		SetRepoID(input.RepoID).
+		SetBranchName(branchName).
+		SetPrStatus(input.PrStatus).
+		SetCiStatus(input.CiStatus).
+		SetIsPrimaryScope(makePrimary)
+	if input.PullRequestURL != nil {
+		builder.SetPullRequestURL(*input.PullRequestURL)
+	}
+
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, mapWriteError("create ticket repo scope", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.TicketRepoScope{}, fmt.Errorf("commit create ticket repo scope: %w", err)
+	}
+
+	return mapTicketRepoScope(item), nil
+}
+
+func (r *EntRepository) GetTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error) {
+	item, err := r.client.TicketRepoScope.Query().
+		Where(
+			entticketreposcope.ID(id),
+			entticketreposcope.TicketID(ticketID),
+			entticketreposcope.HasTicketWith(entticket.ProjectID(projectID)),
+		).
+		Only(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, mapReadError("get ticket repo scope", err)
+	}
+
+	return mapTicketRepoScope(item), nil
+}
+
+func (r *EntRepository) UpdateTicketRepoScope(ctx context.Context, input domain.UpdateTicketRepoScope) (scope domain.TicketRepoScope, err error) {
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, fmt.Errorf("start update ticket repo scope transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	current, err := tx.TicketRepoScope.Query().
+		Where(
+			entticketreposcope.ID(input.ID),
+			entticketreposcope.TicketID(input.TicketID),
+			entticketreposcope.HasTicketWith(entticket.ProjectID(input.ProjectID)),
+		).
+		Only(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, mapReadError("get ticket repo scope for update", err)
+	}
+
+	makePrimary := input.IsPrimaryScope
+	if makePrimary {
+		if err := clearPrimaryTicketRepoScope(ctx, tx, input.TicketID, input.ID); err != nil {
+			return domain.TicketRepoScope{}, err
+		}
+	}
+
+	branchName := current.BranchName
+	if input.BranchName != nil {
+		branchName = *input.BranchName
+	}
+
+	builder := tx.TicketRepoScope.UpdateOneID(input.ID).
+		SetBranchName(branchName).
+		SetPrStatus(input.PrStatus).
+		SetCiStatus(input.CiStatus).
+		SetIsPrimaryScope(makePrimary)
+	if input.PullRequestURL != nil {
+		builder.SetPullRequestURL(*input.PullRequestURL)
+	} else {
+		builder.ClearPullRequestURL()
+	}
+
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, mapWriteError("update ticket repo scope", err)
+	}
+
+	if current.IsPrimaryScope && !item.IsPrimaryScope {
+		if err := ensureTicketPrimaryRepoScope(ctx, tx, input.TicketID, item.ID); err != nil {
+			return domain.TicketRepoScope{}, err
+		}
+		item, err = tx.TicketRepoScope.Get(ctx, item.ID)
+		if err != nil {
+			return domain.TicketRepoScope{}, mapReadError("reload ticket repo scope after update", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.TicketRepoScope{}, fmt.Errorf("commit update ticket repo scope: %w", err)
+	}
+
+	return mapTicketRepoScope(item), nil
+}
+
+func (r *EntRepository) DeleteTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (scope domain.TicketRepoScope, err error) {
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, fmt.Errorf("start delete ticket repo scope transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	item, err := tx.TicketRepoScope.Query().
+		Where(
+			entticketreposcope.ID(id),
+			entticketreposcope.TicketID(ticketID),
+			entticketreposcope.HasTicketWith(entticket.ProjectID(projectID)),
+		).
+		Only(ctx)
+	if err != nil {
+		return domain.TicketRepoScope{}, mapReadError("get ticket repo scope for delete", err)
+	}
+
+	deleted := mapTicketRepoScope(item)
+	if err := tx.TicketRepoScope.DeleteOne(item).Exec(ctx); err != nil {
+		return domain.TicketRepoScope{}, mapWriteError("delete ticket repo scope", err)
+	}
+
+	if item.IsPrimaryScope {
+		if err := ensureTicketPrimaryRepoScope(ctx, tx, ticketID); err != nil {
+			return domain.TicketRepoScope{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.TicketRepoScope{}, fmt.Errorf("commit delete ticket repo scope: %w", err)
+	}
+
+	return deleted, nil
+}
+
 func mapReadError(action string, err error) error {
 	switch {
 	case ent.IsNotFound(err):
@@ -527,6 +740,75 @@ func ensureProjectPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UU
 	return nil
 }
 
+func clearPrimaryTicketRepoScope(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID, excludeIDs ...uuid.UUID) error {
+	predicates := []predicate.TicketRepoScope{
+		entticketreposcope.TicketID(ticketID),
+		entticketreposcope.IsPrimaryScope(true),
+	}
+	for _, id := range excludeIDs {
+		predicates = append(predicates, entticketreposcope.IDNEQ(id))
+	}
+
+	if _, err := tx.TicketRepoScope.Update().
+		Where(predicates...).
+		SetIsPrimaryScope(false).
+		Save(ctx); err != nil {
+		return fmt.Errorf("clear primary ticket repo scope: %w", err)
+	}
+
+	return nil
+}
+
+func ensureTicketPrimaryRepoScope(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID, excludeIDs ...uuid.UUID) error {
+	exists, err := tx.TicketRepoScope.Query().
+		Where(entticketreposcope.TicketID(ticketID), entticketreposcope.IsPrimaryScope(true)).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check primary ticket repo scope: %w", err)
+	}
+	if exists {
+		return nil
+	}
+
+	predicates := []predicate.TicketRepoScope{
+		entticketreposcope.TicketID(ticketID),
+	}
+	for _, id := range excludeIDs {
+		predicates = append(predicates, entticketreposcope.IDNEQ(id))
+	}
+
+	fallback, err := tx.TicketRepoScope.Query().
+		Where(predicates...).
+		Order(entticketreposcope.ByRepoField(entprojectrepo.FieldName), entticketreposcope.ByID()).
+		First(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			if len(excludeIDs) == 0 {
+				return nil
+			}
+
+			fallback, err = tx.TicketRepoScope.Query().
+				Where(entticketreposcope.TicketID(ticketID)).
+				Order(entticketreposcope.ByRepoField(entprojectrepo.FieldName), entticketreposcope.ByID()).
+				First(ctx)
+			if err != nil {
+				if ent.IsNotFound(err) {
+					return nil
+				}
+				return fmt.Errorf("select fallback primary ticket repo scope: %w", err)
+			}
+		} else {
+			return fmt.Errorf("select fallback primary ticket repo scope: %w", err)
+		}
+	}
+
+	if err := tx.TicketRepoScope.UpdateOneID(fallback.ID).SetIsPrimaryScope(true).Exec(ctx); err != nil {
+		return fmt.Errorf("promote fallback primary ticket repo scope: %w", err)
+	}
+
+	return nil
+}
+
 func mapProjectRepos(items []*ent.ProjectRepo) []domain.ProjectRepo {
 	repos := make([]domain.ProjectRepo, 0, len(items))
 	for _, item := range items {
@@ -546,6 +828,28 @@ func mapProjectRepo(item *ent.ProjectRepo) domain.ProjectRepo {
 		ClonePath:     optionalString(item.ClonePath),
 		IsPrimary:     item.IsPrimary,
 		Labels:        append([]string(nil), item.Labels...),
+	}
+}
+
+func mapTicketRepoScopes(items []*ent.TicketRepoScope) []domain.TicketRepoScope {
+	scopes := make([]domain.TicketRepoScope, 0, len(items))
+	for _, item := range items {
+		scopes = append(scopes, mapTicketRepoScope(item))
+	}
+
+	return scopes
+}
+
+func mapTicketRepoScope(item *ent.TicketRepoScope) domain.TicketRepoScope {
+	return domain.TicketRepoScope{
+		ID:             item.ID,
+		TicketID:       item.TicketID,
+		RepoID:         item.RepoID,
+		BranchName:     item.BranchName,
+		PullRequestURL: optionalString(item.PullRequestURL),
+		PrStatus:       item.PrStatus,
+		CiStatus:       item.CiStatus,
+		IsPrimaryScope: item.IsPrimaryScope,
 	}
 }
 

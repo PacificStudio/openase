@@ -43,6 +43,17 @@ type projectRepoResponse struct {
 	Labels        []string `json:"labels,omitempty"`
 }
 
+type ticketRepoScopeResponse struct {
+	ID             string  `json:"id"`
+	TicketID       string  `json:"ticket_id"`
+	RepoID         string  `json:"repo_id"`
+	BranchName     string  `json:"branch_name"`
+	PullRequestURL *string `json:"pull_request_url,omitempty"`
+	PrStatus       string  `json:"pr_status"`
+	CiStatus       string  `json:"ci_status"`
+	IsPrimaryScope bool    `json:"is_primary_scope"`
+}
+
 type organizationPatchRequest struct {
 	Name                   *string `json:"name"`
 	Slug                   *string `json:"slug"`
@@ -68,6 +79,14 @@ type projectRepoPatchRequest struct {
 	Labels        *[]string `json:"labels"`
 }
 
+type ticketRepoScopePatchRequest struct {
+	BranchName     *string `json:"branch_name"`
+	PullRequestURL *string `json:"pull_request_url"`
+	PrStatus       *string `json:"pr_status"`
+	CiStatus       *string `json:"ci_status"`
+	IsPrimaryScope *bool   `json:"is_primary_scope"`
+}
+
 func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.GET("/orgs", s.listOrganizations)
 	api.POST("/orgs", s.createOrganization)
@@ -84,6 +103,10 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.POST("/projects/:projectId/repos", s.createProjectRepo)
 	api.PATCH("/projects/:projectId/repos/:repoId", s.patchProjectRepo)
 	api.DELETE("/projects/:projectId/repos/:repoId", s.deleteProjectRepo)
+	api.GET("/projects/:projectId/tickets/:ticketId/repo-scopes", s.listTicketRepoScopes)
+	api.POST("/projects/:projectId/tickets/:ticketId/repo-scopes", s.createTicketRepoScope)
+	api.PATCH("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.patchTicketRepoScope)
+	api.DELETE("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.deleteTicketRepoScope)
 	api.GET("/projects/:projectId/agents", s.listAgents)
 	api.GET("/projects/:projectId/activity", s.listActivityEvents)
 	api.POST("/projects/:projectId/agents", s.createAgent)
@@ -446,6 +469,143 @@ func (s *Server) deleteProjectRepo(c echo.Context) error {
 	})
 }
 
+func (s *Server) listTicketRepoScopes(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	ticketID, err := parseUUIDPathParam(c, "ticketId")
+	if err != nil {
+		return err
+	}
+
+	items, err := s.catalog.ListTicketRepoScopes(c.Request().Context(), projectID, ticketID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"repo_scopes": mapTicketRepoScopeResponses(items),
+	})
+}
+
+func (s *Server) createTicketRepoScope(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	ticketID, err := parseUUIDPathParam(c, "ticketId")
+	if err != nil {
+		return err
+	}
+
+	var request domain.TicketRepoScopeInput
+	if err := decodeJSON(c, &request); err != nil {
+		return err
+	}
+
+	input, err := domain.ParseCreateTicketRepoScope(projectID, ticketID, request)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+	}
+
+	item, err := s.catalog.CreateTicketRepoScope(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"repo_scope": mapTicketRepoScopeResponse(item),
+	})
+}
+
+func (s *Server) patchTicketRepoScope(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	ticketID, err := parseUUIDPathParam(c, "ticketId")
+	if err != nil {
+		return err
+	}
+	scopeID, err := parseUUIDPathParam(c, "scopeId")
+	if err != nil {
+		return err
+	}
+
+	current, err := s.catalog.GetTicketRepoScope(c.Request().Context(), projectID, ticketID, scopeID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	var patch ticketRepoScopePatchRequest
+	if err := decodeJSON(c, &patch); err != nil {
+		return err
+	}
+
+	request := domain.TicketRepoScopeInput{
+		RepoID:         current.RepoID.String(),
+		BranchName:     stringPointer(current.BranchName),
+		PullRequestURL: current.PullRequestURL,
+		PrStatus:       current.PrStatus.String(),
+		CiStatus:       current.CiStatus.String(),
+		IsPrimaryScope: boolPointer(current.IsPrimaryScope),
+	}
+	if patch.BranchName != nil {
+		request.BranchName = patch.BranchName
+	}
+	if patch.PullRequestURL != nil {
+		request.PullRequestURL = patch.PullRequestURL
+	}
+	if patch.PrStatus != nil {
+		request.PrStatus = *patch.PrStatus
+	}
+	if patch.CiStatus != nil {
+		request.CiStatus = *patch.CiStatus
+	}
+	if patch.IsPrimaryScope != nil {
+		request.IsPrimaryScope = patch.IsPrimaryScope
+	}
+
+	input, err := domain.ParseUpdateTicketRepoScope(scopeID, projectID, ticketID, request)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+	}
+
+	item, err := s.catalog.UpdateTicketRepoScope(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"repo_scope": mapTicketRepoScopeResponse(item),
+	})
+}
+
+func (s *Server) deleteTicketRepoScope(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	ticketID, err := parseUUIDPathParam(c, "ticketId")
+	if err != nil {
+		return err
+	}
+	scopeID, err := parseUUIDPathParam(c, "scopeId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.DeleteTicketRepoScope(c.Request().Context(), projectID, ticketID, scopeID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"repo_scope": mapTicketRepoScopeResponse(item),
+	})
+}
+
 func decodeJSON(c echo.Context, target any) error {
 	decoder := json.NewDecoder(c.Request().Body)
 	decoder.DisallowUnknownFields()
@@ -564,6 +724,28 @@ func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 		ClonePath:     item.ClonePath,
 		IsPrimary:     item.IsPrimary,
 		Labels:        append([]string(nil), item.Labels...),
+	}
+}
+
+func mapTicketRepoScopeResponses(items []domain.TicketRepoScope) []ticketRepoScopeResponse {
+	response := make([]ticketRepoScopeResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapTicketRepoScopeResponse(item))
+	}
+
+	return response
+}
+
+func mapTicketRepoScopeResponse(item domain.TicketRepoScope) ticketRepoScopeResponse {
+	return ticketRepoScopeResponse{
+		ID:             item.ID.String(),
+		TicketID:       item.TicketID.String(),
+		RepoID:         item.RepoID.String(),
+		BranchName:     item.BranchName,
+		PullRequestURL: item.PullRequestURL,
+		PrStatus:       item.PrStatus.String(),
+		CiStatus:       item.CiStatus.String(),
+		IsPrimaryScope: item.IsPrimaryScope,
 	}
 }
 

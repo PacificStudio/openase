@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
+	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/google/uuid"
 )
 
@@ -41,6 +42,17 @@ type ProjectRepo struct {
 	Labels        []string
 }
 
+type TicketRepoScope struct {
+	ID             uuid.UUID
+	TicketID       uuid.UUID
+	RepoID         uuid.UUID
+	BranchName     string
+	PullRequestURL *string
+	PrStatus       entticketreposcope.PrStatus
+	CiStatus       entticketreposcope.CiStatus
+	IsPrimaryScope bool
+}
+
 type OrganizationInput struct {
 	Name                   string  `json:"name"`
 	Slug                   string  `json:"slug"`
@@ -64,6 +76,15 @@ type ProjectRepoInput struct {
 	ClonePath     *string  `json:"clone_path"`
 	IsPrimary     *bool    `json:"is_primary"`
 	Labels        []string `json:"labels"`
+}
+
+type TicketRepoScopeInput struct {
+	RepoID         string  `json:"repo_id"`
+	BranchName     *string `json:"branch_name"`
+	PullRequestURL *string `json:"pull_request_url"`
+	PrStatus       string  `json:"pr_status"`
+	CiStatus       string  `json:"ci_status"`
+	IsPrimaryScope *bool   `json:"is_primary_scope"`
 }
 
 type CreateOrganization struct {
@@ -121,6 +142,29 @@ type UpdateProjectRepo struct {
 	ClonePath     *string
 	IsPrimary     bool
 	Labels        []string
+}
+
+type CreateTicketRepoScope struct {
+	ProjectID        uuid.UUID
+	TicketID         uuid.UUID
+	RepoID           uuid.UUID
+	BranchName       *string
+	PullRequestURL   *string
+	PrStatus         entticketreposcope.PrStatus
+	CiStatus         entticketreposcope.CiStatus
+	RequestedPrimary *bool
+}
+
+type UpdateTicketRepoScope struct {
+	ID             uuid.UUID
+	ProjectID      uuid.UUID
+	TicketID       uuid.UUID
+	RepoID         uuid.UUID
+	BranchName     *string
+	PullRequestURL *string
+	PrStatus       entticketreposcope.PrStatus
+	CiStatus       entticketreposcope.CiStatus
+	IsPrimaryScope bool
 }
 
 func ParseCreateOrganization(raw OrganizationInput) (CreateOrganization, error) {
@@ -279,6 +323,58 @@ func ParseUpdateProjectRepo(id uuid.UUID, projectID uuid.UUID, raw ProjectRepoIn
 	}, nil
 }
 
+func ParseCreateTicketRepoScope(projectID uuid.UUID, ticketID uuid.UUID, raw TicketRepoScopeInput) (CreateTicketRepoScope, error) {
+	repoID, err := parseRequiredUUID("repo_id", raw.RepoID)
+	if err != nil {
+		return CreateTicketRepoScope{}, err
+	}
+
+	prStatus, err := parseTicketRepoScopePrStatus(raw.PrStatus)
+	if err != nil {
+		return CreateTicketRepoScope{}, err
+	}
+
+	ciStatus, err := parseTicketRepoScopeCiStatus(raw.CiStatus)
+	if err != nil {
+		return CreateTicketRepoScope{}, err
+	}
+
+	return CreateTicketRepoScope{
+		ProjectID:        projectID,
+		TicketID:         ticketID,
+		RepoID:           repoID,
+		BranchName:       parseOptionalText(raw.BranchName),
+		PullRequestURL:   parseOptionalText(raw.PullRequestURL),
+		PrStatus:         prStatus,
+		CiStatus:         ciStatus,
+		RequestedPrimary: raw.IsPrimaryScope,
+	}, nil
+}
+
+func ParseUpdateTicketRepoScope(id uuid.UUID, projectID uuid.UUID, ticketID uuid.UUID, raw TicketRepoScopeInput) (UpdateTicketRepoScope, error) {
+	input, err := ParseCreateTicketRepoScope(projectID, ticketID, raw)
+	if err != nil {
+		return UpdateTicketRepoScope{}, err
+	}
+
+	isPrimaryScope := false
+	if input.RequestedPrimary != nil {
+		isPrimaryScope = *input.RequestedPrimary
+	}
+
+	return UpdateTicketRepoScope{
+		ID:             id,
+		ProjectID:      input.ProjectID,
+		TicketID:       input.TicketID,
+		RepoID:         input.RepoID,
+		BranchName:     input.BranchName,
+		PullRequestURL: input.PullRequestURL,
+		PrStatus:       input.PrStatus,
+		CiStatus:       input.CiStatus,
+		IsPrimaryScope: isPrimaryScope,
+	}, nil
+}
+
 func parseName(fieldName string, raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -389,4 +485,30 @@ func parseMaxConcurrentAgents(raw *int) (int, error) {
 	}
 
 	return *raw, nil
+}
+
+func parseTicketRepoScopePrStatus(raw string) (entticketreposcope.PrStatus, error) {
+	if strings.TrimSpace(raw) == "" {
+		return entticketreposcope.DefaultPrStatus, nil
+	}
+
+	status := entticketreposcope.PrStatus(strings.ToLower(strings.TrimSpace(raw)))
+	if err := entticketreposcope.PrStatusValidator(status); err != nil {
+		return "", fmt.Errorf("pr_status must be one of none, open, changes_requested, approved, merged, closed")
+	}
+
+	return status, nil
+}
+
+func parseTicketRepoScopeCiStatus(raw string) (entticketreposcope.CiStatus, error) {
+	if strings.TrimSpace(raw) == "" {
+		return entticketreposcope.DefaultCiStatus, nil
+	}
+
+	status := entticketreposcope.CiStatus(strings.ToLower(strings.TrimSpace(raw)))
+	if err := entticketreposcope.CiStatusValidator(status); err != nil {
+		return "", fmt.Errorf("ci_status must be one of pending, passing, failing")
+	}
+
+	return status, nil
 }
