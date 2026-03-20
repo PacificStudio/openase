@@ -1,20 +1,40 @@
 # OpenASE
 
-Issue-driven automated software engineering platform.
+OpenASE is an issue-driven automated software engineering platform. The current codebase follows the direction in [`OpenASE-PRD.md`](./OpenASE-PRD.md): an all-Go monolith, binary-first deployment, issue/workflow orchestration, and adapter-based multi-agent support.
 
-## Scaffold Status
+## Current Slice
 
-This repository now includes the Layer 0 base slice described in `OpenASE-PRD.md` Chapter 5:
+The repository has moved beyond the initial scaffold. The current vertical slice includes:
 
-- `cobra` CLI entrypoint with `serve`, `orchestrate`, `all-in-one`, `doctor`, and `version`
-- managed service commands: `up`, `down`, `restart`, and `logs`
-- `Echo` HTTP server with baseline health routes and an embedded frontend mount
-- `viper` configuration loading from defaults, env vars, and an optional config file
-- `slog` structured logging with text or JSON output
-- `web/`: SvelteKit 2 + Tailwind CSS 4 + shadcn-svelte source components
-- `internal/webui/static/`: prerendered frontend assets embedded into the Go binary via `go:embed`
+- a single Go binary with `serve`, `orchestrate`, and `all-in-one` modes
+- an embedded web control plane served from the Go binary
+- first-run setup that seeds `~/.openase/` and scaffolds repository-local `.openase/` assets
+- organizations, projects, project repos, agent providers, agents, activity events, and project-level ticket statuses
+- ticket CRUD, ticket detail, parent/child relationships, and dependency management
+- workflow CRUD plus Git-backed harness documents, validation, hooks, skill binding, and built-in role templates
+- per-project SSE streams for tickets, agents, hooks, and activity
+- agent platform token auth plus agent-facing `openase ticket ...` and `openase project ...` CLI wrappers
+- GitHub webhook ingestion for pull request and review events
+- managed user-service lifecycle commands: `up`, `down`, `restart`, and `logs`
+- local environment diagnostics via `openase doctor`
+
+## Product Shape
+
+- `All-Go monolith`: API server, orchestrator, setup flow, and embedded UI live in one repository and ship as one binary.
+- `Binary-first`: the prerendered UI under `internal/webui/static/` is committed and embedded with `go:embed`, so Node.js is only needed when you actively change the frontend.
+- `Issue-driven orchestration`: tickets, workflows, statuses, and activity are the core operating model.
+- `Multi-agent adapters`: setup currently detects and can seed providers for Claude Code, OpenAI Codex, and Gemini CLI.
+- `Git-backed behavior`: workflow harnesses and scaffolded skills live in `.openase/` inside the target repo, not hidden in a database.
 
 ## Build
+
+For the checked-in UI assets, Go is enough:
+
+```bash
+go build ./cmd/openase
+```
+
+Rebuild the embedded frontend only when you modify `web/`:
 
 ```bash
 npm --prefix web install
@@ -24,16 +44,54 @@ go build ./cmd/openase
 
 ## Quick Start
 
+### 1. Prepare PostgreSQL
+
+Copy the sample config if you want a file-based setup:
+
 ```bash
-export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
-go run ./cmd/openase version
-go run ./cmd/openase doctor
-go run ./cmd/openase serve
-go run ./cmd/openase all-in-one --tick-interval 2s
-go run ./cmd/openase up --config ./openase.example.yaml
+cp openase.example.yaml ./openase.yaml
 ```
 
-Default configuration can be copied from [`openase.example.yaml`](./openase.example.yaml). You can also configure the process via environment variables such as:
+The minimum required runtime setting is a PostgreSQL DSN, for example:
+
+```bash
+export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
+```
+
+### 2. Run setup or start the managed service
+
+First-run setup opens a local wizard that creates the home directory layout, writes config under `~/.openase/`, migrates the database, seeds the initial org/project/provider data, and scaffolds `.openase/` inside the primary repo.
+
+```bash
+go run ./cmd/openase setup
+```
+
+If you prefer the managed per-user service path, `up` will launch setup on first run and otherwise install/update the service definition that runs `openase all-in-one`:
+
+```bash
+go run ./cmd/openase up
+```
+
+### 3. Run the platform
+
+```bash
+go run ./cmd/openase doctor
+go run ./cmd/openase serve
+go run ./cmd/openase orchestrate
+go run ./cmd/openase all-in-one --tick-interval 2s
+go run ./cmd/openase version
+```
+
+Managed service helpers:
+
+```bash
+openase up --config ~/.openase/config.yaml
+openase logs --lines 100
+openase restart
+openase down
+```
+
+Useful environment overrides:
 
 ```bash
 export OPENASE_SERVER_PORT=41000
@@ -42,31 +100,77 @@ export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 export OPENASE_LOG_FORMAT=json
 ```
 
-## Managed Service Lifecycle
+## What Setup Scaffolds
 
-`openase up` installs or updates a per-user service definition that launches `openase all-in-one` from the current binary. On Linux it writes `~/.config/systemd/user/openase.service`; on macOS it writes `~/Library/LaunchAgents/com.openase.plist`.
+The setup flow seeds both home-directory and repo-local assets.
 
-Use the CLI wrappers to manage the background service without remembering platform-specific commands:
+Under `~/.openase/`:
 
-```bash
-openase up --config ~/.openase/openase.yaml
-openase down
-openase restart
-openase logs --lines 100
-```
+- `config.yaml` and `openase.yaml` style runtime config
+- `.env` with the local auth token used by the managed service
+- `logs/` and `workspaces/`
 
-## Routes
+Inside the primary repository:
 
-- `GET /` serves the embedded SvelteKit UI
+- `.openase/harnesses/coding.md`
+- `.openase/harnesses/roles/*.md` for built-in role templates
+- `.openase/skills/*/SKILL.md` for built-in skills
+- `.openase/bin/openase` wrapper that forwards to the installed binary while preserving injected agent env vars
+
+## Control Plane and API Surface
+
+The embedded UI is served from `/` and currently exposes onboarding, project selection, Kanban ticket management, workflow/harness editing, skill binding, built-in role creation, agent visibility, and live activity.
+
+Representative HTTP routes:
+
 - `GET /healthz`
 - `GET /api/v1/healthz`
-- `GET/POST/PATCH /api/v1/orgs`
-- `GET/POST /api/v1/orgs/:orgId/projects`
-- `GET/PATCH/DELETE /api/v1/projects/:projectId`
+- `GET/POST /api/v1/orgs`, `GET/PATCH /api/v1/orgs/:orgId`, and `GET/POST /api/v1/orgs/:orgId/projects`
+- `GET/PATCH/DELETE /api/v1/projects/:projectId`, plus repo, agent, activity, and repo-scope endpoints under the project
+- `GET/POST /api/v1/projects/:projectId/tickets`, `GET /api/v1/projects/:projectId/tickets/:ticketId/detail`, `GET/PATCH /api/v1/tickets/:ticketId`, and dependency endpoints
+- `GET/POST /api/v1/projects/:projectId/workflows`, `GET/PATCH/DELETE /api/v1/workflows/:workflowId`, plus harness read/write and validation
+- `GET /api/v1/projects/:projectId/skills`, `POST /api/v1/projects/:projectId/skills/{refresh,harvest}`, and workflow skill bind/unbind endpoints
+- `GET /api/v1/roles/builtin`
+- `GET /api/v1/projects/:projectId/{tickets,agents,hooks,activity}/stream`
+- `POST /api/v1/webhooks/github`
+- authenticated agent platform routes under `/api/v1/platform/...`
 
-If you modify the web app, rebuild the embedded assets before compiling or running the Go binary:
+## Agent Platform CLI
+
+Agent workers can talk back to OpenASE through token-scoped platform commands:
 
 ```bash
-npm --prefix web run build
-go run ./cmd/openase serve
+openase ticket list --status-name Todo
+openase ticket create --title "Add integration coverage" --description "Follow-up from coding ticket"
+openase ticket update --description "Recorded execution notes"
+openase project update --description "Latest project context"
+openase project add-repo --name "worker-tools" --url "https://github.com/acme/worker-tools.git"
 ```
+
+These commands read `OPENASE_API_URL`, `OPENASE_AGENT_TOKEN`, `OPENASE_PROJECT_ID`, and `OPENASE_TICKET_ID` by default, which is why the setup-generated `./.openase/bin/openase` wrapper is the preferred entrypoint inside agent workspaces.
+
+## Repository Layout
+
+- `cmd/openase/`: CLI entrypoint
+- `internal/app/`: app wiring for serve/orchestrate/all-in-one
+- `internal/httpapi/`: HTTP API, SSE, webhook handlers, embedded UI hosting
+- `internal/orchestrator/`: scheduling, health checks, retries
+- `internal/workflow/`: workflow service, harness registry, hook execution, skill binding, validation
+- `internal/agentplatform/`: agent token issuance and authentication
+- `internal/setup/`: first-run setup service and wizard
+- `internal/builtin/`: built-in role and skill templates
+- `internal/webui/static/`: built frontend assets embedded into the binary
+- `web/`: SvelteKit source for the control plane
+
+## Validation
+
+Focused validation commands used frequently during development:
+
+```bash
+go test ./...
+go run ./cmd/openase --help
+go run ./cmd/openase project --help
+go run ./cmd/openase ticket --help
+```
+
+If you change the web app, rebuild `web/` before compiling or running the Go binary so the embedded assets stay in sync.
