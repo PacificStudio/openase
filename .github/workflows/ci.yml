@@ -96,17 +96,8 @@ jobs:
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check Frontend Formatting
-        run: pnpm run format:check
-
-      - name: Lint Frontend
-        run: pnpm run lint
-
-      - name: Typecheck Frontend
-        run: pnpm run check
-
-      - name: Build Web Assets
-        run: pnpm run build
+      - name: Run Web CI
+        run: pnpm run ci
 
       - name: Upload Embedded Web Assets
         uses: actions/upload-artifact@v4
