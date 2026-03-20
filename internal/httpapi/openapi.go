@@ -413,6 +413,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			Schemas: openapi3.Schemas{},
 		},
 		Tags: openapi3.Tags{
+			{Name: "system"},
 			{Name: "catalog"},
 			{Name: "tickets"},
 			{Name: "workflows"},
@@ -423,6 +424,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 	}
 
 	builder := openAPISpecBuilder{doc: doc}
+	if err := builder.addSystemOperations(); err != nil {
+		return nil, err
+	}
 	if err := builder.addCatalogOperations(); err != nil {
 		return nil, err
 	}
@@ -472,6 +476,24 @@ func (s *Server) handleOpenAPI(c echo.Context) error {
 
 type openAPISpecBuilder struct {
 	doc *openapi3.T
+}
+
+func (b openAPISpecBuilder) addSystemOperations() error {
+	dashboardGet, err := b.jsonOperation(
+		"getSystemDashboard",
+		"Get process memory and runtime dashboard metrics",
+		[]string{"system"},
+		http.StatusOK,
+		OpenAPISystemDashboardResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/system/dashboard", http.MethodGet, dashboardGet)
+
+	return nil
 }
 
 func (b openAPISpecBuilder) addCatalogOperations() error {

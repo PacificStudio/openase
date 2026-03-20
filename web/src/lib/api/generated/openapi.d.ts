@@ -472,6 +472,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/system/dashboard': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get process memory and runtime dashboard metrics */
+    get: operations['getSystemDashboard']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/tickets/{ticketId}': {
     parameters: {
       query?: never
@@ -3376,6 +3393,53 @@ export interface operations {
               summary?: string
               workflow_type?: string
             }[]
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getSystemDashboard: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get process memory and runtime dashboard metrics response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            memory?: {
+              alloc_bytes?: number
+              gc_cycles?: number
+              goroutines?: number
+              heap_alloc_bytes?: number
+              heap_idle_bytes?: number
+              heap_inuse_bytes?: number
+              heap_released_bytes?: number
+              next_gc_bytes?: number
+              observed_at?: string
+              stack_inuse_bytes?: number
+              sys_bytes?: number
+              total_alloc_bytes?: number
+            }
           }
         }
       }
