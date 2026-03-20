@@ -100,13 +100,13 @@ type CreateRuleInput struct {
 
 // UpdateRuleInput is the parsed patch command.
 type UpdateRuleInput struct {
-	RuleID     uuid.UUID
-	Name       Optional[string]
-	EventType  Optional[RuleEventType]
-	Filter     Optional[map[string]any]
-	ChannelID  Optional[uuid.UUID]
-	Template   Optional[string]
-	IsEnabled  Optional[bool]
+	RuleID    uuid.UUID
+	Name      Optional[string]
+	EventType Optional[RuleEventType]
+	Filter    Optional[map[string]any]
+	ChannelID Optional[uuid.UUID]
+	Template  Optional[string]
+	IsEnabled Optional[bool]
 }
 
 // SupportedRuleEvents returns the event catalog that UI/API clients can use.

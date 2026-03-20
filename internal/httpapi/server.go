@@ -31,6 +31,7 @@ type Server struct {
 	events              provider.EventProvider
 	echo                *echo.Echo
 	sseHub              *sse.Hub
+	inboundWebhooks     *inboundWebhookReceiver
 	ticketService       *ticketservice.Service
 	ticketStatusService *ticketstatus.Service
 	agentPlatform       *agentplatform.Service
@@ -98,6 +99,7 @@ func NewServer(
 		catalog:             catalog,
 		workflowService:     workflowService,
 	}
+	server.inboundWebhooks = newInboundWebhookReceiver(server.logger, newGitHubRepoScopeWebhookEndpoint(server))
 	for _, opt := range opts {
 		if opt != nil {
 			opt(server)
@@ -168,7 +170,8 @@ func (s *Server) registerRoutes() {
 	api := s.echo.Group("/api/v1")
 	api.GET("/healthz", healthHandler)
 	api.GET("/events/stream", s.handleEventStream)
-	api.POST("/webhooks/github", s.handleGitHubWebhook)
+	api.POST("/webhooks/github", s.handleLegacyGitHubWebhook)
+	api.POST("/webhooks/:connector/:provider", s.handleInboundWebhook)
 	api.GET("/projects/:projectId/tickets/stream", s.handleTicketStream)
 	api.GET("/projects/:projectId/agents/stream", s.handleAgentStream)
 	api.GET("/projects/:projectId/hooks/stream", s.handleHookStream)
