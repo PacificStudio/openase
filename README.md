@@ -28,16 +28,24 @@ The repository has moved beyond the initial scaffold. The current vertical slice
 
 ## Build
 
-Build the embedded frontend and the Go binary together from the repo root:
+Common local developer entrypoints now live in the root `Makefile`:
 
 ```bash
-make build
+make hooks-install
+make check
+make build-web
+```
+
+For a source build that refreshes the embedded frontend before compiling the Go binary, run:
+
+```bash
+make build-web
 ```
 
 The equivalent explicit commands are:
 
 ```bash
-npm --prefix web install
+npm --prefix web ci
 npm --prefix web run build
 go build -o ./bin/openase ./cmd/openase
 ```
@@ -178,11 +186,12 @@ These commands read `OPENASE_API_URL`, `OPENASE_AGENT_TOKEN`, `OPENASE_PROJECT_I
 Focused validation commands used frequently during development:
 
 ```bash
-go test ./...
+make check
+make web-validate
+make web-check
 go run ./cmd/openase --help
 go run ./cmd/openase project --help
 go run ./cmd/openase ticket --help
-make web-validate
 ```
 
 If you change the web app, rebuild `web/` before compiling or running the Go binary so the embedded assets stay in sync.
