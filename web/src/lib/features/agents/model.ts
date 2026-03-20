@@ -57,8 +57,7 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
   if (!adapterType) {
     return {
       ok: false,
-      error:
-        'Adapter type must be one of claude-code-cli, codex-app-server, gemini-cli, or custom.',
+      error: `Adapter type must be one of ${providerAdapterOptions.map((option) => option.value).join(', ')}.`,
     }
   }
 

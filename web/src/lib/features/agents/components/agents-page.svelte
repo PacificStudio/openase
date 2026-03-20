@@ -157,8 +157,12 @@
       const payload = await updateProvider(selectedProvider.id, parsed.value)
       if (payload.provider) {
         applyUpdatedProvider(payload.provider)
+        providerFeedback = 'Provider updated.'
+        return
       }
-      providerFeedback = 'Provider updated.'
+
+      providerError =
+        'Provider updated, but the latest provider data could not be refreshed. Please reload the page.'
     } catch (caughtError) {
       providerError =
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to save provider.'
