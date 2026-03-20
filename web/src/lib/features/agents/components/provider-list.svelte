@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { capabilityCatalog } from '$lib/features/capabilities'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
@@ -11,6 +12,7 @@
     claude: Bot,
     codex: Cpu,
   }
+  const providerConfigureCapability = capabilityCatalog.providerConfigure
 </script>
 
 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -49,7 +51,7 @@
           size="sm"
           class="w-full"
           disabled
-          title="Provider editing is not wired in this slice"
+          title={providerConfigureCapability.summary}
         >
           <Settings class="size-3.5" />
           Configure

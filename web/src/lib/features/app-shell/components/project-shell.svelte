@@ -4,6 +4,7 @@
   import { connectEventStream } from '$lib/api/sse'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
+  import { capabilityCatalog } from '$lib/features/capabilities'
   import { TicketDrawer } from '$lib/features/ticket-detail'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
@@ -28,6 +29,9 @@
     if (status === 'blocked' || status === 'archived') return 'critical'
     return 'degraded'
   })
+
+  const searchCapability = capabilityCatalog.search
+  const newTicketCapability = capabilityCatalog.newTicket
 
   $effect(() => {
     appStore.currentOrg = data.currentOrg
@@ -70,8 +74,10 @@
     orgName={data.currentOrg?.name ?? 'No organization'}
     projectName={data.currentProject?.name ?? ''}
     sseStatus={appStore.sseStatus}
-    searchEnabled={false}
-    newTicketEnabled={false}
+    searchEnabled={searchCapability.state === 'available'}
+    newTicketEnabled={newTicketCapability.state === 'available'}
+    searchTitle={searchCapability.summary}
+    newTicketTitle={newTicketCapability.summary}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
     onOpenSearch={handleOpenSearch}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { connectEventStream } from '$lib/api/sse'
   import { ApiError } from '$lib/api/client'
+  import { capabilityCatalog } from '$lib/features/capabilities'
   import { listTickets, listWorkflows } from '$lib/api/openase'
   import PageHeader from '$lib/components/layout/page-header.svelte'
   import { appStore } from '$lib/stores/app.svelte'
@@ -34,6 +35,7 @@
   let searchQuery = $state('')
   let priorityFilter = $state('all')
   let sortOrder = $state<'updated' | 'priority'>('updated')
+  const newTicketCapability = capabilityCatalog.newTicket
 
   const filteredTickets = $derived.by(() => {
     const query = searchQuery.toLowerCase()
@@ -140,9 +142,7 @@
 </script>
 
 {#snippet actions()}
-  <Button size="sm" disabled title="Ticket creation is not exposed by the current API">
-    New Ticket
-  </Button>
+  <Button size="sm" disabled title={newTicketCapability.summary}>New Ticket</Button>
 {/snippet}
 
 <PageHeader title="Tickets" description="All tickets in this project" {actions} />

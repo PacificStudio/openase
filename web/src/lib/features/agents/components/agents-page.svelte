@@ -3,17 +3,20 @@
   import { connectEventStream } from '$lib/api/sse'
   import { listAgents, listProviders, listTickets } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
+  import { capabilityCatalog } from '$lib/features/capabilities'
   import { Button } from '$ui/button'
   import * as Tabs from '$ui/tabs'
   import { Plus } from '@lucide/svelte'
   import AgentList from './agent-list.svelte'
   import ProviderList from './provider-list.svelte'
+  import type { AgentPayload, AgentProvider, Ticket } from '$lib/api/contracts'
   import type { AgentInstance, ProviderConfig } from '../types'
   let activeTab = $state('instances')
   let agents = $state<AgentInstance[]>([])
   let providers = $state<ProviderConfig[]>([])
   let loading = $state(false)
   let error = $state('')
+  const agentRegistrationCapability = capabilityCatalog.agentRegistration
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -38,47 +41,12 @@
         ])
         if (cancelled) return
 
-        const ticketMap = new Map(ticketPayload.tickets.map((ticket) => [ticket.id, ticket]))
-        const providerMap = new Map(
-          providerPayload.providers.map((provider) => [provider.id, provider]),
+        providers = buildProviderCards(providerPayload.providers, agentPayload.agents)
+        agents = buildAgentRows(
+          providerPayload.providers,
+          ticketPayload.tickets,
+          agentPayload.agents,
         )
-
-        providers = providerPayload.providers.map((provider) => ({
-          id: provider.id,
-          name: provider.name,
-          adapterType: provider.adapter_type,
-          modelName: provider.model_name,
-          agentCount: agentPayload.agents.filter((agent) => agent.provider_id === provider.id)
-            .length,
-          isDefault: appStore.currentOrg?.default_agent_provider_id === provider.id,
-        }))
-
-        agents = agentPayload.agents.map((agent) => {
-          const provider = providerMap.get(agent.provider_id)
-          const currentTicket = agent.current_ticket_id
-            ? ticketMap.get(agent.current_ticket_id)
-            : null
-
-          return {
-            id: agent.id,
-            name: agent.name,
-            providerName: provider?.name ?? 'Unknown provider',
-            modelName: provider?.model_name ?? 'Unknown model',
-            status: normalizeAgentStatus(agent.status),
-            runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
-            currentTicket: currentTicket
-              ? {
-                  id: currentTicket.id,
-                  identifier: currentTicket.identifier,
-                  title: currentTicket.title,
-                }
-              : undefined,
-            lastHeartbeat: agent.last_heartbeat_at,
-            todayCompleted: agent.total_tickets_completed,
-            todayCost: 0,
-            capabilities: agent.capabilities,
-          }
-        })
       } catch (caughtError) {
         if (cancelled) return
         error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agents.'
@@ -132,12 +100,60 @@
 
     return 'none'
   }
+
+  function buildProviderCards(
+    providerItems: AgentProvider[],
+    agentItems: AgentPayload['agents'],
+  ): ProviderConfig[] {
+    return providerItems.map((provider) => ({
+      id: provider.id,
+      name: provider.name,
+      adapterType: provider.adapter_type,
+      modelName: provider.model_name,
+      agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,
+      isDefault: appStore.currentOrg?.default_agent_provider_id === provider.id,
+    }))
+  }
+
+  function buildAgentRows(
+    providerItems: AgentProvider[],
+    ticketItems: Ticket[],
+    agentItems: AgentPayload['agents'],
+  ): AgentInstance[] {
+    const ticketMap = new Map(ticketItems.map((ticket) => [ticket.id, ticket]))
+    const providerMap = new Map(providerItems.map((provider) => [provider.id, provider]))
+
+    return agentItems.map((agent) => {
+      const provider = providerMap.get(agent.provider_id)
+      const currentTicket = agent.current_ticket_id ? ticketMap.get(agent.current_ticket_id) : null
+
+      return {
+        id: agent.id,
+        name: agent.name,
+        providerName: provider?.name ?? 'Unknown provider',
+        modelName: provider?.model_name ?? 'Unknown model',
+        status: normalizeAgentStatus(agent.status),
+        runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
+        currentTicket: currentTicket
+          ? {
+              id: currentTicket.id,
+              identifier: currentTicket.identifier,
+              title: currentTicket.title,
+            }
+          : undefined,
+        lastHeartbeat: agent.last_heartbeat_at,
+        todayCompleted: agent.total_tickets_completed,
+        todayCost: 0,
+        capabilities: agent.capabilities,
+      }
+    })
+  }
 </script>
 
 <div class="space-y-4">
   <div class="flex items-center justify-between">
     <h1 class="text-foreground text-lg font-semibold">Agents</h1>
-    <Button size="sm" disabled title="Agent registration is not exposed by the current API">
+    <Button size="sm" disabled title={agentRegistrationCapability.summary}>
       <Plus class="size-3.5" />
       Register Agent
     </Button>

@@ -1,4 +1,9 @@
 <script lang="ts">
+  import {
+    capabilityCatalog,
+    capabilityStateClasses,
+    capabilityStateLabel,
+  } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
   import { listStatuses } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
@@ -13,6 +18,7 @@
   let statuses = $state<StatusItem[]>([])
   let loading = $state(false)
   let error = $state('')
+  const statusCapability = capabilityCatalog.statusMutation
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -58,10 +64,15 @@
 
 <div class="max-w-lg space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Statuses</h2>
-    <p class="text-muted-foreground mt-1 text-sm">
-      Current board columns. Status mutations are not exposed by the current API.
-    </p>
+    <div class="flex items-center gap-2">
+      <h2 class="text-foreground text-base font-semibold">Statuses</h2>
+      <span
+        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(statusCapability.state)}`}
+      >
+        {capabilityStateLabel(statusCapability.state)}
+      </span>
+    </div>
+    <p class="text-muted-foreground mt-1 text-sm">{statusCapability.summary}</p>
   </div>
 
   <Separator />
@@ -85,7 +96,8 @@
       {/each}
     </div>
     <p class="text-muted-foreground text-xs">
-      Add, delete, and reorder actions stay disabled until status mutation endpoints are available.
+      Add, delete, and reorder actions stay disabled until the editable status management UI is
+      wired.
     </p>
   {/if}
 </div>

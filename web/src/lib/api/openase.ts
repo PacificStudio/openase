@@ -2,6 +2,7 @@ import { api } from './client'
 import type {
   ActivityPayload,
   AgentPayload,
+  AgentResponse,
   AgentProviderListPayload,
   BuiltinRolePayload,
   HarnessPayload,
@@ -12,14 +13,32 @@ import type {
   MachineResourcesResponse,
   MachineResponse,
   MachineTestResponse,
+  NotificationChannelDeleteResponse,
+  NotificationChannelPayload,
+  NotificationChannelResponse,
+  NotificationChannelTestResponse,
+  NotificationRuleDeleteResponse,
+  NotificationRuleEventTypesPayload,
+  NotificationRulePayload,
+  NotificationRuleResponse,
+  ProjectRepoPayload,
+  ProjectRepoResponse,
   ProjectPayload,
   ProjectResponse,
   SkillListPayload,
+  StatusDeleteResponse,
   StatusPayload,
+  StatusResetPayload,
+  StatusResponse,
   SystemDashboardResponse,
   TicketDetailPayload,
+  TicketDependencyDeleteResponse,
+  TicketDependencyResponse,
+  TicketCreateResponse,
   TicketPayload,
   Organization,
+  TicketRepoScopePayload,
+  TicketRepoScopeResponse,
   WorkflowDetailPayload,
   WorkflowListPayload,
 } from './contracts'
@@ -116,8 +135,64 @@ export function listAgents(projectId: string) {
   return api.get<AgentPayload>(`/api/v1/projects/${projectId}/agents`)
 }
 
+export function createAgent(
+  projectId: string,
+  body: {
+    provider_id: string
+    name: string
+    workspace_path: string
+    capabilities?: string[]
+  },
+) {
+  return api.post<AgentResponse>(`/api/v1/projects/${projectId}/agents`, { body })
+}
+
+export function getAgent(agentId: string) {
+  return api.get<AgentResponse>(`/api/v1/agents/${agentId}`)
+}
+
+export function deleteAgent(agentId: string) {
+  return api.delete<AgentResponse>(`/api/v1/agents/${agentId}`)
+}
+
 export function listStatuses(projectId: string) {
   return api.get<StatusPayload>(`/api/v1/projects/${projectId}/statuses`)
+}
+
+export function createStatus(
+  projectId: string,
+  body: {
+    name: string
+    color: string
+    icon?: string
+    position?: number
+    is_default?: boolean
+    description?: string
+  },
+) {
+  return api.post<StatusResponse>(`/api/v1/projects/${projectId}/statuses`, { body })
+}
+
+export function resetStatuses(projectId: string) {
+  return api.post<StatusResetPayload>(`/api/v1/projects/${projectId}/statuses/reset`)
+}
+
+export function updateStatus(
+  statusId: string,
+  body: {
+    name?: string
+    color?: string
+    icon?: string
+    position?: number
+    is_default?: boolean
+    description?: string
+  },
+) {
+  return api.patch<StatusResponse>(`/api/v1/statuses/${statusId}`, { body })
+}
+
+export function deleteStatus(statusId: string) {
+  return api.delete<StatusDeleteResponse>(`/api/v1/statuses/${statusId}`)
 }
 
 export function listTickets(
@@ -128,6 +203,24 @@ export function listTickets(
   },
 ) {
   return api.get<TicketPayload>(`/api/v1/projects/${projectId}/tickets`, { params })
+}
+
+export function createTicket(
+  projectId: string,
+  body: {
+    title: string
+    description?: string
+    status_id?: string | null
+    priority?: string | null
+    type?: string | null
+    workflow_id?: string | null
+    created_by?: string | null
+    parent_ticket_id?: string | null
+    external_ref?: string | null
+    budget_usd?: number | null
+  },
+) {
+  return api.post<TicketCreateResponse>(`/api/v1/projects/${projectId}/tickets`, { body })
 }
 
 export function updateTicket(
@@ -148,8 +241,109 @@ export function updateTicket(
   return api.patch(`/api/v1/tickets/${ticketId}`, { body })
 }
 
+export function addTicketDependency(
+  ticketId: string,
+  body: {
+    target_ticket_id: string
+    type: string
+  },
+) {
+  return api.post<TicketDependencyResponse>(`/api/v1/tickets/${ticketId}/dependencies`, { body })
+}
+
+export function deleteTicketDependency(ticketId: string, dependencyId: string) {
+  return api.delete<TicketDependencyDeleteResponse>(
+    `/api/v1/tickets/${ticketId}/dependencies/${dependencyId}`,
+  )
+}
+
 export function getTicketDetail(projectId: string, ticketId: string) {
   return api.get<TicketDetailPayload>(`/api/v1/projects/${projectId}/tickets/${ticketId}/detail`)
+}
+
+export function listProjectRepos(projectId: string) {
+  return api.get<ProjectRepoPayload>(`/api/v1/projects/${projectId}/repos`)
+}
+
+export function createProjectRepo(
+  projectId: string,
+  body: {
+    name: string
+    repository_url: string
+    default_branch: string
+    clone_path?: string | null
+    is_primary?: boolean
+    labels?: string[]
+  },
+) {
+  return api.post<ProjectRepoResponse>(`/api/v1/projects/${projectId}/repos`, { body })
+}
+
+export function updateProjectRepo(
+  projectId: string,
+  repoId: string,
+  body: {
+    name?: string | null
+    repository_url?: string | null
+    default_branch?: string | null
+    clone_path?: string | null
+    is_primary?: boolean | null
+    labels?: string[] | null
+  },
+) {
+  return api.patch<ProjectRepoResponse>(`/api/v1/projects/${projectId}/repos/${repoId}`, { body })
+}
+
+export function deleteProjectRepo(projectId: string, repoId: string) {
+  return api.delete<ProjectRepoResponse>(`/api/v1/projects/${projectId}/repos/${repoId}`)
+}
+
+export function listTicketRepoScopes(projectId: string, ticketId: string) {
+  return api.get<TicketRepoScopePayload>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/repo-scopes`,
+  )
+}
+
+export function createTicketRepoScope(
+  projectId: string,
+  ticketId: string,
+  body: {
+    repo_id: string
+    branch_name?: string | null
+    pull_request_url?: string | null
+    pr_status?: string
+    ci_status?: string
+    is_primary_scope?: boolean
+  },
+) {
+  return api.post<TicketRepoScopeResponse>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/repo-scopes`,
+    { body },
+  )
+}
+
+export function updateTicketRepoScope(
+  projectId: string,
+  ticketId: string,
+  scopeId: string,
+  body: {
+    branch_name?: string | null
+    pull_request_url?: string | null
+    pr_status?: string | null
+    ci_status?: string | null
+    is_primary_scope?: boolean | null
+  },
+) {
+  return api.patch<TicketRepoScopeResponse>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/repo-scopes/${scopeId}`,
+    { body },
+  )
+}
+
+export function deleteTicketRepoScope(projectId: string, ticketId: string, scopeId: string) {
+  return api.delete<TicketRepoScopeResponse>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/repo-scopes/${scopeId}`,
+  )
 }
 
 export function listWorkflows(projectId: string) {
@@ -221,4 +415,100 @@ export function unbindWorkflowSkills(workflowId: string, skills: string[]) {
 
 export function listBuiltinRoles() {
   return api.get<BuiltinRolePayload>('/api/v1/roles/builtin')
+}
+
+export function updateProvider(
+  providerId: string,
+  body: {
+    name?: string
+    adapter_type?: string
+    cli_command?: string
+    cli_args?: string[]
+    auth_config?: Record<string, unknown>
+    model_name?: string
+    model_temperature?: number
+    model_max_tokens?: number
+    cost_per_input_token?: number
+    cost_per_output_token?: number
+  },
+) {
+  return api.patch(`/api/v1/providers/${providerId}`, { body })
+}
+
+export function listNotificationEventTypes() {
+  return api.get<NotificationRuleEventTypesPayload>('/api/v1/notification-event-types')
+}
+
+export function listNotificationChannels(orgId: string) {
+  return api.get<NotificationChannelPayload>(`/api/v1/orgs/${orgId}/channels`)
+}
+
+export function createNotificationChannel(
+  orgId: string,
+  body: {
+    name: string
+    type: string
+    config?: Record<string, unknown>
+    is_enabled?: boolean
+  },
+) {
+  return api.post<NotificationChannelResponse>(`/api/v1/orgs/${orgId}/channels`, { body })
+}
+
+export function updateNotificationChannel(
+  channelId: string,
+  body: {
+    name?: string
+    type?: string
+    config?: Record<string, unknown>
+    is_enabled?: boolean
+  },
+) {
+  return api.patch<NotificationChannelResponse>(`/api/v1/channels/${channelId}`, { body })
+}
+
+export function deleteNotificationChannel(channelId: string) {
+  return api.delete<NotificationChannelDeleteResponse>(`/api/v1/channels/${channelId}`)
+}
+
+export function testNotificationChannel(channelId: string) {
+  return api.post<NotificationChannelTestResponse>(`/api/v1/channels/${channelId}/test`)
+}
+
+export function listNotificationRules(projectId: string) {
+  return api.get<NotificationRulePayload>(`/api/v1/projects/${projectId}/notification-rules`)
+}
+
+export function createNotificationRule(
+  projectId: string,
+  body: {
+    name: string
+    event_type: string
+    filter?: Record<string, unknown>
+    channel_id: string
+    template?: string
+    is_enabled?: boolean
+  },
+) {
+  return api.post<NotificationRuleResponse>(`/api/v1/projects/${projectId}/notification-rules`, {
+    body,
+  })
+}
+
+export function updateNotificationRule(
+  ruleId: string,
+  body: {
+    name?: string
+    event_type?: string
+    filter?: Record<string, unknown>
+    channel_id?: string
+    template?: string
+    is_enabled?: boolean
+  },
+) {
+  return api.patch<NotificationRuleResponse>(`/api/v1/notification-rules/${ruleId}`, { body })
+}
+
+export function deleteNotificationRule(ruleId: string) {
+  return api.delete<NotificationRuleDeleteResponse>(`/api/v1/notification-rules/${ruleId}`)
 }

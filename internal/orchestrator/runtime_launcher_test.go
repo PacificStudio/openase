@@ -18,6 +18,7 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -106,7 +107,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	localMachine, err := client.Machine.Query().
 		Where(
 			entmachine.OrganizationIDEQ(fixture.orgID),
-			entmachine.HostEQ("local"),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
 		).
 		Only(ctx)
 	if err != nil {
