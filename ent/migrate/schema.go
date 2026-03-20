@@ -483,9 +483,9 @@ var (
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "ticket_identifier",
+				Name:    "ticket_project_id_identifier",
 				Unique:  true,
-				Columns: []*schema.Column{TicketsColumns[1]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[1]},
 			},
 			{
 				Name:    "ticket_project_id_status_id_assigned_agent_id_priority_created_at",

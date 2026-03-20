@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -33,6 +34,29 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 		_ = client.Close()
 		return nil, fmt.Errorf("migrate database schema: %w", err)
 	}
+	if err := reconcileLegacyTicketIdentifierIndex(ctx, trimmedDSN); err != nil {
+		_ = client.Close()
+		return nil, err
+	}
 
 	return client, nil
+}
+
+func reconcileLegacyTicketIdentifierIndex(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database for ticket index reconciliation: %w", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	if _, err := db.ExecContext(ctx, `DROP INDEX IF EXISTS "ticket_identifier"`); err != nil {
+		return fmt.Errorf("drop legacy ticket identifier index: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS "ticket_project_id_identifier" ON "tickets" ("project_id", "identifier")`); err != nil {
+		return fmt.Errorf("create project-scoped ticket identifier index: %w", err)
+	}
+
+	return nil
 }
