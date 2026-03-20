@@ -1,10 +1,15 @@
 import { createBoardStore } from '$lib/features/board'
 import { createDashboardStore } from '$lib/features/dashboard'
 import { api, toErrorMessage } from './api'
+import {
+  buildWorkspaceOnboarding,
+  chainCleanups,
+  clearProjectState,
+  clearWorkflowState,
+  resetSelectedWorkflowState,
+} from './controller-helpers'
 import { createEntityMutationActions } from './entity-mutations'
 import {
-  buildOnboardingSummary,
-  defaultProjectForm,
   defaultWorkflowForm,
   orderTicketStatuses,
   slugify,
@@ -26,6 +31,12 @@ import type {
   WorkflowDetailPayload,
   WorkflowListPayload,
 } from './types'
+
+export type WorkspaceStartOptions = {
+  preferredOrgId?: string
+  preferredProjectId?: string
+  preferredWorkflowId?: string
+}
 
 export function createWorkspaceController() {
   const dashboard = createDashboardStore()
@@ -51,24 +62,12 @@ export function createWorkspaceController() {
   }
 
   function onboardingSummary() {
-    return buildOnboardingSummary({
-      organizationCount: state.organizations.length,
-      projectCount: state.projects.length,
-      selectedOrgName: state.selectedOrg?.name ?? '',
-      selectedProjectName: state.selectedProject?.name ?? '',
-      statusCount: board.statuses.length,
-      workflowCount: state.workflows.length,
-      ticketCount: board.tickets.length,
-      agentCount: dashboard.agents.length,
-      runningAgentCount: dashboard.runningAgentCount(),
-      activityCount: dashboard.activityEvents.length,
-      hasAutomationSignal: dashboard.hasSignal(board.tickets),
-    })
+    return buildWorkspaceOnboarding(state, board, dashboard)
   }
 
-  async function start() {
+  async function start(options: WorkspaceStartOptions = {}) {
     heartbeatTimer = window.setInterval(() => dashboard.tickHeartbeat(), 15000)
-    await bootstrap()
+    await bootstrap(options)
   }
 
   function destroy() {
@@ -83,11 +82,18 @@ export function createWorkspaceController() {
     state.drawerOpen = force ?? !state.drawerOpen
   }
 
-  async function bootstrap() {
+  async function bootstrap(options: WorkspaceStartOptions) {
     state.booting = true
     state.errorMessage = ''
     try {
-      await Promise.all([loadBuiltinRoles(), loadOrganizations()])
+      await Promise.all([
+        loadBuiltinRoles(),
+        loadOrganizations(
+          options.preferredOrgId,
+          options.preferredProjectId,
+          options.preferredWorkflowId,
+        ),
+      ])
     } catch (error) {
       state.errorMessage = toErrorMessage(error)
     } finally {
@@ -100,7 +106,11 @@ export function createWorkspaceController() {
     state.builtinRoles = payload.roles
   }
 
-  async function loadOrganizations(preferredOrgId?: string) {
+  async function loadOrganizations(
+    preferredOrgId?: string,
+    preferredProjectId?: string,
+    preferredWorkflowId?: string,
+  ) {
     const payload = await api<OrganizationPayload>('/api/v1/orgs')
     state.organizations = payload.organizations
     const nextOrg =
@@ -114,17 +124,25 @@ export function createWorkspaceController() {
       state.selectedOrg = null
       state.editOrgForm = { name: '', slug: '' }
       state.projects = []
-      clearProjectState()
+      clearProjectState(state, board, dashboard, disconnectProjectStreams)
       return
     }
 
     state.selectedOrgId = nextOrg.id
     state.selectedOrg = nextOrg
     state.editOrgForm = toOrganizationForm(nextOrg)
-    await loadProjects(nextOrg.id)
+    await loadProjects(
+      nextOrg.id,
+      nextOrg.id === preferredOrgId ? preferredProjectId : undefined,
+      preferredWorkflowId,
+    )
   }
 
-  async function loadProjects(orgId: string, preferredProjectId?: string) {
+  async function loadProjects(
+    orgId: string,
+    preferredProjectId?: string,
+    preferredWorkflowId?: string,
+  ) {
     const payload = await api<ProjectPayload>(`/api/v1/orgs/${orgId}/projects`)
     state.projects = payload.projects
     const nextProject =
@@ -134,14 +152,17 @@ export function createWorkspaceController() {
       null
 
     if (!nextProject) {
-      clearProjectState()
+      clearProjectState(state, board, dashboard, disconnectProjectStreams)
       return
     }
 
     state.selectedProjectId = nextProject.id
     state.selectedProject = nextProject
     state.editProjectForm = toProjectForm(nextProject)
-    await loadWorkflowContext(nextProject.id)
+    await loadWorkflowContext(
+      nextProject.id,
+      nextProject.id === preferredProjectId ? preferredWorkflowId : undefined,
+    )
   }
 
   async function loadWorkflowContext(projectId: string, preferredWorkflowId?: string) {
@@ -164,7 +185,7 @@ export function createWorkspaceController() {
       null
 
     if (!nextWorkflow) {
-      resetSelectedWorkflow()
+      resetSelectedWorkflowState(state, board)
       return
     }
 
@@ -201,7 +222,7 @@ export function createWorkspaceController() {
     state.selectedOrgId = org.id
     state.selectedOrg = org
     state.editOrgForm = toOrganizationForm(org)
-    clearProjectState()
+    clearProjectState(state, board, dashboard, disconnectProjectStreams)
     try {
       await loadProjects(org.id)
     } catch (error) {
@@ -215,7 +236,7 @@ export function createWorkspaceController() {
     state.selectedProject = project
     state.editProjectForm = toProjectForm(project)
     state.errorMessage = ''
-    clearWorkflowState()
+    clearWorkflowState(state, board)
     try {
       await loadWorkflowContext(project.id)
     } catch (error) {
@@ -250,43 +271,8 @@ export function createWorkspaceController() {
     slugify,
   }
 
-  function resetSelectedWorkflow() {
-    state.selectedWorkflowId = ''
-    state.selectedWorkflow = null
-    state.editWorkflowForm = defaultWorkflowForm(board.statuses)
-    state.harnessDraft = ''
-    state.harnessPath = ''
-    state.harnessVersion = 0
-    state.validationBusy = false
-    state.harnessIssues = []
-  }
-
-  function clearWorkflowState() {
-    state.workflows = []
-    state.skills = []
-    state.createWorkflowForm = defaultWorkflowForm()
-    state.selectedBuiltinRoleSlug = ''
-    resetSelectedWorkflow()
-  }
-
-  function clearProjectState() {
-    state.selectedProjectId = ''
-    state.selectedProject = null
-    state.editProjectForm = defaultProjectForm()
-    board.reset()
-    dashboard.reset()
-    clearWorkflowState()
-    disconnectProjectStreams()
-  }
-
   function disconnectProjectStreams() {
     streamCleanup?.()
     streamCleanup = null
-  }
-}
-
-function chainCleanups(...cleanups: Array<() => void>) {
-  return () => {
-    cleanups.forEach((cleanup) => cleanup())
   }
 }

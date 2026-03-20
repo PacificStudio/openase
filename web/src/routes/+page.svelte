@@ -1,19 +1,18 @@
 <script lang="ts">
   import { LoaderCircle } from '@lucide/svelte'
   import { onDestroy, onMount } from 'svelte'
-  import AppShell from '$lib/components/layout/AppShell.svelte'
-  import RightDrawer from '$lib/components/layout/RightDrawer.svelte'
-  import Sidebar from '$lib/components/layout/Sidebar.svelte'
-  import TopBar from '$lib/components/layout/TopBar.svelte'
   import BoardView from '$lib/features/board/components/BoardView.svelte'
   import DashboardView from '$lib/features/dashboard/components/DashboardView.svelte'
-  import { createWorkspaceController } from '$lib/features/workspace/controller.svelte'
-  import WorkspaceControlDrawer from '$lib/features/workspace/components/WorkspaceControlDrawer.svelte'
+  import {
+    createWorkspaceController,
+    readWorkspaceRouteSelection,
+    WorkspacePageShell,
+  } from '$lib/features/workspace'
 
   const workspace = createWorkspaceController()
 
   onMount(() => {
-    void workspace.start()
+    void workspace.start(readWorkspaceRouteSelection(new URLSearchParams(window.location.search)))
   })
 
   onDestroy(() => {
@@ -48,36 +47,7 @@
   />
 </svelte:head>
 
-{#snippet header()}
-  <TopBar
-    selectedOrg={workspace.state.selectedOrg}
-    selectedProject={workspace.state.selectedProject}
-    notice={workspace.state.notice}
-    errorMessage={workspace.state.errorMessage}
-    onToggleDrawer={() => workspace.toggleDrawer()}
-  />
-{/snippet}
-
-{#snippet sidebar()}
-  <Sidebar
-    organizations={workspace.state.organizations}
-    projects={workspace.state.projects}
-    selectedOrgId={workspace.state.selectedOrgId}
-    selectedProjectId={workspace.state.selectedProjectId}
-    workflowCount={workspace.state.workflows.length}
-    ticketCount={workspace.board.tickets.length}
-    onSelectOrganization={workspace.selectOrganization}
-    onSelectProject={workspace.selectProject}
-  />
-{/snippet}
-
-{#snippet drawer()}
-  <RightDrawer>
-    <WorkspaceControlDrawer controller={workspace} />
-  </RightDrawer>
-{/snippet}
-
-<AppShell {header} {sidebar} {drawer} drawerOpen={workspace.state.drawerOpen}>
+<WorkspacePageShell {workspace} selectedPage="board">
   {#if workspace.state.booting}
     <div
       class="border-border/80 bg-background/70 flex min-h-96 items-center justify-center rounded-[2rem] border"
@@ -130,4 +100,4 @@
       onDrop={(event, statusID) => void workspace.board.handleStatusDrop(event, statusID)}
     />
   {/if}
-</AppShell>
+</WorkspacePageShell>

@@ -16,6 +16,7 @@
     projects = [],
     selectedOrgId = '',
     selectedProjectId = '',
+    selectedPage = 'board',
     workflowCount = 0,
     ticketCount = 0,
     onSelectOrganization,
@@ -25,11 +26,31 @@
     projects?: Project[]
     selectedOrgId?: string
     selectedProjectId?: string
+    selectedPage?: 'board' | 'workflows' | 'agents'
     workflowCount?: number
     ticketCount?: number
     onSelectOrganization?: (organization: Organization) => void
     onSelectProject?: (project: Project) => void
   } = $props()
+
+  const pages = [
+    { key: 'board', label: 'Board', href: '/' },
+    { key: 'workflows', label: 'Workflows', href: '/workflows' },
+    { key: 'agents', label: 'Agents', href: '/agents' },
+  ] as const
+
+  function pageHref(path: string) {
+    const params = new URLSearchParams()
+    if (selectedOrgId) {
+      params.set('org', selectedOrgId)
+    }
+    if (selectedProjectId) {
+      params.set('project', selectedProjectId)
+    }
+
+    const query = params.toString()
+    return query ? `${path}?${query}` : path
+  }
 </script>
 
 <Card class="border-border/80 bg-background/80 backdrop-blur">
@@ -64,10 +85,24 @@
   <CardHeader>
     <CardTitle class="flex items-center gap-2">
       <ArrowRightLeft class="size-4" />
-      <span>Navigation pattern</span>
+      <span>Navigation</span>
     </CardTitle>
     <CardDescription>
-      This sidebar is reusable across future project, settings, and detail pages.
+      Keep the same project context while moving between board, workflow, and agent surfaces.
     </CardDescription>
   </CardHeader>
+  <CardContent class="grid gap-2">
+    {#each pages as page}
+      <a
+        href={pageHref(page.href)}
+        class={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${
+          selectedPage === page.key
+            ? 'border-foreground/30 bg-foreground text-background'
+            : 'border-border/70 bg-background/60 hover:border-foreground/15 hover:bg-background'
+        }`}
+      >
+        {page.label}
+      </a>
+    {/each}
+  </CardContent>
 </Card>
