@@ -41,7 +41,11 @@ function matchesAnomalyFilter(ticket: BoardTicket, anomalyOnly: boolean | undefi
   return !anomalyOnly || !!ticket.anomaly
 }
 
-export function buildBoardColumns(statuses: TicketStatus[], tickets: Ticket[], workflows: Workflow[]) {
+export function buildBoardColumns(
+  statuses: TicketStatus[],
+  tickets: Ticket[],
+  workflows: Workflow[],
+) {
   const workflowTypeById = new Map(workflows.map((workflow) => [workflow.id, workflow.type]))
 
   return {

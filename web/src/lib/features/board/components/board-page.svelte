@@ -44,7 +44,11 @@
     error = ''
   }
 
-  function canApplyLoadedBoard(projectId: string, requestVersion: number, mode: 'initial' | 'background') {
+  function canApplyLoadedBoard(
+    projectId: string,
+    requestVersion: number,
+    mode: 'initial' | 'background',
+  ) {
     if (isStaleLoad(projectId, requestVersion)) {
       return false
     }
@@ -55,7 +59,11 @@
     return true
   }
 
-  function finishInitialLoad(projectId: string, requestVersion: number, mode: 'initial' | 'background') {
+  function finishInitialLoad(
+    projectId: string,
+    requestVersion: number,
+    mode: 'initial' | 'background',
+  ) {
     if (!isStaleLoad(projectId, requestVersion) && mode === 'initial') {
       loading = false
     }
@@ -99,7 +107,12 @@
   }
 
   async function drainReloadQueue(projectId: string) {
-    if (!queuedReload || reloadInFlight || pendingMoveByTicket.size > 0 || activeProjectId !== projectId) {
+    if (
+      !queuedReload ||
+      reloadInFlight ||
+      pendingMoveByTicket.size > 0 ||
+      activeProjectId !== projectId
+    ) {
       return
     }
 
@@ -213,13 +226,14 @@
         })
       }
       mutationError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to move ticket to the new status.'
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : 'Failed to move ticket to the new status.'
     } finally {
       pendingMoveByTicket.delete(ticketId)
       requestReload(projectId)
     }
   }
-
 </script>
 
 <div class="flex h-full flex-col gap-4">

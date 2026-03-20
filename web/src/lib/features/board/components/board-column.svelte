@@ -44,7 +44,9 @@
   }
 
   const showDropPlaceholder = $derived(
-    isDropTarget && !!draggingTicketId && !column.tickets.some((ticket) => ticket.id === draggingTicketId),
+    isDropTarget &&
+      !!draggingTicketId &&
+      !column.tickets.some((ticket) => ticket.id === draggingTicketId),
   )
 </script>
 
@@ -79,8 +81,8 @@
       <TicketCard
         {ticket}
         onclick={onticketclick}
-        ondragstartticket={ondragstartticket}
-        ondragendticket={ondragendticket}
+        {ondragstartticket}
+        {ondragendticket}
         isDragging={draggingTicketId === ticket.id}
         isPendingMove={ticket.isMoving === true}
       />
