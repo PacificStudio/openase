@@ -1,11 +1,5 @@
 <script lang="ts">
-  import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-  } from '$ui/sheet'
+  import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '$ui/sheet'
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '$ui/tabs'
   import TicketHeader from './ticket-header.svelte'
   import TicketSummary from './ticket-summary.svelte'
@@ -88,7 +82,8 @@
       hookName: 'test-suite',
       status: 'fail',
       duration: 8700,
-      output: 'FAIL: TestOAuth2Refresh/token_expired_scenario\n  Expected status 200, got 401\n  at oauth2_test.go:142',
+      output:
+        'FAIL: TestOAuth2Refresh/token_expired_scenario\n  Expected status 200, got 401\n  at oauth2_test.go:142',
       timestamp: '2026-03-19T15:00:00Z',
     },
     {
@@ -159,7 +154,7 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="w-full sm:max-w-lg p-0 flex flex-col" showCloseButton={false}>
+  <SheetContent side="right" class="flex w-full flex-col p-0 sm:max-w-lg" showCloseButton={false}>
     <SheetHeader class="sr-only">
       <SheetTitle>{ticket.identifier}: {ticket.title}</SheetTitle>
       <SheetDescription>Ticket detail drawer</SheetDescription>

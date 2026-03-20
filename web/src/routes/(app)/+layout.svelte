@@ -23,7 +23,7 @@
   }
 </script>
 
-<div class="flex h-screen flex-col overflow-hidden bg-background">
+<div class="bg-background flex h-screen flex-col overflow-hidden">
   <TopBar
     orgName="My Org"
     projectName="Alpha Platform"
@@ -37,13 +37,13 @@
     <!-- Sidebar -->
     <aside
       class={cn(
-        'flex h-full flex-col border-r border-border bg-sidebar transition-[width] duration-200 ease-in-out',
+        'border-border bg-sidebar flex h-full flex-col border-r transition-[width] duration-200 ease-in-out',
         sidebarCollapsed ? 'w-[52px]' : 'w-[240px]',
       )}
     >
       <Sidebar
         collapsed={sidebarCollapsed}
-        currentPath={currentPath}
+        {currentPath}
         projectSelected={true}
         projectName="Alpha Platform"
         projectHealth="healthy"
