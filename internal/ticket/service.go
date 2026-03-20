@@ -650,6 +650,11 @@ func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ti
 		).
 		ClearCurrentTicketID().
 		SetStatus(entagent.StatusIdle).
+		ClearSessionID().
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		ClearRuntimeStartedAt().
+		SetLastError("").
+		ClearLastHeartbeatAt().
 		Save(ctx); err != nil {
 		return fmt.Errorf("release assigned agent to idle: %w", err)
 	}

@@ -62,6 +62,7 @@
             providerName: provider?.name ?? 'Unknown provider',
             modelName: provider?.model_name ?? 'Unknown model',
             status: normalizeAgentStatus(agent.status),
+            runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
             currentTicket: currentTicket
               ? {
                   id: currentTicket.id,
@@ -69,7 +70,7 @@
                   title: currentTicket.title,
                 }
               : undefined,
-            lastHeartbeat: agent.last_heartbeat_at || new Date(0).toISOString(),
+            lastHeartbeat: agent.last_heartbeat_at,
             todayCompleted: agent.total_tickets_completed,
             todayCost: 0,
             capabilities: agent.capabilities,
@@ -101,11 +102,30 @@
   })
 
   function normalizeAgentStatus(status: string): AgentInstance['status'] {
-    if (status === 'idle' || status === 'running' || status === 'offline' || status === 'stalled') {
+    if (
+      status === 'idle' ||
+      status === 'claimed' ||
+      status === 'running' ||
+      status === 'failed' ||
+      status === 'terminated'
+    ) {
       return status
     }
 
     return status === 'active' ? 'running' : 'idle'
+  }
+
+  function normalizeRuntimePhase(runtimePhase: string): AgentInstance['runtimePhase'] {
+    if (
+      runtimePhase === 'none' ||
+      runtimePhase === 'launching' ||
+      runtimePhase === 'ready' ||
+      runtimePhase === 'failed'
+    ) {
+      return runtimePhase
+    }
+
+    return 'none'
   }
 </script>
 

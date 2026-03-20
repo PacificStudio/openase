@@ -15,16 +15,18 @@
 
   const statusColors: Record<AgentInstance['status'], string> = {
     idle: 'bg-emerald-500',
+    claimed: 'bg-amber-500',
     running: 'bg-blue-500',
-    offline: 'bg-red-500',
-    stalled: 'bg-yellow-500',
+    failed: 'bg-red-500',
+    terminated: 'bg-slate-500',
   }
 
   const statusLabels: Record<AgentInstance['status'], string> = {
     idle: 'Idle',
+    claimed: 'Claimed',
     running: 'Running',
-    offline: 'Offline',
-    stalled: 'Stalled',
+    failed: 'Failed',
+    terminated: 'Terminated',
   }
 </script>
 
@@ -78,9 +80,13 @@
             {/if}
           </td>
           <td class="px-2 py-2.5">
-            <span class="text-xs text-muted-foreground">
-              {formatRelativeTime(agent.lastHeartbeat)}
-            </span>
+            {#if agent.lastHeartbeat}
+              <span class="text-xs text-muted-foreground">
+                {formatRelativeTime(agent.lastHeartbeat)}
+              </span>
+            {:else}
+              <span class="text-xs text-muted-foreground/50">&mdash;</span>
+            {/if}
           </td>
           <td class="px-2 py-2.5 text-right">
             <span class="text-xs tabular-nums text-foreground">{agent.todayCompleted}</span>
