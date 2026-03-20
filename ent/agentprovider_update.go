@@ -9,12 +9,12 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -88,14 +88,8 @@ func (_u *AgentProviderUpdate) SetNillableCliCommand(v *string) *AgentProviderUp
 }
 
 // SetCliArgs sets the "cli_args" field.
-func (_u *AgentProviderUpdate) SetCliArgs(v []string) *AgentProviderUpdate {
+func (_u *AgentProviderUpdate) SetCliArgs(v pgarray.StringArray) *AgentProviderUpdate {
 	_u.mutation.SetCliArgs(v)
-	return _u
-}
-
-// AppendCliArgs appends value to the "cli_args" field.
-func (_u *AgentProviderUpdate) AppendCliArgs(v []string) *AgentProviderUpdate {
-	_u.mutation.AppendCliArgs(v)
 	return _u
 }
 
@@ -338,15 +332,10 @@ func (_u *AgentProviderUpdate) sqlSave(ctx context.Context) (_node int, err erro
 		_spec.SetField(agentprovider.FieldCliCommand, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.CliArgs(); ok {
-		_spec.SetField(agentprovider.FieldCliArgs, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedCliArgs(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, agentprovider.FieldCliArgs, value)
-		})
+		_spec.SetField(agentprovider.FieldCliArgs, field.TypeOther, value)
 	}
 	if _u.mutation.CliArgsCleared() {
-		_spec.ClearField(agentprovider.FieldCliArgs, field.TypeJSON)
+		_spec.ClearField(agentprovider.FieldCliArgs, field.TypeOther)
 	}
 	if value, ok := _u.mutation.AuthConfig(); ok {
 		_spec.SetField(agentprovider.FieldAuthConfig, field.TypeJSON, value)
@@ -529,14 +518,8 @@ func (_u *AgentProviderUpdateOne) SetNillableCliCommand(v *string) *AgentProvide
 }
 
 // SetCliArgs sets the "cli_args" field.
-func (_u *AgentProviderUpdateOne) SetCliArgs(v []string) *AgentProviderUpdateOne {
+func (_u *AgentProviderUpdateOne) SetCliArgs(v pgarray.StringArray) *AgentProviderUpdateOne {
 	_u.mutation.SetCliArgs(v)
-	return _u
-}
-
-// AppendCliArgs appends value to the "cli_args" field.
-func (_u *AgentProviderUpdateOne) AppendCliArgs(v []string) *AgentProviderUpdateOne {
-	_u.mutation.AppendCliArgs(v)
 	return _u
 }
 
@@ -809,15 +792,10 @@ func (_u *AgentProviderUpdateOne) sqlSave(ctx context.Context) (_node *AgentProv
 		_spec.SetField(agentprovider.FieldCliCommand, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.CliArgs(); ok {
-		_spec.SetField(agentprovider.FieldCliArgs, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedCliArgs(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, agentprovider.FieldCliArgs, value)
-		})
+		_spec.SetField(agentprovider.FieldCliArgs, field.TypeOther, value)
 	}
 	if _u.mutation.CliArgsCleared() {
-		_spec.ClearField(agentprovider.FieldCliArgs, field.TypeJSON)
+		_spec.ClearField(agentprovider.FieldCliArgs, field.TypeOther)
 	}
 	if value, ok := _u.mutation.AuthConfig(); ok {
 		_spec.SetField(agentprovider.FieldAuthConfig, field.TypeJSON, value)

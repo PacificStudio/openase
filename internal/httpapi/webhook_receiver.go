@@ -98,7 +98,11 @@ func newInboundWebhookReceiver(logger *slog.Logger, endpoints ...inboundWebhookE
 		if endpoint == nil {
 			continue
 		}
-		receiver.endpoints[endpoint.Target()] = endpoint
+		target := endpoint.Target()
+		if _, exists := receiver.endpoints[target]; exists {
+			panic(fmt.Sprintf("duplicate inbound webhook endpoint for connector %q and provider %q", target.Connector, target.Provider))
+		}
+		receiver.endpoints[target] = endpoint
 	}
 
 	return receiver

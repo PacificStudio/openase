@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
+	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -27,6 +28,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -39,21 +41,22 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeActivityEvent      = "ActivityEvent"
-	TypeAgent              = "Agent"
-	TypeAgentProvider      = "AgentProvider"
-	TypeAgentToken         = "AgentToken"
-	TypeApprovalGate       = "ApprovalGate"
-	TypeOrganization       = "Organization"
-	TypeProject            = "Project"
-	TypeProjectRepo        = "ProjectRepo"
-	TypeScheduledJob       = "ScheduledJob"
-	TypeTicket             = "Ticket"
-	TypeTicketDependency   = "TicketDependency"
-	TypeTicketExternalLink = "TicketExternalLink"
-	TypeTicketRepoScope    = "TicketRepoScope"
-	TypeTicketStatus       = "TicketStatus"
-	TypeWorkflow           = "Workflow"
+	TypeActivityEvent       = "ActivityEvent"
+	TypeAgent               = "Agent"
+	TypeAgentProvider       = "AgentProvider"
+	TypeAgentToken          = "AgentToken"
+	TypeApprovalGate        = "ApprovalGate"
+	TypeNotificationChannel = "NotificationChannel"
+	TypeOrganization        = "Organization"
+	TypeProject             = "Project"
+	TypeProjectRepo         = "ProjectRepo"
+	TypeScheduledJob        = "ScheduledJob"
+	TypeTicket              = "Ticket"
+	TypeTicketDependency    = "TicketDependency"
+	TypeTicketExternalLink  = "TicketExternalLink"
+	TypeTicketRepoScope     = "TicketRepoScope"
+	TypeTicketStatus        = "TicketStatus"
+	TypeWorkflow            = "Workflow"
 )
 
 // ActivityEventMutation represents an operation that mutates the ActivityEvent nodes in the graph.
@@ -928,8 +931,7 @@ type AgentMutation struct {
 	status                     *agent.Status
 	session_id                 *string
 	workspace_path             *string
-	capabilities               *[]string
-	appendcapabilities         []string
+	capabilities               *pgarray.StringArray
 	total_tokens_used          *int64
 	addtotal_tokens_used       *int64
 	total_tickets_completed    *int
@@ -1352,13 +1354,12 @@ func (m *AgentMutation) ResetWorkspacePath() {
 }
 
 // SetCapabilities sets the "capabilities" field.
-func (m *AgentMutation) SetCapabilities(s []string) {
-	m.capabilities = &s
-	m.appendcapabilities = nil
+func (m *AgentMutation) SetCapabilities(pa pgarray.StringArray) {
+	m.capabilities = &pa
 }
 
 // Capabilities returns the value of the "capabilities" field in the mutation.
-func (m *AgentMutation) Capabilities() (r []string, exists bool) {
+func (m *AgentMutation) Capabilities() (r pgarray.StringArray, exists bool) {
 	v := m.capabilities
 	if v == nil {
 		return
@@ -1369,7 +1370,7 @@ func (m *AgentMutation) Capabilities() (r []string, exists bool) {
 // OldCapabilities returns the old "capabilities" field's value of the Agent entity.
 // If the Agent object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AgentMutation) OldCapabilities(ctx context.Context) (v []string, err error) {
+func (m *AgentMutation) OldCapabilities(ctx context.Context) (v pgarray.StringArray, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldCapabilities is only allowed on UpdateOne operations")
 	}
@@ -1383,23 +1384,9 @@ func (m *AgentMutation) OldCapabilities(ctx context.Context) (v []string, err er
 	return oldValue.Capabilities, nil
 }
 
-// AppendCapabilities adds s to the "capabilities" field.
-func (m *AgentMutation) AppendCapabilities(s []string) {
-	m.appendcapabilities = append(m.appendcapabilities, s...)
-}
-
-// AppendedCapabilities returns the list of values that were appended to the "capabilities" field in this mutation.
-func (m *AgentMutation) AppendedCapabilities() ([]string, bool) {
-	if len(m.appendcapabilities) == 0 {
-		return nil, false
-	}
-	return m.appendcapabilities, true
-}
-
 // ClearCapabilities clears the value of the "capabilities" field.
 func (m *AgentMutation) ClearCapabilities() {
 	m.capabilities = nil
-	m.appendcapabilities = nil
 	m.clearedFields[agent.FieldCapabilities] = struct{}{}
 }
 
@@ -1412,7 +1399,6 @@ func (m *AgentMutation) CapabilitiesCleared() bool {
 // ResetCapabilities resets all changes to the "capabilities" field.
 func (m *AgentMutation) ResetCapabilities() {
 	m.capabilities = nil
-	m.appendcapabilities = nil
 	delete(m.clearedFields, agent.FieldCapabilities)
 }
 
@@ -2008,7 +1994,7 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 		m.SetWorkspacePath(v)
 		return nil
 	case agent.FieldCapabilities:
-		v, ok := value.([]string)
+		v, ok := value.(pgarray.StringArray)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -2380,8 +2366,7 @@ type AgentProviderMutation struct {
 	name                     *string
 	adapter_type             *agentprovider.AdapterType
 	cli_command              *string
-	cli_args                 *[]string
-	appendcli_args           []string
+	cli_args                 *pgarray.StringArray
 	auth_config              *map[string]interface{}
 	model_name               *string
 	model_temperature        *float64
@@ -2652,13 +2637,12 @@ func (m *AgentProviderMutation) ResetCliCommand() {
 }
 
 // SetCliArgs sets the "cli_args" field.
-func (m *AgentProviderMutation) SetCliArgs(s []string) {
-	m.cli_args = &s
-	m.appendcli_args = nil
+func (m *AgentProviderMutation) SetCliArgs(pa pgarray.StringArray) {
+	m.cli_args = &pa
 }
 
 // CliArgs returns the value of the "cli_args" field in the mutation.
-func (m *AgentProviderMutation) CliArgs() (r []string, exists bool) {
+func (m *AgentProviderMutation) CliArgs() (r pgarray.StringArray, exists bool) {
 	v := m.cli_args
 	if v == nil {
 		return
@@ -2669,7 +2653,7 @@ func (m *AgentProviderMutation) CliArgs() (r []string, exists bool) {
 // OldCliArgs returns the old "cli_args" field's value of the AgentProvider entity.
 // If the AgentProvider object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AgentProviderMutation) OldCliArgs(ctx context.Context) (v []string, err error) {
+func (m *AgentProviderMutation) OldCliArgs(ctx context.Context) (v pgarray.StringArray, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldCliArgs is only allowed on UpdateOne operations")
 	}
@@ -2683,23 +2667,9 @@ func (m *AgentProviderMutation) OldCliArgs(ctx context.Context) (v []string, err
 	return oldValue.CliArgs, nil
 }
 
-// AppendCliArgs adds s to the "cli_args" field.
-func (m *AgentProviderMutation) AppendCliArgs(s []string) {
-	m.appendcli_args = append(m.appendcli_args, s...)
-}
-
-// AppendedCliArgs returns the list of values that were appended to the "cli_args" field in this mutation.
-func (m *AgentProviderMutation) AppendedCliArgs() ([]string, bool) {
-	if len(m.appendcli_args) == 0 {
-		return nil, false
-	}
-	return m.appendcli_args, true
-}
-
 // ClearCliArgs clears the value of the "cli_args" field.
 func (m *AgentProviderMutation) ClearCliArgs() {
 	m.cli_args = nil
-	m.appendcli_args = nil
 	m.clearedFields[agentprovider.FieldCliArgs] = struct{}{}
 }
 
@@ -2712,7 +2682,6 @@ func (m *AgentProviderMutation) CliArgsCleared() bool {
 // ResetCliArgs resets all changes to the "cli_args" field.
 func (m *AgentProviderMutation) ResetCliArgs() {
 	m.cli_args = nil
-	m.appendcli_args = nil
 	delete(m.clearedFields, agentprovider.FieldCliArgs)
 }
 
@@ -3260,7 +3229,7 @@ func (m *AgentProviderMutation) SetField(name string, value ent.Value) error {
 		m.SetCliCommand(v)
 		return nil
 	case agentprovider.FieldCliArgs:
-		v, ok := value.([]string)
+		v, ok := value.(pgarray.StringArray)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -5274,6 +5243,662 @@ func (m *ApprovalGateMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ApprovalGate edge %s", name)
 }
 
+// NotificationChannelMutation represents an operation that mutates the NotificationChannel nodes in the graph.
+type NotificationChannelMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *uuid.UUID
+	name                *string
+	_type               *string
+	_config             *map[string]interface{}
+	is_enabled          *bool
+	created_at          *time.Time
+	clearedFields       map[string]struct{}
+	organization        *uuid.UUID
+	clearedorganization bool
+	done                bool
+	oldValue            func(context.Context) (*NotificationChannel, error)
+	predicates          []predicate.NotificationChannel
+}
+
+var _ ent.Mutation = (*NotificationChannelMutation)(nil)
+
+// notificationchannelOption allows management of the mutation configuration using functional options.
+type notificationchannelOption func(*NotificationChannelMutation)
+
+// newNotificationChannelMutation creates new mutation for the NotificationChannel entity.
+func newNotificationChannelMutation(c config, op Op, opts ...notificationchannelOption) *NotificationChannelMutation {
+	m := &NotificationChannelMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeNotificationChannel,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withNotificationChannelID sets the ID field of the mutation.
+func withNotificationChannelID(id uuid.UUID) notificationchannelOption {
+	return func(m *NotificationChannelMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *NotificationChannel
+		)
+		m.oldValue = func(ctx context.Context) (*NotificationChannel, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().NotificationChannel.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withNotificationChannel sets the old NotificationChannel of the mutation.
+func withNotificationChannel(node *NotificationChannel) notificationchannelOption {
+	return func(m *NotificationChannelMutation) {
+		m.oldValue = func(context.Context) (*NotificationChannel, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m NotificationChannelMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m NotificationChannelMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of NotificationChannel entities.
+func (m *NotificationChannelMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *NotificationChannelMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *NotificationChannelMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().NotificationChannel.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *NotificationChannelMutation) SetOrganizationID(u uuid.UUID) {
+	m.organization = &u
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *NotificationChannelMutation) OrganizationID() (r uuid.UUID, exists bool) {
+	v := m.organization
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the NotificationChannel entity.
+// If the NotificationChannel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NotificationChannelMutation) OldOrganizationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *NotificationChannelMutation) ResetOrganizationID() {
+	m.organization = nil
+}
+
+// SetName sets the "name" field.
+func (m *NotificationChannelMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *NotificationChannelMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the NotificationChannel entity.
+// If the NotificationChannel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NotificationChannelMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *NotificationChannelMutation) ResetName() {
+	m.name = nil
+}
+
+// SetType sets the "type" field.
+func (m *NotificationChannelMutation) SetType(s string) {
+	m._type = &s
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *NotificationChannelMutation) GetType() (r string, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the NotificationChannel entity.
+// If the NotificationChannel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NotificationChannelMutation) OldType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *NotificationChannelMutation) ResetType() {
+	m._type = nil
+}
+
+// SetConfig sets the "config" field.
+func (m *NotificationChannelMutation) SetConfig(value map[string]interface{}) {
+	m._config = &value
+}
+
+// Config returns the value of the "config" field in the mutation.
+func (m *NotificationChannelMutation) Config() (r map[string]interface{}, exists bool) {
+	v := m._config
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfig returns the old "config" field's value of the NotificationChannel entity.
+// If the NotificationChannel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NotificationChannelMutation) OldConfig(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfig is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfig requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfig: %w", err)
+	}
+	return oldValue.Config, nil
+}
+
+// ResetConfig resets all changes to the "config" field.
+func (m *NotificationChannelMutation) ResetConfig() {
+	m._config = nil
+}
+
+// SetIsEnabled sets the "is_enabled" field.
+func (m *NotificationChannelMutation) SetIsEnabled(b bool) {
+	m.is_enabled = &b
+}
+
+// IsEnabled returns the value of the "is_enabled" field in the mutation.
+func (m *NotificationChannelMutation) IsEnabled() (r bool, exists bool) {
+	v := m.is_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsEnabled returns the old "is_enabled" field's value of the NotificationChannel entity.
+// If the NotificationChannel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NotificationChannelMutation) OldIsEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsEnabled: %w", err)
+	}
+	return oldValue.IsEnabled, nil
+}
+
+// ResetIsEnabled resets all changes to the "is_enabled" field.
+func (m *NotificationChannelMutation) ResetIsEnabled() {
+	m.is_enabled = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *NotificationChannelMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *NotificationChannelMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the NotificationChannel entity.
+// If the NotificationChannel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NotificationChannelMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *NotificationChannelMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearOrganization clears the "organization" edge to the Organization entity.
+func (m *NotificationChannelMutation) ClearOrganization() {
+	m.clearedorganization = true
+	m.clearedFields[notificationchannel.FieldOrganizationID] = struct{}{}
+}
+
+// OrganizationCleared reports if the "organization" edge to the Organization entity was cleared.
+func (m *NotificationChannelMutation) OrganizationCleared() bool {
+	return m.clearedorganization
+}
+
+// OrganizationIDs returns the "organization" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrganizationID instead. It exists only for internal usage by the builders.
+func (m *NotificationChannelMutation) OrganizationIDs() (ids []uuid.UUID) {
+	if id := m.organization; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrganization resets all changes to the "organization" edge.
+func (m *NotificationChannelMutation) ResetOrganization() {
+	m.organization = nil
+	m.clearedorganization = false
+}
+
+// Where appends a list predicates to the NotificationChannelMutation builder.
+func (m *NotificationChannelMutation) Where(ps ...predicate.NotificationChannel) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the NotificationChannelMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *NotificationChannelMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.NotificationChannel, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *NotificationChannelMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *NotificationChannelMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (NotificationChannel).
+func (m *NotificationChannelMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *NotificationChannelMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.organization != nil {
+		fields = append(fields, notificationchannel.FieldOrganizationID)
+	}
+	if m.name != nil {
+		fields = append(fields, notificationchannel.FieldName)
+	}
+	if m._type != nil {
+		fields = append(fields, notificationchannel.FieldType)
+	}
+	if m._config != nil {
+		fields = append(fields, notificationchannel.FieldConfig)
+	}
+	if m.is_enabled != nil {
+		fields = append(fields, notificationchannel.FieldIsEnabled)
+	}
+	if m.created_at != nil {
+		fields = append(fields, notificationchannel.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *NotificationChannelMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case notificationchannel.FieldOrganizationID:
+		return m.OrganizationID()
+	case notificationchannel.FieldName:
+		return m.Name()
+	case notificationchannel.FieldType:
+		return m.GetType()
+	case notificationchannel.FieldConfig:
+		return m.Config()
+	case notificationchannel.FieldIsEnabled:
+		return m.IsEnabled()
+	case notificationchannel.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *NotificationChannelMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case notificationchannel.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case notificationchannel.FieldName:
+		return m.OldName(ctx)
+	case notificationchannel.FieldType:
+		return m.OldType(ctx)
+	case notificationchannel.FieldConfig:
+		return m.OldConfig(ctx)
+	case notificationchannel.FieldIsEnabled:
+		return m.OldIsEnabled(ctx)
+	case notificationchannel.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown NotificationChannel field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *NotificationChannelMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case notificationchannel.FieldOrganizationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case notificationchannel.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case notificationchannel.FieldType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
+		return nil
+	case notificationchannel.FieldConfig:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfig(v)
+		return nil
+	case notificationchannel.FieldIsEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsEnabled(v)
+		return nil
+	case notificationchannel.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown NotificationChannel field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *NotificationChannelMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *NotificationChannelMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *NotificationChannelMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown NotificationChannel numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *NotificationChannelMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *NotificationChannelMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *NotificationChannelMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown NotificationChannel nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *NotificationChannelMutation) ResetField(name string) error {
+	switch name {
+	case notificationchannel.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case notificationchannel.FieldName:
+		m.ResetName()
+		return nil
+	case notificationchannel.FieldType:
+		m.ResetType()
+		return nil
+	case notificationchannel.FieldConfig:
+		m.ResetConfig()
+		return nil
+	case notificationchannel.FieldIsEnabled:
+		m.ResetIsEnabled()
+		return nil
+	case notificationchannel.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown NotificationChannel field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *NotificationChannelMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.organization != nil {
+		edges = append(edges, notificationchannel.EdgeOrganization)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *NotificationChannelMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case notificationchannel.EdgeOrganization:
+		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *NotificationChannelMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *NotificationChannelMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *NotificationChannelMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedorganization {
+		edges = append(edges, notificationchannel.EdgeOrganization)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *NotificationChannelMutation) EdgeCleared(name string) bool {
+	switch name {
+	case notificationchannel.EdgeOrganization:
+		return m.clearedorganization
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *NotificationChannelMutation) ClearEdge(name string) error {
+	switch name {
+	case notificationchannel.EdgeOrganization:
+		m.ClearOrganization()
+		return nil
+	}
+	return fmt.Errorf("unknown NotificationChannel unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *NotificationChannelMutation) ResetEdge(name string) error {
+	switch name {
+	case notificationchannel.EdgeOrganization:
+		m.ResetOrganization()
+		return nil
+	}
+	return fmt.Errorf("unknown NotificationChannel edge %s", name)
+}
+
 // OrganizationMutation represents an operation that mutates the Organization nodes in the graph.
 type OrganizationMutation struct {
 	config
@@ -5289,6 +5914,9 @@ type OrganizationMutation struct {
 	providers                     map[uuid.UUID]struct{}
 	removedproviders              map[uuid.UUID]struct{}
 	clearedproviders              bool
+	notification_channels         map[uuid.UUID]struct{}
+	removednotification_channels  map[uuid.UUID]struct{}
+	clearednotification_channels  bool
 	default_agent_provider        *uuid.UUID
 	cleareddefault_agent_provider bool
 	done                          bool
@@ -5629,6 +6257,60 @@ func (m *OrganizationMutation) ResetProviders() {
 	m.removedproviders = nil
 }
 
+// AddNotificationChannelIDs adds the "notification_channels" edge to the NotificationChannel entity by ids.
+func (m *OrganizationMutation) AddNotificationChannelIDs(ids ...uuid.UUID) {
+	if m.notification_channels == nil {
+		m.notification_channels = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.notification_channels[ids[i]] = struct{}{}
+	}
+}
+
+// ClearNotificationChannels clears the "notification_channels" edge to the NotificationChannel entity.
+func (m *OrganizationMutation) ClearNotificationChannels() {
+	m.clearednotification_channels = true
+}
+
+// NotificationChannelsCleared reports if the "notification_channels" edge to the NotificationChannel entity was cleared.
+func (m *OrganizationMutation) NotificationChannelsCleared() bool {
+	return m.clearednotification_channels
+}
+
+// RemoveNotificationChannelIDs removes the "notification_channels" edge to the NotificationChannel entity by IDs.
+func (m *OrganizationMutation) RemoveNotificationChannelIDs(ids ...uuid.UUID) {
+	if m.removednotification_channels == nil {
+		m.removednotification_channels = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.notification_channels, ids[i])
+		m.removednotification_channels[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedNotificationChannels returns the removed IDs of the "notification_channels" edge to the NotificationChannel entity.
+func (m *OrganizationMutation) RemovedNotificationChannelsIDs() (ids []uuid.UUID) {
+	for id := range m.removednotification_channels {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// NotificationChannelsIDs returns the "notification_channels" edge IDs in the mutation.
+func (m *OrganizationMutation) NotificationChannelsIDs() (ids []uuid.UUID) {
+	for id := range m.notification_channels {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetNotificationChannels resets all changes to the "notification_channels" edge.
+func (m *OrganizationMutation) ResetNotificationChannels() {
+	m.notification_channels = nil
+	m.clearednotification_channels = false
+	m.removednotification_channels = nil
+}
+
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
 func (m *OrganizationMutation) ClearDefaultAgentProvider() {
 	m.cleareddefault_agent_provider = true
@@ -5832,12 +6514,15 @@ func (m *OrganizationMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *OrganizationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.projects != nil {
 		edges = append(edges, organization.EdgeProjects)
 	}
 	if m.providers != nil {
 		edges = append(edges, organization.EdgeProviders)
+	}
+	if m.notification_channels != nil {
+		edges = append(edges, organization.EdgeNotificationChannels)
 	}
 	if m.default_agent_provider != nil {
 		edges = append(edges, organization.EdgeDefaultAgentProvider)
@@ -5861,6 +6546,12 @@ func (m *OrganizationMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case organization.EdgeNotificationChannels:
+		ids := make([]ent.Value, 0, len(m.notification_channels))
+		for id := range m.notification_channels {
+			ids = append(ids, id)
+		}
+		return ids
 	case organization.EdgeDefaultAgentProvider:
 		if id := m.default_agent_provider; id != nil {
 			return []ent.Value{*id}
@@ -5871,12 +6562,15 @@ func (m *OrganizationMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *OrganizationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedprojects != nil {
 		edges = append(edges, organization.EdgeProjects)
 	}
 	if m.removedproviders != nil {
 		edges = append(edges, organization.EdgeProviders)
+	}
+	if m.removednotification_channels != nil {
+		edges = append(edges, organization.EdgeNotificationChannels)
 	}
 	return edges
 }
@@ -5897,18 +6591,27 @@ func (m *OrganizationMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case organization.EdgeNotificationChannels:
+		ids := make([]ent.Value, 0, len(m.removednotification_channels))
+		for id := range m.removednotification_channels {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *OrganizationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedprojects {
 		edges = append(edges, organization.EdgeProjects)
 	}
 	if m.clearedproviders {
 		edges = append(edges, organization.EdgeProviders)
+	}
+	if m.clearednotification_channels {
+		edges = append(edges, organization.EdgeNotificationChannels)
 	}
 	if m.cleareddefault_agent_provider {
 		edges = append(edges, organization.EdgeDefaultAgentProvider)
@@ -5924,6 +6627,8 @@ func (m *OrganizationMutation) EdgeCleared(name string) bool {
 		return m.clearedprojects
 	case organization.EdgeProviders:
 		return m.clearedproviders
+	case organization.EdgeNotificationChannels:
+		return m.clearednotification_channels
 	case organization.EdgeDefaultAgentProvider:
 		return m.cleareddefault_agent_provider
 	}
@@ -5950,6 +6655,9 @@ func (m *OrganizationMutation) ResetEdge(name string) error {
 		return nil
 	case organization.EdgeProviders:
 		m.ResetProviders()
+		return nil
+	case organization.EdgeNotificationChannels:
+		m.ResetNotificationChannels()
 		return nil
 	case organization.EdgeDefaultAgentProvider:
 		m.ResetDefaultAgentProvider()
@@ -7587,8 +8295,7 @@ type ProjectRepoMutation struct {
 	default_branch       *string
 	clone_path           *string
 	is_primary           *bool
-	labels               *[]string
-	appendlabels         []string
+	labels               *pgarray.StringArray
 	clearedFields        map[string]struct{}
 	project              *uuid.UUID
 	clearedproject       bool
@@ -7934,13 +8641,12 @@ func (m *ProjectRepoMutation) ResetIsPrimary() {
 }
 
 // SetLabels sets the "labels" field.
-func (m *ProjectRepoMutation) SetLabels(s []string) {
-	m.labels = &s
-	m.appendlabels = nil
+func (m *ProjectRepoMutation) SetLabels(pa pgarray.StringArray) {
+	m.labels = &pa
 }
 
 // Labels returns the value of the "labels" field in the mutation.
-func (m *ProjectRepoMutation) Labels() (r []string, exists bool) {
+func (m *ProjectRepoMutation) Labels() (r pgarray.StringArray, exists bool) {
 	v := m.labels
 	if v == nil {
 		return
@@ -7951,7 +8657,7 @@ func (m *ProjectRepoMutation) Labels() (r []string, exists bool) {
 // OldLabels returns the old "labels" field's value of the ProjectRepo entity.
 // If the ProjectRepo object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectRepoMutation) OldLabels(ctx context.Context) (v []string, err error) {
+func (m *ProjectRepoMutation) OldLabels(ctx context.Context) (v pgarray.StringArray, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldLabels is only allowed on UpdateOne operations")
 	}
@@ -7965,23 +8671,9 @@ func (m *ProjectRepoMutation) OldLabels(ctx context.Context) (v []string, err er
 	return oldValue.Labels, nil
 }
 
-// AppendLabels adds s to the "labels" field.
-func (m *ProjectRepoMutation) AppendLabels(s []string) {
-	m.appendlabels = append(m.appendlabels, s...)
-}
-
-// AppendedLabels returns the list of values that were appended to the "labels" field in this mutation.
-func (m *ProjectRepoMutation) AppendedLabels() ([]string, bool) {
-	if len(m.appendlabels) == 0 {
-		return nil, false
-	}
-	return m.appendlabels, true
-}
-
 // ClearLabels clears the value of the "labels" field.
 func (m *ProjectRepoMutation) ClearLabels() {
 	m.labels = nil
-	m.appendlabels = nil
 	m.clearedFields[projectrepo.FieldLabels] = struct{}{}
 }
 
@@ -7994,7 +8686,6 @@ func (m *ProjectRepoMutation) LabelsCleared() bool {
 // ResetLabels resets all changes to the "labels" field.
 func (m *ProjectRepoMutation) ResetLabels() {
 	m.labels = nil
-	m.appendlabels = nil
 	delete(m.clearedFields, projectrepo.FieldLabels)
 }
 
@@ -8232,7 +8923,7 @@ func (m *ProjectRepoMutation) SetField(name string, value ent.Value) error {
 		m.SetIsPrimary(v)
 		return nil
 	case projectrepo.FieldLabels:
-		v, ok := value.([]string)
+		v, ok := value.(pgarray.StringArray)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}

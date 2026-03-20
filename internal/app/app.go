@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
@@ -58,6 +60,10 @@ func (a *App) RunServe(ctx context.Context) error {
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
 	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver())
+	notificationSvc := notificationservice.NewService(client, a.logger, http.DefaultClient)
+	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
+		return err
+	}
 	workflowSvc, err := workflowservice.NewService(client, a.logger, "")
 	if err != nil {
 		return err
@@ -77,6 +83,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
+		httpapi.WithNotificationService(notificationSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {

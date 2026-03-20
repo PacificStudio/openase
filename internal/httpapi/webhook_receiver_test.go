@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -113,6 +114,29 @@ func TestInboundWebhookRouteRejectsUnknownTarget(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "WEBHOOK_ROUTE_NOT_FOUND") {
 		t.Fatalf("expected route not found error, got %s", rec.Body.String())
 	}
+}
+
+func TestNewInboundWebhookReceiverRejectsDuplicateTargets(t *testing.T) {
+	target := inboundWebhookTarget{
+		Connector: inboundWebhookKey("issue-sync"),
+		Provider:  inboundWebhookKey("gitlab"),
+	}
+
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			t.Fatal("expected panic for duplicate targets")
+		}
+		if got := fmt.Sprint(recovered); !strings.Contains(got, "duplicate inbound webhook endpoint") {
+			t.Fatalf("panic = %q", got)
+		}
+	}()
+
+	newInboundWebhookReceiver(
+		newInboundWebhookTestLogger(),
+		&stubInboundWebhookEndpoint{target: target},
+		&stubInboundWebhookEndpoint{target: target},
+	)
 }
 
 type stubInboundWebhookEndpoint struct {

@@ -19,9 +19,7 @@ func (AgentProvider) Fields() []ent.Field {
 		field.Enum("adapter_type").
 			Values("claude-code-cli", "codex-app-server", "gemini-cli", "custom"),
 		field.String("cli_command").NotEmpty(),
-		field.Strings("cli_args").
-			SchemaType(textArrayColumn()).
-			Optional(),
+		textArrayField("cli_args"),
 		field.JSON("auth_config", map[string]any{}).Default(emptyMap),
 		field.String("model_name").NotEmpty(),
 		field.Float("model_temperature").Default(0),

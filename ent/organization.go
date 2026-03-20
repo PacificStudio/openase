@@ -36,11 +36,13 @@ type OrganizationEdges struct {
 	Projects []*Project `json:"projects,omitempty"`
 	// Providers holds the value of the providers edge.
 	Providers []*AgentProvider `json:"providers,omitempty"`
+	// NotificationChannels holds the value of the notification_channels edge.
+	NotificationChannels []*NotificationChannel `json:"notification_channels,omitempty"`
 	// DefaultAgentProvider holds the value of the default_agent_provider edge.
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // ProjectsOrErr returns the Projects value or an error if the edge
@@ -61,12 +63,21 @@ func (e OrganizationEdges) ProvidersOrErr() ([]*AgentProvider, error) {
 	return nil, &NotLoadedError{edge: "providers"}
 }
 
+// NotificationChannelsOrErr returns the NotificationChannels value or an error if the edge
+// was not loaded in eager-loading.
+func (e OrganizationEdges) NotificationChannelsOrErr() ([]*NotificationChannel, error) {
+	if e.loadedTypes[2] {
+		return e.NotificationChannels, nil
+	}
+	return nil, &NotLoadedError{edge: "notification_channels"}
+}
+
 // DefaultAgentProviderOrErr returns the DefaultAgentProvider value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e OrganizationEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[2] {
+	} else if e.loadedTypes[3] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -144,6 +155,11 @@ func (_m *Organization) QueryProjects() *ProjectQuery {
 // QueryProviders queries the "providers" edge of the Organization entity.
 func (_m *Organization) QueryProviders() *AgentProviderQuery {
 	return NewOrganizationClient(_m.config).QueryProviders(_m)
+}
+
+// QueryNotificationChannels queries the "notification_channels" edge of the Organization entity.
+func (_m *Organization) QueryNotificationChannels() *NotificationChannelQuery {
+	return NewOrganizationClient(_m.config).QueryNotificationChannels(_m)
 }
 
 // QueryDefaultAgentProvider queries the "default_agent_provider" edge of the Organization entity.

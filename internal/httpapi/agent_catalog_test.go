@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -14,6 +15,8 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
 )
@@ -124,6 +127,104 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	deleteAgentRec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/agents/"+agentPayload.Agent.ID, "")
 	if deleteAgentRec.Code != http.StatusOK {
 		t.Fatalf("expected agent delete 200, got %d: %s", deleteAgentRec.Code, deleteAgentRec.Body.String())
+	}
+}
+
+func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		nil,
+	)
+
+	orgRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme Platform","slug":"acme-platform"}`)
+	if orgRec.Code != http.StatusCreated {
+		t.Fatalf("expected organization create 201, got %d: %s", orgRec.Code, orgRec.Body.String())
+	}
+
+	var orgPayload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	decodeResponse(t, orgRec, &orgPayload)
+
+	providerRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
+		`{"name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.4"}`,
+	)
+	if providerRec.Code != http.StatusCreated {
+		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
+	}
+
+	var providerPayload struct {
+		Provider agentProviderResponse `json:"provider"`
+	}
+	decodeResponse(t, providerRec, &providerPayload)
+	if want := []string{"app-server", "--listen", "stdio://"}; !slices.Equal(providerPayload.Provider.CliArgs, want) {
+		t.Fatalf("expected provider cli_args %v, got %+v", want, providerPayload.Provider)
+	}
+
+	projectRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/projects",
+		`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"active","max_concurrent_agents":8}`,
+	)
+	if projectRec.Code != http.StatusCreated {
+		t.Fatalf("expected project create 201, got %d: %s", projectRec.Code, projectRec.Body.String())
+	}
+
+	var projectPayload struct {
+		Project projectResponse `json:"project"`
+	}
+	decodeResponse(t, projectRec, &projectPayload)
+
+	repoRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+projectPayload.Project.ID+"/repos",
+		`{"name":"backend","repository_url":"https://github.com/acme/backend.git","labels":["go","api"]}`,
+	)
+	if repoRec.Code != http.StatusCreated {
+		t.Fatalf("expected repo create 201, got %d: %s", repoRec.Code, repoRec.Body.String())
+	}
+
+	var repoPayload struct {
+		Repo projectRepoResponse `json:"repo"`
+	}
+	decodeResponse(t, repoRec, &repoPayload)
+	if want := []string{"go", "api"}; !slices.Equal(repoPayload.Repo.Labels, want) {
+		t.Fatalf("expected repo labels %v, got %+v", want, repoPayload.Repo)
+	}
+
+	agentRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+projectPayload.Project.ID+"/agents",
+		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","status":"running","session_id":"sess-1","workspace_path":"/tmp/openase","capabilities":["go","backend"],"total_tokens_used":42,"total_tickets_completed":3,"last_heartbeat_at":"2026-03-19T17:00:00Z"}`,
+	)
+	if agentRec.Code != http.StatusCreated {
+		t.Fatalf("expected agent create 201, got %d: %s", agentRec.Code, agentRec.Body.String())
+	}
+
+	var agentPayload struct {
+		Agent agentResponse `json:"agent"`
+	}
+	decodeResponse(t, agentRec, &agentPayload)
+	if want := []string{"go", "backend"}; !slices.Equal(agentPayload.Agent.Capabilities, want) {
+		t.Fatalf("expected agent capabilities %v, got %+v", want, agentPayload.Agent)
 	}
 }
 
