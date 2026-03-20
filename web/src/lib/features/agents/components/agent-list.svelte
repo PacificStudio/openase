@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { capabilityCatalog } from '$lib/features/capabilities'
   import { cn, formatRelativeTime, formatCurrency } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -28,6 +29,10 @@
     failed: 'Failed',
     terminated: 'Terminated',
   }
+
+  const agentOutputCapability = capabilityCatalog.agentOutput
+  const agentPauseCapability = capabilityCatalog.agentPause
+  const agentResumeCapability = capabilityCatalog.agentResume
 </script>
 
 <div class="overflow-x-auto">
@@ -101,7 +106,7 @@
                 size="icon-xs"
                 aria-label="View output"
                 disabled
-                title="Agent output is not exposed by the current API"
+                title={agentOutputCapability.summary}
               >
                 <Terminal class="size-3.5" />
               </Button>
@@ -111,7 +116,7 @@
                   size="icon-xs"
                   aria-label="Pause agent"
                   disabled
-                  title="Agent pause is not exposed by the current API"
+                  title={agentPauseCapability.summary}
                 >
                   <Pause class="size-3.5" />
                 </Button>
@@ -121,7 +126,7 @@
                   size="icon-xs"
                   aria-label="Resume agent"
                   disabled
-                  title="Agent resume is not exposed by the current API"
+                  title={agentResumeCapability.summary}
                 >
                   <Play class="size-3.5" />
                 </Button>
