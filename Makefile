@@ -1,8 +1,8 @@
 SHELL := /bin/sh
 
 WEB_DIR := web
-GO ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/go" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/go"; elif command -v go >/dev/null 2>&1; then command -v go; else printf '%s' "/home/yuzhong/.local/go1.26.1/bin/go"; fi)
-GOFMT ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/gofmt" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/gofmt"; elif command -v gofmt >/dev/null 2>&1; then command -v gofmt; else printf '%s' "/home/yuzhong/.local/go1.26.1/bin/gofmt"; fi)
+GO ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/go" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/go"; elif command -v go >/dev/null 2>&1; then command -v go; else printf '%s' "go"; fi)
+GOFMT ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/gofmt" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/gofmt"; elif command -v gofmt >/dev/null 2>&1; then command -v gofmt; else printf '%s' "gofmt"; fi)
 NPM ?= npm
 OPENASE_MAIN := ./cmd/openase
 
@@ -53,6 +53,18 @@ check: fmt-check test
 
 hooks-install:
 	$(GO) tool lefthook install
+	@hook=.git/hooks/pre-commit; \
+	tmp=$$(mktemp .git/hooks/pre-commit.XXXXXX); \
+	{ \
+		printf '#!/bin/sh\n'; \
+		printf 'export PATH="%s"\n' "$$PATH"; \
+		printf 'export LEFTHOOK_BIN="%s/scripts/lefthook.sh"\n' "$(CURDIR)"; \
+		printf 'export OPENASE_GO="%s"\n' "$(GO)"; \
+		printf 'export OPENASE_GOFMT="%s"\n' "$(GOFMT)"; \
+		sed '/^export PATH=/d;/^export LEFTHOOK_BIN=/d;/^export OPENASE_GO=/d;/^export OPENASE_GOFMT=/d;/^PATH=/d;/^LEFTHOOK_BIN=/d;/^OPENASE_GO=/d;/^OPENASE_GOFMT=/d' "$$hook" | sed '1d'; \
+	} > "$$tmp"; \
+	mv "$$tmp" "$$hook"; \
+	chmod +x "$$hook"
 
 hooks-run:
 	$(GO) tool lefthook run pre-commit --all-files --no-auto-install
