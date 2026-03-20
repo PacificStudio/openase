@@ -106,7 +106,9 @@
       onEvent: () => {
         void load()
       },
-      onError: () => {},
+      onError: (streamError) => {
+        console.error('Tickets stream error:', streamError)
+      },
     })
 
     return () => {

@@ -63,11 +63,7 @@
             {#if agent.currentTicket}
               <button
                 type="button"
-                onclick={() => {
-                  if (agent.currentTicket) {
-                    onSelectTicket?.(agent.currentTicket.id)
-                  }
-                }}
+                onclick={() => agent.currentTicket && onSelectTicket?.(agent.currentTicket.id)}
                 class="text-xs text-primary hover:underline"
               >
                 {agent.currentTicket.identifier}

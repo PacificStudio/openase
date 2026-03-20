@@ -86,24 +86,28 @@ export async function createDefaultWorkflow(
     timeout_minutes: 30,
   })
 
+  if (!payload.workflow) {
+    throw new Error('Failed to create workflow: no workflow data returned from API.')
+  }
+
   const workflow: WorkflowSummary = {
-    id: payload.workflow?.id ?? crypto.randomUUID(),
-    name: payload.workflow?.name ?? `Workflow ${index}`,
-    type: normalizeWorkflowType(payload.workflow?.type ?? 'coding'),
-    pickupStatus: payload.workflow?.pickup_status_id ?? statuses[0].id,
-    finishStatus: payload.workflow?.finish_status_id ?? statuses.at(-1)?.id ?? statuses[0].id,
-    maxConcurrent: payload.workflow?.max_concurrent ?? 1,
-    maxRetry: payload.workflow?.max_retry_attempts ?? 1,
-    timeoutMinutes: payload.workflow?.timeout_minutes ?? 30,
-    isActive: payload.workflow?.is_active ?? true,
+    id: payload.workflow.id,
+    name: payload.workflow.name,
+    type: normalizeWorkflowType(payload.workflow.type),
+    pickupStatus: payload.workflow.pickup_status_id,
+    finishStatus: payload.workflow.finish_status_id ?? statuses.at(-1)?.id ?? statuses[0].id,
+    maxConcurrent: payload.workflow.max_concurrent,
+    maxRetry: payload.workflow.max_retry_attempts,
+    timeoutMinutes: payload.workflow.timeout_minutes,
+    isActive: payload.workflow.is_active,
     lastModified: new Date().toISOString(),
     recentSuccessRate: 0,
-    version: payload.workflow?.version ?? 1,
+    version: payload.workflow.version,
   }
 
   return {
     workflow,
-    selectedId: payload.workflow?.id ?? workflow.id,
+    selectedId: payload.workflow.id,
   }
 }
 

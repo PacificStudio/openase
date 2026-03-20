@@ -92,7 +92,9 @@
       onEvent: () => {
         void load()
       },
-      onError: () => {},
+      onError: (streamError) => {
+        console.error('Activity stream error:', streamError)
+      },
     })
 
     return () => {

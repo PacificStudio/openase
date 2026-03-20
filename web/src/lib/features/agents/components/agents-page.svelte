@@ -92,7 +92,9 @@
       onEvent: () => {
         void load()
       },
-      onError: () => {},
+      onError: (streamError) => {
+        console.error('Agents stream error:', streamError)
+      },
     })
 
     return () => {

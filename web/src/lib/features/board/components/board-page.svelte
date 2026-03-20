@@ -95,7 +95,9 @@
       onEvent: () => {
         void load()
       },
-      onError: () => {},
+      onError: (streamError) => {
+        console.error('Board tickets stream error:', streamError)
+      },
     })
 
     return () => {

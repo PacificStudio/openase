@@ -12,12 +12,13 @@ import type {
   StatusPayload,
   TicketDetailPayload,
   TicketPayload,
+  Organization,
   WorkflowDetailPayload,
   WorkflowListPayload,
 } from './contracts'
 
 export function listOrganizations() {
-  return api.get<{ organizations?: unknown[] }>('/api/v1/orgs')
+  return api.get<{ organizations?: Organization[] }>('/api/v1/orgs')
 }
 
 export function listProjects(orgId: string) {
