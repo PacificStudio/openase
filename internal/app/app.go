@@ -23,6 +23,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
+	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -72,6 +73,13 @@ func New(
 }
 
 func (a *App) RunServe(ctx context.Context) error {
+	runtimeobservability.NewProcessMemoryReporter(
+		runtimeobservability.RuntimeProcessMemoryCollector{},
+		a.metrics,
+		string(a.config.Server.Mode),
+		a.logger,
+	).Start(ctx, runtimeobservability.DefaultProcessMemoryReportInterval)
+
 	client, err := database.Open(ctx, a.config.Database.DSN)
 	if err != nil {
 		return err

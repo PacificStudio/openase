@@ -6307,6 +6307,108 @@
         ]
       }
     },
+    "/api/v1/system/dashboard": {
+      "get": {
+        "operationId": "getSystemDashboard",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "memory": {
+                      "properties": {
+                        "alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "gc_cycles": {
+                          "maximum": 4294967295,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "goroutines": {
+                          "type": "integer"
+                        },
+                        "heap_alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_idle_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_inuse_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_released_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "next_gc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "observed_at": {
+                          "type": "string"
+                        },
+                        "stack_inuse_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sys_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "total_alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get process memory and runtime dashboard metrics response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get process memory and runtime dashboard metrics",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/api/v1/tickets/{ticketId}": {
       "patch": {
         "operationId": "updateTicket",
@@ -7967,6 +8069,9 @@
     }
   },
   "tags": [
+    {
+      "name": "system"
+    },
     {
       "name": "catalog"
     },

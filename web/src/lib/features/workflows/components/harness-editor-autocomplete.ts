@@ -77,7 +77,7 @@ export function findCompletionState(rawContent: string, cursor: number): Complet
     }
   }
 
-  const match = segment.match(/([A-Za-z_][A-Za-z0-9_.[\]]*)?$/)
+  const match = segment.match(/([A-Za-z_][\w.[\]]*)?$/)
   if (!match) {
     return null
   }

@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -46,6 +47,7 @@ type Server struct {
 	scheduledJobService *scheduledjobservice.Service
 	notificationService *notificationservice.Service
 	chatService         *chatservice.Service
+	memoryCollector     runtimeobservability.ProcessMemoryCollector
 }
 
 type ServerOption func(*Server)
@@ -86,6 +88,12 @@ func WithMetricsHandler(handler http.Handler) ServerOption {
 	}
 }
 
+func WithProcessMemoryCollector(collector runtimeobservability.ProcessMemoryCollector) ServerOption {
+	return func(server *Server) {
+		server.memoryCollector = collector
+	}
+}
+
 func NewServer(
 	cfg config.ServerConfig,
 	github config.GitHubConfig,
@@ -117,6 +125,7 @@ func NewServer(
 		agentPlatform:       agentPlatform,
 		catalog:             catalog,
 		workflowService:     workflowService,
+		memoryCollector:     runtimeobservability.RuntimeProcessMemoryCollector{},
 	}
 	server.inboundWebhooks = newInboundWebhookReceiver(server.logger, newGitHubRepoScopeWebhookEndpoint(server))
 	for _, opt := range opts {
@@ -213,6 +222,7 @@ func (s *Server) registerRoutes() {
 	api := s.echo.Group("/api/v1")
 	api.GET("/healthz", healthHandler)
 	api.GET("/openapi.json", s.handleOpenAPI)
+	api.GET("/system/dashboard", s.handleSystemDashboard)
 	api.GET("/system/metrics", s.handleMetrics)
 	api.GET("/events/stream", s.handleEventStream)
 	api.POST("/webhooks/github", s.handleLegacyGitHubWebhook)
