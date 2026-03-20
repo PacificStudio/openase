@@ -220,9 +220,5 @@ func decodePGNotifyEvent(payload string) (provider.Event, error) {
 func pgChannelName(topic provider.Topic) string {
 	sum := sha256.Sum256([]byte(topic))
 	channelName := pgChannelPrefix + hex.EncodeToString(sum[:])
-	if len(channelName) <= maxPGChannelNameBytes {
-		return channelName
-	}
-
 	return channelName[:maxPGChannelNameBytes]
 }

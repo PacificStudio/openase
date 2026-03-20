@@ -75,8 +75,8 @@ func TestPGChannelNameFitsPostgresLimit(t *testing.T) {
 	}
 
 	channel := pgChannelName(topic)
-	if len(channel) > maxPGChannelNameBytes {
-		t.Fatalf("expected channel name length <= %d, got %d (%q)", maxPGChannelNameBytes, len(channel), channel)
+	if len(channel) != maxPGChannelNameBytes {
+		t.Fatalf("expected channel name length %d, got %d (%q)", maxPGChannelNameBytes, len(channel), channel)
 	}
 	if !strings.HasPrefix(channel, pgChannelPrefix) {
 		t.Fatalf("expected channel prefix %q, got %q", pgChannelPrefix, channel)
