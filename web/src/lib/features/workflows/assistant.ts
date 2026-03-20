@@ -67,7 +67,7 @@ export function extractHarnessSuggestion(text: string): HarnessSuggestion | null
 
   return {
     content,
-    summary: normalizeSuggestionSummary(text),
+    summary: 'Suggested harness update.',
   }
 }
 

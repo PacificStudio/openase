@@ -4,21 +4,16 @@
   import Button from '$ui/button/button.svelte'
   import { AlertCircle, CheckCircle2, Bot, PanelRightClose, PanelRightOpen } from '@lucide/svelte'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
-  import type { HarnessContent, WorkflowSummary } from '../types'
+  import type { HarnessContent, HarnessVariableGroup, WorkflowSummary } from '../types'
+  import type { SkillState } from '../model'
   import HarnessEditor from './harness-editor.svelte'
   import HarnessAISidebar from './harness-ai-sidebar.svelte'
-
-  type SkillState = {
-    name: string
-    description: string
-    path: string
-    bound: boolean
-  }
 
   let {
     selectedWorkflow,
     projectId,
     harness,
+    variableGroups = [],
     skillStates,
     validationIssues,
     statusMessage,
@@ -35,6 +30,7 @@
     selectedWorkflow?: WorkflowSummary
     projectId?: string
     harness: HarnessContent | null
+    variableGroups?: HarnessVariableGroup[]
     skillStates: SkillState[]
     validationIssues: HarnessValidationIssue[]
     statusMessage: string
@@ -50,6 +46,9 @@
   } = $props()
 
   let showAssistant = $state(true)
+  const dictionarySize = $derived(
+    variableGroups.reduce((count, group) => count + group.variables.length, 0),
+  )
 </script>
 
 <div class="flex flex-1 flex-col overflow-hidden">
@@ -58,6 +57,9 @@
       <span>{selectedWorkflow?.name ?? 'No workflow selected'}</span>
       {#if isDirty}
         <Badge variant="outline" class="text-[10px]">Unsaved</Badge>
+      {/if}
+      {#if dictionarySize > 0}
+        <Badge variant="outline" class="text-[10px]">{dictionarySize} vars</Badge>
       {/if}
     </div>
     <div class="flex items-center gap-2">
@@ -94,8 +96,9 @@
       <div class="min-h-0 flex-1 overflow-hidden">
         <HarnessEditor
           content={harness}
-          filePath={selectedWorkflow ? `harness/${selectedWorkflow.id}.md` : ''}
+          filePath={selectedWorkflow?.harnessPath ?? ''}
           version={selectedWorkflow?.version ?? 1}
+          {variableGroups}
           onchange={onDraftChange}
         />
       </div>

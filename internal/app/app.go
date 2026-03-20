@@ -23,6 +23,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
+	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -97,6 +98,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	}()
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
+	ticketSvc := ticketservice.NewService(client)
 	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver(), sshinfra.NewTester(sshPool))
 	notificationSvc := notificationservice.NewService(client, a.logger, http.DefaultClient)
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
@@ -106,6 +108,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	scheduledJobSvc := scheduledjobservice.NewService(client, ticketSvc, a.logger)
 	defer func() {
 		if closeErr := workflowSvc.Close(); closeErr != nil {
 			a.logger.Error("close workflow service", "error", closeErr)
@@ -115,7 +118,6 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("resolve chat working directory: %w", err)
 	}
-	ticketSvc := ticketservice.NewService(client)
 	chatSvc := chatservice.NewService(
 		a.logger,
 		claudecodeadapter.NewAdapter(agentcli.NewManager(agentcli.ManagerOptions{})),
@@ -137,6 +139,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithMetricsProvider(a.metrics),
 		httpapi.WithMetricsHandler(a.metricsHandler),
+		httpapi.WithScheduledJobService(scheduledJobSvc),
 		httpapi.WithNotificationService(notificationSvc),
 		httpapi.WithChatService(chatSvc),
 	)
