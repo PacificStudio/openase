@@ -220,8 +220,12 @@ func init() {
 	projectDescSlug := projectFields[3].Descriptor()
 	// project.SlugValidator is a validator for the "slug" field. It is called by the builders before save.
 	project.SlugValidator = projectDescSlug.Validators[0].(func(string) error)
+	// projectDescAccessibleMachineIds is the schema descriptor for accessible_machine_ids field.
+	projectDescAccessibleMachineIds := projectFields[8].Descriptor()
+	// project.DefaultAccessibleMachineIds holds the default value on creation for the accessible_machine_ids field.
+	project.DefaultAccessibleMachineIds = projectDescAccessibleMachineIds.Default.(func() []uuid.UUID)
 	// projectDescMaxConcurrentAgents is the schema descriptor for max_concurrent_agents field.
-	projectDescMaxConcurrentAgents := projectFields[8].Descriptor()
+	projectDescMaxConcurrentAgents := projectFields[9].Descriptor()
 	// project.DefaultMaxConcurrentAgents holds the default value on creation for the max_concurrent_agents field.
 	project.DefaultMaxConcurrentAgents = projectDescMaxConcurrentAgents.Default.(int)
 	// projectDescID is the schema descriptor for id field.
@@ -283,51 +287,51 @@ func init() {
 	// ticket.TitleValidator is a validator for the "title" field. It is called by the builders before save.
 	ticket.TitleValidator = ticketDescTitle.Validators[0].(func(string) error)
 	// ticketDescCreatedBy is the schema descriptor for created_by field.
-	ticketDescCreatedBy := ticketFields[10].Descriptor()
+	ticketDescCreatedBy := ticketFields[11].Descriptor()
 	// ticket.CreatedByValidator is a validator for the "created_by" field. It is called by the builders before save.
 	ticket.CreatedByValidator = ticketDescCreatedBy.Validators[0].(func(string) error)
 	// ticketDescAttemptCount is the schema descriptor for attempt_count field.
-	ticketDescAttemptCount := ticketFields[13].Descriptor()
+	ticketDescAttemptCount := ticketFields[14].Descriptor()
 	// ticket.DefaultAttemptCount holds the default value on creation for the attempt_count field.
 	ticket.DefaultAttemptCount = ticketDescAttemptCount.Default.(int)
 	// ticketDescConsecutiveErrors is the schema descriptor for consecutive_errors field.
-	ticketDescConsecutiveErrors := ticketFields[14].Descriptor()
+	ticketDescConsecutiveErrors := ticketFields[15].Descriptor()
 	// ticket.DefaultConsecutiveErrors holds the default value on creation for the consecutive_errors field.
 	ticket.DefaultConsecutiveErrors = ticketDescConsecutiveErrors.Default.(int)
 	// ticketDescRetryPaused is the schema descriptor for retry_paused field.
-	ticketDescRetryPaused := ticketFields[16].Descriptor()
+	ticketDescRetryPaused := ticketFields[17].Descriptor()
 	// ticket.DefaultRetryPaused holds the default value on creation for the retry_paused field.
 	ticket.DefaultRetryPaused = ticketDescRetryPaused.Default.(bool)
 	// ticketDescStallCount is the schema descriptor for stall_count field.
-	ticketDescStallCount := ticketFields[18].Descriptor()
+	ticketDescStallCount := ticketFields[19].Descriptor()
 	// ticket.DefaultStallCount holds the default value on creation for the stall_count field.
 	ticket.DefaultStallCount = ticketDescStallCount.Default.(int)
 	// ticketDescHarnessVersion is the schema descriptor for harness_version field.
-	ticketDescHarnessVersion := ticketFields[20].Descriptor()
+	ticketDescHarnessVersion := ticketFields[21].Descriptor()
 	// ticket.DefaultHarnessVersion holds the default value on creation for the harness_version field.
 	ticket.DefaultHarnessVersion = ticketDescHarnessVersion.Default.(int)
 	// ticketDescBudgetUsd is the schema descriptor for budget_usd field.
-	ticketDescBudgetUsd := ticketFields[21].Descriptor()
+	ticketDescBudgetUsd := ticketFields[22].Descriptor()
 	// ticket.DefaultBudgetUsd holds the default value on creation for the budget_usd field.
 	ticket.DefaultBudgetUsd = ticketDescBudgetUsd.Default.(float64)
 	// ticketDescCostTokensInput is the schema descriptor for cost_tokens_input field.
-	ticketDescCostTokensInput := ticketFields[22].Descriptor()
+	ticketDescCostTokensInput := ticketFields[23].Descriptor()
 	// ticket.DefaultCostTokensInput holds the default value on creation for the cost_tokens_input field.
 	ticket.DefaultCostTokensInput = ticketDescCostTokensInput.Default.(int64)
 	// ticketDescCostTokensOutput is the schema descriptor for cost_tokens_output field.
-	ticketDescCostTokensOutput := ticketFields[23].Descriptor()
+	ticketDescCostTokensOutput := ticketFields[24].Descriptor()
 	// ticket.DefaultCostTokensOutput holds the default value on creation for the cost_tokens_output field.
 	ticket.DefaultCostTokensOutput = ticketDescCostTokensOutput.Default.(int64)
 	// ticketDescCostAmount is the schema descriptor for cost_amount field.
-	ticketDescCostAmount := ticketFields[24].Descriptor()
+	ticketDescCostAmount := ticketFields[25].Descriptor()
 	// ticket.DefaultCostAmount holds the default value on creation for the cost_amount field.
 	ticket.DefaultCostAmount = ticketDescCostAmount.Default.(float64)
 	// ticketDescMetadata is the schema descriptor for metadata field.
-	ticketDescMetadata := ticketFields[25].Descriptor()
+	ticketDescMetadata := ticketFields[26].Descriptor()
 	// ticket.DefaultMetadata holds the default value on creation for the metadata field.
 	ticket.DefaultMetadata = ticketDescMetadata.Default.(func() map[string]interface{})
 	// ticketDescCreatedAt is the schema descriptor for created_at field.
-	ticketDescCreatedAt := ticketFields[28].Descriptor()
+	ticketDescCreatedAt := ticketFields[29].Descriptor()
 	// ticket.DefaultCreatedAt holds the default value on creation for the created_at field.
 	ticket.DefaultCreatedAt = ticketDescCreatedAt.Default.(func() time.Time)
 	// ticketDescID is the schema descriptor for id field.
@@ -409,27 +413,27 @@ func init() {
 	// workflow.DefaultHooks holds the default value on creation for the hooks field.
 	workflow.DefaultHooks = workflowDescHooks.Default.(func() map[string]interface{})
 	// workflowDescMaxConcurrent is the schema descriptor for max_concurrent field.
-	workflowDescMaxConcurrent := workflowFields[6].Descriptor()
+	workflowDescMaxConcurrent := workflowFields[7].Descriptor()
 	// workflow.DefaultMaxConcurrent holds the default value on creation for the max_concurrent field.
 	workflow.DefaultMaxConcurrent = workflowDescMaxConcurrent.Default.(int)
 	// workflowDescMaxRetryAttempts is the schema descriptor for max_retry_attempts field.
-	workflowDescMaxRetryAttempts := workflowFields[7].Descriptor()
+	workflowDescMaxRetryAttempts := workflowFields[8].Descriptor()
 	// workflow.DefaultMaxRetryAttempts holds the default value on creation for the max_retry_attempts field.
 	workflow.DefaultMaxRetryAttempts = workflowDescMaxRetryAttempts.Default.(int)
 	// workflowDescTimeoutMinutes is the schema descriptor for timeout_minutes field.
-	workflowDescTimeoutMinutes := workflowFields[8].Descriptor()
+	workflowDescTimeoutMinutes := workflowFields[9].Descriptor()
 	// workflow.DefaultTimeoutMinutes holds the default value on creation for the timeout_minutes field.
 	workflow.DefaultTimeoutMinutes = workflowDescTimeoutMinutes.Default.(int)
 	// workflowDescStallTimeoutMinutes is the schema descriptor for stall_timeout_minutes field.
-	workflowDescStallTimeoutMinutes := workflowFields[9].Descriptor()
+	workflowDescStallTimeoutMinutes := workflowFields[10].Descriptor()
 	// workflow.DefaultStallTimeoutMinutes holds the default value on creation for the stall_timeout_minutes field.
 	workflow.DefaultStallTimeoutMinutes = workflowDescStallTimeoutMinutes.Default.(int)
 	// workflowDescVersion is the schema descriptor for version field.
-	workflowDescVersion := workflowFields[10].Descriptor()
+	workflowDescVersion := workflowFields[11].Descriptor()
 	// workflow.DefaultVersion holds the default value on creation for the version field.
 	workflow.DefaultVersion = workflowDescVersion.Default.(int)
 	// workflowDescIsActive is the schema descriptor for is_active field.
-	workflowDescIsActive := workflowFields[11].Descriptor()
+	workflowDescIsActive := workflowFields[12].Descriptor()
 	// workflow.DefaultIsActive holds the default value on creation for the is_active field.
 	workflow.DefaultIsActive = workflowDescIsActive.Default.(bool)
 	// workflowDescID is the schema descriptor for id field.

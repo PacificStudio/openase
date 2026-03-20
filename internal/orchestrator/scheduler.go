@@ -10,10 +10,12 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	domaincatalog "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -23,6 +25,7 @@ import (
 const (
 	skipReasonBlocked        = "blocked"
 	skipReasonNoAgent        = "no_agent"
+	skipReasonNoMachine      = "no_machine"
 	skipReasonMaxConcurrency = "max_concurrency"
 )
 
@@ -163,6 +166,13 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 	if workflow.MaxConcurrent <= 0 || project.MaxConcurrentAgents <= 0 {
 		return false, skipReasonMaxConcurrency, nil
 	}
+	machine, err := s.selectMachine(ctx, project.OrganizationID, workflow, ticket)
+	if err != nil {
+		return false, "", fmt.Errorf("select machine: %w", err)
+	}
+	if machine == nil {
+		return false, skipReasonNoMachine, nil
+	}
 
 	agents, err := s.listIdleAgents(ctx, workflow.ProjectID)
 	if err != nil {
@@ -174,7 +184,7 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 
 	sortAgentsForDispatch(agents)
 	for _, agent := range agents {
-		outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, agent, project.MaxConcurrentAgents, now)
+		outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, machine, agent, project.MaxConcurrentAgents, now)
 		if err != nil {
 			return false, "", err
 		}
@@ -211,10 +221,72 @@ func (s *Scheduler) listIdleAgents(ctx context.Context, projectID uuid.UUID) ([]
 	return agents, nil
 }
 
+func (s *Scheduler) selectMachine(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	workflow *ent.Workflow,
+	ticket *ent.Ticket,
+) (*ent.Machine, error) {
+	if ticket != nil && ticket.TargetMachineID != nil {
+		machine, err := s.client.Machine.Query().
+			Where(
+				entmachine.IDEQ(*ticket.TargetMachineID),
+				entmachine.OrganizationIDEQ(organizationID),
+			).
+			Only(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		if machine.Status != entmachine.StatusOnline {
+			return nil, nil
+		}
+		return machine, nil
+	}
+
+	if len(workflow.RequiredMachineLabels) == 0 {
+		machine, err := s.client.Machine.Query().
+			Where(
+				entmachine.OrganizationIDEQ(organizationID),
+				entmachine.NameEQ(domaincatalog.LocalMachineName),
+				entmachine.StatusEQ(entmachine.StatusOnline),
+			).
+			Only(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		return machine, nil
+	}
+
+	machines, err := s.client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(organizationID),
+			entmachine.StatusEQ(entmachine.StatusOnline),
+		).
+		Order(ent.Asc(entmachine.FieldName)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, machine := range machines {
+		if machineHasAllLabels(machine.Labels, workflow.RequiredMachineLabels) {
+			return machine, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func (s *Scheduler) claimTicketWithAgent(
 	ctx context.Context,
 	workflow *ent.Workflow,
 	ticket *ent.Ticket,
+	machine *ent.Machine,
 	agent *ent.Agent,
 	projectMaxConcurrent int,
 	now time.Time,
@@ -285,6 +357,7 @@ func (s *Scheduler) claimTicketWithAgent(
 		).
 		SetAssignedAgentID(agent.ID).
 		SetWorkflowID(workflow.ID).
+		SetTargetMachineID(machine.ID).
 		Save(ctx)
 	if err != nil {
 		return "", fmt.Errorf("claim ticket %s: %w", ticket.ID, err)
@@ -308,7 +381,7 @@ func (s *Scheduler) claimTicketWithAgent(
 		agentClaimedType,
 		claimedAgent,
 		lifecycleMessage(agentClaimedType, claimedAgent.Name),
-		runtimeEventMetadata(claimedAgent),
+		schedulerRuntimeEventMetadata(claimedAgent, machine),
 		now,
 	); err != nil {
 		return "", err
@@ -359,6 +432,34 @@ func isDependencyResolved(ticket *ent.Ticket) bool {
 	}
 
 	return false
+}
+
+func machineHasAllLabels(machineLabels []string, requiredLabels []string) bool {
+	if len(requiredLabels) == 0 {
+		return true
+	}
+
+	available := make(map[string]struct{}, len(machineLabels))
+	for _, label := range machineLabels {
+		available[label] = struct{}{}
+	}
+	for _, label := range requiredLabels {
+		if _, ok := available[label]; !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+func schedulerRuntimeEventMetadata(agentItem *ent.Agent, machine *ent.Machine) map[string]any {
+	metadata := runtimeEventMetadata(agentItem)
+	if machine == nil {
+		return metadata
+	}
+	metadata["target_machine_id"] = machine.ID.String()
+	metadata["target_machine_name"] = machine.Name
+	return metadata
 }
 
 func sortTicketsByPriorityAndAge(tickets []*ent.Ticket) {

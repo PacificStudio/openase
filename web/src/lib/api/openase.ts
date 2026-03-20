@@ -25,6 +25,7 @@ import type {
   StatusPayload,
   StatusResetPayload,
   StatusResponse,
+  SystemDashboardResponse,
   TicketDetailPayload,
   TicketDependencyDeleteResponse,
   TicketDependencyResponse,
@@ -36,6 +37,10 @@ import type {
   WorkflowDetailPayload,
   WorkflowListPayload,
 } from './contracts'
+
+export function getSystemDashboard() {
+  return api.get<SystemDashboardResponse>('/api/v1/system/dashboard')
+}
 
 export function listOrganizations() {
   return api.get<{ organizations?: Organization[] }>('/api/v1/orgs')

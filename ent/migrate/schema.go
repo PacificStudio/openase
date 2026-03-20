@@ -385,6 +385,7 @@ var (
 		{Name: "slug", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"planning", "active", "paused", "archived"}, Default: "planning"},
+		{Name: "accessible_machine_ids", Type: field.TypeJSON},
 		{Name: "max_concurrent_agents", Type: field.TypeInt, Default: 5},
 		{Name: "organization_id", Type: field.TypeUUID},
 		{Name: "default_workflow_id", Type: field.TypeUUID, Nullable: true},
@@ -398,19 +399,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "projects_organizations_projects",
-				Columns:    []*schema.Column{ProjectsColumns[6]},
+				Columns:    []*schema.Column{ProjectsColumns[7]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "projects_workflows_default_workflow",
-				Columns:    []*schema.Column{ProjectsColumns[7]},
+				Columns:    []*schema.Column{ProjectsColumns[8]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "projects_agent_providers_default_agent_provider",
-				Columns:    []*schema.Column{ProjectsColumns[8]},
+				Columns:    []*schema.Column{ProjectsColumns[9]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -419,7 +420,7 @@ var (
 			{
 				Name:    "project_organization_id_slug",
 				Unique:  true,
-				Columns: []*schema.Column{ProjectsColumns[6], ProjectsColumns[2]},
+				Columns: []*schema.Column{ProjectsColumns[7], ProjectsColumns[2]},
 			},
 		},
 	}
@@ -537,6 +538,7 @@ var (
 		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "assigned_agent_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "target_machine_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
 		{Name: "parent_ticket_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "status_id", Type: field.TypeUUID},
@@ -555,26 +557,32 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "tickets_projects_tickets",
+				Symbol:     "tickets_machines_target_tickets",
 				Columns:    []*schema.Column{TicketsColumns[25]},
+				RefColumns: []*schema.Column{MachinesColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "tickets_projects_tickets",
+				Columns:    []*schema.Column{TicketsColumns[26]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tickets_tickets_children",
-				Columns:    []*schema.Column{TicketsColumns[26]},
+				Columns:    []*schema.Column{TicketsColumns[27]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_ticket_status_tickets",
-				Columns:    []*schema.Column{TicketsColumns[27]},
+				Columns:    []*schema.Column{TicketsColumns[28]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tickets_workflows_tickets",
-				Columns:    []*schema.Column{TicketsColumns[28]},
+				Columns:    []*schema.Column{TicketsColumns[29]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -583,22 +591,22 @@ var (
 			{
 				Name:    "ticket_project_id_identifier",
 				Unique:  true,
-				Columns: []*schema.Column{TicketsColumns[25], TicketsColumns[1]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[1]},
 			},
 			{
 				Name:    "ticket_project_id_status_id_assigned_agent_id_priority_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[25], TicketsColumns[27], TicketsColumns[24], TicketsColumns[4], TicketsColumns[23]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[28], TicketsColumns[24], TicketsColumns[4], TicketsColumns[23]},
 			},
 			{
 				Name:    "ticket_project_id_status_id",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[25], TicketsColumns[27]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[28]},
 			},
 			{
 				Name:    "ticket_project_id_external_ref",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[25], TicketsColumns[7]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[7]},
 			},
 		},
 	}
@@ -776,6 +784,7 @@ var (
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"coding", "test", "doc", "security", "deploy", "refine-harness", "custom"}},
 		{Name: "harness_path", Type: field.TypeString},
 		{Name: "hooks", Type: field.TypeJSON},
+		{Name: "required_machine_labels", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "max_concurrent", Type: field.TypeInt, Default: 3},
 		{Name: "max_retry_attempts", Type: field.TypeInt, Default: 3},
 		{Name: "timeout_minutes", Type: field.TypeInt, Default: 60},
@@ -794,19 +803,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "workflows_projects_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[11]},
+				Columns:    []*schema.Column{WorkflowsColumns[12]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "workflows_ticket_status_pickup_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[12]},
+				Columns:    []*schema.Column{WorkflowsColumns[13]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "workflows_ticket_status_finish_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[13]},
+				Columns:    []*schema.Column{WorkflowsColumns[14]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -815,12 +824,12 @@ var (
 			{
 				Name:    "workflow_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{WorkflowsColumns[11], WorkflowsColumns[1]},
+				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[1]},
 			},
 			{
 				Name:    "workflow_project_id_is_active",
 				Unique:  false,
-				Columns: []*schema.Column{WorkflowsColumns[11], WorkflowsColumns[10]},
+				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[11]},
 			},
 		},
 	}
@@ -869,10 +878,11 @@ func init() {
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
 	TicketsTable.ForeignKeys[0].RefTable = AgentsTable
-	TicketsTable.ForeignKeys[1].RefTable = ProjectsTable
-	TicketsTable.ForeignKeys[2].RefTable = TicketsTable
-	TicketsTable.ForeignKeys[3].RefTable = TicketStatusTable
-	TicketsTable.ForeignKeys[4].RefTable = WorkflowsTable
+	TicketsTable.ForeignKeys[1].RefTable = MachinesTable
+	TicketsTable.ForeignKeys[2].RefTable = ProjectsTable
+	TicketsTable.ForeignKeys[3].RefTable = TicketsTable
+	TicketsTable.ForeignKeys[4].RefTable = TicketStatusTable
+	TicketsTable.ForeignKeys[5].RefTable = WorkflowsTable
 	TicketDependenciesTable.ForeignKeys[0].RefTable = TicketsTable
 	TicketDependenciesTable.ForeignKeys[1].RefTable = TicketsTable
 	TicketExternalLinksTable.ForeignKeys[0].RefTable = TicketsTable

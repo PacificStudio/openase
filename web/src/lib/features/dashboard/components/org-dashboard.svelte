@@ -1,14 +1,30 @@
 <script lang="ts">
+  import { formatBytes } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
-  import { listActivity, listAgents, listTickets, getProject } from '$lib/api/openase'
+  import {
+    getProject,
+    getSystemDashboard,
+    listActivity,
+    listAgents,
+    listTickets,
+  } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import StatCard from './stat-card.svelte'
   import ProjectHealthList from './project-health-list.svelte'
   import ExceptionPanel from './exception-panel.svelte'
   import ActivityFeedPanel from './activity-feed-panel.svelte'
-  import CostSnapshotPanel from './cost-snapshot-panel.svelte'
-  import { Bot, Ticket, ShieldCheck, DollarSign } from '@lucide/svelte'
-  import type { ProjectSummary, DashboardStats, ExceptionItem, ActivityItem } from '../types'
+  import MemorySnapshotPanel from './memory-snapshot-panel.svelte'
+  import { Bot, Ticket, ShieldCheck } from '@lucide/svelte'
+  import type {
+    ActivityItem,
+    DashboardStats,
+    ExceptionItem,
+    MemorySnapshot,
+    ProjectSummary,
+  } from '../types'
+
+  const dashboardPollIntervalMs = 5000
+
   let loading = $state(false)
   let error = $state('')
   let stats = $state<DashboardStats>({
@@ -25,6 +41,7 @@
   let projects = $state<ProjectSummary[]>([])
   let exceptions = $state<ExceptionItem[]>([])
   let activities = $state<ActivityItem[]>([])
+  let memory = $state<MemorySnapshot | null>(null)
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -32,22 +49,31 @@
       projects = []
       activities = []
       exceptions = []
+      memory = null
       return
     }
 
     let cancelled = false
+    let hasLoaded = false
+    let inFlight = false
 
-    const load = async () => {
-      loading = true
-      error = ''
+    const load = async (showLoading: boolean) => {
+      if (inFlight) return
+
+      inFlight = true
+      if (showLoading) {
+        loading = true
+      }
 
       try {
-        const [projectPayload, agentPayload, ticketPayload, activityPayload] = await Promise.all([
-          getProject(projectId),
-          listAgents(projectId),
-          listTickets(projectId),
-          listActivity(projectId, { limit: '24' }),
-        ])
+        const [projectPayload, agentPayload, ticketPayload, activityPayload, systemPayload] =
+          await Promise.all([
+            getProject(projectId),
+            listAgents(projectId),
+            listTickets(projectId),
+            listActivity(projectId, { limit: '24' }),
+            getSystemDashboard(),
+          ])
 
         if (cancelled) return
 
@@ -79,6 +105,7 @@
           avgCycleMinutes: 0,
           prMergeRate: 0,
         }
+        memory = systemPayload.memory
 
         projects = [
           {
@@ -109,20 +136,31 @@
             message: event.message,
             timestamp: event.created_at,
           }))
+
+        error = ''
+        hasLoaded = true
       } catch (caughtError) {
         if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
+        if (!hasLoaded) {
+          error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
+        }
       } finally {
-        if (!cancelled) {
+        inFlight = false
+        if (showLoading && !cancelled) {
           loading = false
         }
       }
     }
 
-    void load()
+    void load(true)
+
+    const interval = window.setInterval(() => {
+      void load(false)
+    }, dashboardPollIntervalMs)
 
     return () => {
       cancelled = true
+      window.clearInterval(interval)
     }
   })
 
@@ -183,7 +221,7 @@
       <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
       <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
       <StatCard label="Pending Approvals" value={stats.pendingApprovals} icon={ShieldCheck} />
-      <StatCard label="Today's Cost" value={'$' + stats.todayCost.toFixed(2)} icon={DollarSign} />
+      <StatCard label="Heap In Use" value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'} />
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -193,15 +231,7 @@
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <ActivityFeedPanel {activities} class="lg:col-span-2" />
-      <CostSnapshotPanel
-        todayCost={stats.todayCost}
-        weekCost={stats.weekCost}
-        topProject={{
-          name: appStore.currentProject?.name ?? 'Current project',
-          cost: stats.weekCost,
-        }}
-        topAgent={{ name: 'Contract not exposed', cost: 0 }}
-      />
+      <MemorySnapshotPanel {memory} />
     </div>
   {/if}
 </div>

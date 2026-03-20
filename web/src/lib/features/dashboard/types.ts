@@ -1,3 +1,5 @@
+import type { SystemMemorySnapshot } from '$lib/api/contracts'
+
 export type ProjectHealth = 'healthy' | 'warning' | 'blocked'
 
 export type ProjectSummary = {
@@ -20,6 +22,8 @@ export type DashboardStats = {
   avgCycleMinutes: number
   prMergeRate: number
 }
+
+export type MemorySnapshot = SystemMemorySnapshot
 
 export type ExceptionItem = {
   id: string

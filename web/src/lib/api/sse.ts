@@ -26,25 +26,12 @@ export function connectEventStream(url: string, options: StreamOptions): () => v
       options.onStateChange?.(firstAttempt ? 'connecting' : 'retrying')
       controller = new AbortController()
 
-      try {
-        const response = await fetch(url, {
-          headers: { accept: 'text/event-stream' },
-          signal: controller.signal,
-        })
-        if (!response.ok) {
-          throw new Error(`stream request failed with status ${response.status}`)
-        }
-        if (!response.body) {
-          throw new Error('stream response body is unavailable')
-        }
-
-        options.onStateChange?.('live')
-        await consumeStream(response.body, options.onEvent)
-      } catch (error) {
-        if (!active || isAbortError(error)) {
-          return
-        }
-        options.onError?.(error)
+      const failure = await openStream(url, controller.signal, options)
+      if (failure === 'aborted') {
+        return
+      }
+      if (failure) {
+        options.onError?.(failure)
       }
 
       if (!active) {
@@ -65,7 +52,35 @@ export function connectEventStream(url: string, options: StreamOptions): () => v
   }
 }
 
-async function consumeStream(
+async function openStream(
+  url: string,
+  signal: AbortSignal,
+  options: StreamOptions,
+): Promise<unknown | 'aborted'> {
+  try {
+    const response = await fetch(url, {
+      headers: { accept: 'text/event-stream' },
+      signal,
+    })
+    if (!response.ok) {
+      throw new Error(`stream request failed with status ${response.status}`)
+    }
+    if (!response.body) {
+      throw new Error('stream response body is unavailable')
+    }
+
+    options.onStateChange?.('live')
+    await consumeEventStream(response.body, options.onEvent)
+    return null
+  } catch (error) {
+    if (isAbortError(error)) {
+      return 'aborted'
+    }
+    return error
+  }
+}
+
+export async function consumeEventStream(
   stream: ReadableStream<Uint8Array>,
   onEvent: (frame: SSEFrame) => void,
 ) {

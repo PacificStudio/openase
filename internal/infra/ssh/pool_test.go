@@ -3,6 +3,7 @@ package ssh
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -147,18 +148,67 @@ func (c *fakeClient) Close() error {
 }
 
 type fakeSession struct {
-	output []byte
-	err    error
-	closed bool
+	output   []byte
+	err      error
+	closed   bool
+	closeErr error
+	stdin    *io.PipeWriter
+	stdout   *io.PipeReader
+	stderr   *io.PipeReader
+	waitCh   chan error
+
+	startedCommand string
+	signal         string
 }
 
 func (s *fakeSession) CombinedOutput(string) ([]byte, error) {
 	return s.output, s.err
 }
 
+func (s *fakeSession) StdinPipe() (io.WriteCloser, error) {
+	if s.stdin == nil {
+		_, writer := io.Pipe()
+		s.stdin = writer
+	}
+	return s.stdin, nil
+}
+
+func (s *fakeSession) StdoutPipe() (io.Reader, error) {
+	if s.stdout == nil {
+		reader, _ := io.Pipe()
+		s.stdout = reader
+	}
+	return s.stdout, nil
+}
+
+func (s *fakeSession) StderrPipe() (io.Reader, error) {
+	if s.stderr == nil {
+		reader, _ := io.Pipe()
+		s.stderr = reader
+	}
+	return s.stderr, nil
+}
+
+func (s *fakeSession) Start(cmd string) error {
+	s.startedCommand = cmd
+	return nil
+}
+
+func (s *fakeSession) Signal(signal string) error {
+	s.signal = signal
+	return nil
+}
+
+func (s *fakeSession) Wait() error {
+	if s.waitCh == nil {
+		return nil
+	}
+	return <-s.waitCh
+}
+
 func (s *fakeSession) Close() error {
 	s.closed = true
-	return nil
+	return s.closeErr
 }
 
 func testRemoteMachine() domain.Machine {

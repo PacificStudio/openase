@@ -32,6 +32,8 @@ const (
 	FieldType = "type"
 	// FieldWorkflowID holds the string denoting the workflow_id field in the database.
 	FieldWorkflowID = "workflow_id"
+	// FieldTargetMachineID holds the string denoting the target_machine_id field in the database.
+	FieldTargetMachineID = "target_machine_id"
 	// FieldAssignedAgentID holds the string denoting the assigned_agent_id field in the database.
 	FieldAssignedAgentID = "assigned_agent_id"
 	// FieldCreatedBy holds the string denoting the created_by field in the database.
@@ -78,6 +80,8 @@ const (
 	EdgeStatus = "status"
 	// EdgeWorkflow holds the string denoting the workflow edge name in mutations.
 	EdgeWorkflow = "workflow"
+	// EdgeTargetMachine holds the string denoting the target_machine edge name in mutations.
+	EdgeTargetMachine = "target_machine"
 	// EdgeAssignedAgent holds the string denoting the assigned_agent edge name in mutations.
 	EdgeAssignedAgent = "assigned_agent"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
@@ -119,6 +123,13 @@ const (
 	WorkflowInverseTable = "workflows"
 	// WorkflowColumn is the table column denoting the workflow relation/edge.
 	WorkflowColumn = "workflow_id"
+	// TargetMachineTable is the table that holds the target_machine relation/edge.
+	TargetMachineTable = "tickets"
+	// TargetMachineInverseTable is the table name for the Machine entity.
+	// It exists in this package in order to avoid circular dependency with the "machine" package.
+	TargetMachineInverseTable = "machines"
+	// TargetMachineColumn is the table column denoting the target_machine relation/edge.
+	TargetMachineColumn = "target_machine_id"
 	// AssignedAgentTable is the table that holds the assigned_agent relation/edge.
 	AssignedAgentTable = "tickets"
 	// AssignedAgentInverseTable is the table name for the Agent entity.
@@ -189,6 +200,7 @@ var Columns = []string{
 	FieldPriority,
 	FieldType,
 	FieldWorkflowID,
+	FieldTargetMachineID,
 	FieldAssignedAgentID,
 	FieldCreatedBy,
 	FieldParentTicketID,
@@ -359,6 +371,11 @@ func ByWorkflowID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWorkflowID, opts...).ToFunc()
 }
 
+// ByTargetMachineID orders the results by the target_machine_id field.
+func ByTargetMachineID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTargetMachineID, opts...).ToFunc()
+}
+
 // ByAssignedAgentID orders the results by the assigned_agent_id field.
 func ByAssignedAgentID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAssignedAgentID, opts...).ToFunc()
@@ -472,6 +489,13 @@ func ByStatusField(field string, opts ...sql.OrderTermOption) OrderOption {
 func ByWorkflowField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newWorkflowStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByTargetMachineField orders the results by target_machine field.
+func ByTargetMachineField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newTargetMachineStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -605,6 +629,13 @@ func newWorkflowStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(WorkflowInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, WorkflowTable, WorkflowColumn),
+	)
+}
+func newTargetMachineStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(TargetMachineInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, TargetMachineTable, TargetMachineColumn),
 	)
 }
 func newAssignedAgentStep() *sqlgraph.Step {

@@ -9,6 +9,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 	}
 
 	requiredPaths := []string{
+		"/api/v1/system/dashboard",
 		"/api/v1/orgs",
 		"/api/v1/orgs/{orgId}/channels",
 		"/api/v1/orgs/{orgId}/machines",
@@ -18,6 +19,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/projects/{projectId}/repos",
 		"/api/v1/projects/{projectId}/statuses/reset",
 		"/api/v1/projects/{projectId}/workflows",
+		"/api/v1/tickets/{ticketId}/external-links",
 		"/api/v1/projects/{projectId}/scheduled-jobs",
 		"/api/v1/projects/{projectId}/notification-rules",
 		"/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",

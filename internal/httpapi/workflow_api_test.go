@@ -88,11 +88,12 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
 		map[string]any{
-			"name":             "Coding Workflow",
-			"type":             "coding",
-			"pickup_status_id": todoID.String(),
-			"finish_status_id": doneID.String(),
-			"harness_content":  "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"name":                    "Coding Workflow",
+			"type":                    "coding",
+			"pickup_status_id":        todoID.String(),
+			"finish_status_id":        doneID.String(),
+			"required_machine_labels": []string{"gpu", "a100"},
+			"harness_content":         "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 			"hooks": map[string]any{
 				"workflow_hooks": map[string]any{
 					"on_activate": []map[string]any{{
@@ -109,6 +110,9 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	)
 	if createResp.Workflow.Type != "coding" {
 		t.Fatalf("expected coding workflow, got %+v", createResp.Workflow)
+	}
+	if len(createResp.Workflow.RequiredMachineLabels) != 2 || createResp.Workflow.RequiredMachineLabels[0] != "gpu" {
+		t.Fatalf("expected required machine labels in create response, got %+v", createResp.Workflow.RequiredMachineLabels)
 	}
 	if createResp.Workflow.HarnessContent == nil || *createResp.Workflow.HarnessContent == "" {
 		t.Fatalf("expected harness content in create response, got %+v", createResp.Workflow)
@@ -173,14 +177,18 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
 		map[string]any{
-			"name":           "Core Coding Workflow",
-			"max_concurrent": 7,
+			"name":                    "Core Coding Workflow",
+			"max_concurrent":          7,
+			"required_machine_labels": []string{"gpu"},
 		},
 		http.StatusOK,
 		&patchResp,
 	)
 	if patchResp.Workflow.Name != "Core Coding Workflow" || patchResp.Workflow.MaxConcurrent != 7 || !patchResp.Workflow.IsActive {
 		t.Fatalf("unexpected patched workflow payload: %+v", patchResp.Workflow)
+	}
+	if len(patchResp.Workflow.RequiredMachineLabels) != 1 || patchResp.Workflow.RequiredMachineLabels[0] != "gpu" {
+		t.Fatalf("expected patched required machine labels, got %+v", patchResp.Workflow.RequiredMachineLabels)
 	}
 
 	harnessResp := struct {

@@ -2,44 +2,57 @@ package httpapi
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
 type rawCreateTicketRequest struct {
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	CreatedBy      *string  `json:"created_by"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	StatusID        *string  `json:"status_id"`
+	Priority        *string  `json:"priority"`
+	Type            *string  `json:"type"`
+	WorkflowID      *string  `json:"workflow_id"`
+	TargetMachineID *string  `json:"target_machine_id"`
+	CreatedBy       *string  `json:"created_by"`
+	ParentTicketID  *string  `json:"parent_ticket_id"`
+	ExternalRef     *string  `json:"external_ref"`
+	BudgetUSD       *float64 `json:"budget_usd"`
 }
 
 type rawUpdateTicketRequest struct {
-	Title          *string  `json:"title"`
-	Description    *string  `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	CreatedBy      *string  `json:"created_by"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	Title           *string  `json:"title"`
+	Description     *string  `json:"description"`
+	StatusID        *string  `json:"status_id"`
+	Priority        *string  `json:"priority"`
+	Type            *string  `json:"type"`
+	WorkflowID      *string  `json:"workflow_id"`
+	TargetMachineID *string  `json:"target_machine_id"`
+	CreatedBy       *string  `json:"created_by"`
+	ParentTicketID  *string  `json:"parent_ticket_id"`
+	ExternalRef     *string  `json:"external_ref"`
+	BudgetUSD       *float64 `json:"budget_usd"`
 }
 
 type rawAddDependencyRequest struct {
 	TargetTicketID string `json:"target_ticket_id"`
 	Type           string `json:"type"`
+}
+
+type rawAddExternalLinkRequest struct {
+	Type       string  `json:"type"`
+	URL        string  `json:"url"`
+	ExternalID string  `json:"external_id"`
+	Title      *string `json:"title"`
+	Status     *string `json:"status"`
+	Relation   *string `json:"relation"`
 }
 
 func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (ticketservice.CreateInput, error) {
@@ -53,6 +66,10 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 		return ticketservice.CreateInput{}, err
 	}
 	workflowID, err := parseOptionalUUIDString("workflow_id", raw.WorkflowID)
+	if err != nil {
+		return ticketservice.CreateInput{}, err
+	}
+	targetMachineID, err := parseOptionalUUIDString("target_machine_id", raw.TargetMachineID)
 	if err != nil {
 		return ticketservice.CreateInput{}, err
 	}
@@ -78,14 +95,15 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 	}
 
 	input := ticketservice.CreateInput{
-		ProjectID:      projectID,
-		Title:          title,
-		Description:    strings.TrimSpace(raw.Description),
-		StatusID:       statusID,
-		Priority:       priority,
-		Type:           ticketType,
-		WorkflowID:     workflowID,
-		ParentTicketID: parentTicketID,
+		ProjectID:       projectID,
+		Title:           title,
+		Description:     strings.TrimSpace(raw.Description),
+		StatusID:        statusID,
+		Priority:        priority,
+		Type:            ticketType,
+		WorkflowID:      workflowID,
+		TargetMachineID: targetMachineID,
+		ParentTicketID:  parentTicketID,
 	}
 	if raw.CreatedBy != nil {
 		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
@@ -144,6 +162,13 @@ func parseUpdateTicketRequest(ticketID uuid.UUID, raw rawUpdateTicketRequest) (t
 		}
 		input.WorkflowID = ticketservice.Some(workflowID)
 	}
+	if raw.TargetMachineID != nil {
+		targetMachineID, err := parseOptionalUUIDString("target_machine_id", raw.TargetMachineID)
+		if err != nil {
+			return ticketservice.UpdateInput{}, err
+		}
+		input.TargetMachineID = ticketservice.Some(targetMachineID)
+	}
 	if raw.CreatedBy != nil {
 		input.CreatedBy = ticketservice.Some(strings.TrimSpace(*raw.CreatedBy))
 	}
@@ -185,12 +210,58 @@ func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) 
 	}, nil
 }
 
+func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkRequest) (ticketservice.AddExternalLinkInput, error) {
+	linkType, err := parseExternalLinkType(raw.Type)
+	if err != nil {
+		return ticketservice.AddExternalLinkInput{}, err
+	}
+
+	trimmedURL := strings.TrimSpace(raw.URL)
+	parsedURL, err := url.ParseRequestURI(trimmedURL)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return ticketservice.AddExternalLinkInput{}, fmt.Errorf("url must be a valid absolute URL")
+	}
+
+	externalID := strings.TrimSpace(raw.ExternalID)
+	if externalID == "" {
+		return ticketservice.AddExternalLinkInput{}, fmt.Errorf("external_id must not be empty")
+	}
+
+	relation := entticketexternallink.DefaultRelation
+	if raw.Relation != nil {
+		relation, err = parseExternalLinkRelation(*raw.Relation)
+		if err != nil {
+			return ticketservice.AddExternalLinkInput{}, err
+		}
+	}
+
+	input := ticketservice.AddExternalLinkInput{
+		TicketID:   ticketID,
+		LinkType:   linkType,
+		URL:        trimmedURL,
+		ExternalID: externalID,
+		Relation:   relation,
+	}
+	if raw.Title != nil {
+		input.Title = strings.TrimSpace(*raw.Title)
+	}
+	if raw.Status != nil {
+		input.Status = strings.TrimSpace(*raw.Status)
+	}
+
+	return input, nil
+}
+
 func parseTicketID(c echo.Context) (uuid.UUID, error) {
 	return parseUUIDPathParamValue(c, "ticketId")
 }
 
 func parseDependencyID(c echo.Context) (uuid.UUID, error) {
 	return parseUUIDPathParamValue(c, "dependencyId")
+}
+
+func parseExternalLinkID(c echo.Context) (uuid.UUID, error) {
+	return parseUUIDPathParamValue(c, "externalLinkId")
 }
 
 func parseTicketPriority(raw string) (entticket.Priority, error) {
@@ -220,6 +291,24 @@ func parseDependencyType(raw string) (entticketdependency.Type, error) {
 	default:
 		return "", fmt.Errorf("type must be one of blocks, sub_issue")
 	}
+}
+
+func parseExternalLinkType(raw string) (entticketexternallink.LinkType, error) {
+	linkType := entticketexternallink.LinkType(strings.ToLower(strings.TrimSpace(raw)))
+	if err := entticketexternallink.LinkTypeValidator(linkType); err != nil {
+		return "", fmt.Errorf("type must be one of github_issue, gitlab_issue, jira_ticket, github_pr, gitlab_mr, custom")
+	}
+
+	return linkType, nil
+}
+
+func parseExternalLinkRelation(raw string) (entticketexternallink.Relation, error) {
+	relation := entticketexternallink.Relation(strings.ToLower(strings.TrimSpace(raw)))
+	if err := entticketexternallink.RelationValidator(relation); err != nil {
+		return "", fmt.Errorf("relation must be one of resolves, related, caused_by")
+	}
+
+	return relation, nil
 }
 
 func parseCSVQueryValues(c echo.Context, name string) []string {

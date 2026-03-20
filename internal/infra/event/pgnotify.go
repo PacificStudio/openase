@@ -16,6 +16,8 @@ import (
 )
 
 const maxPGNotifyPayloadBytes = 7999
+const maxPGChannelNameBytes = 63
+const pgChannelPrefix = "openase_"
 
 type PGNotifyBus struct {
 	dsn    string
@@ -217,5 +219,6 @@ func decodePGNotifyEvent(payload string) (provider.Event, error) {
 
 func pgChannelName(topic provider.Topic) string {
 	sum := sha256.Sum256([]byte(topic))
-	return "openase_" + hex.EncodeToString(sum[:])
+	channelName := pgChannelPrefix + hex.EncodeToString(sum[:])
+	return channelName[:maxPGChannelNameBytes]
 }

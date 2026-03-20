@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
@@ -106,6 +107,20 @@ func (_c *TicketCreate) SetWorkflowID(v uuid.UUID) *TicketCreate {
 func (_c *TicketCreate) SetNillableWorkflowID(v *uuid.UUID) *TicketCreate {
 	if v != nil {
 		_c.SetWorkflowID(*v)
+	}
+	return _c
+}
+
+// SetTargetMachineID sets the "target_machine_id" field.
+func (_c *TicketCreate) SetTargetMachineID(v uuid.UUID) *TicketCreate {
+	_c.mutation.SetTargetMachineID(v)
+	return _c
+}
+
+// SetNillableTargetMachineID sets the "target_machine_id" field if the given value is not nil.
+func (_c *TicketCreate) SetNillableTargetMachineID(v *uuid.UUID) *TicketCreate {
+	if v != nil {
+		_c.SetTargetMachineID(*v)
 	}
 	return _c
 }
@@ -401,6 +416,11 @@ func (_c *TicketCreate) SetStatus(v *TicketStatus) *TicketCreate {
 // SetWorkflow sets the "workflow" edge to the Workflow entity.
 func (_c *TicketCreate) SetWorkflow(v *Workflow) *TicketCreate {
 	return _c.SetWorkflowID(v.ID)
+}
+
+// SetTargetMachine sets the "target_machine" edge to the Machine entity.
+func (_c *TicketCreate) SetTargetMachine(v *Machine) *TicketCreate {
+	return _c.SetTargetMachineID(v.ID)
 }
 
 // SetAssignedAgent sets the "assigned_agent" edge to the Agent entity.
@@ -888,6 +908,23 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.WorkflowID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.TargetMachineIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticket.TargetMachineTable,
+			Columns: []string{ticket.TargetMachineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.TargetMachineID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.AssignedAgentIDs(); len(nodes) > 0 {
