@@ -4,3267 +4,3267 @@
  */
 
 export interface paths {
-    "/api/v1/events/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Stream global platform events */
-        get: operations["streamEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/harness/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Validate workflow harness content */
-        post: operations["validateHarness"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/orgs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List organizations */
-        get: operations["listOrganizations"];
-        put?: never;
-        /** Create an organization */
-        post: operations["createOrganization"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/orgs/{orgId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update an organization */
-        patch: operations["updateOrganization"];
-        trace?: never;
-    };
-    "/api/v1/orgs/{orgId}/projects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List projects for an organization */
-        get: operations["listProjects"];
-        put?: never;
-        /** Create a project */
-        post: operations["createProject"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/orgs/{orgId}/providers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List agent providers for an organization */
-        get: operations["listAgentProviders"];
-        put?: never;
-        /** Create an agent provider */
-        post: operations["createAgentProvider"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a project */
-        get: operations["getProject"];
-        put?: never;
-        post?: never;
-        /** Archive a project */
-        delete: operations["archiveProject"];
-        options?: never;
-        head?: never;
-        /** Update a project */
-        patch: operations["updateProject"];
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/activity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List activity events */
-        get: operations["listActivityEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/activity/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Stream project activity events */
-        get: operations["streamProjectActivity"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/agents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List agents */
-        get: operations["listAgents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/agents/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Stream project agent events */
-        get: operations["streamProjectAgents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/hooks/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Stream project hook events */
-        get: operations["streamProjectHooks"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/hr-advisor": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get HR advisor recommendations */
-        get: operations["getHRAdvisor"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/skills": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List workflow skills */
-        get: operations["listSkills"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/statuses": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List ticket statuses */
-        get: operations["listTicketStatuses"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/tickets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List tickets */
-        get: operations["listTickets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/tickets/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Stream project ticket events */
-        get: operations["streamProjectTickets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/tickets/{ticketId}/detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get ticket detail */
-        get: operations["getTicketDetail"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/workflows": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List workflows */
-        get: operations["listWorkflows"];
-        put?: never;
-        /** Create a workflow */
-        post: operations["createWorkflow"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/providers/{providerId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update an agent provider */
-        patch: operations["updateAgentProvider"];
-        trace?: never;
-    };
-    "/api/v1/roles/builtin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List builtin workflow role templates */
-        get: operations["listBuiltinRoles"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tickets/{ticketId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update a ticket */
-        patch: operations["updateTicket"];
-        trace?: never;
-    };
-    "/api/v1/workflows/{workflowId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a workflow */
-        get: operations["getWorkflow"];
-        put?: never;
-        post?: never;
-        /** Delete a workflow */
-        delete: operations["deleteWorkflow"];
-        options?: never;
-        head?: never;
-        /** Update a workflow */
-        patch: operations["updateWorkflow"];
-        trace?: never;
-    };
-    "/api/v1/workflows/{workflowId}/harness": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get workflow harness content */
-        get: operations["getWorkflowHarness"];
-        /** Update workflow harness content */
-        put: operations["updateWorkflowHarness"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflows/{workflowId}/skills/bind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Bind skills to a workflow harness */
-        post: operations["bindWorkflowSkills"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflows/{workflowId}/skills/unbind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Unbind skills from a workflow harness */
-        post: operations["unbindWorkflowSkills"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  '/api/v1/events/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream global platform events */
+    get: operations['streamEvents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/harness/validate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Validate workflow harness content */
+    post: operations['validateHarness']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organizations */
+    get: operations['listOrganizations']
+    put?: never
+    /** Create an organization */
+    post: operations['createOrganization']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update an organization */
+    patch: operations['updateOrganization']
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/projects': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List projects for an organization */
+    get: operations['listProjects']
+    put?: never
+    /** Create a project */
+    post: operations['createProject']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/providers': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List agent providers for an organization */
+    get: operations['listAgentProviders']
+    put?: never
+    /** Create an agent provider */
+    post: operations['createAgentProvider']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get a project */
+    get: operations['getProject']
+    put?: never
+    post?: never
+    /** Archive a project */
+    delete: operations['archiveProject']
+    options?: never
+    head?: never
+    /** Update a project */
+    patch: operations['updateProject']
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/activity': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List activity events */
+    get: operations['listActivityEvents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/activity/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream project activity events */
+    get: operations['streamProjectActivity']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/agents': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List agents */
+    get: operations['listAgents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/agents/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream project agent events */
+    get: operations['streamProjectAgents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/hooks/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream project hook events */
+    get: operations['streamProjectHooks']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/hr-advisor': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get HR advisor recommendations */
+    get: operations['getHRAdvisor']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/skills': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List workflow skills */
+    get: operations['listSkills']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/statuses': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List ticket statuses */
+    get: operations['listTicketStatuses']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/tickets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List tickets */
+    get: operations['listTickets']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/tickets/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream project ticket events */
+    get: operations['streamProjectTickets']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/tickets/{ticketId}/detail': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get ticket detail */
+    get: operations['getTicketDetail']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/workflows': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List workflows */
+    get: operations['listWorkflows']
+    put?: never
+    /** Create a workflow */
+    post: operations['createWorkflow']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/providers/{providerId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update an agent provider */
+    patch: operations['updateAgentProvider']
+    trace?: never
+  }
+  '/api/v1/roles/builtin': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List builtin workflow role templates */
+    get: operations['listBuiltinRoles']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticketId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update a ticket */
+    patch: operations['updateTicket']
+    trace?: never
+  }
+  '/api/v1/workflows/{workflowId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get a workflow */
+    get: operations['getWorkflow']
+    put?: never
+    post?: never
+    /** Delete a workflow */
+    delete: operations['deleteWorkflow']
+    options?: never
+    head?: never
+    /** Update a workflow */
+    patch: operations['updateWorkflow']
+    trace?: never
+  }
+  '/api/v1/workflows/{workflowId}/harness': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get workflow harness content */
+    get: operations['getWorkflowHarness']
+    /** Update workflow harness content */
+    put: operations['updateWorkflowHarness']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/workflows/{workflowId}/skills/bind': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Bind skills to a workflow harness */
+    post: operations['bindWorkflowSkills']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/workflows/{workflowId}/skills/unbind': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Unbind skills from a workflow harness */
+    post: operations['unbindWorkflowSkills']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
-export type webhooks = Record<string, never>;
+export type webhooks = Record<string, never>
 export interface components {
-    schemas: never;
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+  schemas: never
+  responses: never
+  parameters: never
+  requestBodies: never
+  headers: never
+  pathItems: never
 }
-export type $defs = Record<string, never>;
+export type $defs = Record<string, never>
 export interface operations {
-    streamEvents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Server-sent events stream. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    validateHarness: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Validate workflow harness content request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    content?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Validate workflow harness content response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        issues?: {
-                            column?: number;
-                            level?: string;
-                            line?: number;
-                            message?: string;
-                        }[];
-                        valid?: boolean;
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listOrganizations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List organizations response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        organizations?: {
-                            default_agent_provider_id?: string | null;
-                            id?: string;
-                            name?: string;
-                            slug?: string;
-                        }[];
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    createOrganization: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Create an organization request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    default_agent_provider_id?: string | null;
-                    name?: string;
-                    slug?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Create an organization response. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        organization?: {
-                            default_agent_provider_id?: string | null;
-                            id?: string;
-                            name?: string;
-                            slug?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    updateOrganization: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Organization ID. */
-                orgId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Update an organization request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    default_agent_provider_id?: string | null;
-                    name?: string | null;
-                    slug?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Update an organization response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        organization?: {
-                            default_agent_provider_id?: string | null;
-                            id?: string;
-                            name?: string;
-                            slug?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listProjects: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Organization ID. */
-                orgId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List projects for an organization response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        projects?: {
-                            default_agent_provider_id?: string | null;
-                            default_workflow_id?: string | null;
-                            description?: string;
-                            id?: string;
-                            max_concurrent_agents?: number;
-                            name?: string;
-                            organization_id?: string;
-                            slug?: string;
-                            status?: string;
-                        }[];
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    createProject: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Organization ID. */
-                orgId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Create a project request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    default_agent_provider_id?: string | null;
-                    default_workflow_id?: string | null;
-                    description?: string;
-                    max_concurrent_agents?: number | null;
-                    name?: string;
-                    slug?: string;
-                    status?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Create a project response. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        project?: {
-                            default_agent_provider_id?: string | null;
-                            default_workflow_id?: string | null;
-                            description?: string;
-                            id?: string;
-                            max_concurrent_agents?: number;
-                            name?: string;
-                            organization_id?: string;
-                            slug?: string;
-                            status?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listAgentProviders: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Organization ID. */
-                orgId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List agent providers for an organization response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        providers?: {
-                            adapter_type?: string;
-                            auth_config?: {
-                                [key: string]: unknown;
-                            };
-                            cli_args?: string[];
-                            cli_command?: string;
-                            /** Format: double */
-                            cost_per_input_token?: number;
-                            /** Format: double */
-                            cost_per_output_token?: number;
-                            id?: string;
-                            model_max_tokens?: number;
-                            model_name?: string;
-                            /** Format: double */
-                            model_temperature?: number;
-                            name?: string;
-                            organization_id?: string;
-                        }[];
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    createAgentProvider: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Organization ID. */
-                orgId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Create an agent provider request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    adapter_type?: string;
-                    auth_config?: {
-                        [key: string]: unknown;
-                    };
-                    cli_args?: string[];
-                    cli_command?: string;
-                    /** Format: double */
-                    cost_per_input_token?: number | null;
-                    /** Format: double */
-                    cost_per_output_token?: number | null;
-                    model_max_tokens?: number | null;
-                    model_name?: string;
-                    /** Format: double */
-                    model_temperature?: number | null;
-                    name?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Create an agent provider response. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        provider?: {
-                            adapter_type?: string;
-                            auth_config?: {
-                                [key: string]: unknown;
-                            };
-                            cli_args?: string[];
-                            cli_command?: string;
-                            /** Format: double */
-                            cost_per_input_token?: number;
-                            /** Format: double */
-                            cost_per_output_token?: number;
-                            id?: string;
-                            model_max_tokens?: number;
-                            model_name?: string;
-                            /** Format: double */
-                            model_temperature?: number;
-                            name?: string;
-                            organization_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    getProject: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Get a project response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        project?: {
-                            default_agent_provider_id?: string | null;
-                            default_workflow_id?: string | null;
-                            description?: string;
-                            id?: string;
-                            max_concurrent_agents?: number;
-                            name?: string;
-                            organization_id?: string;
-                            slug?: string;
-                            status?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    archiveProject: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Archive a project response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        project?: {
-                            default_agent_provider_id?: string | null;
-                            default_workflow_id?: string | null;
-                            description?: string;
-                            id?: string;
-                            max_concurrent_agents?: number;
-                            name?: string;
-                            organization_id?: string;
-                            slug?: string;
-                            status?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    updateProject: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Update a project request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    default_agent_provider_id?: string | null;
-                    default_workflow_id?: string | null;
-                    description?: string | null;
-                    max_concurrent_agents?: number | null;
-                    name?: string | null;
-                    slug?: string | null;
-                    status?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Update a project response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        project?: {
-                            default_agent_provider_id?: string | null;
-                            default_workflow_id?: string | null;
-                            description?: string;
-                            id?: string;
-                            max_concurrent_agents?: number;
-                            name?: string;
-                            organization_id?: string;
-                            slug?: string;
-                            status?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listActivityEvents: {
-        parameters: {
-            query?: {
-                /** @description Filter activity by agent ID. */
-                agent_id?: string;
-                /** @description Filter activity by ticket ID. */
-                ticket_id?: string;
-                /** @description Limit the number of returned activity events. */
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List activity events response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        events?: {
-                            agent_id?: string | null;
-                            created_at?: string;
-                            event_type?: string;
-                            id?: string;
-                            message?: string;
-                            metadata?: {
-                                [key: string]: unknown;
-                            };
-                            project_id?: string;
-                            ticket_id?: string | null;
-                        }[];
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    streamProjectActivity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Server-sent events stream. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listAgents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List agents response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        agents?: {
-                            capabilities?: string[];
-                            current_ticket_id?: string | null;
-                            id?: string;
-                            last_heartbeat_at?: string | null;
-                            name?: string;
-                            project_id?: string;
-                            provider_id?: string;
-                            session_id?: string;
-                            status?: string;
-                            total_tickets_completed?: number;
-                            /** Format: int64 */
-                            total_tokens_used?: number;
-                            workspace_path?: string;
-                        }[];
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    streamProjectAgents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Server-sent events stream. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    streamProjectHooks: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Server-sent events stream. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    getHRAdvisor: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Get HR advisor recommendations response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        project_id?: string;
-                        recommendations?: {
-                            activation_ready?: boolean;
-                            active_workflow_name?: string | null;
-                            evidence?: string[];
-                            harness_path?: string;
-                            priority?: string;
-                            reason?: string;
-                            role_name?: string;
-                            role_slug?: string;
-                            suggested_headcount?: number;
-                            suggested_workflow_name?: string;
-                            summary?: string;
-                            workflow_type?: string;
-                        }[];
-                        staffing?: {
-                            developers?: number;
-                            docs?: number;
-                            product?: number;
-                            qa?: number;
-                            research?: number;
-                            security?: number;
-                        };
-                        summary?: {
-                            active_agents?: number;
-                            active_workflow_types?: string[];
-                            blocked_tickets?: number;
-                            coding_tickets?: number;
-                            failing_tickets?: number;
-                            open_tickets?: number;
-                            recent_activity_count?: number;
-                            workflow_count?: number;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listSkills: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List workflow skills response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        skills?: {
-                            bound_workflows?: {
-                                harness_path?: string;
-                                id?: string;
-                                name?: string;
-                            }[];
-                            description?: string;
-                            is_builtin?: boolean;
-                            name?: string;
-                            path?: string;
-                        }[];
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listTicketStatuses: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List ticket statuses response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        statuses?: {
-                            color?: string;
-                            description?: string;
-                            icon?: string;
-                            id?: string;
-                            is_default?: boolean;
-                            name?: string;
-                            position?: number;
-                            project_id?: string;
-                        }[];
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listTickets: {
-        parameters: {
-            query?: {
-                /** @description Filter tickets by status names. Accepts a comma-separated string. */
-                status_name?: string;
-                /** @description Filter tickets by priorities. Accepts a comma-separated string. */
-                priority?: string;
-            };
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List tickets response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        tickets?: {
-                            attempt_count?: number;
-                            /** Format: double */
-                            budget_usd?: number;
-                            children?: {
-                                id?: string;
-                                identifier?: string;
-                                status_id?: string;
-                                status_name?: string;
-                                title?: string;
-                            }[];
-                            consecutive_errors?: number;
-                            /** Format: double */
-                            cost_amount?: number;
-                            created_at?: string;
-                            created_by?: string;
-                            dependencies?: {
-                                id?: string;
-                                target?: {
-                                    id?: string;
-                                    identifier?: string;
-                                    status_id?: string;
-                                    status_name?: string;
-                                    title?: string;
-                                };
-                                type?: string;
-                            }[];
-                            description?: string;
-                            external_ref?: string;
-                            id?: string;
-                            identifier?: string;
-                            next_retry_at?: string | null;
-                            parent?: {
-                                id?: string;
-                                identifier?: string;
-                                status_id?: string;
-                                status_name?: string;
-                                title?: string;
-                            } | null;
-                            pause_reason?: string;
-                            priority?: string;
-                            project_id?: string;
-                            retry_paused?: boolean;
-                            status_id?: string;
-                            status_name?: string;
-                            title?: string;
-                            type?: string;
-                            workflow_id?: string | null;
-                        }[];
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    streamProjectTickets: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Server-sent events stream. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    getTicketDetail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-                /** @description Ticket ID. */
-                ticketId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Get ticket detail response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        activity?: {
-                            agent_id?: string | null;
-                            created_at?: string;
-                            event_type?: string;
-                            id?: string;
-                            message?: string;
-                            metadata?: {
-                                [key: string]: unknown;
-                            };
-                            project_id?: string;
-                            ticket_id?: string | null;
-                        }[];
-                        hook_history?: {
-                            agent_id?: string | null;
-                            created_at?: string;
-                            event_type?: string;
-                            id?: string;
-                            message?: string;
-                            metadata?: {
-                                [key: string]: unknown;
-                            };
-                            project_id?: string;
-                            ticket_id?: string | null;
-                        }[];
-                        repo_scopes?: {
-                            branch_name?: string;
-                            ci_status?: string;
-                            id?: string;
-                            is_primary_scope?: boolean;
-                            pr_status?: string;
-                            pull_request_url?: string | null;
-                            repo?: {
-                                clone_path?: string | null;
-                                default_branch?: string;
-                                id?: string;
-                                is_primary?: boolean;
-                                labels?: string[];
-                                name?: string;
-                                project_id?: string;
-                                repository_url?: string;
-                            } | null;
-                            repo_id?: string;
-                            ticket_id?: string;
-                        }[];
-                        ticket?: {
-                            attempt_count?: number;
-                            /** Format: double */
-                            budget_usd?: number;
-                            children?: {
-                                id?: string;
-                                identifier?: string;
-                                status_id?: string;
-                                status_name?: string;
-                                title?: string;
-                            }[];
-                            consecutive_errors?: number;
-                            /** Format: double */
-                            cost_amount?: number;
-                            created_at?: string;
-                            created_by?: string;
-                            dependencies?: {
-                                id?: string;
-                                target?: {
-                                    id?: string;
-                                    identifier?: string;
-                                    status_id?: string;
-                                    status_name?: string;
-                                    title?: string;
-                                };
-                                type?: string;
-                            }[];
-                            description?: string;
-                            external_ref?: string;
-                            id?: string;
-                            identifier?: string;
-                            next_retry_at?: string | null;
-                            parent?: {
-                                id?: string;
-                                identifier?: string;
-                                status_id?: string;
-                                status_name?: string;
-                                title?: string;
-                            } | null;
-                            pause_reason?: string;
-                            priority?: string;
-                            project_id?: string;
-                            retry_paused?: boolean;
-                            status_id?: string;
-                            status_name?: string;
-                            title?: string;
-                            type?: string;
-                            workflow_id?: string | null;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listWorkflows: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List workflows response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        workflows?: {
-                            finish_status_id?: string | null;
-                            harness_content?: string | null;
-                            harness_path?: string;
-                            hooks?: {
-                                [key: string]: unknown;
-                            };
-                            id?: string;
-                            is_active?: boolean;
-                            max_concurrent?: number;
-                            max_retry_attempts?: number;
-                            name?: string;
-                            pickup_status_id?: string;
-                            project_id?: string;
-                            stall_timeout_minutes?: number;
-                            timeout_minutes?: number;
-                            type?: string;
-                            version?: number;
-                        }[];
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    createWorkflow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID. */
-                projectId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Create a workflow request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    finish_status_id?: string | null;
-                    harness_content?: string;
-                    harness_path?: string | null;
-                    hooks?: {
-                        [key: string]: unknown;
-                    };
-                    is_active?: boolean | null;
-                    max_concurrent?: number | null;
-                    max_retry_attempts?: number | null;
-                    name?: string;
-                    pickup_status_id?: string;
-                    stall_timeout_minutes?: number | null;
-                    timeout_minutes?: number | null;
-                    type?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Create a workflow response. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        workflow?: {
-                            finish_status_id?: string | null;
-                            harness_content?: string | null;
-                            harness_path?: string;
-                            hooks?: {
-                                [key: string]: unknown;
-                            };
-                            id?: string;
-                            is_active?: boolean;
-                            max_concurrent?: number;
-                            max_retry_attempts?: number;
-                            name?: string;
-                            pickup_status_id?: string;
-                            project_id?: string;
-                            stall_timeout_minutes?: number;
-                            timeout_minutes?: number;
-                            type?: string;
-                            version?: number;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    updateAgentProvider: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Agent provider ID. */
-                providerId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Update an agent provider request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    adapter_type?: string | null;
-                    auth_config?: {
-                        [key: string]: unknown;
-                    } | null;
-                    cli_args?: string[] | null;
-                    cli_command?: string | null;
-                    /** Format: double */
-                    cost_per_input_token?: number | null;
-                    /** Format: double */
-                    cost_per_output_token?: number | null;
-                    model_max_tokens?: number | null;
-                    model_name?: string | null;
-                    /** Format: double */
-                    model_temperature?: number | null;
-                    name?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Update an agent provider response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        provider?: {
-                            adapter_type?: string;
-                            auth_config?: {
-                                [key: string]: unknown;
-                            };
-                            cli_args?: string[];
-                            cli_command?: string;
-                            /** Format: double */
-                            cost_per_input_token?: number;
-                            /** Format: double */
-                            cost_per_output_token?: number;
-                            id?: string;
-                            model_max_tokens?: number;
-                            model_name?: string;
-                            /** Format: double */
-                            model_temperature?: number;
-                            name?: string;
-                            organization_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    listBuiltinRoles: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List builtin workflow role templates response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        roles?: {
-                            content?: string;
-                            harness_path?: string;
-                            name?: string;
-                            slug?: string;
-                            summary?: string;
-                            workflow_type?: string;
-                        }[];
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    updateTicket: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Ticket ID. */
-                ticketId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Update a ticket request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: double */
-                    budget_usd?: number | null;
-                    created_by?: string | null;
-                    description?: string | null;
-                    external_ref?: string | null;
-                    parent_ticket_id?: string | null;
-                    priority?: string | null;
-                    status_id?: string | null;
-                    title?: string | null;
-                    type?: string | null;
-                    workflow_id?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Update a ticket response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        ticket?: {
-                            attempt_count?: number;
-                            /** Format: double */
-                            budget_usd?: number;
-                            children?: {
-                                id?: string;
-                                identifier?: string;
-                                status_id?: string;
-                                status_name?: string;
-                                title?: string;
-                            }[];
-                            consecutive_errors?: number;
-                            /** Format: double */
-                            cost_amount?: number;
-                            created_at?: string;
-                            created_by?: string;
-                            dependencies?: {
-                                id?: string;
-                                target?: {
-                                    id?: string;
-                                    identifier?: string;
-                                    status_id?: string;
-                                    status_name?: string;
-                                    title?: string;
-                                };
-                                type?: string;
-                            }[];
-                            description?: string;
-                            external_ref?: string;
-                            id?: string;
-                            identifier?: string;
-                            next_retry_at?: string | null;
-                            parent?: {
-                                id?: string;
-                                identifier?: string;
-                                status_id?: string;
-                                status_name?: string;
-                                title?: string;
-                            } | null;
-                            pause_reason?: string;
-                            priority?: string;
-                            project_id?: string;
-                            retry_paused?: boolean;
-                            status_id?: string;
-                            status_name?: string;
-                            title?: string;
-                            type?: string;
-                            workflow_id?: string | null;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    getWorkflow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workflow ID. */
-                workflowId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Get a workflow response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        workflow?: {
-                            finish_status_id?: string | null;
-                            harness_content?: string | null;
-                            harness_path?: string;
-                            hooks?: {
-                                [key: string]: unknown;
-                            };
-                            id?: string;
-                            is_active?: boolean;
-                            max_concurrent?: number;
-                            max_retry_attempts?: number;
-                            name?: string;
-                            pickup_status_id?: string;
-                            project_id?: string;
-                            stall_timeout_minutes?: number;
-                            timeout_minutes?: number;
-                            type?: string;
-                            version?: number;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    deleteWorkflow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workflow ID. */
-                workflowId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Delete a workflow response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        workflow?: {
-                            finish_status_id?: string | null;
-                            harness_content?: string | null;
-                            harness_path?: string;
-                            hooks?: {
-                                [key: string]: unknown;
-                            };
-                            id?: string;
-                            is_active?: boolean;
-                            max_concurrent?: number;
-                            max_retry_attempts?: number;
-                            name?: string;
-                            pickup_status_id?: string;
-                            project_id?: string;
-                            stall_timeout_minutes?: number;
-                            timeout_minutes?: number;
-                            type?: string;
-                            version?: number;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    updateWorkflow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workflow ID. */
-                workflowId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Update a workflow request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    finish_status_id?: string | null;
-                    harness_path?: string | null;
-                    hooks?: {
-                        [key: string]: unknown;
-                    } | null;
-                    is_active?: boolean | null;
-                    max_concurrent?: number | null;
-                    max_retry_attempts?: number | null;
-                    name?: string | null;
-                    pickup_status_id?: string | null;
-                    stall_timeout_minutes?: number | null;
-                    timeout_minutes?: number | null;
-                    type?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Update a workflow response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        workflow?: {
-                            finish_status_id?: string | null;
-                            harness_content?: string | null;
-                            harness_path?: string;
-                            hooks?: {
-                                [key: string]: unknown;
-                            };
-                            id?: string;
-                            is_active?: boolean;
-                            max_concurrent?: number;
-                            max_retry_attempts?: number;
-                            name?: string;
-                            pickup_status_id?: string;
-                            project_id?: string;
-                            stall_timeout_minutes?: number;
-                            timeout_minutes?: number;
-                            type?: string;
-                            version?: number;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    getWorkflowHarness: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workflow ID. */
-                workflowId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Get workflow harness content response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        harness?: {
-                            content?: string;
-                            path?: string;
-                            version?: number;
-                            workflow_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    updateWorkflowHarness: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workflow ID. */
-                workflowId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Update workflow harness content request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    content?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Update workflow harness content response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        harness?: {
-                            content?: string;
-                            path?: string;
-                            version?: number;
-                            workflow_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    bindWorkflowSkills: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workflow ID. */
-                workflowId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Bind skills to a workflow harness request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    skills?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Bind skills to a workflow harness response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        harness?: {
-                            content?: string;
-                            path?: string;
-                            version?: number;
-                            workflow_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
-    unbindWorkflowSkills: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workflow ID. */
-                workflowId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Unbind skills from a workflow harness request body. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    skills?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Unbind skills from a workflow harness response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        harness?: {
-                            content?: string;
-                            path?: string;
-                            version?: number;
-                            workflow_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Bad Request response. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Not Found response. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Conflict response. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Internal Server Error response. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code?: string;
-                        message?: string;
-                    };
-                };
-            };
-        };
-    };
+  streamEvents: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  validateHarness: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Validate workflow harness content request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          content?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Validate workflow harness content response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            issues?: {
+              column?: number
+              level?: string
+              line?: number
+              message?: string
+            }[]
+            valid?: boolean
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listOrganizations: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organizations response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            organizations?: {
+              default_agent_provider_id?: string | null
+              id?: string
+              name?: string
+              slug?: string
+            }[]
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createOrganization: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Create an organization request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          default_agent_provider_id?: string | null
+          name?: string
+          slug?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create an organization response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            organization?: {
+              default_agent_provider_id?: string | null
+              id?: string
+              name?: string
+              slug?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateOrganization: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Update an organization request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          default_agent_provider_id?: string | null
+          name?: string | null
+          slug?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update an organization response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            organization?: {
+              default_agent_provider_id?: string | null
+              id?: string
+              name?: string
+              slug?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listProjects: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List projects for an organization response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            projects?: {
+              default_agent_provider_id?: string | null
+              default_workflow_id?: string | null
+              description?: string
+              id?: string
+              max_concurrent_agents?: number
+              name?: string
+              organization_id?: string
+              slug?: string
+              status?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createProject: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a project request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          default_agent_provider_id?: string | null
+          default_workflow_id?: string | null
+          description?: string
+          max_concurrent_agents?: number | null
+          name?: string
+          slug?: string
+          status?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a project response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            project?: {
+              default_agent_provider_id?: string | null
+              default_workflow_id?: string | null
+              description?: string
+              id?: string
+              max_concurrent_agents?: number
+              name?: string
+              organization_id?: string
+              slug?: string
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listAgentProviders: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List agent providers for an organization response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            providers?: {
+              adapter_type?: string
+              auth_config?: {
+                [key: string]: unknown
+              }
+              cli_args?: string[]
+              cli_command?: string
+              /** Format: double */
+              cost_per_input_token?: number
+              /** Format: double */
+              cost_per_output_token?: number
+              id?: string
+              model_max_tokens?: number
+              model_name?: string
+              /** Format: double */
+              model_temperature?: number
+              name?: string
+              organization_id?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createAgentProvider: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Create an agent provider request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          adapter_type?: string
+          auth_config?: {
+            [key: string]: unknown
+          }
+          cli_args?: string[]
+          cli_command?: string
+          /** Format: double */
+          cost_per_input_token?: number | null
+          /** Format: double */
+          cost_per_output_token?: number | null
+          model_max_tokens?: number | null
+          model_name?: string
+          /** Format: double */
+          model_temperature?: number | null
+          name?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create an agent provider response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            provider?: {
+              adapter_type?: string
+              auth_config?: {
+                [key: string]: unknown
+              }
+              cli_args?: string[]
+              cli_command?: string
+              /** Format: double */
+              cost_per_input_token?: number
+              /** Format: double */
+              cost_per_output_token?: number
+              id?: string
+              model_max_tokens?: number
+              model_name?: string
+              /** Format: double */
+              model_temperature?: number
+              name?: string
+              organization_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getProject: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get a project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            project?: {
+              default_agent_provider_id?: string | null
+              default_workflow_id?: string | null
+              description?: string
+              id?: string
+              max_concurrent_agents?: number
+              name?: string
+              organization_id?: string
+              slug?: string
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  archiveProject: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Archive a project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            project?: {
+              default_agent_provider_id?: string | null
+              default_workflow_id?: string | null
+              description?: string
+              id?: string
+              max_concurrent_agents?: number
+              name?: string
+              organization_id?: string
+              slug?: string
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateProject: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a project request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          default_agent_provider_id?: string | null
+          default_workflow_id?: string | null
+          description?: string | null
+          max_concurrent_agents?: number | null
+          name?: string | null
+          slug?: string | null
+          status?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update a project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            project?: {
+              default_agent_provider_id?: string | null
+              default_workflow_id?: string | null
+              description?: string
+              id?: string
+              max_concurrent_agents?: number
+              name?: string
+              organization_id?: string
+              slug?: string
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listActivityEvents: {
+    parameters: {
+      query?: {
+        /** @description Filter activity by agent ID. */
+        agent_id?: string
+        /** @description Filter activity by ticket ID. */
+        ticket_id?: string
+        /** @description Limit the number of returned activity events. */
+        limit?: number
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List activity events response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            events?: {
+              agent_id?: string | null
+              created_at?: string
+              event_type?: string
+              id?: string
+              message?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              project_id?: string
+              ticket_id?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamProjectActivity: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listAgents: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List agents response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agents?: {
+              capabilities?: string[]
+              current_ticket_id?: string | null
+              id?: string
+              last_heartbeat_at?: string | null
+              name?: string
+              project_id?: string
+              provider_id?: string
+              session_id?: string
+              status?: string
+              total_tickets_completed?: number
+              /** Format: int64 */
+              total_tokens_used?: number
+              workspace_path?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamProjectAgents: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamProjectHooks: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getHRAdvisor: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get HR advisor recommendations response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            project_id?: string
+            recommendations?: {
+              activation_ready?: boolean
+              active_workflow_name?: string | null
+              evidence?: string[]
+              harness_path?: string
+              priority?: string
+              reason?: string
+              role_name?: string
+              role_slug?: string
+              suggested_headcount?: number
+              suggested_workflow_name?: string
+              summary?: string
+              workflow_type?: string
+            }[]
+            staffing?: {
+              developers?: number
+              docs?: number
+              product?: number
+              qa?: number
+              research?: number
+              security?: number
+            }
+            summary?: {
+              active_agents?: number
+              active_workflow_types?: string[]
+              blocked_tickets?: number
+              coding_tickets?: number
+              failing_tickets?: number
+              open_tickets?: number
+              recent_activity_count?: number
+              workflow_count?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listSkills: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List workflow skills response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            skills?: {
+              bound_workflows?: {
+                harness_path?: string
+                id?: string
+                name?: string
+              }[]
+              description?: string
+              is_builtin?: boolean
+              name?: string
+              path?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listTicketStatuses: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List ticket statuses response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            statuses?: {
+              color?: string
+              description?: string
+              icon?: string
+              id?: string
+              is_default?: boolean
+              name?: string
+              position?: number
+              project_id?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listTickets: {
+    parameters: {
+      query?: {
+        /** @description Filter tickets by status names. Accepts a comma-separated string. */
+        status_name?: string
+        /** @description Filter tickets by priorities. Accepts a comma-separated string. */
+        priority?: string
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List tickets response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            tickets?: {
+              attempt_count?: number
+              /** Format: double */
+              budget_usd?: number
+              children?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              }[]
+              consecutive_errors?: number
+              /** Format: double */
+              cost_amount?: number
+              created_at?: string
+              created_by?: string
+              dependencies?: {
+                id?: string
+                target?: {
+                  id?: string
+                  identifier?: string
+                  status_id?: string
+                  status_name?: string
+                  title?: string
+                }
+                type?: string
+              }[]
+              description?: string
+              external_ref?: string
+              id?: string
+              identifier?: string
+              next_retry_at?: string | null
+              parent?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              } | null
+              pause_reason?: string
+              priority?: string
+              project_id?: string
+              retry_paused?: boolean
+              status_id?: string
+              status_name?: string
+              title?: string
+              type?: string
+              workflow_id?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamProjectTickets: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getTicketDetail: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get ticket detail response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            activity?: {
+              agent_id?: string | null
+              created_at?: string
+              event_type?: string
+              id?: string
+              message?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              project_id?: string
+              ticket_id?: string | null
+            }[]
+            hook_history?: {
+              agent_id?: string | null
+              created_at?: string
+              event_type?: string
+              id?: string
+              message?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              project_id?: string
+              ticket_id?: string | null
+            }[]
+            repo_scopes?: {
+              branch_name?: string
+              ci_status?: string
+              id?: string
+              is_primary_scope?: boolean
+              pr_status?: string
+              pull_request_url?: string | null
+              repo?: {
+                clone_path?: string | null
+                default_branch?: string
+                id?: string
+                is_primary?: boolean
+                labels?: string[]
+                name?: string
+                project_id?: string
+                repository_url?: string
+              } | null
+              repo_id?: string
+              ticket_id?: string
+            }[]
+            ticket?: {
+              attempt_count?: number
+              /** Format: double */
+              budget_usd?: number
+              children?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              }[]
+              consecutive_errors?: number
+              /** Format: double */
+              cost_amount?: number
+              created_at?: string
+              created_by?: string
+              dependencies?: {
+                id?: string
+                target?: {
+                  id?: string
+                  identifier?: string
+                  status_id?: string
+                  status_name?: string
+                  title?: string
+                }
+                type?: string
+              }[]
+              description?: string
+              external_ref?: string
+              id?: string
+              identifier?: string
+              next_retry_at?: string | null
+              parent?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              } | null
+              pause_reason?: string
+              priority?: string
+              project_id?: string
+              retry_paused?: boolean
+              status_id?: string
+              status_name?: string
+              title?: string
+              type?: string
+              workflow_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listWorkflows: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List workflows response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workflows?: {
+              finish_status_id?: string | null
+              harness_content?: string | null
+              harness_path?: string
+              hooks?: {
+                [key: string]: unknown
+              }
+              id?: string
+              is_active?: boolean
+              max_concurrent?: number
+              max_retry_attempts?: number
+              name?: string
+              pickup_status_id?: string
+              project_id?: string
+              stall_timeout_minutes?: number
+              timeout_minutes?: number
+              type?: string
+              version?: number
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createWorkflow: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a workflow request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          finish_status_id?: string | null
+          harness_content?: string
+          harness_path?: string | null
+          hooks?: {
+            [key: string]: unknown
+          }
+          is_active?: boolean | null
+          max_concurrent?: number | null
+          max_retry_attempts?: number | null
+          name?: string
+          pickup_status_id?: string
+          stall_timeout_minutes?: number | null
+          timeout_minutes?: number | null
+          type?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a workflow response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workflow?: {
+              finish_status_id?: string | null
+              harness_content?: string | null
+              harness_path?: string
+              hooks?: {
+                [key: string]: unknown
+              }
+              id?: string
+              is_active?: boolean
+              max_concurrent?: number
+              max_retry_attempts?: number
+              name?: string
+              pickup_status_id?: string
+              project_id?: string
+              stall_timeout_minutes?: number
+              timeout_minutes?: number
+              type?: string
+              version?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateAgentProvider: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent provider ID. */
+        providerId: string
+      }
+      cookie?: never
+    }
+    /** @description Update an agent provider request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          adapter_type?: string | null
+          auth_config?: {
+            [key: string]: unknown
+          } | null
+          cli_args?: string[] | null
+          cli_command?: string | null
+          /** Format: double */
+          cost_per_input_token?: number | null
+          /** Format: double */
+          cost_per_output_token?: number | null
+          model_max_tokens?: number | null
+          model_name?: string | null
+          /** Format: double */
+          model_temperature?: number | null
+          name?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update an agent provider response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            provider?: {
+              adapter_type?: string
+              auth_config?: {
+                [key: string]: unknown
+              }
+              cli_args?: string[]
+              cli_command?: string
+              /** Format: double */
+              cost_per_input_token?: number
+              /** Format: double */
+              cost_per_output_token?: number
+              id?: string
+              model_max_tokens?: number
+              model_name?: string
+              /** Format: double */
+              model_temperature?: number
+              name?: string
+              organization_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listBuiltinRoles: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List builtin workflow role templates response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            roles?: {
+              content?: string
+              harness_path?: string
+              name?: string
+              slug?: string
+              summary?: string
+              workflow_type?: string
+            }[]
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateTicket: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a ticket request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: double */
+          budget_usd?: number | null
+          created_by?: string | null
+          description?: string | null
+          external_ref?: string | null
+          parent_ticket_id?: string | null
+          priority?: string | null
+          status_id?: string | null
+          title?: string | null
+          type?: string | null
+          workflow_id?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update a ticket response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            ticket?: {
+              attempt_count?: number
+              /** Format: double */
+              budget_usd?: number
+              children?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              }[]
+              consecutive_errors?: number
+              /** Format: double */
+              cost_amount?: number
+              created_at?: string
+              created_by?: string
+              dependencies?: {
+                id?: string
+                target?: {
+                  id?: string
+                  identifier?: string
+                  status_id?: string
+                  status_name?: string
+                  title?: string
+                }
+                type?: string
+              }[]
+              description?: string
+              external_ref?: string
+              id?: string
+              identifier?: string
+              next_retry_at?: string | null
+              parent?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              } | null
+              pause_reason?: string
+              priority?: string
+              project_id?: string
+              retry_paused?: boolean
+              status_id?: string
+              status_name?: string
+              title?: string
+              type?: string
+              workflow_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getWorkflow: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get a workflow response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workflow?: {
+              finish_status_id?: string | null
+              harness_content?: string | null
+              harness_path?: string
+              hooks?: {
+                [key: string]: unknown
+              }
+              id?: string
+              is_active?: boolean
+              max_concurrent?: number
+              max_retry_attempts?: number
+              name?: string
+              pickup_status_id?: string
+              project_id?: string
+              stall_timeout_minutes?: number
+              timeout_minutes?: number
+              type?: string
+              version?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteWorkflow: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete a workflow response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workflow?: {
+              finish_status_id?: string | null
+              harness_content?: string | null
+              harness_path?: string
+              hooks?: {
+                [key: string]: unknown
+              }
+              id?: string
+              is_active?: boolean
+              max_concurrent?: number
+              max_retry_attempts?: number
+              name?: string
+              pickup_status_id?: string
+              project_id?: string
+              stall_timeout_minutes?: number
+              timeout_minutes?: number
+              type?: string
+              version?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateWorkflow: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a workflow request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          finish_status_id?: string | null
+          harness_path?: string | null
+          hooks?: {
+            [key: string]: unknown
+          } | null
+          is_active?: boolean | null
+          max_concurrent?: number | null
+          max_retry_attempts?: number | null
+          name?: string | null
+          pickup_status_id?: string | null
+          stall_timeout_minutes?: number | null
+          timeout_minutes?: number | null
+          type?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update a workflow response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workflow?: {
+              finish_status_id?: string | null
+              harness_content?: string | null
+              harness_path?: string
+              hooks?: {
+                [key: string]: unknown
+              }
+              id?: string
+              is_active?: boolean
+              max_concurrent?: number
+              max_retry_attempts?: number
+              name?: string
+              pickup_status_id?: string
+              project_id?: string
+              stall_timeout_minutes?: number
+              timeout_minutes?: number
+              type?: string
+              version?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getWorkflowHarness: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get workflow harness content response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            harness?: {
+              content?: string
+              path?: string
+              version?: number
+              workflow_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateWorkflowHarness: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    /** @description Update workflow harness content request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          content?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Update workflow harness content response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            harness?: {
+              content?: string
+              path?: string
+              version?: number
+              workflow_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  bindWorkflowSkills: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    /** @description Bind skills to a workflow harness request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          skills?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Bind skills to a workflow harness response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            harness?: {
+              content?: string
+              path?: string
+              version?: number
+              workflow_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  unbindWorkflowSkills: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    /** @description Unbind skills from a workflow harness request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          skills?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Unbind skills from a workflow harness response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            harness?: {
+              content?: string
+              path?: string
+              version?: number
+              workflow_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
 }

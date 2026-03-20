@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.32.1",
   "type": "module",
   "scripts": {
-    "api:generate": "openapi-typescript ../api/openapi.json -o src/lib/api/generated/openapi.d.ts",
+    "api:generate": "openapi-typescript ../api/openapi.json -o src/lib/api/generated/openapi.d.ts && prettier --write src/lib/api/generated/openapi.d.ts",
     "api:check": "pnpm run api:generate && git diff --exit-code -- ../api/openapi.json src/lib/api/generated/openapi.d.ts",
     "dev": "vite dev",
     "build": "vite build",
