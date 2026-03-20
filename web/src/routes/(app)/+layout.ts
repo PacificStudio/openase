@@ -1,3 +1,4 @@
+import { redirect } from '@sveltejs/kit'
 import type { LayoutLoad } from './$types'
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
 
@@ -17,31 +18,61 @@ type AgentResponse = {
   agents?: unknown[]
 }
 
-export const load: LayoutLoad = async ({ fetch }) => {
-  const orgResponse = await fetch('/api/v1/orgs')
-  if (!orgResponse.ok) {
-    return {
-      currentOrg: null,
-      currentProject: null,
-      providers: [],
-      agentCount: 0,
-    }
+function emptyLayoutData() {
+  return {
+    organizations: [],
+    projects: [],
+    currentOrg: null,
+    currentProject: null,
+    providers: [],
+    agentCount: 0,
+  }
+}
+
+function selectById<T extends { id: string }>(items: T[], requestedId: string | null) {
+  if (items.length === 0) {
+    return null
   }
 
-  const orgData = (await orgResponse.json()) as OrgResponse
-  const currentOrg = orgData.organizations?.[0] ?? null
-  if (!currentOrg) {
-    return {
-      currentOrg: null,
-      currentProject: null,
-      providers: [],
-      agentCount: 0,
-    }
+  if (!requestedId) {
+    return items[0]
   }
 
+  return items.find((item) => item.id === requestedId) ?? items[0]
+}
+
+function buildCanonicalHref(url: URL, orgId: string | null, projectId: string | null) {
+  const nextUrl = new URL(url)
+
+  if (orgId) {
+    nextUrl.searchParams.set('orgId', orgId)
+  } else {
+    nextUrl.searchParams.delete('orgId')
+  }
+
+  if (projectId) {
+    nextUrl.searchParams.set('projectId', projectId)
+  } else {
+    nextUrl.searchParams.delete('projectId')
+  }
+
+  return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+}
+
+async function loadOrganizations(fetcher: typeof fetch) {
+  const response = await fetcher('/api/v1/orgs')
+  if (!response.ok) {
+    return []
+  }
+
+  const data = (await response.json()) as OrgResponse
+  return data.organizations ?? []
+}
+
+async function loadOrgContext(fetcher: typeof fetch, orgId: string) {
   const [projectResponse, providerResponse] = await Promise.all([
-    fetch(`/api/v1/orgs/${currentOrg.id}/projects`),
-    fetch(`/api/v1/orgs/${currentOrg.id}/providers`),
+    fetcher(`/api/v1/orgs/${orgId}/projects`),
+    fetcher(`/api/v1/orgs/${orgId}/providers`),
   ])
 
   const projectData = projectResponse.ok
@@ -51,21 +82,52 @@ export const load: LayoutLoad = async ({ fetch }) => {
     ? ((await providerResponse.json()) as ProviderResponse)
     : { providers: [] }
 
-  const currentProject = projectData.projects?.[0] ?? null
-  let agentCount = 0
+  return {
+    projects: projectData.projects ?? [],
+    providers: providerData.providers ?? [],
+  }
+}
 
-  if (currentProject) {
-    const agentResponse = await fetch(`/api/v1/projects/${currentProject.id}/agents`)
-    if (agentResponse.ok) {
-      const agentData = (await agentResponse.json()) as AgentResponse
-      agentCount = agentData.agents?.length ?? 0
-    }
+async function loadAgentCount(fetcher: typeof fetch, projectId: string | null) {
+  if (!projectId) {
+    return 0
   }
 
+  const response = await fetcher(`/api/v1/projects/${projectId}/agents`)
+  if (!response.ok) {
+    return 0
+  }
+
+  const data = (await response.json()) as AgentResponse
+  return data.agents?.length ?? 0
+}
+
+export const load: LayoutLoad = async ({ fetch, url }) => {
+  const requestedOrgId = url.searchParams.get('orgId')
+  const requestedProjectId = url.searchParams.get('projectId')
+  const organizations = await loadOrganizations(fetch)
+  const currentOrg = selectById(organizations, requestedOrgId)
+  if (!currentOrg) {
+    return emptyLayoutData()
+  }
+
+  const { projects, providers } = await loadOrgContext(fetch, currentOrg.id)
+  const currentProject = selectById(projects, requestedProjectId)
+  const canonicalHref = buildCanonicalHref(url, currentOrg.id, currentProject?.id ?? null)
+  const currentHref = `${url.pathname}${url.search}${url.hash}`
+
+  if (canonicalHref !== currentHref) {
+    throw redirect(307, canonicalHref)
+  }
+
+  const agentCount = await loadAgentCount(fetch, currentProject?.id ?? null)
+
   return {
+    organizations,
+    projects,
     currentOrg,
     currentProject,
-    providers: providerData.providers ?? [],
+    providers,
     agentCount,
   }
 }

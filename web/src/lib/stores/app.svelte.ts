@@ -1,19 +1,19 @@
 import type { Organization, Project } from '$lib/api/contracts'
 
-type AppPanelContent = {
-  type: 'ticket'
-  id: string
-}
+type AppPanelContent = { type: 'ticket'; id: string }
+export type AppTheme = 'light' | 'dark'
+
+const flipTheme = (theme: AppTheme): AppTheme => (theme === 'dark' ? 'light' : 'dark')
 
 function createAppStore() {
-  let currentOrg = $state<Organization | null>(null)
-  let currentProject = $state<Project | null>(null)
-  let sidebarCollapsed = $state(false)
-  let rightPanelOpen = $state(false)
+  let currentOrg = $state<Organization | null>(null),
+    currentProject = $state<Project | null>(null)
+  let sidebarCollapsed = $state(false),
+    newTicketDialogOpen = $state(false),
+    rightPanelOpen = $state(false)
   let rightPanelContent = $state<AppPanelContent | null>(null)
   let sseStatus = $state<'idle' | 'connecting' | 'live' | 'retrying'>('idle')
-  let theme = $state<'light' | 'dark'>('dark')
-
+  let theme = $state<AppTheme>('dark')
   return {
     get currentOrg() {
       return currentOrg
@@ -35,6 +35,18 @@ function createAppStore() {
     },
     toggleSidebar() {
       sidebarCollapsed = !sidebarCollapsed
+    },
+    get newTicketDialogOpen() {
+      return newTicketDialogOpen
+    },
+    set newTicketDialogOpen(v) {
+      newTicketDialogOpen = v
+    },
+    openNewTicketDialog() {
+      newTicketDialogOpen = true
+    },
+    closeNewTicketDialog() {
+      newTicketDialogOpen = false
     },
     get rightPanelOpen() {
       return rightPanelOpen
@@ -59,11 +71,11 @@ function createAppStore() {
     get theme() {
       return theme
     },
+    setTheme(nextTheme: AppTheme) {
+      theme = nextTheme
+    },
     toggleTheme() {
-      theme = theme === 'dark' ? 'light' : 'dark'
-      if (typeof document !== 'undefined') {
-        document.documentElement.classList.toggle('dark', theme === 'dark')
-      }
+      theme = flipTheme(theme)
     },
   }
 }
