@@ -81,9 +81,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Workflow update/delete APIs already exist, but this settings section still points to a placeholder instead of lifecycle management UI.',
   },
   agentsSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Agent create/detail/delete APIs exist, but agent governance settings are still a placeholder in this slice.',
+      'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while runtime controls remain on the Agents page.',
   },
   connectorsSettings: {
     state: 'backend_missing',

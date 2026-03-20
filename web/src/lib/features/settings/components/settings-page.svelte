@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SettingsSection } from '../types'
+  import AgentSettings from './agent-settings.svelte'
   import SettingsNav from './settings-nav.svelte'
   import GeneralSettings from './general-settings.svelte'
   import SettingsPlaceholder from './settings-placeholder.svelte'
@@ -25,7 +26,7 @@
     {:else if activeSection === 'workflows'}
       <SettingsPlaceholder section="workflows" title="Workflows" />
     {:else if activeSection === 'agents'}
-      <SettingsPlaceholder section="agents" title="Agents" />
+      <AgentSettings />
     {:else if activeSection === 'connectors'}
       <SettingsPlaceholder section="connectors" title="Connectors" />
     {:else if activeSection === 'notifications'}
