@@ -31,7 +31,9 @@
         <div class="text-muted-foreground text-xs">Heap in use / reserved from OS</div>
         <div class="mt-2 flex items-end justify-between gap-4">
           <div>
-            <p class="text-foreground text-xl font-semibold">{formatBytes(memory.heap_inuse_bytes)}</p>
+            <p class="text-foreground text-xl font-semibold">
+              {formatBytes(memory.heap_inuse_bytes)}
+            </p>
             <p class="text-muted-foreground text-xs">of {formatBytes(memory.sys_bytes)} reserved</p>
           </div>
           <div class="text-right">
@@ -49,19 +51,19 @@
 
       <div class="grid grid-cols-2 gap-3">
         <div class="bg-muted/40 rounded-md px-3 py-2">
-          <div class="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">Heap Idle</div>
+          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">Heap Idle</div>
           <div class="text-foreground mt-1 text-sm font-medium">
             {formatBytes(memory.heap_idle_bytes)}
           </div>
         </div>
         <div class="bg-muted/40 rounded-md px-3 py-2">
-          <div class="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">Next GC</div>
+          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">Next GC</div>
           <div class="text-foreground mt-1 text-sm font-medium">
             {formatBytes(memory.next_gc_bytes)}
           </div>
         </div>
         <div class="bg-muted/40 rounded-md px-3 py-2">
-          <div class="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">
+          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
             Total Alloc
           </div>
           <div class="text-foreground mt-1 text-sm font-medium">
@@ -69,9 +71,7 @@
           </div>
         </div>
         <div class="bg-muted/40 rounded-md px-3 py-2">
-          <div class="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">
-            GC Cycles
-          </div>
+          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">GC Cycles</div>
           <div class="text-foreground mt-1 text-sm font-medium">
             {memory.gc_cycles.toLocaleString()}
           </div>
@@ -84,7 +84,7 @@
       </div>
     </div>
   {:else}
-    <div class="px-4 py-8 text-center text-xs text-muted-foreground">
+    <div class="text-muted-foreground px-4 py-8 text-center text-xs">
       No process memory sample available yet.
     </div>
   {/if}

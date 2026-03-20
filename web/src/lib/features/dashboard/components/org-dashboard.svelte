@@ -1,7 +1,13 @@
 <script lang="ts">
   import { formatBytes } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
-  import { getProject, getSystemDashboard, listActivity, listAgents, listTickets } from '$lib/api/openase'
+  import {
+    getProject,
+    getSystemDashboard,
+    listActivity,
+    listAgents,
+    listTickets,
+  } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import StatCard from './stat-card.svelte'
   import ProjectHealthList from './project-health-list.svelte'
@@ -9,7 +15,13 @@
   import ActivityFeedPanel from './activity-feed-panel.svelte'
   import MemorySnapshotPanel from './memory-snapshot-panel.svelte'
   import { Bot, Ticket, ShieldCheck } from '@lucide/svelte'
-  import type { ActivityItem, DashboardStats, ExceptionItem, MemorySnapshot, ProjectSummary } from '../types'
+  import type {
+    ActivityItem,
+    DashboardStats,
+    ExceptionItem,
+    MemorySnapshot,
+    ProjectSummary,
+  } from '../types'
 
   const dashboardPollIntervalMs = 5000
 
@@ -54,13 +66,14 @@
       }
 
       try {
-        const [projectPayload, agentPayload, ticketPayload, activityPayload, systemPayload] = await Promise.all([
-          getProject(projectId),
-          listAgents(projectId),
-          listTickets(projectId),
-          listActivity(projectId, { limit: '24' }),
-          getSystemDashboard(),
-        ])
+        const [projectPayload, agentPayload, ticketPayload, activityPayload, systemPayload] =
+          await Promise.all([
+            getProject(projectId),
+            listAgents(projectId),
+            listTickets(projectId),
+            listActivity(projectId, { limit: '24' }),
+            getSystemDashboard(),
+          ])
 
         if (cancelled) return
 
