@@ -1,3 +1,8 @@
+import {
+  loadOrganizationContext,
+  loadOrganizations,
+  loadProjectAgentCount,
+} from '$lib/api/app-context'
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
 import {
   parseAppRouteContext,
@@ -6,22 +11,6 @@ import {
 } from '$lib/stores/app-context'
 import { error } from '@sveltejs/kit'
 import type { LayoutLoad } from './$types'
-
-type OrgResponse = {
-  organizations?: Organization[]
-}
-
-type ProjectResponse = {
-  projects?: Project[]
-}
-
-type ProviderResponse = {
-  providers?: AgentProvider[]
-}
-
-type AgentResponse = {
-  agents?: unknown[]
-}
 
 type AppLayoutData = {
   organizations: Organization[]
@@ -90,42 +79,4 @@ export const load: LayoutLoad = async ({ fetch, params, url }) => {
         : 'dashboard',
   }
 }
-
-async function loadOrganizations(fetch: typeof globalThis.fetch) {
-  const orgResponse = await fetch('/api/v1/orgs')
-  if (!orgResponse.ok) {
-    return []
-  }
-
-  const orgData = (await orgResponse.json()) as OrgResponse
-  return orgData.organizations ?? []
-}
-
-async function loadOrganizationContext(fetch: typeof globalThis.fetch, orgId: string) {
-  const [projectResponse, providerResponse] = await Promise.all([
-    fetch(`/api/v1/orgs/${orgId}/projects`),
-    fetch(`/api/v1/orgs/${orgId}/providers`),
-  ])
-
-  const projectData = projectResponse.ok
-    ? ((await projectResponse.json()) as ProjectResponse)
-    : { projects: [] }
-  const providerData = providerResponse.ok
-    ? ((await providerResponse.json()) as ProviderResponse)
-    : { providers: [] }
-
-  return {
-    projects: projectData.projects ?? [],
-    providers: providerData.providers ?? [],
-  }
-}
-
-async function loadAgentCount(fetch: typeof globalThis.fetch, projectId: string) {
-  const agentResponse = await fetch(`/api/v1/projects/${projectId}/agents`)
-  if (!agentResponse.ok) {
-    return 0
-  }
-
-  const agentData = (await agentResponse.json()) as AgentResponse
-  return agentData.agents?.length ?? 0
-}
+const loadAgentCount = loadProjectAgentCount
