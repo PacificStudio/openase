@@ -11,9 +11,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -154,6 +158,113 @@ func TestGitHubWebhookRouteSyncsPullRequestStatusToTicketRepoScope(t *testing.T)
 	}
 }
 
+func TestGitHubWebhookRouteFinishesTicketWhenAllRepoScopesMerge(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := newGitHubWebhookLifecycleFixture(t, client, ticketreposcope.PrStatusOpen, ticketreposcope.PrStatusMerged)
+	before := time.Now().UTC()
+
+	payload := `{"action":"closed","number":42,"repository":{"clone_url":"https://github.com/acme/backend.git","full_name":"acme/backend"},"pull_request":{"html_url":"https://github.com/acme/backend/pull/42","state":"closed","merged":true,"head":{"ref":"agent/codex/ASE-42"}}}`
+	rec := performGitHubWebhookRequestWithServer(t, fixture.server, "pull_request", payload, "")
+	after := time.Now().UTC()
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, fixture.ticketID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.StatusID != fixture.doneID {
+		t.Fatalf("expected ticket to move to Done %s, got %s", fixture.doneID, ticketAfter.StatusID)
+	}
+	if ticketAfter.CompletedAt == nil || ticketAfter.CompletedAt.Before(before) || ticketAfter.CompletedAt.After(after) {
+		t.Fatalf("expected completed_at between %s and %s, got %+v", before, after, ticketAfter.CompletedAt)
+	}
+	if ticketAfter.AssignedAgentID != nil {
+		t.Fatalf("expected assigned agent to be cleared, got %+v", ticketAfter.AssignedAgentID)
+	}
+	if ticketAfter.NextRetryAt != nil || ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
+		t.Fatalf("expected finish to clear retry scheduling, got %+v", ticketAfter)
+	}
+
+	scopeAfter, err := client.TicketRepoScope.Get(ctx, fixture.primaryScopeID)
+	if err != nil {
+		t.Fatalf("reload primary scope: %v", err)
+	}
+	if scopeAfter.PrStatus != ticketreposcope.PrStatusMerged {
+		t.Fatalf("expected primary scope to be merged, got %q", scopeAfter.PrStatus)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, fixture.agentID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
+		t.Fatalf("expected agent release after finish, got %+v", agentAfter)
+	}
+}
+
+func TestGitHubWebhookRouteSchedulesRetryWhenPullRequestClosesWithoutMerge(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := newGitHubWebhookLifecycleFixture(t, client, ticketreposcope.PrStatusOpen, ticketreposcope.PrStatusMerged)
+	if _, err := client.Ticket.UpdateOneID(fixture.ticketID).
+		SetAttemptCount(1).
+		SetConsecutiveErrors(2).
+		Save(ctx); err != nil {
+		t.Fatalf("seed ticket retry counters: %v", err)
+	}
+	before := time.Now().UTC()
+
+	payload := `{"action":"closed","number":42,"repository":{"clone_url":"https://github.com/acme/backend.git","full_name":"acme/backend"},"pull_request":{"html_url":"https://github.com/acme/backend/pull/42","state":"closed","merged":false,"head":{"ref":"agent/codex/ASE-42"}}}`
+	rec := performGitHubWebhookRequestWithServer(t, fixture.server, "pull_request", payload, "")
+	after := time.Now().UTC()
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, fixture.ticketID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.StatusID != fixture.todoID {
+		t.Fatalf("expected ticket to remain in Todo %s, got %s", fixture.todoID, ticketAfter.StatusID)
+	}
+	if ticketAfter.AttemptCount != 2 || ticketAfter.ConsecutiveErrors != 3 {
+		t.Fatalf("unexpected retry counters after closed PR: %+v", ticketAfter)
+	}
+	wantMinRetryAt := before.Add(20 * time.Second)
+	wantMaxRetryAt := after.Add(20 * time.Second)
+	if ticketAfter.NextRetryAt == nil || ticketAfter.NextRetryAt.Before(wantMinRetryAt) || ticketAfter.NextRetryAt.After(wantMaxRetryAt) {
+		t.Fatalf("expected next_retry_at between %s and %s, got %+v", wantMinRetryAt, wantMaxRetryAt, ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.AssignedAgentID != nil {
+		t.Fatalf("expected assigned agent to be cleared, got %+v", ticketAfter.AssignedAgentID)
+	}
+	if ticketAfter.CompletedAt != nil {
+		t.Fatalf("expected ticket to remain incomplete, got %+v", ticketAfter.CompletedAt)
+	}
+
+	scopeAfter, err := client.TicketRepoScope.Get(ctx, fixture.primaryScopeID)
+	if err != nil {
+		t.Fatalf("reload primary scope: %v", err)
+	}
+	if scopeAfter.PrStatus != ticketreposcope.PrStatusClosed {
+		t.Fatalf("expected primary scope to be closed, got %q", scopeAfter.PrStatus)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, fixture.agentID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
+		t.Fatalf("expected agent release after retry scheduling, got %+v", agentAfter)
+	}
+}
+
 func TestGitHubWebhookRouteSyncsChangesRequestedReviewToTicketRepoScope(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -274,6 +385,156 @@ func performGitHubWebhookRequestWithServer(
 	return rec
 }
 
+type gitHubWebhookLifecycleFixture struct {
+	server         *Server
+	ticketID       uuid.UUID
+	todoID         uuid.UUID
+	doneID         uuid.UUID
+	agentID        uuid.UUID
+	primaryScopeID uuid.UUID
+}
+
+func newGitHubWebhookLifecycleFixture(
+	t *testing.T,
+	client *ent.Client,
+	primaryStatus ticketreposcope.PrStatus,
+	secondaryStatus ticketreposcope.PrStatus,
+) gitHubWebhookLifecycleFixture {
+	t.Helper()
+
+	if primaryStatus == "" {
+		primaryStatus = ticketreposcope.PrStatusNone
+	}
+	if secondaryStatus == "" {
+		secondaryStatus = ticketreposcope.PrStatusNone
+	}
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetName("codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent provider: %v", err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetName("codex-01").
+		SetStatus(entagent.StatusRunning).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetPickupStatusID(todoID).
+		SetFinishStatusID(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-42").
+		SetTitle("Sync PR status lifecycle").
+		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
+		SetAssignedAgentID(agentItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	if _, err := client.Agent.UpdateOneID(agentItem.ID).
+		SetCurrentTicketID(ticketItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("attach agent to ticket: %v", err)
+	}
+
+	backendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create backend repo: %v", err)
+	}
+	frontendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("frontend").
+		SetRepositoryURL("https://github.com/acme/frontend.git").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create frontend repo: %v", err)
+	}
+	primaryScope, err := client.TicketRepoScope.Create().
+		SetTicketID(ticketItem.ID).
+		SetRepoID(backendRepo.ID).
+		SetBranchName("agent/codex/ASE-42").
+		SetPrStatus(primaryStatus).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create primary ticket repo scope: %v", err)
+	}
+	if _, err := client.TicketRepoScope.Create().
+		SetTicketID(ticketItem.ID).
+		SetRepoID(frontendRepo.ID).
+		SetBranchName("agent/codex/ASE-42").
+		SetPrStatus(secondaryStatus).
+		Save(ctx); err != nil {
+		t.Fatalf("create secondary ticket repo scope: %v", err)
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	return gitHubWebhookLifecycleFixture{
+		server:         server,
+		ticketID:       ticketItem.ID,
+		todoID:         todoID,
+		doneID:         doneID,
+		agentID:        agentItem.ID,
+		primaryScopeID: primaryScope.ID,
+	}
+}
+
 func newGitHubWebhookSyncTestServer(
 	t *testing.T,
 	client *ent.Client,
@@ -307,6 +568,18 @@ func newGitHubWebhookSyncTestServer(
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetPickupStatusID(todoID).
+		SetFinishStatusID(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
 
 	repo, err := client.ProjectRepo.Create().
 		SetProjectID(project.ID).
@@ -321,6 +594,7 @@ func newGitHubWebhookSyncTestServer(
 		SetIdentifier("ASE-42").
 		SetTitle("Sync PR status").
 		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
 		SetCreatedBy("user:test").
 		Save(ctx)
 	if err != nil {

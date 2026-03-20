@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/BetterAndBetterII/openase/ent"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
 
@@ -18,61 +21,193 @@ type SyncRepoScopePRStatusInput struct {
 	PRStatus           ticketreposcope.PrStatus
 }
 
-func (s *Service) SyncRepoScopePRStatus(ctx context.Context, input SyncRepoScopePRStatusInput) (bool, error) {
+type RepoScopePRStatusSyncOutcome string
+
+const (
+	RepoScopePRStatusSyncOutcomeNone     RepoScopePRStatusSyncOutcome = ""
+	RepoScopePRStatusSyncOutcomeRetried  RepoScopePRStatusSyncOutcome = "retried"
+	RepoScopePRStatusSyncOutcomeFinished RepoScopePRStatusSyncOutcome = "finished"
+)
+
+type RepoScopePRStatusSyncResult struct {
+	Matched bool
+	Outcome RepoScopePRStatusSyncOutcome
+	Ticket  *Ticket
+}
+
+func (s *Service) SyncRepoScopePRStatus(ctx context.Context, input SyncRepoScopePRStatusInput) (RepoScopePRStatusSyncResult, error) {
 	if s.client == nil {
-		return false, ErrUnavailable
+		return RepoScopePRStatusSyncResult{}, ErrUnavailable
 	}
 
 	repositoryKey, err := normalizeGitHubRepositoryKey(input.RepositoryURL, input.RepositoryFullName)
 	if err != nil {
-		return false, err
+		return RepoScopePRStatusSyncResult{}, err
 	}
 
 	branchName := strings.TrimSpace(input.BranchName)
 	if branchName == "" {
-		return false, fmt.Errorf("branch name must not be empty")
+		return RepoScopePRStatusSyncResult{}, fmt.Errorf("branch name must not be empty")
 	}
 
-	scopes, err := s.client.TicketRepoScope.Query().
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return RepoScopePRStatusSyncResult{}, fmt.Errorf("start repo scope sync tx: %w", err)
+	}
+	defer rollback(tx)
+
+	scopes, err := tx.TicketRepoScope.Query().
 		Where(ticketreposcope.BranchNameEQ(branchName)).
 		WithRepo().
 		All(ctx)
 	if err != nil {
-		return false, fmt.Errorf("query ticket repo scopes: %w", err)
+		return RepoScopePRStatusSyncResult{}, fmt.Errorf("query ticket repo scopes: %w", err)
 	}
 
-	var matchedScopeID uuid.UUID
-	matched := false
+	var matchedScope *ent.TicketRepoScope
 	for _, scope := range scopes {
 		scopeRepositoryKey, repoErr := normalizeGitHubRepositoryKey(scope.Edges.Repo.RepositoryURL, "")
 		if repoErr != nil {
-			return false, fmt.Errorf("normalize project repo %q: %w", scope.Edges.Repo.RepositoryURL, repoErr)
+			return RepoScopePRStatusSyncResult{}, fmt.Errorf("normalize project repo %q: %w", scope.Edges.Repo.RepositoryURL, repoErr)
 		}
 		if scopeRepositoryKey != repositoryKey {
 			continue
 		}
-		if matched {
-			return false, fmt.Errorf("multiple ticket repo scopes matched repository %q and branch %q", repositoryKey, branchName)
+		if matchedScope != nil {
+			return RepoScopePRStatusSyncResult{}, fmt.Errorf("multiple ticket repo scopes matched repository %q and branch %q", repositoryKey, branchName)
 		}
-		matchedScopeID = scope.ID
-		matched = true
+		matchedScope = scope
 	}
 
-	if !matched {
-		return false, nil
+	if matchedScope == nil {
+		return RepoScopePRStatusSyncResult{}, nil
 	}
 
-	update := s.client.TicketRepoScope.UpdateOneID(matchedScopeID).
+	update := tx.TicketRepoScope.UpdateOneID(matchedScope.ID).
 		SetPrStatus(input.PRStatus)
 	if pullRequestURL := strings.TrimSpace(input.PullRequestURL); pullRequestURL != "" {
 		update.SetPullRequestURL(pullRequestURL)
 	}
 
 	if _, err := update.Save(ctx); err != nil {
-		return false, fmt.Errorf("update ticket repo scope: %w", err)
+		return RepoScopePRStatusSyncResult{}, fmt.Errorf("update ticket repo scope: %w", err)
 	}
 
-	return true, nil
+	siblingScopes, err := tx.TicketRepoScope.Query().
+		Where(ticketreposcope.TicketIDEQ(matchedScope.TicketID)).
+		All(ctx)
+	if err != nil {
+		return RepoScopePRStatusSyncResult{}, fmt.Errorf("query sibling ticket repo scopes: %w", err)
+	}
+
+	result := RepoScopePRStatusSyncResult{Matched: true}
+	allMerged := len(siblingScopes) > 0
+	anyClosed := false
+	for _, scope := range siblingScopes {
+		if scope.PrStatus != ticketreposcope.PrStatusMerged {
+			allMerged = false
+		}
+		if scope.PrStatus == ticketreposcope.PrStatusClosed {
+			anyClosed = true
+		}
+	}
+
+	switch {
+	case anyClosed:
+		if err := s.scheduleRepoScopeRetry(ctx, tx, matchedScope.TicketID); err != nil {
+			return RepoScopePRStatusSyncResult{}, err
+		}
+		result.Outcome = RepoScopePRStatusSyncOutcomeRetried
+	case allMerged:
+		if err := s.finishTicketForMergedRepoScopes(ctx, tx, matchedScope.TicketID); err != nil {
+			return RepoScopePRStatusSyncResult{}, err
+		}
+		result.Outcome = RepoScopePRStatusSyncOutcomeFinished
+	}
+
+	if err := tx.Commit(); err != nil {
+		return RepoScopePRStatusSyncResult{}, fmt.Errorf("commit repo scope sync tx: %w", err)
+	}
+
+	if result.Outcome != RepoScopePRStatusSyncOutcomeNone {
+		ticketItem, err := s.Get(ctx, matchedScope.TicketID)
+		if err != nil {
+			return RepoScopePRStatusSyncResult{}, err
+		}
+		result.Ticket = &ticketItem
+	}
+
+	return result, nil
+}
+
+func (s *Service) scheduleRepoScopeRetry(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID) error {
+	current, err := tx.Ticket.Get(ctx, ticketID)
+	if err != nil {
+		return s.mapTicketReadError("get ticket for repo scope retry", err)
+	}
+
+	nextAttemptCount := current.AttemptCount + 1
+	update := tx.Ticket.UpdateOneID(current.ID).
+		ClearAssignedAgentID().
+		SetAttemptCount(nextAttemptCount).
+		SetConsecutiveErrors(current.ConsecutiveErrors + 1).
+		SetNextRetryAt(timeNowUTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount)))
+
+	if ticketing.ShouldPauseForBudget(current.CostAmount, current.BudgetUsd) {
+		update.SetRetryPaused(true).
+			SetPauseReason(ticketing.PauseReasonBudgetExhausted.String())
+	}
+
+	if _, err := update.Save(ctx); err != nil {
+		return s.mapTicketWriteError("update ticket repo scope retry", err)
+	}
+
+	return releaseTicketAgentClaim(ctx, tx, current)
+}
+
+func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID) error {
+	current, err := tx.Ticket.Get(ctx, ticketID)
+	if err != nil {
+		return s.mapTicketReadError("get ticket for repo scope finish", err)
+	}
+	if current.WorkflowID == nil {
+		return fmt.Errorf("ticket %s has no workflow to finish", current.ID)
+	}
+
+	workflowItem, err := tx.Workflow.Get(ctx, *current.WorkflowID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return ErrWorkflowNotFound
+		}
+		return fmt.Errorf("get workflow for repo scope finish: %w", err)
+	}
+	if workflowItem.FinishStatusID == nil {
+		return fmt.Errorf("workflow %s has no finish status configured", workflowItem.ID)
+	}
+
+	update := tx.Ticket.UpdateOneID(current.ID).
+		SetStatusID(*workflowItem.FinishStatusID).
+		SetCompletedAt(timeNowUTC()).
+		ClearAssignedAgentID()
+	if current.NextRetryAt != nil {
+		update.ClearNextRetryAt()
+	}
+	if current.RetryPaused {
+		update.SetRetryPaused(false)
+	}
+	if current.PauseReason != "" {
+		update.ClearPauseReason()
+	}
+
+	if _, err := update.Save(ctx); err != nil {
+		return s.mapTicketWriteError("finish ticket after repo scopes merged", err)
+	}
+
+	return releaseTicketAgentClaim(ctx, tx, current)
+}
+
+func timeNowUTC() time.Time {
+	return time.Now().UTC()
 }
 
 func normalizeGitHubRepositoryKey(rawURL string, rawFullName string) (string, error) {

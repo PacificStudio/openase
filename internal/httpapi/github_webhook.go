@@ -287,7 +287,7 @@ func (s *Server) syncGitHubRepoScopeStatus(ctx context.Context, delivery gitHubW
 	if err != nil {
 		return err
 	}
-	if !matched {
+	if !matched.Matched {
 		s.logger.Info(
 			"github webhook did not match ticket repo scope",
 			"event", delivery.Event,
@@ -296,6 +296,15 @@ func (s *Server) syncGitHubRepoScopeStatus(ctx context.Context, delivery gitHubW
 			"repository", delivery.Repository.CloneURL,
 			"branch", delivery.PullRequest.Branch,
 		)
+	}
+	if matched.Ticket != nil {
+		eventType := ticketUpdatedEventType
+		if matched.Outcome == ticketservice.RepoScopePRStatusSyncOutcomeFinished {
+			eventType = ticketStatusEventType
+		}
+		if err := s.publishTicketEvent(ctx, eventType, *matched.Ticket); err != nil {
+			return err
+		}
 	}
 
 	return nil
