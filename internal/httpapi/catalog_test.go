@@ -294,6 +294,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
+		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
 		nil,
 	)
