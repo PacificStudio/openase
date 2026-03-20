@@ -82,7 +82,7 @@
     <div class="mt-2 space-y-1.5">
       <div class="flex items-center justify-between gap-3 text-xs">
         <span class="text-muted-foreground">Path</span>
-        <span class="text-foreground font-mono break-all text-right">
+        <span class="text-foreground text-right font-mono break-all">
           {workflow.harnessPath || 'Not assigned'}
         </span>
       </div>
