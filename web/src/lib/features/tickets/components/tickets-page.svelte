@@ -142,7 +142,14 @@
 </script>
 
 {#snippet actions()}
-  <Button size="sm" disabled title={newTicketCapability.summary}>New Ticket</Button>
+  <Button
+    size="sm"
+    disabled={newTicketCapability.state !== 'available' || !appStore.currentProject?.id}
+    title={newTicketCapability.summary}
+    onclick={() => appStore.openNewTicketDialog()}
+  >
+    New Ticket
+  </Button>
 {/snippet}
 
 <PageHeader title="Tickets" description="All tickets in this project" {actions} />

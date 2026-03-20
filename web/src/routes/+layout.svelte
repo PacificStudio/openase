@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ThemeRoot from '$lib/components/layout/theme-root.svelte'
   import './layout.css'
 
   let { children } = $props()
@@ -13,6 +14,6 @@
   />
 </svelte:head>
 
-<div class="dark">
+<ThemeRoot>
   {@render children()}
-</div>
+</ThemeRoot>
