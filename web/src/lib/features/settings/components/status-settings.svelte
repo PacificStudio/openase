@@ -163,9 +163,9 @@
     feedback = ''
 
     try {
-      for (const status of nextStatuses) {
-        await updateStatus(status.id, { position: status.position })
-      }
+      await Promise.all(
+        nextStatuses.map((status) => updateStatus(status.id, { position: status.position })),
+      )
       await reloadStatuses(projectId)
       statusSync.touch()
       feedback = 'Status order updated.'

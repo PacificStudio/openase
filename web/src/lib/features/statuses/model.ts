@@ -30,7 +30,7 @@ export function normalizeStatuses(statuses: TicketStatus[]): EditableStatus[] {
     .map((status) => ({
       id: status.id,
       name: status.name,
-      color: status.color || '#94a3b8',
+      color: (status.color || '#94a3b8').toLowerCase(),
       isDefault: status.is_default,
       position: status.position,
     }))
