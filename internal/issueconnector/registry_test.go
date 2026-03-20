@@ -53,6 +53,21 @@ func TestRegistryListTypesIsSorted(t *testing.T) {
 	}
 }
 
+func TestRegistryListTypesReturnsEmptySliceWhenRegistryIsEmpty(t *testing.T) {
+	registry, err := NewRegistry()
+	if err != nil {
+		t.Fatalf("NewRegistry returned error: %v", err)
+	}
+
+	got := registry.ListTypes()
+	if got == nil {
+		t.Fatalf("ListTypes returned nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("ListTypes length = %d, want 0", len(got))
+	}
+}
+
 type stubConnector struct {
 	id   string
 	name string

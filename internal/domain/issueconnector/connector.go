@@ -339,30 +339,23 @@ func (c Config) MapStatus(externalStatus string) string {
 }
 
 func (f Filters) Matches(issue ExternalIssue) bool {
-	if len(f.States) > 0 && !slices.Contains(f.States, strings.ToLower(strings.TrimSpace(issue.Status))) {
-		return false
+	if len(f.States) > 0 {
+		if _, found := slices.BinarySearch(f.States, strings.ToLower(strings.TrimSpace(issue.Status))); !found {
+			return false
+		}
 	}
-	if len(f.Authors) > 0 && !slices.Contains(f.Authors, strings.ToLower(strings.TrimSpace(issue.Author))) {
-		return false
+	if len(f.Authors) > 0 {
+		if _, found := slices.BinarySearch(f.Authors, strings.ToLower(strings.TrimSpace(issue.Author))); !found {
+			return false
+		}
 	}
 
 	issueLabels := normalizeStringList(issue.Labels)
-	if len(f.Labels) > 0 {
-		matched := false
-		for _, label := range issueLabels {
-			if slices.Contains(f.Labels, label) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
+	if len(f.Labels) > 0 && !hasSortedIntersection(issueLabels, f.Labels) {
+		return false
 	}
-	for _, label := range issueLabels {
-		if slices.Contains(f.ExcludeLabels, label) {
-			return false
-		}
+	if len(f.ExcludeLabels) > 0 && hasSortedIntersection(issueLabels, f.ExcludeLabels) {
+		return false
 	}
 
 	return true
@@ -468,10 +461,6 @@ func parseStatusMapping(raw map[string]string) (map[string]string, error) {
 }
 
 func normalizeStringList(items []string) []string {
-	if len(items) == 0 {
-		return nil
-	}
-
 	seen := make(map[string]struct{}, len(items))
 	normalized := make([]string, 0, len(items))
 	for _, item := range items {
@@ -488,4 +477,19 @@ func normalizeStringList(items []string) []string {
 	slices.Sort(normalized)
 
 	return normalized
+}
+
+func hasSortedIntersection(left []string, right []string) bool {
+	for i, j := 0, 0; i < len(left) && j < len(right); {
+		switch {
+		case left[i] == right[j]:
+			return true
+		case left[i] < right[j]:
+			i++
+		default:
+			j++
+		}
+	}
+
+	return false
 }

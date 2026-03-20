@@ -58,7 +58,7 @@ func (r *Registry) Get(connectorType domain.Type) (domain.Connector, error) {
 }
 
 func (r *Registry) ListTypes() []domain.Type {
-	if r == nil || len(r.connectors) == 0 {
+	if r == nil {
 		return nil
 	}
 

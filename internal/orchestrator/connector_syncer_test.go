@@ -115,7 +115,7 @@ func TestConnectorSyncerHandleWebhookParsesAndAppliesEvent(t *testing.T) {
 	}
 
 	sink := &stubConnectorSink{}
-	syncer := NewConnectorSyncer(repo, registry, sink, nil)
+	syncer := NewConnectorSyncer(repo, registry, sink, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	result, err := syncer.HandleWebhook(context.Background(), connectorID, http.Header{"X-Test": []string{"1"}}, []byte(`{}`))
 	if err != nil {
 		t.Fatalf("HandleWebhook returned error: %v", err)
@@ -152,7 +152,7 @@ func TestConnectorSyncerSyncBackRequiresBidirectionalConnector(t *testing.T) {
 		t.Fatalf("NewRegistry returned error: %v", err)
 	}
 
-	syncer := NewConnectorSyncer(repo, registry, &stubConnectorSink{}, nil)
+	syncer := NewConnectorSyncer(repo, registry, &stubConnectorSink{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	err = syncer.SyncBack(context.Background(), SyncBackRequest{
 		ConnectorID: connectorID,
 		Update: domain.SyncBackUpdate{
@@ -193,7 +193,7 @@ func TestConnectorSyncerRecordsFailureWhenPullFails(t *testing.T) {
 		t.Fatalf("NewRegistry returned error: %v", err)
 	}
 
-	syncer := NewConnectorSyncer(repo, registry, &stubConnectorSink{}, nil)
+	syncer := NewConnectorSyncer(repo, registry, &stubConnectorSink{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	report, err := syncer.SyncConnector(context.Background(), connectorID)
 	if err == nil || err.Error() != "upstream unavailable" {
 		t.Fatalf("expected pull error, got report=%+v err=%v", report, err)

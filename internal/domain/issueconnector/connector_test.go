@@ -103,6 +103,16 @@ func TestFiltersMatchesUsesIncludeExcludeStateAndAuthor(t *testing.T) {
 	}
 }
 
+func TestNormalizeStringListReturnsEmptySliceForBlankInput(t *testing.T) {
+	got := normalizeStringList([]string{"", " ", "\t"})
+	if got == nil {
+		t.Fatalf("normalizeStringList returned nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("normalizeStringList length = %d, want 0", len(got))
+	}
+}
+
 func TestIssueConnectorLifecycleMethods(t *testing.T) {
 	now := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
 	lastSync := now.Add(-10 * time.Minute)

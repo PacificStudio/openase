@@ -144,20 +144,12 @@ func (s *ConnectorSyncer) HandleWebhook(
 
 	impl, err := s.registry.Get(connector.Type)
 	if err != nil {
-		connector.RecordFailure(err)
-		if saveErr := s.repo.Save(ctx, connector); saveErr != nil {
-			return result, fmt.Errorf("save connector failure state: %w", saveErr)
-		}
-		return result, err
+		return result, s.recordFailure(ctx, connector, err)
 	}
 
 	event, err := impl.ParseWebhook(ctx, headers, body)
 	if err != nil {
-		connector.RecordFailure(err)
-		if saveErr := s.repo.Save(ctx, connector); saveErr != nil {
-			return result, fmt.Errorf("save connector failure state: %w", saveErr)
-		}
-		return result, err
+		return result, s.recordFailure(ctx, connector, err)
 	}
 	if event == nil {
 		return result, fmt.Errorf("connector %s returned nil webhook event", connectorID)
@@ -169,11 +161,7 @@ func (s *ConnectorSyncer) HandleWebhook(
 		return result, nil
 	}
 	if err := s.sink.ApplyWebhookEvent(ctx, connector, *event); err != nil {
-		connector.RecordFailure(err)
-		if saveErr := s.repo.Save(ctx, connector); saveErr != nil {
-			return result, fmt.Errorf("save connector failure state: %w", saveErr)
-		}
-		return result, err
+		return result, s.recordFailure(ctx, connector, err)
 	}
 
 	connector.RecordSync(s.now().UTC(), 1)
@@ -200,14 +188,10 @@ func (s *ConnectorSyncer) SyncBack(ctx context.Context, request SyncBackRequest)
 
 	impl, err := s.registry.Get(connector.Type)
 	if err != nil {
-		return err
+		return s.recordFailure(ctx, connector, err)
 	}
 	if err := impl.SyncBack(ctx, connector.Config, request.Update); err != nil {
-		connector.RecordFailure(err)
-		if saveErr := s.repo.Save(ctx, connector); saveErr != nil {
-			return fmt.Errorf("save connector failure state: %w", saveErr)
-		}
-		return err
+		return s.recordFailure(ctx, connector, err)
 	}
 
 	connector.Status = domain.StatusActive
@@ -237,20 +221,12 @@ func (s *ConnectorSyncer) syncPull(
 
 	impl, err := s.registry.Get(connector.Type)
 	if err != nil {
-		connector.RecordFailure(err)
-		if saveErr := s.repo.Save(ctx, connector); saveErr != nil {
-			return 0, fmt.Errorf("save connector failure state: %w", saveErr)
-		}
-		return 0, err
+		return 0, s.recordFailure(ctx, connector, err)
 	}
 
 	issues, err := impl.PullIssues(ctx, connector.Config, connector.LastSyncCursor())
 	if err != nil {
-		connector.RecordFailure(err)
-		if saveErr := s.repo.Save(ctx, connector); saveErr != nil {
-			return 0, fmt.Errorf("save connector failure state: %w", saveErr)
-		}
-		return 0, err
+		return 0, s.recordFailure(ctx, connector, err)
 	}
 
 	synced := 0
@@ -259,11 +235,7 @@ func (s *ConnectorSyncer) syncPull(
 			continue
 		}
 		if err := s.sink.SyncExternalIssue(ctx, connector, issue); err != nil {
-			connector.RecordFailure(err)
-			if saveErr := s.repo.Save(ctx, connector); saveErr != nil {
-				return synced, fmt.Errorf("save connector failure state: %w", saveErr)
-			}
-			return synced, err
+			return synced, s.recordFailure(ctx, connector, err)
 		}
 		synced++
 	}
@@ -274,4 +246,13 @@ func (s *ConnectorSyncer) syncPull(
 	}
 
 	return synced, nil
+}
+
+func (s *ConnectorSyncer) recordFailure(ctx context.Context, connector domain.IssueConnector, failure error) error {
+	connector.RecordFailure(failure)
+	if err := s.repo.Save(ctx, connector); err != nil {
+		return fmt.Errorf("save connector failure state: %w", err)
+	}
+
+	return failure
 }
