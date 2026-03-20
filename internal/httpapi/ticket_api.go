@@ -48,6 +48,7 @@ type ticketResponse struct {
 	Priority          string                       `json:"priority"`
 	Type              string                       `json:"type"`
 	WorkflowID        *string                      `json:"workflow_id,omitempty"`
+	TargetMachineID   *string                      `json:"target_machine_id,omitempty"`
 	CreatedBy         string                       `json:"created_by"`
 	Parent            *ticketReferenceResponse     `json:"parent,omitempty"`
 	Children          []ticketReferenceResponse    `json:"children"`
@@ -390,6 +391,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrWorkflowNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "WORKFLOW_NOT_FOUND", err.Error())
+	case errors.Is(err, ticketservice.ErrTargetMachineNotFound):
+		return writeAPIError(c, http.StatusBadRequest, "TARGET_MACHINE_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrParentTicketNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "PARENT_TICKET_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrDependencyConflict):
@@ -512,6 +515,10 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 	if item.WorkflowID != nil {
 		workflowID := item.WorkflowID.String()
 		response.WorkflowID = &workflowID
+	}
+	if item.TargetMachineID != nil {
+		targetMachineID := item.TargetMachineID.String()
+		response.TargetMachineID = &targetMachineID
 	}
 	if item.NextRetryAt != nil {
 		nextRetryAt := item.NextRetryAt.UTC().Format(time.RFC3339)

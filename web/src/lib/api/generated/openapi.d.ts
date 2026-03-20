@@ -3160,6 +3160,7 @@ export interface operations {
               retry_paused?: boolean
               status_id?: string
               status_name?: string
+              target_machine_id?: string | null
               title?: string
               type?: string
               workflow_id?: string | null
@@ -3376,6 +3377,7 @@ export interface operations {
               retry_paused?: boolean
               status_id?: string
               status_name?: string
+              target_machine_id?: string | null
               title?: string
               type?: string
               workflow_id?: string | null
@@ -3454,6 +3456,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string
@@ -3525,6 +3528,7 @@ export interface operations {
           max_retry_attempts?: number | null
           name?: string
           pickup_status_id?: string
+          required_machine_labels?: string[]
           stall_timeout_minutes?: number | null
           timeout_minutes?: number | null
           type?: string
@@ -3553,6 +3557,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string
@@ -4028,6 +4033,7 @@ export interface operations {
               retry_paused?: boolean
               status_id?: string
               status_name?: string
+              target_machine_id?: string | null
               title?: string
               type?: string
               workflow_id?: string | null
@@ -4142,6 +4148,7 @@ export interface operations {
           parent_ticket_id?: string | null
           priority?: string | null
           status_id?: string | null
+          target_machine_id?: string | null
           title?: string | null
           type?: string | null
           workflow_id?: string | null
@@ -4215,6 +4222,7 @@ export interface operations {
               retry_paused?: boolean
               status_id?: string
               status_name?: string
+              target_machine_id?: string | null
               title?: string
               type?: string
               workflow_id?: string | null
@@ -4462,6 +4470,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string
@@ -4541,6 +4550,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string
@@ -4623,6 +4633,7 @@ export interface operations {
           max_retry_attempts?: number | null
           name?: string | null
           pickup_status_id?: string | null
+          required_machine_labels?: string[] | null
           stall_timeout_minutes?: number | null
           timeout_minutes?: number | null
           type?: string | null
@@ -4651,6 +4662,7 @@ export interface operations {
               name?: string
               pickup_status_id?: string
               project_id?: string
+              required_machine_labels?: string[]
               stall_timeout_minutes?: number
               timeout_minutes?: number
               type?: string

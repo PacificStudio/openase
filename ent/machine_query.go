@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -14,17 +15,19 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
+	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/google/uuid"
 )
 
 // MachineQuery is the builder for querying Machine entities.
 type MachineQuery struct {
 	config
-	ctx              *QueryContext
-	order            []machine.OrderOption
-	inters           []Interceptor
-	predicates       []predicate.Machine
-	withOrganization *OrganizationQuery
+	ctx               *QueryContext
+	order             []machine.OrderOption
+	inters            []Interceptor
+	predicates        []predicate.Machine
+	withOrganization  *OrganizationQuery
+	withTargetTickets *TicketQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +79,28 @@ func (_q *MachineQuery) QueryOrganization() *OrganizationQuery {
 			sqlgraph.From(machine.Table, machine.FieldID, selector),
 			sqlgraph.To(organization.Table, organization.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, machine.OrganizationTable, machine.OrganizationColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryTargetTickets chains the current query on the "target_tickets" edge.
+func (_q *MachineQuery) QueryTargetTickets() *TicketQuery {
+	query := (&TicketClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machine.Table, machine.FieldID, selector),
+			sqlgraph.To(ticket.Table, ticket.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, machine.TargetTicketsTable, machine.TargetTicketsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -270,12 +295,13 @@ func (_q *MachineQuery) Clone() *MachineQuery {
 		return nil
 	}
 	return &MachineQuery{
-		config:           _q.config,
-		ctx:              _q.ctx.Clone(),
-		order:            append([]machine.OrderOption{}, _q.order...),
-		inters:           append([]Interceptor{}, _q.inters...),
-		predicates:       append([]predicate.Machine{}, _q.predicates...),
-		withOrganization: _q.withOrganization.Clone(),
+		config:            _q.config,
+		ctx:               _q.ctx.Clone(),
+		order:             append([]machine.OrderOption{}, _q.order...),
+		inters:            append([]Interceptor{}, _q.inters...),
+		predicates:        append([]predicate.Machine{}, _q.predicates...),
+		withOrganization:  _q.withOrganization.Clone(),
+		withTargetTickets: _q.withTargetTickets.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -290,6 +316,17 @@ func (_q *MachineQuery) WithOrganization(opts ...func(*OrganizationQuery)) *Mach
 		opt(query)
 	}
 	_q.withOrganization = query
+	return _q
+}
+
+// WithTargetTickets tells the query-builder to eager-load the nodes that are connected to
+// the "target_tickets" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *MachineQuery) WithTargetTickets(opts ...func(*TicketQuery)) *MachineQuery {
+	query := (&TicketClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withTargetTickets = query
 	return _q
 }
 
@@ -371,8 +408,9 @@ func (_q *MachineQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mach
 	var (
 		nodes       = []*Machine{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			_q.withOrganization != nil,
+			_q.withTargetTickets != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -396,6 +434,13 @@ func (_q *MachineQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mach
 	if query := _q.withOrganization; query != nil {
 		if err := _q.loadOrganization(ctx, query, nodes, nil,
 			func(n *Machine, e *Organization) { n.Edges.Organization = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withTargetTickets; query != nil {
+		if err := _q.loadTargetTickets(ctx, query, nodes,
+			func(n *Machine) { n.Edges.TargetTickets = []*Ticket{} },
+			func(n *Machine, e *Ticket) { n.Edges.TargetTickets = append(n.Edges.TargetTickets, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -428,6 +473,39 @@ func (_q *MachineQuery) loadOrganization(ctx context.Context, query *Organizatio
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *MachineQuery) loadTargetTickets(ctx context.Context, query *TicketQuery, nodes []*Machine, init func(*Machine), assign func(*Machine, *Ticket)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Machine)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(ticket.FieldTargetMachineID)
+	}
+	query.Where(predicate.Ticket(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(machine.TargetTicketsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.TargetMachineID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "target_machine_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "target_machine_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

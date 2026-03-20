@@ -86,6 +86,11 @@ func WorkflowID(v uuid.UUID) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldWorkflowID, v))
 }
 
+// TargetMachineID applies equality check predicate on the "target_machine_id" field. It's identical to TargetMachineIDEQ.
+func TargetMachineID(v uuid.UUID) predicate.Ticket {
+	return predicate.Ticket(sql.FieldEQ(FieldTargetMachineID, v))
+}
+
 // AssignedAgentID applies equality check predicate on the "assigned_agent_id" field. It's identical to AssignedAgentIDEQ.
 func AssignedAgentID(v uuid.UUID) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldAssignedAgentID, v))
@@ -494,6 +499,36 @@ func WorkflowIDIsNil() predicate.Ticket {
 // WorkflowIDNotNil applies the NotNil predicate on the "workflow_id" field.
 func WorkflowIDNotNil() predicate.Ticket {
 	return predicate.Ticket(sql.FieldNotNull(FieldWorkflowID))
+}
+
+// TargetMachineIDEQ applies the EQ predicate on the "target_machine_id" field.
+func TargetMachineIDEQ(v uuid.UUID) predicate.Ticket {
+	return predicate.Ticket(sql.FieldEQ(FieldTargetMachineID, v))
+}
+
+// TargetMachineIDNEQ applies the NEQ predicate on the "target_machine_id" field.
+func TargetMachineIDNEQ(v uuid.UUID) predicate.Ticket {
+	return predicate.Ticket(sql.FieldNEQ(FieldTargetMachineID, v))
+}
+
+// TargetMachineIDIn applies the In predicate on the "target_machine_id" field.
+func TargetMachineIDIn(vs ...uuid.UUID) predicate.Ticket {
+	return predicate.Ticket(sql.FieldIn(FieldTargetMachineID, vs...))
+}
+
+// TargetMachineIDNotIn applies the NotIn predicate on the "target_machine_id" field.
+func TargetMachineIDNotIn(vs ...uuid.UUID) predicate.Ticket {
+	return predicate.Ticket(sql.FieldNotIn(FieldTargetMachineID, vs...))
+}
+
+// TargetMachineIDIsNil applies the IsNil predicate on the "target_machine_id" field.
+func TargetMachineIDIsNil() predicate.Ticket {
+	return predicate.Ticket(sql.FieldIsNull(FieldTargetMachineID))
+}
+
+// TargetMachineIDNotNil applies the NotNil predicate on the "target_machine_id" field.
+func TargetMachineIDNotNil() predicate.Ticket {
+	return predicate.Ticket(sql.FieldNotNull(FieldTargetMachineID))
 }
 
 // AssignedAgentIDEQ applies the EQ predicate on the "assigned_agent_id" field.
@@ -1427,6 +1462,29 @@ func HasWorkflow() predicate.Ticket {
 func HasWorkflowWith(preds ...predicate.Workflow) predicate.Ticket {
 	return predicate.Ticket(func(s *sql.Selector) {
 		step := newWorkflowStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasTargetMachine applies the HasEdge predicate on the "target_machine" edge.
+func HasTargetMachine() predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, TargetMachineTable, TargetMachineColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasTargetMachineWith applies the HasEdge predicate on the "target_machine" edge with a given conditions (other predicates).
+func HasTargetMachineWith(preds ...predicate.Machine) predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := newTargetMachineStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

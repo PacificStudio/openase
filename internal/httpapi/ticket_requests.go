@@ -14,29 +14,31 @@ import (
 )
 
 type rawCreateTicketRequest struct {
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	CreatedBy      *string  `json:"created_by"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	StatusID        *string  `json:"status_id"`
+	Priority        *string  `json:"priority"`
+	Type            *string  `json:"type"`
+	WorkflowID      *string  `json:"workflow_id"`
+	TargetMachineID *string  `json:"target_machine_id"`
+	CreatedBy       *string  `json:"created_by"`
+	ParentTicketID  *string  `json:"parent_ticket_id"`
+	ExternalRef     *string  `json:"external_ref"`
+	BudgetUSD       *float64 `json:"budget_usd"`
 }
 
 type rawUpdateTicketRequest struct {
-	Title          *string  `json:"title"`
-	Description    *string  `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	CreatedBy      *string  `json:"created_by"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	Title           *string  `json:"title"`
+	Description     *string  `json:"description"`
+	StatusID        *string  `json:"status_id"`
+	Priority        *string  `json:"priority"`
+	Type            *string  `json:"type"`
+	WorkflowID      *string  `json:"workflow_id"`
+	TargetMachineID *string  `json:"target_machine_id"`
+	CreatedBy       *string  `json:"created_by"`
+	ParentTicketID  *string  `json:"parent_ticket_id"`
+	ExternalRef     *string  `json:"external_ref"`
+	BudgetUSD       *float64 `json:"budget_usd"`
 }
 
 type rawAddDependencyRequest struct {
@@ -67,6 +69,10 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 	if err != nil {
 		return ticketservice.CreateInput{}, err
 	}
+	targetMachineID, err := parseOptionalUUIDString("target_machine_id", raw.TargetMachineID)
+	if err != nil {
+		return ticketservice.CreateInput{}, err
+	}
 	parentTicketID, err := parseOptionalUUIDString("parent_ticket_id", raw.ParentTicketID)
 	if err != nil {
 		return ticketservice.CreateInput{}, err
@@ -89,14 +95,15 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 	}
 
 	input := ticketservice.CreateInput{
-		ProjectID:      projectID,
-		Title:          title,
-		Description:    strings.TrimSpace(raw.Description),
-		StatusID:       statusID,
-		Priority:       priority,
-		Type:           ticketType,
-		WorkflowID:     workflowID,
-		ParentTicketID: parentTicketID,
+		ProjectID:       projectID,
+		Title:           title,
+		Description:     strings.TrimSpace(raw.Description),
+		StatusID:        statusID,
+		Priority:        priority,
+		Type:            ticketType,
+		WorkflowID:      workflowID,
+		TargetMachineID: targetMachineID,
+		ParentTicketID:  parentTicketID,
 	}
 	if raw.CreatedBy != nil {
 		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
@@ -154,6 +161,13 @@ func parseUpdateTicketRequest(ticketID uuid.UUID, raw rawUpdateTicketRequest) (t
 			return ticketservice.UpdateInput{}, err
 		}
 		input.WorkflowID = ticketservice.Some(workflowID)
+	}
+	if raw.TargetMachineID != nil {
+		targetMachineID, err := parseOptionalUUIDString("target_machine_id", raw.TargetMachineID)
+		if err != nil {
+			return ticketservice.UpdateInput{}, err
+		}
+		input.TargetMachineID = ticketservice.Some(targetMachineID)
 	}
 	if raw.CreatedBy != nil {
 		input.CreatedBy = ticketservice.Some(strings.TrimSpace(*raw.CreatedBy))
