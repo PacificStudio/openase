@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -300,6 +301,21 @@ func (_u *ProjectUpdate) AddActivityEvents(v ...*ActivityEvent) *ProjectUpdate {
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
+func (_u *ProjectUpdate) AddNotificationRuleIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddNotificationRuleIDs(ids...)
+	return _u
+}
+
+// AddNotificationRules adds the "notification_rules" edges to the NotificationRule entity.
+func (_u *ProjectUpdate) AddNotificationRules(v ...*NotificationRule) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddNotificationRuleIDs(ids...)
+}
+
 // SetDefaultWorkflow sets the "default_workflow" edge to the Workflow entity.
 func (_u *ProjectUpdate) SetDefaultWorkflow(v *Workflow) *ProjectUpdate {
 	return _u.SetDefaultWorkflowID(v.ID)
@@ -487,6 +503,27 @@ func (_u *ProjectUpdate) RemoveActivityEvents(v ...*ActivityEvent) *ProjectUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearNotificationRules clears all "notification_rules" edges to the NotificationRule entity.
+func (_u *ProjectUpdate) ClearNotificationRules() *ProjectUpdate {
+	_u.mutation.ClearNotificationRules()
+	return _u
+}
+
+// RemoveNotificationRuleIDs removes the "notification_rules" edge to NotificationRule entities by IDs.
+func (_u *ProjectUpdate) RemoveNotificationRuleIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveNotificationRuleIDs(ids...)
+	return _u
+}
+
+// RemoveNotificationRules removes "notification_rules" edges to NotificationRule entities.
+func (_u *ProjectUpdate) RemoveNotificationRules(v ...*NotificationRule) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveNotificationRuleIDs(ids...)
 }
 
 // ClearDefaultWorkflow clears the "default_workflow" edge to the Workflow entity.
@@ -973,6 +1010,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.NotificationRulesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.NotificationRulesTable,
+			Columns: []string{project.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedNotificationRulesIDs(); len(nodes) > 0 && !_u.mutation.NotificationRulesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.NotificationRulesTable,
+			Columns: []string{project.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.NotificationRulesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.NotificationRulesTable,
+			Columns: []string{project.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DefaultWorkflowCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -1313,6 +1395,21 @@ func (_u *ProjectUpdateOne) AddActivityEvents(v ...*ActivityEvent) *ProjectUpdat
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
+func (_u *ProjectUpdateOne) AddNotificationRuleIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddNotificationRuleIDs(ids...)
+	return _u
+}
+
+// AddNotificationRules adds the "notification_rules" edges to the NotificationRule entity.
+func (_u *ProjectUpdateOne) AddNotificationRules(v ...*NotificationRule) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddNotificationRuleIDs(ids...)
+}
+
 // SetDefaultWorkflow sets the "default_workflow" edge to the Workflow entity.
 func (_u *ProjectUpdateOne) SetDefaultWorkflow(v *Workflow) *ProjectUpdateOne {
 	return _u.SetDefaultWorkflowID(v.ID)
@@ -1500,6 +1597,27 @@ func (_u *ProjectUpdateOne) RemoveActivityEvents(v ...*ActivityEvent) *ProjectUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearNotificationRules clears all "notification_rules" edges to the NotificationRule entity.
+func (_u *ProjectUpdateOne) ClearNotificationRules() *ProjectUpdateOne {
+	_u.mutation.ClearNotificationRules()
+	return _u
+}
+
+// RemoveNotificationRuleIDs removes the "notification_rules" edge to NotificationRule entities by IDs.
+func (_u *ProjectUpdateOne) RemoveNotificationRuleIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveNotificationRuleIDs(ids...)
+	return _u
+}
+
+// RemoveNotificationRules removes "notification_rules" edges to NotificationRule entities.
+func (_u *ProjectUpdateOne) RemoveNotificationRules(v ...*NotificationRule) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveNotificationRuleIDs(ids...)
 }
 
 // ClearDefaultWorkflow clears the "default_workflow" edge to the Workflow entity.
@@ -2009,6 +2127,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.NotificationRulesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.NotificationRulesTable,
+			Columns: []string{project.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedNotificationRulesIDs(); len(nodes) > 0 && !_u.mutation.NotificationRulesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.NotificationRulesTable,
+			Columns: []string{project.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.NotificationRulesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.NotificationRulesTable,
+			Columns: []string{project.NotificationRulesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

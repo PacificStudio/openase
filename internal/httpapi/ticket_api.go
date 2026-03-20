@@ -312,6 +312,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "PROJECT_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrTicketNotFound):
 		return writeAPIError(c, http.StatusNotFound, "TICKET_NOT_FOUND", err.Error())
+	case errors.Is(err, ticketservice.ErrTicketConflict):
+		return writeAPIError(c, http.StatusConflict, "TICKET_CONFLICT", err.Error())
 	case errors.Is(err, ticketservice.ErrDependencyNotFound):
 		return writeAPIError(c, http.StatusNotFound, "DEPENDENCY_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrStatusNotFound):
