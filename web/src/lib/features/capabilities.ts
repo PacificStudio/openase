@@ -81,9 +81,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Workflow update/delete APIs already exist, but this settings section still points to a placeholder instead of lifecycle management UI.',
   },
   agentsSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Agent create/detail/delete APIs exist, but agent governance settings are still a placeholder in this slice.',
+      'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while runtime controls remain on the Agents page.',
   },
   connectorsSettings: {
     state: 'backend_missing',
@@ -91,9 +91,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Connector settings stay placeholder because no connector management API is exported yet.',
   },
   notificationsSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Notification channel and rule APIs exist, but the notifications settings UI has not been connected yet.',
+      'Notifications settings are wired to org-level channel CRUD, project rule CRUD, test send, and enable/disable controls.',
   },
   securitySettings: {
     state: 'backend_missing',
