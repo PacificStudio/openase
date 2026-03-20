@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 	"github.com/labstack/echo/v4"
@@ -229,6 +230,28 @@ type OpenAPIHarnessDocument struct {
 	Version    int    `json:"version"`
 }
 
+type OpenAPIScheduledJobTicketTemplate struct {
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Status      string  `json:"status,omitempty"`
+	Priority    string  `json:"priority"`
+	Type        string  `json:"type"`
+	CreatedBy   string  `json:"created_by"`
+	BudgetUSD   float64 `json:"budget_usd,omitempty"`
+}
+
+type OpenAPIScheduledJob struct {
+	ID             string                            `json:"id"`
+	ProjectID      string                            `json:"project_id"`
+	Name           string                            `json:"name"`
+	CronExpression string                            `json:"cron_expression"`
+	WorkflowID     string                            `json:"workflow_id"`
+	TicketTemplate OpenAPIScheduledJobTicketTemplate `json:"ticket_template"`
+	IsEnabled      bool                              `json:"is_enabled"`
+	LastRunAt      *string                           `json:"last_run_at,omitempty"`
+	NextRunAt      *string                           `json:"next_run_at,omitempty"`
+}
+
 type OpenAPIValidationIssue struct {
 	Level   string `json:"level"`
 	Message string `json:"message"`
@@ -395,6 +418,19 @@ type OpenAPIWorkflowResponse struct {
 	Workflow OpenAPIWorkflow `json:"workflow"`
 }
 
+type OpenAPIScheduledJobsResponse struct {
+	ScheduledJobs []OpenAPIScheduledJob `json:"scheduled_jobs"`
+}
+
+type OpenAPIScheduledJobResponse struct {
+	ScheduledJob OpenAPIScheduledJob `json:"scheduled_job"`
+}
+
+type OpenAPIScheduledJobTriggerResponse struct {
+	ScheduledJob OpenAPIScheduledJob `json:"scheduled_job"`
+	Ticket       OpenAPITicket       `json:"ticket"`
+}
+
 type OpenAPIHarnessResponse struct {
 	Harness OpenAPIHarnessDocument `json:"harness"`
 }
@@ -433,6 +469,8 @@ type OpenAPICreateWorkflowRequest rawCreateWorkflowRequest
 type OpenAPIUpdateWorkflowRequest rawUpdateWorkflowRequest
 type OpenAPIUpdateHarnessRequest rawUpdateHarnessRequest
 type OpenAPIValidateHarnessRequest rawValidateHarnessRequest
+type OpenAPICreateScheduledJobRequest rawCreateScheduledJobRequest
+type OpenAPIUpdateScheduledJobRequest rawUpdateScheduledJobRequest
 type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
 type OpenAPICreateTicketExternalLinkRequest rawAddExternalLinkRequest
@@ -453,6 +491,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			{Name: "catalog"},
 			{Name: "tickets"},
 			{Name: "workflows"},
+			{Name: "scheduled-jobs"},
 			{Name: "skills"},
 			{Name: "streams"},
 			{Name: "hr-advisor"},
@@ -464,6 +503,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 		return nil, err
 	}
 	if err := builder.addWorkflowOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addScheduledJobOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addTicketOperations(); err != nil {
@@ -1115,6 +1157,96 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	unbindSkills.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
 	b.doc.AddOperation("/api/v1/workflows/{workflowId}/skills/unbind", http.MethodPost, unbindSkills)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addScheduledJobOperations() error {
+	scheduledJobsGet, err := b.jsonOperation(
+		"listScheduledJobs",
+		"List scheduled jobs for a project",
+		[]string{"scheduled-jobs"},
+		http.StatusOK,
+		OpenAPIScheduledJobsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/scheduled-jobs", http.MethodGet, scheduledJobsGet)
+
+	scheduledJobsPost, err := b.jsonOperation(
+		"createScheduledJob",
+		"Create a scheduled job",
+		[]string{"scheduled-jobs"},
+		http.StatusCreated,
+		OpenAPIScheduledJobResponse{},
+		OpenAPICreateScheduledJobRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/scheduled-jobs", http.MethodPost, scheduledJobsPost)
+
+	scheduledJobPatch, err := b.jsonOperation(
+		"updateScheduledJob",
+		"Update a scheduled job",
+		[]string{"scheduled-jobs"},
+		http.StatusOK,
+		OpenAPIScheduledJobResponse{},
+		OpenAPIUpdateScheduledJobRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobPatch.AddParameter(uuidPathParameter("jobId", "Scheduled job ID."))
+	b.doc.AddOperation("/api/v1/scheduled-jobs/{jobId}", http.MethodPatch, scheduledJobPatch)
+
+	scheduledJobDelete, err := b.jsonOperation(
+		"deleteScheduledJob",
+		"Delete a scheduled job",
+		[]string{"scheduled-jobs"},
+		http.StatusOK,
+		scheduledjobservice.DeleteResult{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobDelete.AddParameter(uuidPathParameter("jobId", "Scheduled job ID."))
+	b.doc.AddOperation("/api/v1/scheduled-jobs/{jobId}", http.MethodDelete, scheduledJobDelete)
+
+	scheduledJobTrigger, err := b.jsonOperation(
+		"triggerScheduledJob",
+		"Trigger a scheduled job once",
+		[]string{"scheduled-jobs"},
+		http.StatusOK,
+		OpenAPIScheduledJobTriggerResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	scheduledJobTrigger.AddParameter(uuidPathParameter("jobId", "Scheduled job ID."))
+	b.doc.AddOperation("/api/v1/scheduled-jobs/{jobId}/trigger", http.MethodPost, scheduledJobTrigger)
 
 	return nil
 }

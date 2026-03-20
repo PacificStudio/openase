@@ -352,6 +352,24 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/scheduled-jobs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List scheduled jobs for a project */
+    get: operations['listScheduledJobs']
+    put?: never
+    /** Create a scheduled job */
+    post: operations['createScheduledJob']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/skills': {
     parameters: {
       query?: never
@@ -483,6 +501,41 @@ export interface paths {
     get: operations['listBuiltinRoles']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/scheduled-jobs/{jobId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a scheduled job */
+    delete: operations['deleteScheduledJob']
+    options?: never
+    head?: never
+    /** Update a scheduled job */
+    patch: operations['updateScheduledJob']
+    trace?: never
+  }
+  '/api/v1/scheduled-jobs/{jobId}/trigger': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Trigger a scheduled job once */
+    post: operations['triggerScheduledJob']
     delete?: never
     options?: never
     head?: never
@@ -2686,6 +2739,179 @@ export interface operations {
       }
     }
   }
+  listScheduledJobs: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List scheduled jobs for a project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            scheduled_jobs?: {
+              cron_expression?: string
+              id?: string
+              is_enabled?: boolean
+              last_run_at?: string | null
+              name?: string
+              next_run_at?: string | null
+              project_id?: string
+              ticket_template?: {
+                /** Format: double */
+                budget_usd?: number
+                created_by?: string
+                description?: string
+                priority?: string
+                status?: string
+                title?: string
+                type?: string
+              }
+              workflow_id?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createScheduledJob: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a scheduled job request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          cron_expression?: string
+          is_enabled?: boolean | null
+          name?: string
+          ticket_template?: {
+            [key: string]: unknown
+          }
+          workflow_id?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a scheduled job response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            scheduled_job?: {
+              cron_expression?: string
+              id?: string
+              is_enabled?: boolean
+              last_run_at?: string | null
+              name?: string
+              next_run_at?: string | null
+              project_id?: string
+              ticket_template?: {
+                /** Format: double */
+                budget_usd?: number
+                created_by?: string
+                description?: string
+                priority?: string
+                status?: string
+                title?: string
+                type?: string
+              }
+              workflow_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listSkills: {
     parameters: {
       query?: never
@@ -3489,6 +3715,301 @@ export interface operations {
               summary?: string
               workflow_type?: string
             }[]
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteScheduledJob: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Scheduled job ID. */
+        jobId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete a scheduled job response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            deleted_job_id?: unknown
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateScheduledJob: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Scheduled job ID. */
+        jobId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a scheduled job request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          cron_expression?: string | null
+          is_enabled?: boolean | null
+          name?: string | null
+          ticket_template?: {
+            [key: string]: unknown
+          } | null
+          workflow_id?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update a scheduled job response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            scheduled_job?: {
+              cron_expression?: string
+              id?: string
+              is_enabled?: boolean
+              last_run_at?: string | null
+              name?: string
+              next_run_at?: string | null
+              project_id?: string
+              ticket_template?: {
+                /** Format: double */
+                budget_usd?: number
+                created_by?: string
+                description?: string
+                priority?: string
+                status?: string
+                title?: string
+                type?: string
+              }
+              workflow_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  triggerScheduledJob: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Scheduled job ID. */
+        jobId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Trigger a scheduled job once response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            scheduled_job?: {
+              cron_expression?: string
+              id?: string
+              is_enabled?: boolean
+              last_run_at?: string | null
+              name?: string
+              next_run_at?: string | null
+              project_id?: string
+              ticket_template?: {
+                /** Format: double */
+                budget_usd?: number
+                created_by?: string
+                description?: string
+                priority?: string
+                status?: string
+                title?: string
+                type?: string
+              }
+              workflow_id?: string
+            }
+            ticket?: {
+              attempt_count?: number
+              /** Format: double */
+              budget_usd?: number
+              children?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              }[]
+              consecutive_errors?: number
+              /** Format: double */
+              cost_amount?: number
+              created_at?: string
+              created_by?: string
+              dependencies?: {
+                id?: string
+                target?: {
+                  id?: string
+                  identifier?: string
+                  status_id?: string
+                  status_name?: string
+                  title?: string
+                }
+                type?: string
+              }[]
+              description?: string
+              external_ref?: string
+              id?: string
+              identifier?: string
+              next_retry_at?: string | null
+              parent?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              } | null
+              pause_reason?: string
+              priority?: string
+              project_id?: string
+              retry_paused?: boolean
+              status_id?: string
+              status_name?: string
+              title?: string
+              type?: string
+              workflow_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
           }
         }
       }
