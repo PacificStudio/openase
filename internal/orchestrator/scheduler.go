@@ -14,6 +14,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
@@ -39,12 +40,13 @@ type TickReport struct {
 type Scheduler struct {
 	client        *ent.Client
 	logger        *slog.Logger
+	events        provider.EventProvider
 	scheduledJobs *scheduledjobservice.Service
 	now           func() time.Time
 }
 
 // NewScheduler constructs the orchestrator scheduler.
-func NewScheduler(client *ent.Client, logger *slog.Logger) *Scheduler {
+func NewScheduler(client *ent.Client, logger *slog.Logger, events provider.EventProvider) *Scheduler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -52,6 +54,7 @@ func NewScheduler(client *ent.Client, logger *slog.Logger) *Scheduler {
 	return &Scheduler{
 		client:        client,
 		logger:        logger.With("component", "scheduler"),
+		events:        events,
 		scheduledJobs: scheduledjobservice.NewService(client, ticketservice.NewService(client), logger),
 		now:           time.Now,
 	}
@@ -256,7 +259,11 @@ func (s *Scheduler) claimTicketWithAgent(
 		).
 		SetStatus(entagent.StatusClaimed).
 		SetCurrentTicketID(ticket.ID).
-		SetLastHeartbeatAt(now).
+		ClearSessionID().
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		ClearRuntimeStartedAt().
+		SetLastError("").
+		ClearLastHeartbeatAt().
 		Save(ctx)
 	if err != nil {
 		return "", fmt.Errorf("claim agent %s: %w", agent.ID, err)
@@ -288,6 +295,23 @@ func (s *Scheduler) claimTicketWithAgent(
 
 	if err := tx.Commit(); err != nil {
 		return "", fmt.Errorf("commit dispatch tx: %w", err)
+	}
+
+	claimedAgent, err := loadAgentLifecycleState(ctx, s.client, agent.ID)
+	if err != nil {
+		return "", err
+	}
+	if err := publishAgentLifecycleEvent(
+		ctx,
+		s.client,
+		s.events,
+		agentClaimedType,
+		claimedAgent,
+		lifecycleMessage(agentClaimedType, claimedAgent.Name),
+		runtimeEventMetadata(claimedAgent),
+		now,
+	); err != nil {
+		return "", err
 	}
 
 	return "", nil

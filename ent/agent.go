@@ -34,6 +34,12 @@ type Agent struct {
 	CurrentTicketID *uuid.UUID `json:"current_ticket_id,omitempty"`
 	// SessionID holds the value of the "session_id" field.
 	SessionID string `json:"session_id,omitempty"`
+	// RuntimePhase holds the value of the "runtime_phase" field.
+	RuntimePhase agent.RuntimePhase `json:"runtime_phase,omitempty"`
+	// RuntimeStartedAt holds the value of the "runtime_started_at" field.
+	RuntimeStartedAt *time.Time `json:"runtime_started_at,omitempty"`
+	// LastError holds the value of the "last_error" field.
+	LastError string `json:"last_error,omitempty"`
 	// WorkspacePath holds the value of the "workspace_path" field.
 	WorkspacePath string `json:"workspace_path,omitempty"`
 	// Capabilities holds the value of the "capabilities" field.
@@ -140,9 +146,9 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 			values[i] = new(pgarray.StringArray)
 		case agent.FieldTotalTokensUsed, agent.FieldTotalTicketsCompleted:
 			values[i] = new(sql.NullInt64)
-		case agent.FieldName, agent.FieldStatus, agent.FieldSessionID, agent.FieldWorkspacePath:
+		case agent.FieldName, agent.FieldStatus, agent.FieldSessionID, agent.FieldRuntimePhase, agent.FieldLastError, agent.FieldWorkspacePath:
 			values[i] = new(sql.NullString)
-		case agent.FieldLastHeartbeatAt:
+		case agent.FieldRuntimeStartedAt, agent.FieldLastHeartbeatAt:
 			values[i] = new(sql.NullTime)
 		case agent.FieldID, agent.FieldProviderID, agent.FieldProjectID:
 			values[i] = new(uuid.UUID)
@@ -203,6 +209,25 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field session_id", values[i])
 			} else if value.Valid {
 				_m.SessionID = value.String
+			}
+		case agent.FieldRuntimePhase:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field runtime_phase", values[i])
+			} else if value.Valid {
+				_m.RuntimePhase = agent.RuntimePhase(value.String)
+			}
+		case agent.FieldRuntimeStartedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field runtime_started_at", values[i])
+			} else if value.Valid {
+				_m.RuntimeStartedAt = new(time.Time)
+				*_m.RuntimeStartedAt = value.Time
+			}
+		case agent.FieldLastError:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field last_error", values[i])
+			} else if value.Valid {
+				_m.LastError = value.String
 			}
 		case agent.FieldWorkspacePath:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -320,6 +345,17 @@ func (_m *Agent) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("session_id=")
 	builder.WriteString(_m.SessionID)
+	builder.WriteString(", ")
+	builder.WriteString("runtime_phase=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RuntimePhase))
+	builder.WriteString(", ")
+	if v := _m.RuntimeStartedAt; v != nil {
+		builder.WriteString("runtime_started_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("last_error=")
+	builder.WriteString(_m.LastError)
 	builder.WriteString(", ")
 	builder.WriteString("workspace_path=")
 	builder.WriteString(_m.WorkspacePath)

@@ -447,28 +447,30 @@ func (s *Service) RunDue(ctx context.Context) (RunDueReport, error) {
 
 	report.JobsScanned = len(items)
 	for _, item := range items {
+		jobLogger := s.logger.With("job_id", item.ID, "job_name", item.Name, "workflow_id", item.WorkflowID)
+
 		if _, err := s.createTicketForJob(ctx, item, now); err != nil {
-			return report, err
+			jobLogger.Error("create scheduled job ticket", "error", err)
+			continue
 		}
 
 		schedule, err := s.parseCron(item.CronExpression)
 		if err != nil {
-			return report, err
+			jobLogger.Error("parse scheduled job cron", "error", err)
+			continue
 		}
 		nextRunAt := schedule.Next(now)
 		if _, err := s.client.ScheduledJob.UpdateOneID(item.ID).
 			SetLastRunAt(now).
 			SetNextRunAt(nextRunAt).
 			Save(ctx); err != nil {
-			return report, s.mapWriteError("advance scheduled job", err)
+			jobLogger.Error("advance scheduled job", "error", s.mapWriteError("advance scheduled job", err))
+			continue
 		}
 
 		report.TicketsCreated++
-		s.logger.Info(
+		jobLogger.Info(
 			"scheduled job triggered",
-			"job_id", item.ID,
-			"job_name", item.Name,
-			"workflow_id", item.WorkflowID,
 			"next_run_at", nextRunAt.Format(time.RFC3339),
 		)
 	}
