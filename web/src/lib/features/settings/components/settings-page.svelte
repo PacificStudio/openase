@@ -2,6 +2,7 @@
   import type { SettingsSection } from '../types'
   import SettingsNav from './settings-nav.svelte'
   import GeneralSettings from './general-settings.svelte'
+  import NotificationSettings from './notification-settings.svelte'
   import RepositoriesSettings from './repositories-settings.svelte'
   import SettingsPlaceholder from './settings-placeholder.svelte'
   import StatusSettings from './status-settings.svelte'
@@ -31,7 +32,7 @@
     {:else if activeSection === 'connectors'}
       <SettingsPlaceholder section="connectors" title="Connectors" />
     {:else if activeSection === 'notifications'}
-      <SettingsPlaceholder section="notifications" title="Notifications" />
+      <NotificationSettings />
     {:else if activeSection === 'security'}
       <SettingsPlaceholder section="security" title="Security" />
     {/if}
