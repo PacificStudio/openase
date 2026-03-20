@@ -21,6 +21,9 @@ type AgentToken func(*sql.Selector)
 // ApprovalGate is the predicate function for approvalgate builders.
 type ApprovalGate func(*sql.Selector)
 
+// NotificationChannel is the predicate function for notificationchannel builders.
+type NotificationChannel func(*sql.Selector)
+
 // Organization is the predicate function for organization builders.
 type Organization func(*sql.Selector)
 
