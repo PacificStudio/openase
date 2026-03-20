@@ -32,3 +32,34 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 		}
 	}
 }
+
+func TestHarnessOptimizerRoleTemplate(t *testing.T) {
+	role, ok := RoleBySlug("harness-optimizer")
+	if !ok {
+		t.Fatalf("expected harness optimizer role to exist")
+	}
+
+	if role.Name != "Harness Optimizer" {
+		t.Fatalf("Name=%q, want Harness Optimizer", role.Name)
+	}
+	if role.WorkflowType != "refine-harness" {
+		t.Fatalf("WorkflowType=%q, want refine-harness", role.WorkflowType)
+	}
+
+	for _, want := range []string{
+		`type: "refine-harness"`,
+		`- openase-platform`,
+		`- pull`,
+		`- commit`,
+		`- push`,
+		`- "tickets.create"`,
+		`- "tickets.list"`,
+		`- "tickets.update.self"`,
+		"project.workflows",
+		"recent_tickets",
+	} {
+		if !strings.Contains(role.Content, want) {
+			t.Fatalf("expected harness optimizer content to contain %q, got:\n%s", want, role.Content)
+		}
+	}
+}

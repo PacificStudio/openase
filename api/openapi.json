@@ -1855,6 +1855,9 @@
                           "id": {
                             "type": "string"
                           },
+                          "last_error": {
+                            "type": "string"
+                          },
                           "last_heartbeat_at": {
                             "nullable": true,
                             "type": "string"
@@ -1866,6 +1869,13 @@
                             "type": "string"
                           },
                           "provider_id": {
+                            "type": "string"
+                          },
+                          "runtime_phase": {
+                            "type": "string"
+                          },
+                          "runtime_started_at": {
+                            "nullable": true,
                             "type": "string"
                           },
                           "session_id": {

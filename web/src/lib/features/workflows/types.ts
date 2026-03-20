@@ -19,6 +19,8 @@ export type WorkflowSummary = {
   timeoutMinutes: number
   stallTimeoutMinutes: number
   isActive: boolean
+  lastModified: string
+  recentSuccessRate: number
   version: number
 }
 

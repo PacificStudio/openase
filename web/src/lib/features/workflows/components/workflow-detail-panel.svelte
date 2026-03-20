@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { cn } from '$lib/utils'
+  import { cn, formatRelativeTime } from '$lib/utils'
   import Separator from '$ui/separator/separator.svelte'
-  import { Settings, Clock, RotateCcw, Layers, FileCode, Zap } from '@lucide/svelte'
+  import { Settings, Clock, RotateCcw, Layers, Activity, FileCode, Zap } from '@lucide/svelte'
   import type { WorkflowSummary } from '../types'
 
   let {
@@ -80,13 +80,54 @@
       Harness
     </div>
     <div class="mt-2 space-y-1.5">
-      <div class="flex items-center justify-between text-xs">
+      <div class="flex items-center justify-between gap-3 text-xs">
         <span class="text-muted-foreground">Path</span>
-        <span class="text-foreground font-mono">{workflow.harnessPath}</span>
+        <span class="text-foreground font-mono break-all text-right">
+          {workflow.harnessPath || 'Not assigned'}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <Separator />
+
+  <div class="px-4 py-3">
+    <div class="text-muted-foreground flex items-center gap-2 text-xs font-medium">
+      <Activity class="size-3" />
+      Recent Stats
+    </div>
+    <div class="mt-2 space-y-2">
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-muted-foreground">Success Rate</span>
+        <span
+          class={cn(
+            'font-mono',
+            workflow.recentSuccessRate >= 80
+              ? 'text-emerald-400'
+              : workflow.recentSuccessRate >= 50
+                ? 'text-amber-400'
+                : 'text-red-400',
+          )}
+        >
+          {workflow.recentSuccessRate}%
+        </span>
+      </div>
+      <div class="bg-muted h-1.5 overflow-hidden rounded-full">
+        <div
+          class={cn(
+            'h-full rounded-full',
+            workflow.recentSuccessRate >= 80
+              ? 'bg-emerald-500'
+              : workflow.recentSuccessRate >= 50
+                ? 'bg-amber-500'
+                : 'bg-red-500',
+          )}
+          style="width: {workflow.recentSuccessRate}%"
+        ></div>
       </div>
       <div class="flex items-center justify-between text-xs">
-        <span class="text-muted-foreground">Version</span>
-        <span class="text-foreground font-mono">v{workflow.version}</span>
+        <span class="text-muted-foreground">Last modified</span>
+        <span class="text-foreground">{formatRelativeTime(workflow.lastModified)}</span>
       </div>
     </div>
   </div>

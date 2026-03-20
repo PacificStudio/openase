@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { cn } from '$lib/utils'
+  import { cn, formatRelativeTime } from '$lib/utils'
   import { ArrowRight, Circle } from '@lucide/svelte'
   import type { WorkflowSummary, WorkflowType } from '../types'
 
@@ -23,6 +23,12 @@
     deploy: 'bg-amber-500/15 text-amber-400',
     'refine-harness': 'bg-cyan-500/15 text-cyan-400',
     custom: 'bg-neutral-500/15 text-neutral-400',
+  }
+
+  function rateColor(rate: number): string {
+    if (rate >= 80) return 'bg-emerald-500'
+    if (rate >= 50) return 'bg-amber-500'
+    return 'bg-red-500'
   }
 </script>
 
@@ -62,9 +68,20 @@
           <span class="truncate">{wf.finishStatus}</span>
         </div>
 
-        <div class="text-muted-foreground mt-1.5 flex items-center justify-between text-[10px]">
-          <span>v{wf.version}</span>
-          <span>{wf.maxConcurrent} concurrent</span>
+        <div class="mt-1.5 flex items-center gap-2">
+          <div class="bg-muted h-1 flex-1 overflow-hidden rounded-full">
+            <div
+              class={cn('h-full rounded-full transition-all', rateColor(wf.recentSuccessRate))}
+              style="width: {wf.recentSuccessRate}%"
+            ></div>
+          </div>
+          <span class="text-muted-foreground text-[10px] tabular-nums">
+            {wf.recentSuccessRate}%
+          </span>
+        </div>
+
+        <div class="text-muted-foreground mt-1 text-[10px]">
+          {formatRelativeTime(wf.lastModified)}
         </div>
       </button>
     {/each}

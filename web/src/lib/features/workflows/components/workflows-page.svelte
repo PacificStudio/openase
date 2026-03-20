@@ -1,169 +1,234 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import Button from '$ui/button/button.svelte'
-  import { LoaderCircle, PanelRightClose, PanelRight, Save } from '@lucide/svelte'
-  import type { WorkflowSummary, HarnessContent, HarnessVariableGroup } from '../types'
+  import { appStore } from '$lib/stores/app.svelte'
+  import { ApiError } from '$lib/api/client'
   import {
-    loadWorkflowPageData,
+    bindWorkflowSkills,
     saveWorkflowHarness,
-    splitHarnessContent,
-    toHarnessContent,
-  } from '../api'
+    unbindWorkflowSkills,
+    validateHarness,
+  } from '$lib/api/openase'
+  import Button from '$ui/button/button.svelte'
+  import { Plus, PanelRightClose, PanelRight } from '@lucide/svelte'
+  import type { HarnessValidationIssue } from '$lib/api/contracts'
+  import type { HarnessVariableGroup, WorkflowSummary } from '../types'
+  import { type SkillState, toHarnessContent } from '../model'
+  import { createDefaultWorkflow, loadWorkflowHarness, loadWorkflowIndex } from '../data'
   import WorkflowList from './workflow-list.svelte'
-  import HarnessEditor from './harness-editor.svelte'
   import WorkflowDetailPanel from './workflow-detail-panel.svelte'
+  import WorkflowEditorPanel from './workflow-editor-panel.svelte'
 
   let showDetail = $state(true)
-  let selectedId = $state<string | null>(null)
-  let workflows = $state<WorkflowSummary[]>([])
-  let harnessMap = $state<Record<string, HarnessContent>>({})
-  let baselineHarnessMap = $state<Record<string, HarnessContent>>({})
-  let variableGroups = $state<HarnessVariableGroup[]>([])
-  let orgName = $state<string | null>(null)
-  let projectName = $state<string | null>(null)
-  let loading = $state(true)
+  let loading = $state(false)
+  let error = $state('')
   let saving = $state(false)
-  let errorMessage = $state<string | null>(null)
-  let saveMessage = $state<string | null>(null)
+  let validating = $state(false)
+  let creating = $state(false)
+  let statusMessage = $state('')
+  let workflows = $state<WorkflowSummary[]>([])
+  let selectedId = $state('')
+  let harness = $state<ReturnType<typeof toHarnessContent> | null>(null)
+  let draftHarness = $state('')
+  let skillStates = $state<SkillState[]>([])
+  let validationIssues = $state<HarnessValidationIssue[]>([])
+  let builtinRoleContent = $state('')
+  let statuses = $state<Array<{ id: string; name: string }>>([])
+  let variableGroups = $state<HarnessVariableGroup[]>([])
 
-  const selectedWorkflow = $derived(
-    selectedId ? (workflows.find((workflow) => workflow.id === selectedId) ?? null) : null,
-  )
-  const selectedHarness = $derived(selectedId ? (harnessMap[selectedId] ?? null) : null)
-  const selectedBaseline = $derived(selectedId ? (baselineHarnessMap[selectedId] ?? null) : null)
-  const isDirty = $derived(
-    Boolean(
-      selectedHarness &&
-      selectedBaseline &&
-      selectedHarness.rawContent !== selectedBaseline.rawContent,
-    ),
-  )
-  const dictionarySize = $derived(
-    variableGroups.reduce((count, group) => count + group.variables.length, 0),
-  )
+  let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
+  let isDirty = $derived(harness ? draftHarness !== harness.rawContent : false)
 
-  onMount(() => {
-    const controller = new AbortController()
-    void hydrate(controller.signal)
-    return () => controller.abort()
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      workflows = []
+      selectedId = ''
+      harness = null
+      draftHarness = ''
+      skillStates = []
+      statuses = []
+      variableGroups = []
+      validationIssues = []
+      statusMessage = ''
+      error = ''
+      loading = false
+      return
+    }
+
+    let cancelled = false
+
+    const load = async () => {
+      loading = true
+      error = ''
+
+      try {
+        const payload = await loadWorkflowIndex(projectId, selectedId)
+        if (cancelled) return
+
+        const nextWorkflows = payload.workflows
+        workflows = nextWorkflows
+        if (!selectedId || !nextWorkflows.some((workflow) => workflow.id === selectedId)) {
+          selectedId = nextWorkflows[0]?.id ?? ''
+        }
+
+        skillStates = payload.skillStates
+        builtinRoleContent = payload.builtinRoleContent
+        statuses = payload.statuses
+        variableGroups = payload.variableGroups
+      } catch (caughtError) {
+        if (cancelled) return
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
+      } finally {
+        if (!cancelled) {
+          loading = false
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
   })
 
-  async function hydrate(signal?: AbortSignal) {
-    loading = true
-    errorMessage = null
-
-    try {
-      const data = await loadWorkflowPageData(signal)
-      workflows = data.workflows
-      harnessMap = { ...data.harnessDocuments }
-      baselineHarnessMap = { ...data.harnessDocuments }
-      variableGroups = data.variableGroups
-      orgName = data.orgName
-      projectName = data.projectName
-      selectedId = data.workflows[0]?.id ?? null
-      saveMessage = null
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        return
-      }
-      errorMessage = error instanceof Error ? error.message : 'Failed to load workflows.'
-    } finally {
-      loading = false
-    }
-  }
-
-  function handleSelectWorkflow(workflowID: string) {
-    selectedId = workflowID
-    errorMessage = null
-    saveMessage = null
-  }
-
-  function handleHarnessChange(rawContent: string) {
-    if (!selectedId) {
+  $effect(() => {
+    const workflowId = selectedId
+    const projectId = appStore.currentProject?.id
+    if (!workflowId || !projectId) {
+      harness = null
+      draftHarness = ''
+      validationIssues = []
       return
     }
 
-    harnessMap = {
-      ...harnessMap,
-      [selectedId]: splitHarnessContent(rawContent),
+    let cancelled = false
+
+    const loadHarness = async () => {
+      try {
+        const payload = await loadWorkflowHarness(projectId, workflowId)
+        if (cancelled) return
+
+        harness = payload.harness
+        draftHarness = payload.harness.rawContent
+        validationIssues = []
+        skillStates = payload.skillStates
+      } catch (caughtError) {
+        if (cancelled) return
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load harness.'
+      }
     }
-    saveMessage = null
-  }
+
+    void loadHarness()
+
+    return () => {
+      cancelled = true
+    }
+  })
 
   async function handleSave() {
-    if (!selectedId || !selectedHarness || saving || !isDirty) {
-      return
-    }
+    if (!selectedId) return
 
     saving = true
-    errorMessage = null
-    saveMessage = null
+    statusMessage = ''
+    error = ''
 
     try {
-      const document = await saveWorkflowHarness(selectedId, selectedHarness.rawContent)
-      const nextContent = toHarnessContent(document)
-
-      harnessMap = {
-        ...harnessMap,
-        [selectedId]: nextContent,
-      }
-      baselineHarnessMap = {
-        ...baselineHarnessMap,
-        [selectedId]: nextContent,
-      }
+      const payload = await saveWorkflowHarness(selectedId, draftHarness)
+      harness = toHarnessContent(payload.harness.content)
+      draftHarness = payload.harness.content
       workflows = workflows.map((workflow) =>
         workflow.id === selectedId
           ? {
               ...workflow,
-              harnessPath: document.path,
-              version: document.version,
+              harnessPath: payload.harness.path ?? workflow.harnessPath,
+              version: payload.harness.version ?? workflow.version,
             }
           : workflow,
       )
-      saveMessage = `Saved ${document.path} as v${document.version}.`
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : 'Failed to save harness.'
+      statusMessage = payload.harness.version
+        ? `Harness saved as v${payload.harness.version}.`
+        : 'Harness saved.'
+    } catch (caughtError) {
+      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save harness.'
     } finally {
       saving = false
+    }
+  }
+
+  async function handleValidate() {
+    validating = true
+    statusMessage = ''
+    error = ''
+
+    try {
+      const payload = await validateHarness(draftHarness)
+      validationIssues = payload.issues
+      statusMessage = payload.valid ? 'Harness is valid.' : 'Harness has validation issues.'
+    } catch (caughtError) {
+      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to validate harness.'
+    } finally {
+      validating = false
+    }
+  }
+
+  async function handleCreateWorkflow() {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || statuses.length === 0) return
+
+    creating = true
+    statusMessage = ''
+    error = ''
+
+    try {
+      const payload = await createDefaultWorkflow(
+        projectId,
+        workflows.length,
+        statuses,
+        builtinRoleContent,
+      )
+
+      workflows = [...workflows, payload.workflow]
+      selectedId = payload.selectedId
+      statusMessage = 'Workflow created.'
+    } catch (caughtError) {
+      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create workflow.'
+    } finally {
+      creating = false
+    }
+  }
+
+  async function handleToggleSkill(skill: SkillState) {
+    if (!selectedId) return
+
+    error = ''
+    statusMessage = ''
+
+    try {
+      if (skill.bound) {
+        await unbindWorkflowSkills(selectedId, [skill.path])
+        skillStates = skillStates.map((item) =>
+          item.path === skill.path ? { ...item, bound: false } : item,
+        )
+        statusMessage = `Unbound ${skill.name}.`
+        return
+      }
+
+      await bindWorkflowSkills(selectedId, [skill.path])
+      skillStates = skillStates.map((item) =>
+        item.path === skill.path ? { ...item, bound: true } : item,
+      )
+      statusMessage = `Bound ${skill.name}.`
+    } catch (caughtError) {
+      error =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow skills.'
     }
   }
 </script>
 
 <div class="flex h-full flex-col">
   <div class="border-border flex items-center justify-between border-b px-4 py-2.5">
-    <div>
-      <h1 class="text-foreground text-sm font-semibold">Workflows</h1>
-      {#if orgName || projectName}
-        <p class="text-muted-foreground text-xs">
-          {orgName ?? 'No org'}
-          {#if projectName}
-            / {projectName}
-          {/if}
-        </p>
-      {/if}
-    </div>
+    <h1 class="text-foreground text-sm font-semibold">Workflows</h1>
     <div class="flex items-center gap-2">
-      {#if selectedHarness}
-        <span class="text-muted-foreground hidden text-xs md:inline">
-          {dictionarySize} dictionary entries
-        </span>
-      {/if}
-      {#if saveMessage}
-        <span class="hidden text-xs text-emerald-400 lg:inline">{saveMessage}</span>
-      {/if}
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={!selectedId || !isDirty || saving}
-        onclick={handleSave}
-      >
-        {#if saving}
-          <LoaderCircle class="size-4 animate-spin" />
-        {:else}
-          <Save class="size-4" />
-        {/if}
-        Save
-      </Button>
       <Button variant="ghost" size="sm" onclick={() => (showDetail = !showDetail)}>
         {#if showDetail}
           <PanelRightClose class="size-4" />
@@ -171,53 +236,59 @@
           <PanelRight class="size-4" />
         {/if}
       </Button>
+      <Button size="sm" onclick={handleCreateWorkflow} disabled={creating || statuses.length === 0}>
+        <Plus class="size-4" />
+        {creating ? 'Creating…' : 'New Workflow'}
+      </Button>
     </div>
   </div>
 
-  {#if errorMessage}
+  {#if loading}
+    <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+      Loading workflows…
+    </div>
+  {:else if error && workflows.length === 0}
     <div
-      class="border-destructive/30 bg-destructive/10 text-destructive border-b px-4 py-2 text-xs"
+      class="border-destructive/40 bg-destructive/10 text-destructive m-4 rounded-md border px-4 py-3 text-sm"
     >
-      {errorMessage}
+      {error}
     </div>
-  {/if}
+  {:else}
+    <div class="flex flex-1 overflow-hidden">
+      <div class="w-60 shrink-0">
+        <WorkflowList {workflows} {selectedId} onselect={(id) => (selectedId = id)} />
+      </div>
 
-  <div class="flex flex-1 overflow-hidden">
-    <div class="w-60 shrink-0">
-      <WorkflowList {workflows} selectedId={selectedId ?? ''} onselect={handleSelectWorkflow} />
-    </div>
+      <WorkflowEditorPanel
+        selectedWorkflow={selectedWorkflow ?? undefined}
+        harness={harness ? toHarnessContent(draftHarness) : null}
+        {variableGroups}
+        {skillStates}
+        {validationIssues}
+        {statusMessage}
+        {error}
+        {saving}
+        {validating}
+        {isDirty}
+        onDraftChange={(raw) => {
+          draftHarness = raw
+        }}
+        onSave={() => {
+          void handleSave()
+        }}
+        onValidate={() => {
+          void handleValidate()
+        }}
+        onToggleSkill={(skill) => {
+          void handleToggleSkill(skill)
+        }}
+      />
 
-    <div class="flex-1 overflow-hidden">
-      {#if loading}
-        <div
-          class="bg-muted/10 text-muted-foreground flex h-full items-center justify-center text-sm"
-        >
-          <div class="flex items-center gap-2">
-            <LoaderCircle class="size-4 animate-spin" />
-            Loading workflow editor…
-          </div>
-        </div>
-      {:else if selectedHarness && selectedWorkflow}
-        <HarnessEditor
-          content={selectedHarness}
-          filePath={selectedWorkflow.harnessPath}
-          version={selectedWorkflow.version}
-          {variableGroups}
-          onchange={handleHarnessChange}
-        />
-      {:else}
-        <div
-          class="bg-muted/10 text-muted-foreground flex h-full items-center justify-center px-6 text-center text-sm"
-        >
-          No workflows found in the first available project.
+      {#if showDetail && selectedWorkflow}
+        <div class="w-70 shrink-0">
+          <WorkflowDetailPanel workflow={selectedWorkflow} />
         </div>
       {/if}
     </div>
-
-    {#if showDetail && selectedWorkflow}
-      <div class="w-70 shrink-0">
-        <WorkflowDetailPanel workflow={selectedWorkflow} />
-      </div>
-    {/if}
-  </div>
+  {/if}
 </div>

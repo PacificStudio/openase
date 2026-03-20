@@ -8,6 +8,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	otelinfra "github.com/BetterAndBetterII/openase/internal/infra/otel"
 	userserviceinfra "github.com/BetterAndBetterII/openase/internal/infra/userservice"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
@@ -49,4 +50,17 @@ func buildUserServiceManager() (provider.UserServiceManager, error) {
 	default:
 		return nil, fmt.Errorf("unsupported OS %q for managed user services", runtime.GOOS)
 	}
+}
+
+func buildTraceProvider(cfg config.Config, logger *slog.Logger) (provider.TraceProvider, error) {
+	if !cfg.Observability.Tracing.Enabled {
+		logger.Info("configured trace provider", "exporter", "noop", "service_name", cfg.Observability.Tracing.ServiceName)
+		return provider.NewNoopTraceProvider(), nil
+	}
+
+	return otelinfra.NewTraceProvider(otelinfra.TraceConfig{
+		ServiceName: cfg.Observability.Tracing.ServiceName,
+		Endpoint:    cfg.Observability.Tracing.Endpoint,
+		SampleRatio: cfg.Observability.Tracing.SampleRatio,
+	}, logger)
 }
