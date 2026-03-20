@@ -121,21 +121,21 @@ jobs:
             go.sum
 
       - name: Fetch Base Branch
-        if: github.event_name == "pull_request"
+        if: github.event_name == 'pull_request'
         run: git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
 
       - name: Fetch Main Branch
-        if: github.event_name != "pull_request"
+        if: github.event_name != 'pull_request'
         run: git fetch --no-tags origin main
 
       - name: Run Incremental Lint
-        if: github.event_name == "pull_request"
+        if: github.event_name == 'pull_request'
         env:
           LINT_BASE_REV: ${{ github.event.pull_request.base.sha }}
         run: make lint
 
       - name: Run Incremental Lint From Main
-        if: github.event_name != "pull_request"
+        if: github.event_name != 'pull_request'
         run: make lint
 
       - name: Run Depguard Architecture Checks
