@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -76,5 +77,41 @@ func TestRemoteProcessStopSignalsInterrupt(t *testing.T) {
 	}
 	if session.signal != sshInterruptSignal {
 		t.Fatalf("expected interrupt signal %q, got %q", sshInterruptSignal, session.signal)
+	}
+}
+
+func TestRemoteProcessStopReturnsWaitErrorWhenContextCloses(t *testing.T) {
+	session := &fakeSession{
+		waitCh:   make(chan error, 1),
+		closeErr: errors.New("close failed"),
+	}
+	client := &fakeClient{session: session}
+	dialer := &fakeDialer{clients: []Client{client}}
+	pool := NewPool("/tmp/openase", WithDialer(dialer), WithReadFile(func(string) ([]byte, error) {
+		return []byte("key"), nil
+	}))
+
+	manager := NewProcessManager(pool, testRemoteMachine())
+	spec, err := provider.NewAgentCLIProcessSpec(provider.MustParseAgentCLICommand("codex"), nil, nil, nil)
+	if err != nil {
+		t.Fatalf("build process spec: %v", err)
+	}
+
+	process, err := manager.Start(context.Background(), spec)
+	if err != nil {
+		t.Fatalf("start process: %v", err)
+	}
+
+	stopCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	wantErr := errors.New("remote process exited with status 130")
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		session.waitCh <- wantErr
+	}()
+
+	if err := process.Stop(stopCtx); !errors.Is(err, wantErr) {
+		t.Fatalf("expected wait error %v, got %v", wantErr, err)
 	}
 }

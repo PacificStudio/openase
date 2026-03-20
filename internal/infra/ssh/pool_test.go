@@ -148,13 +148,14 @@ func (c *fakeClient) Close() error {
 }
 
 type fakeSession struct {
-	output []byte
-	err    error
-	closed bool
-	stdin  *io.PipeWriter
-	stdout *io.PipeReader
-	stderr *io.PipeReader
-	waitCh chan error
+	output   []byte
+	err      error
+	closed   bool
+	closeErr error
+	stdin    *io.PipeWriter
+	stdout   *io.PipeReader
+	stderr   *io.PipeReader
+	waitCh   chan error
 
 	startedCommand string
 	signal         string
@@ -207,7 +208,7 @@ func (s *fakeSession) Wait() error {
 
 func (s *fakeSession) Close() error {
 	s.closed = true
-	return nil
+	return s.closeErr
 }
 
 func testRemoteMachine() domain.Machine {

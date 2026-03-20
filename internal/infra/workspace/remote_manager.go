@@ -70,32 +70,26 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 }
 
 func buildPrepareWorkspaceCommand(request SetupRequest) string {
-	lines := []string{
+	lines := make([]string, 0, 2+8*len(request.Repos))
+	lines = append(lines,
 		"set -eu",
-		"mkdir -p " + sshinfraShellQuote(filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)),
-	}
+		"mkdir -p "+sshinfra.ShellQuote(filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)),
+	)
 
 	workspacePath := filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)
 	for _, repo := range request.Repos {
 		repoPath := filepath.Join(workspacePath, filepath.FromSlash(repo.ClonePath))
 		lines = append(lines,
-			"mkdir -p "+sshinfraShellQuote(filepath.Dir(repoPath)),
-			"if [ -e "+sshinfraShellQuote(repoPath)+" ] && [ ! -d "+sshinfraShellQuote(filepath.Join(repoPath, ".git"))+" ]; then echo "+sshinfraShellQuote("repository path "+repoPath+" is not a git clone")+" >&2; exit 1; fi",
-			"if [ ! -e "+sshinfraShellQuote(repoPath)+" ]; then git clone --branch "+sshinfraShellQuote(repo.DefaultBranch)+" --single-branch "+sshinfraShellQuote(repo.RepositoryURL)+" "+sshinfraShellQuote(repoPath)+"; fi",
-			"actual_origin=$(git -C "+sshinfraShellQuote(repoPath)+" remote get-url origin)",
-			"if [ \"$actual_origin\" != "+sshinfraShellQuote(repo.RepositoryURL)+" ]; then echo "+sshinfraShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi",
-			"git -C "+sshinfraShellQuote(repoPath)+" fetch origin",
-			"git -C "+sshinfraShellQuote(repoPath)+" rev-parse --verify "+sshinfraShellQuote("origin/"+repo.DefaultBranch)+" >/dev/null",
-			"git -C "+sshinfraShellQuote(repoPath)+" checkout -B "+sshinfraShellQuote(repo.BranchName)+" "+sshinfraShellQuote("origin/"+repo.DefaultBranch),
+			"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(repoPath)),
+			"if [ -e "+sshinfra.ShellQuote(repoPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(repoPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+repoPath+" is not a git clone")+" >&2; exit 1; fi",
+			"if [ ! -e "+sshinfra.ShellQuote(repoPath)+" ]; then git clone --branch "+sshinfra.ShellQuote(repo.DefaultBranch)+" --single-branch "+sshinfra.ShellQuote(repo.RepositoryURL)+" "+sshinfra.ShellQuote(repoPath)+"; fi",
+			"actual_origin=$(git -C "+sshinfra.ShellQuote(repoPath)+" remote get-url origin)",
+			"if [ \"$actual_origin\" != "+sshinfra.ShellQuote(repo.RepositoryURL)+" ]; then echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi",
+			"git -C "+sshinfra.ShellQuote(repoPath)+" fetch origin",
+			"git -C "+sshinfra.ShellQuote(repoPath)+" rev-parse --verify "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch)+" >/dev/null",
+			"git -C "+sshinfra.ShellQuote(repoPath)+" checkout -B "+sshinfra.ShellQuote(repo.BranchName)+" "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch),
 		)
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-func sshinfraShellQuote(raw string) string {
-	if raw == "" {
-		return "''"
-	}
-	return "'" + strings.ReplaceAll(raw, "'", `'"'"'`) + "'"
 }

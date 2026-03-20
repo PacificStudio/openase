@@ -132,10 +132,14 @@ func (p *remoteProcess) Stop(ctx context.Context) error {
 		p.awaitExit()
 		return p.waitErr
 	case <-ctx.Done():
-		if closeErr := p.session.Close(); closeErr != nil {
+		closeErr := p.session.Close()
+		p.awaitExit()
+		if p.waitErr != nil {
+			return p.waitErr
+		}
+		if closeErr != nil {
 			return closeErr
 		}
-		p.awaitExit()
 		return p.waitErr
 	}
 }
@@ -153,27 +157,29 @@ func (p *remoteProcess) awaitExit() {
 }
 
 func buildRemoteShellCommand(spec provider.AgentCLIProcessSpec) string {
-	commandParts := []string{shellQuote(spec.Command.String())}
+	commandParts := make([]string, 0, 1+len(spec.Args))
+	commandParts = append(commandParts, ShellQuote(spec.Command.String()))
 	for _, arg := range spec.Args {
-		commandParts = append(commandParts, shellQuote(arg))
+		commandParts = append(commandParts, ShellQuote(arg))
 	}
 
 	command := strings.Join(commandParts, " ")
 	if len(spec.Environment) > 0 {
 		envParts := make([]string, 0, len(spec.Environment))
 		for _, entry := range spec.Environment {
-			envParts = append(envParts, shellQuote(entry))
+			envParts = append(envParts, ShellQuote(entry))
 		}
 		command = "env " + strings.Join(envParts, " ") + " " + command
 	}
 	if spec.WorkingDirectory != nil {
-		command = "cd " + shellQuote(spec.WorkingDirectory.String()) + " && " + command
+		command = "cd " + ShellQuote(spec.WorkingDirectory.String()) + " && " + command
 	}
 
 	return command
 }
 
-func shellQuote(raw string) string {
+// ShellQuote escapes a raw argument for POSIX shell evaluation.
+func ShellQuote(raw string) string {
 	if raw == "" {
 		return "''"
 	}
