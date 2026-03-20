@@ -4,19 +4,14 @@
   import Button from '$ui/button/button.svelte'
   import { AlertCircle, CheckCircle2 } from '@lucide/svelte'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
-  import type { HarnessContent, WorkflowSummary } from '../types'
+  import type { HarnessContent, HarnessVariableGroup, WorkflowSummary } from '../types'
+  import type { SkillState } from '../model'
   import HarnessEditor from './harness-editor.svelte'
-
-  type SkillState = {
-    name: string
-    description: string
-    path: string
-    bound: boolean
-  }
 
   let {
     selectedWorkflow,
     harness,
+    variableGroups = [],
     skillStates,
     validationIssues,
     statusMessage,
@@ -31,6 +26,7 @@
   }: {
     selectedWorkflow?: WorkflowSummary
     harness: HarnessContent | null
+    variableGroups?: HarnessVariableGroup[]
     skillStates: SkillState[]
     validationIssues: HarnessValidationIssue[]
     statusMessage: string
@@ -43,6 +39,10 @@
     onValidate?: () => void
     onToggleSkill?: (skill: SkillState) => void
   } = $props()
+
+  const dictionarySize = $derived(
+    variableGroups.reduce((count, group) => count + group.variables.length, 0),
+  )
 </script>
 
 <div class="flex flex-1 flex-col overflow-hidden">
@@ -51,6 +51,9 @@
       <span>{selectedWorkflow?.name ?? 'No workflow selected'}</span>
       {#if isDirty}
         <Badge variant="outline" class="text-[10px]">Unsaved</Badge>
+      {/if}
+      {#if dictionarySize > 0}
+        <Badge variant="outline" class="text-[10px]">{dictionarySize} vars</Badge>
       {/if}
     </div>
     <div class="flex items-center gap-2">
@@ -72,8 +75,9 @@
     {#if harness}
       <HarnessEditor
         content={harness}
-        filePath={selectedWorkflow ? `harness/${selectedWorkflow.id}.md` : ''}
+        filePath={selectedWorkflow?.harnessPath ?? ''}
         version={selectedWorkflow?.version ?? 1}
+        {variableGroups}
         onchange={onDraftChange}
       />
     {/if}

@@ -5,6 +5,7 @@ import type {
   AgentProviderListPayload,
   BuiltinRolePayload,
   HarnessPayload,
+  HarnessVariableDictionaryPayload,
   HarnessValidationResponse,
   ProjectPayload,
   ProjectResponse,
@@ -149,6 +150,10 @@ export function validateHarness(content: string) {
   return api.post<HarnessValidationResponse>('/api/v1/harness/validate', {
     body: { content },
   })
+}
+
+export function listHarnessVariables() {
+  return api.get<HarnessVariableDictionaryPayload>('/api/v1/harness/variables')
 }
 
 export function listSkills(projectId: string) {
