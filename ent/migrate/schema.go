@@ -251,6 +251,42 @@ var (
 			},
 		},
 	}
+	// NotificationChannelsColumns holds the columns for the "notification_channels" table.
+	NotificationChannelsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "type", Type: field.TypeString},
+		{Name: "config", Type: field.TypeJSON},
+		{Name: "is_enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "organization_id", Type: field.TypeUUID},
+	}
+	// NotificationChannelsTable holds the schema information for the "notification_channels" table.
+	NotificationChannelsTable = &schema.Table{
+		Name:       "notification_channels",
+		Columns:    NotificationChannelsColumns,
+		PrimaryKey: []*schema.Column{NotificationChannelsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "notification_channels_organizations_notification_channels",
+				Columns:    []*schema.Column{NotificationChannelsColumns[6]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "notificationchannel_organization_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{NotificationChannelsColumns[6], NotificationChannelsColumns[1]},
+			},
+			{
+				Name:    "notificationchannel_organization_id_type",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationChannelsColumns[6], NotificationChannelsColumns[2]},
+			},
+		},
+	}
 	// OrganizationsColumns holds the columns for the "organizations" table.
 	OrganizationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -733,6 +769,7 @@ var (
 		AgentProvidersTable,
 		AgentTokensTable,
 		ApprovalGatesTable,
+		NotificationChannelsTable,
 		OrganizationsTable,
 		ProjectsTable,
 		ProjectReposTable,
@@ -758,6 +795,7 @@ func init() {
 	AgentTokensTable.ForeignKeys[1].RefTable = ProjectsTable
 	AgentTokensTable.ForeignKeys[2].RefTable = TicketsTable
 	ApprovalGatesTable.ForeignKeys[0].RefTable = TicketsTable
+	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	OrganizationsTable.ForeignKeys[0].RefTable = AgentProvidersTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = WorkflowsTable

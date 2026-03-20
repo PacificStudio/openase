@@ -10,6 +10,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/approvalgate"
+	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -138,6 +139,32 @@ func init() {
 	approvalgateDescID := approvalgateFields[0].Descriptor()
 	// approvalgate.DefaultID holds the default value on creation for the id field.
 	approvalgate.DefaultID = approvalgateDescID.Default.(func() uuid.UUID)
+	notificationchannelFields := schema.NotificationChannel{}.Fields()
+	_ = notificationchannelFields
+	// notificationchannelDescName is the schema descriptor for name field.
+	notificationchannelDescName := notificationchannelFields[2].Descriptor()
+	// notificationchannel.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	notificationchannel.NameValidator = notificationchannelDescName.Validators[0].(func(string) error)
+	// notificationchannelDescType is the schema descriptor for type field.
+	notificationchannelDescType := notificationchannelFields[3].Descriptor()
+	// notificationchannel.TypeValidator is a validator for the "type" field. It is called by the builders before save.
+	notificationchannel.TypeValidator = notificationchannelDescType.Validators[0].(func(string) error)
+	// notificationchannelDescConfig is the schema descriptor for config field.
+	notificationchannelDescConfig := notificationchannelFields[4].Descriptor()
+	// notificationchannel.DefaultConfig holds the default value on creation for the config field.
+	notificationchannel.DefaultConfig = notificationchannelDescConfig.Default.(func() map[string]interface{})
+	// notificationchannelDescIsEnabled is the schema descriptor for is_enabled field.
+	notificationchannelDescIsEnabled := notificationchannelFields[5].Descriptor()
+	// notificationchannel.DefaultIsEnabled holds the default value on creation for the is_enabled field.
+	notificationchannel.DefaultIsEnabled = notificationchannelDescIsEnabled.Default.(bool)
+	// notificationchannelDescCreatedAt is the schema descriptor for created_at field.
+	notificationchannelDescCreatedAt := notificationchannelFields[6].Descriptor()
+	// notificationchannel.DefaultCreatedAt holds the default value on creation for the created_at field.
+	notificationchannel.DefaultCreatedAt = notificationchannelDescCreatedAt.Default.(func() time.Time)
+	// notificationchannelDescID is the schema descriptor for id field.
+	notificationchannelDescID := notificationchannelFields[0].Descriptor()
+	// notificationchannel.DefaultID holds the default value on creation for the id field.
+	notificationchannel.DefaultID = notificationchannelDescID.Default.(func() uuid.UUID)
 	organizationFields := schema.Organization{}.Fields()
 	_ = organizationFields
 	// organizationDescName is the schema descriptor for name field.
