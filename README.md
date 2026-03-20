@@ -42,6 +42,15 @@ npm --prefix web run build
 go build ./cmd/openase
 ```
 
+Frontend quality gates can be run from the repo root:
+
+```bash
+make web-format-check
+make web-lint
+make web-check
+make web-validate
+```
+
 ## Quick Start
 
 ### 1. Prepare PostgreSQL
@@ -171,6 +180,7 @@ go test ./...
 go run ./cmd/openase --help
 go run ./cmd/openase project --help
 go run ./cmd/openase ticket --help
+make web-validate
 ```
 
 If you change the web app, rebuild `web/` before compiling or running the Go binary so the embedded assets stay in sync.
