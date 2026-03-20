@@ -96,6 +96,21 @@ def run_cli_json(command, env=None):
         ) from exc
 
 
+def assert_idle_agent_defaults(agent: dict):
+    if agent["status"] != "idle":
+        raise RuntimeError(f"expected new agent to be idle, got {agent['status']!r}")
+    if agent.get("current_ticket_id") is not None:
+        raise RuntimeError(f"expected new agent current_ticket_id to be empty, got {agent['current_ticket_id']!r}")
+    if agent.get("session_id") != "":
+        raise RuntimeError(f"expected new agent session_id to be empty, got {agent.get('session_id')!r}")
+    if agent.get("runtime_phase") != "none":
+        raise RuntimeError(f"expected new agent runtime_phase to be 'none', got {agent.get('runtime_phase')!r}")
+    if agent.get("runtime_started_at") is not None:
+        raise RuntimeError(
+            f"expected new agent runtime_started_at to be empty, got {agent.get('runtime_started_at')!r}"
+        )
+
+
 def cleanup_harness_artifacts(repo_root: Path, project_id: str | None, workflow: dict | None):
     harnesses_root = (repo_root / ".openase" / "harnesses").resolve()
     cleanup_targets = []
@@ -188,7 +203,7 @@ def main() -> int:
             },
         )["workflow"]
 
-        print("[4/11] create provider, ticket, repo, and agent")
+        print("[4/11] create provider, ticket, repo, and idle agent")
         provider = request_json(
             base_url,
             "POST",
@@ -233,13 +248,11 @@ def main() -> int:
             {
                 "provider_id": provider["id"],
                 "name": f"smoke-agent-{stamp}",
-                "status": "running",
-                "current_ticket_id": ticket["id"],
-                "session_id": f"smoke-session-{stamp}",
                 "workspace_path": str(Path.cwd()),
                 "capabilities": ["smoke", "coding"],
             },
         )["agent"]
+        assert_idle_agent_defaults(agent)
 
         print("[5/11] attach repo scope and validate ticket detail")
         repo_scope = request_json(
