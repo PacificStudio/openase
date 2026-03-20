@@ -31,6 +31,9 @@ type agentResponse struct {
 	Status                string   `json:"status"`
 	CurrentTicketID       *string  `json:"current_ticket_id,omitempty"`
 	SessionID             string   `json:"session_id"`
+	RuntimePhase          string   `json:"runtime_phase"`
+	RuntimeStartedAt      *string  `json:"runtime_started_at,omitempty"`
+	LastError             string   `json:"last_error"`
 	WorkspacePath         string   `json:"workspace_path"`
 	Capabilities          []string `json:"capabilities"`
 	TotalTokensUsed       int64    `json:"total_tokens_used"`
@@ -285,6 +288,9 @@ func mapAgentResponse(item domain.Agent) agentResponse {
 		Status:                item.Status.String(),
 		CurrentTicketID:       uuidToStringPointer(item.CurrentTicketID),
 		SessionID:             item.SessionID,
+		RuntimePhase:          item.RuntimePhase.String(),
+		RuntimeStartedAt:      timeToStringPointer(item.RuntimeStartedAt),
+		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,
 		Capabilities:          cloneStringSlice(item.Capabilities),
 		TotalTokensUsed:       item.TotalTokensUsed,

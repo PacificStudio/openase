@@ -30,6 +30,7 @@ type Server struct {
 	github              config.GitHubConfig
 	logger              *slog.Logger
 	events              provider.EventProvider
+	trace               provider.TraceProvider
 	echo                *echo.Echo
 	sseHub              *sse.Hub
 	inboundWebhooks     *inboundWebhookReceiver
@@ -56,6 +57,12 @@ func WithChatService(service *chatservice.Service) ServerOption {
 	}
 }
 
+func WithTraceProvider(trace provider.TraceProvider) ServerOption {
+	return func(server *Server) {
+		server.trace = trace
+	}
+}
+
 func NewServer(
 	cfg config.ServerConfig,
 	github config.GitHubConfig,
@@ -73,32 +80,13 @@ func NewServer(
 	e.HidePort = true
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
-	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogStatus: true,
-		LogURI:    true,
-		LogMethod: true,
-		LogError:  true,
-		LogValuesFunc: func(c echo.Context, values middleware.RequestLoggerValues) error {
-			log := logger.With(
-				"method", values.Method,
-				"uri", values.URI,
-				"status", values.Status,
-				"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
-			)
-			if values.Error != nil || values.Status >= http.StatusInternalServerError {
-				log.Error("http request completed", "error", values.Error)
-				return nil
-			}
-			log.Info("http request completed")
-			return nil
-		},
-	}))
 
 	server := &Server{
 		cfg:                 cfg,
 		github:              github,
 		logger:              logger.With("component", "http-server"),
 		events:              events,
+		trace:               nil,
 		echo:                e,
 		sseHub:              sse.NewHub(events, logger),
 		ticketService:       ticketService,
@@ -113,6 +101,29 @@ func NewServer(
 			opt(server)
 		}
 	}
+	e.Use(server.traceRequest())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus: true,
+		LogURI:    true,
+		LogMethod: true,
+		LogError:  true,
+		LogValuesFunc: func(c echo.Context, values middleware.RequestLoggerValues) error {
+			log := logger.With(
+				"method", values.Method,
+				"uri", values.URI,
+				"status", values.Status,
+				"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
+				"trace_id", traceValue(c, traceIDContextKey),
+				"span_id", traceValue(c, spanIDContextKey),
+			)
+			if values.Error != nil || values.Status >= http.StatusInternalServerError {
+				log.Error("http request completed", "error", values.Error)
+				return nil
+			}
+			log.Info("http request completed")
+			return nil
+		},
+	}))
 	server.registerRoutes()
 
 	return server

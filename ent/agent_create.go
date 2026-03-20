@@ -87,6 +87,48 @@ func (_c *AgentCreate) SetNillableSessionID(v *string) *AgentCreate {
 	return _c
 }
 
+// SetRuntimePhase sets the "runtime_phase" field.
+func (_c *AgentCreate) SetRuntimePhase(v agent.RuntimePhase) *AgentCreate {
+	_c.mutation.SetRuntimePhase(v)
+	return _c
+}
+
+// SetNillableRuntimePhase sets the "runtime_phase" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentCreate {
+	if v != nil {
+		_c.SetRuntimePhase(*v)
+	}
+	return _c
+}
+
+// SetRuntimeStartedAt sets the "runtime_started_at" field.
+func (_c *AgentCreate) SetRuntimeStartedAt(v time.Time) *AgentCreate {
+	_c.mutation.SetRuntimeStartedAt(v)
+	return _c
+}
+
+// SetNillableRuntimeStartedAt sets the "runtime_started_at" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableRuntimeStartedAt(v *time.Time) *AgentCreate {
+	if v != nil {
+		_c.SetRuntimeStartedAt(*v)
+	}
+	return _c
+}
+
+// SetLastError sets the "last_error" field.
+func (_c *AgentCreate) SetLastError(v string) *AgentCreate {
+	_c.mutation.SetLastError(v)
+	return _c
+}
+
+// SetNillableLastError sets the "last_error" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableLastError(v *string) *AgentCreate {
+	if v != nil {
+		_c.SetLastError(*v)
+	}
+	return _c
+}
+
 // SetWorkspacePath sets the "workspace_path" field.
 func (_c *AgentCreate) SetWorkspacePath(v string) *AgentCreate {
 	_c.mutation.SetWorkspacePath(v)
@@ -262,6 +304,10 @@ func (_c *AgentCreate) defaults() {
 		v := agent.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.RuntimePhase(); !ok {
+		v := agent.DefaultRuntimePhase
+		_c.mutation.SetRuntimePhase(v)
+	}
 	if _, ok := _c.mutation.TotalTokensUsed(); !ok {
 		v := agent.DefaultTotalTokensUsed
 		_c.mutation.SetTotalTokensUsed(v)
@@ -298,6 +344,14 @@ func (_c *AgentCreate) check() error {
 	if v, ok := _c.mutation.Status(); ok {
 		if err := agent.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Agent.status": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RuntimePhase(); !ok {
+		return &ValidationError{Name: "runtime_phase", err: errors.New(`ent: missing required field "Agent.runtime_phase"`)}
+	}
+	if v, ok := _c.mutation.RuntimePhase(); ok {
+		if err := agent.RuntimePhaseValidator(v); err != nil {
+			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.TotalTokensUsed(); !ok {
@@ -358,6 +412,18 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SessionID(); ok {
 		_spec.SetField(agent.FieldSessionID, field.TypeString, value)
 		_node.SessionID = value
+	}
+	if value, ok := _c.mutation.RuntimePhase(); ok {
+		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
+		_node.RuntimePhase = value
+	}
+	if value, ok := _c.mutation.RuntimeStartedAt(); ok {
+		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)
+		_node.RuntimeStartedAt = &value
+	}
+	if value, ok := _c.mutation.LastError(); ok {
+		_spec.SetField(agent.FieldLastError, field.TypeString, value)
+		_node.LastError = value
 	}
 	if value, ok := _c.mutation.WorkspacePath(); ok {
 		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)

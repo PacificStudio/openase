@@ -20,7 +20,7 @@ func TestParseStartInputRequiresTicketForTicketDetail(t *testing.T) {
 }
 
 func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
-	service := NewService(nil, nil, nil, nil, nil)
+	service := NewService(nil, nil, nil, nil, nil, "")
 
 	events := service.mapClaudeEvent(provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
@@ -44,6 +44,16 @@ func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
 	}
 	if payload["type"] != "action_proposal" || payload["summary"] != "Create 2 child tickets" {
 		t.Fatalf("unexpected action proposal payload: %#v", payload)
+	}
+}
+
+func TestParseActionProposalTextAcceptsCodeFenceWithWhitespace(t *testing.T) {
+	payload, ok := parseActionProposalText("```json \n {\"type\":\"action_proposal\",\"actions\":[]} \n```")
+	if !ok {
+		t.Fatalf("expected action proposal to parse")
+	}
+	if payload["type"] != "action_proposal" {
+		t.Fatalf("unexpected payload: %#v", payload)
 	}
 }
 

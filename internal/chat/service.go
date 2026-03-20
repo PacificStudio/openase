@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ var (
 	ErrUnavailable       = errors.New("chat service unavailable")
 	ErrSourceUnsupported = errors.New("chat source is unsupported")
 	ErrProviderNotFound  = errors.New("claude code provider not found for project")
+	codeFencePattern     = regexp.MustCompile("(?s)^```(?:json)?\\s*(\\{.*\\})\\s*```$")
 )
 
 type Source string
@@ -99,6 +101,7 @@ type Service struct {
 	catalog        catalogReader
 	tickets        ticketReader
 	workflows      workflowReader
+	workingDir     provider.AbsolutePath
 	maxTurns       int
 	maxBudgetUSD   float64
 	activeSessions activeSessionRegistry
@@ -131,6 +134,7 @@ func NewService(
 	catalog catalogReader,
 	tickets ticketReader,
 	workflows workflowReader,
+	workingDir provider.AbsolutePath,
 ) *Service {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -142,6 +146,7 @@ func NewService(
 		catalog:      catalog,
 		tickets:      tickets,
 		workflows:    workflows,
+		workingDir:   workingDir,
 		maxTurns:     DefaultMaxTurns,
 		maxBudgetUSD: DefaultMaxBudgetUSD,
 	}
@@ -372,11 +377,8 @@ func (s *Service) buildSessionSpec(
 	}
 
 	var workingDirectory *provider.AbsolutePath
-	if cwd, err := os.Getwd(); err == nil {
-		path, parseErr := provider.ParseAbsolutePath(cwd)
-		if parseErr == nil {
-			workingDirectory = &path
-		}
+	if s.workingDir != "" {
+		workingDirectory = &s.workingDir
 	}
 
 	return provider.NewClaudeCodeSessionSpec(
@@ -827,11 +829,7 @@ func extractAssistantTextBlocks(raw json.RawMessage) []string {
 }
 
 func parseActionProposalText(text string) (map[string]any, bool) {
-	trimmed := strings.TrimSpace(text)
-	trimmed = strings.TrimPrefix(trimmed, "```json")
-	trimmed = strings.TrimPrefix(trimmed, "```")
-	trimmed = strings.TrimSuffix(trimmed, "```")
-	trimmed = strings.TrimSpace(trimmed)
+	trimmed := extractJSONObjectCandidate(text)
 	if trimmed == "" {
 		return nil, false
 	}
@@ -847,6 +845,15 @@ func parseActionProposalText(text string) (map[string]any, bool) {
 		return nil, false
 	}
 	return payload, true
+}
+
+func extractJSONObjectCandidate(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if matches := codeFencePattern.FindStringSubmatch(trimmed); len(matches) == 2 {
+		return strings.TrimSpace(matches[1])
+	}
+
+	return trimmed
 }
 
 func decodeRawJSON(raw json.RawMessage) any {

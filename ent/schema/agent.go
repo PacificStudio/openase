@@ -27,6 +27,11 @@ func (Agent) Fields() []ent.Field {
 			Optional().
 			Nillable(),
 		field.String("session_id").Optional(),
+		field.Enum("runtime_phase").
+			Values("none", "launching", "ready", "failed").
+			Default("none"),
+		field.Time("runtime_started_at").Optional().Nillable(),
+		field.String("last_error").Optional(),
 		field.String("workspace_path").Optional(),
 		textArrayField("capabilities"),
 		field.Int64("total_tokens_used").Default(0),

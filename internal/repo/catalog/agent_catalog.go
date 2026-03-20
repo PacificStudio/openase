@@ -140,12 +140,17 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		SetName(input.Name).
 		SetStatus(input.Status).
 		SetSessionID(input.SessionID).
+		SetRuntimePhase(input.RuntimePhase).
+		SetLastError(input.LastError).
 		SetWorkspacePath(input.WorkspacePath).
 		SetCapabilities(pgarray.StringArray(input.Capabilities)).
 		SetTotalTokensUsed(input.TotalTokensUsed).
 		SetTotalTicketsCompleted(input.TotalTicketsCompleted)
 	if input.CurrentTicketID != nil {
 		builder.SetCurrentTicketID(*input.CurrentTicketID)
+	}
+	if input.RuntimeStartedAt != nil {
+		builder.SetRuntimeStartedAt(*input.RuntimeStartedAt)
 	}
 	if input.LastHeartbeatAt != nil {
 		builder.SetLastHeartbeatAt(*input.LastHeartbeatAt)
@@ -225,6 +230,9 @@ func mapAgent(item *ent.Agent) domain.Agent {
 		Status:                item.Status,
 		CurrentTicketID:       item.CurrentTicketID,
 		SessionID:             item.SessionID,
+		RuntimePhase:          item.RuntimePhase,
+		RuntimeStartedAt:      cloneTimePointer(item.RuntimeStartedAt),
+		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,
 		Capabilities:          append([]string(nil), item.Capabilities...),
 		TotalTokensUsed:       item.TotalTokensUsed,

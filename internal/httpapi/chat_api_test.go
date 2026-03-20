@@ -149,6 +149,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 			catalogSvc,
 			ticketservice.NewService(client),
 			staticWorkflowReader{},
+			"",
 		)),
 	)
 
