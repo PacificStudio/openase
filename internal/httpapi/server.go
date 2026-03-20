@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
+	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -35,6 +36,15 @@ type Server struct {
 	agentPlatform       *agentplatform.Service
 	catalog             catalogservice.Service
 	workflowService     *workflowservice.Service
+	notificationService *notificationservice.Service
+}
+
+type ServerOption func(*Server)
+
+func WithNotificationService(service *notificationservice.Service) ServerOption {
+	return func(server *Server) {
+		server.notificationService = service
+	}
 }
 
 func NewServer(
@@ -47,6 +57,7 @@ func NewServer(
 	agentPlatform *agentplatform.Service,
 	catalog catalogservice.Service,
 	workflowService *workflowservice.Service,
+	opts ...ServerOption,
 ) *Server {
 	e := echo.New()
 	e.HideBanner = true
@@ -86,6 +97,11 @@ func NewServer(
 		agentPlatform:       agentPlatform,
 		catalog:             catalog,
 		workflowService:     workflowService,
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(server)
+		}
 	}
 	server.registerRoutes()
 
@@ -165,6 +181,7 @@ func (s *Server) registerRoutes() {
 	}
 	s.registerTicketRoutes(api)
 	s.registerWorkflowRoutes(api)
+	s.registerNotificationRoutes(api)
 	s.registerSkillRoutes(api)
 	s.registerRoleLibraryRoutes(api)
 	s.registerHRAdvisorRoutes(api)

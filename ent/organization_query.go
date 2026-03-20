@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -28,6 +29,7 @@ type OrganizationQuery struct {
 	predicates               []predicate.Organization
 	withProjects             *ProjectQuery
 	withProviders            *AgentProviderQuery
+	withNotificationChannels *NotificationChannelQuery
 	withDefaultAgentProvider *AgentProviderQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -102,6 +104,28 @@ func (_q *OrganizationQuery) QueryProviders() *AgentProviderQuery {
 			sqlgraph.From(organization.Table, organization.FieldID, selector),
 			sqlgraph.To(agentprovider.Table, agentprovider.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, organization.ProvidersTable, organization.ProvidersColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryNotificationChannels chains the current query on the "notification_channels" edge.
+func (_q *OrganizationQuery) QueryNotificationChannels() *NotificationChannelQuery {
+	query := (&NotificationChannelClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, selector),
+			sqlgraph.To(notificationchannel.Table, notificationchannel.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.NotificationChannelsTable, organization.NotificationChannelsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -325,6 +349,7 @@ func (_q *OrganizationQuery) Clone() *OrganizationQuery {
 		predicates:               append([]predicate.Organization{}, _q.predicates...),
 		withProjects:             _q.withProjects.Clone(),
 		withProviders:            _q.withProviders.Clone(),
+		withNotificationChannels: _q.withNotificationChannels.Clone(),
 		withDefaultAgentProvider: _q.withDefaultAgentProvider.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -351,6 +376,17 @@ func (_q *OrganizationQuery) WithProviders(opts ...func(*AgentProviderQuery)) *O
 		opt(query)
 	}
 	_q.withProviders = query
+	return _q
+}
+
+// WithNotificationChannels tells the query-builder to eager-load the nodes that are connected to
+// the "notification_channels" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *OrganizationQuery) WithNotificationChannels(opts ...func(*NotificationChannelQuery)) *OrganizationQuery {
+	query := (&NotificationChannelClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withNotificationChannels = query
 	return _q
 }
 
@@ -443,9 +479,10 @@ func (_q *OrganizationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*Organization{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withProjects != nil,
 			_q.withProviders != nil,
+			_q.withNotificationChannels != nil,
 			_q.withDefaultAgentProvider != nil,
 		}
 	)
@@ -478,6 +515,15 @@ func (_q *OrganizationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 		if err := _q.loadProviders(ctx, query, nodes,
 			func(n *Organization) { n.Edges.Providers = []*AgentProvider{} },
 			func(n *Organization, e *AgentProvider) { n.Edges.Providers = append(n.Edges.Providers, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withNotificationChannels; query != nil {
+		if err := _q.loadNotificationChannels(ctx, query, nodes,
+			func(n *Organization) { n.Edges.NotificationChannels = []*NotificationChannel{} },
+			func(n *Organization, e *NotificationChannel) {
+				n.Edges.NotificationChannels = append(n.Edges.NotificationChannels, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -535,6 +581,36 @@ func (_q *OrganizationQuery) loadProviders(ctx context.Context, query *AgentProv
 	}
 	query.Where(predicate.AgentProvider(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(organization.ProvidersColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.OrganizationID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "organization_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *OrganizationQuery) loadNotificationChannels(ctx context.Context, query *NotificationChannelQuery, nodes []*Organization, init func(*Organization), assign func(*Organization, *NotificationChannel)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Organization)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(notificationchannel.FieldOrganizationID)
+	}
+	query.Where(predicate.NotificationChannel(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(organization.NotificationChannelsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {
