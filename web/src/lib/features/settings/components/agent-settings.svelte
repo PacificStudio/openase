@@ -17,6 +17,7 @@
   import { Bot, Cpu } from '@lucide/svelte'
   import AgentSettingsBoundaries from './agent-settings-boundaries.svelte'
   import AgentSettingsInventory from './agent-settings-inventory.svelte'
+  import AgentSettingsOverview from './agent-settings-overview.svelte'
   import {
     buildGovernanceAgents,
     buildProviderOptions,
@@ -158,55 +159,13 @@
   {:else if loadError}
     <div class="text-destructive text-sm">{loadError}</div>
   {:else}
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <Card.Root>
-        <Card.Header class="pb-3">
-          <Card.Description>Default provider</Card.Description>
-          <Card.Title
-            >{selectedDefaultProvider?.name ?? orgDefaultProvider?.name ?? 'Unset'}</Card.Title
-          >
-        </Card.Header>
-        <Card.Content class="text-muted-foreground pt-0 text-xs">
-          {#if selectedDefaultProvider}
-            Project-level override active.
-          {:else if orgDefaultProvider}
-            Inheriting organization default.
-          {:else}
-            No default provider selected yet.
-          {/if}
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root>
-        <Card.Header class="pb-3">
-          <Card.Description>Registered agents</Card.Description>
-          <Card.Title>{agents.length}</Card.Title>
-        </Card.Header>
-        <Card.Content class="text-muted-foreground pt-0 text-xs">
-          Runtime controls stay in `/agents`.
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root>
-        <Card.Header class="pb-3">
-          <Card.Description>Running or claimed</Card.Description>
-          <Card.Title>{runningAgents}</Card.Title>
-        </Card.Header>
-        <Card.Content class="text-muted-foreground pt-0 text-xs">
-          Current execution state is surfaced here for governance context only.
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root>
-        <Card.Header class="pb-3">
-          <Card.Description>Capability labels</Card.Description>
-          <Card.Title>{distinctCapabilities}</Card.Title>
-        </Card.Header>
-        <Card.Content class="text-muted-foreground pt-0 text-xs">
-          Distinct capability tags across all registered agents.
-        </Card.Content>
-      </Card.Root>
-    </div>
+    <AgentSettingsOverview
+      selectedDefaultProviderName={selectedDefaultProvider?.name ?? null}
+      orgDefaultProviderName={orgDefaultProvider?.name ?? null}
+      agentCount={agents.length}
+      runningAgentCount={runningAgents}
+      distinctCapabilityCount={distinctCapabilities}
+    />
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,22rem),minmax(0,1fr)]">
       <div class="space-y-6">
