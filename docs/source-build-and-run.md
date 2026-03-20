@@ -11,6 +11,12 @@ This guide covers the current repository state for building OpenASE from source,
 - Optional: `npm` only when you modify files under `web/`
 - Optional: `codex`, `claude`, or `gemini` on `PATH` if you want setup to seed detected agent providers
 
+If `go` is not already on `PATH`, this workspace commonly uses one of these paths:
+
+```bash
+export PATH=$PWD/.tooling/go/bin:/home/yuzhong/.local/go1.26.1/bin:$PATH
+```
+
 ## 1. Clone The Repository
 
 ```bash
@@ -20,16 +26,26 @@ cd openase
 
 ## 2. Build The Binary
 
-For normal source builds, the committed UI assets in `internal/webui/static/` are already embedded, so Go is enough:
+Build the embedded frontend and Go binary together from the repo root:
 
 ```bash
+make build-web
+```
+
+The equivalent explicit commands are:
+
+```bash
+npm --prefix web ci
+npm --prefix web run build
 go build -o ./bin/openase ./cmd/openase
 ```
 
-Only rebuild the frontend when you changed files under `web/`:
+`make build` compiles the Go binary against whatever is currently present under `internal/webui/static/`. In a fresh checkout that means the tracked placeholder only, so the root UI will return a 503 build hint until you regenerate `web/`.
+
+If you intentionally want to refresh the embedded frontend without using `make build-web`, run:
 
 ```bash
-npm --prefix web install
+npm --prefix web ci
 npm --prefix web run build
 go build -o ./bin/openase ./cmd/openase
 ```
@@ -66,6 +82,34 @@ export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?ss
 export OPENASE_SERVER_PORT=19836
 export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 export OPENASE_LOG_FORMAT=json
+```
+
+### Docker PostgreSQL Example On A Non-default Port
+
+For local bring-up, a simple Docker-backed PostgreSQL instance on port `15432` looks like this:
+
+```bash
+docker run -d \
+  --name openase-local-pg \
+  --restart unless-stopped \
+  -e POSTGRES_DB=openase_local \
+  -e POSTGRES_USER=openase \
+  -e POSTGRES_PASSWORD=change-me \
+  -p 127.0.0.1:15432:5432 \
+  -v openase_local_pgdata:/var/lib/postgresql/data \
+  postgres:16-alpine
+```
+
+Then point OpenASE at it:
+
+```bash
+export OPENASE_DATABASE_DSN='postgres://openase:change-me@127.0.0.1:15432/openase_local?sslmode=disable'
+```
+
+If `docker` fails with `permission denied while trying to connect to the docker API`, the current login session may not have picked up the `docker` group yet. A practical workaround is:
+
+```bash
+sg docker -c 'docker ps'
 ```
 
 ## 4. Run First-Time Setup
@@ -126,6 +170,20 @@ You can override the bind address or scheduler interval at startup:
 ./bin/openase all-in-one --config ~/.openase/config.yaml --host 0.0.0.0 --port 40023 --tick-interval 2s
 ```
 
+### Env-only local mode
+
+If you want local-only configuration to live in `~/.openase/.env` instead of a config file, export the variables into the current shell before starting OpenASE:
+
+```bash
+set -a
+source ~/.openase/.env
+set +a
+
+./bin/openase all-in-one
+```
+
+Important: the CLI reads `OPENASE_*` environment variables, but it does not automatically source `~/.openase/.env` for an interactive shell launch. If you skip the `source` step, the process will start with defaults or fail because required values such as `OPENASE_DATABASE_DSN` are missing.
+
 ### Split-process mode
 
 Run these when you want the API server and orchestrator as separate processes:
@@ -168,10 +226,21 @@ Recommended validation sequence after build or doc-driven startup changes:
 
 `doctor` checks config loading, git availability, detected agent CLIs, PostgreSQL reachability, `~/.openase/` layout, harness files, and referenced hook scripts.
 
+For a live instance, also verify the HTTP health endpoints directly:
+
+```bash
+curl -fsS http://127.0.0.1:19836/healthz
+curl -fsS http://127.0.0.1:19836/api/v1/healthz
+```
+
 ## 8. Common Operational Notes
 
-- `go build ./cmd/openase` is enough for normal backend-only work because the embedded UI assets are already checked in.
+- `make build-web` is the safe source-build path because it regenerates the embedded UI before compiling the Go binary.
 - Rebuild `web/` before compiling if you changed the Svelte app, otherwise the binary will still embed the old frontend output.
+- `make build` only compiles the Go binary against the current contents of `internal/webui/static/`; with only the tracked placeholder present, the root UI will serve a 503 guidance response until you rebuild `web/`.
 - `setup` requires the primary repo path to be a real Git repository. A plain directory is rejected.
 - `up` should be run from a compiled binary path you intend to keep, because the managed service stores the executable path it was installed with.
 - `serve`, `orchestrate`, and `all-in-one` all accept `--config`, and `serve` / `all-in-one` also accept host and port overrides.
+- If `all-in-one` fails with `bind: address already in use`, inspect the current listener with `lsof -nP -iTCP:<port> -sTCP:LISTEN`.
+- When running from a local `.env`, keep the file permissions tight, for example `chmod 600 ~/.openase/.env`.
+- Local log files are typically kept under `~/.openase/logs/`.

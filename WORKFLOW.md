@@ -8,7 +8,6 @@ tracker:
     - Todo
     - In Progress
     - Rework
-    - In Review
     - Merging
   terminal_states:
     - Closed

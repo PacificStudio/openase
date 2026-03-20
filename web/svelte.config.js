@@ -1,22 +1,23 @@
-import adapter from '@sveltejs/adapter-static';
+import adapter from '@sveltejs/adapter-static'
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
-	kit: {
-		adapter: adapter({
-			assets: '../internal/webui/static',
-			pages: '../internal/webui/static'
-		}),
-		alias: {
-			$components: 'src/lib/components',
-			$hooks: 'src/lib/hooks',
-			$ui: 'src/lib/components/ui',
-			$utils: 'src/lib/utils'
-		}
-	},
-	vitePlugin: {
-		dynamicCompileOptions: ({ filename }) => filename.includes('node_modules') ? undefined : { runes: true }
-	}
-};
+  kit: {
+    adapter: adapter({
+      assets: '../internal/webui/static',
+      pages: '../internal/webui/static',
+    }),
+    alias: {
+      $components: 'src/lib/components',
+      $hooks: 'src/lib/hooks',
+      $ui: 'src/lib/components/ui',
+      $utils: 'src/lib/utils',
+    },
+  },
+  vitePlugin: {
+    dynamicCompileOptions: ({ filename }) =>
+      filename.includes('node_modules') ? undefined : { runes: true },
+  },
+}
 
-export default config;
+export default config
