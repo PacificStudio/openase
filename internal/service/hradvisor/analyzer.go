@@ -1,0 +1,288 @@
+package hradvisor
+
+import (
+	"fmt"
+	"math"
+	"sort"
+	"strings"
+
+	domain "github.com/BetterAndBetterII/openase/internal/domain/hradvisor"
+)
+
+type snapshotStats struct {
+	openTickets           int
+	codingTickets         int
+	failingTickets        int
+	blockedTickets        int
+	activeAgents          int
+	workflowCount         int
+	testWorkflowCount     int
+	docWorkflowCount      int
+	securityWorkflowCount int
+	activeWorkflowTypes   []string
+}
+
+func Analyze(snapshot domain.Snapshot) domain.Analysis {
+	stats := collectStats(snapshot)
+	activeRoles := make(map[string]struct{}, len(snapshot.ActiveRoleSlugs))
+	for _, slug := range snapshot.ActiveRoleSlugs {
+		if trimmed := strings.TrimSpace(slug); trimmed != "" {
+			activeRoles[trimmed] = struct{}{}
+		}
+	}
+
+	recommendations := make([]domain.Recommendation, 0, 6)
+	add := func(recommendation domain.Recommendation) {
+		if _, exists := activeRoles[recommendation.RoleSlug]; exists {
+			return
+		}
+		recommendations = append(recommendations, recommendation)
+	}
+
+	if snapshot.Project.Status == "planning" && stats.openTickets == 0 && stats.workflowCount == 0 {
+		add(domain.Recommendation{
+			RoleSlug:              "product-manager",
+			Priority:              "high",
+			Reason:                "Planning projects with no active ticket lane need a role to turn scope into executable work.",
+			Evidence:              []string{"Project status is planning.", "No workflows are configured yet.", "No open tickets are currently staged."},
+			SuggestedHeadcount:    1,
+			SuggestedWorkflowName: "Product Manager",
+		})
+	}
+
+	if snapshot.Project.Status == "active" && stats.activeAgents == 0 {
+		add(domain.Recommendation{
+			RoleSlug:              "fullstack-developer",
+			Priority:              "high",
+			Reason:                "The project is active but there is no agent currently able to pick up implementation work.",
+			Evidence:              []string{fmt.Sprintf("Project status is %s.", snapshot.Project.Status), fmt.Sprintf("Open tickets: %d.", stats.openTickets), "No active agents are attached."},
+			SuggestedHeadcount:    max(1, scaleHeadcount(stats.codingTickets, 4)),
+			SuggestedWorkflowName: "Fullstack Developer",
+		})
+	}
+
+	if stats.codingTickets >= 3 && stats.testWorkflowCount == 0 {
+		add(domain.Recommendation{
+			RoleSlug:              "qa-engineer",
+			Priority:              "high",
+			Reason:                "Coding demand is visible, but no test workflow is in place to absorb regression and release checks.",
+			Evidence:              []string{fmt.Sprintf("Open coding tickets: %d.", stats.codingTickets), fmt.Sprintf("Active test workflows: %d.", stats.testWorkflowCount)},
+			SuggestedHeadcount:    max(1, scaleHeadcount(stats.codingTickets, 6)),
+			SuggestedWorkflowName: "QA Engineer",
+		})
+	}
+
+	if (stats.openTickets >= 5 || stats.workflowCount >= 3) && stats.docWorkflowCount == 0 {
+		add(domain.Recommendation{
+			RoleSlug:              "technical-writer",
+			Priority:              "medium",
+			Reason:                "The delivery surface is growing without a documentation lane to keep operator guidance and implementation notes current.",
+			Evidence:              []string{fmt.Sprintf("Open tickets: %d.", stats.openTickets), fmt.Sprintf("Configured workflows: %d.", stats.workflowCount), fmt.Sprintf("Active doc workflows: %d.", stats.docWorkflowCount)},
+			SuggestedHeadcount:    1,
+			SuggestedWorkflowName: "Technical Writer",
+		})
+	}
+
+	if (stats.openTickets >= 8 || stats.failingTickets >= 2) && stats.securityWorkflowCount == 0 {
+		add(domain.Recommendation{
+			RoleSlug:              "security-engineer",
+			Priority:              "medium",
+			Reason:                "Load and failure signals are high enough that a dedicated security pass should be added before the project scales further.",
+			Evidence:              []string{fmt.Sprintf("Open tickets: %d.", stats.openTickets), fmt.Sprintf("Failing tickets: %d.", stats.failingTickets), fmt.Sprintf("Active security workflows: %d.", stats.securityWorkflowCount)},
+			SuggestedHeadcount:    1,
+			SuggestedWorkflowName: "Security Engineer",
+		})
+	}
+
+	if isResearchProject(snapshot.Project) && stats.workflowCount == 0 {
+		add(domain.Recommendation{
+			RoleSlug:              "research-ideation",
+			Priority:              "medium",
+			Reason:                "The project reads like research work, but there is no dedicated role framing questions and experiments yet.",
+			Evidence:              []string{"Project title or description contains research-oriented keywords.", "No workflows are configured yet."},
+			SuggestedHeadcount:    1,
+			SuggestedWorkflowName: "Research Ideation",
+		})
+	}
+
+	sortRecommendations(recommendations)
+
+	return domain.Analysis{
+		Summary: domain.Summary{
+			OpenTickets:         stats.openTickets,
+			CodingTickets:       stats.codingTickets,
+			FailingTickets:      stats.failingTickets,
+			BlockedTickets:      stats.blockedTickets,
+			ActiveAgents:        stats.activeAgents,
+			WorkflowCount:       stats.workflowCount,
+			RecentActivityCount: len(snapshot.RecentActivity),
+			ActiveWorkflowTypes: stats.activeWorkflowTypes,
+		},
+		Recommendations: recommendations,
+		Staffing:        buildStaffingPlan(snapshot.Project.Status, stats),
+	}
+}
+
+func collectStats(snapshot domain.Snapshot) snapshotStats {
+	stats := snapshotStats{}
+	activeWorkflowTypes := make(map[string]struct{})
+
+	for _, workflow := range snapshot.Workflows {
+		stats.workflowCount++
+		if !workflow.IsActive {
+			continue
+		}
+
+		workflowType := strings.TrimSpace(workflow.Type)
+		if workflowType != "" {
+			activeWorkflowTypes[workflowType] = struct{}{}
+		}
+
+		switch workflowType {
+		case "test":
+			stats.testWorkflowCount++
+		case "doc":
+			stats.docWorkflowCount++
+		case "security":
+			stats.securityWorkflowCount++
+		}
+	}
+
+	for _, agent := range snapshot.Agents {
+		switch strings.TrimSpace(agent.Status) {
+		case "idle", "claimed", "running":
+			stats.activeAgents++
+		}
+	}
+
+	for _, ticket := range snapshot.Tickets {
+		if isDoneStatus(ticket.StatusName) {
+			continue
+		}
+
+		stats.openTickets++
+		if ticket.ConsecutiveErrors > 0 {
+			stats.failingTickets++
+		}
+		if ticket.RetryPaused {
+			stats.blockedTickets++
+		}
+
+		switch strings.TrimSpace(ticket.WorkflowType) {
+		case "coding":
+			stats.codingTickets++
+		case "test", "doc", "security":
+			continue
+		default:
+			if isCodingTicketType(ticket.Type) {
+				stats.codingTickets++
+			}
+		}
+	}
+
+	stats.activeWorkflowTypes = mapKeys(activeWorkflowTypes)
+	return stats
+}
+
+func buildStaffingPlan(projectStatus string, stats snapshotStats) domain.StaffingPlan {
+	plan := domain.StaffingPlan{
+		Developers: max(0, scaleHeadcount(stats.codingTickets, 4)),
+		QA:         0,
+		Docs:       0,
+		Security:   0,
+		Product:    0,
+		Research:   0,
+	}
+
+	if projectStatus == "active" && plan.Developers == 0 && stats.workflowCount == 0 {
+		plan.Developers = 1
+	}
+	if stats.codingTickets >= 3 {
+		plan.QA = max(1, scaleHeadcount(stats.codingTickets, 6))
+	}
+	if stats.openTickets >= 5 || stats.workflowCount >= 3 {
+		plan.Docs = 1
+	}
+	if stats.openTickets >= 8 || stats.failingTickets >= 2 {
+		plan.Security = 1
+	}
+	if projectStatus == "planning" && stats.workflowCount == 0 {
+		plan.Product = 1
+	}
+	if plan.Product == 0 && stats.workflowCount == 0 && stats.openTickets == 0 {
+		plan.Research = 0
+	}
+
+	return plan
+}
+
+func sortRecommendations(items []domain.Recommendation) {
+	priorityRank := map[string]int{
+		"high":   0,
+		"medium": 1,
+		"low":    2,
+	}
+
+	sort.SliceStable(items, func(i int, j int) bool {
+		left := priorityRank[items[i].Priority]
+		right := priorityRank[items[j].Priority]
+		if left != right {
+			return left < right
+		}
+		if items[i].SuggestedHeadcount != items[j].SuggestedHeadcount {
+			return items[i].SuggestedHeadcount > items[j].SuggestedHeadcount
+		}
+		return items[i].RoleSlug < items[j].RoleSlug
+	})
+}
+
+func mapKeys(items map[string]struct{}) []string {
+	keys := make([]string, 0, len(items))
+	for key := range items {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func isDoneStatus(statusName string) bool {
+	switch strings.ToLower(strings.TrimSpace(statusName)) {
+	case "done", "completed", "closed", "archived":
+		return true
+	default:
+		return false
+	}
+}
+
+func isCodingTicketType(ticketType string) bool {
+	switch strings.ToLower(strings.TrimSpace(ticketType)) {
+	case "feature", "bugfix", "refactor", "chore":
+		return true
+	default:
+		return false
+	}
+}
+
+func isResearchProject(project domain.ProjectContext) bool {
+	text := strings.ToLower(project.Name + " " + project.Description)
+	for _, keyword := range []string{"research", "experiment", "prototype", "paper"} {
+		if strings.Contains(text, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+func scaleHeadcount(workload int, divisor int) int {
+	if workload <= 0 || divisor <= 0 {
+		return 0
+	}
+	return int(math.Ceil(float64(workload) / float64(divisor)))
+}
+
+func max(left int, right int) int {
+	if left > right {
+		return left
+	}
+	return right
+}
