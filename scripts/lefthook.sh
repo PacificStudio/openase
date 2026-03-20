@@ -31,4 +31,9 @@ fi
 export GO="$go_bin"
 export GOFMT="$gofmt_bin"
 
+if [ "$#" -gt 0 ] && [ "$1" = "run" ]; then
+	shift
+	exec "$go_bin" tool lefthook run --no-auto-install "$@"
+fi
+
 exec "$go_bin" tool lefthook "$@"
