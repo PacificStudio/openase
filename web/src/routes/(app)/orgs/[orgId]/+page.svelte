@@ -17,7 +17,10 @@
     <p class="text-muted-foreground text-sm">
       <a href="/" class="hover:text-foreground transition-colors">Workspace</a>
       <span class="mx-2">/</span>
-      <a href={currentOrg ? organizationPath(currentOrg.id) : '/'} class="hover:text-foreground transition-colors">
+      <a
+        href={currentOrg ? organizationPath(currentOrg.id) : '/'}
+        class="hover:text-foreground transition-colors"
+      >
         {currentOrg?.name ?? 'Organization'}
       </a>
     </p>
@@ -31,19 +34,19 @@
 
   <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
     <div class="border-border bg-card rounded-lg border p-4">
-      <p class="text-muted-foreground text-xs uppercase tracking-[0.2em]">Organization</p>
+      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Organization</p>
       <p class="text-foreground mt-2 text-lg font-semibold">{currentOrg?.name ?? 'Unknown org'}</p>
       <p class="text-muted-foreground mt-1 text-sm">Stable context now lives in the URL.</p>
     </div>
     <div class="border-border bg-card rounded-lg border p-4">
-      <p class="text-muted-foreground text-xs uppercase tracking-[0.2em]">Projects</p>
+      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Projects</p>
       <p class="text-foreground mt-2 text-lg font-semibold">{projects.length}</p>
       <p class="text-muted-foreground mt-1 text-sm">
         Pick a project to open its dashboard, board, agents, and settings under one route model.
       </p>
     </div>
     <div class="border-border bg-card rounded-lg border p-4">
-      <p class="text-muted-foreground text-xs uppercase tracking-[0.2em]">Providers</p>
+      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Providers</p>
       <p class="text-foreground mt-2 text-lg font-semibold">{data.providers.length}</p>
       <p class="text-muted-foreground mt-1 text-sm">
         Provider configuration remains attached to the selected organization context.
@@ -70,7 +73,9 @@
                   {project.description || 'No project description yet.'}
                 </p>
               </div>
-              <span class="bg-muted text-muted-foreground rounded-full px-2.5 py-1 text-[11px] font-medium">
+              <span
+                class="bg-muted text-muted-foreground rounded-full px-2.5 py-1 text-[11px] font-medium"
+              >
                 {project.status}
               </span>
             </div>
@@ -93,7 +98,9 @@
         {/each}
       </div>
     {:else}
-      <div class="border-border bg-card text-muted-foreground rounded-lg border px-4 py-10 text-center text-sm">
+      <div
+        class="border-border bg-card text-muted-foreground rounded-lg border px-4 py-10 text-center text-sm"
+      >
         No projects found in this organization yet.
       </div>
     {/if}

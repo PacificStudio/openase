@@ -62,7 +62,9 @@
     {
       label: 'Overview',
       href:
-        currentOrgId && currentProjectId ? projectPath(currentOrgId, currentProjectId) : '/projects',
+        currentOrgId && currentProjectId
+          ? projectPath(currentOrgId, currentProjectId)
+          : '/projects',
       icon: LayoutDashboard,
       active:
         currentOrgId && currentProjectId

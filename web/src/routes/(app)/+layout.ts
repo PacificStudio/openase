@@ -51,7 +51,7 @@ export const load: LayoutLoad = async ({ fetch, params, url }) => {
 
   const routeContext = parseAppRouteContext(params)
   const currentOrg = routeContext.orgId
-    ? organizations.find((organization) => organization.id === routeContext.orgId) ?? null
+    ? (organizations.find((organization) => organization.id === routeContext.orgId) ?? null)
     : null
 
   if (routeContext.scope !== 'none' && !currentOrg) {
@@ -64,7 +64,7 @@ export const load: LayoutLoad = async ({ fetch, params, url }) => {
 
   const currentProject =
     routeContext.scope === 'project'
-      ? projects.find((project) => project.id === routeContext.projectId) ?? null
+      ? (projects.find((project) => project.id === routeContext.projectId) ?? null)
       : null
 
   if (routeContext.scope === 'project' && !currentProject) {
@@ -80,13 +80,14 @@ export const load: LayoutLoad = async ({ fetch, params, url }) => {
     projects,
     providers,
     agentCount,
-    currentSection: currentProject && currentOrg
-      ? projectSectionFromPathname(url.pathname, {
-          scope: 'project',
-          orgId: currentOrg.id,
-          projectId: currentProject.id,
-        })
-      : 'dashboard',
+    currentSection:
+      currentProject && currentOrg
+        ? projectSectionFromPathname(url.pathname, {
+            scope: 'project',
+            orgId: currentOrg.id,
+            projectId: currentProject.id,
+          })
+        : 'dashboard',
   }
 }
 
