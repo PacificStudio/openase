@@ -271,7 +271,11 @@ func (r *harnessRegistry) handleEvent(event fsnotify.Event) {
 
 	r.mu.Lock()
 	previous := r.cache[relativePath]
-	if pendingHash, ok := r.pending[event.Name]; ok && pendingHash == hash {
+	if pendingHash, ok := r.pending[event.Name]; ok {
+		if pendingHash != hash {
+			r.mu.Unlock()
+			return
+		}
 		delete(r.pending, event.Name)
 		r.cache[relativePath] = cachedHarness{content: content, hash: hash}
 		r.mu.Unlock()
