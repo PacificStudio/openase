@@ -24,10 +24,8 @@
 
 <div class="max-w-lg space-y-6">
   <div>
-    <h2 class="text-base font-semibold text-foreground">General</h2>
-    <p class="mt-1 text-sm text-muted-foreground">
-      Core project configuration.
-    </p>
+    <h2 class="text-foreground text-base font-semibold">General</h2>
+    <p class="text-muted-foreground mt-1 text-sm">Core project configuration.</p>
   </div>
 
   <Separator />
@@ -47,7 +45,9 @@
       <Label>Default workflow</Label>
       <Select.Root
         type="single"
-        onValueChange={(v) => { defaultWorkflow = v || 'standard' }}
+        onValueChange={(v) => {
+          defaultWorkflow = v || 'standard'
+        }}
       >
         <Select.Trigger class="w-full">
           {workflows.find((w) => w.value === defaultWorkflow)?.label ?? 'Select'}
@@ -62,13 +62,8 @@
 
     <div class="space-y-2">
       <Label for="max-agents">Max concurrent agents</Label>
-      <Input
-        id="max-agents"
-        type="number"
-        bind:value={maxConcurrentAgents}
-        class="w-24"
-      />
-      <p class="text-xs text-muted-foreground">
+      <Input id="max-agents" type="number" bind:value={maxConcurrentAgents} class="w-24" />
+      <p class="text-muted-foreground text-xs">
         Limit the number of agents running simultaneously.
       </p>
     </div>

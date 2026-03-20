@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +19,8 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
@@ -276,6 +279,117 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	}
 }
 
+func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 12, 30, 0, 0, time.UTC)
+
+	bus := eventinfra.NewChannelBus()
+	stream, err := bus.Subscribe(ctx, agentLifecycleTopic)
+	if err != nil {
+		t.Fatalf("subscribe agent lifecycle topic: %v", err)
+	}
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	staleHeartbeat := now.Add(-time.Hour)
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-01").
+		SetStatus(entagent.StatusIdle).
+		SetSessionID("stale-session").
+		SetRuntimePhase(entagent.RuntimePhaseReady).
+		SetRuntimeStartedAt(staleHeartbeat).
+		SetLastError("stale error").
+		SetLastHeartbeatAt(staleHeartbeat).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-303").
+		SetTitle("Fresh claim").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	scheduler := NewScheduler(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus)
+	scheduler.now = func() time.Time {
+		return now
+	}
+
+	report, err := scheduler.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 1 {
+		t.Fatalf("expected one dispatch, got %+v", report)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusClaimed {
+		t.Fatalf("expected claimed status, got %s", agentAfter.Status)
+	}
+	if agentAfter.RuntimePhase != entagent.RuntimePhaseNone {
+		t.Fatalf("expected runtime phase none, got %s", agentAfter.RuntimePhase)
+	}
+	if agentAfter.SessionID != "" || agentAfter.LastError != "" || agentAfter.RuntimeStartedAt != nil || agentAfter.LastHeartbeatAt != nil {
+		t.Fatalf("expected runtime state to be cleared, got %+v", agentAfter)
+	}
+
+	event := waitForSchedulerEvent(t, stream, agentClaimedType)
+	if event.Type != agentClaimedType {
+		t.Fatalf("expected agent.claimed event, got %s", event.Type)
+	}
+
+	var payload agentLifecycleEnvelope
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		t.Fatalf("decode event payload: %v", err)
+	}
+	if payload.Agent.ID != agentItem.ID.String() || payload.Agent.RuntimePhase != "none" || payload.Agent.SessionID != "" {
+		t.Fatalf("unexpected lifecycle payload: %+v", payload.Agent)
+	}
+	if ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID); err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	} else if ticketAfter.WorkflowID == nil || *ticketAfter.WorkflowID != workflow.ID {
+		t.Fatalf("expected ticket workflow %s, got %+v", workflow.ID, ticketAfter.WorkflowID)
+	}
+}
+
+func waitForSchedulerEvent(t *testing.T, stream <-chan provider.Event, want provider.EventType) provider.Event {
+	t.Helper()
+
+	select {
+	case event := <-stream:
+		return event
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for %s", want)
+		return provider.Event{}
+	}
+}
+
 type projectFixture struct {
 	client     *ent.Client
 	orgID      uuid.UUID
@@ -352,7 +466,7 @@ func (f projectFixture) createAgent(ctx context.Context, t *testing.T, name stri
 }
 
 func newTestScheduler(client *ent.Client, now time.Time) *Scheduler {
-	scheduler := NewScheduler(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	scheduler := NewScheduler(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	scheduler.now = func() time.Time {
 		return now
 	}

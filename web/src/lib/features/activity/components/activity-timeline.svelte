@@ -44,7 +44,7 @@
     })
   }
 
-  type GroupedEntries = { label: string, entries: ActivityEntry[] }[]
+  type GroupedEntries = { label: string; entries: ActivityEntry[] }[]
 
   function groupByDate(items: ActivityEntry[]): GroupedEntries {
     const groups = new Map<string, ActivityEntry[]>()
@@ -65,7 +65,7 @@
 <div class={cn('space-y-6', className)}>
   {#each grouped as group (group.label)}
     <div>
-      <h3 class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <h3 class="text-muted-foreground mb-3 text-xs font-medium tracking-wider uppercase">
         {group.label}
       </h3>
       <div class="relative space-y-0">
@@ -74,27 +74,27 @@
             <div class="flex flex-col items-center">
               <span
                 class={cn(
-                  'mt-1.5 size-2.5 shrink-0 rounded-full ring-4 ring-background',
+                  'ring-background mt-1.5 size-2.5 shrink-0 rounded-full ring-4',
                   getDotColor(entry.eventType),
                 )}
               ></span>
               {#if i < group.entries.length - 1}
-                <span class="mt-1 h-full w-px bg-border"></span>
+                <span class="bg-border mt-1 h-full w-px"></span>
               {/if}
             </div>
-            <div class="flex-1 min-w-0 pb-1">
-              <p class="text-sm text-foreground leading-snug">
+            <div class="min-w-0 flex-1 pb-1">
+              <p class="text-foreground text-sm leading-snug">
                 {entry.message}
               </p>
-              <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <div class="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-xs">
                 {#if entry.agentName}
-                  <span class="font-mono text-muted-foreground/80">{entry.agentName}</span>
+                  <span class="text-muted-foreground/80 font-mono">{entry.agentName}</span>
                   <span>&middot;</span>
                 {/if}
                 {#if entry.ticketIdentifier}
                   <a
                     href="/tickets/{entry.ticketIdentifier}"
-                    class="font-mono text-primary hover:underline"
+                    class="text-primary font-mono hover:underline"
                   >
                     {entry.ticketIdentifier}
                   </a>

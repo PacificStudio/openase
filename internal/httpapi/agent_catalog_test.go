@@ -100,7 +100,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+projectPayload.Project.ID+"/agents",
-		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","status":"running","session_id":"sess-1","workspace_path":"/tmp/openase","capabilities":["go","backend"],"total_tokens_used":42,"total_tickets_completed":3,"last_heartbeat_at":"2026-03-19T17:00:00Z"}`,
+		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","workspace_path":"/tmp/openase","capabilities":["go","backend"]}`,
 	)
 	if agentRec.Code != http.StatusCreated {
 		t.Fatalf("expected agent create 201, got %d: %s", agentRec.Code, agentRec.Body.String())
@@ -110,7 +110,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		Agent agentResponse `json:"agent"`
 	}
 	decodeResponse(t, agentRec, &agentPayload)
-	if agentPayload.Agent.Status != "running" || agentPayload.Agent.TotalTokensUsed != 42 {
+	if agentPayload.Agent.Status != "idle" || agentPayload.Agent.RuntimePhase != "none" || agentPayload.Agent.TotalTokensUsed != 0 {
 		t.Fatalf("unexpected created agent payload: %+v", agentPayload.Agent)
 	}
 
@@ -213,7 +213,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+projectPayload.Project.ID+"/agents",
-		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","status":"running","session_id":"sess-1","workspace_path":"/tmp/openase","capabilities":["go","backend"],"total_tokens_used":42,"total_tickets_completed":3,"last_heartbeat_at":"2026-03-19T17:00:00Z"}`,
+		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","workspace_path":"/tmp/openase","capabilities":["go","backend"]}`,
 	)
 	if agentRec.Code != http.StatusCreated {
 		t.Fatalf("expected agent create 201, got %d: %s", agentRec.Code, agentRec.Body.String())
@@ -225,6 +225,9 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 	decodeResponse(t, agentRec, &agentPayload)
 	if want := []string{"go", "backend"}; !slices.Equal(agentPayload.Agent.Capabilities, want) {
 		t.Fatalf("expected agent capabilities %v, got %+v", want, agentPayload.Agent)
+	}
+	if agentPayload.Agent.Status != "idle" || agentPayload.Agent.RuntimePhase != "none" {
+		t.Fatalf("expected runtime-owned fields to default, got %+v", agentPayload.Agent)
 	}
 }
 
@@ -472,6 +475,9 @@ func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateA
 		Status:                input.Status,
 		CurrentTicketID:       input.CurrentTicketID,
 		SessionID:             input.SessionID,
+		RuntimePhase:          input.RuntimePhase,
+		RuntimeStartedAt:      cloneTimePointer(input.RuntimeStartedAt),
+		LastError:             input.LastError,
 		WorkspacePath:         input.WorkspacePath,
 		Capabilities:          append([]string(nil), input.Capabilities...),
 		TotalTokensUsed:       input.TotalTokensUsed,
