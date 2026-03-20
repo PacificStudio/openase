@@ -97,6 +97,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	}()
 
 	scheduler := orchestrator.NewScheduler(client, a.logger)
+	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {
 		return err
@@ -120,19 +121,29 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			a.logger.Info("orchestrator runtime stopping")
 			return nil
 		case tick := <-ticker.C:
+			healthReport, healthErr := healthChecker.Run(ctx)
 			report, runErr := scheduler.RunTick(ctx)
 			payload := map[string]any{
-				"mode":   string(a.config.Server.Mode),
-				"time":   tick.UTC().Format(time.RFC3339),
-				"report": report,
+				"mode":          string(a.config.Server.Mode),
+				"time":          tick.UTC().Format(time.RFC3339),
+				"health_report": healthReport,
+				"report":        report,
 			}
-			if runErr != nil {
-				payload["error"] = runErr.Error()
-				a.logger.Error("scheduler tick failed", "time", tick.UTC().Format(time.RFC3339), "error", runErr)
+			combinedErr := joinOrchestratorTickErrors(healthErr, runErr)
+			if combinedErr != nil {
+				payload["error"] = combinedErr.Error()
+				a.logger.Error(
+					"orchestrator tick failed",
+					"time", tick.UTC().Format(time.RFC3339),
+					"error", combinedErr,
+				)
 			} else {
 				a.logger.Info(
-					"scheduler tick completed",
+					"orchestrator tick completed",
 					"time", tick.UTC().Format(time.RFC3339),
+					"claims_checked", healthReport.ClaimsChecked,
+					"stalled_claims", healthReport.StalledClaims,
+					"agents_released", healthReport.AgentsReleased,
 					"workflows_scanned", report.WorkflowsScanned,
 					"candidates_scanned", report.CandidatesScanned,
 					"tickets_dispatched", report.TicketsDispatched,
@@ -144,6 +155,17 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func joinOrchestratorTickErrors(healthErr error, schedulerErr error) error {
+	if healthErr == nil {
+		return schedulerErr
+	}
+	if schedulerErr == nil {
+		return fmt.Errorf("health check: %w", healthErr)
+	}
+
+	return fmt.Errorf("health check: %w; scheduler: %v", healthErr, schedulerErr)
 }
 
 func (a *App) RunAllInOne(ctx context.Context) error {
