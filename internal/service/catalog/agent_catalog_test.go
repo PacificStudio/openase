@@ -33,6 +33,9 @@ func TestCreateAgentProviderAutoDetectsCLICommand(t *testing.T) {
 	if repo.createdProvider == nil || repo.createdProvider.CliCommand != "/usr/local/bin/codex" {
 		t.Fatalf("expected repo to receive resolved cli command, got %+v", repo.createdProvider)
 	}
+	if want := []string{"app-server", "--listen", "stdio://"}; !equalStrings(item.CliArgs, want) {
+		t.Fatalf("expected default codex cli args %v, got %v", want, item.CliArgs)
+	}
 }
 
 func TestCreateAgentProviderRejectsMissingCustomCLICommand(t *testing.T) {
@@ -65,6 +68,40 @@ func TestCreateAgentProviderRejectsMissingExecutable(t *testing.T) {
 	}
 }
 
+func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
+	repo := &stubRepository{
+		provider: domain.AgentProvider{
+			ID:             uuid.New(),
+			OrganizationID: uuid.New(),
+			Name:           "Codex",
+			AdapterType:    entagentprovider.AdapterTypeCodexAppServer,
+			CliCommand:     "/usr/local/bin/codex",
+			ModelName:      "gpt-5.3-codex",
+			AuthConfig:     map[string]any{},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{})
+
+	item, err := svc.UpdateAgentProvider(context.Background(), domain.UpdateAgentProvider{
+		ID:             repo.provider.ID,
+		OrganizationID: repo.provider.OrganizationID,
+		Name:           repo.provider.Name,
+		AdapterType:    repo.provider.AdapterType,
+		CliCommand:     repo.provider.CliCommand,
+		ModelName:      repo.provider.ModelName,
+		AuthConfig:     map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("UpdateAgentProvider returned error: %v", err)
+	}
+	if want := []string{"app-server", "--listen", "stdio://"}; !equalStrings(item.CliArgs, want) {
+		t.Fatalf("expected default codex cli args %v, got %v", want, item.CliArgs)
+	}
+	if repo.updatedProvider == nil || !equalStrings(repo.updatedProvider.CliArgs, []string{"app-server", "--listen", "stdio://"}) {
+		t.Fatalf("expected repo update to receive default codex args, got %+v", repo.updatedProvider)
+	}
+}
+
 type stubExecutableResolver struct {
 	paths map[string]string
 }
@@ -79,6 +116,8 @@ func (r stubExecutableResolver) LookPath(name string) (string, error) {
 
 type stubRepository struct {
 	createdProvider *domain.CreateAgentProvider
+	updatedProvider *domain.UpdateAgentProvider
+	provider        domain.AgentProvider
 }
 
 func (r *stubRepository) ListOrganizations(context.Context) ([]domain.Organization, error) {
@@ -130,17 +169,29 @@ func (r *stubRepository) CreateAgentProvider(_ context.Context, input domain.Cre
 		Name:           input.Name,
 		AdapterType:    input.AdapterType,
 		CliCommand:     input.CliCommand,
+		CliArgs:        append([]string(nil), input.CliArgs...),
 		ModelName:      input.ModelName,
 		AuthConfig:     input.AuthConfig,
 	}, nil
 }
 
 func (r *stubRepository) GetAgentProvider(context.Context, uuid.UUID) (domain.AgentProvider, error) {
-	return domain.AgentProvider{}, nil
+	return r.provider, nil
 }
 
-func (r *stubRepository) UpdateAgentProvider(context.Context, domain.UpdateAgentProvider) (domain.AgentProvider, error) {
-	return domain.AgentProvider{}, nil
+func (r *stubRepository) UpdateAgentProvider(_ context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error) {
+	r.updatedProvider = &input
+
+	return domain.AgentProvider{
+		ID:             input.ID,
+		OrganizationID: input.OrganizationID,
+		Name:           input.Name,
+		AdapterType:    input.AdapterType,
+		CliCommand:     input.CliCommand,
+		CliArgs:        append([]string(nil), input.CliArgs...),
+		ModelName:      input.ModelName,
+		AuthConfig:     input.AuthConfig,
+	}, nil
 }
 
 func (r *stubRepository) ListAgents(context.Context, uuid.UUID) ([]domain.Agent, error) {
@@ -204,3 +255,16 @@ func (r *stubRepository) DeleteTicketRepoScope(context.Context, uuid.UUID, uuid.
 }
 
 var _ catalogrepo.Repository = (*stubRepository)(nil)
+
+func equalStrings(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+
+	return true
+}

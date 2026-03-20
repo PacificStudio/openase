@@ -45,7 +45,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["serve","--stdio"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
+		`{"name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
 	)
 	if providerRec.Code != http.StatusCreated {
 		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
@@ -69,7 +69,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/providers/"+providerPayload.Provider.ID,
-		`{"name":"Codex Primary","cli_args":["serve","--tcp"]}`,
+		`{"name":"Codex Primary","cli_args":["app-server","--listen","ws://127.0.0.1:7777"]}`,
 	)
 	if patchProviderRec.Code != http.StatusOK {
 		t.Fatalf("expected provider patch 200, got %d: %s", patchProviderRec.Code, patchProviderRec.Body.String())

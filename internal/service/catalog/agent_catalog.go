@@ -19,6 +19,7 @@ func (s *service) CreateAgentProvider(ctx context.Context, input domain.CreateAg
 		return domain.AgentProvider{}, err
 	}
 	input.CliCommand = resolved
+	input.CliArgs = defaultAgentProviderCLIArgs(input.AdapterType, input.CliArgs)
 
 	return s.repo.CreateAgentProvider(ctx, input)
 }
@@ -33,6 +34,7 @@ func (s *service) UpdateAgentProvider(ctx context.Context, input domain.UpdateAg
 		return domain.AgentProvider{}, err
 	}
 	input.CliCommand = resolved
+	input.CliArgs = defaultAgentProviderCLIArgs(input.AdapterType, input.CliArgs)
 
 	return s.repo.UpdateAgentProvider(ctx, input)
 }
@@ -84,5 +86,18 @@ func defaultAgentProviderCommand(adapterType entagentprovider.AdapterType) (stri
 		return "gemini", true
 	default:
 		return "", false
+	}
+}
+
+func defaultAgentProviderCLIArgs(adapterType entagentprovider.AdapterType, cliArgs []string) []string {
+	if len(cliArgs) > 0 {
+		return append([]string(nil), cliArgs...)
+	}
+
+	switch adapterType {
+	case entagentprovider.AdapterTypeCodexAppServer:
+		return []string{"app-server", "--listen", "stdio://"}
+	default:
+		return nil
 	}
 }
