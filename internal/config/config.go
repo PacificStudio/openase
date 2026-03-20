@@ -21,13 +21,14 @@ const (
 )
 
 type Config struct {
-	Server       ServerConfig
-	GitHub       GitHubConfig
-	Database     DatabaseConfig
-	Orchestrator OrchestratorConfig
-	Event        EventConfig
-	Logging      LoggingConfig
-	Metadata     Metadata
+	Server        ServerConfig
+	GitHub        GitHubConfig
+	Database      DatabaseConfig
+	Orchestrator  OrchestratorConfig
+	Event         EventConfig
+	Observability ObservabilityConfig
+	Logging       LoggingConfig
+	Metadata      Metadata
 }
 
 type Metadata struct {
@@ -65,6 +66,17 @@ type OrchestratorConfig struct {
 
 type EventConfig struct {
 	Driver EventDriver
+}
+
+type ObservabilityConfig struct {
+	Tracing TraceConfig
+}
+
+type TraceConfig struct {
+	Enabled     bool
+	Endpoint    string
+	ServiceName string
+	SampleRatio float64
 }
 
 type EventDriver string
@@ -116,6 +128,10 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
 	v.SetDefault("event.driver", string(EventDriverAuto))
+	v.SetDefault("observability.tracing.enabled", false)
+	v.SetDefault("observability.tracing.endpoint", "")
+	v.SetDefault("observability.tracing.service_name", "openase")
+	v.SetDefault("observability.tracing.sample_ratio", 1.0)
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", string(LogFormatText))
 }
@@ -212,6 +228,26 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("parse event.driver: %w", err)
 	}
 
+	traceEnabled, err := parseBool(v.Get("observability.tracing.enabled"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.tracing.enabled: %w", err)
+	}
+
+	traceEndpoint, err := parseOptionalString(v.Get("observability.tracing.endpoint"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.tracing.endpoint: %w", err)
+	}
+
+	traceServiceName, err := parseNonEmptyString(v.Get("observability.tracing.service_name"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.tracing.service_name: %w", err)
+	}
+
+	traceSampleRatio, err := parseUnitInterval(v.Get("observability.tracing.sample_ratio"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.tracing.sample_ratio: %w", err)
+	}
+
 	logLevel, err := parseLogLevel(v.Get("log.level"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse log.level: %w", err)
@@ -242,6 +278,14 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		},
 		Event: EventConfig{
 			Driver: eventDriver,
+		},
+		Observability: ObservabilityConfig{
+			Tracing: TraceConfig{
+				Enabled:     traceEnabled,
+				Endpoint:    traceEndpoint,
+				ServiceName: traceServiceName,
+				SampleRatio: traceSampleRatio,
+			},
 		},
 		Logging: LoggingConfig{
 			Level:  logLevel,
@@ -300,6 +344,21 @@ func parsePort(raw any) (int, error) {
 	}
 }
 
+func parseBool(raw any) (bool, error) {
+	switch value := raw.(type) {
+	case bool:
+		return value, nil
+	case string:
+		parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+		if err != nil {
+			return false, fmt.Errorf("invalid bool %q", value)
+		}
+		return parsed, nil
+	default:
+		return false, fmt.Errorf("unsupported bool type %T", raw)
+	}
+}
+
 func parseDuration(raw any) (time.Duration, error) {
 	switch value := raw.(type) {
 	case time.Duration:
@@ -315,6 +374,28 @@ func parseDuration(raw any) (time.Duration, error) {
 		return parseDuration(parsed)
 	default:
 		return 0, fmt.Errorf("unsupported duration type %T", raw)
+	}
+}
+
+func parseUnitInterval(raw any) (float64, error) {
+	switch value := raw.(type) {
+	case float64:
+		if value < 0 || value > 1 {
+			return 0, fmt.Errorf("value %v must be between 0 and 1", value)
+		}
+		return value, nil
+	case int:
+		return parseUnitInterval(float64(value))
+	case int64:
+		return parseUnitInterval(float64(value))
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid float %q", value)
+		}
+		return parseUnitInterval(parsed)
+	default:
+		return 0, fmt.Errorf("unsupported float type %T", raw)
 	}
 }
 

@@ -33,13 +33,15 @@ type App struct {
 	config config.Config
 	logger *slog.Logger
 	events provider.EventProvider
+	trace  provider.TraceProvider
 }
 
-func New(cfg config.Config, logger *slog.Logger, events provider.EventProvider) *App {
+func New(cfg config.Config, logger *slog.Logger, events provider.EventProvider, trace provider.TraceProvider) *App {
 	return &App{
 		config: cfg,
 		logger: logger,
 		events: events,
+		trace:  trace,
 	}
 }
 
@@ -83,6 +85,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
+		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithNotificationService(notificationSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
@@ -130,8 +133,14 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			a.logger.Info("orchestrator runtime stopping")
 			return nil
 		case tick := <-ticker.C:
-			healthReport, healthErr := healthChecker.Run(ctx)
-			report, runErr := scheduler.RunTick(ctx)
+			tickCtx, span := a.trace.StartSpan(ctx, "orchestrator.tick",
+				provider.WithSpanAttributes(
+					provider.StringAttribute("runtime.mode", string(a.config.Server.Mode)),
+					provider.StringAttribute("tick.time", tick.UTC().Format(time.RFC3339)),
+				),
+			)
+			healthReport, healthErr := healthChecker.Run(tickCtx)
+			report, runErr := scheduler.RunTick(tickCtx)
 			payload := map[string]any{
 				"mode":          string(a.config.Server.Mode),
 				"time":          tick.UTC().Format(time.RFC3339),
@@ -141,12 +150,15 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			combinedErr := joinOrchestratorTickErrors(healthErr, runErr)
 			if combinedErr != nil {
 				payload["error"] = combinedErr.Error()
+				span.RecordError(combinedErr)
+				span.SetStatus(provider.SpanStatusError, combinedErr.Error())
 				a.logger.Error(
 					"orchestrator tick failed",
 					"time", tick.UTC().Format(time.RFC3339),
 					"error", combinedErr,
 				)
 			} else {
+				span.SetStatus(provider.SpanStatusOK, "")
 				a.logger.Info(
 					"orchestrator tick completed",
 					"time", tick.UTC().Format(time.RFC3339),
@@ -159,11 +171,36 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"tickets_skipped", report.TicketsSkipped,
 				)
 			}
+			span.SetAttributes(
+				provider.IntAttribute("orchestrator.health.claims_checked", healthReport.ClaimsChecked),
+				provider.IntAttribute("orchestrator.health.stalled_claims", healthReport.StalledClaims),
+				provider.IntAttribute("orchestrator.health.agents_released", healthReport.AgentsReleased),
+				provider.IntAttribute("orchestrator.report.workflows_scanned", report.WorkflowsScanned),
+				provider.IntAttribute("orchestrator.report.candidates_scanned", report.CandidatesScanned),
+				provider.IntAttribute("orchestrator.report.tickets_dispatched", report.TicketsDispatched),
+				provider.IntAttribute("orchestrator.report.tickets_skipped.total", sumSkipCounts(report.TicketsSkipped)),
+			)
+			for reason, count := range report.TicketsSkipped {
+				span.SetAttributes(provider.IntAttribute("orchestrator.report.tickets_skipped."+reason, count))
+			}
 			if err := a.publishRuntimeEvent(ctx, runtimeTickType, payload); err != nil {
+				span.RecordError(err)
+				span.SetStatus(provider.SpanStatusError, err.Error())
+				span.End()
 				return fmt.Errorf("publish scheduler tick: %w", err)
 			}
+			span.End()
 		}
 	}
+}
+
+func sumSkipCounts(values map[string]int) int {
+	total := 0
+	for _, value := range values {
+		total += value
+	}
+
+	return total
 }
 
 func joinOrchestratorTickErrors(healthErr error, schedulerErr error) error {
