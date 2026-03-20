@@ -19,6 +19,7 @@
     selectedPage = 'board',
     workflowCount = 0,
     ticketCount = 0,
+    connectorCount = 0,
     onSelectOrganization,
     onSelectProject,
   }: {
@@ -26,9 +27,10 @@
     projects?: Project[]
     selectedOrgId?: string
     selectedProjectId?: string
-    selectedPage?: 'board' | 'workflows' | 'agents' | 'notifications'
+    selectedPage?: 'board' | 'workflows' | 'agents' | 'connectors' | 'notifications'
     workflowCount?: number
     ticketCount?: number
+    connectorCount?: number
     onSelectOrganization?: (organization: Organization) => void
     onSelectProject?: (project: Project) => void
   } = $props()
@@ -37,6 +39,7 @@
     { key: 'board', label: 'Board', href: '/' },
     { key: 'workflows', label: 'Workflows', href: '/workflows' },
     { key: 'agents', label: 'Agents', href: '/agents' },
+    { key: 'connectors', label: 'Connectors', href: '/connectors' },
     { key: 'notifications', label: 'Notifications', href: '/notifications' },
   ] as const
 
@@ -70,6 +73,7 @@
     <Badge variant="outline">{projects.length} projects</Badge>
     <Badge variant="outline">{workflowCount} workflows</Badge>
     <Badge variant="outline">{ticketCount} tickets</Badge>
+    <Badge variant="outline">{connectorCount} connectors</Badge>
   </CardContent>
 </Card>
 
@@ -89,7 +93,8 @@
       <span>Navigation</span>
     </CardTitle>
     <CardDescription>
-      Keep the same project context while moving between board, workflow, and agent surfaces.
+      Keep the same project context while moving between board, workflow, agent, connector, and
+      notification surfaces.
     </CardDescription>
   </CardHeader>
   <CardContent class="grid gap-2">

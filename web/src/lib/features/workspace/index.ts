@@ -1,5 +1,5 @@
 export { api, toErrorMessage } from './api'
-export { agentConsoleLimit } from './constants'
+export { agentConsoleLimit, inputClass, textAreaClass } from './constants'
 export { createWorkspaceController, type WorkspaceStartOptions } from './controller.svelte'
 export {
   buildOnboardingSummary,
