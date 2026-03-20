@@ -30,16 +30,30 @@ var (
 )
 
 type App struct {
-	config config.Config
-	logger *slog.Logger
-	events provider.EventProvider
+	config         config.Config
+	logger         *slog.Logger
+	events         provider.EventProvider
+	metrics        provider.MetricsProvider
+	metricsHandler http.Handler
 }
 
-func New(cfg config.Config, logger *slog.Logger, events provider.EventProvider) *App {
+func New(
+	cfg config.Config,
+	logger *slog.Logger,
+	events provider.EventProvider,
+	metrics provider.MetricsProvider,
+	metricsHandler http.Handler,
+) *App {
+	if metrics == nil {
+		metrics = provider.NewNoopMetricsProvider()
+	}
+
 	return &App{
-		config: cfg,
-		logger: logger,
-		events: events,
+		config:         cfg,
+		logger:         logger,
+		events:         events,
+		metrics:        metrics,
+		metricsHandler: metricsHandler,
 	}
 }
 
@@ -83,6 +97,8 @@ func (a *App) RunServe(ctx context.Context) error {
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
+		httpapi.WithMetricsProvider(a.metrics),
+		httpapi.WithMetricsHandler(a.metricsHandler),
 		httpapi.WithNotificationService(notificationSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
@@ -130,6 +146,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			a.logger.Info("orchestrator runtime stopping")
 			return nil
 		case tick := <-ticker.C:
+			start := time.Now()
 			healthReport, healthErr := healthChecker.Run(ctx)
 			report, runErr := scheduler.RunTick(ctx)
 			payload := map[string]any{
@@ -146,6 +163,10 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"time", tick.UTC().Format(time.RFC3339),
 					"error", combinedErr,
 				)
+				a.metrics.Counter("openase.orchestrator.tick_total", provider.Tags{
+					"mode":   string(a.config.Server.Mode),
+					"result": "error",
+				}).Add(1)
 			} else {
 				a.logger.Info(
 					"orchestrator tick completed",
@@ -158,7 +179,14 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 					"tickets_dispatched", report.TicketsDispatched,
 					"tickets_skipped", report.TicketsSkipped,
 				)
+				a.metrics.Counter("openase.orchestrator.tick_total", provider.Tags{
+					"mode":   string(a.config.Server.Mode),
+					"result": "ok",
+				}).Add(1)
 			}
+			a.metrics.Histogram("openase.orchestrator.tick_duration_seconds", provider.Tags{
+				"mode": string(a.config.Server.Mode),
+			}).Record(time.Since(start).Seconds())
 			if err := a.publishRuntimeEvent(ctx, runtimeTickType, payload); err != nil {
 				return fmt.Errorf("publish scheduler tick: %w", err)
 			}

@@ -174,8 +174,18 @@ func runWithConfig(
 		}
 	}()
 
+	metricsRuntime, err := buildMetricsProvider(cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := metricsRuntime.shutdown(context.Background()); closeErr != nil {
+			logger.Error("shutdown metrics provider", "error", closeErr)
+		}
+	}()
+
 	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	return run(ctx, app.New(cfg, logger, eventProvider))
+	return run(ctx, app.New(cfg, logger, eventProvider, metricsRuntime.provider, metricsRuntime.prometheusHandler))
 }

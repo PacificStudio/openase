@@ -246,6 +246,17 @@ func (s *Service) writeConfigFile(request CompleteRequest) error {
 	type eventConfig struct {
 		Driver string `yaml:"driver"`
 	}
+	type observabilityMetricsExportConfig struct {
+		Prometheus   bool   `yaml:"prometheus"`
+		OTLPEndpoint string `yaml:"otlp_endpoint"`
+	}
+	type observabilityMetricsConfig struct {
+		Enabled bool                             `yaml:"enabled"`
+		Export  observabilityMetricsExportConfig `yaml:"export"`
+	}
+	type observabilityConfig struct {
+		Metrics observabilityMetricsConfig `yaml:"metrics"`
+	}
 	type logConfig struct {
 		Level  string `yaml:"level"`
 		Format string `yaml:"format"`
@@ -259,12 +270,13 @@ func (s *Service) writeConfigFile(request CompleteRequest) error {
 		Agents          []string `yaml:"agents,omitempty"`
 	}
 	payload := struct {
-		Server       serverConfig       `yaml:"server"`
-		Database     databaseConfig     `yaml:"database"`
-		Orchestrator orchestratorConfig `yaml:"orchestrator"`
-		Event        eventConfig        `yaml:"event"`
-		Log          logConfig          `yaml:"log"`
-		Setup        setupConfig        `yaml:"setup"`
+		Server        serverConfig        `yaml:"server"`
+		Database      databaseConfig      `yaml:"database"`
+		Orchestrator  orchestratorConfig  `yaml:"orchestrator"`
+		Event         eventConfig         `yaml:"event"`
+		Observability observabilityConfig `yaml:"observability"`
+		Log           logConfig           `yaml:"log"`
+		Setup         setupConfig         `yaml:"setup"`
 	}{
 		Server: serverConfig{
 			Host: "127.0.0.1",
@@ -276,7 +288,16 @@ func (s *Service) writeConfigFile(request CompleteRequest) error {
 		},
 		Orchestrator: orchestratorConfig{TickInterval: "5s"},
 		Event:        eventConfig{Driver: "auto"},
-		Log:          logConfig{Level: "info", Format: "text"},
+		Observability: observabilityConfig{
+			Metrics: observabilityMetricsConfig{
+				Enabled: true,
+				Export: observabilityMetricsExportConfig{
+					Prometheus:   false,
+					OTLPEndpoint: "",
+				},
+			},
+		},
+		Log: logConfig{Level: "info", Format: "text"},
 		Setup: setupConfig{
 			Mode:            request.Mode,
 			ProjectName:     request.Project.Name,

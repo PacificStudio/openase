@@ -21,13 +21,14 @@ const (
 )
 
 type Config struct {
-	Server       ServerConfig
-	GitHub       GitHubConfig
-	Database     DatabaseConfig
-	Orchestrator OrchestratorConfig
-	Event        EventConfig
-	Logging      LoggingConfig
-	Metadata     Metadata
+	Server        ServerConfig
+	GitHub        GitHubConfig
+	Database      DatabaseConfig
+	Orchestrator  OrchestratorConfig
+	Event         EventConfig
+	Observability ObservabilityConfig
+	Logging       LoggingConfig
+	Metadata      Metadata
 }
 
 type Metadata struct {
@@ -65,6 +66,20 @@ type OrchestratorConfig struct {
 
 type EventConfig struct {
 	Driver EventDriver
+}
+
+type ObservabilityConfig struct {
+	Metrics MetricsConfig
+}
+
+type MetricsConfig struct {
+	Enabled bool
+	Export  MetricsExportConfig
+}
+
+type MetricsExportConfig struct {
+	Prometheus   bool
+	OTLPEndpoint string
 }
 
 type EventDriver string
@@ -116,6 +131,9 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
 	v.SetDefault("event.driver", string(EventDriverAuto))
+	v.SetDefault("observability.metrics.enabled", true)
+	v.SetDefault("observability.metrics.export.prometheus", false)
+	v.SetDefault("observability.metrics.export.otlp_endpoint", "")
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", string(LogFormatText))
 }
@@ -212,6 +230,21 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("parse event.driver: %w", err)
 	}
 
+	metricsEnabled, err := parseBool(v.Get("observability.metrics.enabled"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.metrics.enabled: %w", err)
+	}
+
+	prometheusEnabled, err := parseBool(v.Get("observability.metrics.export.prometheus"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.metrics.export.prometheus: %w", err)
+	}
+
+	otlpEndpoint, err := parseOptionalString(v.Get("observability.metrics.export.otlp_endpoint"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse observability.metrics.export.otlp_endpoint: %w", err)
+	}
+
 	logLevel, err := parseLogLevel(v.Get("log.level"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse log.level: %w", err)
@@ -242,6 +275,15 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		},
 		Event: EventConfig{
 			Driver: eventDriver,
+		},
+		Observability: ObservabilityConfig{
+			Metrics: MetricsConfig{
+				Enabled: metricsEnabled,
+				Export: MetricsExportConfig{
+					Prometheus:   prometheusEnabled,
+					OTLPEndpoint: otlpEndpoint,
+				},
+			},
 		},
 		Logging: LoggingConfig{
 			Level:  logLevel,
@@ -368,6 +410,21 @@ func parseLogLevel(raw any) (slog.Level, error) {
 		return level, nil
 	default:
 		return 0, fmt.Errorf("unsupported slog level type %T", raw)
+	}
+}
+
+func parseBool(raw any) (bool, error) {
+	switch value := raw.(type) {
+	case bool:
+		return value, nil
+	case string:
+		parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+		if err != nil {
+			return false, fmt.Errorf("invalid bool %q", value)
+		}
+		return parsed, nil
+	default:
+		return false, fmt.Errorf("unsupported bool type %T", raw)
 	}
 }
 

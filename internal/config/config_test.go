@@ -39,6 +39,14 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Logging.Format != LogFormatText {
 		t.Fatalf("expected default log format text, got %q", cfg.Logging.Format)
 	}
+
+	if !cfg.Observability.Metrics.Enabled {
+		t.Fatal("expected metrics to be enabled by default")
+	}
+
+	if cfg.Observability.Metrics.Export.Prometheus {
+		t.Fatal("expected prometheus export to be disabled by default")
+	}
 }
 
 func TestLoadFromEnvironment(t *testing.T) {
@@ -49,6 +57,9 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("OPENASE_DATABASE_DSN", "postgres://openase:secret@localhost:5432/openase?sslmode=disable")
 	t.Setenv("OPENASE_ORCHESTRATOR_TICK_INTERVAL", "2s")
 	t.Setenv("OPENASE_EVENT_DRIVER", "pgnotify")
+	t.Setenv("OPENASE_OBSERVABILITY_METRICS_ENABLED", "false")
+	t.Setenv("OPENASE_OBSERVABILITY_METRICS_EXPORT_PROMETHEUS", "true")
+	t.Setenv("OPENASE_OBSERVABILITY_METRICS_EXPORT_OTLP_ENDPOINT", "collector.internal:4318")
 	t.Setenv("OPENASE_LOG_FORMAT", "json")
 	t.Setenv("OPENASE_LOG_LEVEL", "debug")
 
@@ -81,6 +92,18 @@ func TestLoadFromEnvironment(t *testing.T) {
 		t.Fatalf("expected pgnotify event driver, got %q", cfg.Event.Driver)
 	}
 
+	if cfg.Observability.Metrics.Enabled {
+		t.Fatal("expected metrics to be disabled from env")
+	}
+
+	if !cfg.Observability.Metrics.Export.Prometheus {
+		t.Fatal("expected prometheus export to be enabled from env")
+	}
+
+	if cfg.Observability.Metrics.Export.OTLPEndpoint != "collector.internal:4318" {
+		t.Fatalf("expected OTLP endpoint from env, got %q", cfg.Observability.Metrics.Export.OTLPEndpoint)
+	}
+
 	if cfg.Logging.Format != LogFormatJSON {
 		t.Fatalf("expected json log format, got %q", cfg.Logging.Format)
 	}
@@ -109,6 +132,12 @@ orchestrator:
   tick_interval: 3s
 event:
   driver: pgnotify
+observability:
+  metrics:
+    enabled: true
+    export:
+      prometheus: true
+      otlp_endpoint: https://collector.example.test/v1/metrics
 log:
   level: warn
   format: json
@@ -149,6 +178,18 @@ log:
 
 	if cfg.Event.Driver != EventDriverPGNotify {
 		t.Fatalf("expected pgnotify driver, got %q", cfg.Event.Driver)
+	}
+
+	if !cfg.Observability.Metrics.Enabled {
+		t.Fatal("expected metrics enabled from config file")
+	}
+
+	if !cfg.Observability.Metrics.Export.Prometheus {
+		t.Fatal("expected prometheus export from config file")
+	}
+
+	if cfg.Observability.Metrics.Export.OTLPEndpoint != "https://collector.example.test/v1/metrics" {
+		t.Fatalf("expected OTLP endpoint from config file, got %q", cfg.Observability.Metrics.Export.OTLPEndpoint)
 	}
 
 	if cfg.Logging.Level != slog.LevelWarn {
