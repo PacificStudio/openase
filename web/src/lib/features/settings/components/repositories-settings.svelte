@@ -123,6 +123,28 @@
     applyLoadedRepos(payload.repos)
   }
 
+  function reloadFailureMessage(action: 'created' | 'updated' | 'deleted', detail?: string) {
+    const message = `Repository ${action}, but reloading the repository list failed.`
+    return detail ? `${message} ${detail}` : message
+  }
+
+  async function reloadReposAfterMutation(
+    projectId: string,
+    action: 'created' | 'updated' | 'deleted',
+    successMessage: string,
+  ) {
+    try {
+      await reloadRepos(projectId)
+      feedback = successMessage
+    } catch (caughtError) {
+      feedback = ''
+      error =
+        caughtError instanceof ApiError
+          ? reloadFailureMessage(action, caughtError.detail)
+          : reloadFailureMessage(action)
+    }
+  }
+
   async function handleSave() {
     const projectId = appStore.currentProject?.id
     const parsed = parseRepositoryDraft(draft)
@@ -137,17 +159,21 @@
     feedback = ''
 
     try {
+      let successAction: 'created' | 'updated'
+
       if (mode === 'create') {
         const payload = await createProjectRepo(projectId, parsed.value)
         selectedId = payload.repo.id
-        feedback = 'Repository created.'
+        successAction = 'created'
       } else if (selectedRepo) {
         const payload = await updateProjectRepo(projectId, selectedRepo.id, parsed.value)
         selectedId = payload.repo.id
-        feedback = 'Repository updated.'
+        successAction = 'updated'
+      } else {
+        return
       }
 
-      await reloadRepos(projectId)
+      await reloadReposAfterMutation(projectId, successAction, `Repository ${successAction}.`)
     } catch (caughtError) {
       error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save repository.'
       feedback = ''
@@ -169,10 +195,10 @@
     try {
       await deleteProjectRepo(projectId, selectedRepo.id)
       selectedId = ''
-      feedback = 'Repository deleted.'
-      await reloadRepos(projectId)
+      await reloadReposAfterMutation(projectId, 'deleted', 'Repository deleted.')
     } catch (caughtError) {
       error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete repository.'
+      feedback = ''
     } finally {
       deleting = false
     }
