@@ -61,13 +61,21 @@
     onDelete?: (scopeId: string) => void
   } = $props()
 
-  let draft = $derived.by<ScopeDraft>(() => ({
-    branchName: scope.branchName,
-    pullRequestUrl: scope.prUrl ?? '',
-    prStatus: scope.prStatus ?? '',
-    ciStatus: scope.ciStatus ?? '',
-    isPrimaryScope: scope.isPrimaryScope,
-  }))
+  let draft = $state<ScopeDraft>({
+    branchName: '',
+    pullRequestUrl: '',
+    prStatus: '',
+    ciStatus: '',
+    isPrimaryScope: false,
+  })
+
+  $effect(() => {
+    draft.branchName = scope.branchName
+    draft.pullRequestUrl = scope.prUrl ?? ''
+    draft.prStatus = scope.prStatus ?? ''
+    draft.ciStatus = scope.ciStatus ?? ''
+    draft.isPrimaryScope = scope.isPrimaryScope
+  })
 
   function updateDraft(key: keyof ScopeDraft, value: string | boolean) {
     draft = {
