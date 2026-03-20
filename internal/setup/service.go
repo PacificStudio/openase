@@ -371,37 +371,7 @@ func detectAgentOptions(resolver provider.ExecutableResolver) []AgentOption {
 }
 
 func ensurePrimaryRepoScaffold(repoRoot string) ([]string, error) {
-	type fileSpec struct {
-		path    string
-		content string
-		mode    os.FileMode
-	}
-
-	files := []fileSpec{
-		{
-			path: filepath.Join(repoRoot, ".openase", "harnesses", "coding.md"),
-			content: `---
-workflow:
-  name: "Coding"
-  type: "coding"
-status:
-  pickup: "Todo"
-  finish: "Done"
----
-
-# Coding
-
-You are implementing the assigned OpenASE ticket in the primary repository.
-`,
-			mode: 0o644,
-		},
-		{
-			path:    filepath.Join(repoRoot, ".openase", "skills", ".gitkeep"),
-			content: "",
-			mode:    0o644,
-		},
-	}
-
+	files := primaryRepoScaffold(repoRoot)
 	created := make([]string, 0, len(files))
 	for _, file := range files {
 		if err := os.MkdirAll(filepath.Dir(file.path), 0o755); err != nil {

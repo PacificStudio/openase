@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -94,8 +95,8 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 	if installer.input.Project.Name != "Demo App" {
 		t.Fatalf("expected installer to receive project input, got %+v", installer.input)
 	}
-	if len(result.ScaffoldedFiles) != 2 {
-		t.Fatalf("expected 2 scaffolded files, got %d", len(result.ScaffoldedFiles))
+	if len(result.ScaffoldedFiles) != 4 {
+		t.Fatalf("expected 4 scaffolded files, got %d", len(result.ScaffoldedFiles))
 	}
 
 	configContent, err := os.ReadFile(filepath.Join(homeDir, ".openase", "config.yaml"))
@@ -129,10 +130,44 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 	for _, path := range []string{
 		filepath.Join(repoRoot, ".openase", "harnesses", "coding.md"),
 		filepath.Join(repoRoot, ".openase", "skills", ".gitkeep"),
+		filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"),
+		filepath.Join(repoRoot, ".openase", "bin", "openase"),
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected scaffolded file %s: %v", path, err)
 		}
+	}
+
+	skillContent, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("ReadFile SKILL.md returned error: %v", err)
+	}
+	if !strings.Contains(string(skillContent), "./.openase/bin/openase ticket create") {
+		t.Fatalf("expected built-in skill usage example, got %q", string(skillContent))
+	}
+
+	wrapperPath := filepath.Join(repoRoot, ".openase", "bin", "openase")
+	wrapperInfo, err := os.Stat(wrapperPath)
+	if err != nil {
+		t.Fatalf("Stat wrapper returned error: %v", err)
+	}
+	if wrapperInfo.Mode().Perm() != 0o755 {
+		t.Fatalf("expected wrapper mode 0755, got %#o", wrapperInfo.Mode().Perm())
+	}
+
+	fakeBinDir := t.TempDir()
+	fakeOpenasePath := filepath.Join(fakeBinDir, "openase")
+	if err := os.WriteFile(fakeOpenasePath, []byte("#!/bin/sh\nprintf '%s' \"$*\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile fake openase returned error: %v", err)
+	}
+	t.Setenv("PATH", fakeBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	output, err := exec.Command(wrapperPath, "ticket", "list").CombinedOutput()
+	if err != nil {
+		t.Fatalf("wrapper execution returned error: %v (output=%q)", err, string(output))
+	}
+	if strings.TrimSpace(string(output)) != "ticket list" {
+		t.Fatalf("expected wrapper to forward arguments, got %q", string(output))
 	}
 }
 
