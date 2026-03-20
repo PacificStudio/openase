@@ -27,6 +27,14 @@ export {
   stalledAgentCount,
   streamBadgeClass,
 } from './metrics'
+export {
+  parseActivityPayload,
+  parseAgentPayload,
+  parseHRAdvisorPayload,
+  parseStatusPayload,
+  parseTicketPayload,
+  parseWorkflowListPayload,
+} from './payloads'
 export { readWorkspaceRouteSelection } from './routing'
 export { parseActivityEvent, parseAgentPatch, parseStreamEnvelope } from './stream'
 export { default as WorkspaceContextDrawer } from './components/WorkspaceContextDrawer.svelte'

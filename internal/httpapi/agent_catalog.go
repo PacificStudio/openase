@@ -257,7 +257,7 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		Name:               item.Name,
 		AdapterType:        item.AdapterType.String(),
 		CliCommand:         item.CliCommand,
-		CliArgs:            append([]string(nil), item.CliArgs...),
+		CliArgs:            cloneStringSlice(item.CliArgs),
 		AuthConfig:         cloneMap(item.AuthConfig),
 		ModelName:          item.ModelName,
 		ModelTemperature:   item.ModelTemperature,
@@ -286,7 +286,7 @@ func mapAgentResponse(item domain.Agent) agentResponse {
 		CurrentTicketID:       uuidToStringPointer(item.CurrentTicketID),
 		SessionID:             item.SessionID,
 		WorkspacePath:         item.WorkspacePath,
-		Capabilities:          append([]string(nil), item.Capabilities...),
+		Capabilities:          cloneStringSlice(item.Capabilities),
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
 		LastHeartbeatAt:       timeToStringPointer(item.LastHeartbeatAt),
@@ -318,4 +318,12 @@ func cloneMap(raw map[string]any) map[string]any {
 	}
 
 	return cloned
+}
+
+func cloneStringSlice(raw []string) []string {
+	if len(raw) == 0 {
+		return []string{}
+	}
+
+	return append([]string{}, raw...)
 }

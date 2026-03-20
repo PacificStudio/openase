@@ -17,6 +17,7 @@ import {
   toProjectForm,
   toWorkflowForm,
 } from './mappers'
+import { parseStatusPayload, parseWorkflowListPayload } from './payloads'
 import { createWorkspaceState } from './state.svelte'
 import { createWorkflowEditorActions } from './workflow-editor'
 import type {
@@ -167,8 +168,12 @@ export function createWorkspaceController() {
 
   async function loadWorkflowContext(projectId: string, preferredWorkflowId?: string) {
     const [statusPayload, workflowPayload, skillPayload] = await Promise.all([
-      api<StatusPayload>(`/api/v1/projects/${projectId}/statuses`),
-      api<WorkflowListPayload>(`/api/v1/projects/${projectId}/workflows`),
+      api<StatusPayload>(`/api/v1/projects/${projectId}/statuses`, {}, parseStatusPayload),
+      api<WorkflowListPayload>(
+        `/api/v1/projects/${projectId}/workflows`,
+        {},
+        parseWorkflowListPayload,
+      ),
       api<SkillListPayload>(`/api/v1/projects/${projectId}/skills`),
     ])
     board.setProject(projectId)

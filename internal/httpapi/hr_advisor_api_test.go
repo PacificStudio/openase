@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
@@ -182,6 +183,82 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	}
 	if qaRecommendation.RoleName != "QA Engineer" || qaRecommendation.HarnessPath == "" || qaRecommendation.SuggestedWorkflowName == "" {
 		t.Fatalf("expected builtin qa role metadata, got %+v", qaRecommendation)
+	}
+}
+
+func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver()),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetStatus("planning").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	rec := performJSONRequest(t, server, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/hr-advisor", project.ID), "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected hr advisor 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"recommendations":[`) {
+		t.Fatalf("expected recommendations array in payload, got %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"active_workflow_types":[]`) {
+		t.Fatalf("expected empty active_workflow_types array in payload, got %s", rec.Body.String())
+	}
+
+	resp := struct {
+		Summary struct {
+			ActiveWorkflowTypes []string `json:"active_workflow_types"`
+		} `json:"summary"`
+		Recommendations []hrAdvisorRecommendationResponse `json:"recommendations"`
+	}{}
+	decodeResponse(t, rec, &resp)
+	if len(resp.Summary.ActiveWorkflowTypes) != 0 {
+		t.Fatalf("expected non-nil empty active workflow types, got %+v", resp.Summary.ActiveWorkflowTypes)
+	}
+	if len(resp.Recommendations) == 0 {
+		t.Fatalf("expected non-nil recommendations slice, got %+v", resp.Recommendations)
+	}
+	if resp.Recommendations[0].Evidence == nil {
+		t.Fatalf("expected recommendation evidence to be an array, got %+v", resp.Recommendations[0])
 	}
 }
 

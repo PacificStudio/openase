@@ -196,7 +196,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 			HarnessPath:           harnessPath,
 			Priority:              recommendation.Priority,
 			Reason:                recommendation.Reason,
-			Evidence:              append([]string(nil), recommendation.Evidence...),
+			Evidence:              cloneStringSlice(recommendation.Evidence),
 			SuggestedHeadcount:    recommendation.SuggestedHeadcount,
 			SuggestedWorkflowName: recommendation.SuggestedWorkflowName,
 			ActivationReady:       !isActive,
@@ -214,7 +214,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 			ActiveAgents:        analysis.Summary.ActiveAgents,
 			WorkflowCount:       analysis.Summary.WorkflowCount,
 			RecentActivityCount: analysis.Summary.RecentActivityCount,
-			ActiveWorkflowTypes: append([]string(nil), analysis.Summary.ActiveWorkflowTypes...),
+			ActiveWorkflowTypes: cloneStringSlice(analysis.Summary.ActiveWorkflowTypes),
 		},
 		"staffing": hrAdvisorStaffingResponse{
 			Developers: analysis.Staffing.Developers,
