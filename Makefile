@@ -66,7 +66,7 @@ hooks-install:
 			printf 'export LEFTHOOK_BIN="%s/scripts/lefthook.sh"\n' "$(CURDIR)"; \
 			printf 'export OPENASE_GO="%s"\n' "$(GO)"; \
 			printf 'export OPENASE_GOFMT="%s"\n' "$(GOFMT)"; \
-			sed '/^export PATH=/d;/^export LEFTHOOK_BIN=/d;/^export OPENASE_GO=/d;/^export OPENASE_GOFMT=/d;/^PATH=/d;/^LEFTHOOK_BIN=/d;/^OPENASE_GO=/d;/^OPENASE_GOFMT=/d' "$$hook" | sed '1d'; \
+			sed -E '/^(export )?(PATH|LEFTHOOK_BIN|OPENASE_GO|OPENASE_GOFMT)=/d' "$$hook" | sed '1d'; \
 		} > "$$tmp"; \
 		mv "$$tmp" "$$hook"; \
 		chmod +x "$$hook"; \
