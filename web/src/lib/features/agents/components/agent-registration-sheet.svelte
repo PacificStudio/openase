@@ -13,7 +13,7 @@
   } from '$ui/sheet'
   import { Textarea } from '$ui/textarea'
   import type { AgentProvider } from '$lib/api/contracts'
-  import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../model'
+  import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
 
   let {
     open = $bindable(false),

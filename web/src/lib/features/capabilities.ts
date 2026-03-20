@@ -49,9 +49,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Agent registration is available from the Agents page and submits to POST /api/v1/projects/{projectId}/agents.',
   },
   providerConfigure: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Provider updates are supported by PATCH /api/v1/providers/{providerId}, but the provider configuration UI is not wired yet.',
+      'Providers can be updated from the Agents page via PATCH /api/v1/providers/{providerId}.',
   },
   agentOutput: {
     state: 'backend_missing',
