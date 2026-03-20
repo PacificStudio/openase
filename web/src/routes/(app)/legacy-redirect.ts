@@ -1,5 +1,5 @@
 import type { Organization, Project } from '$lib/api/contracts'
-import { organizationPath, projectPath, type ProjectSection } from '$lib/features/app-shell/context'
+import { organizationPath, projectPath, type ProjectSection } from '$lib/stores/app-context'
 import { redirect, type LoadEvent } from '@sveltejs/kit'
 
 type OrgResponse = {

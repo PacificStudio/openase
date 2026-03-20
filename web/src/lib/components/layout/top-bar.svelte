@@ -1,11 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import type { Organization, Project } from '$lib/api/contracts'
-  import {
-    organizationPath,
-    projectPath,
-    type ProjectSection,
-  } from '$lib/features/app-shell/context'
+  import { organizationPath, projectPath, type ProjectSection } from '$lib/stores/app-context'
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
   import { ChevronDown, Search, Plus, Settings, LogOut, Moon, Check } from '@lucide/svelte'

@@ -1,4 +1,4 @@
-import { organizationPath, projectPath } from '$lib/features/app-shell/context'
+import { organizationPath, projectPath } from '$lib/stores/app-context'
 import {
   Activity,
   Bot,

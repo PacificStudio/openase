@@ -16,7 +16,7 @@
     currentOrg: Organization | null
     currentProject: Project | null
     agentCount: number
-    currentSection: import('$lib/features/app-shell/context').ProjectSection
+    currentSection: import('$lib/stores/app-context').ProjectSection
   }
 
   let { children, data }: { children: Snippet; data: ShellData } = $props()

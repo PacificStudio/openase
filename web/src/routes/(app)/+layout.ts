@@ -3,7 +3,7 @@ import {
   parseAppRouteContext,
   projectSectionFromPathname,
   type ProjectSection,
-} from '$lib/features/app-shell/context'
+} from '$lib/stores/app-context'
 import { error } from '@sveltejs/kit'
 import type { LayoutLoad } from './$types'
 

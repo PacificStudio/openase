@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { organizationPath, projectPath } from '$lib/features/app-shell/context'
+  import { organizationPath, projectPath } from '$lib/stores/app-context'
   import type { PageData } from './$types'
 
   let { data }: { data: PageData } = $props()
