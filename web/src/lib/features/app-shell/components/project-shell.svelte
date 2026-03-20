@@ -132,17 +132,6 @@
     navigateToContext(data.currentOrg?.id ?? null, projectId)
   }
 
-  $effect(() => {
-    const canonicalHref = buildContextHref(
-      data.currentOrg?.id ?? null,
-      data.currentProject?.id ?? null,
-    )
-    const currentHref = `${page.url.pathname}${page.url.search}${page.url.hash}`
-
-    if (canonicalHref !== currentHref) {
-      navigateToContext(data.currentOrg?.id ?? null, data.currentProject?.id ?? null, true)
-    }
-  })
 </script>
 
 <div class="bg-background flex h-screen flex-col overflow-hidden">

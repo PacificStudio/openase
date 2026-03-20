@@ -1,3 +1,4 @@
+import { redirect } from '@sveltejs/kit'
 import type { LayoutLoad } from './$types'
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
 
@@ -38,6 +39,24 @@ function selectById<T extends { id: string }>(items: T[], requestedId: string | 
   }
 
   return items.find((item) => item.id === requestedId) ?? items[0]
+}
+
+function buildCanonicalHref(url: URL, orgId: string | null, projectId: string | null) {
+  const nextUrl = new URL(url)
+
+  if (orgId) {
+    nextUrl.searchParams.set('orgId', orgId)
+  } else {
+    nextUrl.searchParams.delete('orgId')
+  }
+
+  if (projectId) {
+    nextUrl.searchParams.set('projectId', projectId)
+  } else {
+    nextUrl.searchParams.delete('projectId')
+  }
+
+  return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
 }
 
 async function loadOrganizations(fetcher: typeof fetch) {
@@ -94,6 +113,13 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 
   const { projects, providers } = await loadOrgContext(fetch, currentOrg.id)
   const currentProject = selectById(projects, requestedProjectId)
+  const canonicalHref = buildCanonicalHref(url, currentOrg.id, currentProject?.id ?? null)
+  const currentHref = `${url.pathname}${url.search}${url.hash}`
+
+  if (canonicalHref !== currentHref) {
+    throw redirect(307, canonicalHref)
+  }
+
   const agentCount = await loadAgentCount(fetch, currentProject?.id ?? null)
 
   return {
