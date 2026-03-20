@@ -7,6 +7,11 @@ import type {
   HarnessPayload,
   HarnessVariableDictionaryPayload,
   HarnessValidationResponse,
+  MachineCreateResponse,
+  MachinePayload,
+  MachineResourcesResponse,
+  MachineResponse,
+  MachineTestResponse,
   ProjectPayload,
   ProjectResponse,
   SkillListPayload,
@@ -19,6 +24,20 @@ import type {
   WorkflowListPayload,
 } from './contracts'
 
+type MachineMutationBody = {
+  agent_cli_path?: string
+  description?: string
+  env_vars?: string[]
+  host?: string
+  labels?: string[]
+  name?: string
+  port?: number
+  ssh_key_path?: string
+  ssh_user?: string
+  status?: string
+  workspace_root?: string
+}
+
 export function getSystemDashboard() {
   return api.get<SystemDashboardResponse>('/api/v1/system/dashboard')
 }
@@ -29,6 +48,34 @@ export function listOrganizations() {
 
 export function listProjects(orgId: string) {
   return api.get<ProjectPayload>(`/api/v1/orgs/${orgId}/projects`)
+}
+
+export function listMachines(orgId: string) {
+  return api.get<MachinePayload>(`/api/v1/orgs/${orgId}/machines`)
+}
+
+export function createMachine(orgId: string, body: MachineMutationBody) {
+  return api.post<MachineCreateResponse>(`/api/v1/orgs/${orgId}/machines`, { body })
+}
+
+export function getMachine(machineId: string) {
+  return api.get<MachineResponse>(`/api/v1/machines/${machineId}`)
+}
+
+export function updateMachine(machineId: string, body: MachineMutationBody) {
+  return api.patch<MachineResponse>(`/api/v1/machines/${machineId}`, { body })
+}
+
+export function deleteMachine(machineId: string) {
+  return api.delete<MachineResponse>(`/api/v1/machines/${machineId}`)
+}
+
+export function testMachineConnection(machineId: string) {
+  return api.post<MachineTestResponse>(`/api/v1/machines/${machineId}/test`)
+}
+
+export function getMachineResources(machineId: string) {
+  return api.get<MachineResourcesResponse>(`/api/v1/machines/${machineId}/resources`)
 }
 
 export function listProviders(orgId: string) {

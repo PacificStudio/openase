@@ -260,6 +260,104 @@ func TestMachineMonitorRunTickMarksNoGPUMachineUndispatchable(t *testing.T) {
 	}
 }
 
+func TestMachineMonitorRunTickCapturesL4AndL5WithoutChangingMachineStatus(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-04.pem"
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName("builder-01").
+		SetHost("10.0.1.13").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l1": map[string]any{"checked_at": "2026-03-20T17:59:50Z"},
+				"l2": map[string]any{"checked_at": "2026-03-20T17:59:30Z"},
+				"l4": map[string]any{"checked_at": "2026-03-20T17:20:00Z"},
+				"l5": map[string]any{"checked_at": "2026-03-20T11:00:00Z"},
+			},
+		}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create remote machine: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 18, 0, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{
+		now: func() time.Time { return now },
+		agentEnvironment: domain.MachineAgentEnvironment{
+			CollectedAt:  now,
+			Dispatchable: true,
+			CLIs: []domain.MachineAgentCLI{
+				{Name: "claude_code", Installed: false, AuthStatus: domain.MachineAgentAuthStatusUnknown},
+				{Name: "codex", Installed: true, Version: "0.0.1", AuthStatus: domain.MachineAgentAuthStatusLoggedIn, Ready: true},
+				{Name: "gemini", Installed: true, Version: "1.2.3", AuthStatus: domain.MachineAgentAuthStatusUnknown, Ready: true},
+			},
+		},
+		fullAudit: domain.MachineFullAudit{
+			CollectedAt: now,
+			Git: domain.MachineGitAudit{
+				Installed: true,
+				UserName:  "OpenASE",
+				UserEmail: "openase@example.com",
+			},
+			GitHubCLI: domain.MachineGitHubCLIAudit{
+				Installed:  true,
+				AuthStatus: domain.MachineAgentAuthStatusNotLoggedIn,
+			},
+			Network: domain.MachineNetworkAudit{
+				GitHubReachable: true,
+				PyPIReachable:   false,
+				NPMReachable:    true,
+			},
+		},
+	}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	report, err := monitor.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.L4Checks != 1 || report.L5Checks != 1 {
+		t.Fatalf("expected one L4 and one L5 check, got %+v", report)
+	}
+
+	machineAfter, err := client.Machine.Get(ctx, machineItem.ID)
+	if err != nil {
+		t.Fatalf("reload machine: %v", err)
+	}
+	if machineAfter.Status != entmachine.StatusOnline {
+		t.Fatalf("expected L4/L5 snapshots to keep machine online, got %+v", machineAfter)
+	}
+	if machineAfter.Resources["agent_dispatchable"] != true {
+		t.Fatalf("expected agent dispatchability summary, got %+v", machineAfter.Resources)
+	}
+
+	monitorMap := machineAfter.Resources["monitor"].(map[string]any)
+	l4 := monitorMap["l4"].(map[string]any)
+	codex := l4["codex"].(map[string]any)
+	if codex["installed"] != true || codex["auth_status"] != "logged_in" || codex["ready"] != true {
+		t.Fatalf("expected codex l4 snapshot, got %+v", codex)
+	}
+
+	fullAudit := machineAfter.Resources["full_audit"].(map[string]any)
+	ghCLI := fullAudit["gh_cli"].(map[string]any)
+	if ghCLI["auth_status"] != "not_logged_in" {
+		t.Fatalf("expected gh cli audit summary, got %+v", ghCLI)
+	}
+	network := fullAudit["network"].(map[string]any)
+	if network["pypi_reachable"] != false {
+		t.Fatalf("expected pypi reachability=false in full audit, got %+v", network)
+	}
+}
+
 func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Client) uuid.UUID {
 	t.Helper()
 	org, err := client.Organization.Create().
@@ -277,11 +375,17 @@ type fakeMachineMonitorCollector struct {
 	reachabilityError error
 	systemError       error
 	gpuError          error
+	agentEnvError     error
+	fullAuditError    error
 	systemResources   domain.MachineSystemResources
 	gpuResources      domain.MachineGPUResources
+	agentEnvironment  domain.MachineAgentEnvironment
+	fullAudit         domain.MachineFullAudit
 	reachabilityCalls int
 	systemCalls       int
 	gpuCalls          int
+	agentEnvCalls     int
+	fullAuditCalls    int
 }
 
 func (f *fakeMachineMonitorCollector) CollectReachability(context.Context, domain.Machine) (domain.MachineReachability, error) {
@@ -315,4 +419,20 @@ func (f *fakeMachineMonitorCollector) CollectGPUResources(context.Context, domai
 		return domain.MachineGPUResources{}, f.gpuError
 	}
 	return f.gpuResources, nil
+}
+
+func (f *fakeMachineMonitorCollector) CollectAgentEnvironment(context.Context, domain.Machine) (domain.MachineAgentEnvironment, error) {
+	f.agentEnvCalls++
+	if f.agentEnvError != nil {
+		return domain.MachineAgentEnvironment{}, f.agentEnvError
+	}
+	return f.agentEnvironment, nil
+}
+
+func (f *fakeMachineMonitorCollector) CollectFullAudit(context.Context, domain.Machine) (domain.MachineFullAudit, error) {
+	f.fullAuditCalls++
+	if f.fullAuditError != nil {
+		return domain.MachineFullAudit{}, f.fullAuditError
+	}
+	return f.fullAudit, nil
 }

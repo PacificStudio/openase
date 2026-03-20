@@ -18,6 +18,8 @@ const (
 	machineMonitorLevel1Interval  = 15 * time.Second
 	machineMonitorLevel2Interval  = time.Minute
 	machineMonitorLevel3Interval  = 5 * time.Minute
+	machineMonitorLevel4Interval  = 30 * time.Minute
+	machineMonitorLevel5Interval  = 6 * time.Hour
 	machineMonitorOfflineFailures = 3
 	lowDiskThresholdGB            = 5.0
 	lowMemoryThresholdPercent     = 10.0
@@ -28,6 +30,8 @@ type MachineMonitorCollector interface {
 	CollectReachability(ctx context.Context, machine domain.Machine) (domain.MachineReachability, error)
 	CollectSystemResources(ctx context.Context, machine domain.Machine) (domain.MachineSystemResources, error)
 	CollectGPUResources(ctx context.Context, machine domain.Machine) (domain.MachineGPUResources, error)
+	CollectAgentEnvironment(ctx context.Context, machine domain.Machine) (domain.MachineAgentEnvironment, error)
+	CollectFullAudit(ctx context.Context, machine domain.Machine) (domain.MachineFullAudit, error)
 }
 
 type MachineMonitorReport struct {
@@ -36,6 +40,8 @@ type MachineMonitorReport struct {
 	L1Checks         int `json:"l1_checks"`
 	L2Checks         int `json:"l2_checks"`
 	L3Checks         int `json:"l3_checks"`
+	L4Checks         int `json:"l4_checks"`
+	L5Checks         int `json:"l5_checks"`
 	OfflineMachines  int `json:"offline_machines"`
 	DegradedMachines int `json:"degraded_machines"`
 }
@@ -119,6 +125,7 @@ type monitoredMachine struct {
 	Port            int
 	SSHUser         *string
 	SSHKeyPath      *string
+	AgentCLIPath    *string
 	Status          entmachine.Status
 	Labels          []string
 	LastHeartbeatAt time.Time
@@ -127,13 +134,14 @@ type monitoredMachine struct {
 
 func (m monitoredMachine) toDomain() domain.Machine {
 	return domain.Machine{
-		ID:         m.ID,
-		Name:       m.Name,
-		Host:       m.Host,
-		Port:       m.Port,
-		SSHUser:    m.SSHUser,
-		SSHKeyPath: m.SSHKeyPath,
-		Labels:     append([]string(nil), m.Labels...),
+		ID:           m.ID,
+		Name:         m.Name,
+		Host:         m.Host,
+		Port:         m.Port,
+		SSHUser:      m.SSHUser,
+		SSHKeyPath:   m.SSHKeyPath,
+		AgentCLIPath: m.AgentCLIPath,
+		Labels:       append([]string(nil), m.Labels...),
 	}
 }
 
@@ -141,7 +149,9 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	level1Due := machineMonitorDue(machine.Resources, "l1", now, machineMonitorLevel1Interval)
 	level2Due := machineMonitorDue(machine.Resources, "l2", now, machineMonitorLevel2Interval)
 	level3Due := hasMachineLabel(machine.Labels, "gpu") && machineMonitorDue(machine.Resources, "l3", now, machineMonitorLevel3Interval)
-	if !level1Due && !level2Due && !level3Due {
+	level4Due := machineMonitorDue(machine.Resources, "l4", now, machineMonitorLevel4Interval)
+	level5Due := machineMonitorDue(machine.Resources, "l5", now, machineMonitorLevel5Interval)
+	if !level1Due && !level2Due && !level3Due && !level4Due && !level5Due {
 		return machine, false
 	}
 
@@ -201,6 +211,28 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		}
 	}
 
+	if level4Due && !softReachabilityFailure && !hardReachabilityFailure {
+		report.L4Checks++
+		agentEnvironment, err := m.collector.CollectAgentEnvironment(ctx, domainMachine)
+		if err != nil {
+			setMachineMonitorError(resources, "l4", err.Error())
+		} else {
+			updateL4Resources(resources, agentEnvironment)
+			clearMachineMonitorError(resources, "l4")
+		}
+	}
+
+	if level5Due && !softReachabilityFailure && !hardReachabilityFailure {
+		report.L5Checks++
+		fullAudit, err := m.collector.CollectFullAudit(ctx, domainMachine)
+		if err != nil {
+			setMachineMonitorError(resources, "l5", err.Error())
+		} else {
+			updateL5Resources(resources, fullAudit)
+			clearMachineMonitorError(resources, "l5")
+		}
+	}
+
 	if machine.Status != entmachine.StatusMaintenance {
 		switch {
 		case hardReachabilityFailure:
@@ -240,6 +272,7 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 		Port:            item.Port,
 		SSHUser:         optionalMachineString(item.SSHUser),
 		SSHKeyPath:      optionalMachineString(item.SSHKeyPath),
+		AgentCLIPath:    optionalMachineString(item.AgentCliPath),
 		Status:          item.Status,
 		Labels:          append([]string(nil), item.Labels...),
 		LastHeartbeatAt: lastHeartbeatAt,
@@ -385,6 +418,58 @@ func updateL3Resources(resources map[string]any, gpuResources domain.MachineGPUR
 	resources["gpu_dispatchable"] = gpuDispatchable
 }
 
+func updateL4Resources(resources map[string]any, agentEnvironment domain.MachineAgentEnvironment) {
+	levelMap := ensureMonitorLevel(resources, "l4")
+	levelMap["checked_at"] = agentEnvironment.CollectedAt.UTC().Format(time.RFC3339)
+	levelMap["agent_dispatchable"] = agentEnvironment.Dispatchable
+
+	environmentSummary := make(map[string]any, len(agentEnvironment.CLIs))
+	for _, cli := range agentEnvironment.CLIs {
+		snapshot := map[string]any{
+			"installed":   cli.Installed,
+			"version":     cli.Version,
+			"auth_status": string(cli.AuthStatus),
+			"ready":       cli.Ready,
+		}
+		levelMap[cli.Name] = cloneResourceMap(snapshot)
+		environmentSummary[cli.Name] = snapshot
+	}
+
+	resources["agent_dispatchable"] = agentEnvironment.Dispatchable
+	resources["agent_environment_checked_at"] = agentEnvironment.CollectedAt.UTC().Format(time.RFC3339)
+	resources["agent_environment"] = environmentSummary
+}
+
+func updateL5Resources(resources map[string]any, fullAudit domain.MachineFullAudit) {
+	levelMap := ensureMonitorLevel(resources, "l5")
+	levelMap["checked_at"] = fullAudit.CollectedAt.UTC().Format(time.RFC3339)
+
+	gitSummary := map[string]any{
+		"installed":  fullAudit.Git.Installed,
+		"user_name":  fullAudit.Git.UserName,
+		"user_email": fullAudit.Git.UserEmail,
+	}
+	ghSummary := map[string]any{
+		"installed":   fullAudit.GitHubCLI.Installed,
+		"auth_status": string(fullAudit.GitHubCLI.AuthStatus),
+	}
+	networkSummary := map[string]any{
+		"github_reachable": fullAudit.Network.GitHubReachable,
+		"pypi_reachable":   fullAudit.Network.PyPIReachable,
+		"npm_reachable":    fullAudit.Network.NPMReachable,
+	}
+
+	levelMap["git"] = cloneResourceMap(gitSummary)
+	levelMap["gh_cli"] = cloneResourceMap(ghSummary)
+	levelMap["network"] = cloneResourceMap(networkSummary)
+	resources["full_audit"] = map[string]any{
+		"checked_at": fullAudit.CollectedAt.UTC().Format(time.RFC3339),
+		"git":        gitSummary,
+		"gh_cli":     ghSummary,
+		"network":    networkSummary,
+	}
+}
+
 func machineHasLowDisk(resources map[string]any) bool {
 	value, ok := resources["disk_available_gb"]
 	if !ok {
@@ -494,5 +579,16 @@ func anyToInt(value any) int {
 		return int(typed)
 	default:
 		return 0
+	}
+}
+
+func anyToBool(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		return strings.EqualFold(strings.TrimSpace(typed), "true")
+	default:
+		return false
 	}
 }
