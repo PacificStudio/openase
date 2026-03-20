@@ -7,6 +7,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/labstack/echo/v4"
 )
@@ -14,21 +15,28 @@ import (
 const agentClaimsContextKey = "agent_platform_claims"
 
 type rawAgentCreateTicketRequest struct {
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	StatusID        *string  `json:"status_id"`
+	Priority        *string  `json:"priority"`
+	Type            *string  `json:"type"`
+	WorkflowID      *string  `json:"workflow_id"`
+	TargetMachineID *string  `json:"target_machine_id"`
+	ParentTicketID  *string  `json:"parent_ticket_id"`
+	ExternalRef     *string  `json:"external_ref"`
+	BudgetUSD       *float64 `json:"budget_usd"`
 }
 
 type rawAgentUpdateTicketRequest struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	ExternalRef *string `json:"external_ref"`
+}
+
+type rawAgentReportUsageRequest struct {
+	InputTokens  *int64   `json:"input_tokens"`
+	OutputTokens *int64   `json:"output_tokens"`
+	CostUSD      *float64 `json:"cost_usd"`
 }
 
 type rawAgentProjectPatchRequest struct {
@@ -39,6 +47,7 @@ func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleAgentListTickets)
 	api.POST("/projects/:projectId/tickets", s.handleAgentCreateTicket)
 	api.PATCH("/tickets/:ticketId", s.handleAgentUpdateOwnTicket)
+	api.POST("/tickets/:ticketId/usage", s.handleAgentReportUsage)
 	api.PATCH("/projects/:projectId", s.handleAgentUpdateProject)
 	api.POST("/projects/:projectId/repos", s.handleAgentCreateProjectRepo)
 }
@@ -109,15 +118,16 @@ func (s *Server) handleAgentCreateTicket(c echo.Context) error {
 	}
 
 	input, err := parseCreateTicketRequest(projectID, rawCreateTicketRequest{
-		Title:          raw.Title,
-		Description:    raw.Description,
-		StatusID:       raw.StatusID,
-		Priority:       raw.Priority,
-		Type:           raw.Type,
-		WorkflowID:     raw.WorkflowID,
-		ParentTicketID: raw.ParentTicketID,
-		ExternalRef:    raw.ExternalRef,
-		BudgetUSD:      raw.BudgetUSD,
+		Title:           raw.Title,
+		Description:     raw.Description,
+		StatusID:        raw.StatusID,
+		Priority:        raw.Priority,
+		Type:            raw.Type,
+		WorkflowID:      raw.WorkflowID,
+		TargetMachineID: raw.TargetMachineID,
+		ParentTicketID:  raw.ParentTicketID,
+		ExternalRef:     raw.ExternalRef,
+		BudgetUSD:       raw.BudgetUSD,
 	})
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
@@ -197,6 +207,60 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 	})
 }
 
+func (s *Server) handleAgentReportUsage(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsReportUsage)
+	if !ok {
+		return nil
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	if claims.TicketID != ticketID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_TICKET_FORBIDDEN", "agent token can only report usage for its current ticket")
+	}
+
+	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if current.ProjectID != claims.ProjectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	var raw rawAgentReportUsageRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	result, err := s.ticketService.RecordUsage(c.Request().Context(), ticketservice.RecordUsageInput{
+		AgentID:  claims.AgentID,
+		TicketID: ticketID,
+		Usage: ticketing.RawUsageDelta{
+			InputTokens:  raw.InputTokens,
+			OutputTokens: raw.OutputTokens,
+			CostUSD:      raw.CostUSD,
+		},
+	}, s.metrics)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	if err := s.publishTicketEvent(c.Request().Context(), ticketUpdatedEventType, result.Ticket); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"ticket":          mapTicketResponse(result.Ticket),
+		"applied":         result.Applied,
+		"budget_exceeded": result.BudgetExceeded,
+	})
+}
+
 func (s *Server) handleAgentUpdateProject(c echo.Context) error {
 	if s.catalog == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
@@ -235,6 +299,7 @@ func (s *Server) handleAgentUpdateProject(c echo.Context) error {
 		Status:                 current.Status.String(),
 		DefaultWorkflowID:      uuidToStringPointer(current.DefaultWorkflowID),
 		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
+		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
 	}
 	input, err := domain.ParseUpdateProject(projectID, current.OrganizationID, request)

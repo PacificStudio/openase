@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -188,6 +189,21 @@ func (_c *MachineCreate) SetNillableID(v *uuid.UUID) *MachineCreate {
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_c *MachineCreate) SetOrganization(v *Organization) *MachineCreate {
 	return _c.SetOrganizationID(v.ID)
+}
+
+// AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
+func (_c *MachineCreate) AddTargetTicketIDs(ids ...uuid.UUID) *MachineCreate {
+	_c.mutation.AddTargetTicketIDs(ids...)
+	return _c
+}
+
+// AddTargetTickets adds the "target_tickets" edges to the Ticket entity.
+func (_c *MachineCreate) AddTargetTickets(v ...*Ticket) *MachineCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddTargetTicketIDs(ids...)
 }
 
 // Mutation returns the MachineMutation object of the builder.
@@ -383,6 +399,22 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.OrganizationID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.TargetTicketsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.TargetTicketsTable,
+			Columns: []string{machine.TargetTicketsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

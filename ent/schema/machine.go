@@ -44,6 +44,7 @@ func (Machine) Edges() []ent.Edge {
 			Field("organization_id").
 			Unique().
 			Required(),
+		edge.To("target_tickets", Ticket.Type),
 	}
 }
 

@@ -1220,6 +1220,22 @@ func (c *MachineClient) QueryOrganization(_m *Machine) *OrganizationQuery {
 	return query
 }
 
+// QueryTargetTickets queries the target_tickets edge of a Machine.
+func (c *MachineClient) QueryTargetTickets(_m *Machine) *TicketQuery {
+	query := (&TicketClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machine.Table, machine.FieldID, id),
+			sqlgraph.To(ticket.Table, ticket.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, machine.TargetTicketsTable, machine.TargetTicketsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *MachineClient) Hooks() []Hook {
 	return c.hooks.Machine
@@ -2592,6 +2608,22 @@ func (c *TicketClient) QueryWorkflow(_m *Ticket) *WorkflowQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, id),
 			sqlgraph.To(workflow.Table, workflow.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, ticket.WorkflowTable, ticket.WorkflowColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTargetMachine queries the target_machine edge of a Ticket.
+func (c *TicketClient) QueryTargetMachine(_m *Ticket) *MachineQuery {
+	query := (&MachineClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, id),
+			sqlgraph.To(machine.Table, machine.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticket.TargetMachineTable, ticket.TargetMachineColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil

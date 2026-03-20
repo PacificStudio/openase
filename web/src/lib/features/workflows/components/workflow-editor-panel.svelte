@@ -2,14 +2,16 @@
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import Button from '$ui/button/button.svelte'
-  import { AlertCircle, CheckCircle2 } from '@lucide/svelte'
+  import { AlertCircle, CheckCircle2, Bot, PanelRightClose, PanelRightOpen } from '@lucide/svelte'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
   import type { HarnessContent, HarnessVariableGroup, WorkflowSummary } from '../types'
   import type { SkillState } from '../model'
   import HarnessEditor from './harness-editor.svelte'
+  import HarnessAISidebar from './harness-ai-sidebar.svelte'
 
   let {
     selectedWorkflow,
+    projectId,
     harness,
     variableGroups = [],
     skillStates,
@@ -20,11 +22,13 @@
     validating = false,
     isDirty = false,
     onDraftChange,
+    onApplyAssistantDraft,
     onSave,
     onValidate,
     onToggleSkill,
   }: {
     selectedWorkflow?: WorkflowSummary
+    projectId?: string
     harness: HarnessContent | null
     variableGroups?: HarnessVariableGroup[]
     skillStates: SkillState[]
@@ -35,11 +39,13 @@
     validating?: boolean
     isDirty?: boolean
     onDraftChange?: (value: string) => void
+    onApplyAssistantDraft?: (value: string) => void
     onSave?: () => void
     onValidate?: () => void
     onToggleSkill?: (skill: SkillState) => void
   } = $props()
 
+  let showAssistant = $state(true)
   const dictionarySize = $derived(
     variableGroups.reduce((count, group) => count + group.variables.length, 0),
   )
@@ -58,6 +64,20 @@
     </div>
     <div class="flex items-center gap-2">
       <Button
+        variant="ghost"
+        size="sm"
+        onclick={() => (showAssistant = !showAssistant)}
+        disabled={!selectedWorkflow}
+      >
+        {#if showAssistant}
+          <PanelRightClose class="size-4" />
+        {:else}
+          <PanelRightOpen class="size-4" />
+        {/if}
+        <Bot class="size-4" />
+        AI
+      </Button>
+      <Button
         variant="outline"
         size="sm"
         onclick={onValidate}
@@ -71,15 +91,30 @@
     </div>
   </div>
 
-  <div class="flex-1 overflow-hidden">
+  <div class="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
     {#if harness}
-      <HarnessEditor
-        content={harness}
-        filePath={selectedWorkflow?.harnessPath ?? ''}
-        version={selectedWorkflow?.version ?? 1}
-        {variableGroups}
-        onchange={onDraftChange}
-      />
+      <div class="min-h-0 flex-1 overflow-hidden">
+        <HarnessEditor
+          content={harness}
+          filePath={selectedWorkflow?.harnessPath ?? ''}
+          version={selectedWorkflow?.version ?? 1}
+          {variableGroups}
+          onchange={onDraftChange}
+        />
+      </div>
+      {#if showAssistant}
+        <div
+          class="border-border h-[32rem] shrink-0 border-t lg:h-auto lg:w-[28rem] lg:border-t-0 lg:border-l"
+        >
+          <HarnessAISidebar
+            {projectId}
+            workflowId={selectedWorkflow?.id}
+            workflowName={selectedWorkflow?.name}
+            draftContent={harness.rawContent}
+            onApplySuggestion={onApplyAssistantDraft}
+          />
+        </div>
+      {/if}
     {/if}
   </div>
 

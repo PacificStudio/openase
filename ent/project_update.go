@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
@@ -152,6 +153,18 @@ func (_u *ProjectUpdate) SetNillableDefaultAgentProviderID(v *uuid.UUID) *Projec
 // ClearDefaultAgentProviderID clears the value of the "default_agent_provider_id" field.
 func (_u *ProjectUpdate) ClearDefaultAgentProviderID() *ProjectUpdate {
 	_u.mutation.ClearDefaultAgentProviderID()
+	return _u
+}
+
+// SetAccessibleMachineIds sets the "accessible_machine_ids" field.
+func (_u *ProjectUpdate) SetAccessibleMachineIds(v []uuid.UUID) *ProjectUpdate {
+	_u.mutation.SetAccessibleMachineIds(v)
+	return _u
+}
+
+// AppendAccessibleMachineIds appends value to the "accessible_machine_ids" field.
+func (_u *ProjectUpdate) AppendAccessibleMachineIds(v []uuid.UUID) *ProjectUpdate {
+	_u.mutation.AppendAccessibleMachineIds(v)
 	return _u
 }
 
@@ -614,6 +627,14 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.AccessibleMachineIds(); ok {
+		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedAccessibleMachineIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldAccessibleMachineIds, value)
+		})
 	}
 	if value, ok := _u.mutation.MaxConcurrentAgents(); ok {
 		_spec.SetField(project.FieldMaxConcurrentAgents, field.TypeInt, value)
@@ -1249,6 +1270,18 @@ func (_u *ProjectUpdateOne) ClearDefaultAgentProviderID() *ProjectUpdateOne {
 	return _u
 }
 
+// SetAccessibleMachineIds sets the "accessible_machine_ids" field.
+func (_u *ProjectUpdateOne) SetAccessibleMachineIds(v []uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.SetAccessibleMachineIds(v)
+	return _u
+}
+
+// AppendAccessibleMachineIds appends value to the "accessible_machine_ids" field.
+func (_u *ProjectUpdateOne) AppendAccessibleMachineIds(v []uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AppendAccessibleMachineIds(v)
+	return _u
+}
+
 // SetMaxConcurrentAgents sets the "max_concurrent_agents" field.
 func (_u *ProjectUpdateOne) SetMaxConcurrentAgents(v int) *ProjectUpdateOne {
 	_u.mutation.ResetMaxConcurrentAgents()
@@ -1738,6 +1771,14 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.AccessibleMachineIds(); ok {
+		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedAccessibleMachineIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldAccessibleMachineIds, value)
+		})
 	}
 	if value, ok := _u.mutation.MaxConcurrentAgents(); ok {
 		_spec.SetField(project.FieldMaxConcurrentAgents, field.TypeInt, value)

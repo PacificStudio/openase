@@ -59,9 +59,11 @@ type Machine struct {
 type MachineEdges struct {
 	// Organization holds the value of the organization edge.
 	Organization *Organization `json:"organization,omitempty"`
+	// TargetTickets holds the value of the target_tickets edge.
+	TargetTickets []*Ticket `json:"target_tickets,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -73,6 +75,15 @@ func (e MachineEdges) OrganizationOrErr() (*Organization, error) {
 		return nil, &NotFoundError{label: organization.Label}
 	}
 	return nil, &NotLoadedError{edge: "organization"}
+}
+
+// TargetTicketsOrErr returns the TargetTickets value or an error if the edge
+// was not loaded in eager-loading.
+func (e MachineEdges) TargetTicketsOrErr() ([]*Ticket, error) {
+	if e.loadedTypes[1] {
+		return e.TargetTickets, nil
+	}
+	return nil, &NotLoadedError{edge: "target_tickets"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -216,6 +227,11 @@ func (_m *Machine) Value(name string) (ent.Value, error) {
 // QueryOrganization queries the "organization" edge of the Machine entity.
 func (_m *Machine) QueryOrganization() *OrganizationQuery {
 	return NewMachineClient(_m.config).QueryOrganization(_m)
+}
+
+// QueryTargetTickets queries the "target_tickets" edge of the Machine entity.
+func (_m *Machine) QueryTargetTickets() *TicketQuery {
+	return NewMachineClient(_m.config).QueryTargetTickets(_m)
 }
 
 // Update returns a builder for updating this Machine.

@@ -105,6 +105,12 @@ func (_c *ProjectCreate) SetNillableDefaultAgentProviderID(v *uuid.UUID) *Projec
 	return _c
 }
 
+// SetAccessibleMachineIds sets the "accessible_machine_ids" field.
+func (_c *ProjectCreate) SetAccessibleMachineIds(v []uuid.UUID) *ProjectCreate {
+	_c.mutation.SetAccessibleMachineIds(v)
+	return _c
+}
+
 // SetMaxConcurrentAgents sets the "max_concurrent_agents" field.
 func (_c *ProjectCreate) SetMaxConcurrentAgents(v int) *ProjectCreate {
 	_c.mutation.SetMaxConcurrentAgents(v)
@@ -322,6 +328,10 @@ func (_c *ProjectCreate) defaults() {
 		v := project.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.AccessibleMachineIds(); !ok {
+		v := project.DefaultAccessibleMachineIds()
+		_c.mutation.SetAccessibleMachineIds(v)
+	}
 	if _, ok := _c.mutation.MaxConcurrentAgents(); !ok {
 		v := project.DefaultMaxConcurrentAgents
 		_c.mutation.SetMaxConcurrentAgents(v)
@@ -360,6 +370,9 @@ func (_c *ProjectCreate) check() error {
 		if err := project.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Project.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.AccessibleMachineIds(); !ok {
+		return &ValidationError{Name: "accessible_machine_ids", err: errors.New(`ent: missing required field "Project.accessible_machine_ids"`)}
 	}
 	if _, ok := _c.mutation.MaxConcurrentAgents(); !ok {
 		return &ValidationError{Name: "max_concurrent_agents", err: errors.New(`ent: missing required field "Project.max_concurrent_agents"`)}
@@ -417,6 +430,10 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.AccessibleMachineIds(); ok {
+		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)
+		_node.AccessibleMachineIds = value
 	}
 	if value, ok := _c.mutation.MaxConcurrentAgents(); ok {
 		_spec.SetField(project.FieldMaxConcurrentAgents, field.TypeInt, value)

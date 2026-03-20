@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
+	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -263,6 +264,21 @@ func (_u *MachineUpdate) SetOrganization(v *Organization) *MachineUpdate {
 	return _u.SetOrganizationID(v.ID)
 }
 
+// AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
+func (_u *MachineUpdate) AddTargetTicketIDs(ids ...uuid.UUID) *MachineUpdate {
+	_u.mutation.AddTargetTicketIDs(ids...)
+	return _u
+}
+
+// AddTargetTickets adds the "target_tickets" edges to the Ticket entity.
+func (_u *MachineUpdate) AddTargetTickets(v ...*Ticket) *MachineUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTargetTicketIDs(ids...)
+}
+
 // Mutation returns the MachineMutation object of the builder.
 func (_u *MachineUpdate) Mutation() *MachineMutation {
 	return _u.mutation
@@ -272,6 +288,27 @@ func (_u *MachineUpdate) Mutation() *MachineMutation {
 func (_u *MachineUpdate) ClearOrganization() *MachineUpdate {
 	_u.mutation.ClearOrganization()
 	return _u
+}
+
+// ClearTargetTickets clears all "target_tickets" edges to the Ticket entity.
+func (_u *MachineUpdate) ClearTargetTickets() *MachineUpdate {
+	_u.mutation.ClearTargetTickets()
+	return _u
+}
+
+// RemoveTargetTicketIDs removes the "target_tickets" edge to Ticket entities by IDs.
+func (_u *MachineUpdate) RemoveTargetTicketIDs(ids ...uuid.UUID) *MachineUpdate {
+	_u.mutation.RemoveTargetTicketIDs(ids...)
+	return _u
+}
+
+// RemoveTargetTickets removes "target_tickets" edges to Ticket entities.
+func (_u *MachineUpdate) RemoveTargetTickets(v ...*Ticket) *MachineUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTargetTicketIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -424,6 +461,51 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TargetTicketsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.TargetTicketsTable,
+			Columns: []string{machine.TargetTicketsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTargetTicketsIDs(); len(nodes) > 0 && !_u.mutation.TargetTicketsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.TargetTicketsTable,
+			Columns: []string{machine.TargetTicketsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TargetTicketsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.TargetTicketsTable,
+			Columns: []string{machine.TargetTicketsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -683,6 +765,21 @@ func (_u *MachineUpdateOne) SetOrganization(v *Organization) *MachineUpdateOne {
 	return _u.SetOrganizationID(v.ID)
 }
 
+// AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
+func (_u *MachineUpdateOne) AddTargetTicketIDs(ids ...uuid.UUID) *MachineUpdateOne {
+	_u.mutation.AddTargetTicketIDs(ids...)
+	return _u
+}
+
+// AddTargetTickets adds the "target_tickets" edges to the Ticket entity.
+func (_u *MachineUpdateOne) AddTargetTickets(v ...*Ticket) *MachineUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTargetTicketIDs(ids...)
+}
+
 // Mutation returns the MachineMutation object of the builder.
 func (_u *MachineUpdateOne) Mutation() *MachineMutation {
 	return _u.mutation
@@ -692,6 +789,27 @@ func (_u *MachineUpdateOne) Mutation() *MachineMutation {
 func (_u *MachineUpdateOne) ClearOrganization() *MachineUpdateOne {
 	_u.mutation.ClearOrganization()
 	return _u
+}
+
+// ClearTargetTickets clears all "target_tickets" edges to the Ticket entity.
+func (_u *MachineUpdateOne) ClearTargetTickets() *MachineUpdateOne {
+	_u.mutation.ClearTargetTickets()
+	return _u
+}
+
+// RemoveTargetTicketIDs removes the "target_tickets" edge to Ticket entities by IDs.
+func (_u *MachineUpdateOne) RemoveTargetTicketIDs(ids ...uuid.UUID) *MachineUpdateOne {
+	_u.mutation.RemoveTargetTicketIDs(ids...)
+	return _u
+}
+
+// RemoveTargetTickets removes "target_tickets" edges to Ticket entities.
+func (_u *MachineUpdateOne) RemoveTargetTickets(v ...*Ticket) *MachineUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTargetTicketIDs(ids...)
 }
 
 // Where appends a list predicates to the MachineUpdate builder.
@@ -874,6 +992,51 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TargetTicketsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.TargetTicketsTable,
+			Columns: []string{machine.TargetTicketsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTargetTicketsIDs(); len(nodes) > 0 && !_u.mutation.TargetTicketsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.TargetTicketsTable,
+			Columns: []string{machine.TargetTicketsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TargetTicketsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.TargetTicketsTable,
+			Columns: []string{machine.TargetTicketsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -21,15 +21,16 @@ type organizationResponse struct {
 }
 
 type projectResponse struct {
-	ID                     string  `json:"id"`
-	OrganizationID         string  `json:"organization_id"`
-	Name                   string  `json:"name"`
-	Slug                   string  `json:"slug"`
-	Description            string  `json:"description"`
-	Status                 string  `json:"status"`
-	DefaultWorkflowID      *string `json:"default_workflow_id,omitempty"`
-	DefaultAgentProviderID *string `json:"default_agent_provider_id,omitempty"`
-	MaxConcurrentAgents    int     `json:"max_concurrent_agents"`
+	ID                     string   `json:"id"`
+	OrganizationID         string   `json:"organization_id"`
+	Name                   string   `json:"name"`
+	Slug                   string   `json:"slug"`
+	Description            string   `json:"description"`
+	Status                 string   `json:"status"`
+	DefaultWorkflowID      *string  `json:"default_workflow_id,omitempty"`
+	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
+	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
+	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
 }
 
 type machineResponse struct {
@@ -86,13 +87,14 @@ type organizationPatchRequest struct {
 }
 
 type projectPatchRequest struct {
-	Name                   *string `json:"name"`
-	Slug                   *string `json:"slug"`
-	Description            *string `json:"description"`
-	Status                 *string `json:"status"`
-	DefaultWorkflowID      *string `json:"default_workflow_id"`
-	DefaultAgentProviderID *string `json:"default_agent_provider_id"`
-	MaxConcurrentAgents    *int    `json:"max_concurrent_agents"`
+	Name                   *string   `json:"name"`
+	Slug                   *string   `json:"slug"`
+	Description            *string   `json:"description"`
+	Status                 *string   `json:"status"`
+	DefaultWorkflowID      *string   `json:"default_workflow_id"`
+	DefaultAgentProviderID *string   `json:"default_agent_provider_id"`
+	AccessibleMachineIDs   *[]string `json:"accessible_machine_ids"`
+	MaxConcurrentAgents    *int      `json:"max_concurrent_agents"`
 }
 
 type machinePatchRequest struct {
@@ -524,6 +526,7 @@ func (s *Server) patchProject(c echo.Context) error {
 		Status:                 current.Status.String(),
 		DefaultWorkflowID:      uuidToStringPointer(current.DefaultWorkflowID),
 		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
+		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
 	}
 	if patch.Name != nil {
@@ -543,6 +546,9 @@ func (s *Server) patchProject(c echo.Context) error {
 	}
 	if patch.DefaultAgentProviderID != nil {
 		request.DefaultAgentProviderID = patch.DefaultAgentProviderID
+	}
+	if patch.AccessibleMachineIDs != nil {
+		request.AccessibleMachineIDs = cloneStringSlice(*patch.AccessibleMachineIDs)
 	}
 	if patch.MaxConcurrentAgents != nil {
 		request.MaxConcurrentAgents = patch.MaxConcurrentAgents
@@ -948,6 +954,7 @@ func mapProjectResponse(item domain.Project) projectResponse {
 		Status:                 item.Status.String(),
 		DefaultWorkflowID:      uuidToStringPointer(item.DefaultWorkflowID),
 		DefaultAgentProviderID: uuidToStringPointer(item.DefaultAgentProviderID),
+		AccessibleMachineIDs:   uuidSliceToStrings(item.AccessibleMachineIDs),
 		MaxConcurrentAgents:    item.MaxConcurrentAgents,
 	}
 }
@@ -1032,6 +1039,14 @@ func uuidToStringPointer(value *uuid.UUID) *string {
 
 	text := value.String()
 	return &text
+}
+
+func uuidSliceToStrings(values []uuid.UUID) []string {
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		items = append(items, value.String())
+	}
+	return items
 }
 
 func intPointer(value int) *int {

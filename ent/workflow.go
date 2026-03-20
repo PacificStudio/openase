@@ -12,6 +12,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -30,6 +31,8 @@ type Workflow struct {
 	HarnessPath string `json:"harness_path,omitempty"`
 	// Hooks holds the value of the "hooks" field.
 	Hooks map[string]interface{} `json:"hooks,omitempty"`
+	// RequiredMachineLabels holds the value of the "required_machine_labels" field.
+	RequiredMachineLabels pgarray.StringArray `json:"required_machine_labels,omitempty"`
 	// MaxConcurrent holds the value of the "max_concurrent" field.
 	MaxConcurrent int `json:"max_concurrent,omitempty"`
 	// MaxRetryAttempts holds the value of the "max_retry_attempts" field.
@@ -129,6 +132,8 @@ func (*Workflow) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case workflow.FieldHooks:
 			values[i] = new([]byte)
+		case workflow.FieldRequiredMachineLabels:
+			values[i] = new(pgarray.StringArray)
 		case workflow.FieldIsActive:
 			values[i] = new(sql.NullBool)
 		case workflow.FieldMaxConcurrent, workflow.FieldMaxRetryAttempts, workflow.FieldTimeoutMinutes, workflow.FieldStallTimeoutMinutes, workflow.FieldVersion:
@@ -189,6 +194,12 @@ func (_m *Workflow) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.Hooks); err != nil {
 					return fmt.Errorf("unmarshal field hooks: %w", err)
 				}
+			}
+		case workflow.FieldRequiredMachineLabels:
+			if value, ok := values[i].(*pgarray.StringArray); !ok {
+				return fmt.Errorf("unexpected type %T for field required_machine_labels", values[i])
+			} else if value != nil {
+				_m.RequiredMachineLabels = *value
 			}
 		case workflow.FieldMaxConcurrent:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -314,6 +325,9 @@ func (_m *Workflow) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("hooks=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Hooks))
+	builder.WriteString(", ")
+	builder.WriteString("required_machine_labels=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RequiredMachineLabels))
 	builder.WriteString(", ")
 	builder.WriteString("max_concurrent=")
 	builder.WriteString(fmt.Sprintf("%v", _m.MaxConcurrent))

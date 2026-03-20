@@ -30,6 +30,10 @@ func emptyMap() map[string]any {
 	return map[string]any{}
 }
 
+func emptyUUIDs() []uuid.UUID {
+	return []uuid.UUID{}
+}
+
 func currencyColumn() map[string]string {
 	return map[string]string{
 		dialect.Postgres: "numeric(12,2)",

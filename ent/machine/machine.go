@@ -45,6 +45,8 @@ const (
 	FieldResources = "resources"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
+	// EdgeTargetTickets holds the string denoting the target_tickets edge name in mutations.
+	EdgeTargetTickets = "target_tickets"
 	// Table holds the table name of the machine in the database.
 	Table = "machines"
 	// OrganizationTable is the table that holds the organization relation/edge.
@@ -54,6 +56,13 @@ const (
 	OrganizationInverseTable = "organizations"
 	// OrganizationColumn is the table column denoting the organization relation/edge.
 	OrganizationColumn = "organization_id"
+	// TargetTicketsTable is the table that holds the target_tickets relation/edge.
+	TargetTicketsTable = "tickets"
+	// TargetTicketsInverseTable is the table name for the Ticket entity.
+	// It exists in this package in order to avoid circular dependency with the "ticket" package.
+	TargetTicketsInverseTable = "tickets"
+	// TargetTicketsColumn is the table column denoting the target_tickets relation/edge.
+	TargetTicketsColumn = "target_machine_id"
 )
 
 // Columns holds all SQL columns for machine fields.
@@ -205,10 +214,31 @@ func ByOrganizationField(field string, opts ...sql.OrderTermOption) OrderOption 
 		sqlgraph.OrderByNeighborTerms(s, newOrganizationStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByTargetTicketsCount orders the results by target_tickets count.
+func ByTargetTicketsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newTargetTicketsStep(), opts...)
+	}
+}
+
+// ByTargetTickets orders the results by target_tickets terms.
+func ByTargetTickets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newTargetTicketsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newOrganizationStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OrganizationInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, OrganizationTable, OrganizationColumn),
+	)
+}
+func newTargetTicketsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(TargetTicketsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, TargetTicketsTable, TargetTicketsColumn),
 	)
 }

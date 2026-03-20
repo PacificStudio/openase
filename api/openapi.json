@@ -1977,6 +1977,12 @@
                     "projects": {
                       "items": {
                         "properties": {
+                          "accessible_machine_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
                           "default_agent_provider_id": {
                             "nullable": true,
                             "type": "string"
@@ -2097,6 +2103,12 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "accessible_machine_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "default_agent_provider_id": {
                     "nullable": true,
                     "type": "string"
@@ -2137,6 +2149,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2589,6 +2607,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2728,6 +2752,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -2846,6 +2876,13 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "accessible_machine_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
                   "default_agent_provider_id": {
                     "nullable": true,
                     "type": "string"
@@ -2890,6 +2927,12 @@
                   "properties": {
                     "project": {
                       "properties": {
+                        "accessible_machine_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -4358,6 +4401,14 @@
                             "format": "double",
                             "type": "number"
                           },
+                          "cost_tokens_input": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "cost_tokens_output": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
                           "created_at": {
                             "type": "string"
                           },
@@ -4400,6 +4451,38 @@
                           },
                           "description": {
                             "type": "string"
+                          },
+                          "external_links": {
+                            "items": {
+                              "properties": {
+                                "created_at": {
+                                  "type": "string"
+                                },
+                                "external_id": {
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "type": "string"
+                                },
+                                "relation": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
                           },
                           "external_ref": {
                             "type": "string"
@@ -4451,6 +4534,10 @@
                             "type": "string"
                           },
                           "status_name": {
+                            "type": "string"
+                          },
+                          "target_machine_id": {
+                            "nullable": true,
                             "type": "string"
                           },
                           "title": {
@@ -4812,6 +4899,14 @@
                           "format": "double",
                           "type": "number"
                         },
+                        "cost_tokens_input": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
                         "created_at": {
                           "type": "string"
                         },
@@ -4854,6 +4949,38 @@
                         },
                         "description": {
                           "type": "string"
+                        },
+                        "external_links": {
+                          "items": {
+                            "properties": {
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "external_id": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "relation": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         },
                         "external_ref": {
                           "type": "string"
@@ -4905,6 +5032,10 @@
                           "type": "string"
                         },
                         "status_name": {
+                          "type": "string"
+                        },
+                        "target_machine_id": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "title": {
@@ -5048,6 +5179,12 @@
                           "project_id": {
                             "type": "string"
                           },
+                          "required_machine_labels": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
                           "stall_timeout_minutes": {
                             "type": "integer"
                           },
@@ -5184,6 +5321,12 @@
                   "pickup_status_id": {
                     "type": "string"
                   },
+                  "required_machine_labels": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "stall_timeout_minutes": {
                     "nullable": true,
                     "type": "integer"
@@ -5246,6 +5389,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "required_machine_labels": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "stall_timeout_minutes": {
                           "type": "integer"
@@ -6035,6 +6184,14 @@
                           "format": "double",
                           "type": "number"
                         },
+                        "cost_tokens_input": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
                         "created_at": {
                           "type": "string"
                         },
@@ -6077,6 +6234,38 @@
                         },
                         "description": {
                           "type": "string"
+                        },
+                        "external_links": {
+                          "items": {
+                            "properties": {
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "external_id": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "relation": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         },
                         "external_ref": {
                           "type": "string"
@@ -6128,6 +6317,10 @@
                           "type": "string"
                         },
                         "status_name": {
+                          "type": "string"
+                        },
+                        "target_machine_id": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "title": {
@@ -6211,6 +6404,108 @@
         ]
       }
     },
+    "/api/v1/system/dashboard": {
+      "get": {
+        "operationId": "getSystemDashboard",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "memory": {
+                      "properties": {
+                        "alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "gc_cycles": {
+                          "maximum": 4294967295,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "goroutines": {
+                          "type": "integer"
+                        },
+                        "heap_alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_idle_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_inuse_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "heap_released_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "next_gc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "observed_at": {
+                          "type": "string"
+                        },
+                        "stack_inuse_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sys_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "total_alloc_bytes": {
+                          "maximum": 18446744073709552000,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get process memory and runtime dashboard metrics response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get process memory and runtime dashboard metrics",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/api/v1/tickets/{ticketId}": {
       "patch": {
         "operationId": "updateTicket",
@@ -6257,6 +6552,10 @@
                     "type": "string"
                   },
                   "status_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "target_machine_id": {
                     "nullable": true,
                     "type": "string"
                   },
@@ -6325,6 +6624,14 @@
                           "format": "double",
                           "type": "number"
                         },
+                        "cost_tokens_input": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
                         "created_at": {
                           "type": "string"
                         },
@@ -6367,6 +6674,38 @@
                         },
                         "description": {
                           "type": "string"
+                        },
+                        "external_links": {
+                          "items": {
+                            "properties": {
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "external_id": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "relation": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         },
                         "external_ref": {
                           "type": "string"
@@ -6418,6 +6757,10 @@
                           "type": "string"
                         },
                         "status_name": {
+                          "type": "string"
+                        },
+                        "target_machine_id": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "title": {
@@ -6519,6 +6862,278 @@
         ]
       }
     },
+    "/api/v1/tickets/{ticketId}/external-links": {
+      "post": {
+        "operationId": "addTicketExternalLink",
+        "parameters": [
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "external_id": {
+                    "type": "string"
+                  },
+                  "relation": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "status": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "title": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Add an external link to a ticket request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "external_link": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "external_id": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "relation": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Add an external link to a ticket response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Add an external link to a ticket",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/tickets/{ticketId}/external-links/{externalLinkId}": {
+      "delete": {
+        "operationId": "deleteTicketExternalLink",
+        "parameters": [
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "External link ID.",
+            "in": "path",
+            "name": "externalLinkId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "deleted_external_link_id": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete an external link from a ticket response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Delete an external link from a ticket",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
     "/api/v1/workflows/{workflowId}": {
       "delete": {
         "operationId": "deleteWorkflow",
@@ -6577,6 +7192,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "required_machine_labels": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "stall_timeout_minutes": {
                           "type": "integer"
@@ -6736,6 +7357,12 @@
                         "project_id": {
                           "type": "string"
                         },
+                        "required_machine_labels": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "stall_timeout_minutes": {
                           "type": "integer"
                         },
@@ -6870,6 +7497,13 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "required_machine_labels": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
                   "stall_timeout_minutes": {
                     "nullable": true,
                     "type": "integer"
@@ -6933,6 +7567,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "required_machine_labels": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "stall_timeout_minutes": {
                           "type": "integer"
@@ -7567,6 +8207,9 @@
     }
   },
   "tags": [
+    {
+      "name": "system"
+    },
     {
       "name": "catalog"
     },

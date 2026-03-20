@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -39,6 +40,8 @@ type Ticket struct {
 	Type ticket.Type `json:"type,omitempty"`
 	// WorkflowID holds the value of the "workflow_id" field.
 	WorkflowID *uuid.UUID `json:"workflow_id,omitempty"`
+	// TargetMachineID holds the value of the "target_machine_id" field.
+	TargetMachineID *uuid.UUID `json:"target_machine_id,omitempty"`
 	// AssignedAgentID holds the value of the "assigned_agent_id" field.
 	AssignedAgentID *uuid.UUID `json:"assigned_agent_id,omitempty"`
 	// CreatedBy holds the value of the "created_by" field.
@@ -93,6 +96,8 @@ type TicketEdges struct {
 	Status *TicketStatus `json:"status,omitempty"`
 	// Workflow holds the value of the workflow edge.
 	Workflow *Workflow `json:"workflow,omitempty"`
+	// TargetMachine holds the value of the target_machine edge.
+	TargetMachine *Machine `json:"target_machine,omitempty"`
 	// AssignedAgent holds the value of the assigned_agent edge.
 	AssignedAgent *Agent `json:"assigned_agent,omitempty"`
 	// Parent holds the value of the parent edge.
@@ -113,7 +118,7 @@ type TicketEdges struct {
 	IncomingDependencies []*TicketDependency `json:"incoming_dependencies,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [12]bool
+	loadedTypes [13]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -149,12 +154,23 @@ func (e TicketEdges) WorkflowOrErr() (*Workflow, error) {
 	return nil, &NotLoadedError{edge: "workflow"}
 }
 
+// TargetMachineOrErr returns the TargetMachine value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e TicketEdges) TargetMachineOrErr() (*Machine, error) {
+	if e.TargetMachine != nil {
+		return e.TargetMachine, nil
+	} else if e.loadedTypes[3] {
+		return nil, &NotFoundError{label: machine.Label}
+	}
+	return nil, &NotLoadedError{edge: "target_machine"}
+}
+
 // AssignedAgentOrErr returns the AssignedAgent value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e TicketEdges) AssignedAgentOrErr() (*Agent, error) {
 	if e.AssignedAgent != nil {
 		return e.AssignedAgent, nil
-	} else if e.loadedTypes[3] {
+	} else if e.loadedTypes[4] {
 		return nil, &NotFoundError{label: agent.Label}
 	}
 	return nil, &NotLoadedError{edge: "assigned_agent"}
@@ -165,7 +181,7 @@ func (e TicketEdges) AssignedAgentOrErr() (*Agent, error) {
 func (e TicketEdges) ParentOrErr() (*Ticket, error) {
 	if e.Parent != nil {
 		return e.Parent, nil
-	} else if e.loadedTypes[4] {
+	} else if e.loadedTypes[5] {
 		return nil, &NotFoundError{label: ticket.Label}
 	}
 	return nil, &NotLoadedError{edge: "parent"}
@@ -174,7 +190,7 @@ func (e TicketEdges) ParentOrErr() (*Ticket, error) {
 // ChildrenOrErr returns the Children value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) ChildrenOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.Children, nil
 	}
 	return nil, &NotLoadedError{edge: "children"}
@@ -183,7 +199,7 @@ func (e TicketEdges) ChildrenOrErr() ([]*Ticket, error) {
 // RepoScopesOrErr returns the RepoScopes value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) RepoScopesOrErr() ([]*TicketRepoScope, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.RepoScopes, nil
 	}
 	return nil, &NotLoadedError{edge: "repo_scopes"}
@@ -192,7 +208,7 @@ func (e TicketEdges) RepoScopesOrErr() ([]*TicketRepoScope, error) {
 // ExternalLinksOrErr returns the ExternalLinks value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) ExternalLinksOrErr() ([]*TicketExternalLink, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.ExternalLinks, nil
 	}
 	return nil, &NotLoadedError{edge: "external_links"}
@@ -201,7 +217,7 @@ func (e TicketEdges) ExternalLinksOrErr() ([]*TicketExternalLink, error) {
 // AgentTokensOrErr returns the AgentTokens value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) AgentTokensOrErr() ([]*AgentToken, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.AgentTokens, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_tokens"}
@@ -210,7 +226,7 @@ func (e TicketEdges) AgentTokensOrErr() ([]*AgentToken, error) {
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -219,7 +235,7 @@ func (e TicketEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
 // OutgoingDependenciesOrErr returns the OutgoingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.OutgoingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "outgoing_dependencies"}
@@ -228,7 +244,7 @@ func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
 // IncomingDependenciesOrErr returns the IncomingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) IncomingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.IncomingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "incoming_dependencies"}
@@ -239,7 +255,7 @@ func (*Ticket) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case ticket.FieldWorkflowID, ticket.FieldAssignedAgentID, ticket.FieldParentTicketID:
+		case ticket.FieldWorkflowID, ticket.FieldTargetMachineID, ticket.FieldAssignedAgentID, ticket.FieldParentTicketID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case ticket.FieldMetadata:
 			values[i] = new([]byte)
@@ -324,6 +340,13 @@ func (_m *Ticket) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.WorkflowID = new(uuid.UUID)
 				*_m.WorkflowID = *value.S.(*uuid.UUID)
+			}
+		case ticket.FieldTargetMachineID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field target_machine_id", values[i])
+			} else if value.Valid {
+				_m.TargetMachineID = new(uuid.UUID)
+				*_m.TargetMachineID = *value.S.(*uuid.UUID)
 			}
 		case ticket.FieldAssignedAgentID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -480,6 +503,11 @@ func (_m *Ticket) QueryWorkflow() *WorkflowQuery {
 	return NewTicketClient(_m.config).QueryWorkflow(_m)
 }
 
+// QueryTargetMachine queries the "target_machine" edge of the Ticket entity.
+func (_m *Ticket) QueryTargetMachine() *MachineQuery {
+	return NewTicketClient(_m.config).QueryTargetMachine(_m)
+}
+
 // QueryAssignedAgent queries the "assigned_agent" edge of the Ticket entity.
 func (_m *Ticket) QueryAssignedAgent() *AgentQuery {
 	return NewTicketClient(_m.config).QueryAssignedAgent(_m)
@@ -571,6 +599,11 @@ func (_m *Ticket) String() string {
 	builder.WriteString(", ")
 	if v := _m.WorkflowID; v != nil {
 		builder.WriteString("workflow_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.TargetMachineID; v != nil {
+		builder.WriteString("target_machine_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
