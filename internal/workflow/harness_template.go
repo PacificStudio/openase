@@ -105,8 +105,28 @@ type HarnessProjectWorkflowData struct {
 	RoleName        string
 	RoleDescription string
 	PickupStatus    string
+	FinishStatus    string
+	HarnessPath     string
+	HarnessContent  string
+	Skills          []string
 	MaxConcurrent   int
 	CurrentActive   int
+	RecentTickets   []HarnessProjectWorkflowTicketData
+}
+
+type HarnessProjectWorkflowTicketData struct {
+	Identifier        string
+	Title             string
+	Status            string
+	Priority          string
+	Type              string
+	AttemptCount      int
+	ConsecutiveErrors int
+	RetryPaused       bool
+	PauseReason       string
+	CreatedAt         string
+	StartedAt         string
+	CompletedAt       string
 }
 
 type HarnessProjectStatusData struct {
@@ -240,7 +260,8 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		WithWorkflows(func(query *ent.WorkflowQuery) {
 			query.
 				Order(ent.Asc(entworkflow.FieldName)).
-				WithPickupStatus()
+				WithPickupStatus().
+				WithFinishStatus()
 		}).
 		WithStatuses(func(query *ent.TicketStatusQuery) {
 			query.
@@ -421,8 +442,25 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "project.workflows[].role_name", Type: "string", Description: "角色名称", Example: "fullstack-developer"},
 				{Path: "project.workflows[].role_description", Type: "string", Description: "角色描述", Example: "Implement product changes end to end, covering backend, frontend, and verification."},
 				{Path: "project.workflows[].pickup_status", Type: "string", Description: "Workflow 的 pickup 状态", Example: "Todo"},
+				{Path: "project.workflows[].finish_status", Type: "string", Description: "Workflow 的 finish 状态", Example: "Done"},
+				{Path: "project.workflows[].harness_path", Type: "string", Description: "Workflow Harness 文件路径", Example: ".openase/harnesses/coding.md"},
+				{Path: "project.workflows[].harness_content", Type: "string", Description: "Workflow 当前 Harness 内容"},
+				{Path: "project.workflows[].skills", Type: "list", Description: "当前 Workflow Harness 绑定的技能列表"},
 				{Path: "project.workflows[].max_concurrent", Type: "int", Description: "最大并发数", Example: "3"},
 				{Path: "project.workflows[].current_active", Type: "int", Description: "当前活跃工单数", Example: "1"},
+				{Path: "project.workflows[].recent_tickets", Type: "list", Description: "最近使用该 Workflow 的工单历史"},
+				{Path: "project.workflows[].recent_tickets[].identifier", Type: "string", Description: "工单标识", Example: "ASE-40"},
+				{Path: "project.workflows[].recent_tickets[].title", Type: "string", Description: "工单标题", Example: "Implement auth boundary parsing"},
+				{Path: "project.workflows[].recent_tickets[].status", Type: "string", Description: "当前状态", Example: "Done"},
+				{Path: "project.workflows[].recent_tickets[].priority", Type: "string", Description: "优先级", Example: "high"},
+				{Path: "project.workflows[].recent_tickets[].type", Type: "string", Description: "工单类型", Example: "bugfix"},
+				{Path: "project.workflows[].recent_tickets[].attempt_count", Type: "int", Description: "尝试次数", Example: "2"},
+				{Path: "project.workflows[].recent_tickets[].consecutive_errors", Type: "int", Description: "连续失败次数", Example: "1"},
+				{Path: "project.workflows[].recent_tickets[].retry_paused", Type: "bool", Description: "是否已暂停重试", Example: "false"},
+				{Path: "project.workflows[].recent_tickets[].pause_reason", Type: "string", Description: "暂停原因", Example: "budget_exhausted"},
+				{Path: "project.workflows[].recent_tickets[].created_at", Type: "string", Description: "创建时间 ISO 8601", Example: "2026-03-19T10:30:00Z"},
+				{Path: "project.workflows[].recent_tickets[].started_at", Type: "string", Description: "开始执行时间 ISO 8601", Example: "2026-03-19T10:40:00Z"},
+				{Path: "project.workflows[].recent_tickets[].completed_at", Type: "string", Description: "完成时间 ISO 8601", Example: "2026-03-19T10:52:00Z"},
 				{Path: "project.statuses", Type: "list", Description: "项目状态列表"},
 				{Path: "project.statuses[].name", Type: "string", Description: "状态名", Example: "Backlog"},
 				{Path: "project.statuses[].color", Type: "string", Description: "状态颜色", Example: "#6B7280"},
@@ -665,18 +703,56 @@ func (s *Service) mapHarnessProjectWorkflows(ctx context.Context, workflows []*e
 			return nil, fmt.Errorf("read workflow harness for project context: %w", err)
 		}
 		roleName := extractWorkflowRoleName(harnessContent, workflowItem.Name)
+		skills, err := ParseHarnessSkills(harnessContent)
+		if err != nil {
+			return nil, fmt.Errorf("parse workflow skills for project context: %w", err)
+		}
+		recentTickets, err := s.listHarnessWorkflowRecentTickets(ctx, workflowItem.ID, 5)
+		if err != nil {
+			return nil, err
+		}
+		finishStatus := ""
+		if workflowItem.Edges.FinishStatus != nil {
+			finishStatus = workflowItem.Edges.FinishStatus.Name
+		}
 		items = append(items, HarnessProjectWorkflowData{
 			Name:            workflowItem.Name,
 			Type:            workflowItem.Type.String(),
 			RoleName:        roleName,
 			RoleDescription: extractWorkflowRoleDescription(harnessContent),
 			PickupStatus:    edgeTicketStatusName(workflowItem.Edges.PickupStatus),
+			FinishStatus:    finishStatus,
+			HarnessPath:     workflowItem.HarnessPath,
+			HarnessContent:  harnessContent,
+			Skills:          skills,
 			MaxConcurrent:   workflowItem.MaxConcurrent,
 			CurrentActive:   activeCountByWorkflow[workflowItem.ID],
+			RecentTickets:   recentTickets,
 		})
 	}
 
 	return items, nil
+}
+
+func (s *Service) listHarnessWorkflowRecentTickets(ctx context.Context, workflowID uuid.UUID, limit int) ([]HarnessProjectWorkflowTicketData, error) {
+	query := s.client.Ticket.Query().
+		Where(entticket.WorkflowIDEQ(workflowID)).
+		Order(ent.Desc(entticket.FieldCreatedAt)).
+		WithStatus()
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	items, err := query.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list workflow history for harness render: %w", err)
+	}
+
+	tickets := make([]HarnessProjectWorkflowTicketData, 0, len(items))
+	for _, item := range items {
+		tickets = append(tickets, mapHarnessProjectWorkflowTicket(item))
+	}
+	return tickets, nil
 }
 
 func mapHarnessProjectStatuses(statuses []*ent.TicketStatus) []HarnessProjectStatusData {
@@ -963,8 +1039,34 @@ func projectWorkflowMaps(items []HarnessProjectWorkflowData) []map[string]any {
 			"role_name":        item.RoleName,
 			"role_description": item.RoleDescription,
 			"pickup_status":    item.PickupStatus,
+			"finish_status":    item.FinishStatus,
+			"harness_path":     item.HarnessPath,
+			"harness_content":  item.HarnessContent,
+			"skills":           append([]string(nil), item.Skills...),
 			"max_concurrent":   item.MaxConcurrent,
 			"current_active":   item.CurrentActive,
+			"recent_tickets":   projectWorkflowTicketMaps(item.RecentTickets),
+		})
+	}
+	return result
+}
+
+func projectWorkflowTicketMaps(items []HarnessProjectWorkflowTicketData) []map[string]any {
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		result = append(result, map[string]any{
+			"identifier":         item.Identifier,
+			"title":              item.Title,
+			"status":             item.Status,
+			"priority":           item.Priority,
+			"type":               item.Type,
+			"attempt_count":      item.AttemptCount,
+			"consecutive_errors": item.ConsecutiveErrors,
+			"retry_paused":       item.RetryPaused,
+			"pause_reason":       item.PauseReason,
+			"created_at":         item.CreatedAt,
+			"started_at":         item.StartedAt,
+			"completed_at":       item.CompletedAt,
 		})
 	}
 	return result
@@ -1032,6 +1134,23 @@ func accessibleMachineMaps(items []HarnessAccessibleMachineData) []map[string]an
 	return result
 }
 
+func mapHarnessProjectWorkflowTicket(item *ent.Ticket) HarnessProjectWorkflowTicketData {
+	return HarnessProjectWorkflowTicketData{
+		Identifier:        item.Identifier,
+		Title:             item.Title,
+		Status:            edgeTicketStatusName(item.Edges.Status),
+		Priority:          item.Priority.String(),
+		Type:              item.Type.String(),
+		AttemptCount:      normalizeAttemptCount(item.AttemptCount),
+		ConsecutiveErrors: item.ConsecutiveErrors,
+		RetryPaused:       item.RetryPaused,
+		PauseReason:       item.PauseReason,
+		CreatedAt:         item.CreatedAt.UTC().Format(time.RFC3339),
+		StartedAt:         formatOptionalTime(item.StartedAt),
+		CompletedAt:       formatOptionalTime(item.CompletedAt),
+	}
+}
+
 func cloneResourceMap(resources map[string]any) map[string]any {
 	if len(resources) == 0 {
 		return map[string]any{}
@@ -1042,6 +1161,13 @@ func cloneResourceMap(resources map[string]any) map[string]any {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func formatOptionalTime(value *time.Time) string {
+	if value == nil || value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
 }
 
 func filterMarkdownEscape(_ *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {

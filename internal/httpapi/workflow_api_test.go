@@ -455,6 +455,7 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	}
 	backlogID := findStatusIDByName(t, statuses, "Backlog")
 	todoID := findStatusIDByName(t, statuses, "Todo")
+	inReviewID := findStatusIDByName(t, statuses, "In Review")
 	doneID := findStatusIDByName(t, statuses, "Done")
 
 	templateContent := `---
@@ -463,6 +464,9 @@ workflow:
 status:
   pickup: "Todo"
   finish: "Done"
+skills:
+  - openase-platform
+  - commit
 ---
 Implement product changes end to end.
 
@@ -476,6 +480,8 @@ Agent {{ agent.name }} {{ agent.provider }} {{ agent.adapter_type }} {{ agent.mo
 Machine {{ machine.name }} {{ accessible_machines[0].ssh_user }}
 Workflow {{ workflow.name }} {{ workflow.type }} {{ workflow.role_name }} {{ workflow.pickup_status }} {{ workflow.finish_status }}
 ProjectWorkflows {% for wf in project.workflows %}{{ wf.role_name }}:{{ wf.pickup_status }}:{{ wf.current_active }}/{{ wf.max_concurrent }}:{{ wf.role_description }}|{% endfor %}
+WorkflowArtifacts {% for wf in project.workflows %}{{ wf.role_name }}={{ wf.finish_status }}:{{ wf.harness_path }}:{{ wf.skills | join(",") }}|{% endfor %}
+WorkflowHistory {% for wf in project.workflows %}{{ wf.role_name }}={% for recent in wf.recent_tickets %}{{ recent.identifier }}:{{ recent.status }}:{{ recent.retry_paused }}:{{ recent.consecutive_errors }}|{% endfor %};{% endfor %}
 ProjectStatuses {{ project.statuses | map(attribute="name") | join(",") }} first={{ project.statuses[0].color }}
 ProjectMachines {% for machine in project.machines %}{{ machine.name }}:{{ machine.status }}:{{ machine.labels | join(",") }}|{% endfor %}
 Platform {{ platform.api_url }} {{ platform.project_id }} {{ platform.ticket_id }}
@@ -568,6 +574,23 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetAssignedAgentID(agent.ID).
 		Save(ctx); err != nil {
 		t.Fatalf("create active workflow ticket: %v", err)
+	}
+	if _, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-41").
+		SetTitle("Tighten auth retry guidance").
+		SetStatusID(inReviewID).
+		SetPriority(entticket.PriorityHigh).
+		SetType(entticket.TypeBugfix).
+		SetCreatedBy("user:gary").
+		SetWorkflowID(createdWorkflow.ID).
+		SetAttemptCount(3).
+		SetConsecutiveErrors(2).
+		SetRetryPaused(true).
+		SetPauseReason("needs_human_review").
+		SetStartedAt(time.Date(2026, 3, 20, 8, 0, 0, 0, time.UTC)).
+		Save(ctx); err != nil {
+		t.Fatalf("create paused workflow history ticket: %v", err)
 	}
 
 	parentTicket, err := client.Ticket.Create().
@@ -684,6 +707,8 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Machine gpu-01 openase",
 		"Workflow Coding Workflow coding fullstack-developer Todo Done",
 		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
+		fmt.Sprintf("WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/%s/coding-workflow.md:openase-platform,commit|dispatcher=Backlog:.openase/harnesses/%s/dispatcher-workflow.md:|", project.ID, project.ID),
+		"WorkflowHistory fullstack-developer=ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
 		"ProjectStatuses Backlog,Todo,In Progress,In Review,Done,Cancelled first=#6B7280",
 		"ProjectMachines gpu-01:current:gpu,a100|storage:accessible:storage,nfs|",
 		fmt.Sprintf("Platform http://localhost:19836/api/v1 %s %s", project.ID, ticketItem.ID),

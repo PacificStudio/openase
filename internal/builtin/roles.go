@@ -123,8 +123,57 @@ Evaluate Backlog tickets, choose the best role workflow, and move each ticket in
 	}
 }
 
+func buildHarnessOptimizerRoleTemplate() RoleTemplate {
+	content := strings.TrimSpace(`
+---
+workflow:
+  name: "Harness Optimizer"
+  type: "refine-harness"
+  role: "harness-optimizer"
+status:
+  pickup: "Todo"
+  finish: "Done"
+skills:
+  - openase-platform
+  - pull
+  - commit
+  - push
+platform_access:
+  allowed:
+    - "tickets.create"
+    - "tickets.list"
+    - "tickets.update.self"
+---
+
+# Harness Optimizer
+
+Improve an existing workflow harness using recent execution history, current harness content, and bound skills from the target workflow.
+
+## Responsibilities
+
+- Inspect project.workflows to find the target workflow named in the ticket and review its harness_content, harness_path, skills, and recent_tickets.
+- Identify repeat retries, blocked tickets, and scope drift before changing the harness.
+- Create a focused validation ticket after editing the target harness so the new instructions get exercised quickly.
+
+## Delivery Standard
+
+- Change only the relevant file under .openase/harnesses/ and keep the diff reviewable.
+- Prefer evidence-backed improvements from recent workflow history over speculative rewrites.
+`) + "\n"
+
+	return RoleTemplate{
+		Slug:         "harness-optimizer",
+		Name:         "Harness Optimizer",
+		WorkflowType: "refine-harness",
+		Summary:      "Improve an existing workflow harness using recent execution history, current harness content, and bound skills from the target workflow.",
+		HarnessPath:  filepath.ToSlash(filepath.Join(".openase", "harnesses", "roles", "harness-optimizer.md")),
+		Content:      content,
+	}
+}
+
 var builtinRoles = []RoleTemplate{
 	buildDispatcherRoleTemplate(),
+	buildHarnessOptimizerRoleTemplate(),
 	buildRoleTemplate(
 		"fullstack-developer",
 		"Fullstack Developer",
