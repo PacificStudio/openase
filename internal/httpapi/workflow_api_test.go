@@ -26,7 +26,7 @@ import (
 func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
 		t.Fatalf("create git marker: %v", err)
 	}
 
@@ -113,6 +113,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if createResp.Workflow.HarnessContent == nil || *createResp.Workflow.HarnessContent == "" {
 		t.Fatalf("expected harness content in create response, got %+v", createResp.Workflow)
 	}
+	//nolint:gosec // test reads files from a controlled temp repository
 	activateMarker, err := os.ReadFile(activateMarkerPath)
 	if err != nil {
 		t.Fatalf("read activate marker: %v", err)
@@ -122,6 +123,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 
 	harnessAbsPath := filepath.Join(repoRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))
+	//nolint:gosec // test reads files from a controlled temp repository
 	fileContent, err := os.ReadFile(harnessAbsPath)
 	if err != nil {
 		t.Fatalf("read created harness file: %v", err)
@@ -198,6 +200,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if harnessResp.Harness.Version != 2 {
 		t.Fatalf("expected harness version 2 after API update, got %+v", harnessResp.Harness)
 	}
+	//nolint:gosec // test reads files from a controlled temp repository
 	reloadMarker, err := os.ReadFile(reloadMarkerPath)
 	if err != nil {
 		t.Fatalf("read reload marker after API update: %v", err)
@@ -234,11 +237,12 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 
 	externalContent := "---\nworkflow:\n  role: coding\n---\n\n# Updated on disk\n"
-	if err := os.WriteFile(harnessAbsPath, []byte(externalContent), 0o644); err != nil {
+	if err := os.WriteFile(harnessAbsPath, []byte(externalContent), 0o600); err != nil {
 		t.Fatalf("write external harness change: %v", err)
 	}
 
 	waitForWorkflowVersion(t, server, createResp.Workflow.ID, 3)
+	//nolint:gosec // test reads files from a controlled temp repository
 	reloadMarker, err = os.ReadFile(reloadMarkerPath)
 	if err != nil {
 		t.Fatalf("read reload marker after external update: %v", err)
@@ -414,7 +418,7 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
 		t.Fatalf("create git marker: %v", err)
 	}
 

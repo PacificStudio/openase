@@ -2,6 +2,7 @@ package hradvisor
 
 import "time"
 
+// Snapshot is the project state analyzed by the HR advisor.
 type Snapshot struct {
 	Project         ProjectContext
 	Tickets         []TicketContext
@@ -11,6 +12,7 @@ type Snapshot struct {
 	ActiveRoleSlugs []string
 }
 
+// ProjectContext summarizes the project-level planning signals.
 type ProjectContext struct {
 	Name                string
 	Description         string
@@ -18,6 +20,7 @@ type ProjectContext struct {
 	MaxConcurrentAgents int
 }
 
+// TicketContext summarizes one ticket for staffing analysis.
 type TicketContext struct {
 	Identifier        string
 	Type              string
@@ -27,28 +30,33 @@ type TicketContext struct {
 	RetryPaused       bool
 }
 
+// WorkflowContext summarizes one workflow for staffing analysis.
 type WorkflowContext struct {
 	Name     string
 	Type     string
 	IsActive bool
 }
 
+// AgentContext summarizes one agent for staffing analysis.
 type AgentContext struct {
 	Status string
 }
 
+// ActivityContext summarizes recent activity for staffing analysis.
 type ActivityContext struct {
 	EventType string
 	Message   string
 	CreatedAt time.Time
 }
 
+// Analysis is the staffing recommendation result produced by the advisor.
 type Analysis struct {
 	Summary         Summary
 	Recommendations []Recommendation
 	Staffing        StaffingPlan
 }
 
+// Summary captures aggregate staffing signals from a snapshot.
 type Summary struct {
 	OpenTickets         int
 	CodingTickets       int
@@ -60,6 +68,7 @@ type Summary struct {
 	ActiveWorkflowTypes []string
 }
 
+// Recommendation suggests adding or adjusting one role workflow.
 type Recommendation struct {
 	RoleSlug              string
 	Priority              string
@@ -69,6 +78,7 @@ type Recommendation struct {
 	SuggestedWorkflowName string
 }
 
+// StaffingPlan estimates headcount split by role family.
 type StaffingPlan struct {
 	Developers int
 	QA         int

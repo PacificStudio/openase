@@ -19,7 +19,7 @@ import (
 func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
 		t.Fatalf("create git marker: %v", err)
 	}
 
@@ -153,6 +153,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if len(refreshResp.InjectedSkills) != 2 {
 		t.Fatalf("expected 2 injected skills, got %+v", refreshResp)
 	}
+	//nolint:gosec // test reads a file from a controlled temp workspace
 	refreshedSkill, err := os.ReadFile(filepath.Join(workspaceRoot, ".claude", "skills", "review-code", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read refreshed skill: %v", err)
@@ -184,6 +185,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		t.Fatalf("expected commit to be updated, got %+v", harvestResp)
 	}
 
+	//nolint:gosec // test reads a file from a controlled temp repository
 	harvestedSkill, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "deploy-docker", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read harvested skill: %v", err)
@@ -191,6 +193,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if string(harvestedSkill) == "" {
 		t.Fatalf("expected harvested skill content")
 	}
+	//nolint:gosec // test reads a file from a controlled temp repository
 	updatedCommit, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "commit", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read updated commit skill: %v", err)
@@ -287,7 +290,7 @@ func TestBuiltinRoleLibraryRoute(t *testing.T) {
 func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
 		t.Fatalf("create git marker: %v", err)
 	}
 
@@ -369,10 +372,10 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 func writeSkillFixture(t *testing.T, repoRoot string, name string, content string) {
 	t.Helper()
 	path := filepath.Join(repoRoot, ".openase", "skills", name, "SKILL.md")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("create skill fixture parent: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write skill fixture: %v", err)
 	}
 }
@@ -380,10 +383,10 @@ func writeSkillFixture(t *testing.T, repoRoot string, name string, content strin
 func writeWorkspaceSkill(t *testing.T, workspaceRoot string, adapterDir string, name string, content string) {
 	t.Helper()
 	path := filepath.Join(workspaceRoot, adapterDir, "skills", name, "SKILL.md")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("create workspace skill parent: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write workspace skill: %v", err)
 	}
 }

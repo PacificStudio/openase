@@ -58,8 +58,8 @@ func newUpCommandWithDeps(options *rootOptions, deps upCommandDeps) *cobra.Comma
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "openase service applied via %s\n", manager.Platform())
-			return nil
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "openase service applied via %s\n", manager.Platform())
+			return err
 		},
 	}
 }
@@ -77,8 +77,8 @@ func newDownCommand(_ *rootOptions) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "openase service stopped via %s\n", manager.Platform())
-			return nil
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "openase service stopped via %s\n", manager.Platform())
+			return err
 		},
 	}
 }
@@ -96,8 +96,8 @@ func newRestartCommand(_ *rootOptions) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "openase service restarted via %s\n", manager.Platform())
-			return nil
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "openase service restarted via %s\n", manager.Platform())
+			return err
 		},
 	}
 }

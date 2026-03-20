@@ -28,7 +28,7 @@ import (
 func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
 		t.Fatalf("create git marker: %v", err)
 	}
 

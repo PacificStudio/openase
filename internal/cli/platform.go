@@ -93,7 +93,7 @@ func newTicketCommand() *cobra.Command {
 
 func newTicketCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	options := &ticketCommandOptions{}
-	client := platformClient{httpClient: deps.httpClient}
+	client := platformClient(deps)
 
 	command := &cobra.Command{
 		Use:   "ticket",
@@ -114,7 +114,7 @@ func newProjectCommand() *cobra.Command {
 
 func newProjectCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	options := &projectCommandOptions{}
-	client := platformClient{httpClient: deps.httpClient}
+	client := platformClient(deps)
 
 	command := &cobra.Command{
 		Use:   "project",
@@ -586,7 +586,9 @@ func (client platformClient) doJSON(ctx context.Context, platform platformContex
 	if err != nil {
 		return nil, fmt.Errorf("%s %s: %w", method, path, err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		_ = response.Body.Close()
+	}()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {

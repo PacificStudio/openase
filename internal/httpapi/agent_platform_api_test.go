@@ -30,7 +30,7 @@ import (
 func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, currentTicketID, doneTicketID := seedAgentPlatformHTTPFixture(t, ctx, client)
+	projectID, agentID, currentTicketID, doneTicketID := seedAgentPlatformHTTPFixture(ctx, t, client)
 	platformService := agentplatform.NewService(client)
 
 	server := NewServer(
@@ -128,7 +128,7 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(t, ctx, client)
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
 	platformService := agentplatform.NewService(client)
 
 	server := NewServer(
@@ -233,7 +233,7 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 func TestAgentPlatformHarnessWhitelistConstrainsTokenScopes(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(t, ctx, client)
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
 	platformService := agentplatform.NewService(client)
 
 	server := NewServer(
@@ -316,7 +316,7 @@ platform_access:
 func TestAgentPlatformRejectsMissingOrCrossProjectToken(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(t, ctx, client)
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
 	platformService := agentplatform.NewService(client)
 
 	server := NewServer(
@@ -358,7 +358,7 @@ func TestAgentPlatformRejectsMissingOrCrossProjectToken(t *testing.T) {
 	}
 }
 
-func seedAgentPlatformHTTPFixture(t *testing.T, ctx context.Context, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
+func seedAgentPlatformHTTPFixture(ctx context.Context, t *testing.T, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 
 	org, err := client.Organization.Create().

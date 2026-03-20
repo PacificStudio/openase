@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// RoleTemplate describes a built-in workflow role scaffold.
 type RoleTemplate struct {
 	Slug         string
 	Name         string
@@ -15,10 +16,12 @@ type RoleTemplate struct {
 	Content      string
 }
 
+// Roles returns the built-in role templates.
 func Roles() []RoleTemplate {
 	return cloneRoles(builtinRoles)
 }
 
+// RoleBySlug returns a built-in role template by slug.
 func RoleBySlug(slug string) (RoleTemplate, bool) {
 	for _, item := range builtinRoles {
 		if item.Slug == slug {
@@ -39,16 +42,16 @@ func buildRoleTemplate(slug string, name string, workflowType string, summary st
 	var builder strings.Builder
 	builder.WriteString("---\n")
 	builder.WriteString("workflow:\n")
-	builder.WriteString(fmt.Sprintf("  name: %q\n", name))
-	builder.WriteString(fmt.Sprintf("  type: %q\n", workflowType))
-	builder.WriteString(fmt.Sprintf("  role: %q\n", slug))
+	_, _ = fmt.Fprintf(&builder, "  name: %q\n", name)
+	_, _ = fmt.Fprintf(&builder, "  type: %q\n", workflowType)
+	_, _ = fmt.Fprintf(&builder, "  role: %q\n", slug)
 	builder.WriteString("status:\n")
 	builder.WriteString("  pickup: \"Todo\"\n")
 	builder.WriteString("  finish: \"Done\"\n")
 	if len(skills) > 0 {
 		builder.WriteString("skills:\n")
 		for _, skill := range skills {
-			builder.WriteString(fmt.Sprintf("  - %s\n", skill))
+			_, _ = fmt.Fprintf(&builder, "  - %s\n", skill)
 		}
 	}
 	builder.WriteString("---\n\n")

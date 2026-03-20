@@ -11,8 +11,10 @@ import (
 
 var eventTokenPattern = regexp.MustCompile(`^[a-z0-9]+([._-][a-z0-9]+)*$`)
 
+// Topic names an event stream channel.
 type Topic string
 
+// ParseTopic validates a raw event topic token.
 func ParseTopic(raw string) (Topic, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -28,6 +30,7 @@ func ParseTopic(raw string) (Topic, error) {
 	return Topic(trimmed), nil
 }
 
+// MustParseTopic parses a topic and panics on invalid input.
 func MustParseTopic(raw string) Topic {
 	topic, err := ParseTopic(raw)
 	if err != nil {
@@ -41,8 +44,10 @@ func (t Topic) String() string {
 	return string(t)
 }
 
+// EventType names a specific event kind within a topic.
 type EventType string
 
+// ParseEventType validates a raw event type token.
 func ParseEventType(raw string) (EventType, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -58,6 +63,7 @@ func ParseEventType(raw string) (EventType, error) {
 	return EventType(trimmed), nil
 }
 
+// MustParseEventType parses an event type and panics on invalid input.
 func MustParseEventType(raw string) EventType {
 	eventType, err := ParseEventType(raw)
 	if err != nil {
@@ -71,6 +77,7 @@ func (t EventType) String() string {
 	return string(t)
 }
 
+// Event is the envelope published through the event provider abstraction.
 type Event struct {
 	Topic       Topic           `json:"topic"`
 	Type        EventType       `json:"type"`
@@ -78,6 +85,7 @@ type Event struct {
 	PublishedAt time.Time       `json:"published_at"`
 }
 
+// NewEvent constructs a validated event envelope.
 func NewEvent(topic Topic, eventType EventType, payload json.RawMessage, publishedAt time.Time) (Event, error) {
 	if topic == "" {
 		return Event{}, fmt.Errorf("topic must not be empty")
@@ -97,6 +105,7 @@ func NewEvent(topic Topic, eventType EventType, payload json.RawMessage, publish
 	}, nil
 }
 
+// NewJSONEvent marshals a JSON payload and constructs a validated event envelope.
 func NewJSONEvent(topic Topic, eventType EventType, payload any, publishedAt time.Time) (Event, error) {
 	var encoded json.RawMessage
 	if payload != nil {
@@ -110,6 +119,7 @@ func NewJSONEvent(topic Topic, eventType EventType, payload any, publishedAt tim
 	return NewEvent(topic, eventType, encoded, publishedAt)
 }
 
+// EventProvider publishes and subscribes runtime events.
 type EventProvider interface {
 	Publish(ctx context.Context, event Event) error
 	Subscribe(ctx context.Context, topics ...Topic) (<-chan Event, error)

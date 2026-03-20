@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// RetryResult reports the state change produced by a retry operation.
 type RetryResult struct {
 	TicketID          uuid.UUID             `json:"ticket_id"`
 	AttemptCount      int                   `json:"attempt_count"`
@@ -22,12 +23,14 @@ type RetryResult struct {
 	ReleasedAgentID   *uuid.UUID            `json:"released_agent_id,omitempty"`
 }
 
+// RetryService manages ticket retry bookkeeping after failed attempts.
 type RetryService struct {
 	client *ent.Client
 	logger *slog.Logger
 	now    func() time.Time
 }
 
+// NewRetryService constructs a retry service for orchestrator failures.
 func NewRetryService(client *ent.Client, logger *slog.Logger) *RetryService {
 	if logger == nil {
 		logger = slog.Default()
@@ -40,6 +43,7 @@ func NewRetryService(client *ent.Client, logger *slog.Logger) *RetryService {
 	}
 }
 
+// MarkAttemptFailed records a failed attempt and computes the next retry state.
 func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID) (RetryResult, error) {
 	if s == nil || s.client == nil {
 		return RetryResult{}, fmt.Errorf("retry service unavailable")

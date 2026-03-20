@@ -44,13 +44,13 @@ func (m *SystemdUserManager) Apply(ctx context.Context, spec provider.UserServic
 	if err := writeFile(unitPath, []byte(buildSystemdUnit(spec)), 0o644); err != nil {
 		return fmt.Errorf("write systemd unit: %w", err)
 	}
-	if err := m.run(ctx, "systemctl", "--user", "daemon-reload"); err != nil {
+	if err := m.run(ctx, "--user", "daemon-reload"); err != nil {
 		return err
 	}
-	if err := m.run(ctx, "systemctl", "--user", "enable", spec.Name.String()); err != nil {
+	if err := m.run(ctx, "--user", "enable", spec.Name.String()); err != nil {
 		return err
 	}
-	if err := m.run(ctx, "systemctl", "--user", "start", spec.Name.String()); err != nil {
+	if err := m.run(ctx, "--user", "start", spec.Name.String()); err != nil {
 		return err
 	}
 
@@ -58,11 +58,11 @@ func (m *SystemdUserManager) Apply(ctx context.Context, spec provider.UserServic
 }
 
 func (m *SystemdUserManager) Down(ctx context.Context, name provider.ServiceName) error {
-	return m.run(ctx, "systemctl", "--user", "stop", name.String())
+	return m.run(ctx, "--user", "stop", name.String())
 }
 
 func (m *SystemdUserManager) Restart(ctx context.Context, name provider.ServiceName) error {
-	return m.run(ctx, "systemctl", "--user", "restart", name.String())
+	return m.run(ctx, "--user", "restart", name.String())
 }
 
 func (m *SystemdUserManager) Logs(ctx context.Context, name provider.ServiceName, opts provider.UserServiceLogsOptions) error {
@@ -78,9 +78,9 @@ func (m *SystemdUserManager) unitPath(name provider.ServiceName) string {
 	return filepath.Join(m.homeDir, ".config", "systemd", "user", name.String()+".service")
 }
 
-func (m *SystemdUserManager) run(ctx context.Context, name string, args ...string) error {
-	if err := m.runner.Run(ctx, name, args, nil, nil); err != nil {
-		return fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+func (m *SystemdUserManager) run(ctx context.Context, args ...string) error {
+	if err := m.runner.Run(ctx, "systemctl", args, nil, nil); err != nil {
+		return fmt.Errorf("systemctl %s: %w", strings.Join(args, " "), err)
 	}
 
 	return nil
@@ -107,7 +107,8 @@ func buildSystemdUnit(spec provider.UserServiceInstallSpec) string {
 }
 
 func buildSystemdExecStart(program string, args []string) string {
-	parts := []string{strconv.Quote(program)}
+	parts := make([]string, 0, 1+len(args))
+	parts = append(parts, strconv.Quote(program))
 	for _, arg := range args {
 		parts = append(parts, strconv.Quote(arg))
 	}
@@ -122,7 +123,7 @@ func ensureServiceRuntimePaths(spec provider.UserServiceInstallSpec) error {
 		filepath.Dir(spec.StderrPath.String()),
 	}
 	for _, directory := range directories {
-		if err := os.MkdirAll(directory, 0o755); err != nil {
+		if err := os.MkdirAll(directory, 0o750); err != nil {
 			return fmt.Errorf("create directory %q: %w", directory, err)
 		}
 	}
@@ -136,6 +137,7 @@ func ensureServiceRuntimePaths(spec provider.UserServiceInstallSpec) error {
 }
 
 func ensureFile(path string, mode os.FileMode) error {
+	//nolint:gosec // service paths are derived from validated install specs
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, mode)
 	if err != nil {
 		return fmt.Errorf("ensure file %q: %w", path, err)
@@ -145,10 +147,11 @@ func ensureFile(path string, mode os.FileMode) error {
 }
 
 func writeFile(path string, content []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("create parent directory for %q: %w", path, err)
 	}
 
+	//nolint:gosec // service unit paths are derived from validated install specs
 	existing, err := os.ReadFile(path)
 	if err == nil && bytes.Equal(existing, content) {
 		return nil
