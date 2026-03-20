@@ -32,6 +32,31 @@ type projectResponse struct {
 	MaxConcurrentAgents    int     `json:"max_concurrent_agents"`
 }
 
+type machineResponse struct {
+	ID              string         `json:"id"`
+	OrganizationID  string         `json:"organization_id"`
+	Name            string         `json:"name"`
+	Host            string         `json:"host"`
+	Port            int            `json:"port"`
+	SSHUser         *string        `json:"ssh_user,omitempty"`
+	SSHKeyPath      *string        `json:"ssh_key_path,omitempty"`
+	Description     string         `json:"description"`
+	Labels          []string       `json:"labels,omitempty"`
+	Status          string         `json:"status"`
+	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
+	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
+	EnvVars         []string       `json:"env_vars,omitempty"`
+	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
+	Resources       map[string]any `json:"resources"`
+}
+
+type machineProbeResponse struct {
+	CheckedAt string         `json:"checked_at"`
+	Transport string         `json:"transport"`
+	Output    string         `json:"output"`
+	Resources map[string]any `json:"resources"`
+}
+
 type projectRepoResponse struct {
 	ID            string   `json:"id"`
 	ProjectID     string   `json:"project_id"`
@@ -70,6 +95,20 @@ type projectPatchRequest struct {
 	MaxConcurrentAgents    *int    `json:"max_concurrent_agents"`
 }
 
+type machinePatchRequest struct {
+	Name          *string   `json:"name"`
+	Host          *string   `json:"host"`
+	Port          *int      `json:"port"`
+	SSHUser       *string   `json:"ssh_user"`
+	SSHKeyPath    *string   `json:"ssh_key_path"`
+	Description   *string   `json:"description"`
+	Labels        *[]string `json:"labels"`
+	Status        *string   `json:"status"`
+	WorkspaceRoot *string   `json:"workspace_root"`
+	AgentCLIPath  *string   `json:"agent_cli_path"`
+	EnvVars       *[]string `json:"env_vars"`
+}
+
 type projectRepoPatchRequest struct {
 	Name          *string   `json:"name"`
 	RepositoryURL *string   `json:"repository_url"`
@@ -94,8 +133,15 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.PATCH("/orgs/:orgId", s.patchOrganization)
 	api.GET("/orgs/:orgId/projects", s.listProjects)
 	api.POST("/orgs/:orgId/projects", s.createProject)
+	api.GET("/orgs/:orgId/machines", s.listMachines)
+	api.POST("/orgs/:orgId/machines", s.createMachine)
 	api.GET("/orgs/:orgId/providers", s.listAgentProviders)
 	api.POST("/orgs/:orgId/providers", s.createAgentProvider)
+	api.GET("/machines/:machineId", s.getMachine)
+	api.PATCH("/machines/:machineId", s.patchMachine)
+	api.DELETE("/machines/:machineId", s.deleteMachine)
+	api.POST("/machines/:machineId/test", s.testMachine)
+	api.GET("/machines/:machineId/resources", s.getMachineResources)
 	api.GET("/projects/:projectId", s.getProject)
 	api.PATCH("/projects/:projectId", s.patchProject)
 	api.DELETE("/projects/:projectId", s.archiveProject)
@@ -225,6 +271,22 @@ func (s *Server) listProjects(c echo.Context) error {
 	})
 }
 
+func (s *Server) listMachines(c echo.Context) error {
+	orgID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return err
+	}
+
+	items, err := s.catalog.ListMachines(c.Request().Context(), orgID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"machines": mapMachineResponses(items),
+	})
+}
+
 func (s *Server) createProject(c echo.Context) error {
 	orgID, err := parseUUIDPathParam(c, "orgId")
 	if err != nil {
@@ -248,6 +310,178 @@ func (s *Server) createProject(c echo.Context) error {
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"project": mapProjectResponse(item),
+	})
+}
+
+func (s *Server) createMachine(c echo.Context) error {
+	orgID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return err
+	}
+
+	var request domain.MachineInput
+	if err := decodeJSON(c, &request); err != nil {
+		return err
+	}
+
+	input, err := domain.ParseCreateMachine(orgID, request)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+	}
+
+	item, err := s.catalog.CreateMachine(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"machine": mapMachineResponse(item),
+	})
+}
+
+func (s *Server) getMachine(c echo.Context) error {
+	machineID, err := parseUUIDPathParam(c, "machineId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.GetMachine(c.Request().Context(), machineID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"machine": mapMachineResponse(item),
+	})
+}
+
+func (s *Server) patchMachine(c echo.Context) error {
+	machineID, err := parseUUIDPathParam(c, "machineId")
+	if err != nil {
+		return err
+	}
+
+	current, err := s.catalog.GetMachine(c.Request().Context(), machineID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	var patch machinePatchRequest
+	if err := decodeJSON(c, &patch); err != nil {
+		return err
+	}
+
+	request := domain.MachineInput{
+		Name:          current.Name,
+		Host:          current.Host,
+		Port:          intPointer(current.Port),
+		SSHUser:       current.SSHUser,
+		SSHKeyPath:    current.SSHKeyPath,
+		Description:   current.Description,
+		Labels:        cloneStringSlice(current.Labels),
+		Status:        current.Status.String(),
+		WorkspaceRoot: current.WorkspaceRoot,
+		AgentCLIPath:  current.AgentCLIPath,
+		EnvVars:       cloneStringSlice(current.EnvVars),
+	}
+	if patch.Name != nil {
+		request.Name = *patch.Name
+	}
+	if patch.Host != nil {
+		request.Host = *patch.Host
+	}
+	if patch.Port != nil {
+		request.Port = patch.Port
+	}
+	if patch.SSHUser != nil {
+		request.SSHUser = patch.SSHUser
+	}
+	if patch.SSHKeyPath != nil {
+		request.SSHKeyPath = patch.SSHKeyPath
+	}
+	if patch.Description != nil {
+		request.Description = *patch.Description
+	}
+	if patch.Labels != nil {
+		request.Labels = *patch.Labels
+	}
+	if patch.Status != nil {
+		request.Status = *patch.Status
+	}
+	if patch.WorkspaceRoot != nil {
+		request.WorkspaceRoot = patch.WorkspaceRoot
+	}
+	if patch.AgentCLIPath != nil {
+		request.AgentCLIPath = patch.AgentCLIPath
+	}
+	if patch.EnvVars != nil {
+		request.EnvVars = *patch.EnvVars
+	}
+
+	input, err := domain.ParseUpdateMachine(machineID, current.OrganizationID, request)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+	}
+
+	item, err := s.catalog.UpdateMachine(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"machine": mapMachineResponse(item),
+	})
+}
+
+func (s *Server) deleteMachine(c echo.Context) error {
+	machineID, err := parseUUIDPathParam(c, "machineId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.DeleteMachine(c.Request().Context(), machineID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"machine": mapMachineResponse(item),
+	})
+}
+
+func (s *Server) testMachine(c echo.Context) error {
+	machineID, err := parseUUIDPathParam(c, "machineId")
+	if err != nil {
+		return err
+	}
+
+	item, probe, err := s.catalog.TestMachineConnection(c.Request().Context(), machineID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"machine": mapMachineResponse(item),
+		"probe":   mapMachineProbeResponse(probe),
+	})
+}
+
+func (s *Server) getMachineResources(c echo.Context) error {
+	machineID, err := parseUUIDPathParam(c, "machineId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.GetMachine(c.Request().Context(), machineID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"machine_id":        item.ID.String(),
+		"status":            item.Status.String(),
+		"last_heartbeat_at": timeToStringPointer(item.LastHeartbeatAt),
+		"resources":         cloneMap(item.Resources),
 	})
 }
 
@@ -646,6 +880,10 @@ func writeCatalogError(c echo.Context, err error) error {
 		return c.JSON(http.StatusNotFound, errorResponse("resource not found"))
 	case errors.Is(err, catalogservice.ErrConflict):
 		return c.JSON(http.StatusConflict, errorResponse("resource conflict"))
+	case errors.Is(err, catalogservice.ErrMachineProbeFailed):
+		return c.JSON(http.StatusBadGateway, errorResponse(catalogErrorMessage(err)))
+	case errors.Is(err, catalogservice.ErrMachineTestingUnavailable):
+		return c.JSON(http.StatusServiceUnavailable, errorResponse(catalogErrorMessage(err)))
 	default:
 		return c.JSON(http.StatusInternalServerError, errorResponse("internal server error"))
 	}
@@ -691,6 +929,15 @@ func mapProjectResponses(items []domain.Project) []projectResponse {
 	return response
 }
 
+func mapMachineResponses(items []domain.Machine) []machineResponse {
+	response := make([]machineResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapMachineResponse(item))
+	}
+
+	return response
+}
+
 func mapProjectResponse(item domain.Project) projectResponse {
 	return projectResponse{
 		ID:                     item.ID.String(),
@@ -702,6 +949,35 @@ func mapProjectResponse(item domain.Project) projectResponse {
 		DefaultWorkflowID:      uuidToStringPointer(item.DefaultWorkflowID),
 		DefaultAgentProviderID: uuidToStringPointer(item.DefaultAgentProviderID),
 		MaxConcurrentAgents:    item.MaxConcurrentAgents,
+	}
+}
+
+func mapMachineResponse(item domain.Machine) machineResponse {
+	return machineResponse{
+		ID:              item.ID.String(),
+		OrganizationID:  item.OrganizationID.String(),
+		Name:            item.Name,
+		Host:            item.Host,
+		Port:            item.Port,
+		SSHUser:         item.SSHUser,
+		SSHKeyPath:      item.SSHKeyPath,
+		Description:     item.Description,
+		Labels:          cloneStringSlice(item.Labels),
+		Status:          item.Status.String(),
+		WorkspaceRoot:   item.WorkspaceRoot,
+		AgentCLIPath:    item.AgentCLIPath,
+		EnvVars:         cloneStringSlice(item.EnvVars),
+		LastHeartbeatAt: timeToStringPointer(item.LastHeartbeatAt),
+		Resources:       cloneMap(item.Resources),
+	}
+}
+
+func mapMachineProbeResponse(item domain.MachineProbe) machineProbeResponse {
+	return machineProbeResponse{
+		CheckedAt: item.CheckedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		Transport: item.Transport,
+		Output:    item.Output,
+		Resources: cloneMap(item.Resources),
 	}
 }
 

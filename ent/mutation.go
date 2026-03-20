@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -45,6 +46,7 @@ const (
 	TypeAgent               = "Agent"
 	TypeAgentProvider       = "AgentProvider"
 	TypeAgentToken          = "AgentToken"
+	TypeMachine             = "Machine"
 	TypeNotificationChannel = "NotificationChannel"
 	TypeNotificationRule    = "NotificationRule"
 	TypeOrganization        = "Organization"
@@ -4619,6 +4621,1285 @@ func (m *AgentTokenMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown AgentToken edge %s", name)
 }
 
+// MachineMutation represents an operation that mutates the Machine nodes in the graph.
+type MachineMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *uuid.UUID
+	name                *string
+	host                *string
+	port                *int
+	addport             *int
+	ssh_user            *string
+	ssh_key_path        *string
+	description         *string
+	labels              *pgarray.StringArray
+	status              *machine.Status
+	workspace_root      *string
+	agent_cli_path      *string
+	env_vars            *pgarray.StringArray
+	last_heartbeat_at   *time.Time
+	resources           *map[string]interface{}
+	clearedFields       map[string]struct{}
+	organization        *uuid.UUID
+	clearedorganization bool
+	done                bool
+	oldValue            func(context.Context) (*Machine, error)
+	predicates          []predicate.Machine
+}
+
+var _ ent.Mutation = (*MachineMutation)(nil)
+
+// machineOption allows management of the mutation configuration using functional options.
+type machineOption func(*MachineMutation)
+
+// newMachineMutation creates new mutation for the Machine entity.
+func newMachineMutation(c config, op Op, opts ...machineOption) *MachineMutation {
+	m := &MachineMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeMachine,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withMachineID sets the ID field of the mutation.
+func withMachineID(id uuid.UUID) machineOption {
+	return func(m *MachineMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Machine
+		)
+		m.oldValue = func(ctx context.Context) (*Machine, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Machine.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withMachine sets the old Machine of the mutation.
+func withMachine(node *Machine) machineOption {
+	return func(m *MachineMutation) {
+		m.oldValue = func(context.Context) (*Machine, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m MachineMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m MachineMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Machine entities.
+func (m *MachineMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *MachineMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *MachineMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Machine.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *MachineMutation) SetOrganizationID(u uuid.UUID) {
+	m.organization = &u
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *MachineMutation) OrganizationID() (r uuid.UUID, exists bool) {
+	v := m.organization
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldOrganizationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *MachineMutation) ResetOrganizationID() {
+	m.organization = nil
+}
+
+// SetName sets the "name" field.
+func (m *MachineMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *MachineMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *MachineMutation) ResetName() {
+	m.name = nil
+}
+
+// SetHost sets the "host" field.
+func (m *MachineMutation) SetHost(s string) {
+	m.host = &s
+}
+
+// Host returns the value of the "host" field in the mutation.
+func (m *MachineMutation) Host() (r string, exists bool) {
+	v := m.host
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHost returns the old "host" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldHost(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHost: %w", err)
+	}
+	return oldValue.Host, nil
+}
+
+// ResetHost resets all changes to the "host" field.
+func (m *MachineMutation) ResetHost() {
+	m.host = nil
+}
+
+// SetPort sets the "port" field.
+func (m *MachineMutation) SetPort(i int) {
+	m.port = &i
+	m.addport = nil
+}
+
+// Port returns the value of the "port" field in the mutation.
+func (m *MachineMutation) Port() (r int, exists bool) {
+	v := m.port
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPort returns the old "port" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldPort(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPort is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPort requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPort: %w", err)
+	}
+	return oldValue.Port, nil
+}
+
+// AddPort adds i to the "port" field.
+func (m *MachineMutation) AddPort(i int) {
+	if m.addport != nil {
+		*m.addport += i
+	} else {
+		m.addport = &i
+	}
+}
+
+// AddedPort returns the value that was added to the "port" field in this mutation.
+func (m *MachineMutation) AddedPort() (r int, exists bool) {
+	v := m.addport
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPort resets all changes to the "port" field.
+func (m *MachineMutation) ResetPort() {
+	m.port = nil
+	m.addport = nil
+}
+
+// SetSSHUser sets the "ssh_user" field.
+func (m *MachineMutation) SetSSHUser(s string) {
+	m.ssh_user = &s
+}
+
+// SSHUser returns the value of the "ssh_user" field in the mutation.
+func (m *MachineMutation) SSHUser() (r string, exists bool) {
+	v := m.ssh_user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSSHUser returns the old "ssh_user" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldSSHUser(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSSHUser is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSSHUser requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSSHUser: %w", err)
+	}
+	return oldValue.SSHUser, nil
+}
+
+// ClearSSHUser clears the value of the "ssh_user" field.
+func (m *MachineMutation) ClearSSHUser() {
+	m.ssh_user = nil
+	m.clearedFields[machine.FieldSSHUser] = struct{}{}
+}
+
+// SSHUserCleared returns if the "ssh_user" field was cleared in this mutation.
+func (m *MachineMutation) SSHUserCleared() bool {
+	_, ok := m.clearedFields[machine.FieldSSHUser]
+	return ok
+}
+
+// ResetSSHUser resets all changes to the "ssh_user" field.
+func (m *MachineMutation) ResetSSHUser() {
+	m.ssh_user = nil
+	delete(m.clearedFields, machine.FieldSSHUser)
+}
+
+// SetSSHKeyPath sets the "ssh_key_path" field.
+func (m *MachineMutation) SetSSHKeyPath(s string) {
+	m.ssh_key_path = &s
+}
+
+// SSHKeyPath returns the value of the "ssh_key_path" field in the mutation.
+func (m *MachineMutation) SSHKeyPath() (r string, exists bool) {
+	v := m.ssh_key_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSSHKeyPath returns the old "ssh_key_path" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldSSHKeyPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSSHKeyPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSSHKeyPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSSHKeyPath: %w", err)
+	}
+	return oldValue.SSHKeyPath, nil
+}
+
+// ClearSSHKeyPath clears the value of the "ssh_key_path" field.
+func (m *MachineMutation) ClearSSHKeyPath() {
+	m.ssh_key_path = nil
+	m.clearedFields[machine.FieldSSHKeyPath] = struct{}{}
+}
+
+// SSHKeyPathCleared returns if the "ssh_key_path" field was cleared in this mutation.
+func (m *MachineMutation) SSHKeyPathCleared() bool {
+	_, ok := m.clearedFields[machine.FieldSSHKeyPath]
+	return ok
+}
+
+// ResetSSHKeyPath resets all changes to the "ssh_key_path" field.
+func (m *MachineMutation) ResetSSHKeyPath() {
+	m.ssh_key_path = nil
+	delete(m.clearedFields, machine.FieldSSHKeyPath)
+}
+
+// SetDescription sets the "description" field.
+func (m *MachineMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *MachineMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *MachineMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[machine.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *MachineMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[machine.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *MachineMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, machine.FieldDescription)
+}
+
+// SetLabels sets the "labels" field.
+func (m *MachineMutation) SetLabels(pa pgarray.StringArray) {
+	m.labels = &pa
+}
+
+// Labels returns the value of the "labels" field in the mutation.
+func (m *MachineMutation) Labels() (r pgarray.StringArray, exists bool) {
+	v := m.labels
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLabels returns the old "labels" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldLabels(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLabels is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLabels requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLabels: %w", err)
+	}
+	return oldValue.Labels, nil
+}
+
+// ClearLabels clears the value of the "labels" field.
+func (m *MachineMutation) ClearLabels() {
+	m.labels = nil
+	m.clearedFields[machine.FieldLabels] = struct{}{}
+}
+
+// LabelsCleared returns if the "labels" field was cleared in this mutation.
+func (m *MachineMutation) LabelsCleared() bool {
+	_, ok := m.clearedFields[machine.FieldLabels]
+	return ok
+}
+
+// ResetLabels resets all changes to the "labels" field.
+func (m *MachineMutation) ResetLabels() {
+	m.labels = nil
+	delete(m.clearedFields, machine.FieldLabels)
+}
+
+// SetStatus sets the "status" field.
+func (m *MachineMutation) SetStatus(value machine.Status) {
+	m.status = &value
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *MachineMutation) Status() (r machine.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldStatus(ctx context.Context) (v machine.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *MachineMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetWorkspaceRoot sets the "workspace_root" field.
+func (m *MachineMutation) SetWorkspaceRoot(s string) {
+	m.workspace_root = &s
+}
+
+// WorkspaceRoot returns the value of the "workspace_root" field in the mutation.
+func (m *MachineMutation) WorkspaceRoot() (r string, exists bool) {
+	v := m.workspace_root
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWorkspaceRoot returns the old "workspace_root" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldWorkspaceRoot(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWorkspaceRoot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWorkspaceRoot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWorkspaceRoot: %w", err)
+	}
+	return oldValue.WorkspaceRoot, nil
+}
+
+// ClearWorkspaceRoot clears the value of the "workspace_root" field.
+func (m *MachineMutation) ClearWorkspaceRoot() {
+	m.workspace_root = nil
+	m.clearedFields[machine.FieldWorkspaceRoot] = struct{}{}
+}
+
+// WorkspaceRootCleared returns if the "workspace_root" field was cleared in this mutation.
+func (m *MachineMutation) WorkspaceRootCleared() bool {
+	_, ok := m.clearedFields[machine.FieldWorkspaceRoot]
+	return ok
+}
+
+// ResetWorkspaceRoot resets all changes to the "workspace_root" field.
+func (m *MachineMutation) ResetWorkspaceRoot() {
+	m.workspace_root = nil
+	delete(m.clearedFields, machine.FieldWorkspaceRoot)
+}
+
+// SetAgentCliPath sets the "agent_cli_path" field.
+func (m *MachineMutation) SetAgentCliPath(s string) {
+	m.agent_cli_path = &s
+}
+
+// AgentCliPath returns the value of the "agent_cli_path" field in the mutation.
+func (m *MachineMutation) AgentCliPath() (r string, exists bool) {
+	v := m.agent_cli_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentCliPath returns the old "agent_cli_path" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldAgentCliPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentCliPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentCliPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentCliPath: %w", err)
+	}
+	return oldValue.AgentCliPath, nil
+}
+
+// ClearAgentCliPath clears the value of the "agent_cli_path" field.
+func (m *MachineMutation) ClearAgentCliPath() {
+	m.agent_cli_path = nil
+	m.clearedFields[machine.FieldAgentCliPath] = struct{}{}
+}
+
+// AgentCliPathCleared returns if the "agent_cli_path" field was cleared in this mutation.
+func (m *MachineMutation) AgentCliPathCleared() bool {
+	_, ok := m.clearedFields[machine.FieldAgentCliPath]
+	return ok
+}
+
+// ResetAgentCliPath resets all changes to the "agent_cli_path" field.
+func (m *MachineMutation) ResetAgentCliPath() {
+	m.agent_cli_path = nil
+	delete(m.clearedFields, machine.FieldAgentCliPath)
+}
+
+// SetEnvVars sets the "env_vars" field.
+func (m *MachineMutation) SetEnvVars(pa pgarray.StringArray) {
+	m.env_vars = &pa
+}
+
+// EnvVars returns the value of the "env_vars" field in the mutation.
+func (m *MachineMutation) EnvVars() (r pgarray.StringArray, exists bool) {
+	v := m.env_vars
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnvVars returns the old "env_vars" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldEnvVars(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnvVars is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnvVars requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnvVars: %w", err)
+	}
+	return oldValue.EnvVars, nil
+}
+
+// ClearEnvVars clears the value of the "env_vars" field.
+func (m *MachineMutation) ClearEnvVars() {
+	m.env_vars = nil
+	m.clearedFields[machine.FieldEnvVars] = struct{}{}
+}
+
+// EnvVarsCleared returns if the "env_vars" field was cleared in this mutation.
+func (m *MachineMutation) EnvVarsCleared() bool {
+	_, ok := m.clearedFields[machine.FieldEnvVars]
+	return ok
+}
+
+// ResetEnvVars resets all changes to the "env_vars" field.
+func (m *MachineMutation) ResetEnvVars() {
+	m.env_vars = nil
+	delete(m.clearedFields, machine.FieldEnvVars)
+}
+
+// SetLastHeartbeatAt sets the "last_heartbeat_at" field.
+func (m *MachineMutation) SetLastHeartbeatAt(t time.Time) {
+	m.last_heartbeat_at = &t
+}
+
+// LastHeartbeatAt returns the value of the "last_heartbeat_at" field in the mutation.
+func (m *MachineMutation) LastHeartbeatAt() (r time.Time, exists bool) {
+	v := m.last_heartbeat_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastHeartbeatAt returns the old "last_heartbeat_at" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldLastHeartbeatAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastHeartbeatAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastHeartbeatAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastHeartbeatAt: %w", err)
+	}
+	return oldValue.LastHeartbeatAt, nil
+}
+
+// ClearLastHeartbeatAt clears the value of the "last_heartbeat_at" field.
+func (m *MachineMutation) ClearLastHeartbeatAt() {
+	m.last_heartbeat_at = nil
+	m.clearedFields[machine.FieldLastHeartbeatAt] = struct{}{}
+}
+
+// LastHeartbeatAtCleared returns if the "last_heartbeat_at" field was cleared in this mutation.
+func (m *MachineMutation) LastHeartbeatAtCleared() bool {
+	_, ok := m.clearedFields[machine.FieldLastHeartbeatAt]
+	return ok
+}
+
+// ResetLastHeartbeatAt resets all changes to the "last_heartbeat_at" field.
+func (m *MachineMutation) ResetLastHeartbeatAt() {
+	m.last_heartbeat_at = nil
+	delete(m.clearedFields, machine.FieldLastHeartbeatAt)
+}
+
+// SetResources sets the "resources" field.
+func (m *MachineMutation) SetResources(value map[string]interface{}) {
+	m.resources = &value
+}
+
+// Resources returns the value of the "resources" field in the mutation.
+func (m *MachineMutation) Resources() (r map[string]interface{}, exists bool) {
+	v := m.resources
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResources returns the old "resources" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldResources(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResources is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResources requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResources: %w", err)
+	}
+	return oldValue.Resources, nil
+}
+
+// ResetResources resets all changes to the "resources" field.
+func (m *MachineMutation) ResetResources() {
+	m.resources = nil
+}
+
+// ClearOrganization clears the "organization" edge to the Organization entity.
+func (m *MachineMutation) ClearOrganization() {
+	m.clearedorganization = true
+	m.clearedFields[machine.FieldOrganizationID] = struct{}{}
+}
+
+// OrganizationCleared reports if the "organization" edge to the Organization entity was cleared.
+func (m *MachineMutation) OrganizationCleared() bool {
+	return m.clearedorganization
+}
+
+// OrganizationIDs returns the "organization" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrganizationID instead. It exists only for internal usage by the builders.
+func (m *MachineMutation) OrganizationIDs() (ids []uuid.UUID) {
+	if id := m.organization; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrganization resets all changes to the "organization" edge.
+func (m *MachineMutation) ResetOrganization() {
+	m.organization = nil
+	m.clearedorganization = false
+}
+
+// Where appends a list predicates to the MachineMutation builder.
+func (m *MachineMutation) Where(ps ...predicate.Machine) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the MachineMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *MachineMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Machine, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *MachineMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *MachineMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Machine).
+func (m *MachineMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *MachineMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.organization != nil {
+		fields = append(fields, machine.FieldOrganizationID)
+	}
+	if m.name != nil {
+		fields = append(fields, machine.FieldName)
+	}
+	if m.host != nil {
+		fields = append(fields, machine.FieldHost)
+	}
+	if m.port != nil {
+		fields = append(fields, machine.FieldPort)
+	}
+	if m.ssh_user != nil {
+		fields = append(fields, machine.FieldSSHUser)
+	}
+	if m.ssh_key_path != nil {
+		fields = append(fields, machine.FieldSSHKeyPath)
+	}
+	if m.description != nil {
+		fields = append(fields, machine.FieldDescription)
+	}
+	if m.labels != nil {
+		fields = append(fields, machine.FieldLabels)
+	}
+	if m.status != nil {
+		fields = append(fields, machine.FieldStatus)
+	}
+	if m.workspace_root != nil {
+		fields = append(fields, machine.FieldWorkspaceRoot)
+	}
+	if m.agent_cli_path != nil {
+		fields = append(fields, machine.FieldAgentCliPath)
+	}
+	if m.env_vars != nil {
+		fields = append(fields, machine.FieldEnvVars)
+	}
+	if m.last_heartbeat_at != nil {
+		fields = append(fields, machine.FieldLastHeartbeatAt)
+	}
+	if m.resources != nil {
+		fields = append(fields, machine.FieldResources)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *MachineMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case machine.FieldOrganizationID:
+		return m.OrganizationID()
+	case machine.FieldName:
+		return m.Name()
+	case machine.FieldHost:
+		return m.Host()
+	case machine.FieldPort:
+		return m.Port()
+	case machine.FieldSSHUser:
+		return m.SSHUser()
+	case machine.FieldSSHKeyPath:
+		return m.SSHKeyPath()
+	case machine.FieldDescription:
+		return m.Description()
+	case machine.FieldLabels:
+		return m.Labels()
+	case machine.FieldStatus:
+		return m.Status()
+	case machine.FieldWorkspaceRoot:
+		return m.WorkspaceRoot()
+	case machine.FieldAgentCliPath:
+		return m.AgentCliPath()
+	case machine.FieldEnvVars:
+		return m.EnvVars()
+	case machine.FieldLastHeartbeatAt:
+		return m.LastHeartbeatAt()
+	case machine.FieldResources:
+		return m.Resources()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *MachineMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case machine.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case machine.FieldName:
+		return m.OldName(ctx)
+	case machine.FieldHost:
+		return m.OldHost(ctx)
+	case machine.FieldPort:
+		return m.OldPort(ctx)
+	case machine.FieldSSHUser:
+		return m.OldSSHUser(ctx)
+	case machine.FieldSSHKeyPath:
+		return m.OldSSHKeyPath(ctx)
+	case machine.FieldDescription:
+		return m.OldDescription(ctx)
+	case machine.FieldLabels:
+		return m.OldLabels(ctx)
+	case machine.FieldStatus:
+		return m.OldStatus(ctx)
+	case machine.FieldWorkspaceRoot:
+		return m.OldWorkspaceRoot(ctx)
+	case machine.FieldAgentCliPath:
+		return m.OldAgentCliPath(ctx)
+	case machine.FieldEnvVars:
+		return m.OldEnvVars(ctx)
+	case machine.FieldLastHeartbeatAt:
+		return m.OldLastHeartbeatAt(ctx)
+	case machine.FieldResources:
+		return m.OldResources(ctx)
+	}
+	return nil, fmt.Errorf("unknown Machine field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *MachineMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case machine.FieldOrganizationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case machine.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case machine.FieldHost:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHost(v)
+		return nil
+	case machine.FieldPort:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPort(v)
+		return nil
+	case machine.FieldSSHUser:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSSHUser(v)
+		return nil
+	case machine.FieldSSHKeyPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSSHKeyPath(v)
+		return nil
+	case machine.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case machine.FieldLabels:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLabels(v)
+		return nil
+	case machine.FieldStatus:
+		v, ok := value.(machine.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case machine.FieldWorkspaceRoot:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWorkspaceRoot(v)
+		return nil
+	case machine.FieldAgentCliPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentCliPath(v)
+		return nil
+	case machine.FieldEnvVars:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnvVars(v)
+		return nil
+	case machine.FieldLastHeartbeatAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastHeartbeatAt(v)
+		return nil
+	case machine.FieldResources:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResources(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Machine field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *MachineMutation) AddedFields() []string {
+	var fields []string
+	if m.addport != nil {
+		fields = append(fields, machine.FieldPort)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *MachineMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case machine.FieldPort:
+		return m.AddedPort()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *MachineMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case machine.FieldPort:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPort(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Machine numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *MachineMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(machine.FieldSSHUser) {
+		fields = append(fields, machine.FieldSSHUser)
+	}
+	if m.FieldCleared(machine.FieldSSHKeyPath) {
+		fields = append(fields, machine.FieldSSHKeyPath)
+	}
+	if m.FieldCleared(machine.FieldDescription) {
+		fields = append(fields, machine.FieldDescription)
+	}
+	if m.FieldCleared(machine.FieldLabels) {
+		fields = append(fields, machine.FieldLabels)
+	}
+	if m.FieldCleared(machine.FieldWorkspaceRoot) {
+		fields = append(fields, machine.FieldWorkspaceRoot)
+	}
+	if m.FieldCleared(machine.FieldAgentCliPath) {
+		fields = append(fields, machine.FieldAgentCliPath)
+	}
+	if m.FieldCleared(machine.FieldEnvVars) {
+		fields = append(fields, machine.FieldEnvVars)
+	}
+	if m.FieldCleared(machine.FieldLastHeartbeatAt) {
+		fields = append(fields, machine.FieldLastHeartbeatAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *MachineMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *MachineMutation) ClearField(name string) error {
+	switch name {
+	case machine.FieldSSHUser:
+		m.ClearSSHUser()
+		return nil
+	case machine.FieldSSHKeyPath:
+		m.ClearSSHKeyPath()
+		return nil
+	case machine.FieldDescription:
+		m.ClearDescription()
+		return nil
+	case machine.FieldLabels:
+		m.ClearLabels()
+		return nil
+	case machine.FieldWorkspaceRoot:
+		m.ClearWorkspaceRoot()
+		return nil
+	case machine.FieldAgentCliPath:
+		m.ClearAgentCliPath()
+		return nil
+	case machine.FieldEnvVars:
+		m.ClearEnvVars()
+		return nil
+	case machine.FieldLastHeartbeatAt:
+		m.ClearLastHeartbeatAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Machine nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *MachineMutation) ResetField(name string) error {
+	switch name {
+	case machine.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case machine.FieldName:
+		m.ResetName()
+		return nil
+	case machine.FieldHost:
+		m.ResetHost()
+		return nil
+	case machine.FieldPort:
+		m.ResetPort()
+		return nil
+	case machine.FieldSSHUser:
+		m.ResetSSHUser()
+		return nil
+	case machine.FieldSSHKeyPath:
+		m.ResetSSHKeyPath()
+		return nil
+	case machine.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case machine.FieldLabels:
+		m.ResetLabels()
+		return nil
+	case machine.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case machine.FieldWorkspaceRoot:
+		m.ResetWorkspaceRoot()
+		return nil
+	case machine.FieldAgentCliPath:
+		m.ResetAgentCliPath()
+		return nil
+	case machine.FieldEnvVars:
+		m.ResetEnvVars()
+		return nil
+	case machine.FieldLastHeartbeatAt:
+		m.ResetLastHeartbeatAt()
+		return nil
+	case machine.FieldResources:
+		m.ResetResources()
+		return nil
+	}
+	return fmt.Errorf("unknown Machine field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *MachineMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.organization != nil {
+		edges = append(edges, machine.EdgeOrganization)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *MachineMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case machine.EdgeOrganization:
+		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *MachineMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *MachineMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *MachineMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedorganization {
+		edges = append(edges, machine.EdgeOrganization)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *MachineMutation) EdgeCleared(name string) bool {
+	switch name {
+	case machine.EdgeOrganization:
+		return m.clearedorganization
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *MachineMutation) ClearEdge(name string) error {
+	switch name {
+	case machine.EdgeOrganization:
+		m.ClearOrganization()
+		return nil
+	}
+	return fmt.Errorf("unknown Machine unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *MachineMutation) ResetEdge(name string) error {
+	switch name {
+	case machine.EdgeOrganization:
+		m.ResetOrganization()
+		return nil
+	}
+	return fmt.Errorf("unknown Machine edge %s", name)
+}
+
 // NotificationChannelMutation represents an operation that mutates the NotificationChannel nodes in the graph.
 type NotificationChannelMutation struct {
 	config
@@ -6207,6 +7488,9 @@ type OrganizationMutation struct {
 	providers                     map[uuid.UUID]struct{}
 	removedproviders              map[uuid.UUID]struct{}
 	clearedproviders              bool
+	machines                      map[uuid.UUID]struct{}
+	removedmachines               map[uuid.UUID]struct{}
+	clearedmachines               bool
 	notification_channels         map[uuid.UUID]struct{}
 	removednotification_channels  map[uuid.UUID]struct{}
 	clearednotification_channels  bool
@@ -6550,6 +7834,60 @@ func (m *OrganizationMutation) ResetProviders() {
 	m.removedproviders = nil
 }
 
+// AddMachineIDs adds the "machines" edge to the Machine entity by ids.
+func (m *OrganizationMutation) AddMachineIDs(ids ...uuid.UUID) {
+	if m.machines == nil {
+		m.machines = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.machines[ids[i]] = struct{}{}
+	}
+}
+
+// ClearMachines clears the "machines" edge to the Machine entity.
+func (m *OrganizationMutation) ClearMachines() {
+	m.clearedmachines = true
+}
+
+// MachinesCleared reports if the "machines" edge to the Machine entity was cleared.
+func (m *OrganizationMutation) MachinesCleared() bool {
+	return m.clearedmachines
+}
+
+// RemoveMachineIDs removes the "machines" edge to the Machine entity by IDs.
+func (m *OrganizationMutation) RemoveMachineIDs(ids ...uuid.UUID) {
+	if m.removedmachines == nil {
+		m.removedmachines = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.machines, ids[i])
+		m.removedmachines[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedMachines returns the removed IDs of the "machines" edge to the Machine entity.
+func (m *OrganizationMutation) RemovedMachinesIDs() (ids []uuid.UUID) {
+	for id := range m.removedmachines {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// MachinesIDs returns the "machines" edge IDs in the mutation.
+func (m *OrganizationMutation) MachinesIDs() (ids []uuid.UUID) {
+	for id := range m.machines {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetMachines resets all changes to the "machines" edge.
+func (m *OrganizationMutation) ResetMachines() {
+	m.machines = nil
+	m.clearedmachines = false
+	m.removedmachines = nil
+}
+
 // AddNotificationChannelIDs adds the "notification_channels" edge to the NotificationChannel entity by ids.
 func (m *OrganizationMutation) AddNotificationChannelIDs(ids ...uuid.UUID) {
 	if m.notification_channels == nil {
@@ -6807,12 +8145,15 @@ func (m *OrganizationMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *OrganizationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.projects != nil {
 		edges = append(edges, organization.EdgeProjects)
 	}
 	if m.providers != nil {
 		edges = append(edges, organization.EdgeProviders)
+	}
+	if m.machines != nil {
+		edges = append(edges, organization.EdgeMachines)
 	}
 	if m.notification_channels != nil {
 		edges = append(edges, organization.EdgeNotificationChannels)
@@ -6839,6 +8180,12 @@ func (m *OrganizationMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case organization.EdgeMachines:
+		ids := make([]ent.Value, 0, len(m.machines))
+		for id := range m.machines {
+			ids = append(ids, id)
+		}
+		return ids
 	case organization.EdgeNotificationChannels:
 		ids := make([]ent.Value, 0, len(m.notification_channels))
 		for id := range m.notification_channels {
@@ -6855,12 +8202,15 @@ func (m *OrganizationMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *OrganizationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedprojects != nil {
 		edges = append(edges, organization.EdgeProjects)
 	}
 	if m.removedproviders != nil {
 		edges = append(edges, organization.EdgeProviders)
+	}
+	if m.removedmachines != nil {
+		edges = append(edges, organization.EdgeMachines)
 	}
 	if m.removednotification_channels != nil {
 		edges = append(edges, organization.EdgeNotificationChannels)
@@ -6884,6 +8234,12 @@ func (m *OrganizationMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case organization.EdgeMachines:
+		ids := make([]ent.Value, 0, len(m.removedmachines))
+		for id := range m.removedmachines {
+			ids = append(ids, id)
+		}
+		return ids
 	case organization.EdgeNotificationChannels:
 		ids := make([]ent.Value, 0, len(m.removednotification_channels))
 		for id := range m.removednotification_channels {
@@ -6896,12 +8252,15 @@ func (m *OrganizationMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *OrganizationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.clearedprojects {
 		edges = append(edges, organization.EdgeProjects)
 	}
 	if m.clearedproviders {
 		edges = append(edges, organization.EdgeProviders)
+	}
+	if m.clearedmachines {
+		edges = append(edges, organization.EdgeMachines)
 	}
 	if m.clearednotification_channels {
 		edges = append(edges, organization.EdgeNotificationChannels)
@@ -6920,6 +8279,8 @@ func (m *OrganizationMutation) EdgeCleared(name string) bool {
 		return m.clearedprojects
 	case organization.EdgeProviders:
 		return m.clearedproviders
+	case organization.EdgeMachines:
+		return m.clearedmachines
 	case organization.EdgeNotificationChannels:
 		return m.clearednotification_channels
 	case organization.EdgeDefaultAgentProvider:
@@ -6948,6 +8309,9 @@ func (m *OrganizationMutation) ResetEdge(name string) error {
 		return nil
 	case organization.EdgeProviders:
 		m.ResetProviders()
+		return nil
+	case organization.EdgeMachines:
+		m.ResetMachines()
 		return nil
 	case organization.EdgeNotificationChannels:
 		m.ResetNotificationChannels()

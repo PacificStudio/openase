@@ -36,6 +36,31 @@ type OpenAPIProject struct {
 	MaxConcurrentAgents    int     `json:"max_concurrent_agents"`
 }
 
+type OpenAPIMachine struct {
+	ID              string         `json:"id"`
+	OrganizationID  string         `json:"organization_id"`
+	Name            string         `json:"name"`
+	Host            string         `json:"host"`
+	Port            int            `json:"port"`
+	SSHUser         *string        `json:"ssh_user,omitempty"`
+	SSHKeyPath      *string        `json:"ssh_key_path,omitempty"`
+	Description     string         `json:"description"`
+	Labels          []string       `json:"labels,omitempty"`
+	Status          string         `json:"status"`
+	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
+	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
+	EnvVars         []string       `json:"env_vars,omitempty"`
+	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
+	Resources       map[string]any `json:"resources"`
+}
+
+type OpenAPIMachineProbe struct {
+	CheckedAt string         `json:"checked_at"`
+	Transport string         `json:"transport"`
+	Output    string         `json:"output"`
+	Resources map[string]any `json:"resources"`
+}
+
 type OpenAPIProjectRepo struct {
 	ID            string   `json:"id"`
 	ProjectID     string   `json:"project_id"`
@@ -155,6 +180,19 @@ type OpenAPITicketRepoScopeDetail struct {
 	IsPrimaryScope bool                `json:"is_primary_scope"`
 }
 
+type OpenAPIChatContext struct {
+	ProjectID  string  `json:"project_id"`
+	WorkflowID *string `json:"workflow_id,omitempty"`
+	TicketID   *string `json:"ticket_id,omitempty"`
+}
+
+type OpenAPIChatStartRequest struct {
+	Message   string             `json:"message"`
+	Source    string             `json:"source"`
+	Context   OpenAPIChatContext `json:"context"`
+	SessionID *string            `json:"session_id,omitempty"`
+}
+
 type OpenAPITicketStatus struct {
 	ID          string `json:"id"`
 	ProjectID   string `json:"project_id"`
@@ -201,6 +239,22 @@ type OpenAPIValidationIssue struct {
 type OpenAPIHarnessValidationResponse struct {
 	Valid  bool                     `json:"valid"`
 	Issues []OpenAPIValidationIssue `json:"issues"`
+}
+
+type OpenAPIHarnessVariableMetadata struct {
+	Path        string `json:"path"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Example     string `json:"example,omitempty"`
+}
+
+type OpenAPIHarnessVariableGroup struct {
+	Name      string                           `json:"name"`
+	Variables []OpenAPIHarnessVariableMetadata `json:"variables"`
+}
+
+type OpenAPIHarnessVariablesResponse struct {
+	Groups []OpenAPIHarnessVariableGroup `json:"groups"`
 }
 
 type OpenAPISkillWorkflowBinding struct {
@@ -275,6 +329,26 @@ type OpenAPIProjectsResponse struct {
 
 type OpenAPIProjectResponse struct {
 	Project OpenAPIProject `json:"project"`
+}
+
+type OpenAPIMachinesResponse struct {
+	Machines []OpenAPIMachine `json:"machines"`
+}
+
+type OpenAPIMachineResponse struct {
+	Machine OpenAPIMachine `json:"machine"`
+}
+
+type OpenAPIMachineTestResponse struct {
+	Machine OpenAPIMachine      `json:"machine"`
+	Probe   OpenAPIMachineProbe `json:"probe"`
+}
+
+type OpenAPIMachineResourcesResponse struct {
+	MachineID       string         `json:"machine_id"`
+	Status          string         `json:"status"`
+	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
+	Resources       map[string]any `json:"resources"`
 }
 
 type OpenAPIAgentProvidersResponse struct {
@@ -353,6 +427,8 @@ type OpenAPICreateAgentProviderRequest domain.AgentProviderInput
 type OpenAPIUpdateAgentProviderRequest agentProviderPatchRequest
 type OpenAPICreateProjectRequest domain.ProjectInput
 type OpenAPIUpdateProjectRequest projectPatchRequest
+type OpenAPICreateMachineRequest domain.MachineInput
+type OpenAPIUpdateMachineRequest machinePatchRequest
 type OpenAPICreateWorkflowRequest rawCreateWorkflowRequest
 type OpenAPIUpdateWorkflowRequest rawUpdateWorkflowRequest
 type OpenAPIUpdateHarnessRequest rawUpdateHarnessRequest
@@ -391,6 +467,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 		return nil, err
 	}
 	if err := builder.addTicketOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addChatOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addStreamOperations(); err != nil {
@@ -497,6 +576,40 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	orgProjectsPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/projects", http.MethodPost, orgProjectsPost)
 
+	machinesGet, err := b.jsonOperation(
+		"listMachines",
+		"List machines for an organization",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachinesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machinesGet.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/machines", http.MethodGet, machinesGet)
+
+	machinesPost, err := b.jsonOperation(
+		"createMachine",
+		"Create a machine",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPIMachineResponse{},
+		OpenAPICreateMachineRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machinesPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/machines", http.MethodPost, machinesPost)
+
 	providersGet, err := b.jsonOperation(
 		"listAgentProviders",
 		"List agent providers for an organization",
@@ -530,6 +643,95 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	providersPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/providers", http.MethodPost, providersPost)
+
+	machineGet, err := b.jsonOperation(
+		"getMachine",
+		"Get a machine",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineGet.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}", http.MethodGet, machineGet)
+
+	machinePatch, err := b.jsonOperation(
+		"updateMachine",
+		"Update a machine",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineResponse{},
+		OpenAPIUpdateMachineRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machinePatch.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}", http.MethodPatch, machinePatch)
+
+	machineDelete, err := b.jsonOperation(
+		"deleteMachine",
+		"Delete a machine",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineDelete.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}", http.MethodDelete, machineDelete)
+
+	machineTest, err := b.jsonOperation(
+		"testMachineConnection",
+		"Test a machine SSH connection",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineTestResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineTest.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}/test", http.MethodPost, machineTest)
+
+	machineResources, err := b.jsonOperation(
+		"getMachineResources",
+		"Get machine resources",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineResourcesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineResources.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}/resources", http.MethodGet, machineResources)
 
 	orgPatch, err := b.jsonOperation(
 		"updateOrganization",
@@ -832,6 +1034,20 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	harnessPut.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
 	b.doc.AddOperation("/api/v1/workflows/{workflowId}/harness", http.MethodPut, harnessPut)
 
+	harnessVariables, err := b.jsonOperation(
+		"listHarnessVariables",
+		"List the harness variable dictionary",
+		[]string{"workflows"},
+		http.StatusOK,
+		OpenAPIHarnessVariablesResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/harness/variables", http.MethodGet, harnessVariables)
+
 	harnessValidate, err := b.jsonOperation(
 		"validateHarness",
 		"Validate workflow harness content",
@@ -994,6 +1210,54 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketDetailGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	ticketDetailGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/detail", http.MethodGet, ticketDetailGet)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addChatOperations() error {
+	chatPost, err := b.streamOperation(
+		"startEphemeralChat",
+		"Start an ephemeral chat turn",
+		[]string{"chat"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	bodyRef, err := b.schemaRef(OpenAPIChatStartRequest{})
+	if err != nil {
+		return err
+	}
+	chatPost.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithDescription("Start ephemeral chat request body.").
+			WithJSONSchemaRef(bodyRef).
+			WithRequired(true),
+	}
+	b.doc.AddOperation("/api/v1/chat", http.MethodPost, chatPost)
+
+	chatDelete := openapi3.NewOperation()
+	chatDelete.OperationID = "closeEphemeralChat"
+	chatDelete.Summary = "Close an ephemeral chat session"
+	chatDelete.Tags = []string{"chat"}
+	chatDelete.Responses = openapi3.NewResponsesWithCapacity(3)
+	chatDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Chat session closed."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		chatDelete.AddResponse(code, errorResponse)
+	}
+	chatDelete.AddParameter(openapi3.NewPathParameter("sessionId").
+		WithDescription("Claude Code session ID.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/{sessionId}", http.MethodDelete, chatDelete)
 
 	return nil
 }
