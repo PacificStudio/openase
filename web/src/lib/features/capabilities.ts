@@ -35,9 +35,8 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'Search stays disabled because no search endpoint is exported in the current API.',
   },
   newTicket: {
-    state: 'unwired',
-    summary:
-      'Ticket creation backend support exists at POST /api/v1/projects/{projectId}/tickets, but this UI slice still lacks a create flow.',
+    state: 'available',
+    summary: 'Ticket creation is wired to POST /api/v1/projects/{projectId}/tickets.',
   },
   statusMutation: {
     state: 'unwired',
