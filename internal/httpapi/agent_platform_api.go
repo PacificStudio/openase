@@ -7,6 +7,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/labstack/echo/v4"
 )
@@ -31,6 +32,12 @@ type rawAgentUpdateTicketRequest struct {
 	ExternalRef *string `json:"external_ref"`
 }
 
+type rawAgentReportUsageRequest struct {
+	InputTokens  *int64   `json:"input_tokens"`
+	OutputTokens *int64   `json:"output_tokens"`
+	CostUSD      *float64 `json:"cost_usd"`
+}
+
 type rawAgentProjectPatchRequest struct {
 	Description *string `json:"description"`
 }
@@ -39,6 +46,7 @@ func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleAgentListTickets)
 	api.POST("/projects/:projectId/tickets", s.handleAgentCreateTicket)
 	api.PATCH("/tickets/:ticketId", s.handleAgentUpdateOwnTicket)
+	api.POST("/tickets/:ticketId/usage", s.handleAgentReportUsage)
 	api.PATCH("/projects/:projectId", s.handleAgentUpdateProject)
 	api.POST("/projects/:projectId/repos", s.handleAgentCreateProjectRepo)
 }
@@ -194,6 +202,60 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"ticket": mapTicketResponse(item),
+	})
+}
+
+func (s *Server) handleAgentReportUsage(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsReportUsage)
+	if !ok {
+		return nil
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	if claims.TicketID != ticketID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_TICKET_FORBIDDEN", "agent token can only report usage for its current ticket")
+	}
+
+	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if current.ProjectID != claims.ProjectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	var raw rawAgentReportUsageRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	result, err := s.ticketService.RecordUsage(c.Request().Context(), ticketservice.RecordUsageInput{
+		AgentID:  claims.AgentID,
+		TicketID: ticketID,
+		Usage: ticketing.RawUsageDelta{
+			InputTokens:  raw.InputTokens,
+			OutputTokens: raw.OutputTokens,
+			CostUSD:      raw.CostUSD,
+		},
+	}, s.metrics)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	if err := s.publishTicketEvent(c.Request().Context(), ticketUpdatedEventType, result.Ticket); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"ticket":          mapTicketResponse(result.Ticket),
+		"applied":         result.Applied,
+		"budget_exceeded": result.BudgetExceeded,
 	})
 }
 

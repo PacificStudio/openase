@@ -3108,6 +3108,10 @@ export interface operations {
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
               created_at?: string
               created_by?: string
               dependencies?: {
@@ -3320,6 +3324,10 @@ export interface operations {
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
               created_at?: string
               created_by?: string
               dependencies?: {
@@ -3968,6 +3976,10 @@ export interface operations {
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
               created_at?: string
               created_by?: string
               dependencies?: {
@@ -4151,6 +4163,10 @@ export interface operations {
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
               created_at?: string
               created_by?: string
               dependencies?: {
