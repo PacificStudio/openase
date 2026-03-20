@@ -91,9 +91,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Connector settings stay placeholder because no connector management API is exported yet.',
   },
   notificationsSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Notification channel and rule APIs exist, but the notifications settings UI has not been connected yet.',
+      'Notifications settings are wired to org-level channel CRUD, project rule CRUD, test send, and enable/disable controls.',
   },
   securitySettings: {
     state: 'backend_missing',
