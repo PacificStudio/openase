@@ -5,41 +5,8 @@ import {
   projectSections,
   type ProjectSection,
 } from '$lib/stores/app-context'
-
-export type SearchItemAction =
-  | { kind: 'navigate'; href: string }
-  | { kind: 'open_ticket'; ticketId: string }
-  | { kind: 'new_ticket' }
-  | { kind: 'toggle_theme' }
-
-export type SearchItemGroup =
-  | 'Commands'
-  | 'Pages'
-  | 'Projects'
-  | 'Organizations'
-  | 'Tickets'
-  | 'Workflows'
-  | 'Agents'
-
-export type SearchItemKind =
-  | 'command'
-  | 'page'
-  | 'project'
-  | 'organization'
-  | 'ticket'
-  | 'workflow'
-  | 'agent'
-
-export type SearchItem = {
-  id: string
-  group: SearchItemGroup
-  kind: SearchItemKind
-  title: string
-  subtitle: string
-  badge?: string
-  searchText: string
-  action: SearchItemAction
-}
+import type { SearchItem, SearchItemAction, SearchItemGroup, SearchItemKind } from './types'
+import { searchItemGroupOrder } from './types'
 
 type BuildSearchIndexInput = {
   organizations: Organization[]
@@ -52,16 +19,6 @@ type BuildSearchIndexInput = {
   agents: Agent[]
   newTicketEnabled: boolean
 }
-
-const groupOrder: SearchItemGroup[] = [
-  'Commands',
-  'Pages',
-  'Projects',
-  'Organizations',
-  'Tickets',
-  'Workflows',
-  'Agents',
-]
 
 export function buildSearchIndex(input: BuildSearchIndexInput): SearchItem[] {
   const items: SearchItem[] = []
@@ -78,7 +35,7 @@ export function buildSearchIndex(input: BuildSearchIndexInput): SearchItem[] {
 }
 
 export function groupSearchItems(items: SearchItem[]) {
-  return groupOrder
+  return searchItemGroupOrder
     .map((group) => ({
       heading: group,
       items: items.filter((item) => item.group === group),

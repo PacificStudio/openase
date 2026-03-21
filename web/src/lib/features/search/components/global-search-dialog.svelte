@@ -6,12 +6,8 @@
   import type { ProjectSection } from '$lib/stores/app-context'
   import * as Command from '$ui/command'
   import { Badge } from '$ui/badge'
-  import {
-    buildSearchIndex,
-    groupSearchItems,
-    type SearchItem,
-    type SearchItemAction,
-  } from '../model'
+  import { buildSearchIndex, groupSearchItems } from '../model'
+  import type { SearchItem, SearchItemAction } from '../types'
 
   let {
     open = $bindable(false),
