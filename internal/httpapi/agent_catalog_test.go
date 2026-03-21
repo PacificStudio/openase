@@ -661,13 +661,7 @@ func (f *fakeCatalogService) PauseAgentRuntime(_ context.Context, id uuid.UUID) 
 		return domain.AgentRuntimeControlResult{}, fmt.Errorf("%w: %v", catalogservice.ErrInvalidInput, err)
 	}
 
-	current.Status = nextState.Status
-	current.CurrentTicketID = cloneUUIDPointer(nextState.CurrentTicketID)
-	current.SessionID = nextState.SessionID
-	current.RuntimePhase = nextState.RuntimePhase
-	current.RuntimeStartedAt = cloneTimePointer(nextState.RuntimeStartedAt)
-	current.LastError = nextState.LastError
-	current.LastHeartbeatAt = cloneTimePointer(nextState.LastHeartbeatAt)
+	current = applyRuntimeStateUpdate(current, nextState)
 	f.agents[id] = current
 
 	return domain.AgentRuntimeControlResult{
@@ -688,13 +682,7 @@ func (f *fakeCatalogService) ResumeAgentRuntime(_ context.Context, id uuid.UUID)
 		return domain.AgentRuntimeControlResult{}, fmt.Errorf("%w: %v", catalogservice.ErrInvalidInput, err)
 	}
 
-	current.Status = nextState.Status
-	current.CurrentTicketID = cloneUUIDPointer(nextState.CurrentTicketID)
-	current.SessionID = nextState.SessionID
-	current.RuntimePhase = nextState.RuntimePhase
-	current.RuntimeStartedAt = cloneTimePointer(nextState.RuntimeStartedAt)
-	current.LastError = nextState.LastError
-	current.LastHeartbeatAt = cloneTimePointer(nextState.LastHeartbeatAt)
+	current = applyRuntimeStateUpdate(current, nextState)
 	f.agents[id] = current
 
 	return domain.AgentRuntimeControlResult{
@@ -730,4 +718,15 @@ func cloneUUIDPointer(value *uuid.UUID) *uuid.UUID {
 
 	cloned := *value
 	return &cloned
+}
+
+func applyRuntimeStateUpdate(current domain.Agent, nextState domain.UpdateAgentRuntimeState) domain.Agent {
+	current.Status = nextState.Status
+	current.CurrentTicketID = cloneUUIDPointer(nextState.CurrentTicketID)
+	current.SessionID = nextState.SessionID
+	current.RuntimePhase = nextState.RuntimePhase
+	current.RuntimeStartedAt = cloneTimePointer(nextState.RuntimeStartedAt)
+	current.LastError = nextState.LastError
+	current.LastHeartbeatAt = cloneTimePointer(nextState.LastHeartbeatAt)
+	return current
 }

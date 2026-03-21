@@ -110,7 +110,7 @@ func (l *RuntimeLauncher) reconcileSessionState(ctx context.Context) error {
 		if err != nil {
 			if ent.IsNotFound(err) {
 				l.deleteSession(agentID)
-				stopSession(context.Background(), session)
+				stopSession(ctx, session)
 				continue
 			}
 			return fmt.Errorf("load session reconciliation state for agent %s: %w", agentID, err)
@@ -120,7 +120,7 @@ func (l *RuntimeLauncher) reconcileSessionState(ctx context.Context) error {
 		}
 
 		l.deleteSession(agentID)
-		stopSession(context.Background(), session)
+		stopSession(ctx, session)
 	}
 
 	return nil

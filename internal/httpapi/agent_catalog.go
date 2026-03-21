@@ -262,7 +262,7 @@ func (s *Server) pauseAgentRuntime(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
-	s.publishAgentRuntimeControlEvent(result)
+	s.publishAgentRuntimeControlEvent(c.Request().Context(), result)
 
 	return c.JSON(http.StatusOK, agentRuntimeControlResponse{
 		Agent:       mapAgentResponse(result.Agent),
@@ -281,7 +281,7 @@ func (s *Server) resumeAgentRuntime(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
-	s.publishAgentRuntimeControlEvent(result)
+	s.publishAgentRuntimeControlEvent(c.Request().Context(), result)
 
 	return c.JSON(http.StatusOK, agentRuntimeControlResponse{
 		Agent:       mapAgentResponse(result.Agent),
@@ -290,7 +290,7 @@ func (s *Server) resumeAgentRuntime(c echo.Context) error {
 	})
 }
 
-func (s *Server) publishAgentRuntimeControlEvent(result domain.AgentRuntimeControlResult) {
+func (s *Server) publishAgentRuntimeControlEvent(ctx context.Context, result domain.AgentRuntimeControlResult) {
 	if s == nil || s.events == nil {
 		return
 	}
@@ -310,7 +310,10 @@ func (s *Server) publishAgentRuntimeControlEvent(result domain.AgentRuntimeContr
 		s.logger.Warn("construct agent runtime control event", "error", err, "transition", result.Transition)
 		return
 	}
-	if err := s.events.Publish(context.Background(), event); err != nil {
+
+	publishCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := s.events.Publish(publishCtx, event); err != nil {
 		s.logger.Warn("publish agent runtime control event", "error", err, "transition", result.Transition, "agent_id", result.Agent.ID)
 	}
 }
