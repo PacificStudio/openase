@@ -1,9 +1,10 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
-  import { createAgent, updateProvider } from '$lib/api/openase'
+  import { createAgent, listAgentOutput, updateProvider } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
-  import type { AgentProvider } from '$lib/api/contracts'
+  import type { AgentOutputEntry, AgentProvider } from '$lib/api/contracts'
+  import type { StreamConnectionState, SSEFrame } from '$lib/api/sse'
   import { loadAgentsPageData } from '../data'
   import {
     applyUpdatedProviderState,
@@ -41,10 +42,20 @@
   let providerSaving = $state(false),
     providerFeedback = $state(''),
     providerError = $state('')
+  let outputSheetOpen = $state(false)
+  let selectedOutputAgentId = $state<string | null>(null)
+  let outputEntries = $state<AgentOutputEntry[]>([])
+  let outputLoading = $state(false)
+  let outputError = $state('')
+  let outputStreamState = $state<StreamConnectionState>('idle')
   let loadVersion = 0
+  let outputLoadVersion = 0
 
   const selectedProvider = $derived(
     providers.find((provider) => provider.id === selectedProviderId) ?? null,
+  )
+  const selectedOutputAgent = $derived(
+    agents.find((agent) => agent.id === selectedOutputAgentId) ?? null,
   )
 
   $effect(() => {
@@ -80,6 +91,41 @@
     if (!providerConfigOpen) {
       providerFeedback = providerError = ''
       providerSaving = false
+    }
+  })
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    const agentId = selectedOutputAgentId
+
+    if (!outputSheetOpen || !projectId || !agentId) {
+      if (!outputSheetOpen) {
+        outputEntries = []
+        outputError = ''
+        outputLoading = false
+        outputStreamState = 'idle'
+      }
+      return
+    }
+
+    void loadAgentOutput(projectId, agentId, true)
+
+    const disconnect = connectEventStream(
+      `/api/v1/projects/${projectId}/agents/${agentId}/output/stream`,
+      {
+        onEvent: (frame) => handleAgentOutputFrame(agentId, frame),
+        onStateChange: (state) => {
+          outputStreamState = state
+        },
+        onError: (streamError) => {
+          console.error('Agent output stream error:', streamError)
+        },
+      },
+    )
+
+    return () => {
+      outputLoadVersion += 1
+      disconnect()
     }
   })
 
@@ -254,6 +300,81 @@
       providerDraft = providerToDraft(nextState.provider)
     }
   }
+
+  async function handleOpenAgentOutput(agentId: string) {
+    selectedOutputAgentId = agentId
+    outputSheetOpen = true
+  }
+
+  function handleOutputOpenChange(open: boolean) {
+    outputSheetOpen = open
+    if (!open) {
+      selectedOutputAgentId = null
+      outputEntries = []
+      outputError = ''
+      outputLoading = false
+      outputStreamState = 'idle'
+    }
+  }
+
+  async function loadAgentOutput(projectId: string, agentId: string, showLoading: boolean) {
+    const requestVersion = ++outputLoadVersion
+    if (showLoading) {
+      outputLoading = true
+    }
+    outputError = ''
+
+    try {
+      const payload = await listAgentOutput(projectId, agentId, { limit: '200' })
+      if (requestVersion !== outputLoadVersion || selectedOutputAgentId !== agentId) return
+
+      outputEntries = [...payload.entries].reverse()
+    } catch (caughtError) {
+      if (requestVersion !== outputLoadVersion || selectedOutputAgentId !== agentId) return
+      outputError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agent output.'
+    } finally {
+      if (
+        requestVersion === outputLoadVersion &&
+        selectedOutputAgentId === agentId &&
+        showLoading
+      ) {
+        outputLoading = false
+      }
+    }
+  }
+
+  function handleAgentOutputFrame(agentId: string, frame: SSEFrame) {
+    if (frame.event !== 'agent.output' || selectedOutputAgentId !== agentId) {
+      return
+    }
+
+    try {
+      const envelope = JSON.parse(frame.data) as {
+        payload?: { entry?: AgentOutputEntry }
+      }
+      const entry = envelope.payload?.entry
+      if (!entry) {
+        return
+      }
+
+      outputEntries = mergeOutputEntry(outputEntries, entry)
+    } catch (error) {
+      console.error('Failed to parse agent output frame:', error)
+    }
+  }
+
+  function mergeOutputEntry(entries: AgentOutputEntry[], entry: AgentOutputEntry) {
+    if (entries.some((item) => item.id === entry.id)) {
+      return entries
+    }
+
+    const nextEntries = [...entries, entry]
+    if (nextEntries.length > 200) {
+      return nextEntries.slice(nextEntries.length - 200)
+    }
+    return nextEntries
+  }
 </script>
 
 <div class="space-y-4">
@@ -274,6 +395,7 @@
     onSelectTicket={(ticketId) => {
       appStore.openRightPanel({ type: 'ticket', id: ticketId })
     }}
+    onViewOutput={handleOpenAgentOutput}
     onConfigureProvider={handleConfigureProvider}
   />
 </div>
@@ -281,6 +403,7 @@
 <AgentsPageDrawers
   bind:registerSheetOpen
   bind:providerConfigOpen
+  bind:outputSheetOpen
   {providerItems}
   {registrationDraft}
   {registerSaving}
@@ -294,6 +417,12 @@
   {providerSaving}
   {providerFeedback}
   {providerError}
+  {selectedOutputAgent}
+  {outputEntries}
+  {outputLoading}
+  {outputError}
+  {outputStreamState}
   onProviderDraftChange={handleProviderDraftChange}
   onProviderSave={handleProviderSave}
+  onOutputOpenChange={handleOutputOpenChange}
 />

@@ -158,6 +158,9 @@ export function buildAgentRows(
           }
         : undefined,
       lastHeartbeat: agent.last_heartbeat_at,
+      runtimeStartedAt: agent.runtime_started_at,
+      sessionId: agent.session_id,
+      lastError: agent.last_error,
       todayCompleted: agent.total_tickets_completed,
       todayCost: 0,
       capabilities: agent.capabilities,

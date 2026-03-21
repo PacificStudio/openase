@@ -453,6 +453,48 @@ func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.
 	return items, nil
 }
 
+func (f *fakeCatalogService) ListAgentOutput(_ context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error) {
+	agent, ok := f.agents[input.AgentID]
+	if !ok || agent.ProjectID != input.ProjectID {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.AgentOutputEntry, 0)
+	for _, item := range f.activityEvents {
+		if item.ProjectID != input.ProjectID || item.EventType != domain.AgentOutputEventType {
+			continue
+		}
+		if item.AgentID == nil || *item.AgentID != input.AgentID {
+			continue
+		}
+		if input.TicketID != nil {
+			if item.TicketID == nil || *item.TicketID != *input.TicketID {
+				continue
+			}
+		}
+		items = append(items, domain.AgentOutputEntry{
+			ID:        item.ID,
+			ProjectID: item.ProjectID,
+			AgentID:   *item.AgentID,
+			TicketID:  item.TicketID,
+			Stream:    agentOutputMetadataStream(item.Metadata),
+			Output:    item.Message,
+			CreatedAt: item.CreatedAt,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID.String() > items[j].ID.String()
+		}
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if len(items) > input.Limit {
+		items = items[:input.Limit]
+	}
+
+	return items, nil
+}
+
 func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateAgent) (domain.Agent, error) {
 	project, ok := f.projects[input.ProjectID]
 	if !ok {

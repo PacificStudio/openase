@@ -2,6 +2,7 @@ import { api } from './client'
 import type {
   ActivityPayload,
   AgentPayload,
+  AgentOutputPayload,
   AgentResponse,
   AgentProvider,
   AgentProviderListPayload,
@@ -136,6 +137,19 @@ export function listActivity(
 
 export function listAgents(projectId: string) {
   return api.get<AgentPayload>(`/api/v1/projects/${projectId}/agents`)
+}
+
+export function listAgentOutput(
+  projectId: string,
+  agentId: string,
+  params?: {
+    ticket_id?: string
+    limit?: string
+  },
+) {
+  return api.get<AgentOutputPayload>(`/api/v1/projects/${projectId}/agents/${agentId}/output`, {
+    params,
+  })
 }
 
 export function createAgent(
