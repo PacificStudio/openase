@@ -13,11 +13,15 @@
     loading = false,
     error = '',
     pageFeedback = '',
+    pageError = '',
+    runtimeActionAgentId = null,
     canRegister = false,
     registerButtonTitle,
     onOpenRegister,
     onSelectTicket,
     onConfigureProvider,
+    onPauseAgent,
+    onResumeAgent,
   }: {
     activeTab?: string
     agents: AgentInstance[]
@@ -25,11 +29,15 @@
     loading?: boolean
     error?: string
     pageFeedback?: string
+    pageError?: string
+    runtimeActionAgentId?: string | null
     canRegister?: boolean
     registerButtonTitle?: string
     onOpenRegister?: () => void
     onSelectTicket?: (ticketId: string) => void
     onConfigureProvider?: (provider: ProviderConfig) => void
+    onPauseAgent?: (agentId: string) => void
+    onResumeAgent?: (agentId: string) => void
   } = $props()
 </script>
 
@@ -67,6 +75,13 @@
         {pageFeedback}
       </div>
     {/if}
+    {#if pageError}
+      <div
+        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+      >
+        {pageError}
+      </div>
+    {/if}
 
     <Tabs.Root bind:value={activeTab}>
       <Tabs.List variant="line">
@@ -74,7 +89,13 @@
         <Tabs.Trigger value="providers">Providers</Tabs.Trigger>
       </Tabs.List>
       <Tabs.Content value="instances" class="pt-3">
-        <AgentList {agents} onSelectTicket={(ticketId) => onSelectTicket?.(ticketId)} />
+        <AgentList
+          {agents}
+          {runtimeActionAgentId}
+          onSelectTicket={(ticketId) => onSelectTicket?.(ticketId)}
+          {onPauseAgent}
+          {onResumeAgent}
+        />
       </Tabs.Content>
       <Tabs.Content value="providers" class="pt-3">
         <ProviderList {providers} onConfigure={onConfigureProvider} />

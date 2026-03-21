@@ -51,6 +51,40 @@ func (s *service) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, err
 	return s.repo.GetAgent(ctx, id)
 }
 
+func (s *service) RequestAgentPause(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
+	current, err := s.repo.GetAgent(ctx, id)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+
+	nextState, err := domain.ResolvePauseRuntimeControlState(current)
+	if err != nil {
+		return domain.Agent{}, fmt.Errorf("%w: %v", ErrConflict, err)
+	}
+
+	return s.repo.UpdateAgentRuntimeControlState(ctx, domain.UpdateAgentRuntimeControlState{
+		ID:                  id,
+		RuntimeControlState: nextState,
+	})
+}
+
+func (s *service) RequestAgentResume(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
+	current, err := s.repo.GetAgent(ctx, id)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+
+	nextState, err := domain.ResolveResumeRuntimeControlState(current)
+	if err != nil {
+		return domain.Agent{}, fmt.Errorf("%w: %v", ErrConflict, err)
+	}
+
+	return s.repo.UpdateAgentRuntimeControlState(ctx, domain.UpdateAgentRuntimeControlState{
+		ID:                  id,
+		RuntimeControlState: nextState,
+	})
+}
+
 func (s *service) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
 	return s.repo.DeleteAgent(ctx, id)
 }

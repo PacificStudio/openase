@@ -73,6 +73,9 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return fmt.Errorf("runtime launcher process manager unavailable")
 	}
 
+	if err := l.reconcilePauseRequests(ctx); err != nil {
+		return err
+	}
 	if err := l.refreshHeartbeats(ctx); err != nil {
 		return err
 	}
@@ -81,6 +84,7 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		Where(
 			entagent.StatusEQ(entagent.StatusClaimed),
 			entagent.RuntimePhaseEQ(entagent.RuntimePhaseNone),
+			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
 			entagent.CurrentTicketIDNotNil(),
 		).
 		WithProvider().
@@ -292,6 +296,28 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 	)
 }
 
+func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
+	pausedAgents, err := l.client.Agent.Query().
+		Where(
+			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStatePauseRequested),
+			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
+			entagent.CurrentTicketIDNotNil(),
+		).
+		Order(ent.Asc(entagent.FieldName)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("list agents pending pause: %w", err)
+	}
+
+	for _, agentItem := range pausedAgents {
+		if err := l.pauseAgent(ctx, agentItem); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 	l.sessionsMu.Lock()
 	sessionIDs := make([]uuid.UUID, 0, len(l.sessions))
@@ -349,6 +375,57 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (l *RuntimeLauncher) pauseAgent(ctx context.Context, agentItem *ent.Agent) error {
+	if agentItem == nil {
+		return nil
+	}
+
+	session := l.loadSession(agentItem.ID)
+	if session != nil {
+		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		stopErr := session.Stop(stopCtx)
+		cancel()
+		if stopErr != nil {
+			return fmt.Errorf("stop runtime session for agent %s: %w", agentItem.ID, stopErr)
+		}
+		l.deleteSession(agentItem.ID)
+	}
+
+	pausedAt := l.now().UTC()
+	pausedCount, err := clearRuntimeState(
+		l.client.Agent.Update().
+			Where(
+				entagent.IDEQ(agentItem.ID),
+				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStatePauseRequested),
+				entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
+				entagent.CurrentTicketIDNotNil(),
+			).
+			SetStatus(entagent.StatusClaimed).
+			SetRuntimeControlState(entagent.RuntimeControlStatePaused),
+	).Save(ctx)
+	if err != nil {
+		return fmt.Errorf("mark agent %s paused: %w", agentItem.ID, err)
+	}
+	if pausedCount == 0 {
+		return nil
+	}
+
+	pausedAgent, err := loadAgentLifecycleState(ctx, l.client, agentItem.ID)
+	if err != nil {
+		return err
+	}
+	return publishAgentLifecycleEvent(
+		ctx,
+		l.client,
+		l.events,
+		agentPausedType,
+		pausedAgent,
+		lifecycleMessage(agentPausedType, pausedAgent.Name),
+		runtimeEventMetadata(pausedAgent),
+		pausedAt,
+	)
 }
 
 func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.Agent) (*codex.Session, error) {
@@ -896,6 +973,12 @@ func (l *RuntimeLauncher) storeSession(agentID uuid.UUID, session *codex.Session
 	l.sessionsMu.Lock()
 	defer l.sessionsMu.Unlock()
 	l.sessions[agentID] = session
+}
+
+func (l *RuntimeLauncher) loadSession(agentID uuid.UUID) *codex.Session {
+	l.sessionsMu.Lock()
+	defer l.sessionsMu.Unlock()
+	return l.sessions[agentID]
 }
 
 func (l *RuntimeLauncher) deleteSession(agentID uuid.UUID) {

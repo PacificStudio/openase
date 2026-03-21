@@ -64,6 +64,7 @@ func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 			entticket.AssignedAgentIDNotNil(),
 			entticket.HasAssignedAgentWith(
 				entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
+				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
 			),
 		).
 		WithAssignedAgent().
@@ -195,11 +196,13 @@ func (h *HealthChecker) releaseStalledClaim(
 			entagent.IDEQ(agentID),
 			entagent.CurrentTicketIDEQ(ticket.ID),
 			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
+			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
 		).
 		ClearCurrentTicketID().
 		SetStatus(entagent.StatusIdle).
 		ClearSessionID().
 		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetRuntimeControlState(entagent.RuntimeControlStateActive).
 		ClearRuntimeStartedAt().
 		SetLastError("").
 		ClearLastHeartbeatAt().

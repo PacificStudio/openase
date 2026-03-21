@@ -29,6 +29,8 @@ const (
 	FieldSessionID = "session_id"
 	// FieldRuntimePhase holds the string denoting the runtime_phase field in the database.
 	FieldRuntimePhase = "runtime_phase"
+	// FieldRuntimeControlState holds the string denoting the runtime_control_state field in the database.
+	FieldRuntimeControlState = "runtime_control_state"
 	// FieldRuntimeStartedAt holds the string denoting the runtime_started_at field in the database.
 	FieldRuntimeStartedAt = "runtime_started_at"
 	// FieldLastError holds the string denoting the last_error field in the database.
@@ -111,6 +113,7 @@ var Columns = []string{
 	FieldCurrentTicketID,
 	FieldSessionID,
 	FieldRuntimePhase,
+	FieldRuntimeControlState,
 	FieldRuntimeStartedAt,
 	FieldLastError,
 	FieldWorkspacePath,
@@ -198,6 +201,33 @@ func RuntimePhaseValidator(rp RuntimePhase) error {
 	}
 }
 
+// RuntimeControlState defines the type for the "runtime_control_state" enum field.
+type RuntimeControlState string
+
+// RuntimeControlStateActive is the default value of the RuntimeControlState enum.
+const DefaultRuntimeControlState = RuntimeControlStateActive
+
+// RuntimeControlState values.
+const (
+	RuntimeControlStateActive         RuntimeControlState = "active"
+	RuntimeControlStatePauseRequested RuntimeControlState = "pause_requested"
+	RuntimeControlStatePaused         RuntimeControlState = "paused"
+)
+
+func (rcs RuntimeControlState) String() string {
+	return string(rcs)
+}
+
+// RuntimeControlStateValidator is a validator for the "runtime_control_state" field enum values. It is called by the builders before save.
+func RuntimeControlStateValidator(rcs RuntimeControlState) error {
+	switch rcs {
+	case RuntimeControlStateActive, RuntimeControlStatePauseRequested, RuntimeControlStatePaused:
+		return nil
+	default:
+		return fmt.Errorf("agent: invalid enum value for runtime_control_state field: %q", rcs)
+	}
+}
+
 // OrderOption defines the ordering options for the Agent queries.
 type OrderOption func(*sql.Selector)
 
@@ -239,6 +269,11 @@ func BySessionID(opts ...sql.OrderTermOption) OrderOption {
 // ByRuntimePhase orders the results by the runtime_phase field.
 func ByRuntimePhase(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRuntimePhase, opts...).ToFunc()
+}
+
+// ByRuntimeControlState orders the results by the runtime_control_state field.
+func ByRuntimeControlState(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRuntimeControlState, opts...).ToFunc()
 }
 
 // ByRuntimeStartedAt orders the results by the runtime_started_at field.

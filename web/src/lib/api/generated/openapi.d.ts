@@ -22,6 +22,40 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/agents/{agentId}/pause': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Pause an agent runtime */
+    post: operations['pauseAgent']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/agents/{agentId}/resume': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Resume an agent runtime */
+    post: operations['resumeAgent']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/channels/{channelId}': {
     parameters: {
       query?: never
@@ -990,6 +1024,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string
@@ -1068,6 +1103,189 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
+              runtime_phase?: string
+              runtime_started_at?: string | null
+              session_id?: string
+              status?: string
+              total_tickets_completed?: number
+              /** Format: int64 */
+              total_tokens_used?: number
+              workspace_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  pauseAgent: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent ID. */
+        agentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Pause an agent runtime response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent?: {
+              capabilities?: string[]
+              current_ticket_id?: string | null
+              id?: string
+              last_error?: string
+              last_heartbeat_at?: string | null
+              name?: string
+              project_id?: string
+              provider_id?: string
+              runtime_control_state?: string
+              runtime_phase?: string
+              runtime_started_at?: string | null
+              session_id?: string
+              status?: string
+              total_tickets_completed?: number
+              /** Format: int64 */
+              total_tokens_used?: number
+              workspace_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  resumeAgent: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent ID. */
+        agentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Resume an agent runtime response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent?: {
+              capabilities?: string[]
+              current_ticket_id?: string | null
+              id?: string
+              last_error?: string
+              last_heartbeat_at?: string | null
+              name?: string
+              project_id?: string
+              provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string
@@ -3598,6 +3816,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string
@@ -3686,6 +3905,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string

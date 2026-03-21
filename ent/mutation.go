@@ -933,6 +933,7 @@ type AgentMutation struct {
 	status                     *agent.Status
 	session_id                 *string
 	runtime_phase              *agent.RuntimePhase
+	runtime_control_state      *agent.RuntimeControlState
 	runtime_started_at         *time.Time
 	last_error                 *string
 	workspace_path             *string
@@ -1343,6 +1344,42 @@ func (m *AgentMutation) OldRuntimePhase(ctx context.Context) (v agent.RuntimePha
 // ResetRuntimePhase resets all changes to the "runtime_phase" field.
 func (m *AgentMutation) ResetRuntimePhase() {
 	m.runtime_phase = nil
+}
+
+// SetRuntimeControlState sets the "runtime_control_state" field.
+func (m *AgentMutation) SetRuntimeControlState(acs agent.RuntimeControlState) {
+	m.runtime_control_state = &acs
+}
+
+// RuntimeControlState returns the value of the "runtime_control_state" field in the mutation.
+func (m *AgentMutation) RuntimeControlState() (r agent.RuntimeControlState, exists bool) {
+	v := m.runtime_control_state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRuntimeControlState returns the old "runtime_control_state" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldRuntimeControlState(ctx context.Context) (v agent.RuntimeControlState, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRuntimeControlState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRuntimeControlState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRuntimeControlState: %w", err)
+	}
+	return oldValue.RuntimeControlState, nil
+}
+
+// ResetRuntimeControlState resets all changes to the "runtime_control_state" field.
+func (m *AgentMutation) ResetRuntimeControlState() {
+	m.runtime_control_state = nil
 }
 
 // SetRuntimeStartedAt sets the "runtime_started_at" field.
@@ -1979,7 +2016,7 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.provider != nil {
 		fields = append(fields, agent.FieldProviderID)
 	}
@@ -2000,6 +2037,9 @@ func (m *AgentMutation) Fields() []string {
 	}
 	if m.runtime_phase != nil {
 		fields = append(fields, agent.FieldRuntimePhase)
+	}
+	if m.runtime_control_state != nil {
+		fields = append(fields, agent.FieldRuntimeControlState)
 	}
 	if m.runtime_started_at != nil {
 		fields = append(fields, agent.FieldRuntimeStartedAt)
@@ -2044,6 +2084,8 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 		return m.SessionID()
 	case agent.FieldRuntimePhase:
 		return m.RuntimePhase()
+	case agent.FieldRuntimeControlState:
+		return m.RuntimeControlState()
 	case agent.FieldRuntimeStartedAt:
 		return m.RuntimeStartedAt()
 	case agent.FieldLastError:
@@ -2081,6 +2123,8 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldSessionID(ctx)
 	case agent.FieldRuntimePhase:
 		return m.OldRuntimePhase(ctx)
+	case agent.FieldRuntimeControlState:
+		return m.OldRuntimeControlState(ctx)
 	case agent.FieldRuntimeStartedAt:
 		return m.OldRuntimeStartedAt(ctx)
 	case agent.FieldLastError:
@@ -2152,6 +2196,13 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRuntimePhase(v)
+		return nil
+	case agent.FieldRuntimeControlState:
+		v, ok := value.(agent.RuntimeControlState)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRuntimeControlState(v)
 		return nil
 	case agent.FieldRuntimeStartedAt:
 		v, ok := value.(time.Time)
@@ -2343,6 +2394,9 @@ func (m *AgentMutation) ResetField(name string) error {
 		return nil
 	case agent.FieldRuntimePhase:
 		m.ResetRuntimePhase()
+		return nil
+	case agent.FieldRuntimeControlState:
+		m.ResetRuntimeControlState()
 		return nil
 	case agent.FieldRuntimeStartedAt:
 		m.ResetRuntimeStartedAt()

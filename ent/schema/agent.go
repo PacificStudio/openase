@@ -30,6 +30,9 @@ func (Agent) Fields() []ent.Field {
 		field.Enum("runtime_phase").
 			Values("none", "launching", "ready", "failed").
 			Default("none"),
+		field.Enum("runtime_control_state").
+			Values("active", "pause_requested", "paused").
+			Default("active"),
 		field.Time("runtime_started_at").Optional().Nillable(),
 		field.String("last_error").Optional(),
 		field.String("workspace_path").Optional(),

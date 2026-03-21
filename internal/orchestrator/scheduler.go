@@ -333,6 +333,7 @@ func (s *Scheduler) claimTicketWithAgent(
 		SetCurrentTicketID(ticket.ID).
 		ClearSessionID().
 		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetRuntimeControlState(entagent.RuntimeControlStateActive).
 		ClearRuntimeStartedAt().
 		SetLastError("").
 		ClearLastHeartbeatAt().

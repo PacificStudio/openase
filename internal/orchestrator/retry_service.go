@@ -125,6 +125,7 @@ func releaseAssignedAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.
 		SetStatus(entagent.StatusIdle).
 		ClearSessionID().
 		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetRuntimeControlState(entagent.RuntimeControlStateActive).
 		ClearRuntimeStartedAt().
 		SetLastError("").
 		ClearLastHeartbeatAt().

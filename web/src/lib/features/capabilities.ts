@@ -53,12 +53,14 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'Agent output stays disabled because no agent log/output endpoint is exported yet.',
   },
   agentPause: {
-    state: 'backend_missing',
-    summary: 'Agent pause stays disabled because no pause endpoint is exported yet.',
+    state: 'available',
+    summary:
+      'Agent pause is wired to POST /api/v1/agents/{agentId}/pause and reconciles through the orchestrator runtime.',
   },
   agentResume: {
-    state: 'backend_missing',
-    summary: 'Agent resume stays disabled because no resume endpoint is exported yet.',
+    state: 'available',
+    summary:
+      'Agent resume is wired to POST /api/v1/agents/{agentId}/resume once a paused agent is ready to relaunch.',
   },
   repositoriesSettings: {
     state: 'available',
@@ -78,7 +80,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   agentsSettings: {
     state: 'available',
     summary:
-      'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while runtime controls remain on the Agents page.',
+      'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while live runtime controls stay on the Agents page.',
   },
   connectorsSettings: {
     state: 'unwired',

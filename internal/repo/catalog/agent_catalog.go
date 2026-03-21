@@ -141,6 +141,7 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		SetStatus(input.Status).
 		SetSessionID(input.SessionID).
 		SetRuntimePhase(input.RuntimePhase).
+		SetRuntimeControlState(input.RuntimeControlState).
 		SetLastError(input.LastError).
 		SetWorkspacePath(input.WorkspacePath).
 		SetCapabilities(pgarray.StringArray(input.Capabilities)).
@@ -168,6 +169,17 @@ func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agen
 	item, err := r.client.Agent.Get(ctx, id)
 	if err != nil {
 		return domain.Agent{}, mapReadError("get agent", err)
+	}
+
+	return mapAgent(item), nil
+}
+
+func (r *EntRepository) UpdateAgentRuntimeControlState(ctx context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error) {
+	item, err := r.client.Agent.UpdateOneID(input.ID).
+		SetRuntimeControlState(input.RuntimeControlState).
+		Save(ctx)
+	if err != nil {
+		return domain.Agent{}, mapWriteError("update agent runtime control state", err)
 	}
 
 	return mapAgent(item), nil
@@ -231,6 +243,7 @@ func mapAgent(item *ent.Agent) domain.Agent {
 		CurrentTicketID:       item.CurrentTicketID,
 		SessionID:             item.SessionID,
 		RuntimePhase:          item.RuntimePhase,
+		RuntimeControlState:   item.RuntimeControlState,
 		RuntimeStartedAt:      cloneTimePointer(item.RuntimeStartedAt),
 		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
-  import { createAgent, updateProvider } from '$lib/api/openase'
+  import { createAgent, pauseAgent, resumeAgent, updateProvider } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
   import { loadAgentsPageData } from '../data'
@@ -32,6 +32,7 @@
   let registerError = $state(''),
     registerFeedback = $state(''),
     pageFeedback = $state('')
+  let pageError = $state('')
   let registrationDraft = $state<AgentRegistrationDraft>(
     createAgentRegistrationDraft([], appStore.currentOrg?.default_agent_provider_id),
   )
@@ -41,6 +42,7 @@
   let providerSaving = $state(false),
     providerFeedback = $state(''),
     providerError = $state('')
+  let runtimeActionAgentId = $state<string | null>(null)
   let loadVersion = 0
 
   const selectedProvider = $derived(
@@ -162,6 +164,7 @@
     registerSaving = true
     registerError = ''
     registerFeedback = ''
+    pageError = ''
 
     try {
       await createAgent(projectId, {
@@ -223,6 +226,7 @@
     providerSaving = true
     providerFeedback = ''
     providerError = ''
+    pageError = ''
 
     try {
       const payload = await updateProvider(selectedProvider.id, parsed.value)
@@ -254,6 +258,54 @@
       providerDraft = providerToDraft(nextState.provider)
     }
   }
+
+  async function handlePauseAgent(agentId: string) {
+    const projectId = appStore.currentProject?.id,
+      orgId = appStore.currentOrg?.id
+    if (!projectId || !orgId) {
+      pageError = 'Project context is unavailable.'
+      return
+    }
+
+    runtimeActionAgentId = agentId
+    pageFeedback = ''
+    pageError = ''
+
+    try {
+      const payload = await pauseAgent(agentId)
+      pageFeedback = `Pause requested for ${payload.agent.name}.`
+      await loadData({ projectId, orgId, showLoading: false })
+    } catch (caughtError) {
+      pageError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to pause agent runtime.'
+    } finally {
+      runtimeActionAgentId = null
+    }
+  }
+
+  async function handleResumeAgent(agentId: string) {
+    const projectId = appStore.currentProject?.id,
+      orgId = appStore.currentOrg?.id
+    if (!projectId || !orgId) {
+      pageError = 'Project context is unavailable.'
+      return
+    }
+
+    runtimeActionAgentId = agentId
+    pageFeedback = ''
+    pageError = ''
+
+    try {
+      const payload = await resumeAgent(agentId)
+      pageFeedback = `Resume requested for ${payload.agent.name}.`
+      await loadData({ projectId, orgId, showLoading: false })
+    } catch (caughtError) {
+      pageError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to resume agent runtime.'
+    } finally {
+      runtimeActionAgentId = null
+    }
+  }
 </script>
 
 <div class="space-y-4">
@@ -264,6 +316,8 @@
     {loading}
     {error}
     {pageFeedback}
+    {pageError}
+    {runtimeActionAgentId}
     canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
     registerButtonTitle={providerItems.length === 0
       ? 'Register a provider before creating agents.'
@@ -275,6 +329,8 @@
       appStore.openRightPanel({ type: 'ticket', id: ticketId })
     }}
     onConfigureProvider={handleConfigureProvider}
+    onPauseAgent={handlePauseAgent}
+    onResumeAgent={handleResumeAgent}
   />
 </div>
 

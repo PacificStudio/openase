@@ -150,6 +150,7 @@ export function buildAgentRows(
       modelName: provider?.model_name ?? 'Unknown model',
       status: normalizeAgentStatus(agent.status),
       runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
+      runtimeControlState: normalizeRuntimeControlState(agent.runtime_control_state),
       currentTicket: currentTicket
         ? {
             id: currentTicket.id,
@@ -158,6 +159,9 @@ export function buildAgentRows(
           }
         : undefined,
       lastHeartbeat: agent.last_heartbeat_at,
+      runtimeStartedAt: agent.runtime_started_at,
+      sessionId: agent.session_id,
+      lastError: agent.last_error,
       todayCompleted: agent.total_tickets_completed,
       todayCost: 0,
       capabilities: agent.capabilities,
@@ -284,4 +288,18 @@ function normalizeRuntimePhase(runtimePhase: string): AgentInstance['runtimePhas
   }
 
   return 'none'
+}
+
+function normalizeRuntimeControlState(
+  runtimeControlState: string,
+): AgentInstance['runtimeControlState'] {
+  if (
+    runtimeControlState === 'active' ||
+    runtimeControlState === 'pause_requested' ||
+    runtimeControlState === 'paused'
+  ) {
+    return runtimeControlState
+  }
+
+  return 'active'
 }
