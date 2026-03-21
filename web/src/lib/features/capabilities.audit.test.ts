@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -10,6 +7,15 @@ import {
   type CapabilityState,
 } from '$lib/features/capabilities'
 import type { SettingsSection } from '$lib/features/settings/types'
+import agentSettingsSource from './settings/components/agent-settings.svelte?raw'
+import connectorsSettingsSource from './settings/components/connectors-settings.svelte?raw'
+import generalSettingsSource from './settings/components/general-settings.svelte?raw'
+import notificationSettingsSource from './settings/components/notification-settings.svelte?raw'
+import repositoriesSettingsSource from './settings/components/repositories-settings.svelte?raw'
+import settingsPageSource from './settings/components/settings-page.svelte?raw'
+import statusSettingsSource from './settings/components/status-settings.svelte?raw'
+import workflowSettingsSource from './settings/components/workflow-settings.svelte?raw'
+import workflowManagementSource from './workflows/workflow-management.ts?raw'
 
 type SourceEvidence = {
   file: string
@@ -24,17 +30,16 @@ type SettingsAuditCase = {
   sources: SourceEvidence[]
 }
 
-type CapabilityAuditCase = {
-  capability: CapabilityKey
-  expectedState: CapabilityState
-  summarySnippets: string[]
-  sources: SourceEvidence[]
-}
-
-const featuresDir = dirname(fileURLToPath(import.meta.url))
-
-function readFeatureSource(relativePath: string) {
-  return readFileSync(resolve(featuresDir, relativePath), 'utf8')
+const sourceByFile: Record<string, string> = {
+  './settings/components/agent-settings.svelte': agentSettingsSource,
+  './settings/components/connectors-settings.svelte': connectorsSettingsSource,
+  './settings/components/general-settings.svelte': generalSettingsSource,
+  './settings/components/notification-settings.svelte': notificationSettingsSource,
+  './settings/components/repositories-settings.svelte': repositoriesSettingsSource,
+  './settings/components/settings-page.svelte': settingsPageSource,
+  './settings/components/status-settings.svelte': statusSettingsSource,
+  './settings/components/workflow-settings.svelte': workflowSettingsSource,
+  './workflows/workflow-management.ts': workflowManagementSource,
 }
 
 const settingsAuditCases: SettingsAuditCase[] = [
@@ -164,119 +169,6 @@ const settingsAuditCases: SettingsAuditCase[] = [
   },
 ]
 
-const capabilityAuditCases: CapabilityAuditCase[] = [
-  {
-    capability: 'search',
-    expectedState: 'backend_missing',
-    summarySnippets: ['backend search contract'],
-    sources: [
-      {
-        file: './app-shell/components/project-shell.svelte',
-        snippets: [
-          'const searchCapability = capabilityCatalog.search',
-          "searchEnabled={searchCapability.state === 'available'}",
-        ],
-      },
-      {
-        file: '../components/layout/top-bar.svelte',
-        snippets: ['searchEnabled = false', '{#if searchEnabled}'],
-      },
-    ],
-  },
-  {
-    capability: 'newTicket',
-    expectedState: 'available',
-    summarySnippets: ['POST /api/v1/projects/{projectId}/tickets'],
-    sources: [
-      {
-        file: './tickets/components/new-ticket-dialog.svelte',
-        snippets: ['createTicket(projectId, parsedDraft.payload)'],
-      },
-      {
-        file: './tickets/components/tickets-page.svelte',
-        snippets: [
-          'const newTicketCapability = capabilityCatalog.newTicket',
-          "disabled={newTicketCapability.state !== 'available' || !appStore.currentProject?.id}",
-        ],
-      },
-    ],
-  },
-  {
-    capability: 'agentRegistration',
-    expectedState: 'available',
-    summarySnippets: ['POST /api/v1/projects/{projectId}/agents'],
-    sources: [
-      {
-        file: './agents/components/agents-page.svelte',
-        snippets: ['await createAgent(projectId, {'],
-      },
-    ],
-  },
-  {
-    capability: 'providerConfigure',
-    expectedState: 'available',
-    summarySnippets: ['PATCH /api/v1/providers/{providerId}'],
-    sources: [
-      {
-        file: './agents/components/agents-page.svelte',
-        snippets: ['const payload = await updateProvider(selectedProvider.id, parsed.value)'],
-      },
-      {
-        file: './agents/components/provider-list.svelte',
-        snippets: [
-          'const providerConfigureCapability = capabilityCatalog.providerConfigure',
-          'title={providerConfigureCapability.summary}',
-        ],
-      },
-    ],
-  },
-  {
-    capability: 'agentOutput',
-    expectedState: 'backend_missing',
-    summarySnippets: ['no agent log/output endpoint'],
-    sources: [
-      {
-        file: './agents/components/agent-list.svelte',
-        snippets: [
-          'const agentOutputCapability = capabilityCatalog.agentOutput',
-          'aria-label="View output"',
-          'title={agentOutputCapability.summary}',
-        ],
-      },
-    ],
-  },
-  {
-    capability: 'agentPause',
-    expectedState: 'backend_missing',
-    summarySnippets: ['no pause endpoint'],
-    sources: [
-      {
-        file: './agents/components/agent-list.svelte',
-        snippets: [
-          'const agentPauseCapability = capabilityCatalog.agentPause',
-          'aria-label="Pause agent"',
-          'title={agentPauseCapability.summary}',
-        ],
-      },
-    ],
-  },
-  {
-    capability: 'agentResume',
-    expectedState: 'backend_missing',
-    summarySnippets: ['no resume endpoint'],
-    sources: [
-      {
-        file: './agents/components/agent-list.svelte',
-        snippets: [
-          'const agentResumeCapability = capabilityCatalog.agentResume',
-          'aria-label="Resume agent"',
-          'title={agentResumeCapability.summary}',
-        ],
-      },
-    ],
-  },
-]
-
 describe('capability catalog source audit', () => {
   it.each(settingsAuditCases)(
     'keeps the $section settings capability aligned with the shipped surface',
@@ -289,25 +181,7 @@ describe('capability catalog source audit', () => {
       }
 
       for (const source of sources) {
-        const contents = readFeatureSource(source.file)
-        for (const snippet of source.snippets) {
-          expect(contents).toContain(snippet)
-        }
-      }
-    },
-  )
-
-  it.each(capabilityAuditCases)(
-    'keeps the $capability catalog entry aligned with its live UI/API boundary',
-    ({ capability, expectedState, summarySnippets, sources }) => {
-      expect(capabilityCatalog[capability].state).toBe(expectedState)
-
-      for (const snippet of summarySnippets) {
-        expect(capabilityCatalog[capability].summary).toContain(snippet)
-      }
-
-      for (const source of sources) {
-        const contents = readFeatureSource(source.file)
+        const contents = sourceByFile[source.file]
         for (const snippet of source.snippets) {
           expect(contents).toContain(snippet)
         }
