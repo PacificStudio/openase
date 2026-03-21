@@ -3,7 +3,7 @@
   import { ApiError } from '$lib/api/client'
   import { listAgents, listProviders, updateProject } from '$lib/api/openase'
   import {
-    capabilityCatalog,
+    getSettingsSectionCapability,
     capabilityStateClasses,
     capabilityStateLabel,
   } from '$lib/features/capabilities'
@@ -26,7 +26,7 @@
     type ProviderOption,
   } from './agent-settings-model'
 
-  const agentsCapability = capabilityCatalog.agentsSettings
+  const agentsCapability = getSettingsSectionCapability('agents')
   const inheritProviderValue = '__org_default__'
   const agentsConsoleHref = $derived(`/agents${page.url.search}`)
 

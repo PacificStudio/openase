@@ -8,7 +8,7 @@
     updateProjectRepo,
   } from '$lib/api/openase'
   import {
-    capabilityCatalog,
+    getSettingsSectionCapability,
     capabilityStateClasses,
     capabilityStateLabel,
   } from '$lib/features/capabilities'
@@ -24,7 +24,7 @@
   import RepositoriesList from './repository-list.svelte'
   import RepositoryEditor from './repository-editor.svelte'
 
-  const repositoriesCapability = capabilityCatalog.repositoriesSettings
+  const repositoriesCapability = getSettingsSectionCapability('repositories')
 
   let repos = $state<ProjectRepoRecord[]>([])
   let loading = $state(false)
