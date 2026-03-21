@@ -243,6 +243,7 @@ func (s *Server) registerRoutes() {
 	s.registerWorkflowRoutes(api)
 	s.registerScheduledJobRoutes(api)
 	s.registerNotificationRoutes(api)
+	s.registerSecuritySettingsRoutes(api)
 	s.registerSkillRoutes(api)
 	s.registerRoleLibraryRoutes(api)
 	s.registerHRAdvisorRoutes(api)

@@ -94,9 +94,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Notifications settings are wired to org-level channel CRUD, project rule CRUD, test send, and enable/disable controls.',
   },
   securitySettings: {
-    state: 'backend_missing',
+    state: 'available',
     summary:
-      'Security settings stay placeholder because no dedicated security settings API is exported yet.',
+      'Security settings now expose a dedicated project security boundary with runtime ingress posture and agent token exposure audit data.',
   },
 }
 

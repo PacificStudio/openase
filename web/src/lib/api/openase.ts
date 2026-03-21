@@ -25,6 +25,7 @@ import type {
   NotificationRuleResponse,
   ProjectRepoPayload,
   ProjectRepoResponse,
+  ProjectSecurityResponse,
   ProjectPayload,
   ProjectResponse,
   SkillListPayload,
@@ -107,6 +108,10 @@ export function listProviders(orgId: string) {
 
 export function getProject(projectId: string) {
   return api.get<ProjectResponse>(`/api/v1/projects/${projectId}`)
+}
+
+export function getProjectSecurity(projectId: string) {
+  return api.get<ProjectSecurityResponse>(`/api/v1/projects/${projectId}/security`)
 }
 
 export function updateProject(

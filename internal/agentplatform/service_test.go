@@ -149,6 +149,63 @@ func TestAuthenticateRejectsExpiredToken(t *testing.T) {
 	}
 }
 
+func TestProjectTokenInventorySummarizesProjectExposure(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
+
+	service := NewService(client)
+	baseTime := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return baseTime }
+
+	activeToken, err := service.IssueToken(ctx, IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  ticketID,
+		Scopes:    []string{string(ScopeProjectsUpdate)},
+		TTL:       2 * time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(active) returned error: %v", err)
+	}
+
+	if _, err := service.Authenticate(ctx, activeToken.Token); err != nil {
+		t.Fatalf("Authenticate(active) returned error: %v", err)
+	}
+
+	service.now = func() time.Time { return baseTime.Add(-48 * time.Hour) }
+	if _, err := service.IssueToken(ctx, IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  ticketID,
+		TTL:       time.Hour,
+	}); err != nil {
+		t.Fatalf("IssueToken(expired) returned error: %v", err)
+	}
+
+	service.now = func() time.Time { return baseTime }
+	inventory, err := service.ProjectTokenInventory(ctx, projectID)
+	if err != nil {
+		t.Fatalf("ProjectTokenInventory returned error: %v", err)
+	}
+
+	if inventory.ActiveTokenCount != 1 || inventory.ExpiredTokenCount != 1 {
+		t.Fatalf("unexpected token counts: %+v", inventory)
+	}
+	if inventory.LastIssuedAt == nil {
+		t.Fatalf("expected LastIssuedAt to be populated, got %+v", inventory)
+	}
+	if inventory.LastUsedAt == nil || !inventory.LastUsedAt.Equal(baseTime) {
+		t.Fatalf("LastUsedAt=%v, want %v", inventory.LastUsedAt, baseTime)
+	}
+	if !slices.Equal(inventory.DefaultScopes, DefaultScopes()) {
+		t.Fatalf("DefaultScopes=%v, want %v", inventory.DefaultScopes, DefaultScopes())
+	}
+	if !slices.Equal(inventory.PrivilegedScopes, PrivilegedScopes()) {
+		t.Fatalf("PrivilegedScopes=%v, want %v", inventory.PrivilegedScopes, PrivilegedScopes())
+	}
+}
+
 func TestParseBearerTokenRejectsInvalidHeader(t *testing.T) {
 	if _, err := ParseBearerToken("Basic nope"); err != ErrInvalidToken {
 		t.Fatalf("ParseBearerToken error=%v, want %v", err, ErrInvalidToken)
