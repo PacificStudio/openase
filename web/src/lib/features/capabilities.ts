@@ -31,8 +31,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'General project settings are already wired to PATCH /api/v1/projects/{projectId}.',
   },
   search: {
-    state: 'backend_missing',
-    summary: 'Search stays disabled because no search endpoint is exported in the current API.',
+    state: 'available',
+    summary:
+      'Global search is available from the top bar and Cmd+K, aggregating navigation, project context, tickets, workflows, agents, and commands from existing APIs.',
   },
   newTicket: {
     state: 'available',

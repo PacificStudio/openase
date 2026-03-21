@@ -5,6 +5,7 @@
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { capabilityCatalog } from '$lib/features/capabilities'
+  import GlobalSearchDialog from '$lib/features/search/components/global-search-dialog.svelte'
   import { NewTicketDialog } from '$lib/features/tickets'
   import { TicketDrawer } from '$lib/features/ticket-detail'
   import { appStore } from '$lib/stores/app.svelte'
@@ -26,6 +27,7 @@
   let currentTicketId = $derived(
     appStore.rightPanelContent?.type === 'ticket' ? appStore.rightPanelContent.id : null,
   )
+  let searchOpen = $state(false)
   const projectHealth = $derived.by(() => {
     const status = data.currentProject?.status?.toLowerCase()
     if (status === 'healthy' || status === 'active') return 'healthy'
@@ -59,8 +61,26 @@
     })
   })
 
+  $effect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        searchOpen = true
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown)
+    return () => {
+      window.removeEventListener('keydown', handleKeydown)
+    }
+  })
+
   function handleOpenSearch() {
-    return
+    searchOpen = true
   }
 
   function handleNewTicket() {
@@ -82,7 +102,7 @@
     orgName={data.currentOrg?.name ?? 'No organization'}
     projectName={data.currentProject?.name ?? ''}
     sseStatus={appStore.sseStatus}
-    searchEnabled={searchCapability.state === 'available'}
+    searchEnabled={searchCapability.state === 'available' && data.organizations.length > 0}
     newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
     searchTitle={searchCapability.summary}
     newTicketTitle={newTicketCapability.summary}
@@ -128,4 +148,17 @@
   />
 
   <NewTicketDialog />
+
+  <GlobalSearchDialog
+    bind:open={searchOpen}
+    organizations={data.organizations}
+    projects={data.projects}
+    currentOrg={data.currentOrg}
+    currentProject={data.currentProject}
+    currentSection={data.currentSection}
+    newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
+    onToggleTheme={handleToggleTheme}
+    onNewTicket={handleNewTicket}
+    onOpenTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
+  />
 </div>
