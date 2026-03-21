@@ -24,17 +24,15 @@ export type CapabilityDescriptor = {
   summary: string
 }
 
-// Keep this inventory aligned with the shipped UI/API boundary. Source-backed audit tests catch
-// drift when product surface changes.
 export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   generalSettings: {
     state: 'available',
     summary: 'General project settings are already wired to PATCH /api/v1/projects/{projectId}.',
   },
   search: {
-    state: 'available',
+    state: 'backend_missing',
     summary:
-      'Global search is available from the top bar and Cmd+K, aggregating navigation, project context, tickets, workflows, agents, and commands from existing APIs.',
+      'Global search is deferred and hidden until a dedicated backend search contract is exported.',
   },
   newTicket: {
     state: 'available',
@@ -51,9 +49,8 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Providers can be updated from the Agents page via PATCH /api/v1/providers/{providerId}.',
   },
   agentOutput: {
-    state: 'available',
-    summary:
-      'Agent output is available from /agents via dedicated fetch and stream endpoints for runtime logs.',
+    state: 'backend_missing',
+    summary: 'Agent output stays disabled because no agent log/output endpoint is exported yet.',
   },
   agentPause: {
     state: 'available',
@@ -96,7 +93,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   securitySettings: {
     state: 'available',
     summary:
-      'Security settings now expose a dedicated project security boundary with runtime ingress posture and agent token exposure audit data.',
+      'Security settings now expose the shipped posture for agent tokens, webhook signature checks, and secret redaction while broader auth governance remains explicitly deferred.',
   },
 }
 

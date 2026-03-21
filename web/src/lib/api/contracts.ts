@@ -40,11 +40,7 @@ export type AgentProvider = ItemOf<AgentProviderListPayload['providers']>
 
 export type ProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'get'>>
 export type ProjectResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}', 'get'>>
-export type ProjectSecurityResponse = DeepRequired<
-  ResponseFor<'/api/v1/projects/{projectId}/security', 'get'>
->
 export type Project = ItemOf<ProjectPayload['projects']>
-export type ProjectSecurity = ProjectSecurityResponse['security']
 
 export type MachinePayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/machines', 'get'>>
 export type MachineCreateResponse = DeepRequired<
@@ -206,3 +202,7 @@ export type NotificationRuleDeleteResponse = DeepRequired<
   ResponseFor<'/api/v1/notification-rules/{ruleId}', 'delete'>
 >
 export type NotificationRule = ItemOf<NotificationRulePayload['rules']>
+
+export type SecuritySettingsResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings', 'get'>
+>

@@ -1,10 +1,11 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
-	"slices"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -14,21 +15,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestGetProjectSecuritySettings(t *testing.T) {
-	catalog := newFakeCatalogService()
+func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	projectID := uuid.New()
-	catalog.projects[projectID] = domain.Project{
-		ID:             projectID,
-		OrganizationID: uuid.New(),
-		Name:           "OpenASE",
-		Slug:           "openase",
-		Description:    "Main control plane",
-		Status:         "active",
-	}
-
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
 	server := NewServer(
-		config.ServerConfig{Mode: config.ServerModeAllInOne, Port: 40023},
-		config.GitHubConfig{WebhookSecret: "topsecret"},
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{WebhookSecret: "top-secret"},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
@@ -38,38 +31,93 @@ func TestGetProjectSecuritySettings(t *testing.T) {
 		nil,
 	)
 
-	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/projects/"+projectID.String()+"/security", "")
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/projects/"+projectID.String()+"/security-settings",
+		http.NoBody,
+	)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected security settings 200, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
 	var payload struct {
-		Security projectSecuritySettingsResponse `json:"security"`
+		Security securitySettingsResponse `json:"security"`
 	}
-	decodeResponse(t, rec, &payload)
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
 
 	if payload.Security.ProjectID != projectID.String() {
-		t.Fatalf("ProjectID=%q, want %q", payload.Security.ProjectID, projectID)
+		t.Fatalf("expected project id %q, got %q", projectID, payload.Security.ProjectID)
 	}
-	if payload.Security.RuntimeMode != string(config.ServerModeAllInOne) {
-		t.Fatalf("RuntimeMode=%q, want %q", payload.Security.RuntimeMode, config.ServerModeAllInOne)
+	if payload.Security.AgentTokens.TokenPrefix != agentplatform.TokenPrefix {
+		t.Fatalf("expected token prefix %q, got %q", agentplatform.TokenPrefix, payload.Security.AgentTokens.TokenPrefix)
 	}
-	if len(payload.Security.Surfaces) != 2 {
-		t.Fatalf("expected 2 security surfaces, got %+v", payload.Security.Surfaces)
+	if !payload.Security.Webhooks.LegacyGitHubSignatureRequired {
+		t.Fatal("expected legacy GitHub signature to be required when webhook secret is configured")
 	}
-	if !payload.Security.Surfaces[0].Exposed || !payload.Security.Surfaces[0].Configured {
-		t.Fatalf("unexpected webhook surface: %+v", payload.Security.Surfaces[0])
+	if !payload.Security.SecretHygiene.NotificationChannelConfigsRedacted {
+		t.Fatal("expected notification channel configs to be marked redacted")
 	}
-	if payload.Security.AgentPlatform.Exposed {
-		t.Fatalf("expected agent platform to be hidden without service, got %+v", payload.Security.AgentPlatform)
+	if len(payload.Security.Deferred) == 0 {
+		t.Fatal("expected deferred security scope to be described")
 	}
-	if payload.Security.AgentPlatform.ActiveTokenCount != 0 || payload.Security.AgentPlatform.ExpiredTokenCount != 0 {
-		t.Fatalf("unexpected token counts: %+v", payload.Security.AgentPlatform)
+}
+
+func TestSecuritySettingsRouteRejectsUnknownProject(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/projects/"+uuid.New().String()+"/security-settings",
+		http.NoBody,
+	)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
 	}
-	if !slices.Equal(payload.Security.AgentPlatform.DefaultScopes, agentplatform.DefaultScopes()) {
-		t.Fatalf("DefaultScopes=%v, want %v", payload.Security.AgentPlatform.DefaultScopes, agentplatform.DefaultScopes())
-	}
-	if !slices.Equal(payload.Security.AgentPlatform.PrivilegedScopes, agentplatform.PrivilegedScopes()) {
-		t.Fatalf("PrivilegedScopes=%v, want %v", payload.Security.AgentPlatform.PrivilegedScopes, agentplatform.PrivilegedScopes())
+}
+
+func TestSecuritySettingsRouteRejectsInvalidProjectID(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/projects/not-a-uuid/security-settings",
+		http.NoBody,
+	)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }

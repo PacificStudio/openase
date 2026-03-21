@@ -25,9 +25,9 @@ import type {
   NotificationRuleResponse,
   ProjectRepoPayload,
   ProjectRepoResponse,
-  ProjectSecurityResponse,
   ProjectPayload,
   ProjectResponse,
+  SecuritySettingsResponse,
   SkillListPayload,
   StatusDeleteResponse,
   StatusPayload,
@@ -108,10 +108,6 @@ export function listProviders(orgId: string) {
 
 export function getProject(projectId: string) {
   return api.get<ProjectResponse>(`/api/v1/projects/${projectId}`)
-}
-
-export function getProjectSecurity(projectId: string) {
-  return api.get<ProjectSecurityResponse>(`/api/v1/projects/${projectId}/security`)
 }
 
 export function updateProject(
@@ -531,6 +527,10 @@ export function testNotificationChannel(channelId: string) {
 
 export function listNotificationRules(projectId: string) {
   return api.get<NotificationRulePayload>(`/api/v1/projects/${projectId}/notification-rules`)
+}
+
+export function getSecuritySettings(projectId: string) {
+  return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
 }
 
 export function createNotificationRule(

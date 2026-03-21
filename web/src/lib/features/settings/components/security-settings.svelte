@@ -1,21 +1,26 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import type { ProjectSecurity } from '$lib/api/contracts'
-  import { getProjectSecurity } from '$lib/api/openase'
+  import type { SecuritySettingsResponse } from '$lib/api/contracts'
+  import { getSecuritySettings } from '$lib/api/openase'
   import {
-    capabilityCatalog,
     capabilityStateClasses,
     capabilityStateLabel,
+    getSettingsSectionCapability,
   } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
   import * as Card from '$ui/card'
   import { Separator } from '$ui/separator'
+  import { KeyRound, LockKeyhole, ShieldCheck, Webhook } from '@lucide/svelte'
 
-  const securityCapability = capabilityCatalog.securitySettings
+  const securityCapability = getSettingsSectionCapability('security')
 
-  let security = $state<ProjectSecurity | null>(null)
+  let security = $state<SecuritySettingsResponse['security'] | null>(null)
   let loading = $state(false)
   let error = $state('')
+
+  const signatureLabel = $derived(
+    security?.webhooks.legacy_github_signature_required ? 'Required' : 'Optional until configured',
+  )
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -30,14 +35,14 @@
     const load = async () => {
       loading = true
       error = ''
-      security = null
 
       try {
-        const payload = await getProjectSecurity(projectId)
+        const payload = await getSecuritySettings(projectId)
         if (cancelled) return
         security = payload.security
       } catch (caughtError) {
         if (cancelled) return
+        security = null
         error =
           caughtError instanceof ApiError ? caughtError.detail : 'Failed to load security settings.'
       } finally {
@@ -53,29 +58,6 @@
       cancelled = true
     }
   })
-
-  function surfaceTone(exposed: boolean, configured: boolean) {
-    if (exposed && configured) {
-      return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-    }
-    if (exposed) {
-      return 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-    }
-    return 'border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300'
-  }
-
-  function surfaceLabel(exposed: boolean, configured: boolean) {
-    if (exposed && configured) return 'Guarded'
-    if (exposed) return 'Needs Secret'
-    return 'Not Exposed'
-  }
-
-  function formatTimestamp(value: string | null | undefined) {
-    if (!value) return 'Never'
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return value
-    return parsed.toLocaleString()
-  }
 </script>
 
 <div class="space-y-6">
@@ -88,7 +70,7 @@
         {capabilityStateLabel(securityCapability.state)}
       </span>
     </div>
-    <p class="text-muted-foreground mt-1 text-sm">{securityCapability.summary}</p>
+    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">{securityCapability.summary}</p>
   </div>
 
   <Separator />
@@ -98,113 +80,127 @@
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>
   {:else if security}
-    <div class="grid gap-4 xl:grid-cols-2">
-      {#each security.surfaces as surface (surface.key)}
-        <Card.Root>
-          <Card.Header>
-            <div class="flex items-center justify-between gap-3">
-              <Card.Title>{surface.label}</Card.Title>
-              <span
-                class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${surfaceTone(surface.exposed, surface.configured)}`}
-              >
-                {surfaceLabel(surface.exposed, surface.configured)}
-              </span>
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
+      <Card.Root>
+        <Card.Header>
+          <Card.Title class="flex items-center gap-2">
+            <KeyRound class="size-4" />
+            Agent runtime access
+          </Card.Title>
+          <Card.Description>
+            Project agents authenticate to the platform with scoped short-lived tokens instead of
+            inheriting ambient machine credentials.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content class="space-y-4">
+          <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
+            <div class="font-medium">Delivery contract</div>
+            <div class="text-muted-foreground mt-2 space-y-1">
+              <p>Transport: {security.agent_tokens.transport}</p>
+              <p>Environment variable: <code>{security.agent_tokens.environment_variable}</code></p>
+              <p>Token prefix: <code>{security.agent_tokens.token_prefix}</code></p>
             </div>
-            <Card.Description>{surface.summary}</Card.Description>
-          </Card.Header>
-        </Card.Root>
-      {/each}
-    </div>
+          </div>
 
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>Agent token exposure</Card.Title>
-        <Card.Description>{security.agent_platform.summary}</Card.Description>
-      </Card.Header>
-      <Card.Content class="space-y-4">
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div class="border-border rounded-md border px-3 py-3">
-            <div class="text-muted-foreground text-xs uppercase">Runtime</div>
-            <div class="text-foreground mt-1 text-sm font-medium">
-              {security.agent_platform.exposed ? 'Exposed' : 'Hidden'}
-            </div>
-          </div>
-          <div class="border-border rounded-md border px-3 py-3">
-            <div class="text-muted-foreground text-xs uppercase">Active tokens</div>
-            <div class="text-foreground mt-1 text-sm font-medium">
-              {security.agent_platform.active_token_count}
-            </div>
-          </div>
-          <div class="border-border rounded-md border px-3 py-3">
-            <div class="text-muted-foreground text-xs uppercase">Expired tokens</div>
-            <div class="text-foreground mt-1 text-sm font-medium">
-              {security.agent_platform.expired_token_count}
-            </div>
-          </div>
-          <div class="border-border rounded-md border px-3 py-3">
-            <div class="text-muted-foreground text-xs uppercase">Runtime mode</div>
-            <div class="text-foreground mt-1 text-sm font-medium">{security.runtime_mode}</div>
-          </div>
-        </div>
-
-        <div class="grid gap-4 xl:grid-cols-2">
-          <div class="border-border rounded-md border px-4 py-4">
-            <div class="text-foreground text-sm font-medium">Default token scopes</div>
-            <div class="text-muted-foreground mt-1 text-xs">
-              Automatically granted when a token is issued without an explicit scope list.
-            </div>
-            <div class="mt-3 flex flex-wrap gap-2">
-              {#each security.agent_platform.default_scopes as scope (scope)}
-                <span class="bg-muted text-foreground rounded-full px-2 py-1 text-xs">{scope}</span>
+          <div class="space-y-2">
+            <div class="text-sm font-medium">Default scopes</div>
+            <div class="flex flex-wrap gap-2">
+              {#each security.agent_tokens.default_scopes as scope (scope)}
+                <code class="bg-muted inline-flex rounded px-2 py-1 text-xs">{scope}</code>
               {/each}
             </div>
           </div>
 
-          <div class="border-border rounded-md border px-4 py-4">
-            <div class="text-foreground text-sm font-medium">Privileged mutation scopes</div>
-            <div class="text-muted-foreground mt-1 text-xs">
-              Scopes that expand tokens from ticket work into direct project mutation APIs.
-            </div>
-            <div class="mt-3 flex flex-wrap gap-2">
-              {#each security.agent_platform.privileged_scopes as scope (scope)}
-                <span class="bg-muted text-foreground rounded-full px-2 py-1 text-xs">{scope}</span>
+          <div class="space-y-2">
+            <div class="text-sm font-medium">Project-level scopes the runtime can mint</div>
+            <div class="flex flex-wrap gap-2">
+              {#each security.agent_tokens.supported_project_scopes as scope (scope)}
+                <code class="bg-muted inline-flex rounded px-2 py-1 text-xs">{scope}</code>
               {/each}
             </div>
           </div>
-        </div>
+        </Card.Content>
+      </Card.Root>
 
-        <div class="grid gap-4 xl:grid-cols-2">
-          <div class="border-border rounded-md border px-4 py-4">
-            <div class="text-foreground text-sm font-medium">Last token issued</div>
-            <div class="text-muted-foreground mt-2 text-sm">
-              {formatTimestamp(security.agent_platform.last_token_issued_at)}
-            </div>
+      <Card.Root>
+        <Card.Header>
+          <Card.Title class="flex items-center gap-2">
+            <Webhook class="size-4" />
+            Inbound webhooks
+          </Card.Title>
+          <Card.Description>
+            The current settings surface documents the webhook routes that exist today and whether
+            legacy GitHub delivery signatures are enforced in this deployment.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content class="space-y-4">
+          <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
+            <div class="font-medium">Legacy GitHub route</div>
+            <p class="text-muted-foreground mt-2">
+              <code>{security.webhooks.legacy_github_endpoint}</code>
+            </p>
+            <p class="text-muted-foreground mt-2">Signature verification: {signatureLabel}</p>
           </div>
-          <div class="border-border rounded-md border px-4 py-4">
-            <div class="text-foreground text-sm font-medium">Last token used</div>
-            <div class="text-muted-foreground mt-2 text-sm">
-              {formatTimestamp(security.agent_platform.last_token_used_at)}
-            </div>
-          </div>
-        </div>
-      </Card.Content>
-    </Card.Root>
 
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>Boundary notes</Card.Title>
-        <Card.Description>
-          This section is intentionally audit-first. It describes what the current app surface
-          exposes instead of implying that a full auth console already exists.
-        </Card.Description>
-      </Card.Header>
-      <Card.Content>
-        <ul class="text-muted-foreground space-y-2 text-sm">
-          {#each security.notes as note (note)}
-            <li>{note}</li>
+          <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
+            <div class="font-medium">Connector ingress route</div>
+            <p class="text-muted-foreground mt-2">
+              <code>{security.webhooks.connector_endpoint}</code>
+            </p>
+            <p class="text-muted-foreground mt-2">
+              Connector-specific verification still lives with each registered inbound receiver.
+            </p>
+          </div>
+        </Card.Content>
+      </Card.Root>
+
+      <Card.Root>
+        <Card.Header>
+          <Card.Title class="flex items-center gap-2">
+            <ShieldCheck class="size-4" />
+            Secret hygiene
+          </Card.Title>
+          <Card.Description>
+            This boundary calls out the secret-handling behavior already exported by the current app
+            surface.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content>
+          <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
+            <div class="flex items-center gap-2 font-medium">
+              <LockKeyhole class="size-4" />
+              Response-safe notification configs
+            </div>
+            <p class="text-muted-foreground mt-2">
+              Notification channel payloads return masked secrets instead of raw values.
+            </p>
+            <p class="text-muted-foreground mt-2">
+              Current state:{' '}
+              {security.secret_hygiene.notification_channel_configs_redacted
+                ? 'Enabled'
+                : 'Disabled'}
+            </p>
+          </div>
+        </Card.Content>
+      </Card.Root>
+
+      <Card.Root>
+        <Card.Header>
+          <Card.Title>Explicitly deferred</Card.Title>
+          <Card.Description>
+            This settings slice is concrete, but it does not pretend the broader security control
+            plane is already shipped.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content class="space-y-3">
+          {#each security.deferred as item (item.key)}
+            <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
+              <div class="font-medium">{item.title}</div>
+              <p class="text-muted-foreground mt-2">{item.summary}</p>
+            </div>
           {/each}
-        </ul>
-      </Card.Content>
-    </Card.Root>
+        </Card.Content>
+      </Card.Root>
+    </div>
   {/if}
 </div>

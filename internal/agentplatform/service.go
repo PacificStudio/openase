@@ -331,6 +331,10 @@ func DefaultScopes() []string {
 	return scopeStrings(defaultAgentScopes)
 }
 
+func SupportedScopes() []string {
+	return scopeStrings(supportedAgentScopes)
+}
+
 func PrivilegedScopes() []string {
 	privileged := make([]string, 0, len(supportedAgentScopes))
 	for _, scope := range supportedAgentScopes {
