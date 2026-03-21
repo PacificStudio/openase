@@ -86,9 +86,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while runtime controls remain on the Agents page.',
   },
   connectorsSettings: {
-    state: 'backend_missing',
+    state: 'unwired',
     summary:
-      'Connector settings stay placeholder because no connector management API is exported yet.',
+      'Settings now documents the live connector runtime surface, while project-scoped connector CRUD and operator controls remain deferred until dedicated management APIs are exported.',
   },
   notificationsSettings: {
     state: 'available',
