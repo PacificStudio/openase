@@ -71,7 +71,7 @@
             getProject(projectId),
             listAgents(projectId),
             listTickets(projectId),
-            listActivity(projectId, { limit: '24' }),
+            listActivity(projectId, { limit: 24 }),
             getSystemDashboard(),
           ])
 

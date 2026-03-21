@@ -120,6 +120,16 @@ type OpenAPIActivityEvent struct {
 	CreatedAt string         `json:"created_at"`
 }
 
+type OpenAPIAgentOutputEntry struct {
+	ID        string  `json:"id"`
+	ProjectID string  `json:"project_id"`
+	AgentID   string  `json:"agent_id"`
+	TicketID  *string `json:"ticket_id,omitempty"`
+	Stream    string  `json:"stream"`
+	Output    string  `json:"output"`
+	CreatedAt string  `json:"created_at"`
+}
+
 type OpenAPITicketReference struct {
 	ID         string `json:"id"`
 	Identifier string `json:"identifier"`
@@ -458,6 +468,10 @@ type OpenAPIAgentsResponse struct {
 
 type OpenAPIAgentResponse struct {
 	Agent OpenAPIAgent `json:"agent"`
+}
+
+type OpenAPIAgentOutputEntriesResponse struct {
+	Entries []OpenAPIAgentOutputEntry `json:"entries"`
 }
 
 type OpenAPIActivityEventsResponse struct {
@@ -1375,6 +1389,26 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	activityGet.AddParameter(intQueryParameter("limit", "Limit the number of returned activity events."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/activity", http.MethodGet, activityGet)
 
+	agentOutputGet, err := b.jsonOperation(
+		"listAgentOutput",
+		"List agent output entries",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentOutputEntriesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentOutputGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	agentOutputGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	agentOutputGet.AddParameter(uuidQueryParameter("ticket_id", "Filter output by ticket ID."))
+	agentOutputGet.AddParameter(intQueryParameter("limit", "Limit the number of returned output entries."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/output", http.MethodGet, agentOutputGet)
+
 	rolesGet, err := b.jsonOperation(
 		"listBuiltinRoles",
 		"List builtin workflow role templates",
@@ -2134,6 +2168,22 @@ func (b openAPISpecBuilder) addStreamOperations() error {
 		op.AddParameter(uuidPathParameter("projectId", "Project ID."))
 		b.doc.AddOperation(item.path, http.MethodGet, op)
 	}
+
+	agentOutputStream, err := b.streamOperation(
+		"streamAgentOutput",
+		"Stream agent output entries",
+		[]string{"streams"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentOutputStream.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	agentOutputStream.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	agentOutputStream.AddParameter(uuidQueryParameter("ticket_id", "Filter streamed output by ticket ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/output/stream", http.MethodGet, agentOutputStream)
 
 	return nil
 }

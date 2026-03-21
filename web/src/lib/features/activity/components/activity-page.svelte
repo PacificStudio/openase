@@ -56,7 +56,7 @@
 
       try {
         const [activityPayload, ticketPayload] = await Promise.all([
-          listActivity(projectId, { limit: '100' }),
+          listActivity(projectId, { limit: 100 }),
           listTickets(projectId),
         ])
         if (cancelled) return
