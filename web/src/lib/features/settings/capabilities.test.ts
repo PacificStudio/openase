@@ -9,7 +9,7 @@ import { settingsSections } from './types'
 
 describe('settings capability catalog', () => {
   it('classifies every shipped settings section', () => {
-    expect(Object.keys(settingsCapabilityBySection).sort()).toEqual([...settingsSections].sort())
+    expect(new Set(Object.keys(settingsCapabilityBySection))).toEqual(new Set(settingsSections))
   })
 
   it('routes statuses through the settings-scoped capability entry', () => {
