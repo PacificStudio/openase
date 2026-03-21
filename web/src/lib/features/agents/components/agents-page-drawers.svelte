@@ -1,13 +1,16 @@
 <script lang="ts">
-  import type { AgentProvider } from '$lib/api/contracts'
+  import type { AgentOutputEntry, AgentProvider } from '$lib/api/contracts'
+  import type { StreamConnectionState } from '$lib/api/sse'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
-  import type { ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
+  import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
+  import AgentOutputSheet from './agent-output-sheet.svelte'
   import AgentRegistrationSheet from './agent-registration-sheet.svelte'
   import ProviderConfigSheet from './provider-config-sheet.svelte'
 
   let {
     registerSheetOpen = $bindable(false),
     providerConfigOpen = $bindable(false),
+    outputSheetOpen = $bindable(false),
     providerItems,
     registrationDraft,
     registerSaving = false,
@@ -21,11 +24,18 @@
     providerSaving = false,
     providerFeedback = '',
     providerError = '',
+    selectedOutputAgent,
+    outputEntries,
+    outputLoading = false,
+    outputError = '',
+    outputStreamState = 'idle',
     onProviderDraftChange,
     onProviderSave,
+    onOutputOpenChange,
   }: {
     registerSheetOpen?: boolean
     providerConfigOpen?: boolean
+    outputSheetOpen?: boolean
     providerItems: AgentProvider[]
     registrationDraft: AgentRegistrationDraft
     registerSaving?: boolean
@@ -39,8 +49,14 @@
     providerSaving?: boolean
     providerFeedback?: string
     providerError?: string
+    selectedOutputAgent: AgentInstance | null
+    outputEntries: AgentOutputEntry[]
+    outputLoading?: boolean
+    outputError?: string
+    outputStreamState?: StreamConnectionState
     onProviderDraftChange?: (field: ProviderDraftField, value: string) => void
     onProviderSave?: () => void
+    onOutputOpenChange?: (open: boolean) => void
   } = $props()
 </script>
 
@@ -65,4 +81,14 @@
   error={providerError}
   onDraftChange={onProviderDraftChange}
   onSave={onProviderSave}
+/>
+
+<AgentOutputSheet
+  bind:open={outputSheetOpen}
+  agent={selectedOutputAgent}
+  entries={outputEntries}
+  loading={outputLoading}
+  error={outputError}
+  streamState={outputStreamState}
+  onOpenChange={onOutputOpenChange}
 />

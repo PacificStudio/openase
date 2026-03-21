@@ -18,6 +18,7 @@
     registerButtonTitle,
     onOpenRegister,
     onSelectTicket,
+    onViewOutput,
     onConfigureProvider,
     runtimeControlPendingAgentId = null,
     onPauseAgent,
@@ -34,6 +35,7 @@
     registerButtonTitle?: string
     onOpenRegister?: () => void
     onSelectTicket?: (ticketId: string) => void
+    onViewOutput?: (agentId: string) => void
     onConfigureProvider?: (provider: ProviderConfig) => void
     runtimeControlPendingAgentId?: string | null
     onPauseAgent?: (agent: AgentInstance) => void
@@ -93,6 +95,7 @@
           {agents}
           {runtimeControlPendingAgentId}
           onSelectTicket={(ticketId) => onSelectTicket?.(ticketId)}
+          onViewOutput={(agentId) => onViewOutput?.(agentId)}
           onPause={onPauseAgent}
           onResume={onResumeAgent}
         />

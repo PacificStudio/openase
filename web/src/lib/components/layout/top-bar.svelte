@@ -19,7 +19,6 @@
     sseStatus = 'live' as 'idle' | 'connecting' | 'live' | 'retrying',
     searchEnabled = false,
     newTicketEnabled = false,
-    searchTitle,
     newTicketTitle,
     onToggleTheme,
     onNewTicket,
@@ -35,7 +34,6 @@
     sseStatus?: 'idle' | 'connecting' | 'live' | 'retrying'
     searchEnabled?: boolean
     newTicketEnabled?: boolean
-    searchTitle?: string
     newTicketTitle?: string
     onToggleTheme?: () => void
     onNewTicket?: () => void
@@ -53,6 +51,10 @@
 
     const section = currentProjectId ? currentSection : 'dashboard'
     return goto(projectPath(currentOrgId, projectId, section))
+  }
+
+  function handleOpenSearchClick() {
+    onOpenSearch?.()
   }
 </script>
 
@@ -143,20 +145,20 @@
 
   <div class="flex-1"></div>
 
-  <Button
-    variant="outline"
-    size="sm"
-    class="text-muted-foreground hidden w-[200px] justify-start gap-2 sm:flex"
-    disabled={!searchEnabled}
-    title={searchEnabled ? 'Open search' : (searchTitle ?? 'Search is not available.')}
-    onclick={onOpenSearch}
-  >
-    <Search class="size-3.5" />
-    <span class="text-xs">Search...</span>
-    <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
-  </Button>
+  {#if searchEnabled}
+    <Button
+      variant="outline"
+      size="sm"
+      class="text-muted-foreground hidden w-[200px] justify-start gap-2 sm:flex"
+      onclick={handleOpenSearchClick}
+    >
+      <Search class="size-3.5" />
+      <span class="text-xs">Search...</span>
+      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+    </Button>
 
-  <Separator orientation="vertical" class="mx-1 h-5" />
+    <Separator orientation="vertical" class="mx-1 h-5" />
+  {/if}
 
   <Button
     size="sm"

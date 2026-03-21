@@ -7,11 +7,13 @@
     activeTab = $bindable('instances'),
     registerSheetOpen = $bindable(false),
     providerConfigOpen = $bindable(false),
+    outputSheetOpen = $bindable(false),
     viewModel,
   }: {
     activeTab?: string
     registerSheetOpen?: boolean
     providerConfigOpen?: boolean
+    outputSheetOpen?: boolean
     viewModel: ContentViewModel
   } = $props()
 </script>
@@ -30,6 +32,7 @@
     registerButtonTitle={viewModel.registerButtonTitle}
     onOpenRegister={viewModel.onOpenRegister}
     onSelectTicket={viewModel.onSelectTicket}
+    onViewOutput={viewModel.onViewOutput}
     onConfigureProvider={viewModel.onConfigureProvider}
     onPauseAgent={viewModel.onPauseAgent}
     onResumeAgent={viewModel.onResumeAgent}
@@ -39,6 +42,7 @@
 <AgentsPageDrawers
   bind:registerSheetOpen
   bind:providerConfigOpen
+  bind:outputSheetOpen
   providerItems={viewModel.providerItems}
   registrationDraft={viewModel.registrationDraft}
   registerSaving={viewModel.registerSaving}
@@ -52,6 +56,12 @@
   providerSaving={viewModel.providerSaving}
   providerFeedback={viewModel.providerFeedback}
   providerError={viewModel.providerError}
+  selectedOutputAgent={viewModel.selectedOutputAgent}
+  outputEntries={viewModel.outputEntries}
+  outputLoading={viewModel.outputLoading}
+  outputError={viewModel.outputError}
+  outputStreamState={viewModel.outputStreamState}
   onProviderDraftChange={viewModel.onProviderDraftChange}
   onProviderSave={viewModel.onProviderSave}
+  onOutputOpenChange={viewModel.onOutputOpenChange}
 />

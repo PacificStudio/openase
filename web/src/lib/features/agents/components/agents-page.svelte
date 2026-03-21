@@ -3,20 +3,17 @@
   import { connectEventStream } from '$lib/api/sse'
   import { pauseAgentRuntime, resumeAgentRuntime } from '$lib/api/openase'
   import type { AgentProvider } from '$lib/api/contracts'
-  import { createEmptyProviderDraft, providerToDraft } from '../model'
+  import { applyUpdatedProviderState } from '../model'
   import {
     createAgentRegistrationDraft,
     type AgentRegistrationDraft,
     type AgentRegistrationDraftField,
   } from '../registration'
-  import {
-    applyUpdatedProviderResult,
-    runAgentsPageLoad,
-    runAgentRegistration,
-    runProviderSave,
-  } from '../page-actions'
+  import { runAgentsPageLoad, runAgentRegistration } from '../page-actions'
   import { createRuntimeControlHandler } from '../runtime-control'
   import type { AgentInstance, ProviderConfig, ProviderDraftField } from '../types'
+  import { createAgentOutputState } from './agent-output-state.svelte'
+  import { createProviderEditorState } from './provider-editor-state.svelte'
   import { createContentViewModel } from './agents-page-content-view-model'
   import AgentsPageContent from './agents-page-content.svelte'
 
@@ -36,16 +33,17 @@
     createAgentRegistrationDraft([], appStore.currentOrg?.default_agent_provider_id),
   )
   let providerConfigOpen = $state(false),
-    selectedProviderId = $state<string | null>(null)
-  let providerDraft = $state(createEmptyProviderDraft())
-  let providerSaving = $state(false),
-    providerFeedback = $state(''),
-    providerError = $state('')
+    outputSheetOpen = $state(false),
+    loadVersion = 0
   let runtimeControlPendingAgentId = $state<string | null>(null)
-  let loadVersion = 0
+  const outputState = createAgentOutputState(),
+    providerEditor = createProviderEditorState()
 
   const selectedProvider = $derived(
-    providers.find((provider) => provider.id === selectedProviderId) ?? null,
+    providers.find((provider) => provider.id === providerEditor.selectedProviderId) ?? null,
+  )
+  const selectedOutputAgent = $derived(
+    agents.find((agent) => agent.id === outputState.selectedAgentId) ?? null,
   )
 
   $effect(() => {
@@ -56,7 +54,7 @@
       providers = []
       providerItems = []
       resetRegistrationDraft()
-      resetProviderEditor()
+      providerEditor.reset()
       return
     }
 
@@ -79,8 +77,39 @@
 
   $effect(() => {
     if (!providerConfigOpen) {
-      providerFeedback = providerError = ''
-      providerSaving = false
+      providerEditor.clearMessages()
+    }
+  })
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    const agentId = outputState.selectedAgentId
+
+    if (!outputSheetOpen || !projectId || !agentId) {
+      if (!outputSheetOpen) {
+        outputState.reset()
+      }
+      return
+    }
+
+    void outputState.load(projectId, agentId, true)
+
+    const disconnect = connectEventStream(
+      `/api/v1/projects/${projectId}/agents/${agentId}/output/stream`,
+      {
+        onEvent: (frame) => outputState.handleFrame(agentId, frame),
+        onStateChange: (state) => {
+          outputState.streamState = state
+        },
+        onError: (streamError) => {
+          console.error('Agent output stream error:', streamError)
+        },
+      },
+    )
+
+    return () => {
+      outputState.invalidate()
+      disconnect()
     }
   })
 
@@ -152,38 +181,17 @@
     })
   }
 
-  function resetProviderEditor() {
-    providerConfigOpen = false
-    selectedProviderId = null
-    providerDraft = createEmptyProviderDraft()
-    providerSaving = false
-    providerFeedback = providerError = ''
-  }
-
   function handleConfigureProvider(provider: ProviderConfig) {
-    selectedProviderId = provider.id
-    providerDraft = providerToDraft(provider)
+    providerEditor.open(provider)
     providerConfigOpen = true
-    providerSaving = false
-    providerFeedback = providerError = ''
   }
 
   function handleProviderDraftChange(field: ProviderDraftField, value: string) {
-    providerDraft = {
-      ...providerDraft,
-      [field]: value,
-    }
+    providerEditor.updateField(field, value)
   }
 
   async function handleProviderSave() {
-    await runProviderSave({
-      selectedProvider,
-      draft: providerDraft,
-      applyUpdatedProvider,
-      setSaving: (saving) => (providerSaving = saving),
-      setFeedback: (message) => (providerFeedback = message),
-      setError: (message) => (providerError = message),
-    })
+    await providerEditor.save(selectedProvider, applyUpdatedProvider)
   }
 
   const handlePauseAgent = createRuntimeControlHandler({
@@ -230,30 +238,49 @@
       onOpenTicket: (ticketId: string) => {
         appStore.openRightPanel({ type: 'ticket', id: ticketId })
       },
+      onViewOutput: handleOpenAgentOutput,
       onConfigureProvider: handleConfigureProvider,
       onPauseAgent: handlePauseAgent,
       onResumeAgent: handleResumeAgent,
       selectedProvider,
-      providerDraft,
-      providerSaving,
-      providerFeedback,
-      providerError,
+      providerDraft: providerEditor.draft,
+      providerSaving: providerEditor.saving,
+      providerFeedback: providerEditor.feedback,
+      providerError: providerEditor.error,
+      selectedOutputAgent,
+      outputEntries: outputState.entries,
+      outputLoading: outputState.loading,
+      outputError: outputState.error,
+      outputStreamState: outputState.streamState,
       onProviderDraftChange: handleProviderDraftChange,
       onProviderSave: handleProviderSave,
+      onOutputOpenChange: handleOutputOpenChange,
     }),
   )
 
   function applyUpdatedProvider(updatedProvider: AgentProvider) {
-    applyUpdatedProviderResult({
-      providerItems,
-      providers,
-      agents,
-      updatedProvider,
-      setProviderItems: (items) => (providerItems = items),
-      setProviders: (nextProviders) => (providers = nextProviders),
-      setAgents: (nextAgents) => (agents = nextAgents),
-      setProviderDraft: (draft) => (providerDraft = draft),
-    })
+    providerItems = providerItems.map((provider) =>
+      provider.id === updatedProvider.id ? updatedProvider : provider,
+    )
+
+    const nextState = applyUpdatedProviderState(providers, agents, updatedProvider)
+    providers = nextState.providers
+    agents = nextState.agents
+    if (nextState.provider) {
+      providerEditor.open(nextState.provider)
+    }
+  }
+
+  async function handleOpenAgentOutput(agentId: string) {
+    outputState.open(agentId)
+    outputSheetOpen = true
+  }
+
+  function handleOutputOpenChange(open: boolean) {
+    outputSheetOpen = open
+    if (!open) {
+      outputState.reset()
+    }
   }
 </script>
 
@@ -261,5 +288,6 @@
   bind:activeTab
   bind:registerSheetOpen
   bind:providerConfigOpen
+  bind:outputSheetOpen
   viewModel={contentViewModel}
 />

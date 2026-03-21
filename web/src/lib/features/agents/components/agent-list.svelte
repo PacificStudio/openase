@@ -1,9 +1,9 @@
 <script lang="ts">
   import { capabilityCatalog } from '$lib/features/capabilities'
-  import { cn, formatRelativeTime, formatCurrency } from '$lib/utils'
+  import { cn, formatCurrency, formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Terminal, Pause, Play } from '@lucide/svelte'
+  import { Pause, Play, Terminal } from '@lucide/svelte'
   import type { AgentInstance } from '../types'
 
   let {
@@ -12,12 +12,14 @@
     runtimeControlPendingAgentId = null,
     onPause,
     onResume,
+    onViewOutput,
   }: {
     agents: AgentInstance[]
     onSelectTicket?: (ticketId: string) => void
     runtimeControlPendingAgentId?: string | null
     onPause?: (agent: AgentInstance) => void
     onResume?: (agent: AgentInstance) => void
+    onViewOutput?: (agentId: string) => void
   } = $props()
 
   const statusColors: Record<AgentInstance['status'], string> = {
@@ -138,8 +140,9 @@
                 variant="ghost"
                 size="icon-xs"
                 aria-label="View output"
-                disabled
+                disabled={agentOutputCapability.state !== 'available'}
                 title={agentOutputCapability.summary}
+                onclick={() => onViewOutput?.(agent.id)}
               >
                 <Terminal class="size-3.5" />
               </Button>

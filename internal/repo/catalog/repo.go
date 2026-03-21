@@ -56,6 +56,7 @@ type Repository interface {
 	UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error)
 	ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error)
 	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error)
+	ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error)
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	UpdateAgentRuntimeState(ctx context.Context, input domain.UpdateAgentRuntimeState) (domain.Agent, error)

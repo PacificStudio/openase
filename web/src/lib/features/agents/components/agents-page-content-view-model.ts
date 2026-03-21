@@ -1,4 +1,5 @@
-import type { AgentProvider } from '$lib/api/contracts'
+import type { AgentOutputEntry, AgentProvider } from '$lib/api/contracts'
+import type { StreamConnectionState } from '$lib/api/sse'
 import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
 import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
 
@@ -14,6 +15,7 @@ export type ContentViewModel = {
   registerButtonTitle?: string
   onOpenRegister: () => void
   onSelectTicket: (ticketId: string) => void
+  onViewOutput: (agentId: string) => void
   onConfigureProvider: (provider: ProviderConfig) => void
   onPauseAgent: (agent: AgentInstance) => void
   onResumeAgent: (agent: AgentInstance) => void
@@ -30,8 +32,14 @@ export type ContentViewModel = {
   providerSaving: boolean
   providerFeedback: string
   providerError: string
+  selectedOutputAgent: AgentInstance | null
+  outputEntries: AgentOutputEntry[]
+  outputLoading: boolean
+  outputError: string
+  outputStreamState: StreamConnectionState
   onProviderDraftChange: (field: ProviderDraftField, value: string) => void
   onProviderSave: () => void
+  onOutputOpenChange: (open: boolean) => void
 }
 
 type ContentViewModelOptions = {
@@ -52,6 +60,7 @@ type ContentViewModelOptions = {
   onRegisterAgent: () => void
   onRegisterOpenChange: (open: boolean) => void
   onOpenTicket: (ticketId: string) => void
+  onViewOutput: (agentId: string) => void
   onConfigureProvider: (provider: ProviderConfig) => void
   onPauseAgent: (agent: AgentInstance) => void
   onResumeAgent: (agent: AgentInstance) => void
@@ -60,8 +69,14 @@ type ContentViewModelOptions = {
   providerSaving: boolean
   providerFeedback: string
   providerError: string
+  selectedOutputAgent: AgentInstance | null
+  outputEntries: AgentOutputEntry[]
+  outputLoading: boolean
+  outputError: string
+  outputStreamState: StreamConnectionState
   onProviderDraftChange: (field: ProviderDraftField, value: string) => void
   onProviderSave: () => void
+  onOutputOpenChange: (open: boolean) => void
 }
 
 export function createContentViewModel({
@@ -82,6 +97,7 @@ export function createContentViewModel({
   onRegisterAgent,
   onRegisterOpenChange,
   onOpenTicket,
+  onViewOutput,
   onConfigureProvider,
   onPauseAgent,
   onResumeAgent,
@@ -90,8 +106,14 @@ export function createContentViewModel({
   providerSaving,
   providerFeedback,
   providerError,
+  selectedOutputAgent,
+  outputEntries,
+  outputLoading,
+  outputError,
+  outputStreamState,
   onProviderDraftChange,
   onProviderSave,
+  onOutputOpenChange,
 }: ContentViewModelOptions): ContentViewModel {
   return {
     agents,
@@ -110,6 +132,7 @@ export function createContentViewModel({
           : 'Project context is unavailable.',
     onOpenRegister: () => onRegisterOpenChange(true),
     onSelectTicket: onOpenTicket,
+    onViewOutput,
     onConfigureProvider,
     onPauseAgent,
     onResumeAgent,
@@ -126,7 +149,13 @@ export function createContentViewModel({
     providerSaving,
     providerFeedback,
     providerError,
+    selectedOutputAgent,
+    outputEntries,
+    outputLoading,
+    outputError,
+    outputStreamState,
     onProviderDraftChange,
     onProviderSave,
+    onOutputOpenChange,
   }
 }
