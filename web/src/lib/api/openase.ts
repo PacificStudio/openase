@@ -129,7 +129,7 @@ export function listActivity(
   params?: {
     agent_id?: string
     ticket_id?: string
-    limit?: string
+    limit?: number
   },
 ) {
   return api.get<ActivityPayload>(`/api/v1/projects/${projectId}/activity`, { params })
@@ -144,7 +144,7 @@ export function listAgentOutput(
   agentId: string,
   params?: {
     ticket_id?: string
-    limit?: string
+    limit?: number
   },
 ) {
   return api.get<AgentOutputPayload>(`/api/v1/projects/${projectId}/agents/${agentId}/output`, {

@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,4 +48,18 @@ func ParseListAgentOutput(projectID uuid.UUID, agentID uuid.UUID, raw AgentOutpu
 		TicketID:  ticketID,
 		Limit:     limit,
 	}, nil
+}
+
+func AgentOutputMetadataStream(metadata map[string]any) string {
+	rawStream, ok := metadata["stream"].(string)
+	if !ok {
+		return "runtime"
+	}
+
+	stream := strings.TrimSpace(rawStream)
+	if stream == "" {
+		return "runtime"
+	}
+
+	return stream
 }

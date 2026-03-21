@@ -3,7 +3,7 @@ import type { AgentOutputEntry } from '$lib/api/contracts'
 import { listAgentOutput } from '$lib/api/openase'
 import type { SSEFrame, StreamConnectionState } from '$lib/api/sse'
 
-const agentOutputLimit = '200'
+const agentOutputLimit = 200
 
 export function createAgentOutputState() {
   let selectedAgentId = $state<string | null>(null)
@@ -97,8 +97,8 @@ function mergeAgentOutputEntry(entries: AgentOutputEntry[], entry: AgentOutputEn
   }
 
   const nextEntries = [...entries, entry]
-  if (nextEntries.length > Number(agentOutputLimit)) {
-    return nextEntries.slice(nextEntries.length - Number(agentOutputLimit))
+  if (nextEntries.length > agentOutputLimit) {
+    return nextEntries.slice(nextEntries.length - agentOutputLimit)
   }
 
   return nextEntries

@@ -3,7 +3,6 @@ package catalog
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	entsql "entgo.io/ent/dialect/sql"
@@ -123,7 +122,7 @@ func mapAgentOutputEntry(item *ent.ActivityEvent) domain.AgentOutputEntry {
 		ProjectID: item.ProjectID,
 		AgentID:   agentID,
 		TicketID:  item.TicketID,
-		Stream:    agentOutputStream(item.Metadata),
+		Stream:    domain.AgentOutputMetadataStream(item.Metadata),
 		Output:    item.Message,
 		CreatedAt: cloneActivityCreatedAt(item.CreatedAt),
 	}
@@ -131,18 +130,4 @@ func mapAgentOutputEntry(item *ent.ActivityEvent) domain.AgentOutputEntry {
 
 func cloneActivityCreatedAt(value time.Time) time.Time {
 	return value.UTC()
-}
-
-func agentOutputStream(metadata map[string]any) string {
-	rawStream, ok := metadata["stream"].(string)
-	if !ok {
-		return "runtime"
-	}
-
-	stream := strings.TrimSpace(rawStream)
-	if stream == "" {
-		return "runtime"
-	}
-
-	return stream
 }

@@ -477,7 +477,7 @@ func (f *fakeCatalogService) ListAgentOutput(_ context.Context, input domain.Lis
 			ProjectID: item.ProjectID,
 			AgentID:   *item.AgentID,
 			TicketID:  item.TicketID,
-			Stream:    agentOutputMetadataStream(item.Metadata),
+			Stream:    domain.AgentOutputMetadataStream(item.Metadata),
 			Output:    item.Message,
 			CreatedAt: item.CreatedAt,
 		})

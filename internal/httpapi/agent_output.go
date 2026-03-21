@@ -188,7 +188,7 @@ func buildAgentOutputStreamEvent(
 				ProjectID: payload.Event.ProjectID,
 				AgentID:   *payload.Event.AgentID,
 				TicketID:  payload.Event.TicketID,
-				Stream:    agentOutputMetadataStream(payload.Event.Metadata),
+				Stream:    domain.AgentOutputMetadataStream(payload.Event.Metadata),
 				Output:    payload.Event.Message,
 				CreatedAt: payload.Event.CreatedAt,
 			},
@@ -214,18 +214,4 @@ func parseOptionalUUIDQueryParam(fieldName string, raw string) (*uuid.UUID, erro
 	}
 
 	return &parsed, nil
-}
-
-func agentOutputMetadataStream(metadata map[string]any) string {
-	rawStream, ok := metadata["stream"].(string)
-	if !ok {
-		return "runtime"
-	}
-
-	stream := strings.TrimSpace(rawStream)
-	if stream == "" {
-		return "runtime"
-	}
-
-	return stream
 }
