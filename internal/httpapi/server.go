@@ -229,6 +229,7 @@ func (s *Server) registerRoutes() {
 	api.POST("/webhooks/:connector/:provider", s.handleInboundWebhook)
 	api.GET("/projects/:projectId/tickets/stream", s.handleTicketStream)
 	api.GET("/projects/:projectId/agents/stream", s.handleAgentStream)
+	api.GET("/projects/:projectId/agents/:agentId/output/stream", s.streamAgentOutput)
 	api.GET("/projects/:projectId/hooks/stream", s.handleHookStream)
 	api.GET("/projects/:projectId/activity/stream", s.handleActivityStream)
 	if s.agentPlatform != nil {

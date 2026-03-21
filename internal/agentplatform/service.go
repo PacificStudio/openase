@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagenttoken "github.com/BetterAndBetterII/openase/ent/agenttoken"
@@ -89,6 +90,15 @@ type Claims struct {
 	TicketID  uuid.UUID
 	Scopes    []string
 	ExpiresAt time.Time
+}
+
+type ProjectTokenInventory struct {
+	ActiveTokenCount  int
+	ExpiredTokenCount int
+	LastIssuedAt      *time.Time
+	LastUsedAt        *time.Time
+	DefaultScopes     []string
+	PrivilegedScopes  []string
 }
 
 type Service struct {
@@ -218,6 +228,62 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 	}, nil
 }
 
+func (s *Service) ProjectTokenInventory(ctx context.Context, projectID uuid.UUID) (ProjectTokenInventory, error) {
+	if s == nil || s.client == nil {
+		return ProjectTokenInventory{}, ErrUnavailable
+	}
+	if projectID == uuid.Nil {
+		return ProjectTokenInventory{}, fmt.Errorf("project_id must be a valid UUID")
+	}
+
+	now := s.now().UTC()
+	baseQuery := s.client.AgentToken.Query().Where(entagenttoken.ProjectIDEQ(projectID))
+
+	activeTokenCount, err := baseQuery.Clone().Where(entagenttoken.ExpiresAtGTE(now)).Count(ctx)
+	if err != nil {
+		return ProjectTokenInventory{}, fmt.Errorf("count active project tokens: %w", err)
+	}
+
+	expiredTokenCount, err := baseQuery.Clone().Where(entagenttoken.ExpiresAtLT(now)).Count(ctx)
+	if err != nil {
+		return ProjectTokenInventory{}, fmt.Errorf("count expired project tokens: %w", err)
+	}
+
+	var lastIssuedAt *time.Time
+	lastIssuedToken, err := baseQuery.Clone().
+		Order(entagenttoken.ByCreatedAt(entsql.OrderDesc())).
+		First(ctx)
+	switch {
+	case ent.IsNotFound(err):
+	case err != nil:
+		return ProjectTokenInventory{}, fmt.Errorf("load latest project token issue: %w", err)
+	default:
+		lastIssuedAt = timePointer(lastIssuedToken.CreatedAt.UTC())
+	}
+
+	var lastUsedAt *time.Time
+	lastUsedToken, err := baseQuery.Clone().
+		Where(entagenttoken.LastUsedAtNotNil()).
+		Order(entagenttoken.ByLastUsedAt(entsql.OrderDesc())).
+		First(ctx)
+	switch {
+	case ent.IsNotFound(err):
+	case err != nil:
+		return ProjectTokenInventory{}, fmt.Errorf("load latest project token use: %w", err)
+	default:
+		lastUsedAt = timePointer(lastUsedToken.LastUsedAt.UTC())
+	}
+
+	return ProjectTokenInventory{
+		ActiveTokenCount:  activeTokenCount,
+		ExpiredTokenCount: expiredTokenCount,
+		LastIssuedAt:      lastIssuedAt,
+		LastUsedAt:        lastUsedAt,
+		DefaultScopes:     DefaultScopes(),
+		PrivilegedScopes:  PrivilegedScopes(),
+	}, nil
+}
+
 func ParseToken(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" || !strings.HasPrefix(trimmed, TokenPrefix) {
@@ -267,6 +333,16 @@ func DefaultScopes() []string {
 
 func SupportedScopes() []string {
 	return scopeStrings(supportedAgentScopes)
+}
+
+func PrivilegedScopes() []string {
+	privileged := make([]string, 0, len(supportedAgentScopes))
+	for _, scope := range supportedAgentScopes {
+		if strings.HasPrefix(string(scope), "projects.") {
+			privileged = append(privileged, string(scope))
+		}
+	}
+	return privileged
 }
 
 func parseScopes(raw []string) (ScopeSet, error) {
@@ -342,4 +418,8 @@ func scopeStrings(scopes []Scope) []string {
 		items = append(items, string(scope))
 	}
 	return items
+}
+
+func timePointer(value time.Time) *time.Time {
+	return &value
 }
