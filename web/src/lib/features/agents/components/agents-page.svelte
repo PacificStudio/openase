@@ -1,25 +1,24 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
-  import { createAgent, pauseAgent, resumeAgent, updateProvider } from '$lib/api/openase'
-  import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
-  import { loadAgentsPageData } from '../data'
-  import {
-    applyUpdatedProviderState,
-    createEmptyProviderDraft,
-    parseProviderDraft,
-    providerToDraft,
-  } from '../model'
+  import type { AgentsPageData } from '../data'
+  import { loadAgentsPageResult } from '../page-data'
+  import { saveProviderDraft } from '../provider-actions'
+  import { createEmptyProviderDraft, providerToDraft } from '../model'
   import {
     createAgentRegistrationDraft,
     parseAgentRegistrationDraft,
     type AgentRegistrationDraft,
-    type AgentRegistrationDraftField,
   } from '../registration'
-  import type { AgentInstance, ProviderConfig, ProviderDraftField } from '../types'
-  import AgentsPageDrawers from './agents-page-drawers.svelte'
-  import AgentsPagePanel from './agents-page-panel.svelte'
+  import {
+    registerAgentAndReload,
+    registerAgentError,
+    runRuntimeAction,
+    runtimeActionError,
+  } from '../runtime-actions'
+  import type { AgentInstance, ProviderConfig } from '../types'
+  import AgentsPageContent from './agents-page-content.svelte'
 
   let activeTab = $state('instances')
   let agents = $state<AgentInstance[]>([])
@@ -45,8 +44,14 @@
   let runtimeActionAgentId = $state<string | null>(null)
   let loadVersion = 0
 
-  const selectedProvider = $derived(
-    providers.find((provider) => provider.id === selectedProviderId) ?? null,
+  const selectedProvider = $derived(providers.find((p) => p.id === selectedProviderId) ?? null)
+  const canRegister = $derived(!!appStore.currentProject?.id && providerItems.length > 0)
+  const registerButtonTitle = $derived(
+    providerItems.length === 0
+      ? 'Register a provider before creating agents.'
+      : appStore.currentProject?.id
+        ? undefined
+        : 'Project context is unavailable.',
   )
 
   $effect(() => {
@@ -95,37 +100,30 @@
     showLoading: boolean
   }) {
     const requestVersion = ++loadVersion
-    if (showLoading) {
-      loading = true
-    }
+    if (showLoading) loading = true
     error = ''
 
-    try {
-      const nextData = await loadAgentsPageData(
-        projectId,
-        orgId,
-        appStore.currentOrg?.default_agent_provider_id ?? null,
-      )
-      if (requestVersion !== loadVersion) return
+    const result = await loadAgentsPageResult({
+      projectId,
+      orgId,
+      defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
+    })
+    if (requestVersion !== loadVersion) return
 
-      providerItems = nextData.providerItems
-      providers = nextData.providers
-      agents = nextData.agents
-    } catch (caughtError) {
-      if (requestVersion !== loadVersion) return
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agents.'
-    } finally {
-      if (requestVersion === loadVersion && showLoading) {
-        loading = false
-      }
+    if (result.ok) {
+      applyPageData(result.data)
+    } else {
+      error = result.error
+    }
+    if (showLoading) {
+      loading = false
     }
   }
 
-  function updateRegistrationDraft(field: AgentRegistrationDraftField, value: string) {
-    registrationDraft = {
-      ...registrationDraft,
-      [field]: value,
-    }
+  function applyPageData(data: AgentsPageData) {
+    providerItems = data.providerItems
+    providers = data.providers
+    agents = data.agents
   }
 
   function resetRegistrationDraft() {
@@ -138,13 +136,9 @@
 
   function handleRegisterOpenChange(open: boolean) {
     registerSheetOpen = open
-    if (open) {
-      resetRegistrationDraft()
-      pageFeedback = ''
-      return
-    }
-
-    registerError = registerFeedback = ''
+    if (!open) return void (registerError = registerFeedback = '')
+    resetRegistrationDraft()
+    pageFeedback = ''
   }
 
   async function handleRegisterAgent() {
@@ -167,21 +161,22 @@
     pageError = ''
 
     try {
-      await createAgent(projectId, {
-        provider_id: parsed.value.providerId,
+      const result = await registerAgentAndReload({
+        projectId,
+        orgId,
+        defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
+        providerId: parsed.value.providerId,
         name: parsed.value.name,
-        workspace_path: parsed.value.workspacePath,
+        workspacePath: parsed.value.workspacePath,
         capabilities: parsed.value.capabilities,
       })
-
-      registerFeedback = 'Agent created. Refreshing list...'
-      await loadData({ projectId, orgId, showLoading: false })
-      pageFeedback = `Registered ${parsed.value.name}.`
+      applyPageData(result.data)
+      registerFeedback = 'Agent created.'
+      pageFeedback = result.feedback
       registerSheetOpen = false
       resetRegistrationDraft()
     } catch (caughtError) {
-      registerError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to register agent.'
+      registerError = registerAgentError(caughtError)
     } finally {
       registerSaving = false
     }
@@ -203,60 +198,31 @@
     providerFeedback = providerError = ''
   }
 
-  function handleProviderDraftChange(field: ProviderDraftField, value: string) {
-    providerDraft = {
-      ...providerDraft,
-      [field]: value,
-    }
-  }
-
   async function handleProviderSave() {
-    if (!selectedProvider) {
-      providerError = 'Select a provider to configure.'
-      return
-    }
-
-    const parsed = parseProviderDraft(providerDraft)
-    if (!parsed.ok) {
-      providerError = parsed.error
-      providerFeedback = ''
-      return
-    }
-
     providerSaving = true
     providerFeedback = ''
     providerError = ''
     pageError = ''
 
-    try {
-      const payload = await updateProvider(selectedProvider.id, parsed.value)
-      if (payload.provider) {
-        applyUpdatedProvider(payload.provider)
-        providerFeedback = 'Provider updated.'
-        return
+    const result = await saveProviderDraft({
+      selectedProviderId: selectedProvider?.id ?? null,
+      draft: providerDraft,
+      providerItems,
+      providers,
+      agents,
+    })
+    if (result.ok) {
+      providerItems = result.providerItems
+      providers = result.providers
+      agents = result.agents
+      if (result.providerDraft) {
+        providerDraft = result.providerDraft
       }
-
-      providerError =
-        'Provider updated, but the latest provider data could not be refreshed. Please reload the page.'
-    } catch (caughtError) {
-      providerError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save provider.'
-    } finally {
-      providerSaving = false
+      providerFeedback = 'Provider updated.'
+    } else {
+      providerError = result.error
     }
-  }
-
-  function applyUpdatedProvider(updatedProvider: AgentProvider) {
-    providerItems = providerItems.map((provider) =>
-      provider.id === updatedProvider.id ? updatedProvider : provider,
-    )
-
-    const nextState = applyUpdatedProviderState(providers, agents, updatedProvider)
-    providers = nextState.providers
-    agents = nextState.agents
-    if (nextState.provider) {
-      providerDraft = providerToDraft(nextState.provider)
-    }
+    providerSaving = false
   }
 
   async function handleRuntimeAction(action: 'pause' | 'resume', agentId: string) {
@@ -272,62 +238,51 @@
     pageError = ''
 
     try {
-      const payload = action === 'pause' ? await pauseAgent(agentId) : await resumeAgent(agentId)
-      const verb = action === 'pause' ? 'Pause' : 'Resume'
-      pageFeedback = `${verb} requested for ${payload.agent.name}.`
-      await loadData({ projectId, orgId, showLoading: false })
+      const result = await runRuntimeAction({
+        action,
+        agentId,
+        projectId,
+        orgId,
+        defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
+      })
+      applyPageData(result.data)
+      pageFeedback = result.feedback
     } catch (caughtError) {
-      pageError =
-        caughtError instanceof ApiError ? caughtError.detail : `Failed to ${action} agent runtime.`
+      pageError = runtimeActionError(action, caughtError)
     } finally {
       runtimeActionAgentId = null
     }
   }
-
-  function handlePauseAgent(agentId: string) {
-    return handleRuntimeAction('pause', agentId)
-  }
-
-  function handleResumeAgent(agentId: string) {
-    return handleRuntimeAction('resume', agentId)
-  }
 </script>
 
-<div class="space-y-4">
-  <AgentsPagePanel
-    bind:activeTab
-    {agents}
-    {providers}
-    {loading}
-    {error}
-    {pageFeedback}
-    {pageError}
-    {runtimeActionAgentId}
-    canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
-    registerButtonTitle={providerItems.length === 0
-      ? 'Register a provider before creating agents.'
-      : appStore.currentProject?.id
-        ? undefined
-        : 'Project context is unavailable.'}
-    onOpenRegister={() => handleRegisterOpenChange(true)}
-    onSelectTicket={(ticketId) => {
-      appStore.openRightPanel({ type: 'ticket', id: ticketId })
-    }}
-    onConfigureProvider={handleConfigureProvider}
-    onPauseAgent={handlePauseAgent}
-    onResumeAgent={handleResumeAgent}
-  />
-</div>
-
-<AgentsPageDrawers
+<AgentsPageContent
+  bind:activeTab
   bind:registerSheetOpen
   bind:providerConfigOpen
+  {agents}
+  {providers}
+  {loading}
+  {error}
+  {pageFeedback}
+  {pageError}
+  {runtimeActionAgentId}
+  {canRegister}
+  {registerButtonTitle}
+  onOpenRegister={() => handleRegisterOpenChange(true)}
+  onSelectTicket={(ticketId) => {
+    appStore.openRightPanel({ type: 'ticket', id: ticketId })
+  }}
+  onConfigureProvider={handleConfigureProvider}
+  onPauseAgent={(agentId) => handleRuntimeAction('pause', agentId)}
+  onResumeAgent={(agentId) => handleRuntimeAction('resume', agentId)}
   {providerItems}
   {registrationDraft}
   {registerSaving}
   {registerError}
   {registerFeedback}
-  onRegistrationDraftChange={updateRegistrationDraft}
+  onRegistrationDraftChange={(field, value) => {
+    registrationDraft = { ...registrationDraft, [field]: value }
+  }}
   onRegisterAgent={handleRegisterAgent}
   onRegisterOpenChange={handleRegisterOpenChange}
   {selectedProvider}
@@ -335,6 +290,8 @@
   {providerSaving}
   {providerFeedback}
   {providerError}
-  onProviderDraftChange={handleProviderDraftChange}
+  onProviderDraftChange={(field, value) => {
+    providerDraft = { ...providerDraft, [field]: value }
+  }}
   onProviderSave={handleProviderSave}
 />
