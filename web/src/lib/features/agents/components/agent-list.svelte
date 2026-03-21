@@ -10,12 +10,14 @@
     agents,
     onSelectTicket,
     runtimeActionAgentId = null,
+    onViewOutput,
     onPauseAgent,
     onResumeAgent,
   }: {
     agents: AgentInstance[]
     onSelectTicket?: (ticketId: string) => void
     runtimeActionAgentId?: string | null
+    onViewOutput?: (agentId: string) => void
     onPauseAgent?: (agentId: string) => void
     onResumeAgent?: (agentId: string) => void
   } = $props()
@@ -174,8 +176,9 @@
                 variant="ghost"
                 size="icon-xs"
                 aria-label="View output"
-                disabled
+                disabled={agentOutputCapability.state !== 'available'}
                 title={agentOutputCapability.summary}
+                onclick={() => onViewOutput?.(agent.id)}
               >
                 <Terminal class="size-3.5" />
               </Button>

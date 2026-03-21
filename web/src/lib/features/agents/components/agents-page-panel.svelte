@@ -19,6 +19,7 @@
     registerButtonTitle,
     onOpenRegister,
     onSelectTicket,
+    onViewOutput,
     onConfigureProvider,
     onPauseAgent,
     onResumeAgent,
@@ -35,6 +36,7 @@
     registerButtonTitle?: string
     onOpenRegister?: () => void
     onSelectTicket?: (ticketId: string) => void
+    onViewOutput?: (agentId: string) => void
     onConfigureProvider?: (provider: ProviderConfig) => void
     onPauseAgent?: (agentId: string) => void
     onResumeAgent?: (agentId: string) => void
@@ -93,6 +95,7 @@
           {agents}
           {runtimeActionAgentId}
           onSelectTicket={(ticketId) => onSelectTicket?.(ticketId)}
+          onViewOutput={(agentId) => onViewOutput?.(agentId)}
           {onPauseAgent}
           {onResumeAgent}
         />

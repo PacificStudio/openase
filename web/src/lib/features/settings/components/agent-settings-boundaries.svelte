@@ -45,7 +45,7 @@
       location: '/agents',
       state: capabilityCatalog.agentPause.state,
       summary:
-        'Pause and resume now use explicit runtime control endpoints, while operators still manage them from the runtime console instead of governance settings.',
+        'Pause and resume now use explicit runtime control endpoints, while runtime intervention still belongs to the operators console instead of governance settings.',
     },
   ]
 </script>

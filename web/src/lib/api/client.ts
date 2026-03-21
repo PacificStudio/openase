@@ -1,7 +1,10 @@
 const API_BASE = ''
 
+type QueryParamValue = string | number | boolean
+type QueryParams = Record<string, QueryParamValue | null | undefined>
+
 type FetchOptions = {
-  params?: Record<string, string>
+  params?: QueryParams
   body?: unknown
   signal?: AbortSignal
 }
@@ -19,7 +22,10 @@ async function request<T>(method: string, path: string, opts: FetchOptions = {})
   const url = new URL(`${API_BASE}${path}`, window.location.origin)
   if (opts.params) {
     for (const [k, v] of Object.entries(opts.params)) {
-      url.searchParams.set(k, v)
+      if (v == null) {
+        continue
+      }
+      url.searchParams.set(k, String(v))
     }
   }
 

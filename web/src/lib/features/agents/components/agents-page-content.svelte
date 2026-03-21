@@ -1,7 +1,8 @@
 <script lang="ts">
-  import type { AgentProvider } from '$lib/api/contracts'
-  import type { AgentInstance, ProviderConfig, ProviderDraft } from '../types'
-  import type { AgentRegistrationDraft } from '../registration'
+  import type { AgentOutputEntry, AgentProvider } from '$lib/api/contracts'
+  import type { StreamConnectionState } from '$lib/api/sse'
+  import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
+  import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import AgentsPageDrawers from './agents-page-drawers.svelte'
   import AgentsPagePanel from './agents-page-panel.svelte'
 
@@ -9,6 +10,7 @@
     activeTab = $bindable('instances'),
     registerSheetOpen = $bindable(false),
     providerConfigOpen = $bindable(false),
+    outputSheetOpen = $bindable(false),
     agents,
     providers,
     loading = false,
@@ -20,6 +22,7 @@
     registerButtonTitle,
     onOpenRegister,
     onSelectTicket,
+    onViewOutput,
     onConfigureProvider,
     onPauseAgent,
     onResumeAgent,
@@ -36,12 +39,19 @@
     providerSaving = false,
     providerFeedback = '',
     providerError = '',
+    selectedOutputAgent,
+    outputEntries,
+    outputLoading = false,
+    outputError = '',
+    outputStreamState = 'idle',
     onProviderDraftChange,
     onProviderSave,
+    onOutputOpenChange,
   }: {
     activeTab?: string
     registerSheetOpen?: boolean
     providerConfigOpen?: boolean
+    outputSheetOpen?: boolean
     agents: AgentInstance[]
     providers: ProviderConfig[]
     loading?: boolean
@@ -53,6 +63,7 @@
     registerButtonTitle?: string
     onOpenRegister?: () => void
     onSelectTicket?: (ticketId: string) => void
+    onViewOutput?: (agentId: string) => void
     onConfigureProvider?: (provider: ProviderConfig) => void
     onPauseAgent?: (agentId: string) => void
     onResumeAgent?: (agentId: string) => void
@@ -61,7 +72,7 @@
     registerSaving?: boolean
     registerError?: string
     registerFeedback?: string
-    onRegistrationDraftChange?: (field: string, value: string) => void
+    onRegistrationDraftChange?: (field: AgentRegistrationDraftField, value: string) => void
     onRegisterAgent?: () => void
     onRegisterOpenChange?: (open: boolean) => void
     selectedProvider: ProviderConfig | null
@@ -69,8 +80,14 @@
     providerSaving?: boolean
     providerFeedback?: string
     providerError?: string
-    onProviderDraftChange?: (field: string, value: string) => void
+    selectedOutputAgent: AgentInstance | null
+    outputEntries: AgentOutputEntry[]
+    outputLoading?: boolean
+    outputError?: string
+    outputStreamState?: StreamConnectionState
+    onProviderDraftChange?: (field: ProviderDraftField, value: string) => void
     onProviderSave?: () => void
+    onOutputOpenChange?: (open: boolean) => void
   } = $props()
 </script>
 
@@ -88,6 +105,7 @@
     {registerButtonTitle}
     {onOpenRegister}
     {onSelectTicket}
+    {onViewOutput}
     {onConfigureProvider}
     {onPauseAgent}
     {onResumeAgent}
@@ -97,6 +115,7 @@
 <AgentsPageDrawers
   bind:registerSheetOpen
   bind:providerConfigOpen
+  bind:outputSheetOpen
   {providerItems}
   {registrationDraft}
   {registerSaving}
@@ -110,6 +129,12 @@
   {providerSaving}
   {providerFeedback}
   {providerError}
+  {selectedOutputAgent}
+  {outputEntries}
+  {outputLoading}
+  {outputError}
+  {outputStreamState}
   {onProviderDraftChange}
   {onProviderSave}
+  {onOutputOpenChange}
 />
