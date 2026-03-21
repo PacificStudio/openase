@@ -7238,6 +7238,172 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/security": {
+      "get": {
+        "operationId": "getProjectSecuritySettings",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "security": {
+                      "properties": {
+                        "agent_platform": {
+                          "properties": {
+                            "active_token_count": {
+                              "type": "integer"
+                            },
+                            "default_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "expired_token_count": {
+                              "type": "integer"
+                            },
+                            "exposed": {
+                              "type": "boolean"
+                            },
+                            "last_token_issued_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_token_used_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "privileged_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "summary": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "notes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "runtime_mode": {
+                          "type": "string"
+                        },
+                        "surfaces": {
+                          "items": {
+                            "properties": {
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "exposed": {
+                                "type": "boolean"
+                              },
+                              "key": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project security settings response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get project security settings",
+        "tags": [
+          "security"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}/skills": {
       "get": {
         "operationId": "listSkills",
@@ -13524,6 +13690,9 @@
     },
     {
       "name": "notifications"
+    },
+    {
+      "name": "security"
     }
   ]
 }

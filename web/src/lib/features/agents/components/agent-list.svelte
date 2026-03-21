@@ -26,6 +26,7 @@
     idle: 'bg-emerald-500',
     claimed: 'bg-amber-500',
     running: 'bg-blue-500',
+    paused: 'bg-orange-500',
     failed: 'bg-red-500',
     terminated: 'bg-slate-500',
   }
@@ -34,6 +35,7 @@
     idle: 'Idle',
     claimed: 'Claimed',
     running: 'Running',
+    paused: 'Paused',
     failed: 'Failed',
     terminated: 'Terminated',
   }

@@ -40,6 +40,33 @@ type OpenAPIProject struct {
 	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
 }
 
+type OpenAPIProjectSecuritySurface struct {
+	Key        string `json:"key"`
+	Label      string `json:"label"`
+	Exposed    bool   `json:"exposed"`
+	Configured bool   `json:"configured"`
+	Summary    string `json:"summary"`
+}
+
+type OpenAPIProjectSecurityAgentPlatform struct {
+	Exposed           bool     `json:"exposed"`
+	ActiveTokenCount  int      `json:"active_token_count"`
+	ExpiredTokenCount int      `json:"expired_token_count"`
+	LastTokenIssuedAt *string  `json:"last_token_issued_at,omitempty"`
+	LastTokenUsedAt   *string  `json:"last_token_used_at,omitempty"`
+	DefaultScopes     []string `json:"default_scopes"`
+	PrivilegedScopes  []string `json:"privileged_scopes"`
+	Summary           string   `json:"summary"`
+}
+
+type OpenAPIProjectSecurity struct {
+	ProjectID     string                              `json:"project_id"`
+	RuntimeMode   string                              `json:"runtime_mode"`
+	Surfaces      []OpenAPIProjectSecuritySurface     `json:"surfaces"`
+	AgentPlatform OpenAPIProjectSecurityAgentPlatform `json:"agent_platform"`
+	Notes         []string                            `json:"notes"`
+}
+
 type OpenAPIMachine struct {
 	ID              string         `json:"id"`
 	OrganizationID  string         `json:"organization_id"`
@@ -108,6 +135,12 @@ type OpenAPIAgent struct {
 	TotalTokensUsed       int64    `json:"total_tokens_used"`
 	TotalTicketsCompleted int      `json:"total_tickets_completed"`
 	LastHeartbeatAt       *string  `json:"last_heartbeat_at,omitempty"`
+}
+
+type OpenAPIAgentRuntimeControlResponse struct {
+	Agent       OpenAPIAgent `json:"agent"`
+	Transition  string       `json:"transition"`
+	RequestedAt string       `json:"requested_at"`
 }
 
 type OpenAPIActivityEvent struct {
@@ -412,6 +445,10 @@ type OpenAPIProjectResponse struct {
 	Project OpenAPIProject `json:"project"`
 }
 
+type OpenAPIProjectSecurityResponse struct {
+	Security OpenAPIProjectSecurity `json:"security"`
+}
+
 type OpenAPIMachinesResponse struct {
 	Machines []OpenAPIMachine `json:"machines"`
 }
@@ -661,6 +698,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			{Name: "streams"},
 			{Name: "hr-advisor"},
 			{Name: "notifications"},
+			{Name: "security"},
 		},
 	}
 
@@ -681,6 +719,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 		return nil, err
 	}
 	if err := builder.addNotificationOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addSecurityOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addChatOperations(); err != nil {
@@ -2123,6 +2164,27 @@ func (b openAPISpecBuilder) addNotificationOperations() error {
 	}
 	ruleDelete.AddParameter(uuidPathParameter("ruleId", "Notification rule ID."))
 	b.doc.AddOperation("/api/v1/notification-rules/{ruleId}", http.MethodDelete, ruleDelete)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addSecurityOperations() error {
+	projectSecurityGet, err := b.jsonOperation(
+		"getProjectSecuritySettings",
+		"Get project security settings",
+		[]string{"security"},
+		http.StatusOK,
+		OpenAPIProjectSecurityResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectSecurityGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security", http.MethodGet, projectSecurityGet)
 
 	return nil
 }

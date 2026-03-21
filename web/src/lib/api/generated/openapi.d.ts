@@ -599,6 +599,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/security': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get project security settings */
+    get: operations['getProjectSecuritySettings']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/skills': {
     parameters: {
       query?: never
@@ -5016,6 +5033,88 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getProjectSecuritySettings: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get project security settings response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            security?: {
+              agent_platform?: {
+                active_token_count?: number
+                default_scopes?: string[]
+                expired_token_count?: number
+                exposed?: boolean
+                last_token_issued_at?: string | null
+                last_token_used_at?: string | null
+                privileged_scopes?: string[]
+                summary?: string
+              }
+              notes?: string[]
+              project_id?: string
+              runtime_mode?: string
+              surfaces?: {
+                configured?: boolean
+                exposed?: boolean
+                key?: string
+                label?: string
+                summary?: string
+              }[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }

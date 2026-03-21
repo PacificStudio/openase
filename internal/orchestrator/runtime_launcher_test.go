@@ -210,6 +210,130 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 }
 
+func TestRuntimeLauncherRunTickDropsCachedSessionWhenAgentLeavesRunningState(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Runtime reconcile test
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-402").
+		SetTitle("Pause Codex").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-02").
+		SetStatus(entagent.StatusClaimed).
+		SetCurrentTicketID(ticketItem.ID).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetWorkspaceRoot("/srv/openase/workspaces").
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine workspace root: %v", err)
+	}
+
+	manager := &runtimeFakeProcessManager{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("launch initial runtime: %v", err)
+	}
+	agentAfterLaunch, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload launched agent: %v", err)
+	}
+	if agentAfterLaunch.Status != entagent.StatusRunning || agentAfterLaunch.RuntimePhase != entagent.RuntimePhaseReady {
+		t.Fatalf("expected running ready agent after launch, got %+v", agentAfterLaunch)
+	}
+
+	if _, err := client.Agent.UpdateOneID(agentItem.ID).
+		SetStatus(entagent.StatusClaimed).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		ClearCurrentTicketID().
+		ClearSessionID().
+		ClearRuntimeStartedAt().
+		ClearLastHeartbeatAt().
+		Save(ctx); err != nil {
+		t.Fatalf("mark agent as no longer running in db: %v", err)
+	}
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("reconcile non-running runtime: %v", err)
+	}
+
+	if launcher.loadSession(agentItem.ID) != nil {
+		t.Fatal("expected non-running agent session to be removed from cache")
+	}
+}
+
 func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -747,15 +871,17 @@ type runtimeFakeProcessManager struct {
 	mu                 sync.Mutex
 	capturedThreadData runtimeThreadStartParams
 	capturedSpec       provider.AgentCLIProcessSpec
+	lastProcess        *runtimeFakeProcess
 }
 
 func (m *runtimeFakeProcessManager) Start(_ context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
+	process := newRuntimeFakeProcess()
 	if m != nil {
 		m.mu.Lock()
 		m.capturedSpec = spec
+		m.lastProcess = process
 		m.mu.Unlock()
 	}
-	process := newRuntimeFakeProcess()
 	go func() {
 		_ = runRuntimeFakeHandshake(process, m)
 	}()

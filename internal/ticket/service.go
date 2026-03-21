@@ -844,7 +844,7 @@ func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ti
 		Where(
 			entagent.IDEQ(*ticketItem.AssignedAgentID),
 			entagent.CurrentTicketIDEQ(ticketItem.ID),
-			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
+			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning, entagent.StatusPaused),
 		).
 		ClearCurrentTicketID().
 		SetStatus(entagent.StatusIdle).
