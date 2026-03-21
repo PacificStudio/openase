@@ -84,6 +84,7 @@
       {:else}
         <div class="space-y-3">
           {#each entries as entry (entry.id)}
+            {@const metadataSummary = summarizeMetadata(entry)}
             <article class="border-border rounded-md border px-4 py-3">
               <div class="flex flex-wrap items-center gap-2 text-xs">
                 <Badge variant={streamVariants[entry.stream] ?? 'outline'}>{entry.stream}</Badge>
@@ -92,8 +93,8 @@
               </div>
               <pre
                 class="text-foreground mt-3 overflow-x-auto font-mono text-xs break-words whitespace-pre-wrap">{entry.message}</pre>
-              {#if summarizeMetadata(entry)}
-                <p class="text-muted-foreground mt-3 text-xs">{summarizeMetadata(entry)}</p>
+              {#if metadataSummary}
+                <p class="text-muted-foreground mt-3 text-xs">{metadataSummary}</p>
               {/if}
             </article>
           {/each}

@@ -83,16 +83,7 @@ func stringMetadata(metadata map[string]any, key string) string {
 		return ""
 	}
 
-	value, ok := metadata[key]
-	if !ok {
-		return ""
-	}
-
-	text, ok := value.(string)
-	if !ok {
-		return ""
-	}
-
+	text, _ := metadata[key].(string)
 	return text
 }
 
