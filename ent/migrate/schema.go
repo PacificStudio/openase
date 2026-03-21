@@ -62,7 +62,7 @@ var (
 	AgentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"idle", "claimed", "running", "failed", "terminated"}, Default: "idle"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"idle", "claimed", "running", "paused", "failed", "terminated"}, Default: "idle"},
 		{Name: "session_id", Type: field.TypeString, Nullable: true},
 		{Name: "runtime_phase", Type: field.TypeEnum, Enums: []string{"none", "launching", "ready", "failed"}, Default: "none"},
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},

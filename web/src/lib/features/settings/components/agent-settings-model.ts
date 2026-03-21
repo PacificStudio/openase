@@ -12,7 +12,7 @@ export type GovernanceAgent = {
   id: string
   name: string
   providerName: string
-  status: 'idle' | 'claimed' | 'running' | 'failed' | 'terminated'
+  status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
   workspacePath: string
   capabilities: string[]
@@ -25,6 +25,7 @@ export const governanceAgentStatusLabels: Record<GovernanceAgent['status'], stri
   idle: 'Idle',
   claimed: 'Claimed',
   running: 'Running',
+  paused: 'Paused',
   failed: 'Failed',
   terminated: 'Terminated',
 }
@@ -33,6 +34,7 @@ export const governanceAgentStatusClasses: Record<GovernanceAgent['status'], str
   idle: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   claimed: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   running: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
+  paused: 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300',
   failed: 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',
   terminated: 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
 }
@@ -94,6 +96,7 @@ function normalizeAgentStatus(status: string): GovernanceAgent['status'] {
     status === 'idle' ||
     status === 'claimed' ||
     status === 'running' ||
+    status === 'paused' ||
     status === 'failed' ||
     status === 'terminated'
   ) {

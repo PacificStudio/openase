@@ -9,15 +9,22 @@
   let {
     agents,
     onSelectTicket,
+    runtimeControlPendingAgentId = null,
+    onPause,
+    onResume,
   }: {
     agents: AgentInstance[]
     onSelectTicket?: (ticketId: string) => void
+    runtimeControlPendingAgentId?: string | null
+    onPause?: (agent: AgentInstance) => void
+    onResume?: (agent: AgentInstance) => void
   } = $props()
 
   const statusColors: Record<AgentInstance['status'], string> = {
     idle: 'bg-emerald-500',
     claimed: 'bg-amber-500',
     running: 'bg-blue-500',
+    paused: 'bg-orange-500',
     failed: 'bg-red-500',
     terminated: 'bg-slate-500',
   }
@@ -26,6 +33,7 @@
     idle: 'Idle',
     claimed: 'Claimed',
     running: 'Running',
+    paused: 'Paused',
     failed: 'Failed',
     terminated: 'Terminated',
   }
@@ -33,6 +41,30 @@
   const agentOutputCapability = capabilityCatalog.agentOutput
   const agentPauseCapability = capabilityCatalog.agentPause
   const agentResumeCapability = capabilityCatalog.agentResume
+
+  function canPause(agent: AgentInstance) {
+    return agent.status === 'claimed' || agent.status === 'running'
+  }
+
+  function canResume(agent: AgentInstance) {
+    return agent.status === 'paused'
+  }
+
+  function isRuntimeControlPending(agent: AgentInstance) {
+    return runtimeControlPendingAgentId === agent.id
+  }
+
+  function pauseButtonTitle(agent: AgentInstance) {
+    if (isRuntimeControlPending(agent)) return 'Pausing agent...'
+    if (!canPause(agent)) return 'Pause is only available while the agent is claimed or running a ticket.'
+    return agentPauseCapability.summary
+  }
+
+  function resumeButtonTitle(agent: AgentInstance) {
+    if (isRuntimeControlPending(agent)) return 'Resuming agent...'
+    if (!canResume(agent)) return 'Resume is only available after the agent has been paused.'
+    return agentResumeCapability.summary
+  }
 </script>
 
 <div class="overflow-x-auto">
@@ -110,25 +142,27 @@
               >
                 <Terminal class="size-3.5" />
               </Button>
-              {#if agent.status === 'running'}
+              {#if canResume(agent)}
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Pause agent"
-                  disabled
-                  title={agentPauseCapability.summary}
+                  aria-label="Resume agent"
+                  disabled={isRuntimeControlPending(agent)}
+                  title={resumeButtonTitle(agent)}
+                  onclick={() => onResume?.(agent)}
                 >
-                  <Pause class="size-3.5" />
+                  <Play class="size-3.5" />
                 </Button>
               {:else}
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Resume agent"
-                  disabled
-                  title={agentResumeCapability.summary}
+                  aria-label="Pause agent"
+                  disabled={isRuntimeControlPending(agent) || !canPause(agent)}
+                  title={pauseButtonTitle(agent)}
+                  onclick={() => onPause?.(agent)}
                 >
-                  <Play class="size-3.5" />
+                  <Pause class="size-3.5" />
                 </Button>
               {/if}
             </div>

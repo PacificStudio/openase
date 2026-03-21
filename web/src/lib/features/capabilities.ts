@@ -58,12 +58,12 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary: 'Agent output stays disabled because no agent log/output endpoint is exported yet.',
   },
   agentPause: {
-    state: 'backend_missing',
-    summary: 'Agent pause stays disabled because no pause endpoint is exported yet.',
+    state: 'available',
+    summary: 'Agent pause is wired from /agents to POST /api/v1/agents/{agentId}/pause.',
   },
   agentResume: {
-    state: 'backend_missing',
-    summary: 'Agent resume stays disabled because no resume endpoint is exported yet.',
+    state: 'available',
+    summary: 'Agent resume is wired from /agents to POST /api/v1/agents/{agentId}/resume.',
   },
   repositoriesSettings: {
     state: 'available',

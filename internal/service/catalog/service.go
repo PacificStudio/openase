@@ -59,6 +59,8 @@ type Service interface {
 	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error)
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
+	PauseAgentRuntime(ctx context.Context, id uuid.UUID) (domain.AgentRuntimeControlResult, error)
+	ResumeAgentRuntime(ctx context.Context, id uuid.UUID) (domain.AgentRuntimeControlResult, error)
 	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 }
 

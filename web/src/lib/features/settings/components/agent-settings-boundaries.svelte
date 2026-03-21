@@ -37,9 +37,15 @@
     {
       label: 'Runtime controls',
       location: '/agents',
-      state: capabilityCatalog.agentOutput.state,
+      state: capabilityCatalog.agentPause.state,
       summary:
-        'Logs, pause, and resume remain runtime-only concerns, and the required endpoints are still missing.',
+        'Pause and resume stay in the runtime console and now call the explicit agent runtime control endpoints.',
+    },
+    {
+      label: 'Runtime output',
+      location: '/agents',
+      state: capabilityCatalog.agentOutput.state,
+      summary: capabilityCatalog.agentOutput.summary,
     },
   ]
 </script>

@@ -109,6 +109,12 @@ type OpenAPIAgent struct {
 	LastHeartbeatAt       *string  `json:"last_heartbeat_at,omitempty"`
 }
 
+type OpenAPIAgentRuntimeControlResponse struct {
+	Agent       OpenAPIAgent `json:"agent"`
+	Transition  string       `json:"transition"`
+	RequestedAt string       `json:"requested_at"`
+}
+
 type OpenAPIActivityEvent struct {
 	ID        string         `json:"id"`
 	ProjectID string         `json:"project_id"`
@@ -1336,6 +1342,40 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	agentGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	b.doc.AddOperation("/api/v1/agents/{agentId}", http.MethodGet, agentGet)
+
+	agentPause, err := b.jsonOperation(
+		"pauseAgentRuntime",
+		"Pause a claimed or running agent runtime",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentRuntimeControlResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentPause.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}/pause", http.MethodPost, agentPause)
+
+	agentResume, err := b.jsonOperation(
+		"resumeAgentRuntime",
+		"Resume a paused agent runtime",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentRuntimeControlResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentResume.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}/resume", http.MethodPost, agentResume)
 
 	agentDelete, err := b.jsonOperation(
 		"deleteAgent",

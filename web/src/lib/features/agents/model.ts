@@ -264,6 +264,7 @@ function normalizeAgentStatus(status: string): AgentInstance['status'] {
     status === 'idle' ||
     status === 'claimed' ||
     status === 'running' ||
+    status === 'paused' ||
     status === 'failed' ||
     status === 'terminated'
   ) {

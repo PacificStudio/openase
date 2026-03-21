@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -318,6 +319,115 @@ func TestListAgentsRouteReturnsEmptyCapabilitiesArray(t *testing.T) {
 	}
 }
 
+func TestAgentRuntimeControlRoutes(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	service := server.catalog.(*fakeCatalogService)
+	orgID := uuid.New()
+	projectID := uuid.New()
+	providerID := uuid.New()
+	agentID := uuid.New()
+	ticketID := uuid.New()
+	startedAt := time.Now().UTC().Add(-2 * time.Minute)
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, Name: "Codex"}
+	service.agents[agentID] = domain.Agent{
+		ID:               agentID,
+		ProviderID:       providerID,
+		ProjectID:        projectID,
+		Name:             "worker-1",
+		Status:           entagent.StatusRunning,
+		CurrentTicketID:  &ticketID,
+		SessionID:        "thread-runtime-1",
+		RuntimePhase:     entagent.RuntimePhaseReady,
+		RuntimeStartedAt: &startedAt,
+		LastHeartbeatAt:  &startedAt,
+	}
+
+	pauseRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/pause", "")
+	if pauseRec.Code != http.StatusOK {
+		t.Fatalf("expected pause 200, got %d: %s", pauseRec.Code, pauseRec.Body.String())
+	}
+
+	var pausePayload agentRuntimeControlResponse
+	decodeResponse(t, pauseRec, &pausePayload)
+	if pausePayload.Transition != "paused" {
+		t.Fatalf("expected paused transition, got %+v", pausePayload)
+	}
+	if pausePayload.Agent.Status != "paused" || pausePayload.Agent.RuntimePhase != "none" {
+		t.Fatalf("unexpected paused agent payload: %+v", pausePayload.Agent)
+	}
+	if pausePayload.Agent.SessionID != "" || pausePayload.Agent.CurrentTicketID == nil || *pausePayload.Agent.CurrentTicketID != ticketID.String() {
+		t.Fatalf("expected paused agent to keep ticket and clear runtime session, got %+v", pausePayload.Agent)
+	}
+
+	resumeRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/resume", "")
+	if resumeRec.Code != http.StatusOK {
+		t.Fatalf("expected resume 200, got %d: %s", resumeRec.Code, resumeRec.Body.String())
+	}
+
+	var resumePayload agentRuntimeControlResponse
+	decodeResponse(t, resumeRec, &resumePayload)
+	if resumePayload.Transition != "resumed" {
+		t.Fatalf("expected resumed transition, got %+v", resumePayload)
+	}
+	if resumePayload.Agent.Status != "claimed" || resumePayload.Agent.RuntimePhase != "none" {
+		t.Fatalf("unexpected resumed agent payload: %+v", resumePayload.Agent)
+	}
+	if resumePayload.Agent.CurrentTicketID == nil || *resumePayload.Agent.CurrentTicketID != ticketID.String() {
+		t.Fatalf("expected resumed agent to keep claimed ticket, got %+v", resumePayload.Agent)
+	}
+}
+
+func TestPauseAgentRuntimeRejectsIdleAgent(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	service := server.catalog.(*fakeCatalogService)
+	orgID := uuid.New()
+	projectID := uuid.New()
+	providerID := uuid.New()
+	agentID := uuid.New()
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, Name: "Codex"}
+	service.agents[agentID] = domain.Agent{
+		ID:         agentID,
+		ProviderID: providerID,
+		ProjectID:  projectID,
+		Name:       "worker-1",
+		Status:     entagent.StatusIdle,
+	}
+
+	rec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/pause", "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected pause 400 for idle agent, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "paused while holding a ticket") {
+		t.Fatalf("expected pause validation detail, got %s", rec.Body.String())
+	}
+}
+
 func (f *fakeCatalogService) ListAgentProviders(_ context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error) {
 	if _, ok := f.organizations[organizationID]; !ok {
 		return nil, catalogservice.ErrNotFound
@@ -498,6 +608,60 @@ func (f *fakeCatalogService) GetAgent(_ context.Context, id uuid.UUID) (domain.A
 	return item, nil
 }
 
+func (f *fakeCatalogService) PauseAgentRuntime(_ context.Context, id uuid.UUID) (domain.AgentRuntimeControlResult, error) {
+	current, ok := f.agents[id]
+	if !ok {
+		return domain.AgentRuntimeControlResult{}, catalogservice.ErrNotFound
+	}
+
+	nextState, err := domain.BuildPauseAgentRuntime(current)
+	if err != nil {
+		return domain.AgentRuntimeControlResult{}, fmt.Errorf("%w: %v", catalogservice.ErrInvalidInput, err)
+	}
+
+	current.Status = nextState.Status
+	current.CurrentTicketID = cloneUUIDPointer(nextState.CurrentTicketID)
+	current.SessionID = nextState.SessionID
+	current.RuntimePhase = nextState.RuntimePhase
+	current.RuntimeStartedAt = cloneTimePointer(nextState.RuntimeStartedAt)
+	current.LastError = nextState.LastError
+	current.LastHeartbeatAt = cloneTimePointer(nextState.LastHeartbeatAt)
+	f.agents[id] = current
+
+	return domain.AgentRuntimeControlResult{
+		Agent:       current,
+		Transition:  domain.AgentRuntimeControlPause,
+		RequestedAt: time.Now().UTC(),
+	}, nil
+}
+
+func (f *fakeCatalogService) ResumeAgentRuntime(_ context.Context, id uuid.UUID) (domain.AgentRuntimeControlResult, error) {
+	current, ok := f.agents[id]
+	if !ok {
+		return domain.AgentRuntimeControlResult{}, catalogservice.ErrNotFound
+	}
+
+	nextState, err := domain.BuildResumeAgentRuntime(current)
+	if err != nil {
+		return domain.AgentRuntimeControlResult{}, fmt.Errorf("%w: %v", catalogservice.ErrInvalidInput, err)
+	}
+
+	current.Status = nextState.Status
+	current.CurrentTicketID = cloneUUIDPointer(nextState.CurrentTicketID)
+	current.SessionID = nextState.SessionID
+	current.RuntimePhase = nextState.RuntimePhase
+	current.RuntimeStartedAt = cloneTimePointer(nextState.RuntimeStartedAt)
+	current.LastError = nextState.LastError
+	current.LastHeartbeatAt = cloneTimePointer(nextState.LastHeartbeatAt)
+	f.agents[id] = current
+
+	return domain.AgentRuntimeControlResult{
+		Agent:       current,
+		Transition:  domain.AgentRuntimeControlResume,
+		RequestedAt: time.Now().UTC(),
+	}, nil
+}
+
 func (f *fakeCatalogService) DeleteAgent(_ context.Context, id uuid.UUID) (domain.Agent, error) {
 	item, ok := f.agents[id]
 	if !ok {
@@ -514,5 +678,14 @@ func cloneTimePointer(value *time.Time) *time.Time {
 	}
 
 	cloned := value.UTC()
+	return &cloned
+}
+
+func cloneUUIDPointer(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+
+	cloned := *value
 	return &cloned
 }

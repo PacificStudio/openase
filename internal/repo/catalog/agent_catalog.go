@@ -173,6 +173,36 @@ func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agen
 	return mapAgent(item), nil
 }
 
+func (r *EntRepository) UpdateAgentRuntimeState(ctx context.Context, input domain.UpdateAgentRuntimeState) (domain.Agent, error) {
+	builder := r.client.Agent.UpdateOneID(input.ID).
+		SetStatus(input.Status).
+		SetSessionID(input.SessionID).
+		SetRuntimePhase(input.RuntimePhase).
+		SetLastError(input.LastError)
+	if input.CurrentTicketID != nil {
+		builder.SetCurrentTicketID(*input.CurrentTicketID)
+	} else {
+		builder.ClearCurrentTicketID()
+	}
+	if input.RuntimeStartedAt != nil {
+		builder.SetRuntimeStartedAt(*input.RuntimeStartedAt)
+	} else {
+		builder.ClearRuntimeStartedAt()
+	}
+	if input.LastHeartbeatAt != nil {
+		builder.SetLastHeartbeatAt(*input.LastHeartbeatAt)
+	} else {
+		builder.ClearLastHeartbeatAt()
+	}
+
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.Agent{}, mapWriteError("update agent runtime state", err)
+	}
+
+	return mapAgent(item), nil
+}
+
 func (r *EntRepository) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
 	item, err := r.client.Agent.Get(ctx, id)
 	if err != nil {

@@ -194,7 +194,7 @@ func (h *HealthChecker) releaseStalledClaim(
 		Where(
 			entagent.IDEQ(agentID),
 			entagent.CurrentTicketIDEQ(ticket.ID),
-			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
+			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning, entagent.StatusPaused),
 		).
 		ClearCurrentTicketID().
 		SetStatus(entagent.StatusIdle).
