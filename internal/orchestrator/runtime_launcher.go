@@ -73,6 +73,9 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return fmt.Errorf("runtime launcher process manager unavailable")
 	}
 
+	if err := l.reconcileSessionState(ctx); err != nil {
+		return err
+	}
 	if err := l.refreshHeartbeats(ctx); err != nil {
 		return err
 	}
@@ -94,6 +97,30 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		if err := l.launchAgent(ctx, agentItem); err != nil {
 			l.logger.Error("launch claimed agent", "agent_id", agentItem.ID, "error", err)
 		}
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) reconcileSessionState(ctx context.Context) error {
+	for agentID, session := range l.sessionsSnapshot() {
+		agentItem, err := l.client.Agent.Query().
+			Where(entagent.IDEQ(agentID)).
+			Only(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				l.deleteSession(agentID)
+				stopSession(ctx, session)
+				continue
+			}
+			return fmt.Errorf("load session reconciliation state for agent %s: %w", agentID, err)
+		}
+		if agentItem.Status == entagent.StatusRunning && agentItem.RuntimePhase == entagent.RuntimePhaseReady {
+			continue
+		}
+
+		l.deleteSession(agentID)
+		stopSession(ctx, session)
 	}
 
 	return nil
@@ -914,6 +941,18 @@ func (l *RuntimeLauncher) drainSessions() map[uuid.UUID]*codex.Session {
 	}
 	l.sessions = map[uuid.UUID]*codex.Session{}
 	return drained
+}
+
+func (l *RuntimeLauncher) sessionsSnapshot() map[uuid.UUID]*codex.Session {
+	l.sessionsMu.Lock()
+	defer l.sessionsMu.Unlock()
+
+	snapshot := make(map[uuid.UUID]*codex.Session, len(l.sessions))
+	for agentID, session := range l.sessions {
+		snapshot[agentID] = session
+	}
+
+	return snapshot
 }
 
 func stopSession(ctx context.Context, session *codex.Session) {

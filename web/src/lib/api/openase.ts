@@ -173,6 +173,14 @@ export function getAgent(agentId: string) {
   return api.get<AgentResponse>(`/api/v1/agents/${agentId}`)
 }
 
+export function pauseAgentRuntime(agentId: string) {
+  return api.post(`/api/v1/agents/${agentId}/pause`)
+}
+
+export function resumeAgentRuntime(agentId: string) {
+  return api.post(`/api/v1/agents/${agentId}/resume`)
+}
+
 export function deleteAgent(agentId: string) {
   return api.delete<AgentResponse>(`/api/v1/agents/${agentId}`)
 }

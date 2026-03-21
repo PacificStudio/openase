@@ -37,9 +37,15 @@
     {
       label: 'Runtime controls',
       location: '/agents',
-      state: 'unwired',
+      state: capabilityCatalog.agentPause.state,
       summary:
-        'Agent output now lives in /agents through a dedicated runtime output contract, while pause and resume endpoints are still missing.',
+        'Pause and resume stay in the runtime console and now call the explicit agent runtime control endpoints.',
+    },
+    {
+      label: 'Runtime output',
+      location: '/agents',
+      state: capabilityCatalog.agentOutput.state,
+      summary: capabilityCatalog.agentOutput.summary,
     },
   ]
 </script>

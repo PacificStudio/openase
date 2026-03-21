@@ -4,7 +4,7 @@ export type AgentInstance = {
   providerId: string
   providerName: string
   modelName: string
-  status: 'idle' | 'claimed' | 'running' | 'failed' | 'terminated'
+  status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
   currentTicket?: { id: string; identifier: string; title: string }
   lastHeartbeat?: string | null

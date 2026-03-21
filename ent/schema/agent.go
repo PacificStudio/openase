@@ -21,7 +21,7 @@ func (Agent) Fields() []ent.Field {
 		field.UUID("project_id", uuidZero()),
 		field.String("name").NotEmpty(),
 		field.Enum("status").
-			Values("idle", "claimed", "running", "failed", "terminated").
+			Values("idle", "claimed", "running", "paused", "failed", "terminated").
 			Default("idle"),
 		field.UUID("current_ticket_id", uuidZero()).
 			Optional().
