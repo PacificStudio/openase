@@ -367,6 +367,26 @@ func RuntimePhaseNotIn(vs ...RuntimePhase) predicate.Agent {
 	return predicate.Agent(sql.FieldNotIn(FieldRuntimePhase, vs...))
 }
 
+// RuntimeControlStateEQ applies the EQ predicate on the "runtime_control_state" field.
+func RuntimeControlStateEQ(v RuntimeControlState) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldRuntimeControlState, v))
+}
+
+// RuntimeControlStateNEQ applies the NEQ predicate on the "runtime_control_state" field.
+func RuntimeControlStateNEQ(v RuntimeControlState) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldRuntimeControlState, v))
+}
+
+// RuntimeControlStateIn applies the In predicate on the "runtime_control_state" field.
+func RuntimeControlStateIn(vs ...RuntimeControlState) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldRuntimeControlState, vs...))
+}
+
+// RuntimeControlStateNotIn applies the NotIn predicate on the "runtime_control_state" field.
+func RuntimeControlStateNotIn(vs ...RuntimeControlState) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldRuntimeControlState, vs...))
+}
+
 // RuntimeStartedAtEQ applies the EQ predicate on the "runtime_started_at" field.
 func RuntimeStartedAtEQ(v time.Time) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldRuntimeStartedAt, v))

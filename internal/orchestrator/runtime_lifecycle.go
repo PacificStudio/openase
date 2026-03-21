@@ -19,6 +19,7 @@ var (
 	agentLaunchingType  = provider.MustParseEventType("agent.launching")
 	agentReadyType      = provider.MustParseEventType("agent.ready")
 	agentHeartbeatType  = provider.MustParseEventType("agent.heartbeat")
+	agentPausedType     = provider.MustParseEventType("agent.paused")
 	agentFailedType     = provider.MustParseEventType("agent.failed")
 	agentTerminatedType = provider.MustParseEventType("agent.terminated")
 )
@@ -36,6 +37,7 @@ type agentLifecycleSnapshot struct {
 	CurrentTicketID       *string  `json:"current_ticket_id,omitempty"`
 	SessionID             string   `json:"session_id"`
 	RuntimePhase          string   `json:"runtime_phase"`
+	RuntimeControlState   string   `json:"runtime_control_state"`
 	RuntimeStartedAt      *string  `json:"runtime_started_at,omitempty"`
 	LastError             string   `json:"last_error"`
 	WorkspacePath         string   `json:"workspace_path"`
@@ -140,6 +142,7 @@ func mapAgentLifecycleSnapshot(item *ent.Agent) agentLifecycleSnapshot {
 		CurrentTicketID:       uuidPointerToString(item.CurrentTicketID),
 		SessionID:             item.SessionID,
 		RuntimePhase:          item.RuntimePhase.String(),
+		RuntimeControlState:   item.RuntimeControlState.String(),
 		RuntimeStartedAt:      timePointerToRFC3339(item.RuntimeStartedAt),
 		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,
@@ -213,6 +216,8 @@ func lifecycleMessage(eventType provider.EventType, agentName string) string {
 		return fmt.Sprintf("Agent %s launched a Codex session and is ready.", agentName)
 	case agentHeartbeatType:
 		return fmt.Sprintf("Agent %s reported a runtime heartbeat.", agentName)
+	case agentPausedType:
+		return fmt.Sprintf("Agent %s paused its runtime session.", agentName)
 	case agentFailedType:
 		return fmt.Sprintf("Agent %s failed to launch or maintain its Codex session.", agentName)
 	case agentTerminatedType:
@@ -224,8 +229,9 @@ func lifecycleMessage(eventType provider.EventType, agentName string) string {
 
 func runtimeEventMetadata(agentItem *ent.Agent) map[string]any {
 	metadata := map[string]any{
-		"status":        agentItem.Status.String(),
-		"runtime_phase": agentItem.RuntimePhase.String(),
+		"status":                agentItem.Status.String(),
+		"runtime_phase":         agentItem.RuntimePhase.String(),
+		"runtime_control_state": agentItem.RuntimeControlState.String(),
 	}
 	if agentItem.CurrentTicketID != nil {
 		metadata["ticket_id"] = agentItem.CurrentTicketID.String()

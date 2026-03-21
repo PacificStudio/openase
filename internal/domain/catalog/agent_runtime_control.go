@@ -2,77 +2,45 @@ package catalog
 
 import (
 	"fmt"
-	"time"
 
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/google/uuid"
 )
 
-type AgentRuntimeControlAction string
-
-const (
-	AgentRuntimeControlPause  AgentRuntimeControlAction = "paused"
-	AgentRuntimeControlResume AgentRuntimeControlAction = "resumed"
-)
-
-type AgentRuntimeControlResult struct {
-	Agent       Agent
-	Transition  AgentRuntimeControlAction
-	RequestedAt time.Time
+type UpdateAgentRuntimeControlState struct {
+	ID                  uuid.UUID
+	RuntimeControlState entagent.RuntimeControlState
 }
 
-type UpdateAgentRuntimeState struct {
-	ID               uuid.UUID
-	Status           entagent.Status
-	CurrentTicketID  *uuid.UUID
-	SessionID        string
-	RuntimePhase     entagent.RuntimePhase
-	RuntimeStartedAt *time.Time
-	LastError        string
-	LastHeartbeatAt  *time.Time
+func ResolvePauseRuntimeControlState(agent Agent) (entagent.RuntimeControlState, error) {
+	if agent.CurrentTicketID == nil {
+		return "", fmt.Errorf("agent must have an assigned ticket before it can be paused")
+	}
+	if agent.Status != entagent.StatusClaimed && agent.Status != entagent.StatusRunning {
+		return "", fmt.Errorf("agent must be claimed or running before it can be paused")
+	}
+	if agent.RuntimeControlState == entagent.RuntimeControlStatePauseRequested {
+		return "", fmt.Errorf("agent pause is already in progress")
+	}
+	if agent.RuntimeControlState == entagent.RuntimeControlStatePaused {
+		return "", fmt.Errorf("agent is already paused")
+	}
+	return entagent.RuntimeControlStatePauseRequested, nil
 }
 
-func BuildPauseAgentRuntime(current Agent) (UpdateAgentRuntimeState, error) {
-	if current.CurrentTicketID == nil {
-		return UpdateAgentRuntimeState{}, fmt.Errorf("agent can only be paused while holding a ticket")
+func ResolveResumeRuntimeControlState(agent Agent) (entagent.RuntimeControlState, error) {
+	if agent.CurrentTicketID == nil {
+		return "", fmt.Errorf("agent must keep its assigned ticket before it can be resumed")
+	}
+	if agent.RuntimeControlState == entagent.RuntimeControlStateActive {
+		return "", fmt.Errorf("agent runtime is already active")
+	}
+	if agent.RuntimeControlState == entagent.RuntimeControlStatePauseRequested {
+		return "", fmt.Errorf("agent is still pausing; wait for the runtime to reach paused before resuming")
+	}
+	if agent.Status != entagent.StatusClaimed && agent.Status != entagent.StatusRunning {
+		return "", fmt.Errorf("paused agent must be claimed or running before it can resume")
 	}
 
-	switch current.Status {
-	case entagent.StatusClaimed, entagent.StatusRunning:
-		return UpdateAgentRuntimeState{
-			ID:              current.ID,
-			Status:          entagent.StatusPaused,
-			CurrentTicketID: cloneUUIDPointer(current.CurrentTicketID),
-			RuntimePhase:    entagent.RuntimePhaseNone,
-		}, nil
-	case entagent.StatusPaused:
-		return UpdateAgentRuntimeState{}, fmt.Errorf("agent is already paused")
-	default:
-		return UpdateAgentRuntimeState{}, fmt.Errorf("agent can only be paused from claimed or running")
-	}
-}
-
-func BuildResumeAgentRuntime(current Agent) (UpdateAgentRuntimeState, error) {
-	if current.Status != entagent.StatusPaused {
-		return UpdateAgentRuntimeState{}, fmt.Errorf("agent can only be resumed from paused")
-	}
-	if current.CurrentTicketID == nil {
-		return UpdateAgentRuntimeState{}, fmt.Errorf("paused agent is missing its claimed ticket")
-	}
-
-	return UpdateAgentRuntimeState{
-		ID:              current.ID,
-		Status:          entagent.StatusClaimed,
-		CurrentTicketID: cloneUUIDPointer(current.CurrentTicketID),
-		RuntimePhase:    entagent.RuntimePhaseNone,
-	}, nil
-}
-
-func cloneUUIDPointer(value *uuid.UUID) *uuid.UUID {
-	if value == nil {
-		return nil
-	}
-
-	cloned := *value
-	return &cloned
+	return entagent.RuntimeControlStateActive, nil
 }

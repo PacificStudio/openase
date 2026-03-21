@@ -1,12 +1,12 @@
 package httpapi
 
 import (
-	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	"github.com/BetterAndBetterII/openase/internal/provider"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/labstack/echo/v4"
 )
 
@@ -34,6 +34,7 @@ type agentResponse struct {
 	CurrentTicketID       *string  `json:"current_ticket_id,omitempty"`
 	SessionID             string   `json:"session_id"`
 	RuntimePhase          string   `json:"runtime_phase"`
+	RuntimeControlState   string   `json:"runtime_control_state"`
 	RuntimeStartedAt      *string  `json:"runtime_started_at,omitempty"`
 	LastError             string   `json:"last_error"`
 	WorkspacePath         string   `json:"workspace_path"`
@@ -41,12 +42,6 @@ type agentResponse struct {
 	TotalTokensUsed       int64    `json:"total_tokens_used"`
 	TotalTicketsCompleted int      `json:"total_tickets_completed"`
 	LastHeartbeatAt       *string  `json:"last_heartbeat_at,omitempty"`
-}
-
-type agentRuntimeControlResponse struct {
-	Agent       agentResponse `json:"agent"`
-	Transition  string        `json:"transition"`
-	RequestedAt string        `json:"requested_at"`
 }
 
 type agentProviderPatchRequest struct {
@@ -236,6 +231,60 @@ func (s *Server) getAgent(c echo.Context) error {
 	})
 }
 
+func (s *Server) pauseAgent(c echo.Context) error {
+	agentID, err := parseUUIDPathParam(c, "agentId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.RequestAgentPause(c.Request().Context(), agentID)
+	if err != nil {
+		if errors.Is(err, catalogservice.ErrNotFound) {
+			return writeCatalogError(c, err)
+		}
+		if errors.Is(err, catalogservice.ErrConflict) {
+			return writeAPIError(
+				c,
+				http.StatusConflict,
+				"AGENT_RUNTIME_CONTROL_CONFLICT",
+				catalogConflictMessage(err),
+			)
+		}
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"agent": mapAgentResponse(item),
+	})
+}
+
+func (s *Server) resumeAgent(c echo.Context) error {
+	agentID, err := parseUUIDPathParam(c, "agentId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.RequestAgentResume(c.Request().Context(), agentID)
+	if err != nil {
+		if errors.Is(err, catalogservice.ErrNotFound) {
+			return writeCatalogError(c, err)
+		}
+		if errors.Is(err, catalogservice.ErrConflict) {
+			return writeAPIError(
+				c,
+				http.StatusConflict,
+				"AGENT_RUNTIME_CONTROL_CONFLICT",
+				catalogConflictMessage(err),
+			)
+		}
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"agent": mapAgentResponse(item),
+	})
+}
+
 func (s *Server) deleteAgent(c echo.Context) error {
 	agentID, err := parseUUIDPathParam(c, "agentId")
 	if err != nil {
@@ -250,72 +299,6 @@ func (s *Server) deleteAgent(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"agent": mapAgentResponse(item),
 	})
-}
-
-func (s *Server) pauseAgentRuntime(c echo.Context) error {
-	agentID, err := parseUUIDPathParam(c, "agentId")
-	if err != nil {
-		return err
-	}
-
-	result, err := s.catalog.PauseAgentRuntime(c.Request().Context(), agentID)
-	if err != nil {
-		return writeCatalogError(c, err)
-	}
-	s.publishAgentRuntimeControlEvent(c.Request().Context(), result)
-
-	return c.JSON(http.StatusOK, agentRuntimeControlResponse{
-		Agent:       mapAgentResponse(result.Agent),
-		Transition:  string(result.Transition),
-		RequestedAt: result.RequestedAt.UTC().Format(time.RFC3339),
-	})
-}
-
-func (s *Server) resumeAgentRuntime(c echo.Context) error {
-	agentID, err := parseUUIDPathParam(c, "agentId")
-	if err != nil {
-		return err
-	}
-
-	result, err := s.catalog.ResumeAgentRuntime(c.Request().Context(), agentID)
-	if err != nil {
-		return writeCatalogError(c, err)
-	}
-	s.publishAgentRuntimeControlEvent(c.Request().Context(), result)
-
-	return c.JSON(http.StatusOK, agentRuntimeControlResponse{
-		Agent:       mapAgentResponse(result.Agent),
-		Transition:  string(result.Transition),
-		RequestedAt: result.RequestedAt.UTC().Format(time.RFC3339),
-	})
-}
-
-func (s *Server) publishAgentRuntimeControlEvent(ctx context.Context, result domain.AgentRuntimeControlResult) {
-	if s == nil || s.events == nil {
-		return
-	}
-
-	eventType := provider.MustParseEventType("agent." + string(result.Transition))
-	event, err := provider.NewJSONEvent(
-		agentStreamTopic,
-		eventType,
-		agentRuntimeControlResponse{
-			Agent:       mapAgentResponse(result.Agent),
-			Transition:  string(result.Transition),
-			RequestedAt: result.RequestedAt.UTC().Format(time.RFC3339),
-		},
-		result.RequestedAt.UTC(),
-	)
-	if err != nil {
-		s.logger.Warn("construct agent runtime control event", "error", err, "transition", result.Transition)
-		return
-	}
-
-	publishCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := s.events.Publish(publishCtx, event); err != nil {
-		s.logger.Warn("publish agent runtime control event", "error", err, "transition", result.Transition, "agent_id", result.Agent.ID)
-	}
 }
 
 func mapAgentProviderResponses(items []domain.AgentProvider) []agentProviderResponse {
@@ -363,6 +346,7 @@ func mapAgentResponse(item domain.Agent) agentResponse {
 		CurrentTicketID:       uuidToStringPointer(item.CurrentTicketID),
 		SessionID:             item.SessionID,
 		RuntimePhase:          item.RuntimePhase.String(),
+		RuntimeControlState:   item.RuntimeControlState.String(),
 		RuntimeStartedAt:      timeToStringPointer(item.RuntimeStartedAt),
 		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,

@@ -141,6 +141,7 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		SetStatus(input.Status).
 		SetSessionID(input.SessionID).
 		SetRuntimePhase(input.RuntimePhase).
+		SetRuntimeControlState(input.RuntimeControlState).
 		SetLastError(input.LastError).
 		SetWorkspacePath(input.WorkspacePath).
 		SetCapabilities(pgarray.StringArray(input.Capabilities)).
@@ -173,31 +174,12 @@ func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agen
 	return mapAgent(item), nil
 }
 
-func (r *EntRepository) UpdateAgentRuntimeState(ctx context.Context, input domain.UpdateAgentRuntimeState) (domain.Agent, error) {
-	builder := r.client.Agent.UpdateOneID(input.ID).
-		SetStatus(input.Status).
-		SetSessionID(input.SessionID).
-		SetRuntimePhase(input.RuntimePhase).
-		SetLastError(input.LastError)
-	if input.CurrentTicketID != nil {
-		builder.SetCurrentTicketID(*input.CurrentTicketID)
-	} else {
-		builder.ClearCurrentTicketID()
-	}
-	if input.RuntimeStartedAt != nil {
-		builder.SetRuntimeStartedAt(*input.RuntimeStartedAt)
-	} else {
-		builder.ClearRuntimeStartedAt()
-	}
-	if input.LastHeartbeatAt != nil {
-		builder.SetLastHeartbeatAt(*input.LastHeartbeatAt)
-	} else {
-		builder.ClearLastHeartbeatAt()
-	}
-
-	item, err := builder.Save(ctx)
+func (r *EntRepository) UpdateAgentRuntimeControlState(ctx context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error) {
+	item, err := r.client.Agent.UpdateOneID(input.ID).
+		SetRuntimeControlState(input.RuntimeControlState).
+		Save(ctx)
 	if err != nil {
-		return domain.Agent{}, mapWriteError("update agent runtime state", err)
+		return domain.Agent{}, mapWriteError("update agent runtime control state", err)
 	}
 
 	return mapAgent(item), nil
@@ -261,6 +243,7 @@ func mapAgent(item *ent.Agent) domain.Agent {
 		CurrentTicketID:       item.CurrentTicketID,
 		SessionID:             item.SessionID,
 		RuntimePhase:          item.RuntimePhase,
+		RuntimeControlState:   item.RuntimeControlState,
 		RuntimeStartedAt:      cloneTimePointer(item.RuntimeStartedAt),
 		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,

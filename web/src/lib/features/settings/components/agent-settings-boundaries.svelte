@@ -35,17 +35,17 @@
         'DELETE /api/v1/agents/{agentId} exists, but this settings slice does not expose an inline delete flow yet.',
     },
     {
-      label: 'Runtime controls',
-      location: '/agents',
-      state: capabilityCatalog.agentPause.state,
-      summary:
-        'Pause and resume stay in the runtime console and now call the explicit agent runtime control endpoints.',
-    },
-    {
       label: 'Runtime output',
       location: '/agents',
       state: capabilityCatalog.agentOutput.state,
       summary: capabilityCatalog.agentOutput.summary,
+    },
+    {
+      label: 'Runtime controls',
+      location: '/agents',
+      state: capabilityCatalog.agentPause.state,
+      summary:
+        'Pause and resume now use explicit runtime control endpoints, while runtime intervention still belongs to the operators console instead of governance settings.',
     },
   ]
 </script>

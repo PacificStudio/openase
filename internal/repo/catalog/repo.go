@@ -59,7 +59,7 @@ type Repository interface {
 	ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error)
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
-	UpdateAgentRuntimeState(ctx context.Context, input domain.UpdateAgentRuntimeState) (domain.Agent, error)
+	UpdateAgentRuntimeControlState(ctx context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error)
 	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 }
 

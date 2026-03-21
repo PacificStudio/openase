@@ -36,6 +36,8 @@ type Agent struct {
 	SessionID string `json:"session_id,omitempty"`
 	// RuntimePhase holds the value of the "runtime_phase" field.
 	RuntimePhase agent.RuntimePhase `json:"runtime_phase,omitempty"`
+	// RuntimeControlState holds the value of the "runtime_control_state" field.
+	RuntimeControlState agent.RuntimeControlState `json:"runtime_control_state,omitempty"`
 	// RuntimeStartedAt holds the value of the "runtime_started_at" field.
 	RuntimeStartedAt *time.Time `json:"runtime_started_at,omitempty"`
 	// LastError holds the value of the "last_error" field.
@@ -146,7 +148,7 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 			values[i] = new(pgarray.StringArray)
 		case agent.FieldTotalTokensUsed, agent.FieldTotalTicketsCompleted:
 			values[i] = new(sql.NullInt64)
-		case agent.FieldName, agent.FieldStatus, agent.FieldSessionID, agent.FieldRuntimePhase, agent.FieldLastError, agent.FieldWorkspacePath:
+		case agent.FieldName, agent.FieldStatus, agent.FieldSessionID, agent.FieldRuntimePhase, agent.FieldRuntimeControlState, agent.FieldLastError, agent.FieldWorkspacePath:
 			values[i] = new(sql.NullString)
 		case agent.FieldRuntimeStartedAt, agent.FieldLastHeartbeatAt:
 			values[i] = new(sql.NullTime)
@@ -215,6 +217,12 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field runtime_phase", values[i])
 			} else if value.Valid {
 				_m.RuntimePhase = agent.RuntimePhase(value.String)
+			}
+		case agent.FieldRuntimeControlState:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field runtime_control_state", values[i])
+			} else if value.Valid {
+				_m.RuntimeControlState = agent.RuntimeControlState(value.String)
 			}
 		case agent.FieldRuntimeStartedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -348,6 +356,9 @@ func (_m *Agent) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("runtime_phase=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RuntimePhase))
+	builder.WriteString(", ")
+	builder.WriteString("runtime_control_state=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RuntimeControlState))
 	builder.WriteString(", ")
 	if v := _m.RuntimeStartedAt; v != nil {
 		builder.WriteString("runtime_started_at=")

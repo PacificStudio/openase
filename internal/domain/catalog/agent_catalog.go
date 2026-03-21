@@ -34,6 +34,7 @@ type Agent struct {
 	CurrentTicketID       *uuid.UUID
 	SessionID             string
 	RuntimePhase          entagent.RuntimePhase
+	RuntimeControlState   entagent.RuntimeControlState
 	RuntimeStartedAt      *time.Time
 	LastError             string
 	WorkspacePath         string
@@ -100,6 +101,7 @@ type CreateAgent struct {
 	CurrentTicketID       *uuid.UUID
 	SessionID             string
 	RuntimePhase          entagent.RuntimePhase
+	RuntimeControlState   entagent.RuntimeControlState
 	RuntimeStartedAt      *time.Time
 	LastError             string
 	WorkspacePath         string
@@ -209,6 +211,7 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		Name:                  name,
 		Status:                entagent.DefaultStatus,
 		RuntimePhase:          entagent.DefaultRuntimePhase,
+		RuntimeControlState:   entagent.DefaultRuntimeControlState,
 		WorkspacePath:         strings.TrimSpace(raw.WorkspacePath),
 		Capabilities:          capabilities,
 		TotalTokensUsed:       entagent.DefaultTotalTokensUsed,

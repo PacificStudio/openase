@@ -12,15 +12,15 @@
     providers,
     loading = false,
     error = '',
-    pageError = '',
     pageFeedback = '',
+    pageError = '',
+    runtimeActionAgentId = null,
     canRegister = false,
     registerButtonTitle,
     onOpenRegister,
     onSelectTicket,
     onViewOutput,
     onConfigureProvider,
-    runtimeControlPendingAgentId = null,
     onPauseAgent,
     onResumeAgent,
   }: {
@@ -29,17 +29,17 @@
     providers: ProviderConfig[]
     loading?: boolean
     error?: string
-    pageError?: string
     pageFeedback?: string
+    pageError?: string
+    runtimeActionAgentId?: string | null
     canRegister?: boolean
     registerButtonTitle?: string
     onOpenRegister?: () => void
     onSelectTicket?: (ticketId: string) => void
     onViewOutput?: (agentId: string) => void
     onConfigureProvider?: (provider: ProviderConfig) => void
-    runtimeControlPendingAgentId?: string | null
-    onPauseAgent?: (agent: AgentInstance) => void
-    onResumeAgent?: (agent: AgentInstance) => void
+    onPauseAgent?: (agentId: string) => void
+    onResumeAgent?: (agentId: string) => void
   } = $props()
 </script>
 
@@ -93,11 +93,11 @@
       <Tabs.Content value="instances" class="pt-3">
         <AgentList
           {agents}
-          {runtimeControlPendingAgentId}
+          {runtimeActionAgentId}
           onSelectTicket={(ticketId) => onSelectTicket?.(ticketId)}
           onViewOutput={(agentId) => onViewOutput?.(agentId)}
-          onPause={onPauseAgent}
-          onResume={onResumeAgent}
+          {onPauseAgent}
+          {onResumeAgent}
         />
       </Tabs.Content>
       <Tabs.Content value="providers" class="pt-3">

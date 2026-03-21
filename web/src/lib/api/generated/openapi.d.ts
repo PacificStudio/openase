@@ -31,8 +31,8 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Pause a claimed or running agent runtime */
-    post: operations['pauseAgentRuntime']
+    /** Pause an agent runtime */
+    post: operations['pauseAgent']
     delete?: never
     options?: never
     head?: never
@@ -48,8 +48,8 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Resume a paused agent runtime */
-    post: operations['resumeAgentRuntime']
+    /** Resume an agent runtime */
+    post: operations['resumeAgent']
     delete?: never
     options?: never
     head?: never
@@ -1075,6 +1075,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string
@@ -1153,6 +1154,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string
@@ -1215,7 +1217,7 @@ export interface operations {
       }
     }
   }
-  pauseAgentRuntime: {
+  pauseAgent: {
     parameters: {
       query?: never
       header?: never
@@ -1227,7 +1229,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Pause a claimed or running agent runtime response. */
+      /** @description Pause an agent runtime response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -1243,6 +1245,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string
@@ -1252,8 +1255,6 @@ export interface operations {
               total_tokens_used?: number
               workspace_path?: string
             }
-            requested_at?: string
-            transition?: string
           }
         }
       }
@@ -1271,6 +1272,18 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }
@@ -1295,7 +1308,7 @@ export interface operations {
       }
     }
   }
-  resumeAgentRuntime: {
+  resumeAgent: {
     parameters: {
       query?: never
       header?: never
@@ -1307,7 +1320,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Resume a paused agent runtime response. */
+      /** @description Resume an agent runtime response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -1323,6 +1336,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string
@@ -1332,8 +1346,6 @@ export interface operations {
               total_tokens_used?: number
               workspace_path?: string
             }
-            requested_at?: string
-            transition?: string
           }
         }
       }
@@ -1351,6 +1363,18 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }
@@ -3843,6 +3867,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string
@@ -3931,6 +3956,7 @@ export interface operations {
               name?: string
               project_id?: string
               provider_id?: string
+              runtime_control_state?: string
               runtime_phase?: string
               runtime_started_at?: string | null
               session_id?: string

@@ -210,7 +210,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 }
 
-func TestRuntimeLauncherRunTickStopsSessionWhenAgentLeavesRunningState(t *testing.T) {
+func TestRuntimeLauncherRunTickDropsCachedSessionWhenAgentLeavesRunningState(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -315,30 +315,22 @@ Runtime reconcile test
 	}
 
 	if _, err := client.Agent.UpdateOneID(agentItem.ID).
-		SetStatus(entagent.StatusPaused).
+		SetStatus(entagent.StatusClaimed).
 		SetRuntimePhase(entagent.RuntimePhaseNone).
+		ClearCurrentTicketID().
 		ClearSessionID().
 		ClearRuntimeStartedAt().
 		ClearLastHeartbeatAt().
 		Save(ctx); err != nil {
-		t.Fatalf("pause agent runtime in db: %v", err)
+		t.Fatalf("mark agent as no longer running in db: %v", err)
 	}
 
 	if err := launcher.RunTick(ctx); err != nil {
-		t.Fatalf("reconcile paused runtime: %v", err)
+		t.Fatalf("reconcile non-running runtime: %v", err)
 	}
 
-	if len(launcher.sessionsSnapshot()) != 0 {
-		t.Fatalf("expected paused agent session to be removed, got %d sessions", len(launcher.sessionsSnapshot()))
-	}
-	process := manager.capturedProcess()
-	if process == nil {
-		t.Fatal("expected captured runtime process")
-	}
-	select {
-	case <-process.stopCh:
-	default:
-		t.Fatal("expected paused agent session to be stopped")
+	if launcher.loadSession(agentItem.ID) != nil {
+		t.Fatal("expected non-running agent session to be removed from cache")
 	}
 }
 
@@ -761,6 +753,93 @@ func TestRequiresMachineCodexReady(t *testing.T) {
 	}
 }
 
+func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 13, 0, 0, 0, time.UTC)
+
+	bus := eventinfra.NewChannelBus()
+	stream, err := bus.Subscribe(ctx, agentLifecycleTopic)
+	if err != nil {
+		t.Fatalf("subscribe agent lifecycle stream: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-405").
+		SetTitle("Pause Codex runtime").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-pause-01").
+		SetStatus(entagent.StatusClaimed).
+		SetCurrentTicketID(ticketItem.ID).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+
+	manager := &runtimeFakeProcessManager{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, nil)
+	launcher.now = func() time.Time {
+		return now
+	}
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run initial launcher tick: %v", err)
+	}
+	waitForAgentLifecycleEvent(t, stream, agentReadyType)
+
+	if _, err := client.Agent.UpdateOneID(agentItem.ID).
+		SetRuntimeControlState(entagent.RuntimeControlStatePauseRequested).
+		Save(ctx); err != nil {
+		t.Fatalf("request pause: %v", err)
+	}
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run pause launcher tick: %v", err)
+	}
+
+	pausedEvent := waitForAgentLifecycleEvent(t, stream, agentPausedType)
+	payload := decodeLifecycleEnvelope(t, pausedEvent.Payload)
+	if payload.Agent.ID != agentItem.ID.String() || payload.Agent.RuntimeControlState != "paused" {
+		t.Fatalf("unexpected paused event payload: %+v", payload.Agent)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusClaimed {
+		t.Fatalf("expected claimed status after pause, got %s", agentAfter.Status)
+	}
+	if agentAfter.RuntimePhase != entagent.RuntimePhaseNone {
+		t.Fatalf("expected runtime phase none after pause, got %s", agentAfter.RuntimePhase)
+	}
+	if agentAfter.RuntimeControlState != entagent.RuntimeControlStatePaused {
+		t.Fatalf("expected paused control state, got %s", agentAfter.RuntimeControlState)
+	}
+	if agentAfter.SessionID != "" || agentAfter.RuntimeStartedAt != nil || agentAfter.LastHeartbeatAt != nil {
+		t.Fatalf("expected runtime state to be cleared after pause, got %+v", agentAfter)
+	}
+}
+
 func waitForAgentLifecycleEvent(t *testing.T, stream <-chan provider.Event, want provider.EventType) provider.Event {
 	t.Helper()
 
@@ -830,12 +909,6 @@ func (m *runtimeFakeProcessManager) capturedProcessSpec() provider.AgentCLIProce
 		WorkingDirectory: m.capturedSpec.WorkingDirectory,
 		Environment:      append([]string(nil), m.capturedSpec.Environment...),
 	}
-}
-
-func (m *runtimeFakeProcessManager) capturedProcess() *runtimeFakeProcess {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.lastProcess
 }
 
 type runtimeFakeProcess struct {

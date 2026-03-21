@@ -59,6 +59,9 @@
                         "provider_id": {
                           "type": "string"
                         },
+                        "runtime_control_state": {
+                          "type": "string"
+                        },
                         "runtime_phase": {
                           "type": "string"
                         },
@@ -221,6 +224,9 @@
                         "provider_id": {
                           "type": "string"
                         },
+                        "runtime_control_state": {
+                          "type": "string"
+                        },
                         "runtime_phase": {
                           "type": "string"
                         },
@@ -317,7 +323,7 @@
     },
     "/api/v1/agents/{agentId}/pause": {
       "post": {
-        "operationId": "pauseAgentRuntime",
+        "operationId": "pauseAgent",
         "parameters": [
           {
             "description": "Agent ID.",
@@ -367,6 +373,9 @@
                         "provider_id": {
                           "type": "string"
                         },
+                        "runtime_control_state": {
+                          "type": "string"
+                        },
                         "runtime_phase": {
                           "type": "string"
                         },
@@ -392,19 +401,13 @@
                         }
                       },
                       "type": "object"
-                    },
-                    "requested_at": {
-                      "type": "string"
-                    },
-                    "transition": {
-                      "type": "string"
                     }
                   },
                   "type": "object"
                 }
               }
             },
-            "description": "Pause a claimed or running agent runtime response."
+            "description": "Pause an agent runtime response."
           },
           "400": {
             "content": {
@@ -442,6 +445,24 @@
             },
             "description": "Not Found response."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
           "500": {
             "content": {
               "application/json": {
@@ -461,7 +482,7 @@
             "description": "Internal Server Error response."
           }
         },
-        "summary": "Pause a claimed or running agent runtime",
+        "summary": "Pause an agent runtime",
         "tags": [
           "catalog"
         ]
@@ -469,7 +490,7 @@
     },
     "/api/v1/agents/{agentId}/resume": {
       "post": {
-        "operationId": "resumeAgentRuntime",
+        "operationId": "resumeAgent",
         "parameters": [
           {
             "description": "Agent ID.",
@@ -519,6 +540,9 @@
                         "provider_id": {
                           "type": "string"
                         },
+                        "runtime_control_state": {
+                          "type": "string"
+                        },
                         "runtime_phase": {
                           "type": "string"
                         },
@@ -544,19 +568,13 @@
                         }
                       },
                       "type": "object"
-                    },
-                    "requested_at": {
-                      "type": "string"
-                    },
-                    "transition": {
-                      "type": "string"
                     }
                   },
                   "type": "object"
                 }
               }
             },
-            "description": "Resume a paused agent runtime response."
+            "description": "Resume an agent runtime response."
           },
           "400": {
             "content": {
@@ -594,6 +612,24 @@
             },
             "description": "Not Found response."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
           "500": {
             "content": {
               "application/json": {
@@ -613,7 +649,7 @@
             "description": "Internal Server Error response."
           }
         },
-        "summary": "Resume a paused agent runtime",
+        "summary": "Resume an agent runtime",
         "tags": [
           "catalog"
         ]
@@ -5013,6 +5049,9 @@
                           "provider_id": {
                             "type": "string"
                           },
+                          "runtime_control_state": {
+                            "type": "string"
+                          },
                           "runtime_phase": {
                             "type": "string"
                           },
@@ -5185,6 +5224,9 @@
                           "type": "string"
                         },
                         "provider_id": {
+                          "type": "string"
+                        },
+                        "runtime_control_state": {
                           "type": "string"
                         },
                         "runtime_phase": {

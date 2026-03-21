@@ -1,25 +1,25 @@
 <script lang="ts">
   import { capabilityCatalog } from '$lib/features/capabilities'
-  import { cn, formatCurrency, formatRelativeTime } from '$lib/utils'
+  import { cn, formatRelativeTime, formatCurrency } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Pause, Play, Terminal } from '@lucide/svelte'
+  import { Terminal, Pause, Play } from '@lucide/svelte'
   import type { AgentInstance } from '../types'
 
   let {
     agents,
     onSelectTicket,
-    runtimeControlPendingAgentId = null,
-    onPause,
-    onResume,
+    runtimeActionAgentId = null,
     onViewOutput,
+    onPauseAgent,
+    onResumeAgent,
   }: {
     agents: AgentInstance[]
     onSelectTicket?: (ticketId: string) => void
-    runtimeControlPendingAgentId?: string | null
-    onPause?: (agent: AgentInstance) => void
-    onResume?: (agent: AgentInstance) => void
+    runtimeActionAgentId?: string | null
     onViewOutput?: (agentId: string) => void
+    onPauseAgent?: (agentId: string) => void
+    onResumeAgent?: (agentId: string) => void
   } = $props()
 
   const statusColors: Record<AgentInstance['status'], string> = {
@@ -44,28 +44,59 @@
   const agentPauseCapability = capabilityCatalog.agentPause
   const agentResumeCapability = capabilityCatalog.agentResume
 
+  const runtimeControlLabels: Record<AgentInstance['runtimeControlState'], string> = {
+    active: 'Active',
+    pause_requested: 'Pause Requested',
+    paused: 'Paused',
+  }
+
+  const runtimeControlClasses: Record<AgentInstance['runtimeControlState'], string> = {
+    active: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    pause_requested: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    paused: 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
+  }
+
   function canPause(agent: AgentInstance) {
-    return agent.status === 'claimed' || agent.status === 'running'
+    return (
+      agent.runtimeControlState === 'active' &&
+      !!agent.currentTicket &&
+      (agent.status === 'claimed' || agent.status === 'running')
+    )
   }
 
   function canResume(agent: AgentInstance) {
-    return agent.status === 'paused'
+    return (
+      agent.runtimeControlState === 'paused' &&
+      !!agent.currentTicket &&
+      agent.status === 'claimed' &&
+      agent.runtimePhase === 'none'
+    )
   }
 
-  function isRuntimeControlPending(agent: AgentInstance) {
-    return runtimeControlPendingAgentId === agent.id
-  }
-
-  function pauseButtonTitle(agent: AgentInstance) {
-    if (isRuntimeControlPending(agent)) return 'Pausing agent...'
-    if (!canPause(agent))
-      return 'Pause is only available while the agent is claimed or running a ticket.'
+  function pauseTitle(agent: AgentInstance) {
+    if (runtimeActionAgentId === agent.id) return 'Updating runtime control...'
+    if (agent.runtimeControlState === 'pause_requested') {
+      return 'Pause requested. Waiting for the runtime to stop.'
+    }
+    if (agent.runtimeControlState === 'paused') return 'Agent runtime is already paused.'
+    if (!agent.currentTicket) return 'Assign a ticket before pausing this agent.'
+    if (agent.status !== 'claimed' && agent.status !== 'running') {
+      return 'Only claimed or running agents can be paused.'
+    }
     return agentPauseCapability.summary
   }
 
-  function resumeButtonTitle(agent: AgentInstance) {
-    if (isRuntimeControlPending(agent)) return 'Resuming agent...'
-    if (!canResume(agent)) return 'Resume is only available after the agent has been paused.'
+  function resumeTitle(agent: AgentInstance) {
+    if (runtimeActionAgentId === agent.id) return 'Updating runtime control...'
+    if (agent.runtimeControlState === 'pause_requested') {
+      return 'Wait for the runtime to finish pausing before resuming.'
+    }
+    if (agent.runtimeControlState !== 'paused') return 'Pause this agent before resuming it.'
+    if (!agent.currentTicket)
+      return 'Paused runtime must keep its assigned ticket before it can resume.'
+    if (agent.status !== 'claimed' || agent.runtimePhase !== 'none') {
+      return 'Only paused claimed agents are ready to resume.'
+    }
     return agentResumeCapability.summary
   }
 </script>
@@ -90,6 +121,13 @@
             <div class="flex items-center gap-2">
               <span class={cn('size-2 rounded-full', statusColors[agent.status])}></span>
               <span class="text-muted-foreground text-xs">{statusLabels[agent.status]}</span>
+              {#if agent.runtimeControlState !== 'active'}
+                <span
+                  class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${runtimeControlClasses[agent.runtimeControlState]}`}
+                >
+                  {runtimeControlLabels[agent.runtimeControlState]}
+                </span>
+              {/if}
             </div>
           </td>
           <td class="px-2 py-2.5">
@@ -146,14 +184,14 @@
               >
                 <Terminal class="size-3.5" />
               </Button>
-              {#if canResume(agent)}
+              {#if agent.runtimeControlState === 'paused'}
                 <Button
                   variant="ghost"
                   size="icon-xs"
                   aria-label="Resume agent"
-                  disabled={isRuntimeControlPending(agent)}
-                  title={resumeButtonTitle(agent)}
-                  onclick={() => onResume?.(agent)}
+                  disabled={!canResume(agent) || runtimeActionAgentId === agent.id}
+                  title={resumeTitle(agent)}
+                  onclick={() => onResumeAgent?.(agent.id)}
                 >
                   <Play class="size-3.5" />
                 </Button>
@@ -162,9 +200,9 @@
                   variant="ghost"
                   size="icon-xs"
                   aria-label="Pause agent"
-                  disabled={isRuntimeControlPending(agent) || !canPause(agent)}
-                  title={pauseButtonTitle(agent)}
-                  onclick={() => onPause?.(agent)}
+                  disabled={!canPause(agent) || runtimeActionAgentId === agent.id}
+                  title={pauseTitle(agent)}
+                  onclick={() => onPauseAgent?.(agent.id)}
                 >
                   <Pause class="size-3.5" />
                 </Button>

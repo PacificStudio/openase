@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
@@ -102,6 +103,54 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 	}
 }
 
+func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
+	agentID := uuid.New()
+	ticketID := uuid.New()
+	repo := &stubRepository{
+		agent: domain.Agent{
+			ID:                  agentID,
+			Name:                "worker-1",
+			Status:              entagent.StatusRunning,
+			CurrentTicketID:     &ticketID,
+			RuntimePhase:        entagent.RuntimePhaseReady,
+			RuntimeControlState: entagent.RuntimeControlStateActive,
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	item, err := svc.RequestAgentPause(context.Background(), agentID)
+	if err != nil {
+		t.Fatalf("RequestAgentPause returned error: %v", err)
+	}
+	if item.RuntimeControlState != entagent.RuntimeControlStatePauseRequested {
+		t.Fatalf("expected pause_requested state, got %+v", item)
+	}
+	if repo.updatedRuntimeControl == nil || repo.updatedRuntimeControl.RuntimeControlState != entagent.RuntimeControlStatePauseRequested {
+		t.Fatalf("expected repo runtime control update, got %+v", repo.updatedRuntimeControl)
+	}
+}
+
+func TestRequestAgentResumeRejectsPauseRequestedState(t *testing.T) {
+	agentID := uuid.New()
+	ticketID := uuid.New()
+	repo := &stubRepository{
+		agent: domain.Agent{
+			ID:                  agentID,
+			Name:                "worker-1",
+			Status:              entagent.StatusClaimed,
+			CurrentTicketID:     &ticketID,
+			RuntimePhase:        entagent.RuntimePhaseNone,
+			RuntimeControlState: entagent.RuntimeControlStatePauseRequested,
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	_, err := svc.RequestAgentResume(context.Background(), agentID)
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("expected runtime control conflict, got %v", err)
+	}
+}
+
 type stubExecutableResolver struct {
 	paths map[string]string
 }
@@ -115,9 +164,11 @@ func (r stubExecutableResolver) LookPath(name string) (string, error) {
 }
 
 type stubRepository struct {
-	createdProvider *domain.CreateAgentProvider
-	updatedProvider *domain.UpdateAgentProvider
-	provider        domain.AgentProvider
+	createdProvider       *domain.CreateAgentProvider
+	updatedProvider       *domain.UpdateAgentProvider
+	updatedRuntimeControl *domain.UpdateAgentRuntimeControlState
+	provider              domain.AgentProvider
+	agent                 domain.Agent
 }
 
 func (r *stubRepository) ListOrganizations(context.Context) ([]domain.Organization, error) {
@@ -235,11 +286,13 @@ func (r *stubRepository) CreateAgent(context.Context, domain.CreateAgent) (domai
 }
 
 func (r *stubRepository) GetAgent(context.Context, uuid.UUID) (domain.Agent, error) {
-	return domain.Agent{}, nil
+	return r.agent, nil
 }
 
-func (r *stubRepository) UpdateAgentRuntimeState(context.Context, domain.UpdateAgentRuntimeState) (domain.Agent, error) {
-	return domain.Agent{}, nil
+func (r *stubRepository) UpdateAgentRuntimeControlState(_ context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error) {
+	r.updatedRuntimeControl = &input
+	r.agent.RuntimeControlState = input.RuntimeControlState
+	return r.agent, nil
 }
 
 func (r *stubRepository) DeleteAgent(context.Context, uuid.UUID) (domain.Agent, error) {

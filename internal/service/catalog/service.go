@@ -60,8 +60,8 @@ type Service interface {
 	ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error)
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
-	PauseAgentRuntime(ctx context.Context, id uuid.UUID) (domain.AgentRuntimeControlResult, error)
-	ResumeAgentRuntime(ctx context.Context, id uuid.UUID) (domain.AgentRuntimeControlResult, error)
+	RequestAgentPause(ctx context.Context, id uuid.UUID) (domain.Agent, error)
+	RequestAgentResume(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 }
 

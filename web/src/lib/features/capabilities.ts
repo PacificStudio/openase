@@ -24,15 +24,17 @@ export type CapabilityDescriptor = {
   summary: string
 }
 
+// Keep this inventory aligned with the shipped UI/API boundary. Source-backed audit tests catch
+// drift when product surface changes.
 export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   generalSettings: {
     state: 'available',
     summary: 'General project settings are already wired to PATCH /api/v1/projects/{projectId}.',
   },
   search: {
-    state: 'backend_missing',
+    state: 'available',
     summary:
-      'Global search is deferred and hidden until a dedicated backend search contract is exported.',
+      'Global search is available from the top bar and Cmd+K, aggregating navigation, project context, tickets, workflows, agents, and commands from existing APIs.',
   },
   newTicket: {
     state: 'available',
@@ -49,16 +51,19 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Providers can be updated from the Agents page via PATCH /api/v1/providers/{providerId}.',
   },
   agentOutput: {
-    state: 'backend_missing',
-    summary: 'Agent output stays disabled because no agent log/output endpoint is exported yet.',
+    state: 'available',
+    summary:
+      'Agent output is available from /agents via dedicated fetch and stream endpoints for runtime logs.',
   },
   agentPause: {
     state: 'available',
-    summary: 'Agent pause is wired from /agents to POST /api/v1/agents/{agentId}/pause.',
+    summary:
+      'Agent pause is wired to POST /api/v1/agents/{agentId}/pause and reconciles through the orchestrator runtime.',
   },
   agentResume: {
     state: 'available',
-    summary: 'Agent resume is wired from /agents to POST /api/v1/agents/{agentId}/resume.',
+    summary:
+      'Agent resume is wired to POST /api/v1/agents/{agentId}/resume once a paused agent is ready to relaunch.',
   },
   repositoriesSettings: {
     state: 'available',
@@ -78,7 +83,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   agentsSettings: {
     state: 'available',
     summary:
-      'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while runtime controls remain on the Agents page.',
+      'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while live runtime controls stay on the Agents page.',
   },
   connectorsSettings: {
     state: 'unwired',
@@ -91,9 +96,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Notifications settings are wired to org-level channel CRUD, project rule CRUD, test send, and enable/disable controls.',
   },
   securitySettings: {
-    state: 'available',
+    state: 'backend_missing',
     summary:
-      'Security settings now expose the shipped posture for agent tokens, webhook signature checks, and secret redaction while broader auth governance remains explicitly deferred.',
+      'Security settings stay placeholder because no dedicated security settings API is exported yet.',
   },
 }
 

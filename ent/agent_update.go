@@ -145,6 +145,20 @@ func (_u *AgentUpdate) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentUpda
 	return _u
 }
 
+// SetRuntimeControlState sets the "runtime_control_state" field.
+func (_u *AgentUpdate) SetRuntimeControlState(v agent.RuntimeControlState) *AgentUpdate {
+	_u.mutation.SetRuntimeControlState(v)
+	return _u
+}
+
+// SetNillableRuntimeControlState sets the "runtime_control_state" field if the given value is not nil.
+func (_u *AgentUpdate) SetNillableRuntimeControlState(v *agent.RuntimeControlState) *AgentUpdate {
+	if v != nil {
+		_u.SetRuntimeControlState(*v)
+	}
+	return _u
+}
+
 // SetRuntimeStartedAt sets the "runtime_started_at" field.
 func (_u *AgentUpdate) SetRuntimeStartedAt(v time.Time) *AgentUpdate {
 	_u.mutation.SetRuntimeStartedAt(v)
@@ -469,6 +483,11 @@ func (_u *AgentUpdate) check() error {
 			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RuntimeControlState(); ok {
+		if err := agent.RuntimeControlStateValidator(v); err != nil {
+			return &ValidationError{Name: "runtime_control_state", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_control_state": %w`, err)}
+		}
+	}
 	if _u.mutation.ProviderCleared() && len(_u.mutation.ProviderIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Agent.provider"`)
 	}
@@ -504,6 +523,9 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.RuntimePhase(); ok {
 		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.RuntimeControlState(); ok {
+		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.RuntimeStartedAt(); ok {
 		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)
@@ -899,6 +921,20 @@ func (_u *AgentUpdateOne) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentU
 	return _u
 }
 
+// SetRuntimeControlState sets the "runtime_control_state" field.
+func (_u *AgentUpdateOne) SetRuntimeControlState(v agent.RuntimeControlState) *AgentUpdateOne {
+	_u.mutation.SetRuntimeControlState(v)
+	return _u
+}
+
+// SetNillableRuntimeControlState sets the "runtime_control_state" field if the given value is not nil.
+func (_u *AgentUpdateOne) SetNillableRuntimeControlState(v *agent.RuntimeControlState) *AgentUpdateOne {
+	if v != nil {
+		_u.SetRuntimeControlState(*v)
+	}
+	return _u
+}
+
 // SetRuntimeStartedAt sets the "runtime_started_at" field.
 func (_u *AgentUpdateOne) SetRuntimeStartedAt(v time.Time) *AgentUpdateOne {
 	_u.mutation.SetRuntimeStartedAt(v)
@@ -1236,6 +1272,11 @@ func (_u *AgentUpdateOne) check() error {
 			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RuntimeControlState(); ok {
+		if err := agent.RuntimeControlStateValidator(v); err != nil {
+			return &ValidationError{Name: "runtime_control_state", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_control_state": %w`, err)}
+		}
+	}
 	if _u.mutation.ProviderCleared() && len(_u.mutation.ProviderIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Agent.provider"`)
 	}
@@ -1288,6 +1329,9 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if value, ok := _u.mutation.RuntimePhase(); ok {
 		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.RuntimeControlState(); ok {
+		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.RuntimeStartedAt(); ok {
 		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)

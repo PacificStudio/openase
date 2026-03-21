@@ -161,8 +161,8 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.POST("/projects/:projectId/agents", s.createAgent)
 	api.PATCH("/providers/:providerId", s.patchAgentProvider)
 	api.GET("/agents/:agentId", s.getAgent)
-	api.POST("/agents/:agentId/pause", s.pauseAgentRuntime)
-	api.POST("/agents/:agentId/resume", s.resumeAgentRuntime)
+	api.POST("/agents/:agentId/pause", s.pauseAgent)
+	api.POST("/agents/:agentId/resume", s.resumeAgent)
 	api.DELETE("/agents/:agentId", s.deleteAgent)
 }
 
@@ -905,6 +905,15 @@ func errorResponse(message string) map[string]string {
 
 func catalogErrorMessage(err error) string {
 	prefix := catalogservice.ErrInvalidInput.Error() + ": "
+	if strings.HasPrefix(err.Error(), prefix) {
+		return strings.TrimPrefix(err.Error(), prefix)
+	}
+
+	return err.Error()
+}
+
+func catalogConflictMessage(err error) string {
+	prefix := catalogservice.ErrConflict.Error() + ": "
 	if strings.HasPrefix(err.Error(), prefix) {
 		return strings.TrimPrefix(err.Error(), prefix)
 	}

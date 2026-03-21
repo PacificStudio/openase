@@ -1,5 +1,8 @@
 <script lang="ts">
-  import type { ContentViewModel } from './agents-page-content-view-model'
+  import type { AgentOutputEntry, AgentProvider } from '$lib/api/contracts'
+  import type { StreamConnectionState } from '$lib/api/sse'
+  import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
+  import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import AgentsPageDrawers from './agents-page-drawers.svelte'
   import AgentsPagePanel from './agents-page-panel.svelte'
 
@@ -8,34 +11,104 @@
     registerSheetOpen = $bindable(false),
     providerConfigOpen = $bindable(false),
     outputSheetOpen = $bindable(false),
-    viewModel,
+    agents,
+    providers,
+    loading = false,
+    error = '',
+    pageFeedback = '',
+    pageError = '',
+    runtimeActionAgentId = null,
+    canRegister = false,
+    registerButtonTitle,
+    onOpenRegister,
+    onSelectTicket,
+    onViewOutput,
+    onConfigureProvider,
+    onPauseAgent,
+    onResumeAgent,
+    providerItems,
+    registrationDraft,
+    registerSaving = false,
+    registerError = '',
+    registerFeedback = '',
+    onRegistrationDraftChange,
+    onRegisterAgent,
+    onRegisterOpenChange,
+    selectedProvider,
+    providerDraft,
+    providerSaving = false,
+    providerFeedback = '',
+    providerError = '',
+    selectedOutputAgent,
+    outputEntries,
+    outputLoading = false,
+    outputError = '',
+    outputStreamState = 'idle',
+    onProviderDraftChange,
+    onProviderSave,
+    onOutputOpenChange,
   }: {
     activeTab?: string
     registerSheetOpen?: boolean
     providerConfigOpen?: boolean
     outputSheetOpen?: boolean
-    viewModel: ContentViewModel
+    agents: AgentInstance[]
+    providers: ProviderConfig[]
+    loading?: boolean
+    error?: string
+    pageFeedback?: string
+    pageError?: string
+    runtimeActionAgentId?: string | null
+    canRegister?: boolean
+    registerButtonTitle?: string
+    onOpenRegister?: () => void
+    onSelectTicket?: (ticketId: string) => void
+    onViewOutput?: (agentId: string) => void
+    onConfigureProvider?: (provider: ProviderConfig) => void
+    onPauseAgent?: (agentId: string) => void
+    onResumeAgent?: (agentId: string) => void
+    providerItems: AgentProvider[]
+    registrationDraft: AgentRegistrationDraft
+    registerSaving?: boolean
+    registerError?: string
+    registerFeedback?: string
+    onRegistrationDraftChange?: (field: AgentRegistrationDraftField, value: string) => void
+    onRegisterAgent?: () => void
+    onRegisterOpenChange?: (open: boolean) => void
+    selectedProvider: ProviderConfig | null
+    providerDraft: ProviderDraft
+    providerSaving?: boolean
+    providerFeedback?: string
+    providerError?: string
+    selectedOutputAgent: AgentInstance | null
+    outputEntries: AgentOutputEntry[]
+    outputLoading?: boolean
+    outputError?: string
+    outputStreamState?: StreamConnectionState
+    onProviderDraftChange?: (field: ProviderDraftField, value: string) => void
+    onProviderSave?: () => void
+    onOutputOpenChange?: (open: boolean) => void
   } = $props()
 </script>
 
 <div class="space-y-4">
   <AgentsPagePanel
     bind:activeTab
-    agents={viewModel.agents}
-    providers={viewModel.providers}
-    loading={viewModel.loading}
-    error={viewModel.error}
-    pageError={viewModel.pageError}
-    pageFeedback={viewModel.pageFeedback}
-    runtimeControlPendingAgentId={viewModel.runtimeControlPendingAgentId}
-    canRegister={viewModel.canRegister}
-    registerButtonTitle={viewModel.registerButtonTitle}
-    onOpenRegister={viewModel.onOpenRegister}
-    onSelectTicket={viewModel.onSelectTicket}
-    onViewOutput={viewModel.onViewOutput}
-    onConfigureProvider={viewModel.onConfigureProvider}
-    onPauseAgent={viewModel.onPauseAgent}
-    onResumeAgent={viewModel.onResumeAgent}
+    {agents}
+    {providers}
+    {loading}
+    {error}
+    {pageFeedback}
+    {pageError}
+    {runtimeActionAgentId}
+    {canRegister}
+    {registerButtonTitle}
+    {onOpenRegister}
+    {onSelectTicket}
+    {onViewOutput}
+    {onConfigureProvider}
+    {onPauseAgent}
+    {onResumeAgent}
   />
 </div>
 
@@ -43,25 +116,25 @@
   bind:registerSheetOpen
   bind:providerConfigOpen
   bind:outputSheetOpen
-  providerItems={viewModel.providerItems}
-  registrationDraft={viewModel.registrationDraft}
-  registerSaving={viewModel.registerSaving}
-  registerError={viewModel.registerError}
-  registerFeedback={viewModel.registerFeedback}
-  onRegistrationDraftChange={viewModel.onRegistrationDraftChange}
-  onRegisterAgent={viewModel.onRegisterAgent}
-  onRegisterOpenChange={viewModel.onRegisterOpenChange}
-  selectedProvider={viewModel.selectedProvider}
-  providerDraft={viewModel.providerDraft}
-  providerSaving={viewModel.providerSaving}
-  providerFeedback={viewModel.providerFeedback}
-  providerError={viewModel.providerError}
-  selectedOutputAgent={viewModel.selectedOutputAgent}
-  outputEntries={viewModel.outputEntries}
-  outputLoading={viewModel.outputLoading}
-  outputError={viewModel.outputError}
-  outputStreamState={viewModel.outputStreamState}
-  onProviderDraftChange={viewModel.onProviderDraftChange}
-  onProviderSave={viewModel.onProviderSave}
-  onOutputOpenChange={viewModel.onOutputOpenChange}
+  {providerItems}
+  {registrationDraft}
+  {registerSaving}
+  {registerError}
+  {registerFeedback}
+  {onRegistrationDraftChange}
+  {onRegisterAgent}
+  {onRegisterOpenChange}
+  {selectedProvider}
+  {providerDraft}
+  {providerSaving}
+  {providerFeedback}
+  {providerError}
+  {selectedOutputAgent}
+  {outputEntries}
+  {outputLoading}
+  {outputError}
+  {outputStreamState}
+  {onProviderDraftChange}
+  {onProviderSave}
+  {onOutputOpenChange}
 />

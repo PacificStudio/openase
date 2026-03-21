@@ -6,6 +6,7 @@ export type AgentInstance = {
   modelName: string
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
+  runtimeControlState: 'active' | 'pause_requested' | 'paused'
   currentTicket?: { id: string; identifier: string; title: string }
   lastHeartbeat?: string | null
   runtimeStartedAt?: string | null

@@ -110,6 +110,10 @@ export function getProject(projectId: string) {
   return api.get<ProjectResponse>(`/api/v1/projects/${projectId}`)
 }
 
+export function getSecuritySettings(projectId: string) {
+  return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security`)
+}
+
 export function updateProject(
   projectId: string,
   body: {
@@ -169,12 +173,12 @@ export function getAgent(agentId: string) {
   return api.get<AgentResponse>(`/api/v1/agents/${agentId}`)
 }
 
-export function pauseAgentRuntime(agentId: string) {
-  return api.post(`/api/v1/agents/${agentId}/pause`)
+export function pauseAgent(agentId: string) {
+  return api.post<AgentResponse>(`/api/v1/agents/${agentId}/pause`)
 }
 
-export function resumeAgentRuntime(agentId: string) {
-  return api.post(`/api/v1/agents/${agentId}/resume`)
+export function resumeAgent(agentId: string) {
+  return api.post<AgentResponse>(`/api/v1/agents/${agentId}/resume`)
 }
 
 export function deleteAgent(agentId: string) {
@@ -527,10 +531,6 @@ export function testNotificationChannel(channelId: string) {
 
 export function listNotificationRules(projectId: string) {
   return api.get<NotificationRulePayload>(`/api/v1/projects/${projectId}/notification-rules`)
-}
-
-export function getSecuritySettings(projectId: string) {
-  return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
 }
 
 export function createNotificationRule(

@@ -6,6 +6,7 @@ import type {
   ProviderConfig,
   ProviderAdapterType,
 } from './types'
+import { normalizeAgentStatus, normalizeRuntimeControlState, normalizeRuntimePhase } from './state'
 
 export const providerAdapterOptions: Array<{ value: ProviderAdapterType; label: string }> = [
   { value: 'claude-code-cli', label: 'Claude Code CLI' },
@@ -150,6 +151,7 @@ export function buildAgentRows(
       modelName: provider?.model_name ?? 'Unknown model',
       status: normalizeAgentStatus(agent.status),
       runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
+      runtimeControlState: normalizeRuntimeControlState(agent.runtime_control_state),
       currentTicket: currentTicket
         ? {
             id: currentTicket.id,
@@ -260,32 +262,4 @@ function parseAuthConfig(
   } catch {
     return { ok: false, error: 'Auth config must be valid JSON.' }
   }
-}
-
-function normalizeAgentStatus(status: string): AgentInstance['status'] {
-  if (
-    status === 'idle' ||
-    status === 'claimed' ||
-    status === 'running' ||
-    status === 'paused' ||
-    status === 'failed' ||
-    status === 'terminated'
-  ) {
-    return status
-  }
-
-  return status === 'active' ? 'running' : 'idle'
-}
-
-function normalizeRuntimePhase(runtimePhase: string): AgentInstance['runtimePhase'] {
-  if (
-    runtimePhase === 'none' ||
-    runtimePhase === 'launching' ||
-    runtimePhase === 'ready' ||
-    runtimePhase === 'failed'
-  ) {
-    return runtimePhase
-  }
-
-  return 'none'
 }

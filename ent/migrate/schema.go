@@ -65,6 +65,7 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"idle", "claimed", "running", "paused", "failed", "terminated"}, Default: "idle"},
 		{Name: "session_id", Type: field.TypeString, Nullable: true},
 		{Name: "runtime_phase", Type: field.TypeEnum, Enums: []string{"none", "launching", "ready", "failed"}, Default: "none"},
+		{Name: "runtime_control_state", Type: field.TypeEnum, Enums: []string{"active", "pause_requested", "paused"}, Default: "active"},
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "workspace_path", Type: field.TypeString, Nullable: true},
@@ -84,19 +85,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agents_tickets_current_ticket",
-				Columns:    []*schema.Column{AgentsColumns[12]},
+				Columns:    []*schema.Column{AgentsColumns[13]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "agents_agent_providers_agents",
-				Columns:    []*schema.Column{AgentsColumns[13]},
+				Columns:    []*schema.Column{AgentsColumns[14]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agents_projects_agents",
-				Columns:    []*schema.Column{AgentsColumns[14]},
+				Columns:    []*schema.Column{AgentsColumns[15]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -105,17 +106,17 @@ var (
 			{
 				Name:    "agent_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{AgentsColumns[14], AgentsColumns[1]},
+				Columns: []*schema.Column{AgentsColumns[15], AgentsColumns[1]},
 			},
 			{
 				Name:    "agent_project_id_status_last_heartbeat_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentsColumns[14], AgentsColumns[2], AgentsColumns[11]},
+				Columns: []*schema.Column{AgentsColumns[15], AgentsColumns[2], AgentsColumns[12]},
 			},
 			{
 				Name:    "agent_capabilities",
 				Unique:  false,
-				Columns: []*schema.Column{AgentsColumns[8]},
+				Columns: []*schema.Column{AgentsColumns[9]},
 				Annotation: &entsql.IndexAnnotation{
 					Type: "GIN",
 				},

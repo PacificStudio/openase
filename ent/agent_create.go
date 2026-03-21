@@ -101,6 +101,20 @@ func (_c *AgentCreate) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentCrea
 	return _c
 }
 
+// SetRuntimeControlState sets the "runtime_control_state" field.
+func (_c *AgentCreate) SetRuntimeControlState(v agent.RuntimeControlState) *AgentCreate {
+	_c.mutation.SetRuntimeControlState(v)
+	return _c
+}
+
+// SetNillableRuntimeControlState sets the "runtime_control_state" field if the given value is not nil.
+func (_c *AgentCreate) SetNillableRuntimeControlState(v *agent.RuntimeControlState) *AgentCreate {
+	if v != nil {
+		_c.SetRuntimeControlState(*v)
+	}
+	return _c
+}
+
 // SetRuntimeStartedAt sets the "runtime_started_at" field.
 func (_c *AgentCreate) SetRuntimeStartedAt(v time.Time) *AgentCreate {
 	_c.mutation.SetRuntimeStartedAt(v)
@@ -308,6 +322,10 @@ func (_c *AgentCreate) defaults() {
 		v := agent.DefaultRuntimePhase
 		_c.mutation.SetRuntimePhase(v)
 	}
+	if _, ok := _c.mutation.RuntimeControlState(); !ok {
+		v := agent.DefaultRuntimeControlState
+		_c.mutation.SetRuntimeControlState(v)
+	}
 	if _, ok := _c.mutation.TotalTokensUsed(); !ok {
 		v := agent.DefaultTotalTokensUsed
 		_c.mutation.SetTotalTokensUsed(v)
@@ -352,6 +370,14 @@ func (_c *AgentCreate) check() error {
 	if v, ok := _c.mutation.RuntimePhase(); ok {
 		if err := agent.RuntimePhaseValidator(v); err != nil {
 			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RuntimeControlState(); !ok {
+		return &ValidationError{Name: "runtime_control_state", err: errors.New(`ent: missing required field "Agent.runtime_control_state"`)}
+	}
+	if v, ok := _c.mutation.RuntimeControlState(); ok {
+		if err := agent.RuntimeControlStateValidator(v); err != nil {
+			return &ValidationError{Name: "runtime_control_state", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_control_state": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.TotalTokensUsed(); !ok {
@@ -416,6 +442,10 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RuntimePhase(); ok {
 		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
 		_node.RuntimePhase = value
+	}
+	if value, ok := _c.mutation.RuntimeControlState(); ok {
+		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
+		_node.RuntimeControlState = value
 	}
 	if value, ok := _c.mutation.RuntimeStartedAt(); ok {
 		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)

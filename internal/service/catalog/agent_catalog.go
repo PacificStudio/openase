@@ -3,7 +3,6 @@ package catalog
 import (
 	"context"
 	"fmt"
-	"time"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -52,50 +51,38 @@ func (s *service) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, err
 	return s.repo.GetAgent(ctx, id)
 }
 
-func (s *service) PauseAgentRuntime(ctx context.Context, id uuid.UUID) (domain.AgentRuntimeControlResult, error) {
+func (s *service) RequestAgentPause(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
 	current, err := s.repo.GetAgent(ctx, id)
 	if err != nil {
-		return domain.AgentRuntimeControlResult{}, err
+		return domain.Agent{}, err
 	}
 
-	nextState, err := domain.BuildPauseAgentRuntime(current)
+	nextState, err := domain.ResolvePauseRuntimeControlState(current)
 	if err != nil {
-		return domain.AgentRuntimeControlResult{}, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+		return domain.Agent{}, fmt.Errorf("%w: %v", ErrConflict, err)
 	}
 
-	updated, err := s.repo.UpdateAgentRuntimeState(ctx, nextState)
-	if err != nil {
-		return domain.AgentRuntimeControlResult{}, err
-	}
-
-	return domain.AgentRuntimeControlResult{
-		Agent:       updated,
-		Transition:  domain.AgentRuntimeControlPause,
-		RequestedAt: time.Now().UTC(),
-	}, nil
+	return s.repo.UpdateAgentRuntimeControlState(ctx, domain.UpdateAgentRuntimeControlState{
+		ID:                  id,
+		RuntimeControlState: nextState,
+	})
 }
 
-func (s *service) ResumeAgentRuntime(ctx context.Context, id uuid.UUID) (domain.AgentRuntimeControlResult, error) {
+func (s *service) RequestAgentResume(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
 	current, err := s.repo.GetAgent(ctx, id)
 	if err != nil {
-		return domain.AgentRuntimeControlResult{}, err
+		return domain.Agent{}, err
 	}
 
-	nextState, err := domain.BuildResumeAgentRuntime(current)
+	nextState, err := domain.ResolveResumeRuntimeControlState(current)
 	if err != nil {
-		return domain.AgentRuntimeControlResult{}, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+		return domain.Agent{}, fmt.Errorf("%w: %v", ErrConflict, err)
 	}
 
-	updated, err := s.repo.UpdateAgentRuntimeState(ctx, nextState)
-	if err != nil {
-		return domain.AgentRuntimeControlResult{}, err
-	}
-
-	return domain.AgentRuntimeControlResult{
-		Agent:       updated,
-		Transition:  domain.AgentRuntimeControlResume,
-		RequestedAt: time.Now().UTC(),
-	}, nil
+	return s.repo.UpdateAgentRuntimeControlState(ctx, domain.UpdateAgentRuntimeControlState{
+		ID:                  id,
+		RuntimeControlState: nextState,
+	})
 }
 
 func (s *service) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {

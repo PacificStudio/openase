@@ -100,6 +100,7 @@ type OpenAPIAgent struct {
 	CurrentTicketID       *string  `json:"current_ticket_id,omitempty"`
 	SessionID             string   `json:"session_id"`
 	RuntimePhase          string   `json:"runtime_phase"`
+	RuntimeControlState   string   `json:"runtime_control_state"`
 	RuntimeStartedAt      *string  `json:"runtime_started_at,omitempty"`
 	LastError             string   `json:"last_error"`
 	WorkspacePath         string   `json:"workspace_path"`
@@ -1397,40 +1398,6 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	agentGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	b.doc.AddOperation("/api/v1/agents/{agentId}", http.MethodGet, agentGet)
 
-	agentPause, err := b.jsonOperation(
-		"pauseAgentRuntime",
-		"Pause a claimed or running agent runtime",
-		[]string{"catalog"},
-		http.StatusOK,
-		OpenAPIAgentRuntimeControlResponse{},
-		nil,
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	agentPause.AddParameter(uuidPathParameter("agentId", "Agent ID."))
-	b.doc.AddOperation("/api/v1/agents/{agentId}/pause", http.MethodPost, agentPause)
-
-	agentResume, err := b.jsonOperation(
-		"resumeAgentRuntime",
-		"Resume a paused agent runtime",
-		[]string{"catalog"},
-		http.StatusOK,
-		OpenAPIAgentRuntimeControlResponse{},
-		nil,
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	agentResume.AddParameter(uuidPathParameter("agentId", "Agent ID."))
-	b.doc.AddOperation("/api/v1/agents/{agentId}/resume", http.MethodPost, agentResume)
-
 	agentDelete, err := b.jsonOperation(
 		"deleteAgent",
 		"Delete an agent",
@@ -1448,6 +1415,42 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	agentDelete.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	b.doc.AddOperation("/api/v1/agents/{agentId}", http.MethodDelete, agentDelete)
+
+	agentPause, err := b.jsonOperation(
+		"pauseAgent",
+		"Pause an agent runtime",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentPause.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}/pause", http.MethodPost, agentPause)
+
+	agentResume, err := b.jsonOperation(
+		"resumeAgent",
+		"Resume an agent runtime",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentResume.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}/resume", http.MethodPost, agentResume)
 
 	activityGet, err := b.jsonOperation(
 		"listActivityEvents",
