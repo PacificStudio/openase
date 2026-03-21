@@ -10,12 +10,15 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/google/uuid"
 )
 
 func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{WebhookSecret: "top-secret"},
@@ -24,7 +27,7 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		catalog,
 		nil,
 	)
 
@@ -65,6 +68,33 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	}
 }
 
+func TestSecuritySettingsRouteRejectsUnknownProject(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/projects/"+uuid.New().String()+"/security-settings",
+		http.NoBody,
+	)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
 func TestSecuritySettingsRouteRejectsInvalidProjectID(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
@@ -74,7 +104,7 @@ func TestSecuritySettingsRouteRejectsInvalidProjectID(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newFakeCatalogService(),
 		nil,
 	)
 

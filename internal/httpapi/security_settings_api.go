@@ -54,9 +54,16 @@ func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
 }
 
 func (s *Server) handleGetSecuritySettings(c echo.Context) error {
+	if s.catalog == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+
 	projectID, err := parseProjectID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if _, err := s.catalog.GetProject(c.Request().Context(), projectID); err != nil {
+		return writeCatalogError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
