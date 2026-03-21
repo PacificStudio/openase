@@ -1,6 +1,6 @@
 import type { SettingsSection } from '$lib/features/settings/types'
 
-export type CapabilityState = 'available' | 'unwired' | 'backend_missing'
+export type CapabilityState = 'available' | 'unwired' | 'backend_missing' | 'deferred'
 
 export type CapabilityKey =
   | 'generalSettings'
@@ -86,9 +86,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while runtime controls remain on the Agents page.',
   },
   connectorsSettings: {
-    state: 'backend_missing',
+    state: 'deferred',
     summary:
-      'Connector settings stay placeholder because no connector management API is exported yet.',
+      'Connector settings now document the current runtime boundary while project-scoped management APIs remain deferred.',
   },
   notificationsSettings: {
     state: 'available',
@@ -116,6 +116,7 @@ export const settingsCapabilityBySection: Partial<Record<SettingsSection, Capabi
 export function capabilityStateLabel(state: CapabilityState) {
   if (state === 'available') return 'Available'
   if (state === 'unwired') return 'Needs Wiring'
+  if (state === 'deferred') return 'Deferred'
   return 'Backend Missing'
 }
 
@@ -125,6 +126,9 @@ export function capabilityStateClasses(state: CapabilityState) {
   }
   if (state === 'unwired') {
     return 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+  }
+  if (state === 'deferred') {
+    return 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300'
   }
   return 'border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300'
 }
