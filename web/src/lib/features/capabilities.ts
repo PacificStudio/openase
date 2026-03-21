@@ -24,15 +24,17 @@ export type CapabilityDescriptor = {
   summary: string
 }
 
+// Keep this inventory aligned with the shipped UI/API boundary. Source-backed audit tests catch
+// drift when product surface changes.
 export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   generalSettings: {
     state: 'available',
     summary: 'General project settings are already wired to PATCH /api/v1/projects/{projectId}.',
   },
   search: {
-    state: 'backend_missing',
+    state: 'available',
     summary:
-      'Global search is deferred and hidden until a dedicated backend search contract is exported.',
+      'Global search is available from the top bar and Cmd+K, aggregating navigation, project context, tickets, workflows, agents, and commands from existing APIs.',
   },
   newTicket: {
     state: 'available',
