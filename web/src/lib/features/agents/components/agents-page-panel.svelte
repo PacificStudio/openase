@@ -17,6 +17,7 @@
     registerButtonTitle,
     onOpenRegister,
     onSelectTicket,
+    onOpenOutput,
     onConfigureProvider,
   }: {
     activeTab?: string
@@ -29,6 +30,7 @@
     registerButtonTitle?: string
     onOpenRegister?: () => void
     onSelectTicket?: (ticketId: string) => void
+    onOpenOutput?: (agent: AgentInstance) => void
     onConfigureProvider?: (provider: ProviderConfig) => void
   } = $props()
 </script>
@@ -74,7 +76,11 @@
         <Tabs.Trigger value="providers">Providers</Tabs.Trigger>
       </Tabs.List>
       <Tabs.Content value="instances" class="pt-3">
-        <AgentList {agents} onSelectTicket={(ticketId) => onSelectTicket?.(ticketId)} />
+        <AgentList
+          {agents}
+          onSelectTicket={(ticketId) => onSelectTicket?.(ticketId)}
+          onOpenOutput={(agent) => onOpenOutput?.(agent)}
+        />
       </Tabs.Content>
       <Tabs.Content value="providers" class="pt-3">
         <ProviderList {providers} onConfigure={onConfigureProvider} />

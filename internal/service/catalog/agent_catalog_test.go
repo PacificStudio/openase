@@ -226,6 +226,10 @@ func (r *stubRepository) ListActivityEvents(context.Context, domain.ListActivity
 	return nil, nil
 }
 
+func (r *stubRepository) GetAgentOutput(context.Context, domain.GetAgentOutput) (domain.AgentOutput, error) {
+	return domain.AgentOutput{}, nil
+}
+
 func (r *stubRepository) CreateAgent(context.Context, domain.CreateAgent) (domain.Agent, error) {
 	return domain.Agent{}, nil
 }

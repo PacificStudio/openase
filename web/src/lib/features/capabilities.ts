@@ -54,8 +54,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Providers can be updated from the Agents page via PATCH /api/v1/providers/{providerId}.',
   },
   agentOutput: {
-    state: 'backend_missing',
-    summary: 'Agent output stays disabled because no agent log/output endpoint is exported yet.',
+    state: 'available',
+    summary:
+      'Agent output is available from the Agents page via GET /api/v1/agents/{agentId}/output.',
   },
   agentPause: {
     state: 'backend_missing',

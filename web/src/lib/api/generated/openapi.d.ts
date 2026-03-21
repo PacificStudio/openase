@@ -22,6 +22,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/agents/{agentId}/output': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get agent output */
+    get: operations['getAgentOutput']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/channels/{channelId}': {
     parameters: {
       query?: never
@@ -1106,6 +1123,98 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getAgentOutput: {
+    parameters: {
+      query?: {
+        /** @description Limit the number of returned output entries. */
+        limit?: number
+      }
+      header?: never
+      path: {
+        /** @description Agent ID. */
+        agentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get agent output response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent?: {
+              capabilities?: string[]
+              current_ticket_id?: string | null
+              id?: string
+              last_error?: string
+              last_heartbeat_at?: string | null
+              name?: string
+              project_id?: string
+              provider_id?: string
+              runtime_phase?: string
+              runtime_started_at?: string | null
+              session_id?: string
+              status?: string
+              total_tickets_completed?: number
+              /** Format: int64 */
+              total_tokens_used?: number
+              workspace_path?: string
+            }
+            entries?: {
+              created_at?: string
+              event_type?: string
+              id?: string
+              message?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              stream?: string
+              ticket_id?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }

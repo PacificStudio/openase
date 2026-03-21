@@ -2,6 +2,7 @@ import { api } from './client'
 import type {
   ActivityPayload,
   AgentPayload,
+  AgentOutputResponse,
   AgentResponse,
   AgentProvider,
   AgentProviderListPayload,
@@ -152,6 +153,15 @@ export function createAgent(
 
 export function getAgent(agentId: string) {
   return api.get<AgentResponse>(`/api/v1/agents/${agentId}`)
+}
+
+export function getAgentOutput(
+  agentId: string,
+  params?: {
+    limit?: string
+  },
+) {
+  return api.get<AgentOutputResponse>(`/api/v1/agents/${agentId}/output`, { params })
 }
 
 export function deleteAgent(agentId: string) {

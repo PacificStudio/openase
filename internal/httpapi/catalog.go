@@ -160,6 +160,7 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.POST("/projects/:projectId/agents", s.createAgent)
 	api.PATCH("/providers/:providerId", s.patchAgentProvider)
 	api.GET("/agents/:agentId", s.getAgent)
+	api.GET("/agents/:agentId/output", s.getAgentOutput)
 	api.DELETE("/agents/:agentId", s.deleteAgent)
 }
 

@@ -9,9 +9,11 @@
   let {
     agents,
     onSelectTicket,
+    onOpenOutput,
   }: {
     agents: AgentInstance[]
     onSelectTicket?: (ticketId: string) => void
+    onOpenOutput?: (agent: AgentInstance) => void
   } = $props()
 
   const statusColors: Record<AgentInstance['status'], string> = {
@@ -33,6 +35,7 @@
   const agentOutputCapability = capabilityCatalog.agentOutput
   const agentPauseCapability = capabilityCatalog.agentPause
   const agentResumeCapability = capabilityCatalog.agentResume
+  const outputAvailable = agentOutputCapability.state === 'available'
 </script>
 
 <div class="overflow-x-auto">
@@ -105,8 +108,9 @@
                 variant="ghost"
                 size="icon-xs"
                 aria-label="View output"
-                disabled
-                title={agentOutputCapability.summary}
+                disabled={!outputAvailable}
+                title={outputAvailable ? 'View agent output' : agentOutputCapability.summary}
+                onclick={() => onOpenOutput?.(agent)}
               >
                 <Terminal class="size-3.5" />
               </Button>

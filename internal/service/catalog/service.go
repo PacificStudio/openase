@@ -57,6 +57,7 @@ type Service interface {
 	UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error)
 	ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error)
 	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error)
+	GetAgentOutput(ctx context.Context, input domain.GetAgentOutput) (domain.AgentOutput, error)
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)

@@ -453,6 +453,48 @@ func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.
 	return items, nil
 }
 
+func (f *fakeCatalogService) GetAgentOutput(_ context.Context, input domain.GetAgentOutput) (domain.AgentOutput, error) {
+	agentItem, ok := f.agents[input.AgentID]
+	if !ok {
+		return domain.AgentOutput{}, catalogservice.ErrNotFound
+	}
+
+	entries := make([]domain.AgentOutputEntry, 0)
+	for _, item := range f.activityEvents {
+		if item.AgentID == nil || *item.AgentID != input.AgentID {
+			continue
+		}
+		stream, err := domain.ParseAgentOutputStream(stringValue(item.Metadata["stream"]), domain.AgentOutputStreamSystem)
+		if err != nil {
+			stream = domain.AgentOutputStreamSystem
+		}
+		entries = append(entries, domain.AgentOutputEntry{
+			ID:        item.ID,
+			TicketID:  item.TicketID,
+			EventType: item.EventType,
+			Stream:    stream,
+			Message:   item.Message,
+			Metadata:  cloneMap(item.Metadata),
+			CreatedAt: item.CreatedAt,
+		})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].CreatedAt.Equal(entries[j].CreatedAt) {
+			return entries[i].ID.String() > entries[j].ID.String()
+		}
+		return entries[i].CreatedAt.After(entries[j].CreatedAt)
+	})
+	if len(entries) > input.Limit {
+		entries = entries[:input.Limit]
+	}
+
+	return domain.AgentOutput{
+		Agent:   agentItem,
+		Entries: entries,
+	}, nil
+}
+
 func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateAgent) (domain.Agent, error) {
 	project, ok := f.projects[input.ProjectID]
 	if !ok {
@@ -515,4 +557,9 @@ func cloneTimePointer(value *time.Time) *time.Time {
 
 	cloned := value.UTC()
 	return &cloned
+}
+
+func stringValue(value any) string {
+	text, _ := value.(string)
+	return text
 }

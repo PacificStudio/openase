@@ -1,9 +1,9 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
-  import { createAgent, updateProvider } from '$lib/api/openase'
+  import { createAgent, getAgentOutput, updateProvider } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
-  import type { AgentProvider } from '$lib/api/contracts'
+  import type { AgentOutputEntry, AgentProvider } from '$lib/api/contracts'
   import { loadAgentsPageData } from '../data'
   import {
     applyUpdatedProviderState,
@@ -41,10 +41,18 @@
   let providerSaving = $state(false),
     providerFeedback = $state(''),
     providerError = $state('')
+  let outputSheetOpen = $state(false),
+    selectedOutputAgentId = $state<string | null>(null)
+  let outputEntries = $state<AgentOutputEntry[]>([])
+  let outputLoading = $state(false),
+    outputError = $state('')
   let loadVersion = 0
 
   const selectedProvider = $derived(
     providers.find((provider) => provider.id === selectedProviderId) ?? null,
+  )
+  const selectedOutputAgent = $derived(
+    agents.find((agent) => agent.id === selectedOutputAgentId) ?? null,
   )
 
   $effect(() => {
@@ -83,6 +91,15 @@
     }
   })
 
+  $effect(() => {
+    if (!outputSheetOpen) {
+      selectedOutputAgentId = null
+      outputEntries = []
+      outputLoading = false
+      outputError = ''
+    }
+  })
+
   async function loadData({
     projectId,
     orgId,
@@ -109,6 +126,9 @@
       providerItems = nextData.providerItems
       providers = nextData.providers
       agents = nextData.agents
+      if (outputSheetOpen && selectedOutputAgentId) {
+        void loadOutput(selectedOutputAgentId)
+      }
     } catch (caughtError) {
       if (requestVersion !== loadVersion) return
       error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agents.'
@@ -190,6 +210,31 @@
     providerDraft = createEmptyProviderDraft()
     providerSaving = false
     providerFeedback = providerError = ''
+  }
+
+  function handleOpenOutput(agent: AgentInstance) {
+    selectedOutputAgentId = agent.id
+    outputSheetOpen = true
+    void loadOutput(agent.id)
+  }
+
+  async function loadOutput(agentId: string) {
+    outputLoading = true
+    outputError = ''
+
+    try {
+      const payload = await getAgentOutput(agentId, { limit: '80' })
+      if (selectedOutputAgentId !== agentId) return
+      outputEntries = payload.entries
+    } catch (caughtError) {
+      if (selectedOutputAgentId !== agentId) return
+      outputError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agent output.'
+    } finally {
+      if (selectedOutputAgentId === agentId) {
+        outputLoading = false
+      }
+    }
   }
 
   function handleConfigureProvider(provider: ProviderConfig) {
@@ -274,6 +319,7 @@
     onSelectTicket={(ticketId) => {
       appStore.openRightPanel({ type: 'ticket', id: ticketId })
     }}
+    onOpenOutput={handleOpenOutput}
     onConfigureProvider={handleConfigureProvider}
   />
 </div>
@@ -281,6 +327,7 @@
 <AgentsPageDrawers
   bind:registerSheetOpen
   bind:providerConfigOpen
+  bind:outputSheetOpen
   {providerItems}
   {registrationDraft}
   {registerSaving}
@@ -294,6 +341,11 @@
   {providerSaving}
   {providerFeedback}
   {providerError}
+  {selectedOutputAgent}
+  {outputEntries}
+  {outputLoading}
+  {outputError}
   onProviderDraftChange={handleProviderDraftChange}
   onProviderSave={handleProviderSave}
+  onRefreshOutput={() => selectedOutputAgentId && loadOutput(selectedOutputAgentId)}
 />

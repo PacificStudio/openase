@@ -120,6 +120,16 @@ type OpenAPIActivityEvent struct {
 	CreatedAt string         `json:"created_at"`
 }
 
+type OpenAPIAgentOutputEntry struct {
+	ID        string         `json:"id"`
+	TicketID  *string        `json:"ticket_id,omitempty"`
+	EventType string         `json:"event_type"`
+	Stream    string         `json:"stream"`
+	Message   string         `json:"message"`
+	Metadata  map[string]any `json:"metadata"`
+	CreatedAt string         `json:"created_at"`
+}
+
 type OpenAPITicketReference struct {
 	ID         string `json:"id"`
 	Identifier string `json:"identifier"`
@@ -458,6 +468,11 @@ type OpenAPIAgentsResponse struct {
 
 type OpenAPIAgentResponse struct {
 	Agent OpenAPIAgent `json:"agent"`
+}
+
+type OpenAPIAgentOutputResponse struct {
+	Agent   OpenAPIAgent              `json:"agent"`
+	Entries []OpenAPIAgentOutputEntry `json:"entries"`
 }
 
 type OpenAPIActivityEventsResponse struct {
@@ -1336,6 +1351,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	agentGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	b.doc.AddOperation("/api/v1/agents/{agentId}", http.MethodGet, agentGet)
+
+	agentOutputGet, err := b.jsonOperation(
+		"getAgentOutput",
+		"Get agent output",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentOutputResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentOutputGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	agentOutputGet.AddParameter(intQueryParameter("limit", "Limit the number of returned output entries."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}/output", http.MethodGet, agentOutputGet)
 
 	agentDelete, err := b.jsonOperation(
 		"deleteAgent",
