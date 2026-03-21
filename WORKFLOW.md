@@ -8,6 +8,7 @@ tracker:
     - Todo
     - In Progress
     - Rework
+    - In Review
     - Merging
   terminal_states:
     - Closed
@@ -106,7 +107,7 @@ URL: {{ issue.url }}
 - `Backlog` -> 不处理，等待人类手动推进。
 - `Todo` -> 立即切换到 `In Progress`，然后开始实现，不经过 `Spec`。
 - `In Progress` -> 直接实现、验证、推送分支并创建或更新 PR；完成后进入 `In Review`。
-- `In Review` -> 等待人类 review 或新的反馈；若出现可执行反馈，则进入 `Rework`。
+- `In Review` -> 这是可执行状态，必须主动 pick up 并审核当前 PR / 分支代码；若无阻塞问题，则推进到 `Merging`；若存在问题，则提交 `change request` 并把工单推进到 `Rework`。
 - `Rework` -> 基于 review 反馈继续实现，处理完后回到 `In Review`。
 - `Merging` -> 已批准，可以整理分支、同步最新主干、完成合并或执行仓库既定落地动作。
 - `Done` -> 终态，不做任何操作。
@@ -127,15 +128,19 @@ URL: {{ issue.url }}
    - 确认本地 `origin/main` 是最新
    - 检查当前 issue 是否已有对应分支和打开中的 PR
    - 如果没有工作分支，则从最新 `origin/main` 创建干净分支
-6. 在 issue 对应分支上实现最小可交付版本，保持改动聚焦在当前工单。
-7. 完成后运行必要验证，更新工作台评论，提交并推送分支。
-8. 如果当前不存在 PR，则创建 PR；如果已存在 PR，则更新其描述、评论和关联信息。
-9. 将工单推进到 `In Review`，并在工作台评论中记录：
+6. 如果当前状态是 `In Progress` 或 `Rework`，则在 issue 对应分支上实现最小可交付版本，保持改动聚焦在当前工单。
+7. 对于 `In Progress` / `Rework` 路径，完成实现后运行必要验证，更新工作台评论，提交并推送分支。
+8. 对于 `In Progress` / `Rework` 路径，如果当前不存在 PR，则创建 PR；如果已存在 PR，则更新其描述、评论和关联信息。
+9. 对于 `In Progress` / `Rework` 路径，将工单推进到 `In Review`，并在工作台评论中记录：
    - 分支名
    - 提交 SHA
    - PR 链接
    - 验证结果
-10. 如果收到 review 反馈，逐条处理后重新验证，更新 PR 与工作台评论，再将工单移回 `In Review`。
+10. 如果当前状态是 `In Review`，则不要继续堆实现，而是直接审核现有 PR / 分支：
+   - 检查 PR diff、历史 review、未解决线程与 CI 状态
+   - 只聚焦找阻塞合并的问题、行为回归、缺失验证和明显设计风险
+   - 若没有需要阻塞的问题，则批准或给出明确通过结论，并将工单推进到 `Merging`
+   - 若存在需要作者处理的问题，则提交 `change request`，在工作台评论中记录问题摘要，并将工单推进到 `Rework`
 11. 当工单进入 `Merging`，先同步最新 `origin/main`，处理冲突并重跑受影响验证，再执行合并或仓库规定的落地主干动作。
 12. 合并完成后更新工作台评论，记录最终提交与落地结果，并将工单推进到 `Done`。
 
@@ -151,6 +156,11 @@ URL: {{ issue.url }}
 
 - 代码或文档已经修改并解决；或
 - 在对应线程中给出明确、有根据的回绝说明。
+
+当工单处于 `In Review` 时，审核结论必须二选一，不允许停留在模糊状态：
+
+- 无阻塞问题：给出 approve / 明确通过结论，并推进到 `Merging`
+- 有阻塞问题：提交 `change request`，明确列出必须处理的问题，并推进到 `Rework`
 
 ## 合并约束
 
