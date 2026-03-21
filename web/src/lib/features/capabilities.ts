@@ -31,7 +31,8 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   },
   search: {
     state: 'backend_missing',
-    summary: 'Search stays disabled because no search endpoint is exported in the current API.',
+    summary:
+      'Global search is deferred and hidden until a dedicated backend search contract is exported.',
   },
   newTicket: {
     state: 'available',
