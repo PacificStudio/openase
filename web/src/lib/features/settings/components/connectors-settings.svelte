@@ -59,8 +59,8 @@
       <Card.Header>
         <Card.Title>Current exported surface</Card.Title>
         <Card.Description>
-          {currentProjectName} can receive connector traffic today, but the app only exposes the
-          runtime ingress paths, not a full management plane.
+          {currentProjectName} can receive connector traffic today, but the app only exposes the runtime
+          ingress paths, not a full management plane.
         </Card.Description>
       </Card.Header>
       <Card.Content class="space-y-3">
