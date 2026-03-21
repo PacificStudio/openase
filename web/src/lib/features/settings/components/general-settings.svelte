@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    capabilityCatalog,
+    getSettingsSectionCapability,
     capabilityStateClasses,
     capabilityStateLabel,
   } from '$lib/features/capabilities'
@@ -13,7 +13,7 @@
   import * as Select from '$ui/select'
   import { Separator } from '$ui/separator'
 
-  const generalCapability = capabilityCatalog.generalSettings
+  const generalCapability = getSettingsSectionCapability('general')
 
   let projectName = $state('')
   let description = $state('')

@@ -59,10 +59,6 @@
     })
   })
 
-  function handleOpenSearch() {
-    return
-  }
-
   function handleNewTicket() {
     appStore.openNewTicketDialog()
   }
@@ -84,11 +80,9 @@
     sseStatus={appStore.sseStatus}
     searchEnabled={searchCapability.state === 'available'}
     newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
-    searchTitle={searchCapability.summary}
     newTicketTitle={newTicketCapability.summary}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
-    onOpenSearch={handleOpenSearch}
   />
 
   <div class="flex flex-1 overflow-hidden">
