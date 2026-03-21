@@ -24,6 +24,8 @@ export type CapabilityDescriptor = {
   summary: string
 }
 
+// Keep this inventory aligned with the shipped UI/API boundary. Source-backed audit tests catch
+// drift when product surface changes.
 export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   generalSettings: {
     state: 'available',
