@@ -134,8 +134,6 @@ func buildProjectSecurityAgentPlatformResponse(
 	response.ExpiredTokenCount = inventory.ExpiredTokenCount
 	response.LastTokenIssuedAt = timeStringPointer(inventory.LastIssuedAt)
 	response.LastTokenUsedAt = timeStringPointer(inventory.LastUsedAt)
-	response.DefaultScopes = append([]string(nil), inventory.DefaultScopes...)
-	response.PrivilegedScopes = append([]string(nil), inventory.PrivilegedScopes...)
 	response.Summary = fmt.Sprintf(
 		"Project-scoped agent tokens are active on this runtime. %d active and %d expired tokens are currently recorded.",
 		inventory.ActiveTokenCount,

@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -65,10 +66,10 @@ func TestGetProjectSecuritySettings(t *testing.T) {
 	if payload.Security.AgentPlatform.ActiveTokenCount != 0 || payload.Security.AgentPlatform.ExpiredTokenCount != 0 {
 		t.Fatalf("unexpected token counts: %+v", payload.Security.AgentPlatform)
 	}
-	if len(payload.Security.AgentPlatform.DefaultScopes) == 0 {
-		t.Fatalf("expected default scopes, got %+v", payload.Security.AgentPlatform)
+	if !slices.Equal(payload.Security.AgentPlatform.DefaultScopes, agentplatform.DefaultScopes()) {
+		t.Fatalf("DefaultScopes=%v, want %v", payload.Security.AgentPlatform.DefaultScopes, agentplatform.DefaultScopes())
 	}
-	if payload.Security.AgentPlatform.DefaultScopes[0] != agentplatform.DefaultScopes()[0] {
-		t.Fatalf("DefaultScopes=%v, want prefix %v", payload.Security.AgentPlatform.DefaultScopes, agentplatform.DefaultScopes())
+	if !slices.Equal(payload.Security.AgentPlatform.PrivilegedScopes, agentplatform.PrivilegedScopes()) {
+		t.Fatalf("PrivilegedScopes=%v, want %v", payload.Security.AgentPlatform.PrivilegedScopes, agentplatform.PrivilegedScopes())
 	}
 }
