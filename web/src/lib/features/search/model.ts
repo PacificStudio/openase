@@ -20,6 +20,17 @@ type BuildSearchIndexInput = {
   newTicketEnabled: boolean
 }
 
+const sectionLabels: Record<ProjectSection, string> = {
+  dashboard: 'Dashboard',
+  board: 'Board',
+  tickets: 'Tickets',
+  agents: 'Agents',
+  machines: 'Machines',
+  activity: 'Activity',
+  workflows: 'Workflows',
+  settings: 'Settings',
+}
+
 export function buildSearchIndex(input: BuildSearchIndexInput): SearchItem[] {
   const items: SearchItem[] = []
 
@@ -255,14 +266,7 @@ function createSearchItem({
 }
 
 function sectionLabel(section: ProjectSection) {
-  if (section === 'dashboard') return 'Dashboard'
-  if (section === 'board') return 'Board'
-  if (section === 'tickets') return 'Tickets'
-  if (section === 'agents') return 'Agents'
-  if (section === 'machines') return 'Machines'
-  if (section === 'activity') return 'Activity'
-  if (section === 'workflows') return 'Workflows'
-  return 'Settings'
+  return sectionLabels[section]
 }
 
 function workflowLabel(

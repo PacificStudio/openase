@@ -37,6 +37,9 @@
 
   const searchCapability = capabilityCatalog.search
   const newTicketCapability = capabilityCatalog.newTicket
+  const isNewTicketEnabled = $derived(
+    newTicketCapability.state === 'available' && Boolean(data.currentProject?.id),
+  )
 
   $effect(() => {
     appStore.currentOrg = data.currentOrg
@@ -103,7 +106,7 @@
     projectName={data.currentProject?.name ?? ''}
     sseStatus={appStore.sseStatus}
     searchEnabled={searchCapability.state === 'available' && data.organizations.length > 0}
-    newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
+    newTicketEnabled={isNewTicketEnabled}
     newTicketTitle={newTicketCapability.summary}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
@@ -155,7 +158,7 @@
     currentOrg={data.currentOrg}
     currentProject={data.currentProject}
     currentSection={data.currentSection}
-    newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
+    newTicketEnabled={isNewTicketEnabled}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
     onOpenTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}

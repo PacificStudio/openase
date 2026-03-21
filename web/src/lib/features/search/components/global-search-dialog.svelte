@@ -133,22 +133,20 @@
   }
 
   async function executeAction(action: SearchItemAction) {
-    if (action.kind === 'navigate') {
-      await goto(action.href)
-      return
+    switch (action.kind) {
+      case 'navigate':
+        await goto(action.href)
+        return
+      case 'open_ticket':
+        onOpenTicket?.(action.ticketId)
+        return
+      case 'new_ticket':
+        onNewTicket?.()
+        return
+      case 'toggle_theme':
+        onToggleTheme?.()
+        return
     }
-
-    if (action.kind === 'open_ticket') {
-      onOpenTicket?.(action.ticketId)
-      return
-    }
-
-    if (action.kind === 'new_ticket') {
-      onNewTicket?.()
-      return
-    }
-
-    onToggleTheme?.()
   }
 </script>
 
@@ -182,7 +180,6 @@
         {#each group.items as item (item.id)}
           <Command.Item
             value={`${item.kind}:${item.id} ${item.searchText}`}
-            onclick={() => void handleSelect(item)}
             onSelect={() => void handleSelect(item)}
           >
             <div class="min-w-0 flex-1">
