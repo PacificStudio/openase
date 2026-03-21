@@ -5,7 +5,7 @@
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { capabilityCatalog } from '$lib/features/capabilities'
-  import GlobalSearchDialog from '$lib/features/search/components/global-search-dialog.svelte'
+  import { GlobalSearchDialog } from '$lib/features/search'
   import { NewTicketDialog } from '$lib/features/tickets'
   import { TicketDrawer } from '$lib/features/ticket-detail'
   import { appStore } from '$lib/stores/app.svelte'
