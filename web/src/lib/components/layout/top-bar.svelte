@@ -52,6 +52,10 @@
     const section = currentProjectId ? currentSection : 'dashboard'
     return goto(projectPath(currentOrgId, projectId, section))
   }
+
+  function handleOpenSearchClick() {
+    onOpenSearch?.()
+  }
 </script>
 
 <header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
@@ -146,7 +150,7 @@
       variant="outline"
       size="sm"
       class="text-muted-foreground hidden w-[200px] justify-start gap-2 sm:flex"
-      onclick={onOpenSearch}
+      onclick={handleOpenSearchClick}
     >
       <Search class="size-3.5" />
       <span class="text-xs">Search...</span>
