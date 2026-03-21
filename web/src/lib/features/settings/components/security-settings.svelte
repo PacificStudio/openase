@@ -194,8 +194,8 @@
       <Card.Header>
         <Card.Title>Boundary notes</Card.Title>
         <Card.Description>
-          This section is intentionally audit-first. It describes what the current app surface exposes
-          instead of implying that a full auth console already exists.
+          This section is intentionally audit-first. It describes what the current app surface
+          exposes instead of implying that a full auth console already exists.
         </Card.Description>
       </Card.Header>
       <Card.Content>
