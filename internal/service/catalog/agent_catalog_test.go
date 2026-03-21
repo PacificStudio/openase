@@ -234,6 +234,10 @@ func (r *stubRepository) GetAgent(context.Context, uuid.UUID) (domain.Agent, err
 	return domain.Agent{}, nil
 }
 
+func (r *stubRepository) UpdateAgentRuntimeState(context.Context, domain.UpdateAgentRuntimeState) (domain.Agent, error) {
+	return domain.Agent{}, nil
+}
+
 func (r *stubRepository) DeleteAgent(context.Context, uuid.UUID) (domain.Agent, error) {
 	return domain.Agent{}, nil
 }

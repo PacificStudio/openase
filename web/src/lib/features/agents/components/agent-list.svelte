@@ -56,7 +56,8 @@
 
   function pauseButtonTitle(agent: AgentInstance) {
     if (isRuntimeControlPending(agent)) return 'Pausing agent...'
-    if (!canPause(agent)) return 'Pause is only available while the agent is claimed or running a ticket.'
+    if (!canPause(agent))
+      return 'Pause is only available while the agent is claimed or running a ticket.'
     return agentPauseCapability.summary
   }
 
