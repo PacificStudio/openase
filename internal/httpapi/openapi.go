@@ -586,6 +586,42 @@ type OpenAPINotificationRuleDeleteResponse struct {
 	DeletedRuleID string `json:"deleted_rule_id"`
 }
 
+type OpenAPISecurityDeferredCapability struct {
+	Key     string `json:"key"`
+	Title   string `json:"title"`
+	Summary string `json:"summary"`
+}
+
+type OpenAPISecurityAgentTokens struct {
+	Transport              string   `json:"transport"`
+	EnvironmentVariable    string   `json:"environment_variable"`
+	TokenPrefix            string   `json:"token_prefix"`
+	DefaultScopes          []string `json:"default_scopes"`
+	SupportedProjectScopes []string `json:"supported_project_scopes"`
+}
+
+type OpenAPISecurityWebhooks struct {
+	LegacyGitHubEndpoint          string `json:"legacy_github_endpoint"`
+	ConnectorEndpoint             string `json:"connector_endpoint"`
+	LegacyGitHubSignatureRequired bool   `json:"legacy_github_signature_required"`
+}
+
+type OpenAPISecuritySecretHygiene struct {
+	NotificationChannelConfigsRedacted bool `json:"notification_channel_configs_redacted"`
+}
+
+type OpenAPISecuritySettings struct {
+	ProjectID     string                              `json:"project_id"`
+	AgentTokens   OpenAPISecurityAgentTokens          `json:"agent_tokens"`
+	Webhooks      OpenAPISecurityWebhooks             `json:"webhooks"`
+	SecretHygiene OpenAPISecuritySecretHygiene        `json:"secret_hygiene"`
+	Deferred      []OpenAPISecurityDeferredCapability `json:"deferred"`
+}
+
+type OpenAPISecuritySettingsResponse struct {
+	Security OpenAPISecuritySettings `json:"security"`
+}
+
 type OpenAPITicketDetailResponse struct {
 	Ticket      OpenAPITicket                  `json:"ticket"`
 	RepoScopes  []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
@@ -646,6 +682,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			{Name: "streams"},
 			{Name: "hr-advisor"},
 			{Name: "notifications"},
+			{Name: "security-settings"},
 		},
 	}
 
@@ -666,6 +703,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 		return nil, err
 	}
 	if err := builder.addNotificationOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addSecurityOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addChatOperations(); err != nil {
@@ -2052,6 +2092,26 @@ func (b openAPISpecBuilder) addNotificationOperations() error {
 	}
 	ruleDelete.AddParameter(uuidPathParameter("ruleId", "Notification rule ID."))
 	b.doc.AddOperation("/api/v1/notification-rules/{ruleId}", http.MethodDelete, ruleDelete)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addSecurityOperations() error {
+	securityGet, err := b.jsonOperation(
+		"getSecuritySettings",
+		"Get project security settings posture",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecuritySettingsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	securityGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings", http.MethodGet, securityGet)
 
 	return nil
 }

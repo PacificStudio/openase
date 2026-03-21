@@ -198,3 +198,7 @@ export type NotificationRuleDeleteResponse = DeepRequired<
   ResponseFor<'/api/v1/notification-rules/{ruleId}', 'delete'>
 >
 export type NotificationRule = ItemOf<NotificationRulePayload['rules']>
+
+export type SecuritySettingsResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings', 'get'>
+>

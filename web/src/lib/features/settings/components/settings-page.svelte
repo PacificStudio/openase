@@ -6,7 +6,7 @@
   import GeneralSettings from './general-settings.svelte'
   import NotificationSettings from './notification-settings.svelte'
   import RepositoriesSettings from './repositories-settings.svelte'
-  import SettingsPlaceholder from './settings-placeholder.svelte'
+  import SecuritySettings from './security-settings.svelte'
   import StatusSettings from './status-settings.svelte'
   import WorkflowSettings from './workflow-settings.svelte'
 
@@ -36,7 +36,7 @@
     {:else if activeSection === 'notifications'}
       <NotificationSettings />
     {:else if activeSection === 'security'}
-      <SettingsPlaceholder section="security" title="Security" />
+      <SecuritySettings />
     {/if}
   </div>
 </div>

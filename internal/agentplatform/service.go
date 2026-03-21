@@ -265,6 +265,10 @@ func DefaultScopes() []string {
 	return scopeStrings(defaultAgentScopes)
 }
 
+func SupportedScopes() []string {
+	return scopeStrings(supportedAgentScopes)
+}
+
 func parseScopes(raw []string) (ScopeSet, error) {
 	if len(raw) == 0 {
 		return append(ScopeSet(nil), defaultAgentScopes...), nil

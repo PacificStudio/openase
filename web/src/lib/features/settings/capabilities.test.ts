@@ -22,4 +22,12 @@ describe('settings capability catalog', () => {
     expect(workflowCapability.state).toBe('available')
     expect(workflowCapability.summary.toLowerCase()).not.toContain('placeholder')
   })
+
+  it('marks security settings as available with explicit deferred scope copy', () => {
+    const securityCapability = getSettingsSectionCapability('security')
+
+    expect(securityCapability.state).toBe('available')
+    expect(securityCapability.summary.toLowerCase()).not.toContain('placeholder')
+    expect(securityCapability.summary.toLowerCase()).toContain('deferred')
+  })
 })
