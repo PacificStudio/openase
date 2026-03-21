@@ -259,7 +259,7 @@
     }
   }
 
-  async function handlePauseAgent(agentId: string) {
+  async function handleRuntimeAction(action: 'pause' | 'resume', agentId: string) {
     const projectId = appStore.currentProject?.id,
       orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
@@ -272,39 +272,24 @@
     pageError = ''
 
     try {
-      const payload = await pauseAgent(agentId)
-      pageFeedback = `Pause requested for ${payload.agent.name}.`
+      const payload = action === 'pause' ? await pauseAgent(agentId) : await resumeAgent(agentId)
+      const verb = action === 'pause' ? 'Pause' : 'Resume'
+      pageFeedback = `${verb} requested for ${payload.agent.name}.`
       await loadData({ projectId, orgId, showLoading: false })
     } catch (caughtError) {
       pageError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to pause agent runtime.'
+        caughtError instanceof ApiError ? caughtError.detail : `Failed to ${action} agent runtime.`
     } finally {
       runtimeActionAgentId = null
     }
   }
 
-  async function handleResumeAgent(agentId: string) {
-    const projectId = appStore.currentProject?.id,
-      orgId = appStore.currentOrg?.id
-    if (!projectId || !orgId) {
-      pageError = 'Project context is unavailable.'
-      return
-    }
+  function handlePauseAgent(agentId: string) {
+    return handleRuntimeAction('pause', agentId)
+  }
 
-    runtimeActionAgentId = agentId
-    pageFeedback = ''
-    pageError = ''
-
-    try {
-      const payload = await resumeAgent(agentId)
-      pageFeedback = `Resume requested for ${payload.agent.name}.`
-      await loadData({ projectId, orgId, showLoading: false })
-    } catch (caughtError) {
-      pageError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to resume agent runtime.'
-    } finally {
-      runtimeActionAgentId = null
-    }
+  function handleResumeAgent(agentId: string) {
+    return handleRuntimeAction('resume', agentId)
   }
 </script>
 
