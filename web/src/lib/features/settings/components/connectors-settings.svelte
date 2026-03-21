@@ -85,8 +85,8 @@
     <Card.Header>
       <Card.Title>Current boundary</Card.Title>
       <Card.Description>
-        Connector management for {projectName} is intentionally documented here instead of exposing
-        incomplete settings controls.
+        Connector management for {projectName} is intentionally documented here instead of exposing incomplete
+        settings controls.
       </Card.Description>
     </Card.Header>
     <Card.Content class="space-y-3">
@@ -119,7 +119,9 @@
       {#each runtimeEndpoints as endpoint (endpoint.path)}
         <div class="border-border rounded-md border px-3 py-3">
           <div class="flex flex-wrap items-center gap-2 text-sm">
-            <span class="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">
+            <span
+              class="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300"
+            >
               {endpoint.method}
             </span>
             <code class="bg-muted rounded px-2 py-0.5 text-xs">{endpoint.path}</code>
