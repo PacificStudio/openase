@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    capabilityCatalog,
+    getSettingsSectionCapability,
     capabilityStateClasses,
     capabilityStateLabel,
   } from '$lib/features/capabilities'
@@ -34,7 +34,7 @@
   let busyStatusId = $state('')
   let error = $state(''),
     feedback = $state('')
-  const statusCapability = capabilityCatalog.statusMutation
+  const statusCapability = getSettingsSectionCapability('statuses')
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
