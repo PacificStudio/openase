@@ -599,15 +599,15 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/api/v1/projects/{projectId}/security': {
+  '/api/v1/projects/{projectId}/security-settings': {
     parameters: {
       query?: never
       header?: never
       path?: never
       cookie?: never
     }
-    /** Get project security settings */
-    get: operations['getProjectSecuritySettings']
+    /** Get project security settings posture */
+    get: operations['getSecuritySettings']
     put?: never
     post?: never
     delete?: never
@@ -5057,7 +5057,7 @@ export interface operations {
       }
     }
   }
-  getProjectSecuritySettings: {
+  getSecuritySettings: {
     parameters: {
       query?: never
       header?: never
@@ -5069,7 +5069,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Get project security settings response. */
+      /** @description Get project security settings posture response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -5077,44 +5077,33 @@ export interface operations {
         content: {
           'application/json': {
             security?: {
-              agent_platform?: {
-                active_token_count?: number
+              agent_tokens?: {
                 default_scopes?: string[]
-                expired_token_count?: number
-                exposed?: boolean
-                last_token_issued_at?: string | null
-                last_token_used_at?: string | null
-                privileged_scopes?: string[]
-                summary?: string
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                token_prefix?: string
+                transport?: string
               }
-              notes?: string[]
-              project_id?: string
-              runtime_mode?: string
-              surfaces?: {
-                configured?: boolean
-                exposed?: boolean
+              deferred?: {
                 key?: string
-                label?: string
                 summary?: string
+                title?: string
               }[]
+              project_id?: string
+              secret_hygiene?: {
+                notification_channel_configs_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+                legacy_github_endpoint?: string
+                legacy_github_signature_required?: boolean
+              }
             }
           }
         }
       }
       /** @description Bad Request response. */
       400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
         headers: {
           [name: string]: unknown
         }
