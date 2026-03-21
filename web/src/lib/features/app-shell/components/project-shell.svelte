@@ -104,7 +104,6 @@
     sseStatus={appStore.sseStatus}
     searchEnabled={searchCapability.state === 'available' && data.organizations.length > 0}
     newTicketEnabled={newTicketCapability.state === 'available' && Boolean(data.currentProject?.id)}
-    searchTitle={searchCapability.summary}
     newTicketTitle={newTicketCapability.summary}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}

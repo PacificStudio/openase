@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    capabilityCatalog,
+    getSettingsSectionCapability,
     capabilityStateClasses,
     capabilityStateLabel,
   } from '$lib/features/capabilities'
@@ -29,7 +29,7 @@
   import NotificationChannelPanel from './notification-channel-panel.svelte'
   import NotificationRulePanel from './notification-rule-panel.svelte'
 
-  const notificationsCapability = capabilityCatalog.notificationsSettings
+  const notificationsCapability = getSettingsSectionCapability('notifications')
 
   let channels = $state<NotificationChannel[]>([])
   let rules = $state<NotificationRule[]>([])

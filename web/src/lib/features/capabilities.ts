@@ -6,7 +6,6 @@ export type CapabilityKey =
   | 'generalSettings'
   | 'search'
   | 'newTicket'
-  | 'statusMutation'
   | 'agentRegistration'
   | 'providerConfigure'
   | 'agentOutput'
@@ -38,11 +37,6 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   newTicket: {
     state: 'available',
     summary: 'Ticket creation is wired to POST /api/v1/projects/{projectId}/tickets.',
-  },
-  statusMutation: {
-    state: 'available',
-    summary:
-      'Status CRUD, default selection, reset, and ordering are wired in Settings, and dependent views refresh after changes.',
   },
   agentRegistration: {
     state: 'available',
@@ -77,9 +71,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Statuses can now be created, edited, deleted, reset, and reordered directly from Settings.',
   },
   workflowsSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Workflow update/delete APIs already exist, but this settings section still points to a placeholder instead of lifecycle management UI.',
+      'Workflow settings now expose lifecycle management for renaming, scheduling policy, activation, and deletion from the shipped Settings surface.',
   },
   agentsSettings: {
     state: 'available',
@@ -87,9 +81,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while runtime controls remain on the Agents page.',
   },
   connectorsSettings: {
-    state: 'backend_missing',
+    state: 'unwired',
     summary:
-      'Connector settings stay placeholder because no connector management API is exported yet.',
+      'Settings now documents the live connector runtime surface, while project-scoped connector CRUD and operator controls remain deferred until dedicated management APIs are exported.',
   },
   notificationsSettings: {
     state: 'available',
@@ -103,7 +97,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   },
 }
 
-export const settingsCapabilityBySection: Partial<Record<SettingsSection, CapabilityKey>> = {
+export const settingsCapabilityBySection: Record<SettingsSection, CapabilityKey> = {
   general: 'generalSettings',
   repositories: 'repositoriesSettings',
   statuses: 'statusesSettings',
@@ -112,6 +106,10 @@ export const settingsCapabilityBySection: Partial<Record<SettingsSection, Capabi
   connectors: 'connectorsSettings',
   notifications: 'notificationsSettings',
   security: 'securitySettings',
+}
+
+export function getSettingsSectionCapability(section: SettingsSection): CapabilityDescriptor {
+  return capabilityCatalog[settingsCapabilityBySection[section]]
 }
 
 export function capabilityStateLabel(state: CapabilityState) {

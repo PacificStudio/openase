@@ -1,6 +1,11 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
   import {
+    capabilityStateClasses,
+    capabilityStateLabel,
+    getSettingsSectionCapability,
+  } from '$lib/features/capabilities'
+  import {
     loadWorkflowCatalog,
     WorkflowLifecycleSidebar,
     WorkflowList,
@@ -9,6 +14,8 @@
   } from '$lib/features/workflows'
   import { appStore } from '$lib/stores/app.svelte'
   import { Separator } from '$ui/separator'
+
+  const workflowCapability = getSettingsSectionCapability('workflows')
 
   let loading = $state(false)
   let error = $state('')
@@ -64,11 +71,15 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Workflow Lifecycle</h2>
-    <p class="text-muted-foreground mt-1 text-sm">
-      Rename workflows, adjust scheduling policy, toggle active state, and delete obsolete workflows
-      from the same backend boundary used on the main workflows page.
-    </p>
+    <div class="flex items-center gap-2">
+      <h2 class="text-foreground text-base font-semibold">Workflow Lifecycle</h2>
+      <span
+        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(workflowCapability.state)}`}
+      >
+        {capabilityStateLabel(workflowCapability.state)}
+      </span>
+    </div>
+    <p class="text-muted-foreground mt-1 text-sm">{workflowCapability.summary}</p>
   </div>
 
   <Separator />
