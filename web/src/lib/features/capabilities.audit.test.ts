@@ -42,6 +42,21 @@ const sourceByFile: Record<string, string> = {
   './workflows/workflow-management.ts': workflowManagementSource,
 }
 
+function expectCapabilitySummary(summary: string, snippets: string[]) {
+  for (const snippet of snippets) {
+    expect(summary).toContain(snippet)
+  }
+}
+
+function expectSourceEvidence(sources: SourceEvidence[]) {
+  for (const source of sources) {
+    const contents = sourceByFile[source.file]
+    for (const snippet of source.snippets) {
+      expect(contents).toContain(snippet)
+    }
+  }
+}
+
 const settingsAuditCases: SettingsAuditCase[] = [
   {
     section: 'general',
@@ -173,19 +188,12 @@ describe('capability catalog source audit', () => {
   it.each(settingsAuditCases)(
     'keeps the $section settings capability aligned with the shipped surface',
     ({ section, capability, expectedState, summarySnippets, sources }) => {
-      expect(getSettingsSectionCapability(section)).toBe(capabilityCatalog[capability])
-      expect(capabilityCatalog[capability].state).toBe(expectedState)
+      const descriptor = capabilityCatalog[capability]
 
-      for (const snippet of summarySnippets) {
-        expect(capabilityCatalog[capability].summary).toContain(snippet)
-      }
-
-      for (const source of sources) {
-        const contents = sourceByFile[source.file]
-        for (const snippet of source.snippets) {
-          expect(contents).toContain(snippet)
-        }
-      }
+      expect(getSettingsSectionCapability(section)).toBe(descriptor)
+      expect(descriptor.state).toBe(expectedState)
+      expectCapabilitySummary(descriptor.summary, summarySnippets)
+      expectSourceEvidence(sources)
     },
   )
 })

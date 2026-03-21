@@ -35,6 +35,21 @@ const sourceByFile: Record<string, string> = {
   './tickets/components/tickets-page.svelte': ticketsPageSource,
 }
 
+function expectCapabilitySummary(summary: string, snippets: string[]) {
+  for (const snippet of snippets) {
+    expect(summary).toContain(snippet)
+  }
+}
+
+function expectSourceEvidence(sources: SourceEvidence[]) {
+  for (const source of sources) {
+    const contents = sourceByFile[source.file]
+    for (const snippet of source.snippets) {
+      expect(contents).toContain(snippet)
+    }
+  }
+}
+
 const capabilityAuditCases: CapabilityAuditCase[] = [
   {
     capability: 'search',
@@ -152,18 +167,11 @@ describe('capability catalog boundary audit', () => {
   it.each(capabilityAuditCases)(
     'keeps the $capability catalog entry aligned with its live UI/API boundary',
     ({ capability, expectedState, summarySnippets, sources }) => {
-      expect(capabilityCatalog[capability].state).toBe(expectedState)
+      const descriptor = capabilityCatalog[capability]
 
-      for (const snippet of summarySnippets) {
-        expect(capabilityCatalog[capability].summary).toContain(snippet)
-      }
-
-      for (const source of sources) {
-        const contents = sourceByFile[source.file]
-        for (const snippet of source.snippets) {
-          expect(contents).toContain(snippet)
-        }
-      }
+      expect(descriptor.state).toBe(expectedState)
+      expectCapabilitySummary(descriptor.summary, summarySnippets)
+      expectSourceEvidence(sources)
     },
   )
 })
