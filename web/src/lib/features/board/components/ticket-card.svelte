@@ -1,15 +1,7 @@
 <script lang="ts">
   import { cn, formatRelativeTime, truncate } from '$lib/utils'
   import { Badge } from '$ui/badge'
-  import {
-    GitPullRequest,
-    Bot,
-    AlertTriangle,
-    RotateCcw,
-    ShieldAlert,
-    Wallet,
-    GripVertical,
-  } from '@lucide/svelte'
+  import { Bot, AlertTriangle, RotateCcw, ShieldAlert, Wallet, GripVertical } from '@lucide/svelte'
   import type { BoardTicket } from '../types'
 
   let {
@@ -143,16 +135,6 @@
       <span class="text-muted-foreground inline-flex items-center gap-0.5 text-[10px]">
         <Bot class="size-3" />
         {ticket.agentName}
-      </span>
-    {/if}
-
-    {#if ticket.prCount && ticket.prCount > 0}
-      <span class="text-muted-foreground inline-flex items-center gap-0.5 text-[10px]">
-        <GitPullRequest class="size-3" />
-        {ticket.prCount}
-        {#if ticket.prStatus}
-          <span class="text-muted-foreground/70">· {ticket.prStatus}</span>
-        {/if}
       </span>
     {/if}
   </div>

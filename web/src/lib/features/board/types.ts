@@ -15,8 +15,6 @@ export type BoardTicket = {
   priority: 'urgent' | 'high' | 'medium' | 'low'
   workflowType?: string
   agentName?: string
-  prCount?: number
-  prStatus?: string
   anomaly?: 'retry' | 'hook_failed' | 'awaiting_approval' | 'budget_exhausted'
   updatedAt: string
   isMoving?: boolean
