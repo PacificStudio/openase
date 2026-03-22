@@ -1,18 +1,26 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
-  import { listStatuses, listTickets, listWorkflows, updateTicket } from '$lib/api/openase'
+  import {
+    listActivity,
+    listAgents,
+    listStatuses,
+    listTickets,
+    listWorkflows,
+    updateTicket,
+  } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import { statusSync } from '$lib/features/statuses/public'
   import type { BoardColumn, BoardFilter, BoardTicket } from '../types'
   import {
-    buildBoardColumns,
+    buildBoardData,
     filterBoardColumns,
     findTicketLocation,
     patchTicket,
     relocateTicket,
     type PendingTicketMove,
   } from '../model'
+  import BoardListView from './board-list-view.svelte'
   import BoardToolbar from './board-toolbar.svelte'
   import BoardView from './board-view.svelte'
 
@@ -23,6 +31,7 @@
   let mutationError = $state('')
   let allColumns = $state<BoardColumn[]>([])
   let workflows = $state<string[]>([])
+  let agentOptions = $state<string[]>([])
   let draggingTicketId = $state<string | null>(null)
   let dropColumnId = $state<string | null>(null)
 
@@ -63,11 +72,14 @@
     beginLoad(mode)
 
     try {
-      const [statusPayload, ticketPayload, workflowPayload] = await Promise.all([
-        listStatuses(projectId),
-        listTickets(projectId),
-        listWorkflows(projectId),
-      ])
+      const [statusPayload, ticketPayload, workflowPayload, agentPayload, activityPayload] =
+        await Promise.all([
+          listStatuses(projectId),
+          listTickets(projectId),
+          listWorkflows(projectId),
+          listAgents(projectId),
+          listActivity(projectId, { limit: 200 }),
+        ])
       if (isStaleLoad(projectId, requestVersion)) {
         return
       }
@@ -76,13 +88,16 @@
         return
       }
 
-      const nextBoard = buildBoardColumns(
+      const nextBoard = buildBoardData(
         statusPayload.statuses,
         ticketPayload.tickets,
         workflowPayload.workflows,
+        agentPayload.agents,
+        activityPayload.events,
       )
 
       workflows = nextBoard.workflowTypes
+      agentOptions = nextBoard.agentOptions
       allColumns = nextBoard.columns
 
       mutationError = ''
@@ -135,6 +150,7 @@
     if (!projectId) {
       allColumns = []
       workflows = []
+      agentOptions = []
       error = ''
       loading = false
       return
@@ -231,7 +247,7 @@
 </script>
 
 <div class="flex h-full flex-col gap-4">
-  <BoardToolbar bind:filter bind:view {workflows} agents={[]} listEnabled={false} />
+  <BoardToolbar bind:filter bind:view {workflows} agents={agentOptions} listEnabled={true} />
   {#if error}
     <div
       class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
@@ -250,7 +266,7 @@
     <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
       Loading board…
     </div>
-  {:else}
+  {:else if view === 'board'}
     <BoardView
       columns={filteredColumns}
       onticketclick={handleTicketClick}
@@ -261,5 +277,7 @@
       {draggingTicketId}
       {dropColumnId}
     />
+  {:else}
+    <BoardListView columns={filteredColumns} onticketclick={handleTicketClick} />
   {/if}
 </div>
