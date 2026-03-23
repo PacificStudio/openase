@@ -36,6 +36,9 @@ func TestAdapterStartSendPromptAndRespondToolCall(t *testing.T) {
 			if initializeParams.ClientInfo.Name != "openase" || initializeParams.ClientInfo.Version != "0.1.0" {
 				return errors.New("unexpected initialize client info")
 			}
+			if initializeParams.Capabilities == nil || !initializeParams.Capabilities.ExperimentalAPI {
+				return errors.New("expected initialize experimentalApi capability")
+			}
 			if err := encoder.Encode(jsonRPCMessage{
 				JSONRPC: jsonRPCVersion,
 				ID:      initialize.ID,
@@ -283,6 +286,292 @@ func TestAdapterRespondsMethodNotFoundForUnsupportedServerRequest(t *testing.T) 
 	})
 	if err != nil {
 		t.Fatalf("Start returned error: %v", err)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+}
+
+func TestAdapterStartAcceptsResponsesWithoutJSONRPCVersion(t *testing.T) {
+	process := newFakeProcess()
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: &fakeProcessManager{process: process}})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			initialize, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if initialize.Method != methodInitialize {
+				return errors.New("expected initialize request")
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				ID: initialize.ID,
+				Result: mustMarshalJSON(wireInitializeResponse{
+					UserAgent:      "codex-cli/0.115.0",
+					PlatformFamily: "unix",
+					PlatformOS:     "linux",
+				}),
+			}); err != nil {
+				return err
+			}
+
+			initialized, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if initialized.Method != methodInitialized {
+				return errors.New("expected initialized notification")
+			}
+
+			threadStart, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if threadStart.Method != methodThreadStart {
+				return errors.New("expected thread/start request")
+			}
+
+			return encoder.Encode(jsonRPCMessage{
+				ID: threadStart.ID,
+				Result: mustMarshalJSON(wireThreadStartResponse{
+					Thread: wireThread{ID: "thread-no-jsonrpc"},
+				}),
+			})
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Thread: ThreadStartParams{
+			WorkingDirectory: "/tmp/openase",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if session.ThreadID() != "thread-no-jsonrpc" {
+		t.Fatalf("expected thread id thread-no-jsonrpc, got %q", session.ThreadID())
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+}
+
+func TestAdapterSendPromptUsesTurnDefaultsAndAutoApprovesRequests(t *testing.T) {
+	process := newFakeProcess()
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: &fakeProcessManager{process: process}})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			if err := completeHandshake(decoder, encoder); err != nil {
+				return err
+			}
+
+			turnStart, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if turnStart.Method != methodTurnStart {
+				return errors.New("expected turn/start request")
+			}
+
+			var turnParams wireTurnStartParams
+			if err := decodeParams(turnStart.Params, &turnParams); err != nil {
+				return err
+			}
+			if turnParams.CWD == nil || *turnParams.CWD != "/tmp/openase" {
+				return errors.New("expected turn cwd")
+			}
+			if turnParams.Title == nil || *turnParams.Title != "ASE-1: Implement the adapter" {
+				return errors.New("expected turn title")
+			}
+			if decision, ok := turnParams.ApprovalPolicy.(string); !ok || decision != "never" {
+				return errors.New("expected turn approval policy")
+			}
+			sandboxPolicy, ok := turnParams.SandboxPolicy.(map[string]any)
+			if !ok || sandboxPolicy["type"] != "dangerFullAccess" || sandboxPolicy["networkAccess"] != true {
+				return errors.New("expected turn sandbox policy")
+			}
+
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      turnStart.ID,
+				Result: mustMarshalJSON(wireTurnStartResponse{
+					Turn: wireTurn{ID: "turn-approval", Status: "inProgress"},
+				}),
+			}); err != nil {
+				return err
+			}
+
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      mustMarshalJSON("approval-1"),
+				Method:  methodCommandApproval,
+				Params:  mustMarshalJSON(map[string]any{"threadId": "thread-1"}),
+			}); err != nil {
+				return err
+			}
+
+			approvalResponse, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			var approvalResult map[string]string
+			if err := json.Unmarshal(approvalResponse.Result, &approvalResult); err != nil {
+				return err
+			}
+			if approvalResult["decision"] != "acceptForSession" {
+				return errors.New("expected command approval auto response")
+			}
+
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				Method:  methodTokenUsageUpdated,
+				Params: mustMarshalJSON(wireThreadTokenUsageUpdatedNotification{
+					ThreadID: "thread-1",
+					TurnID:   "turn-approval",
+					TokenUsage: wireThreadTokenUsage{
+						Total: wireTokenUsageBreakdown{
+							InputTokens:  120,
+							OutputTokens: 35,
+							TotalTokens:  155,
+						},
+						Last: wireTokenUsageBreakdown{
+							InputTokens:  20,
+							OutputTokens: 5,
+							TotalTokens:  25,
+						},
+					},
+				}),
+			}); err != nil {
+				return err
+			}
+
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      mustMarshalJSON("input-1"),
+				Method:  methodRequestUserInput,
+				Params: mustMarshalJSON(map[string]any{
+					"questions": []map[string]any{
+						{
+							"id": "approval",
+							"options": []map[string]any{
+								{"label": "Approve this Session"},
+								{"label": "Deny"},
+							},
+						},
+					},
+				}),
+			}); err != nil {
+				return err
+			}
+
+			inputResponse, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			var inputResult struct {
+				Answers map[string]struct {
+					Answers []string `json:"answers"`
+				} `json:"answers"`
+			}
+			if err := json.Unmarshal(inputResponse.Result, &inputResult); err != nil {
+				return err
+			}
+			if got := inputResult.Answers["approval"].Answers; len(got) != 1 || got[0] != "Approve this Session" {
+				return errors.New("expected requestUserInput auto answer")
+			}
+
+			return encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				Method:  methodTurnCompleted,
+				Params: mustMarshalJSON(wireTurnNotification{
+					ThreadID: "thread-1",
+					Turn: wireTurn{
+						ID:     "turn-approval",
+						Status: "completed",
+					},
+				}),
+			})
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Thread: ThreadStartParams{
+			WorkingDirectory: "/tmp/openase",
+			ApprovalPolicy:   "never",
+		},
+		Turn: TurnConfig{
+			WorkingDirectory: "/tmp/openase",
+			Title:            "ASE-1: Implement the adapter",
+			ApprovalPolicy:   "never",
+			SandboxPolicy: map[string]any{
+				"type":          "dangerFullAccess",
+				"networkAccess": true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Continue working.")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+	if turn.TurnID != "turn-approval" {
+		t.Fatalf("expected turn id turn-approval, got %q", turn.TurnID)
+	}
+
+	tokenEvent := requireEvent(t, session.Events())
+	if tokenEvent.Type != EventTypeTokenUsageUpdated || tokenEvent.TokenUsage == nil {
+		t.Fatalf("expected token usage event, got %+v", tokenEvent)
+	}
+	if tokenEvent.TokenUsage.TotalTokens != 155 || tokenEvent.TokenUsage.LastTokens != 25 {
+		t.Fatalf("unexpected token usage event: %+v", tokenEvent.TokenUsage)
+	}
+
+	completedEvent := requireEvent(t, session.Events())
+	if completedEvent.Type != EventTypeTurnCompleted || completedEvent.Turn == nil || completedEvent.Turn.TurnID != "turn-approval" {
+		t.Fatalf("expected completed turn event, got %+v", completedEvent)
 	}
 
 	if err := <-serverDone; err != nil {

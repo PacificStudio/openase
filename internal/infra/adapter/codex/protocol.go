@@ -16,8 +16,14 @@ const (
 	methodThreadStart       = "thread/start"
 	methodTurnStart         = "turn/start"
 	methodToolCall          = "item/tool/call"
+	methodCommandApproval   = "item/commandExecution/requestApproval"
+	methodExecApproval      = "execCommandApproval"
+	methodPatchApproval     = "applyPatchApproval"
+	methodFileApproval      = "item/fileChange/requestApproval"
+	methodRequestUserInput  = "item/tool/requestUserInput"
 	methodTurnStarted       = "turn/started"
 	methodTurnCompleted     = "turn/completed"
+	methodTokenUsageUpdated = "thread/tokenUsage/updated"
 	methodTurnError         = "error"
 	jsonRPCMethodNotFound   = -32601
 	defaultClientName       = "openase"
@@ -79,7 +85,7 @@ func (id RequestID) String() string {
 }
 
 type jsonRPCMessage struct {
-	JSONRPC string          `json:"jsonrpc"`
+	JSONRPC string          `json:"jsonrpc,omitempty"`
 	ID      json.RawMessage `json:"id,omitempty"`
 	Method  string          `json:"method,omitempty"`
 	Params  json.RawMessage `json:"params,omitempty"`
@@ -94,7 +100,7 @@ type jsonRPCError struct {
 }
 
 func (m jsonRPCMessage) validate() error {
-	if strings.TrimSpace(m.JSONRPC) != jsonRPCVersion {
+	if trimmed := strings.TrimSpace(m.JSONRPC); trimmed != "" && trimmed != jsonRPCVersion {
 		return fmt.Errorf("unsupported jsonrpc version %q", m.JSONRPC)
 	}
 
@@ -116,13 +122,19 @@ func (m jsonRPCMessage) validate() error {
 }
 
 type wireInitializeParams struct {
-	ClientInfo wireClientInfo `json:"clientInfo"`
+	ClientInfo   wireClientInfo              `json:"clientInfo"`
+	Capabilities *wireInitializeCapabilities `json:"capabilities"`
 }
 
 type wireClientInfo struct {
 	Name    string  `json:"name"`
 	Title   *string `json:"title"`
 	Version string  `json:"version"`
+}
+
+type wireInitializeCapabilities struct {
+	ExperimentalAPI bool     `json:"experimentalApi"`
+	OptOutMethods   []string `json:"optOutNotificationMethods,omitempty"`
 }
 
 type wireInitializeResponse struct {
@@ -138,6 +150,8 @@ type wireThreadStartParams struct {
 	ServiceName            *string `json:"serviceName,omitempty"`
 	BaseInstructions       *string `json:"baseInstructions,omitempty"`
 	DeveloperInstructions  *string `json:"developerInstructions,omitempty"`
+	ApprovalPolicy         any     `json:"approvalPolicy,omitempty"`
+	Sandbox                any     `json:"sandbox,omitempty"`
 	Ephemeral              *bool   `json:"ephemeral,omitempty"`
 	ExperimentalRawEvents  bool    `json:"experimentalRawEvents"`
 	PersistExtendedHistory bool    `json:"persistExtendedHistory"`
@@ -152,8 +166,12 @@ type wireThread struct {
 }
 
 type wireTurnStartParams struct {
-	ThreadID string          `json:"threadId"`
-	Input    []wireUserInput `json:"input"`
+	ThreadID       string          `json:"threadId"`
+	Input          []wireUserInput `json:"input"`
+	CWD            *string         `json:"cwd,omitempty"`
+	Title          *string         `json:"title,omitempty"`
+	ApprovalPolicy any             `json:"approvalPolicy,omitempty"`
+	SandboxPolicy  any             `json:"sandboxPolicy,omitempty"`
 }
 
 type wireUserInput struct {
@@ -195,6 +213,26 @@ type wireErrorNotification struct {
 	WillRetry bool          `json:"willRetry"`
 	ThreadID  string        `json:"threadId"`
 	TurnID    string        `json:"turnId"`
+}
+
+type wireThreadTokenUsageUpdatedNotification struct {
+	ThreadID   string               `json:"threadId"`
+	TurnID     string               `json:"turnId"`
+	TokenUsage wireThreadTokenUsage `json:"tokenUsage"`
+}
+
+type wireThreadTokenUsage struct {
+	Total              wireTokenUsageBreakdown `json:"total"`
+	Last               wireTokenUsageBreakdown `json:"last"`
+	ModelContextWindow *int64                  `json:"modelContextWindow,omitempty"`
+}
+
+type wireTokenUsageBreakdown struct {
+	InputTokens           int64 `json:"inputTokens,omitempty"`
+	CachedInputTokens     int64 `json:"cachedInputTokens,omitempty"`
+	OutputTokens          int64 `json:"outputTokens,omitempty"`
+	ReasoningOutputTokens int64 `json:"reasoningOutputTokens,omitempty"`
+	TotalTokens           int64 `json:"totalTokens,omitempty"`
 }
 
 type wireToolCallResponse struct {

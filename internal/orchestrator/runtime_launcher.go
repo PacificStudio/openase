@@ -22,11 +22,10 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
-
-const runtimeHeartbeatInterval = 30 * time.Second
 
 type RuntimeLauncher struct {
 	client         *ent.Client
@@ -39,6 +38,11 @@ type RuntimeLauncher struct {
 
 	sessionsMu sync.Mutex
 	sessions   map[uuid.UUID]*codex.Session
+
+	executionsMu sync.Mutex
+	executions   map[uuid.UUID]struct{}
+
+	tickets *ticketservice.Service
 }
 
 func NewRuntimeLauncher(
@@ -62,6 +66,8 @@ func NewRuntimeLauncher(
 		workflow:       workflow,
 		now:            time.Now,
 		sessions:       map[uuid.UUID]*codex.Session{},
+		executions:     map[uuid.UUID]struct{}{},
+		tickets:        ticketservice.NewService(client),
 	}
 }
 
@@ -77,6 +83,9 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return err
 	}
 	if err := l.refreshHeartbeats(ctx); err != nil {
+		return err
+	}
+	if err := l.startReadyExecutions(ctx); err != nil {
 		return err
 	}
 
@@ -334,46 +343,20 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 	for _, agentID := range sessionIDs {
 		agentItem, err := l.client.Agent.Get(ctx, agentID)
 		if err != nil {
+			stopSession(context.Background(), l.loadSession(agentID))
 			l.deleteSession(agentID)
+			l.finishExecution(agentID)
 			continue
 		}
-		if agentItem.Status != entagent.StatusRunning || agentItem.RuntimePhase != entagent.RuntimePhaseReady {
+		if agentItem.Status != entagent.StatusRunning || (agentItem.RuntimePhase != entagent.RuntimePhaseReady && agentItem.RuntimePhase != entagent.RuntimePhaseExecuting) || agentItem.CurrentTicketID == nil {
+			stopSession(context.Background(), l.loadSession(agentID))
 			l.deleteSession(agentID)
+			l.finishExecution(agentID)
 			continue
-		}
-		if agentItem.LastHeartbeatAt != nil && now.Sub(agentItem.LastHeartbeatAt.UTC()) < runtimeHeartbeatInterval {
-			continue
-		}
-
-		if _, err := l.client.Agent.Update().
-			Where(
-				entagent.IDEQ(agentID),
-				entagent.StatusEQ(entagent.StatusRunning),
-				entagent.RuntimePhaseEQ(entagent.RuntimePhaseReady),
-			).
-			SetLastHeartbeatAt(now).
-			Save(ctx); err != nil {
-			return fmt.Errorf("refresh heartbeat for agent %s: %w", agentID, err)
-		}
-
-		refreshedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID)
-		if err != nil {
-			return err
-		}
-		if err := publishAgentLifecycleEvent(
-			ctx,
-			l.client,
-			l.events,
-			agentHeartbeatType,
-			refreshedAgent,
-			lifecycleMessage(agentHeartbeatType, refreshedAgent.Name),
-			runtimeEventMetadata(refreshedAgent),
-			now,
-		); err != nil {
-			return err
 		}
 	}
 
+	_ = now
 	return nil
 }
 
@@ -515,10 +498,22 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.
 			ClientTitle:   "OpenASE",
 		},
 		Thread: codex.ThreadStartParams{
-			WorkingDirectory:      workingDirectory.String(),
-			Model:                 launchContext.agent.Edges.Provider.ModelName,
-			ServiceName:           "openase",
-			DeveloperInstructions: developerInstructions,
+			WorkingDirectory:       workingDirectory.String(),
+			Model:                  launchContext.agent.Edges.Provider.ModelName,
+			ServiceName:            "openase",
+			DeveloperInstructions:  developerInstructions,
+			ApprovalPolicy:         "never",
+			Sandbox:                "danger-full-access",
+			PersistExtendedHistory: true,
+		},
+		Turn: codex.TurnConfig{
+			WorkingDirectory: workingDirectory.String(),
+			Title:            fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),
+			ApprovalPolicy:   "never",
+			SandboxPolicy: map[string]any{
+				"type":          "dangerFullAccess",
+				"networkAccess": true,
+			},
 		},
 	})
 }
@@ -997,6 +992,22 @@ func (l *RuntimeLauncher) drainSessions() map[uuid.UUID]*codex.Session {
 	}
 	l.sessions = map[uuid.UUID]*codex.Session{}
 	return drained
+}
+
+func (l *RuntimeLauncher) beginExecution(agentID uuid.UUID) bool {
+	l.executionsMu.Lock()
+	defer l.executionsMu.Unlock()
+	if _, exists := l.executions[agentID]; exists {
+		return false
+	}
+	l.executions[agentID] = struct{}{}
+	return true
+}
+
+func (l *RuntimeLauncher) finishExecution(agentID uuid.UUID) {
+	l.executionsMu.Lock()
+	defer l.executionsMu.Unlock()
+	delete(l.executions, agentID)
 }
 
 func stopSession(ctx context.Context, session *codex.Session) {

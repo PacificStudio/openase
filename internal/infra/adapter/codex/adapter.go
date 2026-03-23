@@ -16,11 +16,13 @@ import (
 )
 
 const defaultShutdownTimeout = 2 * time.Second
+const defaultToolInputAnswer = "This is a non-interactive session. Operator input is unavailable."
 
 type EventType string
 
 const (
 	EventTypeToolCallRequested EventType = "tool_call_requested"
+	EventTypeTokenUsageUpdated EventType = "token_usage_updated"
 	EventTypeTurnStarted       EventType = "turn_started"
 	EventTypeTurnCompleted     EventType = "turn_completed"
 	EventTypeTurnFailed        EventType = "turn_failed"
@@ -45,6 +47,7 @@ type StartRequest struct {
 	Process    provider.AgentCLIProcessSpec
 	Initialize InitializeParams
 	Thread     ThreadStartParams
+	Turn       TurnConfig
 }
 
 type InitializeParams struct {
@@ -60,9 +63,18 @@ type ThreadStartParams struct {
 	ServiceName            string
 	BaseInstructions       string
 	DeveloperInstructions  string
+	ApprovalPolicy         any
+	Sandbox                any
 	Ephemeral              *bool
 	ExperimentalRawEvents  bool
 	PersistExtendedHistory bool
+}
+
+type TurnConfig struct {
+	WorkingDirectory string
+	Title            string
+	ApprovalPolicy   any
+	SandboxPolicy    any
 }
 
 type TurnStartResult struct {
@@ -70,9 +82,10 @@ type TurnStartResult struct {
 }
 
 type Event struct {
-	Type     EventType
-	ToolCall *ToolCallRequest
-	Turn     *TurnEvent
+	Type       EventType
+	ToolCall   *ToolCallRequest
+	TokenUsage *TokenUsageEvent
+	Turn       *TurnEvent
 }
 
 type ToolCallRequest struct {
@@ -107,6 +120,18 @@ type TurnError struct {
 	AdditionalDetails string
 }
 
+type TokenUsageEvent struct {
+	ThreadID           string
+	TurnID             string
+	TotalInputTokens   int64
+	TotalOutputTokens  int64
+	LastInputTokens    int64
+	LastOutputTokens   int64
+	TotalTokens        int64
+	LastTokens         int64
+	ModelContextWindow *int64
+}
+
 type Session struct {
 	process provider.AgentCLIProcess
 	encoder *json.Encoder
@@ -131,6 +156,12 @@ type Session struct {
 	stderr   bytes.Buffer
 
 	threadID string
+
+	autoApproveRequests         bool
+	defaultTurnWorkingDirectory string
+	defaultTurnTitle            string
+	defaultApprovalPolicy       any
+	defaultSandboxPolicy        any
 }
 
 type callResult struct {
@@ -194,6 +225,11 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 		return nil, fmt.Errorf("codex thread/start response missing thread id")
 	}
 	session.threadID = threadResponse.Thread.ID
+	session.autoApproveRequests = approvalPolicyIsNever(request.Thread.ApprovalPolicy)
+	session.defaultTurnWorkingDirectory = strings.TrimSpace(request.Turn.WorkingDirectory)
+	session.defaultTurnTitle = strings.TrimSpace(request.Turn.Title)
+	session.defaultApprovalPolicy = cloneJSONCompatibleValue(request.Turn.ApprovalPolicy)
+	session.defaultSandboxPolicy = cloneJSONCompatibleValue(request.Turn.SandboxPolicy)
 
 	return session, nil
 }
@@ -215,6 +251,10 @@ func (s *Session) Events() <-chan Event {
 }
 
 func (s *Session) SendPrompt(ctx context.Context, prompt string) (TurnStartResult, error) {
+	return s.StartTurn(ctx, TurnConfig{Title: s.defaultTurnTitle, WorkingDirectory: s.defaultTurnWorkingDirectory, ApprovalPolicy: s.defaultApprovalPolicy, SandboxPolicy: s.defaultSandboxPolicy}, prompt)
+}
+
+func (s *Session) StartTurn(ctx context.Context, config TurnConfig, prompt string) (TurnStartResult, error) {
 	if s == nil {
 		return TurnStartResult{}, fmt.Errorf("session must not be nil")
 	}
@@ -230,6 +270,7 @@ func (s *Session) SendPrompt(ctx context.Context, prompt string) (TurnStartResul
 		return TurnStartResult{}, fmt.Errorf("prompt must not be empty")
 	}
 
+	turnConfig := mergeTurnConfig(s, config)
 	var response wireTurnStartResponse
 	err := s.call(ctx, methodTurnStart, wireTurnStartParams{
 		ThreadID: s.threadID,
@@ -240,6 +281,10 @@ func (s *Session) SendPrompt(ctx context.Context, prompt string) (TurnStartResul
 				TextElements: []any{},
 			},
 		},
+		CWD:            optionalAbsolutePath(turnConfig.WorkingDirectory),
+		Title:          optionalString(turnConfig.Title),
+		ApprovalPolicy: cloneJSONCompatibleValue(turnConfig.ApprovalPolicy),
+		SandboxPolicy:  cloneJSONCompatibleValue(turnConfig.SandboxPolicy),
 	}, &response)
 	if err != nil {
 		return TurnStartResult{}, fmt.Errorf("start codex turn: %w", err)
@@ -338,6 +383,9 @@ func newWireInitializeParams(params InitializeParams) wireInitializeParams {
 			Title:   title,
 			Version: version,
 		},
+		Capabilities: &wireInitializeCapabilities{
+			ExperimentalAPI: true,
+		},
 	}
 }
 
@@ -346,6 +394,8 @@ func newWireThreadStartParams(params ThreadStartParams) (wireThreadStartParams, 
 		ExperimentalRawEvents:  params.ExperimentalRawEvents,
 		PersistExtendedHistory: params.PersistExtendedHistory,
 		Ephemeral:              params.Ephemeral,
+		ApprovalPolicy:         cloneJSONCompatibleValue(params.ApprovalPolicy),
+		Sandbox:                cloneJSONCompatibleValue(params.Sandbox),
 	}
 
 	if trimmed := strings.TrimSpace(params.Model); trimmed != "" {
@@ -523,6 +573,14 @@ func (s *Session) handleServerRequest(message jsonRPCMessage) error {
 		})
 
 		return nil
+	case methodCommandApproval:
+		return s.respondApproval(requestID, "acceptForSession")
+	case methodExecApproval, methodPatchApproval:
+		return s.respondApproval(requestID, "approved_for_session")
+	case methodFileApproval:
+		return s.respondApproval(requestID, "acceptForSession")
+	case methodRequestUserInput:
+		return s.respondToolRequestUserInput(requestID, message.Params)
 	default:
 		return s.respondWithError(requestID, jsonRPCMethodNotFound, fmt.Sprintf("unsupported codex server request %q", message.Method))
 	}
@@ -560,6 +618,28 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 				TurnID:   notification.Turn.ID,
 				Status:   notification.Turn.Status,
 				Error:    turnErrorFromWire(notification.Turn.Error),
+			},
+		})
+
+		return nil
+	case methodTokenUsageUpdated:
+		var notification wireThreadTokenUsageUpdatedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex token usage notification: %w", err)
+		}
+
+		s.emit(Event{
+			Type: EventTypeTokenUsageUpdated,
+			TokenUsage: &TokenUsageEvent{
+				ThreadID:           notification.ThreadID,
+				TurnID:             notification.TurnID,
+				TotalInputTokens:   notification.TokenUsage.Total.InputTokens,
+				TotalOutputTokens:  notification.TokenUsage.Total.OutputTokens,
+				LastInputTokens:    notification.TokenUsage.Last.InputTokens,
+				LastOutputTokens:   notification.TokenUsage.Last.OutputTokens,
+				TotalTokens:        notification.TokenUsage.Total.TotalTokens,
+				LastTokens:         notification.TokenUsage.Last.TotalTokens,
+				ModelContextWindow: notification.TokenUsage.ModelContextWindow,
 			},
 		})
 
@@ -712,6 +792,128 @@ func turnErrorFromWire(value *wireTurnError) *TurnError {
 		Message:           value.Message,
 		AdditionalDetails: value.AdditionalDetails,
 	}
+}
+
+func mergeTurnConfig(session *Session, config TurnConfig) TurnConfig {
+	merged := TurnConfig{
+		WorkingDirectory: session.defaultTurnWorkingDirectory,
+		Title:            session.defaultTurnTitle,
+		ApprovalPolicy:   cloneJSONCompatibleValue(session.defaultApprovalPolicy),
+		SandboxPolicy:    cloneJSONCompatibleValue(session.defaultSandboxPolicy),
+	}
+	if trimmed := strings.TrimSpace(config.WorkingDirectory); trimmed != "" {
+		merged.WorkingDirectory = trimmed
+	}
+	if trimmed := strings.TrimSpace(config.Title); trimmed != "" {
+		merged.Title = trimmed
+	}
+	if config.ApprovalPolicy != nil {
+		merged.ApprovalPolicy = cloneJSONCompatibleValue(config.ApprovalPolicy)
+	}
+	if config.SandboxPolicy != nil {
+		merged.SandboxPolicy = cloneJSONCompatibleValue(config.SandboxPolicy)
+	}
+	return merged
+}
+
+func (s *Session) respondApproval(requestID RequestID, decision string) error {
+	if !s.autoApproveRequests {
+		return s.respondWithError(requestID, jsonRPCMethodNotFound, "interactive approval is not supported in orchestrated sessions")
+	}
+	return s.respond(requestID, map[string]any{"decision": decision})
+}
+
+func (s *Session) respondToolRequestUserInput(requestID RequestID, raw json.RawMessage) error {
+	var params struct {
+		Questions []struct {
+			ID      string `json:"id"`
+			Options []struct {
+				Label string `json:"label"`
+			} `json:"options"`
+		} `json:"questions"`
+	}
+	if err := decodeParams(raw, &params); err != nil {
+		return fmt.Errorf("decode codex requestUserInput request: %w", err)
+	}
+
+	answers := make(map[string]map[string][]string, len(params.Questions))
+	for _, question := range params.Questions {
+		if strings.TrimSpace(question.ID) == "" {
+			continue
+		}
+		answer := defaultToolInputAnswer
+		if s.autoApproveRequests {
+			if label, ok := approvalOptionLabel(question.Options); ok {
+				answer = label
+			}
+		}
+		answers[question.ID] = map[string][]string{"answers": []string{answer}}
+	}
+	if len(answers) == 0 {
+		return s.respondWithError(requestID, jsonRPCMethodNotFound, "requestUserInput requires at least one question")
+	}
+	return s.respond(requestID, map[string]any{"answers": answers})
+}
+
+func approvalOptionLabel(options []struct {
+	Label string `json:"label"`
+}) (string, bool) {
+	for _, option := range options {
+		label := strings.TrimSpace(option.Label)
+		switch label {
+		case "Approve this Session", "Approve Once":
+			return label, true
+		}
+	}
+	for _, option := range options {
+		label := strings.TrimSpace(option.Label)
+		normalized := strings.ToLower(label)
+		if strings.HasPrefix(normalized, "approve") || strings.HasPrefix(normalized, "allow") {
+			return label, true
+		}
+	}
+	return "", false
+}
+
+func optionalString(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func optionalAbsolutePath(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	path, err := provider.ParseAbsolutePath(trimmed)
+	if err != nil {
+		return nil
+	}
+	clean := path.String()
+	return &clean
+}
+
+func approvalPolicyIsNever(value any) bool {
+	text, ok := value.(string)
+	return ok && strings.EqualFold(strings.TrimSpace(text), "never")
+}
+
+func cloneJSONCompatibleValue(value any) any {
+	if value == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return value
+	}
+	var decoded any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		return value
+	}
+	return decoded
 }
 
 func decodeParams(raw json.RawMessage, out any) error {

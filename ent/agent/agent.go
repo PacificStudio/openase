@@ -185,6 +185,7 @@ const (
 	RuntimePhaseNone      RuntimePhase = "none"
 	RuntimePhaseLaunching RuntimePhase = "launching"
 	RuntimePhaseReady     RuntimePhase = "ready"
+	RuntimePhaseExecuting RuntimePhase = "executing"
 	RuntimePhaseFailed    RuntimePhase = "failed"
 )
 
@@ -195,7 +196,7 @@ func (rp RuntimePhase) String() string {
 // RuntimePhaseValidator is a validator for the "runtime_phase" field enum values. It is called by the builders before save.
 func RuntimePhaseValidator(rp RuntimePhase) error {
 	switch rp {
-	case RuntimePhaseNone, RuntimePhaseLaunching, RuntimePhaseReady, RuntimePhaseFailed:
+	case RuntimePhaseNone, RuntimePhaseLaunching, RuntimePhaseReady, RuntimePhaseExecuting, RuntimePhaseFailed:
 		return nil
 	default:
 		return fmt.Errorf("agent: invalid enum value for runtime_phase field: %q", rp)
