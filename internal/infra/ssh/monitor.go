@@ -72,7 +72,7 @@ if [ -n "$codex_cmd" ]; then
   if [ -n "${OPENAI_API_KEY:-}" ]; then
     codex_auth=unknown
     codex_auth_mode=api_key
-  elif "$codex_cmd" login status 2>/dev/null | grep -q '^Logged in'; then
+  elif "$codex_cmd" login status 2>&1 | grep -q 'Logged in'; then
     codex_auth=logged_in
     codex_auth_mode=login
   else
