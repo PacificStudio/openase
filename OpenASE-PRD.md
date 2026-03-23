@@ -1259,6 +1259,25 @@ ticket_hooks:
 - **session_id = `<thread_id>-<turn_id>`**：每个 Turn 有独立 ID，用于追踪和日志
 - **Stall 检测**：5 分钟无 Agent 事件 → Kill 子进程 → 退避后重新启动新子进程
 
+**必须补充的 Symphony 级运行语义：**
+
+- **Start Session 只做一次**
+  - `initialize -> initialized -> thread/start`
+  - 在同一个 worker 生命周期内只创建一个 thread
+- **Run Turn 可多次**
+  - `turn/start` 在同一个 thread 上反复调用
+  - 每完成一轮 turn，都要去 tracker 重新读取该工单的最新状态
+- **正常退出不等于工单完成**
+  - turn 正常完成后，如果工单仍在 active state，调度器应在 1 秒后安排 continuation retry
+  - 只有工单离开 active state、进入 terminal state，或 hit `max_turns` 后由上层接管，才算本次 worker 生命周期真正结束
+- **max_turns 是单次 worker 生命周期上限**
+  - 达到上限后并不是直接 finish ticket
+  - 而是把控制权交回 orchestrator，由 orchestrator 决定是否继续下一次 agent run
+- **Turn 间上下文来源有且仅有两个**
+  - Codex thread 历史
+  - 当前 issue workspace / workpad / tracker 最新状态
+  - 不应该在 continuation turn 中重复拼接整份原始 Prompt
+
 ### 8.7 与 Agent CLI 内部 Hook 的关系
 
 | 层面 | Hook 来源 | 控制范围 |
@@ -1416,6 +1435,60 @@ Trace: ticket/ASE-42
 5. **并发检查**：检查全局并发位和每 Workflow 并发位
 6. **分发执行**：创建/复用工作区，注入 Harness Prompt，通过适配器启动 Agent
 
+#### 10.1.1 Symphony 风格运行中工单对账细则
+
+OpenASE 的“对账”不能只做黑盒心跳检查，而应该像 Symphony 一样维护一份**单一 authoritative in-memory runtime state**，并在每个 Tick 对这份状态做三类 reconciliation：
+
+1. **Stall 对账**
+   - 对每个 running worker 记录：
+     - `started_at`
+     - `last_codex_timestamp`
+     - `last_codex_event`
+     - `session_id`
+     - `turn_count`
+   - `last_codex_timestamp` 优先取最近一条 Codex 事件时间；若尚无事件，则回退到 `started_at`
+   - 若 `now - last_codex_timestamp > codex.stall_timeout_ms`
+     - 立即 terminate worker / Codex subprocess
+     - 保留工作区
+     - 按异常退出进入 retry backoff
+
+2. **Tracker 状态对账**
+   - 批量抓取所有 running issue 的最新状态：`fetch_issue_states_by_ids(running_ids)`
+   - 对每个 issue：
+     - 若已进入 terminal state：停止 worker，释放 claim，清理该 issue 对应工作区
+     - 若已不再路由给当前 worker（例如 assignee 改变）：停止 worker，释放 claim，但不强制清理工作区
+     - 若仍在 active state：仅刷新内存中的 issue snapshot，供下一轮 continuation / retry 使用
+     - 若离开 active state 但未进入 terminal state：停止 worker，释放 claim，不触发完成流程
+
+3. **运行时事实对账**
+   - worker `:DOWN` / subprocess exit 并不等于工单完成
+   - 正常退出时：
+     - 先记录本次 session 的 completion totals（尤其是 runtime 秒数）
+     - 再重新检查 issue 是否仍处于 active state
+     - 若 issue 仍 active，则走 1 秒 continuation retry，而不是直接 finish
+   - 异常退出时：
+     - 进入指数退避重试
+     - 记录最近错误原因到 runtime state / activity / SSE
+
+#### 10.1.2 分发前再验证（Revalidate Before Dispatch）
+
+Symphony 的一个关键经验是：**候选工单列表不是最终真相，dispatch 前必须二次确认**。
+
+OpenASE 在真正 claim + launch 前应执行：
+
+1. 从候选集中选出 issue/ticket
+2. 按 `priority -> created_at -> identifier` 排序
+3. 检查分发门槛：
+   - 未被 claim
+   - 当前不在 running map
+   - 全局并发未满
+   - per-workflow / per-state 并发未满
+   - `Todo` 工单若存在 `blocked_by` 且 blocker 未终态，则不可分发
+4. 在 dispatch 前再次通过仓储/API 获取该工单最新状态
+   - 若状态已变化、依赖已变化、工单已不可见，则直接放弃本次 dispatch
+
+这一步的目标是避免“扫描时可执行、真正领取时已过期”的 stale dispatch。
+
 ### 10.2 重试策略
 
 | 场景 | 退避策略 | 说明 |
@@ -1494,16 +1567,208 @@ claude -p "{{harness_prompt}}" \
 
 ### 11.3 Codex 适配器
 
-保留 Symphony 原生的 JSON-RPC over stdio 协议：
+OpenASE 的 Codex 适配器应直接采用 Symphony 已验证的 **stdio request/response + notification** 模式，而不是只抽象成一个“SendPrompt 后等待结果”的黑盒。
+
+#### 11.3.1 Session / Thread / Turn 三层模型
+
+- **Session**
+  - 对应一个长期存活的 Codex app-server 子进程
+  - 进程只在一个工单的一次 worker 生命周期内复用
+- **Thread**
+  - 通过 `thread/start` 创建
+  - 一个工单的一次 worker 运行中，多个 turn 复用同一个 `thread_id`
+- **Turn**
+  - 每次 `turn/start` 都会生成新的 `turn_id`
+  - `session_id = <thread_id>-<turn_id>`
+  - `turn_count` 在同一个 worker 生命周期内递增
+
+#### 11.3.2 启动握手（参考 Symphony `Codex.AppServer`）
+
+1. `initialize`
+   - `clientInfo.name/version/title`
+   - `capabilities.experimentalApi = true`
+2. 等待 `initialize` response（按 request id 匹配）
+3. 发送 `initialized`
+4. `thread/start`
+   - `cwd`
+   - `approvalPolicy`
+   - `sandbox`
+   - `dynamicTools`
+5. 等待 `thread/start` response，提取 `thread.id`
+
+**工程要求：**
+
+- 等待 response 时，必须允许并忽略无关 notification / 日志行，不能因为先收到别的消息就报错
+- 非 JSON 行只能记日志，不能中断会话
+- response 识别必须基于 request id，而不是基于方法名猜测
+
+#### 11.3.3 Turn 发送 Prompt 的标准方式
+
+每个 turn 通过 `turn/start` 发送：
+
+- `threadId`
+- `input: [{type: "text", text: prompt}]`
+- `cwd`
+- `title`
+- `approvalPolicy`
+- `sandboxPolicy`
+
+其中：
+
+- **Turn 1**
+  - 发送完整 Harness Prompt
+  - 包含 ticket 描述、仓库信息、边界、验收标准、当前 attempt
+- **Turn 2+**
+  - 不重发原始完整 prompt
+  - 只发送 continuation guidance
+  - 明确告诉 Agent：当前 thread 已保留上下文，应从当前 workspace/workpad 继续
+
+这点是 Symphony 的核心经验：**多 turn 续跑依赖 thread 复用，而不是把同一任务重复 prompt 一遍。**
+
+#### 11.3.4 OpenASE 必须支持的 Codex 通知/请求
 
 | 方法 | 方向 | 说明 |
 |------|------|------|
-| initialize | OpenASE → Codex | 初始化连接 |
-| threadStart | OpenASE → Codex | 创建新会话 |
-| turnStart | OpenASE → Codex | 发送 Prompt |
-| toolCallRequest | Codex → OpenASE | 请求执行工具 |
-| toolCallResult | OpenASE → Codex | 返回工具结果 |
-| turnCompleted | Codex → OpenASE | Turn 完成 |
+| `initialize` | OpenASE → Codex | 初始化连接 |
+| `initialized` | OpenASE → Codex | 握手完成通知 |
+| `thread/start` | OpenASE → Codex | 创建 thread |
+| `turn/start` | OpenASE → Codex | 发起 turn |
+| `item/tool/call` | Codex → OpenASE | 动态工具调用请求 |
+| `item/commandExecution/requestApproval` | Codex → OpenASE | 命令执行审批 |
+| `item/fileChange/requestApproval` | Codex → OpenASE | 文件修改审批 |
+| `item/tool/requestUserInput` | Codex → OpenASE | 请求交互式用户输入 |
+| `thread/tokenUsage/updated` | Codex → OpenASE | 线程级 token usage 流 |
+| `turn/completed` | Codex → OpenASE | turn 正常完成 |
+| `turn/failed` | Codex → OpenASE | turn 失败 |
+| `turn/cancelled` | Codex → OpenASE | turn 被取消 |
+
+#### 11.3.5 审批与非交互模式
+
+Symphony 的经验可以直接迁移到 OpenASE：
+
+- 当 `approval_policy == "never"` 时
+  - 对 approval request 自动回 `acceptForSession` / `approved_for_session`
+  - 对 `item/tool/requestUserInput` 优先自动选择批准选项
+- 当不是无人值守模式时
+  - OpenASE 可以把 approval request 挂到自己的 Approval Center
+  - 但在 worker 内部必须把该 turn 标记为 blocked / awaiting approval，而不是继续假跑
+- 若当前会话明确是 non-interactive 且无法获得人工输入
+  - 应返回标准化的“operator unavailable”答案，而不是无限等待
+
+#### 11.3.6 Token 对账规则（必须遵守）
+
+OpenASE 应采用 Symphony 已文档化的 token accounting 规则：
+
+- **优先使用绝对累计值**
+  - `thread/tokenUsage/updated.params.tokenUsage.total`
+  - 或 Codex 核心事件里的 `total_token_usage`
+- **不要把 `turn/completed.usage` 当作可无脑累加的总量**
+  - 它是 event-specific usage，不一定等于线程累计总量
+- **按 thread 维护高水位**
+  - `delta = next_total - prev_reported_total`
+  - 只在高水位前进时累计
+- **session 完成时**
+  - 只补录 `seconds_running`
+  - 不再重复加 token，避免 double count
+
+#### 11.3.7 弥补当前实现缺口的最小落地方案
+
+基于当前 OpenASE 代码现状，真正缺失的不是“能否拉起 Codex session”，而是以下三段链路尚未闭合：
+
+1. `scheduler -> runtimeLauncher`
+   - 目前只做到 claim ticket、启动 app-server、得到 `thread_id`
+2. `runtime ready -> start turn`
+   - 目前还没有真正的 ticket runner 去调用 `SendPrompt` / `turn/start`
+3. `turn finished -> reconcile -> continuation / finish / retry`
+   - 目前没有把 turn 结果收敛回 ticket / agent lifecycle
+
+因此建议按下面的**最小可实施架构**补齐：
+
+- **新增 `AgentRunner` 组件**
+  - 放在 orchestrator 层
+  - 输入：`running + runtime_phase=ready + current_ticket_id != nil` 的 agent
+  - 职责：
+    - 为该 agent 找到已经启动好的 session
+    - 生成本轮 prompt
+    - 调用 `session.SendPrompt(...)`
+    - 消费 `session.Events()`，直到 `turn/completed` / `turn_failed`
+    - turn 结束后重新读取 ticket 最新状态并决定下一步
+
+- **把 orchestrator 主循环改成四段**
+  - `healthChecker`
+  - `machineMonitor`
+  - `scheduler`
+  - `runtimeLauncher`
+  - `agentRunner`
+
+- **首轮 prompt 与续跑 prompt 分离**
+  - Turn 1：
+    - 直接复用 `workflow.BuildHarnessTemplateData + RenderHarnessBody`
+    - 这是 OpenASE 已有的 full prompt source of truth
+  - Turn 2+：
+    - 使用固定 continuation builder
+    - 输入至少包括：
+      - `turn_number`
+      - `max_turns`
+      - `last_error`
+      - `ticket.attempt_count`
+      - `ticket.status`
+    - 只补“继续做什么 / 上一轮为什么没结束”，不重发整份 harness
+
+- **最小 runtime phase 扩展**
+  - 当前仅有 `none / launching / ready / failed`
+  - 至少补成：
+    - `none`
+    - `launching`
+    - `ready`
+    - `executing`
+    - `failed`
+  - `executing` 表示“已有 turn 在跑”，避免同一 session 被并发 `turn/start`
+
+- **事件驱动心跳替代定时假心跳**
+  - 当前 `refreshHeartbeats()` 会为 `ready` agent 定时写 heartbeat，这只能证明 orchestrator 进程活着，不能证明 Codex turn 仍在推进
+  - 修正方式：
+    - 任何 Codex notification / tool call / token update / turn event 到达时，都更新 `last_heartbeat_at`
+    - stall 检测优先使用最后一条 Codex 事件时间
+    - 定时补心跳只能作为兜底，不能作为 stall 真相来源
+
+- **Turn 完成后的状态收敛规则**
+  - `turn/completed`
+    - 重新加载 ticket + workflow
+    - 若 ticket 已离开 pickup/active state：
+      - 停止 continuation
+      - 释放或终止 session
+    - 若 ticket 仍 active 且 `turn_count < max_turns`：
+      - 直接在同一 session 上启动下一轮 continuation turn
+    - 若 ticket 仍 active 但 hit `max_turns`：
+      - 停止当前 worker 生命周期
+      - 保留 ticket 为 active
+      - 通过 retry/continuation 机制把控制权交回 orchestrator
+  - `turn_failed`
+    - 记录 `last_error`
+    - 停止 session
+    - 走 retry backoff
+
+- **最小 approval / tool / token 支持**
+  - Adapter 不能只识别 `item/tool/call`
+  - 还必须至少支持：
+    - `item/commandExecution/requestApproval`
+    - `item/fileChange/requestApproval`
+    - `item/tool/requestUserInput`
+    - `thread/tokenUsage/updated`
+  - MVP 阶段默认走无人值守：
+    - `approval_policy = never`
+    - 自动批准 approval request
+    - 对 request user input 返回标准化 unavailable answer
+
+- **最小 token 对账实现**
+  - 不要求首版就落完整成本中心，但至少要实现：
+    - 以内存 map 按 `thread_id` 记录 `prev_total`
+    - 收到 `thread/tokenUsage/updated.total` 时计算 delta
+    - delta 通过 `ticket.RecordUsage(...)` 入账
+    - turn 完成时不再额外重复加 token
+
+OpenASE 第一阶段不要试图一次补完 Approval Center、Hook Gate、复杂 pause/resume。只要先把“真实 turn 能跑起来、能连续、能失败重试、不会重复记账”这四件事做扎实，链路就会从 `runtime ready` 变成真正可执行。
 
 ### 11.4 Gemini CLI 适配器
 
@@ -3670,6 +3935,68 @@ func (s *Scheduler) runWorker(ctx context.Context, t *ticket.Ticket, agent *agen
     }
 }
 ```
+
+**修订：OpenASE 应按 Symphony 的 AgentRunner 模式落地，而不是停留在上面这个“单 Turn worker”简化版。**
+
+更接近目标实现的伪代码应是：
+
+```go
+// runtime/agent_runner.go
+func (r *AgentRunner) Run(ctx context.Context, ticket *ticket.Ticket, agent *agent.Agent) error {
+    workspace, err := r.workspaceMgr.Setup(ctx, ticket)
+    if err != nil {
+        return err
+    }
+    defer r.workspaceMgr.AfterRun(ctx, workspace, ticket)
+
+    session, err := r.adapter.Start(ctx, agent.Config())
+    if err != nil {
+        return err
+    }
+    defer r.adapter.Stop(ctx, session)
+
+    for turnNumber := 1; turnNumber <= cfg.Agent.MaxTurns; turnNumber++ {
+        prompt := r.buildTurnPrompt(ticket, turnNumber)
+
+        turn, err := r.adapter.StartTurn(ctx, session, StartTurnInput{
+            Prompt:          prompt,
+            Workspace:       workspace.Path,
+            ApprovalPolicy:  cfg.Codex.ApprovalPolicy,
+            SandboxPolicy:   cfg.Codex.TurnSandboxPolicy,
+            DisplayTitle:    fmt.Sprintf("%s: %s", ticket.Identifier, ticket.Title),
+        })
+        if err != nil {
+            return err
+        }
+
+        for event := range turn.Events {
+            r.runtimeRepo.UpdateHeartbeat(ctx, agent.ID, event.Timestamp)
+            r.runtimeRepo.IntegrateCodexEvent(ctx, agent.ID, session.ThreadID, turn.ID, event)
+            r.eventBus.Publish(ctx, "agent.events", event)
+        }
+
+        refreshed, err := r.ticketRepo.RefreshState(ctx, ticket.ID)
+        if err != nil {
+            return err
+        }
+        ticket = refreshed
+
+        if !ticket.IsActiveState() {
+            return nil
+        }
+    }
+
+    // hit max_turns: 把控制权交回 orchestrator，稍后由 continuation retry 再决定是否续跑
+    return nil
+}
+```
+
+这个修订版有 4 个必须保留的行为：
+
+1. `Start()` 与 `thread/start` 只做一次，整个 worker 生命周期复用同一个 thread
+2. `StartTurn()` 在同一 thread 上多次调用，每轮 turn 后重新读取 ticket 最新状态
+3. continuation turn 只发续接 guidance，不重发完整原始 prompt
+4. `max_turns` 命中后不自动判定 ticket 完成，而是把控制权交回 orchestrator
 
 **通知方式：**
 - `on_claim` Hook 失败 → `EventProvider.Publish("ticket.events", HookFailedEvent)` → SSE → 前端显示"领取失败"
