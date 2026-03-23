@@ -76,7 +76,7 @@
   function formatAuthor(value: string) {
     const normalized = value.trim()
     if (!normalized) return 'Unknown'
-    return normalized.includes(':') ? normalized.split(':').at(-1) ?? normalized : normalized
+    return normalized.includes(':') ? (normalized.split(':').at(-1) ?? normalized) : normalized
   }
 
   $effect(() => {
@@ -106,7 +106,11 @@
         disabled={creatingComment}
       />
       <div class="flex justify-end">
-        <Button size="sm" onclick={handleCreateComment} disabled={!composerBody.trim() || creatingComment}>
+        <Button
+          size="sm"
+          onclick={handleCreateComment}
+          disabled={!composerBody.trim() || creatingComment}
+        >
           {creatingComment ? 'Posting…' : 'Comment'}
         </Button>
       </div>
@@ -119,13 +123,15 @@
     </div>
 
     {#if comments.length === 0}
-      <div class="border-border bg-muted/10 rounded-lg border px-4 py-6 text-center text-xs text-muted-foreground">
+      <div
+        class="border-border bg-muted/10 text-muted-foreground rounded-lg border px-4 py-6 text-center text-xs"
+      >
         No comments yet
       </div>
     {/if}
 
     {#each comments as comment}
-      <article class="border-border rounded-lg border bg-background">
+      <article class="border-border bg-background rounded-lg border">
         <div class="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
           <div class="min-w-0">
             <div class="truncate text-sm font-medium">{formatAuthor(comment.createdBy)}</div>
@@ -164,7 +170,11 @@
         <div class="px-4 py-4">
           {#if editingCommentId === comment.id}
             <div class="space-y-3">
-              <Textarea rows={6} bind:value={editingBody} disabled={updatingCommentId === comment.id} />
+              <Textarea
+                rows={6}
+                bind:value={editingBody}
+                disabled={updatingCommentId === comment.id}
+              />
               <div class="flex justify-end gap-2">
                 <Button
                   size="sm"
@@ -191,9 +201,5 @@
     {/each}
   </section>
 
-  <TicketActivityList
-    {activities}
-    label="System Activity"
-    emptyText="No system activity yet"
-  />
+  <TicketActivityList {activities} label="System Activity" emptyText="No system activity yet" />
 </div>

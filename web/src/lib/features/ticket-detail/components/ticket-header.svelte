@@ -175,7 +175,8 @@
       <Select.Trigger
         class="h-7 rounded-full border px-3 py-0 text-xs font-medium shadow-none"
         disabled={savingFields}
-        style="background-color: {ticket.status.color}20; color: {ticket.status.color}; border-color: {ticket.status.color}30"
+        style="background-color: {ticket.status.color}20; color: {ticket.status
+          .color}; border-color: {ticket.status.color}30"
       >
         {savingFields ? 'Saving…' : ticket.status.name}
       </Select.Trigger>

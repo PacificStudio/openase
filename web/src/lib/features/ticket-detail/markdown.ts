@@ -109,7 +109,11 @@ function sanitizeHref(rawHref: string | null) {
 
   try {
     const parsed = new URL(href, window.location.origin)
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'mailto:') {
+    if (
+      parsed.protocol === 'http:' ||
+      parsed.protocol === 'https:' ||
+      parsed.protocol === 'mailto:'
+    ) {
       return href
     }
   } catch {

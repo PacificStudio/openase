@@ -298,7 +298,9 @@ export function updateTicketComment(
 }
 
 export function deleteTicketComment(ticketId: string, commentId: string) {
-  return api.delete<TicketCommentDeleteResponse>(`/api/v1/tickets/${ticketId}/comments/${commentId}`)
+  return api.delete<TicketCommentDeleteResponse>(
+    `/api/v1/tickets/${ticketId}/comments/${commentId}`,
+  )
 }
 
 export function addTicketDependency(

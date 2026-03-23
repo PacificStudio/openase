@@ -11,7 +11,7 @@
   import { cn, formatCurrency, formatRelativeTime } from '$lib/utils'
   import TicketDependencies from './ticket-dependencies.svelte'
   import TicketFieldEditor from './ticket-field-editor.svelte'
-  import type { TicketDetail, TicketReferenceOption, TicketStatusOption } from '../types'
+  import type { TicketDetail, TicketReferenceOption } from '../types'
 
   let {
     ticket,

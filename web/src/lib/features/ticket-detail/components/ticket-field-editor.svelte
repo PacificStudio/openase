@@ -14,15 +14,8 @@
     onSave?: (draft: { title: string; description: string; statusId: string }) => void
   } = $props()
 
-  let descriptionDraft = $state('')
-
-  const fieldsDirty = $derived.by(
-    () => descriptionDraft.trim() !== ticket.description,
-  )
-
-  $effect(() => {
-    descriptionDraft = ticket.description
-  })
+  let descriptionDraft = $derived(ticket.description)
+  const fieldsDirty = $derived(descriptionDraft.trim() !== ticket.description)
 
   function handleSave() {
     onSave?.({

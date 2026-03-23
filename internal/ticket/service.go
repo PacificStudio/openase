@@ -763,7 +763,7 @@ func (s *Service) AddComment(ctx context.Context, input AddCommentInput) (Commen
 		return Comment{}, fmt.Errorf("commit create ticket comment tx: %w", err)
 	}
 
-	return mapComment(commentItem)
+	return mapComment(commentItem), nil
 }
 
 // UpdateComment updates an existing ticket discussion comment.
@@ -812,7 +812,7 @@ func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (
 		return Comment{}, fmt.Errorf("commit update ticket comment tx: %w", err)
 	}
 
-	return mapComment(updated)
+	return mapComment(updated), nil
 }
 
 // RemoveComment deletes a ticket discussion comment.
@@ -1187,13 +1187,13 @@ func resolveCommentCreatedBy(raw string) string {
 	return strings.TrimSpace(raw)
 }
 
-func mapComment(item *ent.ActivityEvent) (comment Comment, err error) {
+func mapComment(item *ent.ActivityEvent) Comment {
 	ticketID := uuid.Nil
 	if item.TicketID != nil {
 		ticketID = *item.TicketID
 	}
 
-	comment = Comment{
+	comment := Comment{
 		ID:        item.ID,
 		ProjectID: item.ProjectID,
 		TicketID:  ticketID,
@@ -1205,7 +1205,7 @@ func mapComment(item *ent.ActivityEvent) (comment Comment, err error) {
 		comment.UpdatedAt = &updatedAt
 	}
 
-	return comment, nil
+	return comment
 }
 
 func commentCreatedBy(metadata map[string]any) string {

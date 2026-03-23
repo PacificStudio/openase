@@ -1,21 +1,22 @@
 <script lang="ts">
-  import { ApiError } from '$lib/api/client'
   import { appStore } from '$lib/stores/app.svelte'
   import {
     addTicketDependency,
-    createTicketComment,
     createTicketRepoScope,
-    deleteTicketComment,
     deleteTicketDependency,
     deleteTicketRepoScope,
-    updateTicketComment,
     updateTicket,
     updateTicketRepoScope,
   } from '$lib/api/openase'
+  import {
+    handleCreateTicketComment,
+    handleDeleteTicketComment,
+    handleUpdateTicketComment,
+  } from '../drawer-comment-actions'
   import { statusSync } from '$lib/features/statuses/public'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import { createTicketDrawerState } from '../drawer-state.svelte'
-  import { runOptimisticTicketMutation } from '../optimistic'
+  import { runTicketDrawerMutation } from '../drawer-mutation'
   import {
     buildAddDependencyMutation,
     buildDeleteDependencyMutation,
@@ -49,6 +50,21 @@
   } = $props()
 
   const drawerState = createTicketDrawerState()
+
+  function buildDrawerMutation(ticket: TicketDetail) {
+    return {
+      ticket,
+      projectId,
+      ticketId,
+      load: drawerState.load,
+      applyTicket: (nextTicket: TicketDetail) => {
+        drawerState.ticket = nextTicket
+      },
+      clearMessages: drawerState.clearMutationMessages,
+      setError: drawerState.setMutationError,
+      setNotice: drawerState.setMutationNotice,
+    }
+  }
 
   $effect(() => {
     onOpenChange?.(open)
@@ -90,7 +106,8 @@
       return drawerState.setMutationNotice('No ticket field changes to save.')
     }
 
-    await runMutation({
+    await runTicketDrawerMutation({
+      ...buildDrawerMutation(ticket),
       start: () => {
         drawerState.savingFields = true
       },
@@ -110,7 +127,8 @@
     const mutation = buildAddDependencyMutation(ticket, drawerState.dependencyCandidates, draft)
     if (!mutation.ok) return drawerState.setMutationError(mutation.error)
 
-    await runMutation({
+    await runTicketDrawerMutation({
+      ...buildDrawerMutation(ticket),
       start: () => {
         drawerState.creatingDependency = true
       },
@@ -130,7 +148,8 @@
     const mutation = buildDeleteDependencyMutation(ticket, dependencyId)
     if (!mutation.ok) return drawerState.setMutationError(mutation.error)
 
-    await runMutation({
+    await runTicketDrawerMutation({
+      ...buildDrawerMutation(ticket),
       start: () => {
         drawerState.deletingDependencyId = dependencyId
       },
@@ -150,7 +169,8 @@
     const mutation = buildCreateRepoScopeMutation(drawerState.repoOptions, draft)
     if (!mutation.ok) return drawerState.setMutationError(mutation.error)
 
-    await runMutation({
+    await runTicketDrawerMutation({
+      ...buildDrawerMutation(ticket),
       start: () => {
         drawerState.creatingRepoScope = true
       },
@@ -176,7 +196,8 @@
     const mutation = buildUpdateRepoScopeMutation(ticket, scopeId, draft)
     if (!mutation.ok) return drawerState.setMutationError(mutation.error)
 
-    await runMutation({
+    await runTicketDrawerMutation({
+      ...buildDrawerMutation(ticket),
       start: () => {
         drawerState.updatingRepoScopeId = scopeId
       },
@@ -196,7 +217,8 @@
     const mutation = buildDeleteRepoScopeMutation(ticket, scopeId)
     if (!mutation.ok) return drawerState.setMutationError(mutation.error)
 
-    await runMutation({
+    await runTicketDrawerMutation({
+      ...buildDrawerMutation(ticket),
       start: () => {
         drawerState.deletingRepoScopeId = scopeId
       },
@@ -210,111 +232,15 @@
   }
 
   async function handleCreateComment(body: string) {
-    if (!projectId || !ticketId) return false
-
-    drawerState.creatingComment = true
-    drawerState.clearMutationMessages()
-
-    try {
-      await createTicketComment(ticketId, { body })
-      drawerState.setMutationNotice('Comment added.')
-      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
-      return true
-    } catch (caughtError) {
-      drawerState.setMutationError(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.',
-      )
-      return false
-    } finally {
-      drawerState.creatingComment = false
-    }
+    return handleCreateTicketComment({ projectId, ticketId, drawerState, body })
   }
 
   async function handleUpdateComment(commentId: string, body: string) {
-    if (!projectId || !ticketId) return false
-
-    drawerState.updatingCommentId = commentId
-    drawerState.clearMutationMessages()
-
-    try {
-      await updateTicketComment(ticketId, commentId, { body })
-      drawerState.setMutationNotice('Comment updated.')
-      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
-      return true
-    } catch (caughtError) {
-      drawerState.setMutationError(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update comment.',
-      )
-      return false
-    } finally {
-      drawerState.updatingCommentId = null
-    }
+    return handleUpdateTicketComment({ projectId, ticketId, drawerState, commentId, body })
   }
 
   async function handleDeleteComment(commentId: string) {
-    if (!projectId || !ticketId) return false
-
-    drawerState.deletingCommentId = commentId
-    drawerState.clearMutationMessages()
-
-    try {
-      const previousComments = drawerState.comments
-      drawerState.comments = previousComments.filter((comment) => comment.id !== commentId)
-      await deleteTicketComment(ticketId, commentId)
-      drawerState.setMutationNotice('Comment deleted.')
-      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
-      return true
-    } catch (caughtError) {
-      drawerState.setMutationError(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
-      )
-      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
-      return false
-    } finally {
-      drawerState.deletingCommentId = null
-    }
-  }
-
-  async function runMutation({
-    start,
-    finish,
-    optimisticUpdate,
-    mutate,
-    successMessage,
-  }: {
-    start?: () => void
-    finish?: () => void
-    optimisticUpdate: (currentTicket: TicketDetail) => TicketDetail
-    mutate: () => Promise<unknown>
-    successMessage: string
-  }) {
-    const ticket = drawerState.ticket
-    if (!ticket || !projectId || !ticketId) return
-
-    start?.()
-
-    try {
-      await runOptimisticTicketMutation({
-        ticket,
-        optimisticUpdate,
-        mutate,
-        reload: () =>
-          drawerState.load(projectId, ticketId, { background: true, preserveMessages: true }),
-        applyTicket: (nextTicket) => {
-          drawerState.ticket = nextTicket
-        },
-        clearMessages: drawerState.clearMutationMessages,
-        setError: drawerState.setMutationError,
-        setNotice: drawerState.setMutationNotice,
-        successMessage,
-      })
-    } finally {
-      finish?.()
-    }
-  }
-
-  function handleClose() {
-    appStore.closeRightPanel()
+    return handleDeleteTicketComment({ projectId, ticketId, drawerState, commentId })
   }
 </script>
 
@@ -355,7 +281,7 @@
         creatingComment={drawerState.creatingComment}
         updatingCommentId={drawerState.updatingCommentId}
         deletingCommentId={drawerState.deletingCommentId}
-        onClose={handleClose}
+        onClose={appStore.closeRightPanel}
         onSaveFields={handleSaveFields}
         onAddDependency={handleAddDependency}
         onDeleteDependency={handleDeleteDependency}
