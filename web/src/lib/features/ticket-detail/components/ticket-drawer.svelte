@@ -2,20 +2,16 @@
   import { appStore } from '$lib/stores/app.svelte'
   import {
     addTicketDependency,
-    createTicketComment,
     createTicketRepoScope,
-    deleteTicketComment,
     deleteTicketDependency,
     deleteTicketRepoScope,
     updateTicket,
-    updateTicketComment,
     updateTicketRepoScope,
   } from '$lib/api/openase'
-  import { ApiError } from '$lib/api/client'
+  import { runTicketDrawerMutation } from '../drawer-mutations'
+  import { createTicketCommentHandlers } from '../comment-mutations'
   import { statusSync } from '$lib/features/statuses/public'
-  import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import { createTicketDrawerState } from '../drawer-state.svelte'
-  import { runOptimisticTicketMutation } from '../optimistic'
   import {
     buildAddDependencyMutation,
     buildDeleteDependencyMutation,
@@ -35,6 +31,7 @@
   } from '../mutation-shared'
   import { connectTicketDetailStreams } from '../streams'
   import TicketDrawerContent from './ticket-drawer-content.svelte'
+  import TicketDrawerShell from './ticket-drawer-shell.svelte'
   import type { TicketDetail } from '../types'
   let {
     open = $bindable(false),
@@ -49,6 +46,24 @@
   } = $props()
 
   const drawerState = createTicketDrawerState()
+  async function reloadDetail(activeProjectId: string, activeTicketId: string) {
+    await drawerState.load(activeProjectId, activeTicketId, {
+      background: true,
+      preserveMessages: true,
+    })
+  }
+
+  const commentHandlers = createTicketCommentHandlers({
+    getProjectId: () => projectId,
+    getTicketId: () => ticketId,
+    reload: reloadDetail,
+    clearMessages: drawerState.clearMutationMessages,
+    setError: drawerState.setMutationError,
+    setNotice: drawerState.setMutationNotice,
+    setCreatingComment: (value) => (drawerState.creatingComment = value),
+    setUpdatingCommentId: (value) => (drawerState.updatingCommentId = value),
+    setDeletingCommentId: (value) => (drawerState.deletingCommentId = value),
+  })
 
   $effect(() => {
     onOpenChange?.(open)
@@ -73,10 +88,7 @@
     }
 
     return connectTicketDetailStreams(projectId, ticketId, () => {
-      void drawerState.load(projectId, ticketId, {
-        background: true,
-        preserveMessages: true,
-      })
+      void reloadDetail(projectId, ticketId)
     })
   })
 
@@ -141,63 +153,6 @@
       mutate: () => deleteTicketDependency(ticketId, dependencyId),
       successMessage: mutation.value.successMessage,
     })
-  }
-
-  async function handleCreateComment(draft: { body: string }) {
-    if (!projectId || !ticketId) return
-
-    drawerState.creatingComment = true
-    drawerState.clearMutationMessages()
-
-    try {
-      await createTicketComment(ticketId, { body: draft.body })
-      drawerState.setMutationNotice('Comment added.')
-      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
-    } catch (caughtError) {
-      drawerState.setMutationError(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.',
-      )
-    } finally {
-      drawerState.creatingComment = false
-    }
-  }
-
-  async function handleUpdateComment(commentId: string, draft: { body: string }) {
-    if (!projectId || !ticketId) return
-
-    drawerState.updatingCommentId = commentId
-    drawerState.clearMutationMessages()
-
-    try {
-      await updateTicketComment(ticketId, commentId, { body: draft.body })
-      drawerState.setMutationNotice('Comment updated.')
-      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
-    } catch (caughtError) {
-      drawerState.setMutationError(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update comment.',
-      )
-    } finally {
-      drawerState.updatingCommentId = null
-    }
-  }
-
-  async function handleDeleteComment(commentId: string) {
-    if (!projectId || !ticketId) return
-
-    drawerState.deletingCommentId = commentId
-    drawerState.clearMutationMessages()
-
-    try {
-      await deleteTicketComment(ticketId, commentId)
-      drawerState.setMutationNotice('Comment deleted.')
-      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
-    } catch (caughtError) {
-      drawerState.setMutationError(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
-      )
-    } finally {
-      drawerState.deletingCommentId = null
-    }
   }
 
   async function handleCreateRepoScope(draft: RepoScopeDraft) {
@@ -282,81 +237,58 @@
     const ticket = drawerState.ticket
     if (!ticket || !projectId || !ticketId) return
 
-    start?.()
-
-    try {
-      await runOptimisticTicketMutation({
-        ticket,
-        optimisticUpdate,
-        mutate,
-        reload: () =>
-          drawerState.load(projectId, ticketId, { background: true, preserveMessages: true }),
-        applyTicket: (nextTicket) => {
-          drawerState.ticket = nextTicket
-        },
-        clearMessages: drawerState.clearMutationMessages,
-        setError: drawerState.setMutationError,
-        setNotice: drawerState.setMutationNotice,
-        successMessage,
-      })
-    } finally {
-      finish?.()
-    }
-  }
-
-  function handleClose() {
-    appStore.closeRightPanel()
+    await runTicketDrawerMutation({
+      ticket,
+      optimisticUpdate,
+      mutate,
+      reload: () => reloadDetail(projectId, ticketId),
+      applyTicket: (nextTicket) => (drawerState.ticket = nextTicket),
+      clearMessages: drawerState.clearMutationMessages,
+      setError: drawerState.setMutationError,
+      setNotice: drawerState.setMutationNotice,
+      successMessage,
+      start,
+      finish,
+    })
   }
 </script>
 
-<Sheet bind:open>
-  <SheetContent side="right" class="flex w-full flex-col p-0 sm:max-w-xl" showCloseButton={false}>
-    <SheetHeader class="sr-only">
-      <SheetTitle>{drawerState.ticket?.identifier ?? 'Ticket detail'}</SheetTitle>
-      <SheetDescription>Ticket detail drawer</SheetDescription>
-    </SheetHeader>
-
-    {#if drawerState.loading}
-      <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-        Loading ticket detail…
-      </div>
-    {:else if drawerState.error}
-      <div
-        class="text-destructive flex flex-1 items-center justify-center px-6 text-center text-sm"
-      >
-        {drawerState.error}
-      </div>
-    {:else if drawerState.ticket}
-      <TicketDrawerContent
-        ticket={drawerState.ticket}
-        hooks={drawerState.hooks}
-        activities={drawerState.activities}
-        comments={drawerState.comments}
-        statuses={drawerState.statuses}
-        dependencyCandidates={drawerState.dependencyCandidates}
-        repoOptions={drawerState.repoOptions}
-        mutationError={drawerState.mutationError}
-        mutationNotice={drawerState.mutationNotice}
-        savingFields={drawerState.savingFields}
-        creatingDependency={drawerState.creatingDependency}
-        deletingDependencyId={drawerState.deletingDependencyId}
-        creatingComment={drawerState.creatingComment}
-        updatingCommentId={drawerState.updatingCommentId}
-        deletingCommentId={drawerState.deletingCommentId}
-        creatingRepoScope={drawerState.creatingRepoScope}
-        updatingRepoScopeId={drawerState.updatingRepoScopeId}
-        deletingRepoScopeId={drawerState.deletingRepoScopeId}
-        onClose={handleClose}
-        onSaveFields={handleSaveFields}
-        onAddDependency={handleAddDependency}
-        onDeleteDependency={handleDeleteDependency}
-        onCreateComment={handleCreateComment}
-        onUpdateComment={handleUpdateComment}
-        onDeleteComment={handleDeleteComment}
-        onCreateScope={handleCreateRepoScope}
-        onUpdateScope={handleUpdateRepoScope}
-        onDeleteScope={handleDeleteRepoScope}
-      />
-    {/if}
-  </SheetContent>
-</Sheet>
+<TicketDrawerShell
+  bind:open
+  title={drawerState.ticket?.identifier ?? 'Ticket detail'}
+  loading={drawerState.loading}
+  error={drawerState.error}
+>
+  {#if drawerState.ticket}
+    <TicketDrawerContent
+      ticket={drawerState.ticket}
+      hooks={drawerState.hooks}
+      activities={drawerState.activities}
+      comments={drawerState.comments}
+      statuses={drawerState.statuses}
+      dependencyCandidates={drawerState.dependencyCandidates}
+      repoOptions={drawerState.repoOptions}
+      mutationError={drawerState.mutationError}
+      mutationNotice={drawerState.mutationNotice}
+      savingFields={drawerState.savingFields}
+      creatingDependency={drawerState.creatingDependency}
+      deletingDependencyId={drawerState.deletingDependencyId}
+      creatingComment={drawerState.creatingComment}
+      updatingCommentId={drawerState.updatingCommentId}
+      deletingCommentId={drawerState.deletingCommentId}
+      creatingRepoScope={drawerState.creatingRepoScope}
+      updatingRepoScopeId={drawerState.updatingRepoScopeId}
+      deletingRepoScopeId={drawerState.deletingRepoScopeId}
+      onClose={() => appStore.closeRightPanel()}
+      onSaveFields={handleSaveFields}
+      onAddDependency={handleAddDependency}
+      onDeleteDependency={handleDeleteDependency}
+      onCreateComment={commentHandlers.create}
+      onUpdateComment={commentHandlers.update}
+      onDeleteComment={commentHandlers.delete}
+      onCreateScope={handleCreateRepoScope}
+      onUpdateScope={handleUpdateRepoScope}
+      onDeleteScope={handleDeleteRepoScope}
+    />
+  {/if}
+</TicketDrawerShell>

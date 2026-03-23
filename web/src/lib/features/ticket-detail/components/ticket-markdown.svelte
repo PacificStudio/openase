@@ -5,6 +5,8 @@
 </script>
 
 <div class="ticket-markdown text-sm leading-6 break-words">
+  <!-- Safe here because renderTicketCommentMarkdown escapes HTML and sanitizes links. -->
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   {@html renderTicketCommentMarkdown(body)}
 </div>
 
