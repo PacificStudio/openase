@@ -112,6 +112,7 @@
       variant={view === 'board' ? 'secondary' : 'ghost'}
       size="sm"
       class="h-7 rounded-r-none px-2"
+      aria-label="Board view"
       onclick={() => {
         view = 'board'
       }}
@@ -123,6 +124,7 @@
       size="sm"
       class="h-7 rounded-l-none px-2"
       disabled={!listEnabled}
+      aria-label="List view"
       title={listEnabled ? 'Switch to list view' : 'List view is not implemented yet'}
       onclick={() => {
         view = 'list'

@@ -1,9 +1,15 @@
-import type { Ticket, TicketStatus, Workflow } from '$lib/api/contracts'
+import type { ActivityEvent, Agent, Ticket, TicketStatus, Workflow } from '$lib/api/contracts'
 import type { BoardColumn, BoardFilter, BoardTicket } from './types'
 
 export type PendingTicketMove = {
   fromColumnId: string
   fromIndex: number
+}
+
+export type BoardData = {
+  columns: BoardColumn[]
+  workflowTypes: string[]
+  agentOptions: string[]
 }
 
 export function filterBoardColumns(columns: BoardColumn[], filter: BoardFilter): BoardColumn[] {
@@ -41,25 +47,29 @@ function matchesAnomalyFilter(ticket: BoardTicket, anomalyOnly: boolean | undefi
   return !anomalyOnly || !!ticket.anomaly
 }
 
-export function buildBoardColumns(
+export function buildBoardData(
   statuses: TicketStatus[],
   tickets: Ticket[],
   workflows: Workflow[],
-) {
+  agents: Agent[],
+  activity: ActivityEvent[],
+): BoardData {
   const workflowTypeById = new Map(workflows.map((workflow) => [workflow.id, workflow.type]))
+  const runtimeByTicketId = buildTicketRuntimeById(agents, activity)
 
-  return {
-    workflowTypes: Array.from(new Set(workflows.map((workflow) => workflow.type))),
-    columns: statuses
-      .slice()
-      .sort((left, right) => left.position - right.position)
-      .map((status) => ({
-        id: status.id,
-        name: status.name,
-        color: status.color || '#94a3b8',
-        tickets: tickets
-          .filter((ticket) => ticket.status_id === status.id)
-          .map((ticket) => ({
+  const columns = statuses
+    .slice()
+    .sort((left, right) => left.position - right.position)
+    .map((status) => ({
+      id: status.id,
+      name: status.name,
+      color: status.color || '#94a3b8',
+      tickets: tickets
+        .filter((ticket) => ticket.status_id === status.id)
+        .map((ticket) => {
+          const runtime = runtimeByTicketId.get(ticket.id)
+
+          return {
             id: ticket.id,
             statusId: ticket.status_id,
             identifier: ticket.identifier,
@@ -68,11 +78,24 @@ export function buildBoardColumns(
             workflowType: ticket.workflow_id
               ? (workflowTypeById.get(ticket.workflow_id) ?? undefined)
               : undefined,
-            updatedAt: ticket.created_at,
+            agentName: runtime?.agentName,
+            updatedAt: runtime?.updatedAt ?? ticket.created_at,
             labels: [],
             anomaly: inferAnomaly(ticket),
-          })),
-      })),
+          }
+        }),
+    }))
+
+  return {
+    workflowTypes: Array.from(new Set(workflows.map((workflow) => workflow.type))),
+    agentOptions: Array.from(
+      new Set(
+        columns.flatMap((column) =>
+          column.tickets.map((ticket) => ticket.agentName).filter(isDefined),
+        ),
+      ),
+    ).sort((left, right) => left.localeCompare(right)),
+    columns,
   }
 }
 
@@ -169,6 +192,47 @@ function clampIndex(index: number, length: number) {
   return Math.max(0, Math.min(index, length))
 }
 
+function buildTicketRuntimeById(agents: Agent[], activity: ActivityEvent[]) {
+  const agentNameById = new Map(agents.map((agent) => [agent.id, agent.name]))
+  const runtimeByTicketId = new Map<
+    string,
+    { agentName: string; updatedAt: string; timestamp: number }
+  >()
+
+  for (const event of activity) {
+    if (!event.ticket_id) continue
+
+    const agentName = getActivityAgentName(event, agentNameById)
+    if (!agentName) continue
+
+    const timestamp = Date.parse(event.created_at)
+    const current = runtimeByTicketId.get(event.ticket_id)
+    if (current && !Number.isNaN(timestamp) && current.timestamp > timestamp) {
+      continue
+    }
+
+    runtimeByTicketId.set(event.ticket_id, {
+      agentName,
+      updatedAt: event.created_at,
+      timestamp: Number.isNaN(timestamp) ? 0 : timestamp,
+    })
+  }
+
+  return runtimeByTicketId
+}
+
+function getActivityAgentName(
+  event: Pick<ActivityEvent, 'agent_id' | 'metadata'>,
+  agentNameById: Map<string, string>,
+) {
+  const metadataAgentName = event.metadata.agent_name
+  if (typeof metadataAgentName === 'string' && metadataAgentName.trim() !== '') {
+    return metadataAgentName
+  }
+
+  return event.agent_id ? agentNameById.get(event.agent_id) : undefined
+}
+
 function normalizePriority(priority: string): BoardTicket['priority'] {
   if (priority === 'urgent' || priority === 'high' || priority === 'medium' || priority === 'low') {
     return priority
@@ -184,4 +248,8 @@ function inferAnomaly(
   if (ticket.consecutive_errors > 0) return 'hook_failed'
   if (ticket.budget_usd > 0 && ticket.cost_amount >= ticket.budget_usd) return 'budget_exhausted'
   return undefined
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined
 }
