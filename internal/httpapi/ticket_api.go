@@ -1,14 +1,18 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -35,6 +39,16 @@ type ticketExternalLinkResponse struct {
 	Status     string `json:"status,omitempty"`
 	Relation   string `json:"relation"`
 	CreatedAt  string `json:"created_at"`
+}
+
+type ticketCommentResponse struct {
+	ID        string  `json:"id"`
+	ProjectID string  `json:"project_id"`
+	TicketID  string  `json:"ticket_id"`
+	Body      string  `json:"body"`
+	CreatedBy string  `json:"created_by"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt *string `json:"updated_at,omitempty"`
 }
 
 type ticketResponse struct {
@@ -79,12 +93,17 @@ type ticketRepoScopeDetailResponse struct {
 	IsPrimaryScope bool                 `json:"is_primary_scope"`
 }
 
+const ticketCommentEventType = "comment_added"
+
 func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleListTickets)
 	api.POST("/projects/:projectId/tickets", s.handleCreateTicket)
 	api.GET("/projects/:projectId/tickets/:ticketId/detail", s.handleGetTicketDetail)
 	api.GET("/tickets/:ticketId", s.handleGetTicket)
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)
+	api.POST("/tickets/:ticketId/comments", s.handleCreateTicketComment)
+	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleUpdateTicketComment)
+	api.DELETE("/tickets/:ticketId/comments/:commentId", s.handleDeleteTicketComment)
 	api.POST("/tickets/:ticketId/dependencies", s.handleAddTicketDependency)
 	api.DELETE("/tickets/:ticketId/dependencies/:dependencyId", s.handleDeleteTicketDependency)
 	api.POST("/tickets/:ticketId/external-links", s.handleAddTicketExternalLink)
@@ -227,8 +246,9 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"ticket":       mapTicketResponse(item),
 		"repo_scopes":  mapTicketRepoScopeDetailResponses(repoScopes, indexProjectRepoResponses(projectRepos)),
-		"activity":     mapActivityEventResponses(activityItems),
-		"hook_history": mapActivityEventResponses(filterHookActivityEvents(activityItems)),
+		"comments":     mapTicketCommentResponsesFromActivity(filterCommentActivityEvents(activityItems)),
+		"activity":     mapActivityEventResponses(filterNonCommentActivityEvents(activityItems)),
+		"hook_history": mapActivityEventResponses(filterHookActivityEvents(filterNonCommentActivityEvents(activityItems))),
 	})
 }
 
@@ -266,6 +286,114 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"ticket": mapTicketResponse(item),
+	})
+}
+
+func (s *Server) handleCreateTicketComment(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+
+	var raw rawCreateTicketCommentRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseCreateTicketCommentRequest(ticketID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	comment, err := s.ticketService.AddComment(c.Request().Context(), input)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketCommentStreamEvent(c.Request().Context(), ticketCommentCreatedEventType, comment); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"comment": mapTicketCommentResponse(comment),
+	})
+}
+
+func (s *Server) handleUpdateTicketComment(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	commentID, err := parseCommentID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_COMMENT_ID", err.Error())
+	}
+
+	var raw rawUpdateTicketCommentRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseUpdateTicketCommentRequest(ticketID, commentID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	comment, err := s.ticketService.UpdateComment(c.Request().Context(), input)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketCommentStreamEvent(c.Request().Context(), ticketCommentUpdatedEventType, comment); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"comment": mapTicketCommentResponse(comment),
+	})
+}
+
+func (s *Server) handleDeleteTicketComment(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	commentID, err := parseCommentID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_COMMENT_ID", err.Error())
+	}
+
+	ticketItem, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+
+	result, err := s.ticketService.RemoveComment(c.Request().Context(), ticketID, commentID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketCommentDeletedStreamEvent(
+		c.Request().Context(),
+		ticketCommentDeletedEventType,
+		ticketItem.ProjectID,
+		ticketID,
+		commentID,
+	); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"deleted_comment_id": result.DeletedCommentID.String(),
 	})
 }
 
@@ -387,6 +515,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "DEPENDENCY_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrExternalLinkNotFound):
 		return writeAPIError(c, http.StatusNotFound, "EXTERNAL_LINK_NOT_FOUND", err.Error())
+	case errors.Is(err, ticketservice.ErrCommentNotFound):
+		return writeAPIError(c, http.StatusNotFound, "COMMENT_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrStatusNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrWorkflowNotFound):
@@ -455,6 +585,36 @@ func filterHookActivityEvents(items []domain.ActivityEvent) []domain.ActivityEve
 	filtered := make([]domain.ActivityEvent, 0, len(items))
 	for _, item := range items {
 		if !isHookActivityEvent(item) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+
+	return filtered
+}
+
+func filterCommentActivityEvents(items []domain.ActivityEvent) []domain.ActivityEvent {
+	filtered := make([]domain.ActivityEvent, 0, len(items))
+	for _, item := range items {
+		if item.EventType != ticketCommentEventType {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	sort.Slice(filtered, func(left, right int) bool {
+		if filtered[left].CreatedAt.Equal(filtered[right].CreatedAt) {
+			return filtered[left].ID.String() < filtered[right].ID.String()
+		}
+		return filtered[left].CreatedAt.Before(filtered[right].CreatedAt)
+	})
+
+	return filtered
+}
+
+func filterNonCommentActivityEvents(items []domain.ActivityEvent) []domain.ActivityEvent {
+	filtered := make([]domain.ActivityEvent, 0, len(items))
+	for _, item := range items {
+		if item.EventType == ticketCommentEventType {
 			continue
 		}
 		filtered = append(filtered, item)
@@ -572,6 +732,71 @@ func mapTicketExternalLinkResponse(item ticketservice.ExternalLink) ticketExtern
 	}
 }
 
+func mapTicketCommentResponse(item ticketservice.Comment) ticketCommentResponse {
+	return ticketCommentResponse{
+		ID:        item.ID.String(),
+		ProjectID: item.ProjectID.String(),
+		TicketID:  item.TicketID.String(),
+		Body:      item.Body,
+		CreatedBy: item.CreatedBy,
+		CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt: timePointerToRFC3339(item.UpdatedAt),
+	}
+}
+
+func mapTicketCommentResponsesFromActivity(items []domain.ActivityEvent) []ticketCommentResponse {
+	response := make([]ticketCommentResponse, 0, len(items))
+	for _, item := range items {
+		if item.TicketID == nil {
+			continue
+		}
+		response = append(response, ticketCommentResponse{
+			ID:        item.ID.String(),
+			ProjectID: item.ProjectID.String(),
+			TicketID:  item.TicketID.String(),
+			Body:      item.Message,
+			CreatedBy: activityCommentCreatedBy(item.Metadata),
+			CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt: activityCommentUpdatedAt(item.Metadata),
+		})
+	}
+
+	return response
+}
+
+func activityCommentCreatedBy(metadata map[string]any) string {
+	rawValue, ok := metadata[commentAuthorMetadataKey].(string)
+	if !ok || strings.TrimSpace(rawValue) == "" {
+		return defaultCommentCreatedBy
+	}
+
+	return strings.TrimSpace(rawValue)
+}
+
+func activityCommentUpdatedAt(metadata map[string]any) *string {
+	rawValue, ok := metadata[commentEditedAtMetadataKey].(string)
+	if !ok || strings.TrimSpace(rawValue) == "" {
+		return nil
+	}
+
+	parsed, err := time.Parse(time.RFC3339, rawValue)
+	if err != nil {
+		return nil
+	}
+
+	formatted := parsed.UTC().Format(time.RFC3339)
+	return &formatted
+}
+
+func timePointerToRFC3339(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+
+	formatted := value.UTC().Format(time.RFC3339)
+	return &formatted
+}
+
 func mapDependencyType(value string) string {
 	switch value {
 	case "sub-issue":
@@ -579,4 +804,85 @@ func mapDependencyType(value string) string {
 	default:
 		return value
 	}
+}
+
+var (
+	commentAuthorMetadataKey      = "comment_author"
+	commentEditedAtMetadataKey    = "comment_edited_at"
+	defaultCommentCreatedBy       = "user:web"
+	ticketCommentCreatedEventType = provider.MustParseEventType("comment.added")
+	ticketCommentUpdatedEventType = provider.MustParseEventType("comment.updated")
+	ticketCommentDeletedEventType = provider.MustParseEventType("comment.deleted")
+)
+
+func (s *Server) publishTicketCommentStreamEvent(
+	ctx context.Context,
+	eventType provider.EventType,
+	comment ticketservice.Comment,
+) error {
+	if s.events == nil {
+		return nil
+	}
+
+	publishedAt := time.Now().UTC()
+	event, err := provider.NewJSONEvent(
+		activityStreamTopic,
+		eventType,
+		map[string]any{
+			"event": activityEventResponse{
+				ID:        comment.ID.String(),
+				ProjectID: comment.ProjectID.String(),
+				TicketID:  uuidToStringPointer(&comment.TicketID),
+				EventType: eventType.String(),
+				Message:   comment.Body,
+				Metadata: map[string]any{
+					"comment_id": comment.ID.String(),
+				},
+				CreatedAt: publishedAt.Format(time.RFC3339),
+			},
+		},
+		publishedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.events.Publish(ctx, event)
+}
+
+func (s *Server) publishTicketCommentDeletedStreamEvent(
+	ctx context.Context,
+	eventType provider.EventType,
+	projectID uuid.UUID,
+	ticketID uuid.UUID,
+	commentID uuid.UUID,
+) error {
+	if s.events == nil {
+		return nil
+	}
+
+	publishedAt := time.Now().UTC()
+	event, err := provider.NewJSONEvent(
+		activityStreamTopic,
+		eventType,
+		map[string]any{
+			"event": activityEventResponse{
+				ID:        commentID.String(),
+				ProjectID: projectID.String(),
+				TicketID:  uuidToStringPointer(&ticketID),
+				EventType: eventType.String(),
+				Message:   "Comment deleted",
+				Metadata: map[string]any{
+					"comment_id": commentID.String(),
+				},
+				CreatedAt: publishedAt.Format(time.RFC3339),
+			},
+		},
+		publishedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.events.Publish(ctx, event)
 }

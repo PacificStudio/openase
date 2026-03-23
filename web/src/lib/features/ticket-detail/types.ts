@@ -63,6 +63,16 @@ export type TicketDetail = {
   completedAt?: string
 }
 
+export type TicketComment = {
+  id: string
+  projectId: string
+  ticketId: string
+  body: string
+  createdBy: string
+  createdAt: string
+  updatedAt?: string
+}
+
 export type HookExecution = {
   id: string
   hookName: string

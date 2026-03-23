@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -761,6 +762,15 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if _, err := client.ActivityEvent.Create().
 		SetProjectID(project.ID).
 		SetTicketID(ticketItem.ID).
+		SetEventType("comment_added").
+		SetMessage("Looks good.\n\n- Please include PR links.").
+		SetMetadata(map[string]any{"comment_author": "user:reviewer"}).
+		Save(ctx); err != nil {
+		t.Fatalf("create comment event: %v", err)
+	}
+	if _, err := client.ActivityEvent.Create().
+		SetProjectID(project.ID).
+		SetTicketID(ticketItem.ID).
 		SetEventType("agent.output").
 		SetMessage("Opened frontend PR #9").
 		SetMetadata(map[string]any{"stream": "stdout"}).
@@ -791,6 +801,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	var payload struct {
 		Ticket      ticketResponse                  `json:"ticket"`
 		RepoScopes  []ticketRepoScopeDetailResponse `json:"repo_scopes"`
+		Comments    []ticketCommentResponse         `json:"comments"`
 		Activity    []activityEventResponse         `json:"activity"`
 		HookHistory []activityEventResponse         `json:"hook_history"`
 	}
@@ -813,6 +824,9 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if len(payload.RepoScopes) != 2 || payload.RepoScopes[0].Repo == nil || payload.RepoScopes[0].Repo.Name != "frontend" {
 		t.Fatalf("expected repo scopes with repo metadata, got %+v", payload.RepoScopes)
 	}
+	if len(payload.Comments) != 1 || payload.Comments[0].CreatedBy != "user:reviewer" {
+		t.Fatalf("expected ticket comments in detail payload, got %+v", payload.Comments)
+	}
 	if payload.RepoScopes[0].PullRequestURL == nil || *payload.RepoScopes[0].PullRequestURL != "https://github.com/acme/frontend/pull/9" {
 		t.Fatalf("expected frontend pull request URL, got %+v", payload.RepoScopes[0])
 	}
@@ -821,6 +835,120 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	}
 	if len(payload.HookHistory) != 1 || payload.HookHistory[0].EventType != "hook.failed" {
 		t.Fatalf("expected hook history to filter hook-tagged events, got %+v", payload.HookHistory)
+	}
+}
+
+func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40026},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-12").
+		SetTitle("Add ticket comments").
+		SetStatusID(backlogID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	var createPayload struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/comments", ticketItem.ID),
+		map[string]any{
+			"body":       "First comment",
+			"created_by": "user:reviewer",
+		},
+		http.StatusCreated,
+		&createPayload,
+	)
+
+	if createPayload.Comment.Body != "First comment" || createPayload.Comment.CreatedBy != "user:reviewer" {
+		t.Fatalf("unexpected created comment payload: %+v", createPayload.Comment)
+	}
+
+	var updatePayload struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s/comments/%s", ticketItem.ID, createPayload.Comment.ID),
+		map[string]any{
+			"body": "Updated comment body",
+		},
+		http.StatusOK,
+		&updatePayload,
+	)
+
+	if updatePayload.Comment.Body != "Updated comment body" || updatePayload.Comment.UpdatedAt == nil {
+		t.Fatalf("unexpected updated comment payload: %+v", updatePayload.Comment)
+	}
+
+	var deletePayload struct {
+		DeletedCommentID string `json:"deleted_comment_id"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/tickets/%s/comments/%s", ticketItem.ID, createPayload.Comment.ID),
+		nil,
+		http.StatusOK,
+		&deletePayload,
+	)
+
+	if deletePayload.DeletedCommentID != createPayload.Comment.ID {
+		t.Fatalf("unexpected deleted comment payload: %+v", deletePayload)
+	}
+
+	remaining, err := client.ActivityEvent.Query().
+		Where(entactivityevent.TicketIDEQ(ticketItem.ID), entactivityevent.EventTypeEQ("comment_added")).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count remaining comments: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("expected comment row to be deleted, remaining=%d", remaining)
 	}
 }
 

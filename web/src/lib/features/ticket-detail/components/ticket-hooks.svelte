@@ -23,7 +23,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-2 px-5 py-3">
+<div class="flex flex-col gap-2 px-6 py-4">
   <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
     Hook Executions
   </span>

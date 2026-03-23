@@ -1,10 +1,14 @@
 <script lang="ts">
+  import { ApiError } from '$lib/api/client'
   import { appStore } from '$lib/stores/app.svelte'
   import {
     addTicketDependency,
+    createTicketComment,
     createTicketRepoScope,
+    deleteTicketComment,
     deleteTicketDependency,
     deleteTicketRepoScope,
+    updateTicketComment,
     updateTicket,
     updateTicketRepoScope,
   } from '$lib/api/openase'
@@ -205,6 +209,72 @@
     })
   }
 
+  async function handleCreateComment(body: string) {
+    if (!projectId || !ticketId) return false
+
+    drawerState.creatingComment = true
+    drawerState.clearMutationMessages()
+
+    try {
+      await createTicketComment(ticketId, { body })
+      drawerState.setMutationNotice('Comment added.')
+      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      drawerState.setMutationError(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.',
+      )
+      return false
+    } finally {
+      drawerState.creatingComment = false
+    }
+  }
+
+  async function handleUpdateComment(commentId: string, body: string) {
+    if (!projectId || !ticketId) return false
+
+    drawerState.updatingCommentId = commentId
+    drawerState.clearMutationMessages()
+
+    try {
+      await updateTicketComment(ticketId, commentId, { body })
+      drawerState.setMutationNotice('Comment updated.')
+      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      drawerState.setMutationError(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update comment.',
+      )
+      return false
+    } finally {
+      drawerState.updatingCommentId = null
+    }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    if (!projectId || !ticketId) return false
+
+    drawerState.deletingCommentId = commentId
+    drawerState.clearMutationMessages()
+
+    try {
+      const previousComments = drawerState.comments
+      drawerState.comments = previousComments.filter((comment) => comment.id !== commentId)
+      await deleteTicketComment(ticketId, commentId)
+      drawerState.setMutationNotice('Comment deleted.')
+      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      drawerState.setMutationError(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
+      )
+      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+      return false
+    } finally {
+      drawerState.deletingCommentId = null
+    }
+  }
+
   async function runMutation({
     start,
     finish,
@@ -269,6 +339,7 @@
       <TicketDrawerContent
         ticket={drawerState.ticket}
         hooks={drawerState.hooks}
+        comments={drawerState.comments}
         activities={drawerState.activities}
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
@@ -281,6 +352,9 @@
         creatingRepoScope={drawerState.creatingRepoScope}
         updatingRepoScopeId={drawerState.updatingRepoScopeId}
         deletingRepoScopeId={drawerState.deletingRepoScopeId}
+        creatingComment={drawerState.creatingComment}
+        updatingCommentId={drawerState.updatingCommentId}
+        deletingCommentId={drawerState.deletingCommentId}
         onClose={handleClose}
         onSaveFields={handleSaveFields}
         onAddDependency={handleAddDependency}
@@ -288,6 +362,9 @@
         onCreateScope={handleCreateRepoScope}
         onUpdateScope={handleUpdateRepoScope}
         onDeleteScope={handleDeleteRepoScope}
+        onCreateComment={handleCreateComment}
+        onUpdateComment={handleUpdateComment}
+        onDeleteComment={handleDeleteComment}
       />
     {/if}
   </SheetContent>

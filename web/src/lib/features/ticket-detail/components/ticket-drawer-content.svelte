@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '$ui/tabs'
-  import TicketActivityList from './ticket-activity.svelte'
+  import TicketDiscussion from './ticket-discussion.svelte'
   import TicketHeader from './ticket-header.svelte'
   import TicketHooks from './ticket-hooks.svelte'
   import TicketRepos from './ticket-repos.svelte'
@@ -8,6 +8,7 @@
   import type {
     HookExecution,
     TicketActivity,
+    TicketComment,
     TicketDetail,
     TicketReferenceOption,
     TicketRepoOption,
@@ -17,6 +18,7 @@
   let {
     ticket,
     hooks,
+    comments,
     activities,
     statuses,
     dependencyCandidates,
@@ -29,6 +31,9 @@
     creatingRepoScope = false,
     updatingRepoScopeId = null,
     deletingRepoScopeId = null,
+    creatingComment = false,
+    updatingCommentId = null,
+    deletingCommentId = null,
     onClose,
     onSaveFields,
     onAddDependency,
@@ -36,9 +41,13 @@
     onCreateScope,
     onUpdateScope,
     onDeleteScope,
+    onCreateComment,
+    onUpdateComment,
+    onDeleteComment,
   }: {
     ticket: TicketDetail
     hooks: HookExecution[]
+    comments: TicketComment[]
     activities: TicketActivity[]
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
@@ -51,6 +60,9 @@
     creatingRepoScope?: boolean
     updatingRepoScopeId?: string | null
     deletingRepoScopeId?: string | null
+    creatingComment?: boolean
+    updatingCommentId?: string | null
+    deletingCommentId?: string | null
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onAddDependency?: (draft: { targetTicketId: string; relation: string }) => void
@@ -74,27 +86,30 @@
       },
     ) => void
     onDeleteScope?: (scopeId: string) => void
+    onCreateComment?: (body: string) => Promise<boolean> | boolean
+    onUpdateComment?: (commentId: string, body: string) => Promise<boolean> | boolean
+    onDeleteComment?: (commentId: string) => Promise<boolean> | boolean
   } = $props()
 </script>
 
-<TicketHeader {ticket} {onClose} />
+<TicketHeader {ticket} {statuses} {savingFields} {onClose} {onSaveFields} />
 
 {#if mutationNotice}
-  <div class="border-border bg-muted/40 mx-5 mt-4 rounded-md border px-3 py-2 text-xs">
+  <div class="border-border bg-muted/40 mx-6 mt-4 rounded-md border px-3 py-2 text-xs">
     {mutationNotice}
   </div>
 {/if}
 
 {#if mutationError}
   <div
-    class="border-destructive/30 bg-destructive/10 text-destructive mx-5 mt-4 rounded-md border px-3 py-2 text-xs"
+    class="border-destructive/30 bg-destructive/10 text-destructive mx-6 mt-4 rounded-md border px-3 py-2 text-xs"
   >
     {mutationError}
   </div>
 {/if}
 
 <Tabs value="summary" class="flex flex-1 flex-col overflow-hidden">
-  <TabsList class="mx-5 mt-4 shrink-0">
+  <TabsList class="mx-6 mt-4 shrink-0">
     <TabsTrigger value="summary">Summary</TabsTrigger>
     <TabsTrigger value="code">Code</TabsTrigger>
     <TabsTrigger value="hooks">Hooks</TabsTrigger>
@@ -105,7 +120,6 @@
     <TabsContent value="summary" class="mt-0">
       <TicketSummary
         {ticket}
-        {statuses}
         availableTickets={dependencyCandidates}
         {savingFields}
         {creatingDependency}
@@ -134,7 +148,16 @@
     </TabsContent>
 
     <TabsContent value="activity" class="mt-0">
-      <TicketActivityList {activities} />
+      <TicketDiscussion
+        {comments}
+        {activities}
+        {creatingComment}
+        {updatingCommentId}
+        {deletingCommentId}
+        {onCreateComment}
+        {onUpdateComment}
+        {onDeleteComment}
+      />
     </TabsContent>
   </div>
 </Tabs>

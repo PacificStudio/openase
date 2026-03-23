@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
@@ -23,8 +24,12 @@ import (
 )
 
 const (
-	defaultCreatedBy        = "user:api"
-	defaultIdentifierPrefix = "ASE"
+	defaultCreatedBy           = "user:api"
+	defaultCommentCreatedBy    = "user:web"
+	defaultIdentifierPrefix    = "ASE"
+	ticketCommentEventType     = "comment_added"
+	commentAuthorMetadataKey   = "comment_author"
+	commentEditedAtMetadataKey = "comment_edited_at"
 )
 
 var (
@@ -41,6 +46,7 @@ var (
 	ErrDependencyConflict    = errors.New("ticket dependency already exists")
 	ErrExternalLinkNotFound  = errors.New("ticket external link not found")
 	ErrExternalLinkConflict  = errors.New("ticket external link already exists")
+	ErrCommentNotFound       = errors.New("ticket comment not found")
 	ErrInvalidDependency     = errors.New("invalid ticket dependency")
 )
 
@@ -180,6 +186,36 @@ type DeleteDependencyResult struct {
 // DeleteExternalLinkResult reports which external link was removed.
 type DeleteExternalLinkResult struct {
 	DeletedExternalLinkID uuid.UUID `json:"deleted_external_link_id"`
+}
+
+// Comment describes a user-authored ticket discussion entry.
+type Comment struct {
+	ID        uuid.UUID  `json:"id"`
+	ProjectID uuid.UUID  `json:"project_id"`
+	TicketID  uuid.UUID  `json:"ticket_id"`
+	Body      string     `json:"body"`
+	CreatedBy string     `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// AddCommentInput creates a new ticket comment.
+type AddCommentInput struct {
+	TicketID  uuid.UUID
+	Body      string
+	CreatedBy string
+}
+
+// UpdateCommentInput updates an existing ticket comment body.
+type UpdateCommentInput struct {
+	TicketID  uuid.UUID
+	CommentID uuid.UUID
+	Body      string
+}
+
+// DeleteCommentResult reports which comment was removed.
+type DeleteCommentResult struct {
+	DeletedCommentID uuid.UUID `json:"deleted_comment_id"`
 }
 
 // Service provides ticket CRUD and dependency orchestration.
@@ -688,6 +724,120 @@ func (s *Service) RemoveExternalLink(ctx context.Context, ticketID uuid.UUID, ex
 	return DeleteExternalLinkResult{DeletedExternalLinkID: externalLinkID}, nil
 }
 
+// AddComment creates a new ticket discussion comment.
+func (s *Service) AddComment(ctx context.Context, input AddCommentInput) (Comment, error) {
+	if s.client == nil {
+		return Comment{}, ErrUnavailable
+	}
+
+	body := strings.TrimSpace(input.Body)
+	if body == "" {
+		return Comment{}, fmt.Errorf("comment body must not be empty")
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Comment{}, fmt.Errorf("start create ticket comment tx: %w", err)
+	}
+	defer rollback(tx)
+
+	ticketItem, err := tx.Ticket.Get(ctx, input.TicketID)
+	if err != nil {
+		return Comment{}, s.mapTicketReadError("get ticket for comment create", err)
+	}
+
+	commentItem, err := tx.ActivityEvent.Create().
+		SetProjectID(ticketItem.ProjectID).
+		SetTicketID(ticketItem.ID).
+		SetEventType(ticketCommentEventType).
+		SetMessage(body).
+		SetMetadata(map[string]any{
+			commentAuthorMetadataKey: resolveCommentCreatedBy(input.CreatedBy),
+		}).
+		Save(ctx)
+	if err != nil {
+		return Comment{}, fmt.Errorf("create ticket comment: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Comment{}, fmt.Errorf("commit create ticket comment tx: %w", err)
+	}
+
+	return mapComment(commentItem)
+}
+
+// UpdateComment updates an existing ticket discussion comment.
+func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (Comment, error) {
+	if s.client == nil {
+		return Comment{}, ErrUnavailable
+	}
+
+	body := strings.TrimSpace(input.Body)
+	if body == "" {
+		return Comment{}, fmt.Errorf("comment body must not be empty")
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Comment{}, fmt.Errorf("start update ticket comment tx: %w", err)
+	}
+	defer rollback(tx)
+
+	commentItem, err := tx.ActivityEvent.Query().
+		Where(
+			entactivityevent.ID(input.CommentID),
+			entactivityevent.TicketIDEQ(input.TicketID),
+			entactivityevent.EventTypeEQ(ticketCommentEventType),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return Comment{}, ErrCommentNotFound
+		}
+		return Comment{}, fmt.Errorf("get ticket comment for update: %w", err)
+	}
+
+	metadata := cloneAnyMap(commentItem.Metadata)
+	metadata[commentEditedAtMetadataKey] = time.Now().UTC().Format(time.RFC3339)
+
+	updated, err := tx.ActivityEvent.UpdateOneID(commentItem.ID).
+		SetMessage(body).
+		SetMetadata(metadata).
+		Save(ctx)
+	if err != nil {
+		return Comment{}, fmt.Errorf("update ticket comment: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Comment{}, fmt.Errorf("commit update ticket comment tx: %w", err)
+	}
+
+	return mapComment(updated)
+}
+
+// RemoveComment deletes a ticket discussion comment.
+func (s *Service) RemoveComment(ctx context.Context, ticketID uuid.UUID, commentID uuid.UUID) (DeleteCommentResult, error) {
+	if s.client == nil {
+		return DeleteCommentResult{}, ErrUnavailable
+	}
+
+	deleted, err := s.client.ActivityEvent.Delete().
+		Where(
+			entactivityevent.ID(commentID),
+			entactivityevent.TicketIDEQ(ticketID),
+			entactivityevent.EventTypeEQ(ticketCommentEventType),
+		).
+		Exec(ctx)
+	if err != nil {
+		return DeleteCommentResult{}, fmt.Errorf("delete ticket comment: %w", err)
+	}
+	if deleted == 0 {
+		return DeleteCommentResult{}, ErrCommentNotFound
+	}
+
+	return DeleteCommentResult{DeletedCommentID: commentID}, nil
+}
+
 func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) error {
 	exists, err := s.client.Project.Query().Where(project.ID(projectID)).Exist(ctx)
 	if err != nil {
@@ -1014,6 +1164,70 @@ func optionalUUIDPointerEqual(left *uuid.UUID, right *uuid.UUID) bool {
 	default:
 		return *left == *right
 	}
+}
+
+func cloneAnyMap(source map[string]any) map[string]any {
+	if len(source) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+
+	return cloned
+}
+
+func resolveCommentCreatedBy(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return defaultCommentCreatedBy
+	}
+
+	return strings.TrimSpace(raw)
+}
+
+func mapComment(item *ent.ActivityEvent) (comment Comment, err error) {
+	ticketID := uuid.Nil
+	if item.TicketID != nil {
+		ticketID = *item.TicketID
+	}
+
+	comment = Comment{
+		ID:        item.ID,
+		ProjectID: item.ProjectID,
+		TicketID:  ticketID,
+		Body:      item.Message,
+		CreatedBy: commentCreatedBy(item.Metadata),
+		CreatedAt: item.CreatedAt.UTC(),
+	}
+	if updatedAt, ok := commentUpdatedAt(item.Metadata); ok {
+		comment.UpdatedAt = &updatedAt
+	}
+
+	return comment, nil
+}
+
+func commentCreatedBy(metadata map[string]any) string {
+	if value, ok := metadata[commentAuthorMetadataKey].(string); ok && strings.TrimSpace(value) != "" {
+		return strings.TrimSpace(value)
+	}
+
+	return defaultCommentCreatedBy
+}
+
+func commentUpdatedAt(metadata map[string]any) (time.Time, bool) {
+	rawValue, ok := metadata[commentEditedAtMetadataKey].(string)
+	if !ok || strings.TrimSpace(rawValue) == "" {
+		return time.Time{}, false
+	}
+
+	parsed, err := time.Parse(time.RFC3339, rawValue)
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	return parsed.UTC(), true
 }
 
 func mapTicket(item *ent.Ticket) Ticket {

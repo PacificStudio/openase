@@ -15,6 +15,7 @@ import type {
 import type {
   HookExecution,
   TicketActivity,
+  TicketComment,
   TicketDetail,
   TicketReferenceOption,
   TicketRepoOption,
@@ -23,6 +24,7 @@ import type {
 
 export type TicketDetailContext = {
   ticket: TicketDetail
+  comments: TicketComment[]
   hooks: HookExecution[]
   activities: TicketActivity[]
   statuses: TicketStatusOption[]
@@ -138,6 +140,15 @@ export function buildTicketDetailContext(
       createdAt: detailTicket.created_at,
       updatedAt: detailTicket.created_at,
     },
+    comments: detailPayload.comments.map((comment) => ({
+      id: comment.id,
+      projectId: comment.project_id,
+      ticketId: comment.ticket_id,
+      body: comment.body,
+      createdBy: comment.created_by,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at ?? undefined,
+    })),
     hooks: detailPayload.hook_history.map((entry) => ({
       id: entry.id,
       hookName: entry.event_type,

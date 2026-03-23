@@ -9,7 +9,15 @@
   import { cn, formatRelativeTime } from '$lib/utils'
   import type { TicketActivity } from '../types'
 
-  let { activities }: { activities: TicketActivity[] } = $props()
+  let {
+    activities,
+    label = 'Activity',
+    emptyText = 'No activity yet',
+  }: {
+    activities: TicketActivity[]
+    label?: string
+    emptyText?: string
+  } = $props()
 
   const typeIcons: Record<string, { icon: typeof Bot; class: string }> = {
     agent_assigned: { icon: Bot, class: 'text-blue-400' },
@@ -24,13 +32,13 @@
   const fallbackIcon = { icon: Settings, class: 'text-muted-foreground' }
 </script>
 
-<div class="flex flex-col gap-0 px-5 py-3">
+<div class="flex flex-col gap-0 px-6 py-4">
   <span class="text-muted-foreground mb-2 text-[10px] font-medium tracking-wider uppercase">
-    Activity
+    {label}
   </span>
 
   {#if activities.length === 0}
-    <p class="text-muted-foreground py-4 text-center text-xs">No activity yet</p>
+    <p class="text-muted-foreground py-4 text-center text-xs">{emptyText}</p>
   {/if}
 
   <div class="relative">

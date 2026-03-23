@@ -54,14 +54,14 @@
 
 <Sheet bind:open>
   <SheetContent side="right" class="w-full sm:max-w-xl">
-    <SheetHeader class="space-y-1">
+    <SheetHeader class="space-y-1 px-6 py-6">
       <SheetTitle>Register agent</SheetTitle>
       <SheetDescription>
         Create a runnable agent instance for the current project using an existing provider.
       </SheetDescription>
     </SheetHeader>
 
-    <form class="flex h-full flex-col gap-5 py-6" onsubmit={handleSubmit}>
+    <form class="flex h-full flex-col gap-5 px-6 pb-6" onsubmit={handleSubmit}>
       {#if error}
         <div
           class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
@@ -143,7 +143,7 @@
         </div>
       </div>
 
-      <SheetFooter class="mt-auto gap-2 sm:justify-end">
+      <SheetFooter class="mt-auto gap-2 px-0 pb-0 sm:justify-end">
         <Button
           type="button"
           variant="outline"

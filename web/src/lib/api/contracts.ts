@@ -92,6 +92,15 @@ export type Ticket = ItemOf<TicketPayload['tickets']>
 export type TicketPriority = Ticket['priority']
 export type TicketReference = ItemOf<Ticket['children']>
 export type TicketDependency = ItemOf<Ticket['dependencies']>
+export type TicketCommentCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/comments', 'post'>
+>
+export type TicketCommentUpdateResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/comments/{commentId}', 'patch'>
+>
+export type TicketCommentDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/comments/{commentId}', 'delete'>
+>
 export type TicketDependencyResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/dependencies', 'post'>
 >
@@ -170,6 +179,7 @@ export type HRAdvisorRecommendation = ItemOf<HRAdvisorResponse['recommendations'
 export type TicketDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/detail', 'get'>
 >
+export type TicketCommentRecord = ItemOf<TicketDetailPayload['comments']>
 export type TicketRepoScope = ItemOf<TicketDetailPayload['repo_scopes']>
 export type ProjectRepo = NonNullable<TicketRepoScope['repo']>
 

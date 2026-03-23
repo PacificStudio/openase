@@ -38,6 +38,9 @@ import type {
   TicketDependencyDeleteResponse,
   TicketDependencyResponse,
   TicketCreateResponse,
+  TicketCommentCreateResponse,
+  TicketCommentDeleteResponse,
+  TicketCommentUpdateResponse,
   TicketPayload,
   Organization,
   TicketRepoScopePayload,
@@ -269,6 +272,33 @@ export function updateTicket(
   },
 ) {
   return api.patch(`/api/v1/tickets/${ticketId}`, { body })
+}
+
+export function createTicketComment(
+  ticketId: string,
+  body: {
+    body: string
+    created_by?: string | null
+  },
+) {
+  return api.post<TicketCommentCreateResponse>(`/api/v1/tickets/${ticketId}/comments`, { body })
+}
+
+export function updateTicketComment(
+  ticketId: string,
+  commentId: string,
+  body: {
+    body: string
+  },
+) {
+  return api.patch<TicketCommentUpdateResponse>(
+    `/api/v1/tickets/${ticketId}/comments/${commentId}`,
+    { body },
+  )
+}
+
+export function deleteTicketComment(ticketId: string, commentId: string) {
+  return api.delete<TicketCommentDeleteResponse>(`/api/v1/tickets/${ticketId}/comments/${commentId}`)
 }
 
 export function addTicketDependency(

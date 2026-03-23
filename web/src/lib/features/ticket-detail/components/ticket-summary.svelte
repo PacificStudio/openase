@@ -15,7 +15,6 @@
 
   let {
     ticket,
-    statuses,
     availableTickets,
     savingFields = false,
     creatingDependency = false,
@@ -25,7 +24,6 @@
     onDeleteDependency,
   }: {
     ticket: TicketDetail
-    statuses: TicketStatusOption[]
     availableTickets: TicketReferenceOption[]
     savingFields?: boolean
     creatingDependency?: boolean
@@ -41,8 +39,8 @@
   const costOverBudget = $derived(costPercent > 80)
 </script>
 
-<div class="flex flex-col gap-4 px-5 py-4">
-  <TicketFieldEditor {ticket} {statuses} saving={savingFields} onSave={onSaveFields} />
+<div class="flex flex-col gap-4 px-6 py-5">
+  <TicketFieldEditor {ticket} saving={savingFields} onSave={onSaveFields} />
 
   <div class="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2.5 text-xs">
     {#if ticket.workflow}

@@ -3,6 +3,7 @@ import { fetchTicketDetailContext } from './context'
 import type {
   HookExecution,
   TicketActivity,
+  TicketComment,
   TicketDetail,
   TicketReferenceOption,
   TicketRepoOption,
@@ -20,6 +21,7 @@ export function createTicketDrawerState() {
   let mutationError = $state('')
   let mutationNotice = $state('')
   let ticket = $state<TicketDetail | null>(null)
+  let comments = $state<TicketComment[]>([])
   let hooks = $state<HookExecution[]>([])
   let activities = $state<TicketActivity[]>([])
   let statuses = $state<TicketStatusOption[]>([])
@@ -31,6 +33,9 @@ export function createTicketDrawerState() {
   let creatingRepoScope = $state(false)
   let updatingRepoScopeId = $state<string | null>(null)
   let deletingRepoScopeId = $state<string | null>(null)
+  let creatingComment = $state(false)
+  let updatingCommentId = $state<string | null>(null)
+  let deletingCommentId = $state<string | null>(null)
   let loadRequestId = 0
 
   return {
@@ -54,6 +59,12 @@ export function createTicketDrawerState() {
     },
     get hooks() {
       return hooks
+    },
+    get comments() {
+      return comments
+    },
+    set comments(value) {
+      comments = value
     },
     get activities() {
       return activities
@@ -103,6 +114,24 @@ export function createTicketDrawerState() {
     set deletingRepoScopeId(value) {
       deletingRepoScopeId = value
     },
+    get creatingComment() {
+      return creatingComment
+    },
+    set creatingComment(value) {
+      creatingComment = value
+    },
+    get updatingCommentId() {
+      return updatingCommentId
+    },
+    set updatingCommentId(value) {
+      updatingCommentId = value
+    },
+    get deletingCommentId() {
+      return deletingCommentId
+    },
+    set deletingCommentId(value) {
+      deletingCommentId = value
+    },
     clearMutationMessages() {
       mutationError = ''
       mutationNotice = ''
@@ -131,6 +160,7 @@ export function createTicketDrawerState() {
         if (requestId !== loadRequestId) return
 
         ticket = detailContext.ticket
+        comments = detailContext.comments
         hooks = detailContext.hooks
         activities = detailContext.activities
         statuses = detailContext.statuses
@@ -158,6 +188,7 @@ export function createTicketDrawerState() {
       mutationError = ''
       mutationNotice = ''
       ticket = null
+      comments = []
       hooks = []
       activities = []
       statuses = []
@@ -169,6 +200,9 @@ export function createTicketDrawerState() {
       creatingRepoScope = false
       updatingRepoScopeId = null
       deletingRepoScopeId = null
+      creatingComment = false
+      updatingCommentId = null
+      deletingCommentId = null
     },
   }
 }
