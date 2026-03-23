@@ -14,6 +14,7 @@ import (
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketcomment "github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -39,6 +40,7 @@ var (
 	ErrTargetMachineNotFound = errors.New("target machine not found in project organization")
 	ErrDependencyNotFound    = errors.New("ticket dependency not found")
 	ErrDependencyConflict    = errors.New("ticket dependency already exists")
+	ErrCommentNotFound       = errors.New("ticket comment not found")
 	ErrExternalLinkNotFound  = errors.New("ticket external link not found")
 	ErrExternalLinkConflict  = errors.New("ticket external link already exists")
 	ErrInvalidDependency     = errors.New("invalid ticket dependency")
@@ -81,6 +83,16 @@ type ExternalLink struct {
 	Status     string                         `json:"status,omitempty"`
 	Relation   entticketexternallink.Relation `json:"relation"`
 	CreatedAt  time.Time                      `json:"created_at"`
+}
+
+// Comment describes a first-class user discussion item on a ticket.
+type Comment struct {
+	ID        uuid.UUID `json:"id"`
+	TicketID  uuid.UUID `json:"ticket_id"`
+	Body      string    `json:"body"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Ticket is the API-facing ticket aggregate returned by the service layer.
@@ -172,9 +184,28 @@ type AddExternalLinkInput struct {
 	Relation   entticketexternallink.Relation
 }
 
+// CreateCommentInput creates a ticket discussion comment.
+type CreateCommentInput struct {
+	TicketID  uuid.UUID
+	Body      string
+	CreatedBy string
+}
+
+// UpdateCommentInput updates an existing ticket comment body.
+type UpdateCommentInput struct {
+	TicketID  uuid.UUID
+	CommentID uuid.UUID
+	Body      string
+}
+
 // DeleteDependencyResult reports which dependency edge was removed.
 type DeleteDependencyResult struct {
 	DeletedDependencyID uuid.UUID `json:"deleted_dependency_id"`
+}
+
+// DeleteCommentResult reports which comment was removed.
+type DeleteCommentResult struct {
+	DeletedCommentID uuid.UUID `json:"deleted_comment_id"`
 }
 
 // DeleteExternalLinkResult reports which external link was removed.
@@ -628,6 +659,91 @@ func (s *Service) AddExternalLink(ctx context.Context, input AddExternalLinkInpu
 	return mapExternalLink(created), nil
 }
 
+// ListComments returns user discussion comments ordered oldest-first for stable thread rendering.
+func (s *Service) ListComments(ctx context.Context, ticketID uuid.UUID) ([]Comment, error) {
+	if s.client == nil {
+		return nil, ErrUnavailable
+	}
+	if _, err := s.client.Ticket.Get(ctx, ticketID); err != nil {
+		return nil, s.mapTicketReadError("get ticket for comment list", err)
+	}
+
+	items, err := s.client.TicketComment.Query().
+		Where(entticketcomment.TicketIDEQ(ticketID)).
+		Order(ent.Asc(entticketcomment.FieldCreatedAt), ent.Asc(entticketcomment.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list ticket comments: %w", err)
+	}
+
+	comments := make([]Comment, 0, len(items))
+	for _, item := range items {
+		comments = append(comments, mapComment(item))
+	}
+
+	return comments, nil
+}
+
+// AddComment creates a new user discussion comment on a ticket.
+func (s *Service) AddComment(ctx context.Context, input CreateCommentInput) (Comment, error) {
+	if s.client == nil {
+		return Comment{}, ErrUnavailable
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Comment{}, fmt.Errorf("start add ticket comment tx: %w", err)
+	}
+	defer rollback(tx)
+
+	if _, err := tx.Ticket.Get(ctx, input.TicketID); err != nil {
+		return Comment{}, s.mapTicketReadError("get ticket for comment create", err)
+	}
+
+	item, err := tx.TicketComment.Create().
+		SetTicketID(input.TicketID).
+		SetBody(input.Body).
+		SetCreatedBy(resolveCreatedBy(input.CreatedBy)).
+		Save(ctx)
+	if err != nil {
+		return Comment{}, s.mapTicketWriteError("create ticket comment", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return Comment{}, fmt.Errorf("commit add ticket comment tx: %w", err)
+	}
+
+	return mapComment(item), nil
+}
+
+// UpdateComment updates the markdown body of an existing ticket discussion comment.
+func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (Comment, error) {
+	if s.client == nil {
+		return Comment{}, ErrUnavailable
+	}
+
+	existing, err := s.client.TicketComment.Query().
+		Where(
+			entticketcomment.IDEQ(input.CommentID),
+			entticketcomment.TicketIDEQ(input.TicketID),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return Comment{}, ErrCommentNotFound
+		}
+		return Comment{}, fmt.Errorf("get ticket comment for update: %w", err)
+	}
+
+	item, err := s.client.TicketComment.UpdateOneID(existing.ID).
+		SetBody(input.Body).
+		Save(ctx)
+	if err != nil {
+		return Comment{}, s.mapTicketWriteError("update ticket comment", err)
+	}
+
+	return mapComment(item), nil
+}
+
 // RemoveExternalLink deletes an external issue or PR association from a ticket.
 func (s *Service) RemoveExternalLink(ctx context.Context, ticketID uuid.UUID, externalLinkID uuid.UUID) (DeleteExternalLinkResult, error) {
 	if s.client == nil {
@@ -686,6 +802,28 @@ func (s *Service) RemoveExternalLink(ctx context.Context, ticketID uuid.UUID, ex
 	}
 
 	return DeleteExternalLinkResult{DeletedExternalLinkID: externalLinkID}, nil
+}
+
+// RemoveComment deletes a user discussion comment from a ticket.
+func (s *Service) RemoveComment(ctx context.Context, ticketID uuid.UUID, commentID uuid.UUID) (DeleteCommentResult, error) {
+	if s.client == nil {
+		return DeleteCommentResult{}, ErrUnavailable
+	}
+
+	deleted, err := s.client.TicketComment.Delete().
+		Where(
+			entticketcomment.IDEQ(commentID),
+			entticketcomment.TicketIDEQ(ticketID),
+		).
+		Exec(ctx)
+	if err != nil {
+		return DeleteCommentResult{}, fmt.Errorf("delete ticket comment: %w", err)
+	}
+	if deleted == 0 {
+		return DeleteCommentResult{}, ErrCommentNotFound
+	}
+
+	return DeleteCommentResult{DeletedCommentID: commentID}, nil
 }
 
 func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) error {
@@ -1087,6 +1225,17 @@ func mapExternalLink(item *ent.TicketExternalLink) ExternalLink {
 		Status:     item.Status,
 		Relation:   item.Relation,
 		CreatedAt:  item.CreatedAt,
+	}
+}
+
+func mapComment(item *ent.TicketComment) Comment {
+	return Comment{
+		ID:        item.ID,
+		TicketID:  item.TicketID,
+		Body:      item.Body,
+		CreatedBy: item.CreatedBy,
+		CreatedAt: item.CreatedAt,
+		UpdatedAt: item.UpdatedAt,
 	}
 }
 

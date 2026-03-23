@@ -896,6 +896,41 @@ export interface paths {
     patch: operations['updateTicket']
     trace?: never
   }
+  '/api/v1/tickets/{ticketId}/comments': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Create a ticket comment */
+    post: operations['createTicketComment']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/tickets/{ticketId}/comments/{commentId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a ticket comment */
+    delete: operations['deleteTicketComment']
+    options?: never
+    head?: never
+    /** Update a ticket comment */
+    patch: operations['updateTicketComment']
+    trace?: never
+  }
   '/api/v1/tickets/{ticketId}/dependencies': {
     parameters: {
       query?: never
@@ -5796,6 +5831,14 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            comments?: {
+              body?: string
+              created_at?: string
+              created_by?: string
+              id?: string
+              ticket_id?: string
+              updated_at?: string
+            }[]
             hook_history?: {
               agent_id?: string | null
               created_at?: string
@@ -7409,6 +7452,222 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createTicketComment: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a ticket comment request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          body?: string
+          created_by?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Create a ticket comment response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            comment?: {
+              body?: string
+              created_at?: string
+              created_by?: string
+              id?: string
+              ticket_id?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteTicketComment: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+        /** @description Comment ID. */
+        commentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete a ticket comment response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            deleted_comment_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateTicketComment: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+        /** @description Comment ID. */
+        commentId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a ticket comment request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          body?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Update a ticket comment response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            comment?: {
+              body?: string
+              created_at?: string
+              created_by?: string
+              id?: string
+              ticket_id?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }

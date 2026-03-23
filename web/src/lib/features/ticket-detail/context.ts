@@ -15,6 +15,7 @@ import type {
 import type {
   HookExecution,
   TicketActivity,
+  TicketComment,
   TicketDetail,
   TicketReferenceOption,
   TicketRepoOption,
@@ -25,6 +26,7 @@ export type TicketDetailContext = {
   ticket: TicketDetail
   hooks: HookExecution[]
   activities: TicketActivity[]
+  comments: TicketComment[]
   statuses: TicketStatusOption[]
   dependencyCandidates: TicketReferenceOption[]
   repoOptions: TicketRepoOption[]
@@ -144,6 +146,14 @@ export function buildTicketDetailContext(
       status: inferHookStatus(entry.event_type, entry.message),
       output: entry.message,
       timestamp: entry.created_at,
+    })),
+    comments: detailPayload.comments.map((entry) => ({
+      id: entry.id,
+      ticketId: entry.ticket_id,
+      body: entry.body,
+      createdBy: entry.created_by,
+      createdAt: entry.created_at,
+      updatedAt: entry.updated_at,
     })),
     activities: detailPayload.activity.map((entry) => ({
       id: entry.id,

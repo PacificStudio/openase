@@ -287,6 +287,30 @@ export function deleteTicketDependency(ticketId: string, dependencyId: string) {
   )
 }
 
+export function createTicketComment(
+  ticketId: string,
+  body: {
+    body: string
+    created_by?: string | null
+  },
+) {
+  return api.post(`/api/v1/tickets/${ticketId}/comments`, { body })
+}
+
+export function updateTicketComment(
+  ticketId: string,
+  commentId: string,
+  body: {
+    body: string
+  },
+) {
+  return api.patch(`/api/v1/tickets/${ticketId}/comments/${commentId}`, { body })
+}
+
+export function deleteTicketComment(ticketId: string, commentId: string) {
+  return api.delete(`/api/v1/tickets/${ticketId}/comments/${commentId}`)
+}
+
 export function getTicketDetail(projectId: string, ticketId: string) {
   return api.get<TicketDetailPayload>(`/api/v1/projects/${projectId}/tickets/${ticketId}/detail`)
 }

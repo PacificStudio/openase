@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -35,6 +37,15 @@ type ticketExternalLinkResponse struct {
 	Status     string `json:"status,omitempty"`
 	Relation   string `json:"relation"`
 	CreatedAt  string `json:"created_at"`
+}
+
+type ticketCommentResponse struct {
+	ID        string `json:"id"`
+	TicketID  string `json:"ticket_id"`
+	Body      string `json:"body"`
+	CreatedBy string `json:"created_by"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 type ticketResponse struct {
@@ -85,6 +96,9 @@ func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets/:ticketId/detail", s.handleGetTicketDetail)
 	api.GET("/tickets/:ticketId", s.handleGetTicket)
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)
+	api.POST("/tickets/:ticketId/comments", s.handleCreateTicketComment)
+	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleUpdateTicketComment)
+	api.DELETE("/tickets/:ticketId/comments/:commentId", s.handleDeleteTicketComment)
 	api.POST("/tickets/:ticketId/dependencies", s.handleAddTicketDependency)
 	api.DELETE("/tickets/:ticketId/dependencies/:dependencyId", s.handleDeleteTicketDependency)
 	api.POST("/tickets/:ticketId/external-links", s.handleAddTicketExternalLink)
@@ -211,6 +225,10 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	comments, err := s.ticketService.ListComments(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
 
 	activityInput, err := domain.ParseListActivityEvents(projectID, domain.ActivityEventListInput{
 		TicketID: ticketID.String(),
@@ -227,6 +245,7 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"ticket":       mapTicketResponse(item),
 		"repo_scopes":  mapTicketRepoScopeDetailResponses(repoScopes, indexProjectRepoResponses(projectRepos)),
+		"comments":     mapTicketCommentResponses(comments),
 		"activity":     mapActivityEventResponses(activityItems),
 		"hook_history": mapActivityEventResponses(filterHookActivityEvents(activityItems)),
 	})
@@ -267,6 +286,101 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"ticket": mapTicketResponse(item),
 	})
+}
+
+func (s *Server) handleCreateTicketComment(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+
+	var raw rawCreateCommentRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseCreateCommentRequest(ticketID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	comment, err := s.ticketService.AddComment(c.Request().Context(), input)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"comment": mapTicketCommentResponse(comment),
+	})
+}
+
+func (s *Server) handleUpdateTicketComment(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	commentID, err := parseCommentID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_COMMENT_ID", err.Error())
+	}
+
+	var raw rawUpdateCommentRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseUpdateCommentRequest(ticketID, commentID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	comment, err := s.ticketService.UpdateComment(c.Request().Context(), input)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"comment": mapTicketCommentResponse(comment),
+	})
+}
+
+func (s *Server) handleDeleteTicketComment(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	commentID, err := parseCommentID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_COMMENT_ID", err.Error())
+	}
+
+	result, err := s.ticketService.RemoveComment(c.Request().Context(), ticketID, commentID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, result)
 }
 
 func (s *Server) handleAddTicketDependency(c echo.Context) error {
@@ -383,6 +497,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "TICKET_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrTicketConflict):
 		return writeAPIError(c, http.StatusConflict, "TICKET_CONFLICT", err.Error())
+	case errors.Is(err, ticketservice.ErrCommentNotFound):
+		return writeAPIError(c, http.StatusNotFound, "COMMENT_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrDependencyNotFound):
 		return writeAPIError(c, http.StatusNotFound, "DEPENDENCY_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrExternalLinkNotFound):
@@ -449,6 +565,26 @@ func indexProjectRepoResponses(items []domain.ProjectRepo) map[string]projectRep
 	}
 
 	return index
+}
+
+func mapTicketCommentResponses(items []ticketservice.Comment) []ticketCommentResponse {
+	response := make([]ticketCommentResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapTicketCommentResponse(item))
+	}
+
+	return response
+}
+
+func mapTicketCommentResponse(item ticketservice.Comment) ticketCommentResponse {
+	return ticketCommentResponse{
+		ID:        item.ID.String(),
+		TicketID:  item.TicketID.String(),
+		Body:      item.Body,
+		CreatedBy: item.CreatedBy,
+		CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt: item.UpdatedAt.UTC().Format(time.RFC3339),
+	}
 }
 
 func filterHookActivityEvents(items []domain.ActivityEvent) []domain.ActivityEvent {
@@ -579,4 +715,13 @@ func mapDependencyType(value string) string {
 	default:
 		return value
 	}
+}
+
+func (s *Server) publishTicketUpdatedByID(ctx context.Context, ticketID uuid.UUID) error {
+	item, err := s.ticketService.Get(ctx, ticketID)
+	if err != nil {
+		return err
+	}
+
+	return s.publishTicketEvent(ctx, ticketUpdatedEventType, item)
 }

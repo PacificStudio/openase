@@ -256,6 +256,67 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		t.Fatalf("expected parent detail to expose blocks dependency, got %+v", parentAfterBlocksResp.Ticket.Dependencies)
 	}
 
+	commentCreateResp := struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/comments", parentCreateResp.Ticket.ID),
+		map[string]any{
+			"body":       "Needs a second pass on the API response shape.",
+			"created_by": "user:reviewer",
+		},
+		http.StatusCreated,
+		&commentCreateResp,
+	)
+	if commentCreateResp.Comment.CreatedBy != "user:reviewer" || commentCreateResp.Comment.Body == "" {
+		t.Fatalf("unexpected comment create response: %+v", commentCreateResp.Comment)
+	}
+
+	commentUpdateResp := struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf(
+			"/api/v1/tickets/%s/comments/%s",
+			parentCreateResp.Ticket.ID,
+			commentCreateResp.Comment.ID,
+		),
+		map[string]any{
+			"body": "Needs a second pass on the API response shape and markdown support.",
+		},
+		http.StatusOK,
+		&commentUpdateResp,
+	)
+	if !strings.Contains(commentUpdateResp.Comment.Body, "markdown support") {
+		t.Fatalf("unexpected comment update response: %+v", commentUpdateResp.Comment)
+	}
+
+	commentDeleteResp := struct {
+		DeletedCommentID string `json:"deleted_comment_id"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf(
+			"/api/v1/tickets/%s/comments/%s",
+			parentCreateResp.Ticket.ID,
+			commentCreateResp.Comment.ID,
+		),
+		nil,
+		http.StatusOK,
+		&commentDeleteResp,
+	)
+	if commentDeleteResp.DeletedCommentID != commentCreateResp.Comment.ID {
+		t.Fatalf("unexpected comment delete response: %+v", commentDeleteResp)
+	}
+
 	subIssueDependencyResp := struct {
 		Dependency ticketDependencyResponse `json:"dependency"`
 	}{}
@@ -787,10 +848,18 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket external link: %v", err)
 	}
+	if _, err := client.TicketComment.Create().
+		SetTicketID(ticketItem.ID).
+		SetBody("Please split runtime hooks from discussion comments.").
+		SetCreatedBy("user:product").
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket comment: %v", err)
+	}
 
 	var payload struct {
 		Ticket      ticketResponse                  `json:"ticket"`
 		RepoScopes  []ticketRepoScopeDetailResponse `json:"repo_scopes"`
+		Comments    []ticketCommentResponse         `json:"comments"`
 		Activity    []activityEventResponse         `json:"activity"`
 		HookHistory []activityEventResponse         `json:"hook_history"`
 	}
@@ -815,6 +884,9 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	}
 	if payload.RepoScopes[0].PullRequestURL == nil || *payload.RepoScopes[0].PullRequestURL != "https://github.com/acme/frontend/pull/9" {
 		t.Fatalf("expected frontend pull request URL, got %+v", payload.RepoScopes[0])
+	}
+	if len(payload.Comments) != 1 || payload.Comments[0].CreatedBy != "user:product" {
+		t.Fatalf("expected ticket detail to include comments, got %+v", payload.Comments)
 	}
 	if len(payload.Activity) != 2 {
 		t.Fatalf("expected two ticket activity events, got %+v", payload.Activity)

@@ -16,6 +16,15 @@ export type TicketRepoOption = {
   defaultBranch: string
 }
 
+export type TicketComment = {
+  id: string
+  ticketId: string
+  body: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type TicketDetail = {
   id: string
   identifier: string

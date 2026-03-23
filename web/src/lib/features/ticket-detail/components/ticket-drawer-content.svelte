@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '$ui/tabs'
-  import TicketActivityList from './ticket-activity.svelte'
+  import TicketDiscussion from './ticket-discussion.svelte'
   import TicketHeader from './ticket-header.svelte'
   import TicketHooks from './ticket-hooks.svelte'
   import TicketRepos from './ticket-repos.svelte'
@@ -8,6 +8,7 @@
   import type {
     HookExecution,
     TicketActivity,
+    TicketComment,
     TicketDetail,
     TicketReferenceOption,
     TicketRepoOption,
@@ -18,6 +19,7 @@
     ticket,
     hooks,
     activities,
+    comments,
     statuses,
     dependencyCandidates,
     repoOptions,
@@ -26,6 +28,9 @@
     savingFields = false,
     creatingDependency = false,
     deletingDependencyId = null,
+    creatingComment = false,
+    updatingCommentId = null,
+    deletingCommentId = null,
     creatingRepoScope = false,
     updatingRepoScopeId = null,
     deletingRepoScopeId = null,
@@ -33,6 +38,9 @@
     onSaveFields,
     onAddDependency,
     onDeleteDependency,
+    onCreateComment,
+    onUpdateComment,
+    onDeleteComment,
     onCreateScope,
     onUpdateScope,
     onDeleteScope,
@@ -40,6 +48,7 @@
     ticket: TicketDetail
     hooks: HookExecution[]
     activities: TicketActivity[]
+    comments: TicketComment[]
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
@@ -48,6 +57,9 @@
     savingFields?: boolean
     creatingDependency?: boolean
     deletingDependencyId?: string | null
+    creatingComment?: boolean
+    updatingCommentId?: string | null
+    deletingCommentId?: string | null
     creatingRepoScope?: boolean
     updatingRepoScopeId?: string | null
     deletingRepoScopeId?: string | null
@@ -55,6 +67,9 @@
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onAddDependency?: (draft: { targetTicketId: string; relation: string }) => void
     onDeleteDependency?: (dependencyId: string) => void
+    onCreateComment?: (draft: { body: string }) => void | Promise<void>
+    onUpdateComment?: (commentId: string, draft: { body: string }) => void | Promise<void>
+    onDeleteComment?: (commentId: string) => void | Promise<void>
     onCreateScope?: (draft: {
       repoId: string
       branchName: string
@@ -98,7 +113,7 @@
     <TabsTrigger value="summary">Summary</TabsTrigger>
     <TabsTrigger value="code">Code</TabsTrigger>
     <TabsTrigger value="hooks">Hooks</TabsTrigger>
-    <TabsTrigger value="activity">Activity</TabsTrigger>
+    <TabsTrigger value="discussion">Discussion</TabsTrigger>
   </TabsList>
 
   <div class="flex-1 overflow-y-auto">
@@ -133,8 +148,17 @@
       <TicketHooks {hooks} />
     </TabsContent>
 
-    <TabsContent value="activity" class="mt-0">
-      <TicketActivityList {activities} />
+    <TabsContent value="discussion" class="mt-0">
+      <TicketDiscussion
+        {comments}
+        {activities}
+        {creatingComment}
+        {updatingCommentId}
+        {deletingCommentId}
+        {onCreateComment}
+        {onUpdateComment}
+        {onDeleteComment}
+      />
     </TabsContent>
   </div>
 </Tabs>

@@ -162,6 +162,15 @@ type OpenAPITicketExternalLink struct {
 	CreatedAt  string `json:"created_at"`
 }
 
+type OpenAPITicketComment struct {
+	ID        string `json:"id"`
+	TicketID  string `json:"ticket_id"`
+	Body      string `json:"body"`
+	CreatedBy string `json:"created_by"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
 type OpenAPITicket struct {
 	ID                string                      `json:"id"`
 	ProjectID         string                      `json:"project_id"`
@@ -519,6 +528,14 @@ type OpenAPITicketDependencyDeleteResponse struct {
 	DeletedDependencyID string `json:"deleted_dependency_id"`
 }
 
+type OpenAPITicketCommentResponse struct {
+	Comment OpenAPITicketComment `json:"comment"`
+}
+
+type OpenAPITicketCommentDeleteResponse struct {
+	DeletedCommentID string `json:"deleted_comment_id"`
+}
+
 type OpenAPIProjectReposResponse struct {
 	Repos []OpenAPIProjectRepo `json:"repos"`
 }
@@ -646,6 +663,7 @@ type OpenAPISecuritySettingsResponse struct {
 type OpenAPITicketDetailResponse struct {
 	Ticket      OpenAPITicket                  `json:"ticket"`
 	RepoScopes  []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
+	Comments    []OpenAPITicketComment         `json:"comments"`
 	Activity    []OpenAPIActivityEvent         `json:"activity"`
 	HookHistory []OpenAPIActivityEvent         `json:"hook_history"`
 }
@@ -673,6 +691,8 @@ type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
 type OpenAPICreateTicketRequest rawCreateTicketRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
 type OpenAPIAddTicketDependencyRequest rawAddDependencyRequest
+type OpenAPICreateTicketCommentRequest rawCreateCommentRequest
+type OpenAPIUpdateTicketCommentRequest rawUpdateCommentRequest
 type OpenAPICreateTicketExternalLinkRequest rawAddExternalLinkRequest
 type OpenAPICreateTicketStatusRequest rawCreateTicketStatusRequest
 type OpenAPIUpdateTicketStatusRequest rawUpdateTicketStatusRequest
@@ -1938,6 +1958,59 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 		http.MethodDelete,
 		dependencyDelete,
 	)
+
+	commentPost, err := b.jsonOperation(
+		"createTicketComment",
+		"Create a ticket comment",
+		[]string{"tickets"},
+		http.StatusCreated,
+		OpenAPITicketCommentResponse{},
+		OpenAPICreateTicketCommentRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	commentPost.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/comments", http.MethodPost, commentPost)
+
+	commentPatch, err := b.jsonOperation(
+		"updateTicketComment",
+		"Update a ticket comment",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketCommentResponse{},
+		OpenAPIUpdateTicketCommentRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	commentPatch.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	commentPatch.AddParameter(uuidPathParameter("commentId", "Comment ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/comments/{commentId}", http.MethodPatch, commentPatch)
+
+	commentDelete, err := b.jsonOperation(
+		"deleteTicketComment",
+		"Delete a ticket comment",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketCommentDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	commentDelete.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	commentDelete.AddParameter(uuidPathParameter("commentId", "Comment ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/comments/{commentId}", http.MethodDelete, commentDelete)
 
 	externalLinkPost, err := b.jsonOperation(
 		"addTicketExternalLink",

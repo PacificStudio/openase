@@ -3,6 +3,7 @@ import { fetchTicketDetailContext } from './context'
 import type {
   HookExecution,
   TicketActivity,
+  TicketComment,
   TicketDetail,
   TicketReferenceOption,
   TicketRepoOption,
@@ -22,12 +23,16 @@ export function createTicketDrawerState() {
   let ticket = $state<TicketDetail | null>(null)
   let hooks = $state<HookExecution[]>([])
   let activities = $state<TicketActivity[]>([])
+  let comments = $state<TicketComment[]>([])
   let statuses = $state<TicketStatusOption[]>([])
   let dependencyCandidates = $state<TicketReferenceOption[]>([])
   let repoOptions = $state<TicketRepoOption[]>([])
   let savingFields = $state(false)
   let creatingDependency = $state(false)
   let deletingDependencyId = $state<string | null>(null)
+  let creatingComment = $state(false)
+  let updatingCommentId = $state<string | null>(null)
+  let deletingCommentId = $state<string | null>(null)
   let creatingRepoScope = $state(false)
   let updatingRepoScopeId = $state<string | null>(null)
   let deletingRepoScopeId = $state<string | null>(null)
@@ -58,6 +63,9 @@ export function createTicketDrawerState() {
     get activities() {
       return activities
     },
+    get comments() {
+      return comments
+    },
     get statuses() {
       return statuses
     },
@@ -84,6 +92,24 @@ export function createTicketDrawerState() {
     },
     set deletingDependencyId(value) {
       deletingDependencyId = value
+    },
+    get creatingComment() {
+      return creatingComment
+    },
+    set creatingComment(value) {
+      creatingComment = value
+    },
+    get updatingCommentId() {
+      return updatingCommentId
+    },
+    set updatingCommentId(value) {
+      updatingCommentId = value
+    },
+    get deletingCommentId() {
+      return deletingCommentId
+    },
+    set deletingCommentId(value) {
+      deletingCommentId = value
     },
     get creatingRepoScope() {
       return creatingRepoScope
@@ -133,6 +159,7 @@ export function createTicketDrawerState() {
         ticket = detailContext.ticket
         hooks = detailContext.hooks
         activities = detailContext.activities
+        comments = detailContext.comments
         statuses = detailContext.statuses
         dependencyCandidates = detailContext.dependencyCandidates
         repoOptions = detailContext.repoOptions
@@ -160,12 +187,16 @@ export function createTicketDrawerState() {
       ticket = null
       hooks = []
       activities = []
+      comments = []
       statuses = []
       dependencyCandidates = []
       repoOptions = []
       savingFields = false
       creatingDependency = false
       deletingDependencyId = null
+      creatingComment = false
+      updatingCommentId = null
+      deletingCommentId = null
       creatingRepoScope = false
       updatingRepoScopeId = null
       deletingRepoScopeId = null

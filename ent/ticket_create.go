@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
@@ -475,6 +476,21 @@ func (_c *TicketCreate) AddRepoScopes(v ...*TicketRepoScope) *TicketCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddRepoScopeIDs(ids...)
+}
+
+// AddCommentIDs adds the "comments" edge to the TicketComment entity by IDs.
+func (_c *TicketCreate) AddCommentIDs(ids ...uuid.UUID) *TicketCreate {
+	_c.mutation.AddCommentIDs(ids...)
+	return _c
+}
+
+// AddComments adds the "comments" edges to the TicketComment entity.
+func (_c *TicketCreate) AddComments(v ...*TicketComment) *TicketCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCommentIDs(ids...)
 }
 
 // AddExternalLinkIDs adds the "external_links" edge to the TicketExternalLink entity by IDs.
@@ -986,6 +1002,22 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketreposcope.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CommentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.CommentsTable,
+			Columns: []string{ticket.CommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcomment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

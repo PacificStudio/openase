@@ -55,6 +55,15 @@ type rawAddExternalLinkRequest struct {
 	Relation   *string `json:"relation"`
 }
 
+type rawCreateCommentRequest struct {
+	Body      string  `json:"body"`
+	CreatedBy *string `json:"created_by"`
+}
+
+type rawUpdateCommentRequest struct {
+	Body string `json:"body"`
+}
+
 func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (ticketservice.CreateInput, error) {
 	title := strings.TrimSpace(raw.Title)
 	if title == "" {
@@ -252,8 +261,42 @@ func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkReque
 	return input, nil
 }
 
+func parseCreateCommentRequest(ticketID uuid.UUID, raw rawCreateCommentRequest) (ticketservice.CreateCommentInput, error) {
+	body := strings.TrimSpace(raw.Body)
+	if body == "" {
+		return ticketservice.CreateCommentInput{}, fmt.Errorf("body must not be empty")
+	}
+
+	input := ticketservice.CreateCommentInput{
+		TicketID: ticketID,
+		Body:     body,
+	}
+	if raw.CreatedBy != nil {
+		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
+	}
+
+	return input, nil
+}
+
+func parseUpdateCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, raw rawUpdateCommentRequest) (ticketservice.UpdateCommentInput, error) {
+	body := strings.TrimSpace(raw.Body)
+	if body == "" {
+		return ticketservice.UpdateCommentInput{}, fmt.Errorf("body must not be empty")
+	}
+
+	return ticketservice.UpdateCommentInput{
+		TicketID:  ticketID,
+		CommentID: commentID,
+		Body:      body,
+	}, nil
+}
+
 func parseTicketID(c echo.Context) (uuid.UUID, error) {
 	return parseUUIDPathParamValue(c, "ticketId")
+}
+
+func parseCommentID(c echo.Context) (uuid.UUID, error) {
+	return parseUUIDPathParamValue(c, "commentId")
 }
 
 func parseDependencyID(c echo.Context) (uuid.UUID, error) {

@@ -2,12 +2,16 @@
   import { appStore } from '$lib/stores/app.svelte'
   import {
     addTicketDependency,
+    createTicketComment,
     createTicketRepoScope,
+    deleteTicketComment,
     deleteTicketDependency,
     deleteTicketRepoScope,
     updateTicket,
+    updateTicketComment,
     updateTicketRepoScope,
   } from '$lib/api/openase'
+  import { ApiError } from '$lib/api/client'
   import { statusSync } from '$lib/features/statuses/public'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import { createTicketDrawerState } from '../drawer-state.svelte'
@@ -137,6 +141,63 @@
       mutate: () => deleteTicketDependency(ticketId, dependencyId),
       successMessage: mutation.value.successMessage,
     })
+  }
+
+  async function handleCreateComment(draft: { body: string }) {
+    if (!projectId || !ticketId) return
+
+    drawerState.creatingComment = true
+    drawerState.clearMutationMessages()
+
+    try {
+      await createTicketComment(ticketId, { body: draft.body })
+      drawerState.setMutationNotice('Comment added.')
+      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    } catch (caughtError) {
+      drawerState.setMutationError(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.',
+      )
+    } finally {
+      drawerState.creatingComment = false
+    }
+  }
+
+  async function handleUpdateComment(commentId: string, draft: { body: string }) {
+    if (!projectId || !ticketId) return
+
+    drawerState.updatingCommentId = commentId
+    drawerState.clearMutationMessages()
+
+    try {
+      await updateTicketComment(ticketId, commentId, { body: draft.body })
+      drawerState.setMutationNotice('Comment updated.')
+      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    } catch (caughtError) {
+      drawerState.setMutationError(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update comment.',
+      )
+    } finally {
+      drawerState.updatingCommentId = null
+    }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    if (!projectId || !ticketId) return
+
+    drawerState.deletingCommentId = commentId
+    drawerState.clearMutationMessages()
+
+    try {
+      await deleteTicketComment(ticketId, commentId)
+      drawerState.setMutationNotice('Comment deleted.')
+      await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    } catch (caughtError) {
+      drawerState.setMutationError(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
+      )
+    } finally {
+      drawerState.deletingCommentId = null
+    }
   }
 
   async function handleCreateRepoScope(draft: RepoScopeDraft) {
@@ -270,6 +331,7 @@
         ticket={drawerState.ticket}
         hooks={drawerState.hooks}
         activities={drawerState.activities}
+        comments={drawerState.comments}
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
         repoOptions={drawerState.repoOptions}
@@ -278,6 +340,9 @@
         savingFields={drawerState.savingFields}
         creatingDependency={drawerState.creatingDependency}
         deletingDependencyId={drawerState.deletingDependencyId}
+        creatingComment={drawerState.creatingComment}
+        updatingCommentId={drawerState.updatingCommentId}
+        deletingCommentId={drawerState.deletingCommentId}
         creatingRepoScope={drawerState.creatingRepoScope}
         updatingRepoScopeId={drawerState.updatingRepoScopeId}
         deletingRepoScopeId={drawerState.deletingRepoScopeId}
@@ -285,6 +350,9 @@
         onSaveFields={handleSaveFields}
         onAddDependency={handleAddDependency}
         onDeleteDependency={handleDeleteDependency}
+        onCreateComment={handleCreateComment}
+        onUpdateComment={handleUpdateComment}
+        onDeleteComment={handleDeleteComment}
         onCreateScope={handleCreateRepoScope}
         onUpdateScope={handleUpdateRepoScope}
         onDeleteScope={handleDeleteRepoScope}
