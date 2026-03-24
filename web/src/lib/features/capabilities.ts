@@ -3,6 +3,10 @@ import type { SettingsSection } from '$lib/features/settings/types'
 export type CapabilityState = 'available' | 'unwired' | 'backend_missing'
 
 export type CapabilityKey =
+  | 'organizationCreation'
+  | 'projectCreation'
+  | 'machineCreation'
+  | 'providerCreation'
   | 'generalSettings'
   | 'search'
   | 'newTicket'
@@ -27,6 +31,26 @@ export type CapabilityDescriptor = {
 // Keep this inventory aligned with the shipped UI/API boundary. Source-backed audit tests catch
 // drift when product surface changes.
 export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
+  organizationCreation: {
+    state: 'unwired',
+    summary:
+      'Organization creation is supported by POST /api/v1/orgs, but the frontend still relies on seeded workspaces and does not expose a create-organization flow.',
+  },
+  projectCreation: {
+    state: 'unwired',
+    summary:
+      'Project creation is supported by POST /api/v1/orgs/{orgId}/projects, but the frontend currently only lists and switches existing projects.',
+  },
+  machineCreation: {
+    state: 'available',
+    summary:
+      'Machine creation is available from the Machines page and submits to POST /api/v1/orgs/{orgId}/machines.',
+  },
+  providerCreation: {
+    state: 'unwired',
+    summary:
+      'Provider creation is supported by POST /api/v1/orgs/{orgId}/providers, but the frontend currently only edits providers that already exist in the selected organization.',
+  },
   generalSettings: {
     state: 'available',
     summary: 'General project settings are already wired to PATCH /api/v1/projects/{projectId}.',
