@@ -32,14 +32,14 @@ export type CapabilityDescriptor = {
 // drift when product surface changes.
 export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   organizationCreation: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Organization creation is supported by POST /api/v1/orgs, but the frontend still relies on seeded workspaces and does not expose a create-organization flow.',
+      'Organization creation is available from the workspace empty state and submits to POST /api/v1/orgs.',
   },
   projectCreation: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Project creation is supported by POST /api/v1/orgs/{orgId}/projects, but the frontend currently only lists and switches existing projects.',
+      'Project creation is available from the organization dashboard and submits to POST /api/v1/orgs/{orgId}/projects.',
   },
   machineCreation: {
     state: 'available',
@@ -47,9 +47,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Machine creation is available from the Machines page and submits to POST /api/v1/orgs/{orgId}/machines.',
   },
   providerCreation: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Provider creation is supported by POST /api/v1/orgs/{orgId}/providers, but the frontend currently only edits providers that already exist in the selected organization.',
+      'Provider creation is available from the organization dashboard and submits to POST /api/v1/orgs/{orgId}/providers.',
   },
   generalSettings: {
     state: 'available',

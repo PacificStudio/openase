@@ -36,9 +36,15 @@ export type Organization = ItemOf<OrganizationPayload['organizations']>
 export type AgentProviderListPayload = DeepRequired<
   ResponseFor<'/api/v1/orgs/{orgId}/providers', 'get'>
 >
+export type AgentProviderResponse = DeepRequired<
+  ResponseFor<'/api/v1/orgs/{orgId}/providers', 'post'>
+>
 export type AgentProvider = ItemOf<AgentProviderListPayload['providers']>
 
 export type ProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'get'>>
+export type ProjectCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/orgs/{orgId}/projects', 'post'>
+>
 export type ProjectResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}', 'get'>>
 export type Project = ItemOf<ProjectPayload['projects']>
 

@@ -2,6 +2,7 @@ import { api } from './client'
 import type {
   ActivityPayload,
   AgentPayload,
+  AgentProviderResponse,
   AgentOutputPayload,
   AgentResponse,
   AgentProvider,
@@ -25,6 +26,7 @@ import type {
   NotificationRuleResponse,
   ProjectRepoPayload,
   ProjectRepoResponse,
+  ProjectCreateResponse,
   ProjectPayload,
   ProjectResponse,
   SecuritySettingsResponse,
@@ -43,6 +45,7 @@ import type {
   TicketCommentUpdateResponse,
   TicketPayload,
   Organization,
+  OrganizationResponse,
   TicketRepoScopePayload,
   TicketRepoScopeResponse,
   WorkflowDetailPayload,
@@ -73,8 +76,32 @@ export function listOrganizations() {
   return api.get<{ organizations?: Organization[] }>('/api/v1/orgs')
 }
 
+export function createOrganization(body: {
+  name: string
+  slug: string
+  default_agent_provider_id?: string | null
+}) {
+  return api.post<OrganizationResponse>('/api/v1/orgs', { body })
+}
+
 export function listProjects(orgId: string) {
   return api.get<ProjectPayload>(`/api/v1/orgs/${orgId}/projects`)
+}
+
+export function createProject(
+  orgId: string,
+  body: {
+    name: string
+    slug: string
+    description?: string
+    status?: string
+    default_workflow_id?: string | null
+    default_agent_provider_id?: string | null
+    accessible_machine_ids?: string[]
+    max_concurrent_agents?: number
+  },
+) {
+  return api.post<ProjectCreateResponse>(`/api/v1/orgs/${orgId}/projects`, { body })
 }
 
 export function listMachines(orgId: string) {
@@ -107,6 +134,24 @@ export function getMachineResources(machineId: string) {
 
 export function listProviders(orgId: string) {
   return api.get<AgentProviderListPayload>(`/api/v1/orgs/${orgId}/providers`)
+}
+
+export function createProvider(
+  orgId: string,
+  body: {
+    name: string
+    adapter_type: string
+    cli_command?: string
+    cli_args?: string[]
+    auth_config?: Record<string, unknown>
+    model_name: string
+    model_temperature?: number
+    model_max_tokens?: number
+    cost_per_input_token?: number
+    cost_per_output_token?: number
+  },
+) {
+  return api.post<AgentProviderResponse>(`/api/v1/orgs/${orgId}/providers`, { body })
 }
 
 export function getProject(projectId: string) {

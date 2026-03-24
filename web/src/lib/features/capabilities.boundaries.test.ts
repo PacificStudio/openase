@@ -19,14 +19,12 @@ import runtimeActionsSource from './agents/runtime-actions.ts?raw'
 import projectShellSource from './app-shell/components/project-shell.svelte?raw'
 import newTicketDialogSource from './tickets/components/new-ticket-dialog.svelte?raw'
 import ticketsPageSource from './tickets/components/tickets-page.svelte?raw'
-import orgDashboardSource from '../../routes/(app)/orgs/[orgId]/+page.svelte?raw'
-import workspaceDashboardSource from '../../routes/(app)/+page.svelte?raw'
+import organizationCreationSource from './catalog-creation/components/workspace-organization-creation.svelte?raw'
+import organizationCreationLanesSource from './catalog-creation/components/organization-creation-lanes.svelte?raw'
+import projectCreationPanelSource from './catalog-creation/components/project-creation-panel.svelte?raw'
+import providerCreationPanelSource from './catalog-creation/components/provider-creation-panel.svelte?raw'
 
-type SourceEvidence = {
-  file: string
-  snippets?: string[]
-  absentSnippets?: string[]
-}
+type SourceEvidence = { file: string; snippets?: string[]; absentSnippets?: string[] }
 
 type CapabilityAuditCase = {
   capability: CapabilityKey
@@ -50,8 +48,12 @@ const sourceByFile: Record<string, string> = {
   './app-shell/components/project-shell.svelte': projectShellSource,
   './tickets/components/new-ticket-dialog.svelte': newTicketDialogSource,
   './tickets/components/tickets-page.svelte': ticketsPageSource,
-  '../../routes/(app)/+page.svelte': workspaceDashboardSource,
-  '../../routes/(app)/orgs/[orgId]/+page.svelte': orgDashboardSource,
+  './catalog-creation/components/workspace-organization-creation.svelte':
+    organizationCreationSource,
+  './catalog-creation/components/organization-creation-lanes.svelte':
+    organizationCreationLanesSource,
+  './catalog-creation/components/project-creation-panel.svelte': projectCreationPanelSource,
+  './catalog-creation/components/provider-creation-panel.svelte': providerCreationPanelSource,
 }
 
 function expectCapabilitySummary(summary: string, snippets: string[]) {
@@ -75,34 +77,35 @@ function expectSourceEvidence(sources: SourceEvidence[]) {
 const capabilityAuditCases: CapabilityAuditCase[] = [
   {
     capability: 'organizationCreation',
-    expectedState: 'unwired',
-    summarySnippets: ['POST /api/v1/orgs', 'does not expose a create-organization flow'],
+    expectedState: 'available',
+    summarySnippets: ['workspace empty state', 'POST /api/v1/orgs'],
     sources: [
       {
         file: '$lib/api/openase.ts',
-        absentSnippets: ['export function createOrganization('],
+        snippets: ['export function createOrganization(body: {'],
       },
       {
-        file: '../../routes/(app)/+page.svelte',
-        snippets: ['Create or seed an organization to start using the OpenASE dashboard.'],
-        absentSnippets: ['Create organization', 'New organization'],
+        file: './catalog-creation/components/workspace-organization-creation.svelte',
+        snippets: ['Create organization', 'createOrganization(parsed.value)'],
       },
     ],
   },
   {
     capability: 'projectCreation',
-    expectedState: 'unwired',
-    summarySnippets: ['POST /api/v1/orgs/{orgId}/projects', 'lists and switches existing projects'],
+    expectedState: 'available',
+    summarySnippets: ['organization dashboard', 'POST /api/v1/orgs/{orgId}/projects'],
     sources: [
       {
         file: '$lib/api/openase.ts',
-        snippets: ['export function listProjects(orgId: string) {'],
-        absentSnippets: ['export function createProject('],
+        snippets: ['export function createProject(', 'api.post<ProjectCreateResponse>'],
       },
       {
-        file: '../../routes/(app)/orgs/[orgId]/+page.svelte',
-        snippets: ['Use direct links or the top-bar switcher to move between projects.'],
-        absentSnippets: ['Create project', 'New project'],
+        file: './catalog-creation/components/organization-creation-lanes.svelte',
+        snippets: ['createProject(orgId, parsed.value)'],
+      },
+      {
+        file: './catalog-creation/components/project-creation-panel.svelte',
+        snippets: ['Create project'],
       },
     ],
   },
@@ -127,25 +130,20 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
   },
   {
     capability: 'providerCreation',
-    expectedState: 'unwired',
-    summarySnippets: [
-      'POST /api/v1/orgs/{orgId}/providers',
-      'only edits providers that already exist',
-    ],
+    expectedState: 'available',
+    summarySnippets: ['organization dashboard', 'POST /api/v1/orgs/{orgId}/providers'],
     sources: [
       {
         file: '$lib/api/openase.ts',
-        snippets: ['export function listProviders(orgId: string) {'],
-        absentSnippets: ['export function createProvider(', 'export function createAgentProvider('],
+        snippets: ['export function createProvider(', 'api.post<AgentProviderResponse>'],
       },
       {
-        file: './agents/components/agents-page.svelte',
-        snippets: ['providerEditor = createProviderEditorState()', 'providerItems.length === 0'],
-        absentSnippets: ['Create provider', 'New provider'],
+        file: './catalog-creation/components/organization-creation-lanes.svelte',
+        snippets: ['createProvider(orgId, parsed.value)'],
       },
       {
-        file: './agents/components/provider-editor-state.svelte.ts',
-        snippets: ['const payload = await updateProvider(provider.id, parsed.value)'],
+        file: './catalog-creation/components/provider-creation-panel.svelte',
+        snippets: ['Create provider'],
       },
     ],
   },

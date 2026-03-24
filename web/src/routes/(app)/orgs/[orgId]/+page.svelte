@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { organizationPath, projectPath } from '$lib/stores/app-context'
+  import OrganizationCreationLanes from '$lib/features/catalog-creation/components/organization-creation-lanes.svelte'
+  import OrganizationDashboardStats from '$lib/features/catalog-creation/components/organization-dashboard-stats.svelte'
+  import OrganizationProjectGrid from '$lib/features/catalog-creation/components/organization-project-grid.svelte'
+  import { organizationPath } from '$lib/stores/app-context'
   import type { PageData } from './$types'
 
   let { data }: { data: PageData } = $props()
 
-  const currentOrg = $derived(data.currentOrg)
-  const projects = $derived(data.projects)
+  const currentOrg = $derived(data.currentOrg),
+    projects = $derived(data.projects),
+    providers = $derived(data.providers)
 </script>
 
 <svelte:head>
@@ -32,27 +36,18 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-    <div class="border-border bg-card rounded-lg border p-4">
-      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Organization</p>
-      <p class="text-foreground mt-2 text-lg font-semibold">{currentOrg?.name ?? 'Unknown org'}</p>
-      <p class="text-muted-foreground mt-1 text-sm">Stable context now lives in the URL.</p>
-    </div>
-    <div class="border-border bg-card rounded-lg border p-4">
-      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Projects</p>
-      <p class="text-foreground mt-2 text-lg font-semibold">{projects.length}</p>
-      <p class="text-muted-foreground mt-1 text-sm">
-        Pick a project to open its dashboard, board, agents, and settings under one route model.
-      </p>
-    </div>
-    <div class="border-border bg-card rounded-lg border p-4">
-      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Providers</p>
-      <p class="text-foreground mt-2 text-lg font-semibold">{data.providers.length}</p>
-      <p class="text-muted-foreground mt-1 text-sm">
-        Provider configuration remains attached to the selected organization context.
-      </p>
-    </div>
-  </div>
+  <OrganizationDashboardStats
+    orgName={currentOrg?.name ?? 'Unknown org'}
+    projectCount={projects.length}
+    providerCount={providers.length}
+  />
+
+  <OrganizationCreationLanes
+    orgId={currentOrg?.id ?? null}
+    defaultProviderId={currentOrg?.default_agent_provider_id ?? null}
+    {projects}
+    {providers}
+  />
 
   <section class="space-y-4">
     <div>
@@ -62,47 +57,6 @@
       </p>
     </div>
 
-    {#if projects.length > 0}
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {#each projects as project (project.id)}
-          <article class="border-border bg-card rounded-lg border p-5">
-            <div class="flex items-start justify-between gap-3">
-              <div class="space-y-1">
-                <h3 class="text-foreground text-base font-semibold">{project.name}</h3>
-                <p class="text-muted-foreground text-sm">
-                  {project.description || 'No project description yet.'}
-                </p>
-              </div>
-              <span
-                class="bg-muted text-muted-foreground rounded-full px-2.5 py-1 text-[11px] font-medium"
-              >
-                {project.status}
-              </span>
-            </div>
-
-            <div class="mt-4 flex flex-wrap gap-2">
-              <a
-                href={currentOrg ? projectPath(currentOrg.id, project.id) : '/'}
-                class="bg-primary text-primary-foreground inline-flex h-9 items-center rounded-md px-4 text-sm font-medium"
-              >
-                Open dashboard
-              </a>
-              <a
-                href={currentOrg ? projectPath(currentOrg.id, project.id, 'board') : '/'}
-                class="border-border hover:bg-accent inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium transition-colors"
-              >
-                Open board
-              </a>
-            </div>
-          </article>
-        {/each}
-      </div>
-    {:else}
-      <div
-        class="border-border bg-card text-muted-foreground rounded-lg border px-4 py-10 text-center text-sm"
-      >
-        No projects found in this organization yet.
-      </div>
-    {/if}
+    <OrganizationProjectGrid orgId={currentOrg?.id ?? null} {projects} />
   </section>
 </div>
