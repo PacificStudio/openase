@@ -33,8 +33,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--workspace-path",
-        default=str(repo_root),
-        help="Absolute workspace path passed into the created agent.",
+        default="",
+        help="Absolute workspace path passed into the created agent. Defaults to a fresh local Todo app git repo.",
+    )
+    parser.add_argument(
+        "--workspace-parent",
+        default=str(repo_root.parent),
+        help="Parent directory used when creating a fresh local Todo app repo.",
     )
     parser.add_argument(
         "--provider-mode",
@@ -49,7 +54,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--wait-seconds",
         type=int,
         default=45,
-        help="Maximum seconds to wait for the scheduler to claim a ticket.",
+        help="Maximum seconds to wait for the scheduler to claim a ticket and observe runtime activity.",
+    )
+    parser.add_argument(
+        "--wait-for-workspace-seconds",
+        type=int,
+        default=180,
+        help="Maximum seconds to wait for real coding activity to land in the Todo app workspace repo.",
     )
     parser.add_argument(
         "--skip-github",
@@ -211,12 +222,160 @@ def wait_for_agent_claim(base_url: str, project_id: str, agent_id: str, timeout_
     return last_seen
 
 
+def write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def create_local_todo_repo(project_name: str, workspace_parent: Path, stamp: str) -> tuple[Path, str]:
+    repo_dir = workspace_parent / f"{slugify(project_name)}-runtime-{stamp}"
+    repo_dir.mkdir(parents=True, exist_ok=False)
+
+    package_name = slugify(project_name)
+    files = {
+        repo_dir / ".gitignore": "node_modules/\ncoverage/\n.DS_Store\n",
+        repo_dir / "README.md": (
+            f"# {project_name}\n\n"
+            "Local validation repo created by OpenASE.\n\n"
+            "Commands:\n"
+            "- `python3 -m http.server 4173`\n"
+            "- `npm test`\n"
+        ),
+        repo_dir / "package.json": (
+            "{\n"
+            f'  "name": "{package_name}",\n'
+            '  "private": true,\n'
+            '  "type": "module",\n'
+            '  "scripts": {\n'
+            '    "test": "node --test"\n'
+            "  }\n"
+            "}\n"
+        ),
+        repo_dir / "index.html": (
+            "<!doctype html>\n"
+            '<html lang="en">\n'
+            "  <head>\n"
+            '    <meta charset="UTF-8" />\n'
+            '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n'
+            f"    <title>{project_name}</title>\n"
+            '    <link rel="stylesheet" href="./src/styles.css" />\n'
+            "  </head>\n"
+            "  <body>\n"
+            '    <div id="app"></div>\n'
+            '    <script type="module" src="./src/main.js"></script>\n'
+            "  </body>\n"
+            "</html>\n"
+        ),
+        repo_dir / "src" / "main.js": (
+            'import { appTitle, renderApp } from "./todo-app.js";\n\n'
+            'document.title = appTitle;\n'
+            'const root = document.querySelector("#app");\n'
+            "if (!root) {\n"
+            '  throw new Error("Missing #app root");\n'
+            "}\n"
+            "renderApp(root);\n"
+        ),
+        repo_dir / "src" / "todo-app.js": (
+            f'export const appTitle = "{project_name}";\n\n'
+            "export function renderApp(root) {\n"
+            '  root.innerHTML = `\n'
+            '    <main class="shell">\n'
+            f'      <h1>{project_name}</h1>\n'
+            '      <p class="lede">Your coding agent will turn this placeholder into a real Todo app.</p>\n'
+            '      <section class="todo-card">\n'
+            '        <strong>No todos yet.</strong>\n'
+            '        <p>Implement add, toggle, delete, filtering, and counters.</p>\n'
+            "      </section>\n"
+            "    </main>\n"
+            "  `;\n"
+            "}\n"
+        ),
+        repo_dir / "src" / "styles.css": (
+            ":root {\n"
+            "  color-scheme: light;\n"
+            "  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;\n"
+            "  background: #f6f3ee;\n"
+            "  color: #1f2933;\n"
+            "}\n\n"
+            "body {\n"
+            "  margin: 0;\n"
+            "}\n\n"
+            ".shell {\n"
+            "  max-width: 720px;\n"
+            "  margin: 0 auto;\n"
+            "  padding: 48px 24px 72px;\n"
+            "}\n\n"
+            ".lede {\n"
+            "  color: #52606d;\n"
+            "}\n\n"
+            ".todo-card {\n"
+            "  margin-top: 24px;\n"
+            "  padding: 24px;\n"
+            "  border-radius: 16px;\n"
+            "  background: #ffffff;\n"
+            "  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);\n"
+            "}\n"
+        ),
+        repo_dir / "test" / "todo-app.test.js": (
+            'import test from "node:test";\n'
+            'import assert from "node:assert/strict";\n'
+            'import { appTitle } from "../src/todo-app.js";\n\n'
+            'test("app title stays stable", () => {\n'
+            f'  assert.equal(appTitle, "{project_name}");\n'
+            "});\n"
+        ),
+    }
+
+    for path, content in files.items():
+        write_text(path, content)
+
+    run_cli(["git", "init", "-b", "main"], cwd=repo_dir, check=True)
+    run_cli(["git", "config", "user.name", "Codex"], cwd=repo_dir, check=True)
+    run_cli(["git", "config", "user.email", "codex@openai.com"], cwd=repo_dir, check=True)
+    run_cli(["git", "add", "."], cwd=repo_dir, check=True)
+    run_cli(["git", "commit", "-m", "chore: bootstrap todo app scaffold"], cwd=repo_dir, check=True)
+    baseline_head = run_cli(["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True).stdout.strip()
+    return repo_dir, baseline_head
+
+
+def wait_for_agent_execution(base_url: str, project_id: str, agent_id: str, timeout_seconds: int) -> dict | None:
+    deadline = time.time() + timeout_seconds
+    last_seen = None
+    while time.time() < deadline:
+        agents = request_json(base_url, "GET", f"/api/v1/projects/{project_id}/agents").get("agents", [])
+        current = require_by_name(agents, "id", agent_id)
+        last_seen = current
+        if current.get("runtime_phase") == "executing" or current.get("total_tokens_used", 0) > 0:
+            return current
+        time.sleep(2)
+    return last_seen
+
+
+def wait_for_workspace_activity(workspace_path: Path, baseline_head: str, timeout_seconds: int) -> dict | None:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        status_output = run_cli(["git", "status", "--short"], cwd=workspace_path, check=True).stdout.strip()
+        current_head = run_cli(["git", "rev-parse", "HEAD"], cwd=workspace_path, check=True).stdout.strip()
+        if status_output or current_head != baseline_head:
+            diff_stat = run_cli(["git", "diff", "--stat"], cwd=workspace_path, check=False).stdout.strip()
+            last_commit = run_cli(["git", "log", "--oneline", "-1"], cwd=workspace_path, check=True).stdout.strip()
+            recent_files = run_cli(["git", "status", "--short"], cwd=workspace_path, check=True).stdout.strip().splitlines()
+            return {
+                "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "head": current_head,
+                "head_changed": current_head != baseline_head,
+                "git_status": status_output,
+                "git_diff_stat": diff_stat,
+                "last_commit": last_commit,
+                "changed_entries": recent_files,
+            }
+        time.sleep(5)
+    return None
+
+
 def main() -> int:
     args = build_parser().parse_args()
     repo_root = Path(__file__).resolve().parents[2]
-    workspace_path = Path(args.workspace_path).resolve()
-    if not workspace_path.is_absolute():
-        raise RuntimeError("--workspace-path must be absolute")
 
     stamp = time.strftime("%Y%m%d%H%M%S")
     base_url = args.base_url.rstrip("/")
@@ -227,6 +386,20 @@ def main() -> int:
     github_repo = ""
     github_project = None
     github_items = []
+    workspace_created = False
+    workspace_baseline_head = ""
+
+    if args.workspace_path.strip():
+        workspace_path = Path(args.workspace_path).resolve()
+        if not workspace_path.is_absolute():
+            raise RuntimeError("--workspace-path must be absolute")
+        if not (workspace_path / ".git").exists():
+            raise RuntimeError("--workspace-path must point at an existing git repo")
+        workspace_baseline_head = run_cli(["git", "rev-parse", "HEAD"], cwd=workspace_path, check=True).stdout.strip()
+    else:
+        workspace_parent = Path(args.workspace_parent).resolve()
+        workspace_path, workspace_baseline_head = create_local_todo_repo(project_name, workspace_parent, stamp)
+        workspace_created = True
 
     if not args.skip_github:
         github_repo = args.github_repo.strip() or detect_origin_github_repo(repo_root) or ""
@@ -261,12 +434,12 @@ def main() -> int:
         },
     ]
 
-    print(f"[1/10] health check against {base_url}")
+    print(f"[1/12] health check against {base_url}")
     request_json(base_url, "GET", "/healthz")
     request_json(base_url, "GET", "/api/v1/healthz")
 
     if not args.skip_github:
-        print("[2/10] verify GitHub CLI auth and create a dedicated GitHub Project")
+        print("[2/12] verify GitHub CLI auth and create a dedicated GitHub Project")
         run_cli(["gh", "auth", "status"], check=True)
         github_project_title = f"OpenASE {project_name} Validation {stamp}"
         github_project = create_github_project(args.github_owner, github_project_title)
@@ -281,9 +454,12 @@ def main() -> int:
             github_items.append(github_issue)
         github_project = get_github_project_by_title(args.github_owner, github_project_title)
     else:
-        print("[2/10] skip GitHub project and issue creation")
+        print("[2/12] skip GitHub project and issue creation")
 
-    print("[3/10] create isolated OpenASE organization and project")
+    print("[3/12] prepare the Todo app workspace repo")
+    print(f"workspace={workspace_path}")
+
+    print("[4/12] create isolated OpenASE organization and project")
     org = request_json(
         base_url,
         "POST",
@@ -306,7 +482,7 @@ def main() -> int:
         },
     )["project"]
 
-    print("[4/10] seed default statuses and create coding workflow")
+    print("[5/12] seed default statuses and create coding workflow")
     statuses = request_json(base_url, "POST", f"/api/v1/projects/{project['id']}/statuses/reset")["statuses"]
     todo = require_by_name(statuses, "name", "Todo")
     done = require_by_name(statuses, "name", "Done")
@@ -326,12 +502,13 @@ def main() -> int:
                 "---\n\n"
                 f"# {project_name}\n\n"
                 "You are responsible for implementing coding tasks for the Todo app project.\n"
+                "You are running inside a dedicated Todo app git repository, not the OpenASE repo.\n"
                 "Prefer concrete code changes, tests, and short execution notes.\n"
             ),
         },
     )["workflow"]
 
-    print("[5/10] create provider and coding agent")
+    print("[6/12] create provider and coding agent")
     if args.provider_mode == "fake-codex":
         fake_codex_path = repo_root / "scripts" / "dev" / "fake_codex_app_server.py"
         provider_payload = {
@@ -370,7 +547,7 @@ def main() -> int:
         },
     )["agent"]
 
-    print("[6/10] set project defaults and register the Git repo for the workflow")
+    print("[7/12] set project defaults and register the workspace repo for the workflow")
     request_json(
         base_url,
         "PATCH",
@@ -386,14 +563,14 @@ def main() -> int:
         f"/api/v1/projects/{project['id']}/repos",
         {
             "name": slugify(project_name),
-            "repository_url": f"https://github.com/{github_repo}.git" if github_repo else "https://github.com/BetterAndBetterII/openase.git",
+            "repository_url": workspace_path.as_uri(),
             "default_branch": "main",
             "is_primary": True,
             "labels": ["todo-app", "validation"],
         },
     )["repo"]
 
-    print("[7/10] create linked OpenASE tickets")
+    print("[8/12] create linked OpenASE tickets")
     tickets = []
     for index, spec in enumerate(todo_issue_specs):
         github_issue = github_items[index] if index < len(github_items) else None
@@ -433,7 +610,7 @@ def main() -> int:
             ticket = request_json(base_url, "GET", f"/api/v1/tickets/{ticket['id']}")["ticket"]
             tickets[-1] = ticket
 
-    print("[8/10] add one realistic dependency edge")
+    print("[9/12] add one realistic dependency edge")
     request_json(
         base_url,
         "POST",
@@ -444,10 +621,14 @@ def main() -> int:
         },
     )
 
-    print("[9/10] wait for the scheduler to claim work")
+    print("[10/12] wait for the scheduler to claim work")
     agent_after_claim = wait_for_agent_claim(base_url, project["id"], agent["id"], args.wait_seconds)
 
-    print("[10/10] summarize created resources")
+    print("[11/12] wait for runtime execution and real workspace activity")
+    agent_after_execution = wait_for_agent_execution(base_url, project["id"], agent["id"], args.wait_seconds)
+    workspace_activity = wait_for_workspace_activity(workspace_path, workspace_baseline_head, args.wait_for_workspace_seconds)
+
+    print("[12/12] summarize created resources")
     summary = {
         "openase": {
             "base_url": base_url,
@@ -458,6 +639,7 @@ def main() -> int:
             "provider": provider,
             "agent": agent,
             "agent_after_wait": agent_after_claim,
+            "agent_after_execution": agent_after_execution,
             "tickets": tickets,
         },
         "github": {
@@ -467,9 +649,16 @@ def main() -> int:
             "project": github_project,
             "issues": github_items,
         },
+        "workspace": {
+            "path": str(workspace_path),
+            "created": workspace_created,
+            "baseline_head": workspace_baseline_head,
+            "activity": workspace_activity,
+        },
         "notes": [
             "OpenASE project-facing connector CRUD is not exported yet.",
-            "This script creates real GitHub issues/projects, then links them to OpenASE tickets through external links.",
+            "This script creates a dedicated local Todo app git repo, then points the coding agent workspace at that repo.",
+            "GitHub project/issues are still created separately and linked back to OpenASE tickets through external links.",
             f"Provider mode: {args.provider_mode}",
         ],
     }
