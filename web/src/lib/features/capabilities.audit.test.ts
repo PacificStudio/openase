@@ -184,10 +184,7 @@ const settingsAuditCases: SettingsAuditCase[] = [
       },
       {
         file: './settings/components/security-settings.svelte',
-        snippets: [
-          'const payload = await getSecuritySettings(projectId)',
-          'Explicitly deferred',
-        ],
+        snippets: ['const payload = await getSecuritySettings(projectId)', 'Explicitly deferred'],
       },
     ],
   },

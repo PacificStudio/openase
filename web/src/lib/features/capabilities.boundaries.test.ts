@@ -128,7 +128,10 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
   {
     capability: 'providerCreation',
     expectedState: 'unwired',
-    summarySnippets: ['POST /api/v1/orgs/{orgId}/providers', 'only edits providers that already exist'],
+    summarySnippets: [
+      'POST /api/v1/orgs/{orgId}/providers',
+      'only edits providers that already exist',
+    ],
     sources: [
       {
         file: '$lib/api/openase.ts',
@@ -253,7 +256,9 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
       },
       {
         file: './agents/runtime-actions.ts',
-        snippets: ["input.action === 'pause' ? await pauseAgent(input.agentId) : await resumeAgent(input.agentId)"],
+        snippets: [
+          "input.action === 'pause' ? await pauseAgent(input.agentId) : await resumeAgent(input.agentId)",
+        ],
       },
     ],
   },
@@ -272,7 +277,9 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
       },
       {
         file: './agents/runtime-actions.ts',
-        snippets: ["input.action === 'pause' ? await pauseAgent(input.agentId) : await resumeAgent(input.agentId)"],
+        snippets: [
+          "input.action === 'pause' ? await pauseAgent(input.agentId) : await resumeAgent(input.agentId)",
+        ],
       },
     ],
   },
