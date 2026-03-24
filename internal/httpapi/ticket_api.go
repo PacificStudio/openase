@@ -75,6 +75,8 @@ type ticketResponse struct {
 	CostAmount        float64                      `json:"cost_amount"`
 	AttemptCount      int                          `json:"attempt_count"`
 	ConsecutiveErrors int                          `json:"consecutive_errors"`
+	StartedAt         *string                      `json:"started_at,omitempty"`
+	CompletedAt       *string                      `json:"completed_at,omitempty"`
 	NextRetryAt       *string                      `json:"next_retry_at,omitempty"`
 	RetryPaused       bool                         `json:"retry_paused"`
 	PauseReason       string                       `json:"pause_reason,omitempty"`
@@ -683,6 +685,14 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 	if item.NextRetryAt != nil {
 		nextRetryAt := item.NextRetryAt.UTC().Format(time.RFC3339)
 		response.NextRetryAt = &nextRetryAt
+	}
+	if item.StartedAt != nil {
+		startedAt := item.StartedAt.UTC().Format(time.RFC3339)
+		response.StartedAt = &startedAt
+	}
+	if item.CompletedAt != nil {
+		completedAt := item.CompletedAt.UTC().Format(time.RFC3339)
+		response.CompletedAt = &completedAt
 	}
 	if item.Parent != nil {
 		parent := mapTicketReferenceResponse(*item.Parent)

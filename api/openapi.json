@@ -7986,6 +7986,10 @@
                             },
                             "type": "array"
                           },
+                          "completed_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "consecutive_errors": {
                             "type": "integer"
                           },
@@ -8121,6 +8125,10 @@
                           },
                           "retry_paused": {
                             "type": "boolean"
+                          },
+                          "started_at": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "status_id": {
                             "type": "string"
@@ -8322,6 +8330,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -8457,6 +8469,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -8866,6 +8882,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -9001,6 +9021,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -10807,6 +10831,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -10942,6 +10970,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -11469,6 +11501,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -11604,6 +11640,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -11805,6 +11845,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -11940,6 +11984,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"

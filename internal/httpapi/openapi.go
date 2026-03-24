@@ -196,6 +196,8 @@ type OpenAPITicket struct {
 	CostAmount        float64                     `json:"cost_amount"`
 	AttemptCount      int                         `json:"attempt_count"`
 	ConsecutiveErrors int                         `json:"consecutive_errors"`
+	StartedAt         *string                     `json:"started_at,omitempty"`
+	CompletedAt       *string                     `json:"completed_at,omitempty"`
 	NextRetryAt       *string                     `json:"next_retry_at,omitempty"`
 	RetryPaused       bool                        `json:"retry_paused"`
 	PauseReason       string                      `json:"pause_reason,omitempty"`

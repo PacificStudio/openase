@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
@@ -320,6 +321,79 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	)
 	if peerAfterDeleteResp.Ticket.Parent != nil {
 		t.Fatalf("expected sub_issue delete to clear parent, got %+v", peerAfterDeleteResp.Ticket)
+	}
+}
+
+func TestTicketRoutesExposeStartedAndCompletedTimestamps(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-started-at").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE StartedAt").
+		SetSlug("openase-started-at").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statusSvc := ticketstatus.NewService(client)
+	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+
+	startedAt := time.Date(2026, 3, 24, 10, 0, 0, 0, time.UTC)
+	completedAt := startedAt.Add(15 * time.Minute)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Expose started timestamps").
+		SetStatusID(backlogID).
+		SetCreatedBy("user:test").
+		SetStartedAt(startedAt).
+		SetCompletedAt(completedAt).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	responseBody := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
+		nil,
+		http.StatusOK,
+		&responseBody,
+	)
+	if responseBody.Ticket.StartedAt == nil || *responseBody.Ticket.StartedAt != startedAt.Format(time.RFC3339) {
+		t.Fatalf("expected started_at %s, got %+v", startedAt.Format(time.RFC3339), responseBody.Ticket.StartedAt)
+	}
+	if responseBody.Ticket.CompletedAt == nil || *responseBody.Ticket.CompletedAt != completedAt.Format(time.RFC3339) {
+		t.Fatalf("expected completed_at %s, got %+v", completedAt.Format(time.RFC3339), responseBody.Ticket.CompletedAt)
 	}
 }
 

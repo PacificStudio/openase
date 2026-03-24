@@ -5503,6 +5503,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -5549,6 +5550,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -5645,6 +5647,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -5691,6 +5694,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -5883,6 +5887,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -5929,6 +5934,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -6890,6 +6896,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -6936,6 +6943,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -7229,6 +7237,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -7275,6 +7284,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -7371,6 +7381,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -7417,6 +7428,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
