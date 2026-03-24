@@ -7,7 +7,6 @@ export type NavItem = {
 
 export const globalNav: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: 'layout-dashboard' },
-  { label: 'My Tasks', href: '/my-tasks', icon: 'circle-check' },
   { label: 'Approvals', href: '/approvals', icon: 'shield-check' },
 ]
 
