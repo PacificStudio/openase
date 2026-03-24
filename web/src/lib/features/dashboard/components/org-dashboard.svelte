@@ -2,6 +2,7 @@
   import { formatBytes } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
   import {
+    getHRAdvisor,
     getProject,
     getSystemDashboard,
     listActivity,
@@ -13,12 +14,14 @@
   import ProjectHealthList from './project-health-list.svelte'
   import ExceptionPanel from './exception-panel.svelte'
   import ActivityFeedPanel from './activity-feed-panel.svelte'
+  import HRAdvisorPanel from './hr-advisor-panel.svelte'
   import MemorySnapshotPanel from './memory-snapshot-panel.svelte'
   import { Bot, Ticket, ShieldCheck } from '@lucide/svelte'
   import type {
     ActivityItem,
     DashboardStats,
     ExceptionItem,
+    HRAdvisorSnapshot,
     MemorySnapshot,
     ProjectSummary,
   } from '../types'
@@ -41,6 +44,7 @@
   let projects = $state<ProjectSummary[]>([])
   let exceptions = $state<ExceptionItem[]>([])
   let activities = $state<ActivityItem[]>([])
+  let hrAdvisor = $state<HRAdvisorSnapshot | null>(null)
   let memory = $state<MemorySnapshot | null>(null)
 
   $effect(() => {
@@ -49,6 +53,7 @@
       projects = []
       activities = []
       exceptions = []
+      hrAdvisor = null
       memory = null
       return
     }
@@ -66,14 +71,21 @@
       }
 
       try {
-        const [projectPayload, agentPayload, ticketPayload, activityPayload, systemPayload] =
-          await Promise.all([
-            getProject(projectId),
-            listAgents(projectId),
-            listTickets(projectId),
-            listActivity(projectId, { limit: 24 }),
-            getSystemDashboard(),
-          ])
+        const [
+          projectPayload,
+          agentPayload,
+          ticketPayload,
+          activityPayload,
+          systemPayload,
+          hrAdvisorPayload,
+        ] = await Promise.all([
+          getProject(projectId),
+          listAgents(projectId),
+          listTickets(projectId),
+          listActivity(projectId, { limit: 24 }),
+          getSystemDashboard(),
+          getHRAdvisor(projectId).catch(() => null),
+        ])
 
         if (cancelled) return
 
@@ -106,6 +118,13 @@
           prMergeRate: 0,
         }
         memory = systemPayload.memory
+        hrAdvisor = hrAdvisorPayload
+          ? {
+              summary: hrAdvisorPayload.summary,
+              staffing: hrAdvisorPayload.staffing,
+              recommendations: hrAdvisorPayload.recommendations,
+            }
+          : null
 
         projects = [
           {
@@ -233,5 +252,9 @@
       <ActivityFeedPanel {activities} class="lg:col-span-2" />
       <MemorySnapshotPanel {memory} />
     </div>
+
+    {#if hrAdvisor}
+      <HRAdvisorPanel advisor={hrAdvisor} />
+    {/if}
   {/if}
 </div>

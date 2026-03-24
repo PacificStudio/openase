@@ -64,11 +64,15 @@ const settingsAuditCases: SettingsAuditCase[] = [
     section: 'general',
     capability: 'generalSettings',
     expectedState: 'available',
-    summarySnippets: ['PATCH /api/v1/projects/{projectId}'],
+    summarySnippets: ['PATCH /api/v1/projects/{projectId}', 'DELETE /api/v1/projects/{projectId}'],
     sources: [
       {
         file: './settings/components/general-settings.svelte',
-        snippets: ['listWorkflows(projectId)', 'updateProject(projectId, {'],
+        snippets: [
+          'listWorkflows(projectId)',
+          'updateProject(projectId, {',
+          'archiveProject(projectId)',
+        ],
       },
     ],
   },
@@ -176,7 +180,7 @@ const settingsAuditCases: SettingsAuditCase[] = [
     section: 'security',
     capability: 'securitySettings',
     expectedState: 'available',
-    summarySnippets: ['GET /api/v1/projects/{projectId}/security', 'explicitly deferred'],
+    summarySnippets: ['GET /api/v1/projects/{projectId}/security-settings', 'explicitly deferred'],
     sources: [
       {
         file: './settings/components/settings-page.svelte',

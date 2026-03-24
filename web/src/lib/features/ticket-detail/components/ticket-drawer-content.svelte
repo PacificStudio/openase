@@ -28,6 +28,8 @@
     savingFields = false,
     creatingDependency = false,
     deletingDependencyId = null,
+    creatingExternalLink = false,
+    deletingExternalLinkId = null,
     creatingRepoScope = false,
     updatingRepoScopeId = null,
     deletingRepoScopeId = null,
@@ -38,6 +40,8 @@
     onSaveFields,
     onAddDependency,
     onDeleteDependency,
+    onCreateExternalLink,
+    onDeleteExternalLink,
     onCreateScope,
     onUpdateScope,
     onDeleteScope,
@@ -57,6 +61,8 @@
     savingFields?: boolean
     creatingDependency?: boolean
     deletingDependencyId?: string | null
+    creatingExternalLink?: boolean
+    deletingExternalLinkId?: string | null
     creatingRepoScope?: boolean
     updatingRepoScopeId?: string | null
     deletingRepoScopeId?: string | null
@@ -67,6 +73,15 @@
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onAddDependency?: (draft: { targetTicketId: string; relation: string }) => void
     onDeleteDependency?: (dependencyId: string) => void
+    onCreateExternalLink?: (draft: {
+      type: string
+      url: string
+      externalId: string
+      title: string
+      status: string
+      relation: string
+    }) => Promise<boolean> | boolean
+    onDeleteExternalLink?: (linkId: string) => void
     onCreateScope?: (draft: {
       repoId: string
       branchName: string
@@ -124,9 +139,13 @@
         {savingFields}
         {creatingDependency}
         {deletingDependencyId}
+        {creatingExternalLink}
+        {deletingExternalLinkId}
         {onSaveFields}
         {onAddDependency}
         {onDeleteDependency}
+        {onCreateExternalLink}
+        {onDeleteExternalLink}
       />
     </TabsContent>
 

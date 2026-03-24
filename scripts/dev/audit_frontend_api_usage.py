@@ -144,7 +144,7 @@ def parse_exported_function_blocks(source: str) -> list[tuple[str, str]]:
 def extract_wrappers(openase_source: str, file_label: str) -> dict[OperationKey, list[WrapperUsage]]:
     wrappers: dict[OperationKey, list[WrapperUsage]] = defaultdict(list)
     call_pattern = re.compile(
-        r"api\.(get|post|patch|delete)\s*<[^>]+>\(\s*([`'\"])(.*?)\2",
+        r"api\.(get|post|patch|delete)(?:\s*<[^>]+>)?\(\s*([`'\"])(.*?)\2",
         flags=re.DOTALL,
     )
     for function_name, block in parse_exported_function_blocks(openase_source):

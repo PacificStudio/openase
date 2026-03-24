@@ -1,11 +1,8 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import {
-    addTicketDependency,
     createTicketRepoScope,
-    deleteTicketDependency,
     deleteTicketRepoScope,
-    updateTicket,
     updateTicketRepoScope,
   } from '$lib/api/openase'
   import {
@@ -18,11 +15,6 @@
   import { createTicketDrawerState } from '../drawer-state.svelte'
   import { runTicketDrawerMutation } from '../drawer-mutation'
   import {
-    buildAddDependencyMutation,
-    buildDeleteDependencyMutation,
-    buildFieldMutation,
-  } from '../mutation-builders'
-  import {
     buildCreateRepoScopeMutation,
     buildDeleteRepoScopeMutation,
     buildUpdateRepoScopeMutation,
@@ -34,9 +26,18 @@
     type RepoScopeDraft,
     type TicketFieldDraft,
   } from '../mutation-shared'
+  import {
+    handleCreateExternalLinkAction,
+    handleDeleteExternalLinkAction,
+  } from '../drawer-external-link-actions'
+  import {
+    handleAddDependencyAction,
+    handleDeleteDependencyAction,
+    handleSaveFieldsAction,
+  } from '../drawer-ticket-actions'
   import { connectTicketDetailStreams } from '../streams'
   import TicketDrawerContent from './ticket-drawer-content.svelte'
-  import type { TicketDetail } from '../types'
+  import type { TicketDetail, TicketExternalLinkDraft } from '../types'
   let {
     open = $bindable(false),
     projectId,
@@ -97,68 +98,47 @@
   })
 
   async function handleSaveFields(draft: TicketFieldDraft) {
-    const ticket = drawerState.ticket
-    if (!ticket || !ticketId) return
-
-    const mutation = buildFieldMutation(ticket, drawerState.statuses, draft)
-    if (!mutation.ok) return drawerState.setMutationError(mutation.error)
-    if (Object.keys(mutation.value.body).length === 0) {
-      return drawerState.setMutationNotice('No ticket field changes to save.')
-    }
-
-    await runTicketDrawerMutation({
-      ...buildDrawerMutation(ticket),
-      start: () => {
-        drawerState.savingFields = true
-      },
-      finish: () => {
-        drawerState.savingFields = false
-      },
-      optimisticUpdate: mutation.value.optimisticUpdate,
-      mutate: () => updateTicket(ticketId, mutation.value.body),
-      successMessage: mutation.value.successMessage,
+    await handleSaveFieldsAction({
+      ticketId,
+      drawerState,
+      draft,
+      buildDrawerMutation,
     })
   }
 
   async function handleAddDependency(draft: DependencyDraft) {
-    const ticket = drawerState.ticket
-    if (!ticket || !ticketId) return
-
-    const mutation = buildAddDependencyMutation(ticket, drawerState.dependencyCandidates, draft)
-    if (!mutation.ok) return drawerState.setMutationError(mutation.error)
-
-    await runTicketDrawerMutation({
-      ...buildDrawerMutation(ticket),
-      start: () => {
-        drawerState.creatingDependency = true
-      },
-      finish: () => {
-        drawerState.creatingDependency = false
-      },
-      optimisticUpdate: mutation.value.optimisticUpdate,
-      mutate: () => addTicketDependency(ticketId, mutation.value.body),
-      successMessage: mutation.value.successMessage,
+    await handleAddDependencyAction({
+      ticketId,
+      drawerState,
+      draft,
+      buildDrawerMutation,
     })
   }
 
   async function handleDeleteDependency(dependencyId: string) {
-    const ticket = drawerState.ticket
-    if (!ticket || !ticketId) return
+    await handleDeleteDependencyAction({
+      ticketId,
+      drawerState,
+      dependencyId,
+      buildDrawerMutation,
+    })
+  }
 
-    const mutation = buildDeleteDependencyMutation(ticket, dependencyId)
-    if (!mutation.ok) return drawerState.setMutationError(mutation.error)
+  async function handleCreateExternalLink(draft: TicketExternalLinkDraft) {
+    return handleCreateExternalLinkAction({
+      ticketId,
+      drawerState,
+      draft,
+      buildDrawerMutation,
+    })
+  }
 
-    await runTicketDrawerMutation({
-      ...buildDrawerMutation(ticket),
-      start: () => {
-        drawerState.deletingDependencyId = dependencyId
-      },
-      finish: () => {
-        drawerState.deletingDependencyId = null
-      },
-      optimisticUpdate: mutation.value.optimisticUpdate,
-      mutate: () => deleteTicketDependency(ticketId, dependencyId),
-      successMessage: mutation.value.successMessage,
+  async function handleDeleteExternalLink(linkId: string) {
+    await handleDeleteExternalLinkAction({
+      ticketId,
+      drawerState,
+      linkId,
+      buildDrawerMutation,
     })
   }
 
@@ -275,6 +255,8 @@
         savingFields={drawerState.savingFields}
         creatingDependency={drawerState.creatingDependency}
         deletingDependencyId={drawerState.deletingDependencyId}
+        creatingExternalLink={drawerState.creatingExternalLink}
+        deletingExternalLinkId={drawerState.deletingExternalLinkId}
         creatingRepoScope={drawerState.creatingRepoScope}
         updatingRepoScopeId={drawerState.updatingRepoScopeId}
         deletingRepoScopeId={drawerState.deletingRepoScopeId}
@@ -285,6 +267,8 @@
         onSaveFields={handleSaveFields}
         onAddDependency={handleAddDependency}
         onDeleteDependency={handleDeleteDependency}
+        onCreateExternalLink={handleCreateExternalLink}
+        onDeleteExternalLink={handleDeleteExternalLink}
         onCreateScope={handleCreateRepoScope}
         onUpdateScope={handleUpdateRepoScope}
         onDeleteScope={handleDeleteRepoScope}

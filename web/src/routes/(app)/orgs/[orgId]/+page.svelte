@@ -2,12 +2,14 @@
   import OrganizationCreationLanes from '$lib/features/catalog-creation/components/organization-creation-lanes.svelte'
   import OrganizationDashboardStats from '$lib/features/catalog-creation/components/organization-dashboard-stats.svelte'
   import OrganizationProjectGrid from '$lib/features/catalog-creation/components/organization-project-grid.svelte'
+  import OrganizationSettingsPanel from '$lib/features/catalog-creation/components/organization-settings-panel.svelte'
+  import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import type { PageData } from './$types'
 
   let { data }: { data: PageData } = $props()
 
-  const currentOrg = $derived(data.currentOrg),
+  const currentOrg = $derived(appStore.currentOrg ?? data.currentOrg),
     projects = $derived(data.projects),
     providers = $derived(data.providers)
 </script>
@@ -41,6 +43,10 @@
     projectCount={projects.length}
     providerCount={providers.length}
   />
+
+  {#if currentOrg}
+    <OrganizationSettingsPanel organization={currentOrg} {providers} />
+  {/if}
 
   <OrganizationCreationLanes
     orgId={currentOrg?.id ?? null}

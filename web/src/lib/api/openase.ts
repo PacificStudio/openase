@@ -25,10 +25,16 @@ import type {
   NotificationRulePayload,
   NotificationRuleResponse,
   ProjectRepoPayload,
+  ProjectArchiveResponse,
   ProjectRepoResponse,
   ProjectCreateResponse,
   ProjectPayload,
   ProjectResponse,
+  ScheduledJobDeleteResponse,
+  ScheduledJobListPayload,
+  ScheduledJobResponse,
+  ScheduledJobTriggerResponse,
+  ScheduledJobUpdateResponse,
   SecuritySettingsResponse,
   SkillListPayload,
   StatusDeleteResponse,
@@ -43,9 +49,13 @@ import type {
   TicketCommentCreateResponse,
   TicketCommentDeleteResponse,
   TicketCommentUpdateResponse,
+  TicketExternalLinkDeleteResponse,
+  TicketExternalLinkResponse,
   TicketPayload,
+  HRAdvisorResponse,
   Organization,
   OrganizationResponse,
+  OrganizationUpdateResponse,
   TicketRepoScopePayload,
   TicketRepoScopeResponse,
   WorkflowDetailPayload,
@@ -82,6 +92,17 @@ export function createOrganization(body: {
   default_agent_provider_id?: string | null
 }) {
   return api.post<OrganizationResponse>('/api/v1/orgs', { body })
+}
+
+export function updateOrganization(
+  orgId: string,
+  body: {
+    name?: string | null
+    slug?: string | null
+    default_agent_provider_id?: string | null
+  },
+) {
+  return api.patch<OrganizationUpdateResponse>(`/api/v1/orgs/${orgId}`, { body })
 }
 
 export function listProjects(orgId: string) {
@@ -159,7 +180,11 @@ export function getProject(projectId: string) {
 }
 
 export function getSecuritySettings(projectId: string) {
-  return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security`)
+  return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+}
+
+export function getHRAdvisor(projectId: string) {
+  return api.get<HRAdvisorResponse>(`/api/v1/projects/${projectId}/hr-advisor`)
 }
 
 export function updateProject(
@@ -175,6 +200,10 @@ export function updateProject(
   },
 ) {
   return api.patch<ProjectResponse>(`/api/v1/projects/${projectId}`, { body })
+}
+
+export function archiveProject(projectId: string) {
+  return api.delete<ProjectArchiveResponse>(`/api/v1/projects/${projectId}`)
 }
 
 export function listActivity(
@@ -364,6 +393,28 @@ export function deleteTicketDependency(ticketId: string, dependencyId: string) {
   )
 }
 
+export function addTicketExternalLink(
+  ticketId: string,
+  body: {
+    type: string
+    url: string
+    external_id: string
+    title?: string | null
+    status?: string | null
+    relation?: string | null
+  },
+) {
+  return api.post<TicketExternalLinkResponse>(`/api/v1/tickets/${ticketId}/external-links`, {
+    body,
+  })
+}
+
+export function deleteTicketExternalLink(ticketId: string, externalLinkId: string) {
+  return api.delete<TicketExternalLinkDeleteResponse>(
+    `/api/v1/tickets/${ticketId}/external-links/${externalLinkId}`,
+  )
+}
+
 export function getTicketDetail(projectId: string, ticketId: string) {
   return api.get<TicketDetailPayload>(`/api/v1/projects/${projectId}/tickets/${ticketId}/detail`)
 }
@@ -506,6 +557,60 @@ export function updateWorkflow(
 
 export function deleteWorkflow(workflowId: string) {
   return api.delete<WorkflowDeleteResponse>(`/api/v1/workflows/${workflowId}`)
+}
+
+export function listScheduledJobs(projectId: string) {
+  return api.get<ScheduledJobListPayload>(`/api/v1/projects/${projectId}/scheduled-jobs`)
+}
+
+export function createScheduledJob(
+  projectId: string,
+  body: {
+    cron_expression: string
+    is_enabled?: boolean | null
+    name: string
+    ticket_template?: {
+      budget_usd?: number
+      created_by?: string
+      description?: string
+      priority?: string
+      status?: string
+      title?: string
+      type?: string
+    }
+    workflow_id: string
+  },
+) {
+  return api.post<ScheduledJobResponse>(`/api/v1/projects/${projectId}/scheduled-jobs`, { body })
+}
+
+export function updateScheduledJob(
+  jobId: string,
+  body: {
+    cron_expression?: string | null
+    is_enabled?: boolean | null
+    name?: string | null
+    ticket_template?: {
+      budget_usd?: number
+      created_by?: string
+      description?: string
+      priority?: string
+      status?: string
+      title?: string
+      type?: string
+    } | null
+    workflow_id?: string | null
+  },
+) {
+  return api.patch<ScheduledJobUpdateResponse>(`/api/v1/scheduled-jobs/${jobId}`, { body })
+}
+
+export function deleteScheduledJob(jobId: string) {
+  return api.delete<ScheduledJobDeleteResponse>(`/api/v1/scheduled-jobs/${jobId}`)
+}
+
+export function triggerScheduledJob(jobId: string) {
+  return api.post<ScheduledJobTriggerResponse>(`/api/v1/scheduled-jobs/${jobId}/trigger`)
 }
 
 export function getWorkflowHarness(workflowId: string) {

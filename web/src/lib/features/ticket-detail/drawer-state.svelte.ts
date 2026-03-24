@@ -30,6 +30,8 @@ export function createTicketDrawerState() {
   let savingFields = $state(false)
   let creatingDependency = $state(false)
   let deletingDependencyId = $state<string | null>(null)
+  let creatingExternalLink = $state(false)
+  let deletingExternalLinkId = $state<string | null>(null)
   let creatingRepoScope = $state(false)
   let updatingRepoScopeId = $state<string | null>(null)
   let deletingRepoScopeId = $state<string | null>(null)
@@ -95,6 +97,18 @@ export function createTicketDrawerState() {
     },
     set deletingDependencyId(value) {
       deletingDependencyId = value
+    },
+    get creatingExternalLink() {
+      return creatingExternalLink
+    },
+    set creatingExternalLink(value) {
+      creatingExternalLink = value
+    },
+    get deletingExternalLinkId() {
+      return deletingExternalLinkId
+    },
+    set deletingExternalLinkId(value) {
+      deletingExternalLinkId = value
     },
     get creatingRepoScope() {
       return creatingRepoScope
@@ -197,6 +211,8 @@ export function createTicketDrawerState() {
       savingFields = false
       creatingDependency = false
       deletingDependencyId = null
+      creatingExternalLink = false
+      deletingExternalLinkId = null
       creatingRepoScope = false
       updatingRepoScopeId = null
       deletingRepoScopeId = null

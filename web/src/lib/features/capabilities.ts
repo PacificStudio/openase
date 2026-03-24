@@ -53,7 +53,8 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   },
   generalSettings: {
     state: 'available',
-    summary: 'General project settings are already wired to PATCH /api/v1/projects/{projectId}.',
+    summary:
+      'General project settings are wired to PATCH /api/v1/projects/{projectId}, and project archive is available via DELETE /api/v1/projects/{projectId}.',
   },
   search: {
     state: 'available',
@@ -122,7 +123,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   securitySettings: {
     state: 'available',
     summary:
-      'Security settings are available via GET /api/v1/projects/{projectId}/security, documenting shipped runtime boundaries while broader security control plane changes stay explicitly deferred.',
+      'Security settings are available via GET /api/v1/projects/{projectId}/security-settings, documenting shipped runtime boundaries while broader security control plane changes stay explicitly deferred.',
   },
 }
 

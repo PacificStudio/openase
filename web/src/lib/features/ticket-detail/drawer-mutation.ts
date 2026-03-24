@@ -35,12 +35,12 @@ export async function runTicketDrawerMutation({
   mutate: () => Promise<unknown>
   successMessage: string
 }) {
-  if (!ticket || !projectId || !ticketId) return
+  if (!ticket || !projectId || !ticketId) return false
 
   start?.()
 
   try {
-    await runOptimisticTicketMutation({
+    return await runOptimisticTicketMutation({
       ticket,
       optimisticUpdate,
       mutate,

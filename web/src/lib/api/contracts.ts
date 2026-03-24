@@ -31,6 +31,7 @@ export type SystemMemorySnapshot = SystemDashboardResponse['memory']
 
 export type OrganizationPayload = DeepRequired<ResponseFor<'/api/v1/orgs', 'get'>>
 export type OrganizationResponse = DeepRequired<ResponseFor<'/api/v1/orgs', 'post'>>
+export type OrganizationUpdateResponse = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}', 'patch'>>
 export type Organization = ItemOf<OrganizationPayload['organizations']>
 
 export type AgentProviderListPayload = DeepRequired<
@@ -46,6 +47,9 @@ export type ProjectCreateResponse = DeepRequired<
   ResponseFor<'/api/v1/orgs/{orgId}/projects', 'post'>
 >
 export type ProjectResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}', 'get'>>
+export type ProjectArchiveResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}', 'delete'>
+>
 export type Project = ItemOf<ProjectPayload['projects']>
 
 export type MachinePayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/machines', 'get'>>
@@ -113,6 +117,12 @@ export type TicketDependencyResponse = DeepRequired<
 export type TicketDependencyDeleteResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/dependencies/{dependencyId}', 'delete'>
 >
+export type TicketExternalLinkResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/external-links', 'post'>
+>
+export type TicketExternalLinkDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/external-links/{externalLinkId}', 'delete'>
+>
 
 export type ProjectRepoPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/repos', 'get'>
@@ -144,6 +154,22 @@ export type Workflow = ItemOf<WorkflowListPayload['workflows']>
 export type WorkflowDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/workflows/{workflowId}', 'get'>
 >
+export type ScheduledJobListPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/scheduled-jobs', 'get'>
+>
+export type ScheduledJobResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/scheduled-jobs', 'post'>
+>
+export type ScheduledJobUpdateResponse = DeepRequired<
+  ResponseFor<'/api/v1/scheduled-jobs/{jobId}', 'patch'>
+>
+export type ScheduledJobDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/scheduled-jobs/{jobId}', 'delete'>
+>
+export type ScheduledJobTriggerResponse = DeepRequired<
+  ResponseFor<'/api/v1/scheduled-jobs/{jobId}/trigger', 'post'>
+>
+export type ScheduledJob = ItemOf<ScheduledJobListPayload['scheduled_jobs']>
 
 export type HarnessPayload = DeepRequired<
   ResponseFor<'/api/v1/workflows/{workflowId}/harness', 'get'>
