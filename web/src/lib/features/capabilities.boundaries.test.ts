@@ -7,8 +7,12 @@ import {
 } from '$lib/features/capabilities'
 import topBarSource from '../components/layout/top-bar.svelte?raw'
 import agentListSource from './agents/components/agent-list.svelte?raw'
+import agentOutputStateSource from './agents/components/agent-output-state.svelte.ts?raw'
+import agentOutputStreamSource from './agents/components/agent-output-stream.svelte.ts?raw'
 import agentsPageSource from './agents/components/agents-page.svelte?raw'
+import providerEditorStateSource from './agents/components/provider-editor-state.svelte.ts?raw'
 import providerListSource from './agents/components/provider-list.svelte?raw'
+import runtimeActionsSource from './agents/runtime-actions.ts?raw'
 import projectShellSource from './app-shell/components/project-shell.svelte?raw'
 import newTicketDialogSource from './tickets/components/new-ticket-dialog.svelte?raw'
 import ticketsPageSource from './tickets/components/tickets-page.svelte?raw'
@@ -28,8 +32,12 @@ type CapabilityAuditCase = {
 const sourceByFile: Record<string, string> = {
   '../components/layout/top-bar.svelte': topBarSource,
   './agents/components/agent-list.svelte': agentListSource,
+  './agents/components/agent-output-state.svelte.ts': agentOutputStateSource,
+  './agents/components/agent-output-stream.svelte.ts': agentOutputStreamSource,
   './agents/components/agents-page.svelte': agentsPageSource,
+  './agents/components/provider-editor-state.svelte.ts': providerEditorStateSource,
   './agents/components/provider-list.svelte': providerListSource,
+  './agents/runtime-actions.ts': runtimeActionsSource,
   './app-shell/components/project-shell.svelte': projectShellSource,
   './tickets/components/new-ticket-dialog.svelte': newTicketDialogSource,
   './tickets/components/tickets-page.svelte': ticketsPageSource,
@@ -53,14 +61,14 @@ function expectSourceEvidence(sources: SourceEvidence[]) {
 const capabilityAuditCases: CapabilityAuditCase[] = [
   {
     capability: 'search',
-    expectedState: 'backend_missing',
-    summarySnippets: ['backend search contract'],
+    expectedState: 'available',
+    summarySnippets: ['Cmd+K', 'tickets, workflows, agents'],
     sources: [
       {
         file: './app-shell/components/project-shell.svelte',
         snippets: [
           'const searchCapability = capabilityCatalog.search',
-          "searchEnabled={searchCapability.state === 'available'}",
+          "searchEnabled={searchCapability.state === 'available' && data.organizations.length > 0}",
         ],
       },
       {
@@ -93,8 +101,12 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
     summarySnippets: ['POST /api/v1/projects/{projectId}/agents'],
     sources: [
       {
+        file: './agents/runtime-actions.ts',
+        snippets: ['await createAgent(input.projectId, {'],
+      },
+      {
         file: './agents/components/agents-page.svelte',
-        snippets: ['await createAgent(projectId, {'],
+        snippets: ['const result = await registerAgentAndReload({'],
       },
     ],
   },
@@ -104,8 +116,8 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
     summarySnippets: ['PATCH /api/v1/providers/{providerId}'],
     sources: [
       {
-        file: './agents/components/agents-page.svelte',
-        snippets: ['const payload = await updateProvider(selectedProvider.id, parsed.value)'],
+        file: './agents/components/provider-editor-state.svelte.ts',
+        snippets: ['const payload = await updateProvider(provider.id, parsed.value)'],
       },
       {
         file: './agents/components/provider-list.svelte',
@@ -118,8 +130,8 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
   },
   {
     capability: 'agentOutput',
-    expectedState: 'backend_missing',
-    summarySnippets: ['no agent log/output endpoint'],
+    expectedState: 'available',
+    summarySnippets: ['dedicated fetch and stream endpoints'],
     sources: [
       {
         file: './agents/components/agent-list.svelte',
@@ -129,35 +141,51 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
           'title={agentOutputCapability.summary}',
         ],
       },
+      {
+        file: './agents/components/agent-output-state.svelte.ts',
+        snippets: ['await listAgentOutput(projectId, agentId, { limit: agentOutputLimit })'],
+      },
+      {
+        file: './agents/components/agent-output-stream.svelte.ts',
+        snippets: ['`/api/v1/projects/${projectId}/agents/${agentId}/output/stream`'],
+      },
     ],
   },
   {
     capability: 'agentPause',
-    expectedState: 'backend_missing',
-    summarySnippets: ['no pause endpoint'],
+    expectedState: 'available',
+    summarySnippets: ['POST /api/v1/agents/{agentId}/pause'],
     sources: [
       {
         file: './agents/components/agent-list.svelte',
         snippets: [
           'const agentPauseCapability = capabilityCatalog.agentPause',
           'aria-label="Pause agent"',
-          'title={agentPauseCapability.summary}',
+          'return agentPauseCapability.summary',
         ],
+      },
+      {
+        file: './agents/runtime-actions.ts',
+        snippets: ["input.action === 'pause' ? await pauseAgent(input.agentId) : await resumeAgent(input.agentId)"],
       },
     ],
   },
   {
     capability: 'agentResume',
-    expectedState: 'backend_missing',
-    summarySnippets: ['no resume endpoint'],
+    expectedState: 'available',
+    summarySnippets: ['POST /api/v1/agents/{agentId}/resume'],
     sources: [
       {
         file: './agents/components/agent-list.svelte',
         snippets: [
           'const agentResumeCapability = capabilityCatalog.agentResume',
           'aria-label="Resume agent"',
-          'title={agentResumeCapability.summary}',
+          'return agentResumeCapability.summary',
         ],
+      },
+      {
+        file: './agents/runtime-actions.ts',
+        snippets: ["input.action === 'pause' ? await pauseAgent(input.agentId) : await resumeAgent(input.agentId)"],
       },
     ],
   },

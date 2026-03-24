@@ -12,6 +12,7 @@ import connectorsSettingsSource from './settings/components/connectors-settings.
 import generalSettingsSource from './settings/components/general-settings.svelte?raw'
 import notificationSettingsSource from './settings/components/notification-settings.svelte?raw'
 import repositoriesSettingsSource from './settings/components/repositories-settings.svelte?raw'
+import securitySettingsSource from './settings/components/security-settings.svelte?raw'
 import settingsPageSource from './settings/components/settings-page.svelte?raw'
 import statusSettingsSource from './settings/components/status-settings.svelte?raw'
 import workflowSettingsSource from './settings/components/workflow-settings.svelte?raw'
@@ -36,6 +37,7 @@ const sourceByFile: Record<string, string> = {
   './settings/components/general-settings.svelte': generalSettingsSource,
   './settings/components/notification-settings.svelte': notificationSettingsSource,
   './settings/components/repositories-settings.svelte': repositoriesSettingsSource,
+  './settings/components/security-settings.svelte': securitySettingsSource,
   './settings/components/settings-page.svelte': settingsPageSource,
   './settings/components/status-settings.svelte': statusSettingsSource,
   './settings/components/workflow-settings.svelte': workflowSettingsSource,
@@ -173,12 +175,19 @@ const settingsAuditCases: SettingsAuditCase[] = [
   {
     section: 'security',
     capability: 'securitySettings',
-    expectedState: 'backend_missing',
-    summarySnippets: ['no dedicated security settings API'],
+    expectedState: 'available',
+    summarySnippets: ['GET /api/v1/projects/{projectId}/security', 'explicitly deferred'],
     sources: [
       {
         file: './settings/components/settings-page.svelte',
-        snippets: ['SettingsPlaceholder', 'section="security"', 'title="Security"'],
+        snippets: ['import SecuritySettings from', '<SecuritySettings />'],
+      },
+      {
+        file: './settings/components/security-settings.svelte',
+        snippets: [
+          'const payload = await getSecuritySettings(projectId)',
+          'Explicitly deferred',
+        ],
       },
     ],
   },
