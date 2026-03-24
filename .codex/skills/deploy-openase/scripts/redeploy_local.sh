@@ -61,8 +61,37 @@ cd "$repo_root"
 go_path="$repo_root/.tooling/go/bin:/home/yuzhong/.local/go1.26.1/bin:$PATH"
 stdout_log="${HOME}/.openase/logs/openase-local.stdout.log"
 stderr_log="${HOME}/.openase/logs/openase-local.stderr.log"
+repo_binary="${repo_root}/bin/openase"
 
 mkdir -p "${HOME}/.openase/logs"
+
+repo_local_openase_pids() {
+  local pid exe
+  for pid in $(ps -o pid= -C openase 2>/dev/null); do
+    exe="$(readlink -f "/proc/${pid}/exe" 2>/dev/null || true)"
+    exe="${exe% (deleted)}"
+    if [[ "$exe" == "$repo_binary" ]]; then
+      printf '%s\n' "$pid"
+    fi
+  done
+}
+
+repo_local_listener_pid() {
+  local pid exe
+  if ! command -v lsof >/dev/null 2>&1; then
+    return 1
+  fi
+  while read -r pid; do
+    [[ -n "$pid" ]] || continue
+    exe="$(readlink -f "/proc/${pid}/exe" 2>/dev/null || true)"
+    exe="${exe% (deleted)}"
+    if [[ "$exe" == "$repo_binary" ]]; then
+      printf '%s\n' "$pid"
+      return 0
+    fi
+  done < <(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+  return 1
+}
 
 echo "[1/5] build web assets"
 corepack pnpm --dir web install --frozen-lockfile
@@ -72,14 +101,9 @@ echo "[2/5] build backend binary"
 PATH="$go_path" go build -o ./bin/openase ./cmd/openase
 
 echo "[3/5] stop existing repo-local openase processes"
-existing_pids="$(
-  ps -o pid=,args= -C openase |
-    awk '$2=="./bin/openase" {print $1}' |
-    tr '\n' ' '
-)"
-if [[ -n "${existing_pids// }" ]]; then
-  # shellcheck disable=SC2086
-  kill -9 $existing_pids
+mapfile -t existing_pids < <(repo_local_openase_pids)
+if [[ ${#existing_pids[@]} -gt 0 ]]; then
+  kill -9 "${existing_pids[@]}"
 fi
 
 if [[ ! -f "$env_file" ]]; then
@@ -107,16 +131,18 @@ pid="$!"
 echo "[5/5] verify startup"
 if [[ "$mode" == "serve" || "$mode" == "all-in-one" ]]; then
   for _ in $(seq 1 20); do
-    if kill -0 "$pid" 2>/dev/null && curl -fsS "http://${host}:${port}/healthz" >/dev/null 2>&1; then
-      printf 'MODE=%s\nPID=%s\nURL=http://%s:%s\n' "$mode" "$pid" "$host" "$port"
+    listener_pid="$(repo_local_listener_pid || true)"
+    if [[ -n "${listener_pid:-}" ]] && curl -fsS "http://${host}:${port}/healthz" >/dev/null 2>&1; then
+      printf 'MODE=%s\nPID=%s\nURL=http://%s:%s\n' "$mode" "$listener_pid" "$host" "$port"
       exit 0
     fi
     sleep 1
   done
 else
   for _ in $(seq 1 10); do
-    if kill -0 "$pid" 2>/dev/null; then
-      printf 'MODE=%s\nPID=%s\n' "$mode" "$pid"
+    mapfile -t current_pids < <(repo_local_openase_pids)
+    if [[ ${#current_pids[@]} -gt 0 ]]; then
+      printf 'MODE=%s\nPID=%s\n' "$mode" "${current_pids[-1]}"
       exit 0
     fi
     sleep 1
