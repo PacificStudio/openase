@@ -311,12 +311,7 @@ func (r *stubRepository) GetOrganization(context.Context, uuid.UUID) (domain.Org
 
 func (r *stubRepository) UpdateOrganization(_ context.Context, input domain.UpdateOrganization) (domain.Organization, error) {
 	r.updatedOrganization = &input
-	r.createdOrganization = domain.Organization{
-		ID:                     input.ID,
-		Name:                   input.Name,
-		Slug:                   input.Slug,
-		DefaultAgentProviderID: input.DefaultAgentProviderID,
-	}
+	r.createdOrganization = domain.Organization(input)
 	return r.createdOrganization, nil
 }
 

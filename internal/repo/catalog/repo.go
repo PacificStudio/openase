@@ -760,7 +760,7 @@ func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID
 		builder := tx.AgentProvider.Create().
 			SetOrganizationID(organizationID).
 			SetName(template.Name).
-			SetAdapterType(entagentprovider.AdapterType(template.AdapterType)).
+			SetAdapterType(template.AdapterType).
 			SetCliCommand(template.Command).
 			SetCliArgs(append([]string(nil), template.CliArgs...)).
 			SetAuthConfig(map[string]any{}).
