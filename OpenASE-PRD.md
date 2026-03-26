@@ -320,17 +320,20 @@ OpenASE 后端采用 DDD（Domain-Driven Design）四层架构，配合 Provider
 
 - `internal/domain/catalog`、`internal/domain/ticketing`、`internal/domain/notification` 等：输入解析、值对象、纯业务规则、稳定的数据结构
 - `internal/types/*`：底层领域类型和数据库边界类型
+- 领域包对外暴露自己的稳定类型和枚举，不直接泄漏 `ent/*` 生成类型；数据库枚举与字段映射留在 `internal/repo/*`
 - 不再假设每个领域子包都严格对应 `entity.go / repository.go / service.go / event.go` 四件套；以当前仓库真实职责为准
 
 **Service / Use-Case Layer（服务 / 用例层）**——编排用例、衔接 repository/provider/domain，不再使用旧 PRD 中 `app/command`、`app/query` 的目录命名。
 
 - 当前主要对应 `internal/service/*`、`internal/ticket`、`internal/workflow`、`internal/chat`、`internal/notification`、`internal/scheduledjob`、`internal/agentplatform`
 - 这些包承担旧 PRD 中 application layer 的职责：编排完整用例、调用 domain 解析结果、访问 repository、驱动 provider
+- repository port/interface 由消费它的上层包拥有；`internal/repo/*` 只提供 adapter 实现，不反向决定 service 的依赖形状
 - 某些包会同时包含 command-style 写操作与 query-style 读操作，但以服务对象暴露，而不是按 `app/command`、`app/query` 目录拆分
 
 **Infrastructure Layer（基础设施层）**——所有外部依赖的实现。
 
 - `internal/repo/*`：数据库相关的 repository 适配器，当前仓库里这部分承担了旧 PRD `infra/persistence/` 的职责
+- repository adapter 负责把 ent/client/database 细节映射到 domain 稳定类型，不把 persistence 类型直接传出
 - `internal/infra/adapter/*`：各 Agent CLI 适配器实现（Claude Code、Codex 等）
 - `internal/infra/hook`、`internal/infra/sse`、`internal/infra/workspace`、`internal/infra/event` 等：外部系统与运行时边界实现
 - `internal/provider`：横切 Provider 接口与默认实现（见 5.6）
@@ -338,7 +341,7 @@ OpenASE 后端采用 DDD（Domain-Driven Design）四层架构，配合 Provider
 **Interface / Entry Layer（接口 / 入口层）**——外部入口，保持薄层。
 
 - `cmd/openase`：CLI 入口，负责启动命令、参数装配和退出码处理
-- `internal/httpapi`：Echo HTTP API handler、路由注册、请求绑定、错误映射、SSE/webhook 入口
+- `internal/httpapi`：Echo HTTP API handler、路由注册、请求绑定、错误映射、SSE/webhook 入口；server/runtime 装配与 route/handler 注册保持拆分
 - `internal/cli`：CLI 子命令与终端交互
 - `internal/setup`、`internal/webui`：首次运行引导与 Web UI 入口
 

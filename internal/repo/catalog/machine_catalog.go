@@ -95,7 +95,7 @@ func (r *EntRepository) DeleteMachine(ctx context.Context, id uuid.UUID) (domain
 
 func (r *EntRepository) RecordMachineProbe(ctx context.Context, input domain.RecordMachineProbe) error {
 	builder := r.client.Machine.UpdateOneID(input.ID).
-		SetStatus(input.Status).
+		SetStatus(toEntMachineStatus(input.Status)).
 		SetLastHeartbeatAt(input.LastHeartbeatAt.UTC()).
 		SetResources(cloneAnyMap(input.Resources))
 	if err := builder.Exec(ctx); err != nil {
@@ -112,7 +112,7 @@ func createLocalMachine(ctx context.Context, tx *ent.Tx, organizationID uuid.UUI
 		SetHost(domain.LocalMachineHost).
 		SetPort(22).
 		SetDescription("Control-plane local execution host.").
-		SetStatus(entmachine.StatusOnline).
+		SetStatus(toEntMachineStatus(domain.MachineStatusOnline)).
 		SetResources(map[string]any{
 			"transport":    "local",
 			"last_success": true,
@@ -132,7 +132,7 @@ func machineCreateBuilder(builder *ent.MachineCreate, input domain.CreateMachine
 		SetHost(input.Host).
 		SetPort(input.Port).
 		SetDescription(input.Description).
-		SetStatus(input.Status).
+		SetStatus(toEntMachineStatus(input.Status)).
 		SetNillableSSHUser(input.SSHUser).
 		SetNillableSSHKeyPath(input.SSHKeyPath).
 		SetNillableWorkspaceRoot(input.WorkspaceRoot).
@@ -153,7 +153,7 @@ func machineUpdateBuilder(builder *ent.MachineUpdateOne, input domain.UpdateMach
 		SetHost(input.Host).
 		SetPort(input.Port).
 		SetDescription(input.Description).
-		SetStatus(input.Status)
+		SetStatus(toEntMachineStatus(input.Status))
 	if input.SSHUser != nil {
 		builder.SetSSHUser(*input.SSHUser)
 	} else {
@@ -208,7 +208,7 @@ func mapMachine(item *ent.Machine) domain.Machine {
 		SSHKeyPath:      optionalString(item.SSHKeyPath),
 		Description:     item.Description,
 		Labels:          append([]string(nil), item.Labels...),
-		Status:          item.Status,
+		Status:          toDomainMachineStatus(item.Status),
 		WorkspaceRoot:   optionalString(item.WorkspaceRoot),
 		AgentCLIPath:    optionalString(item.AgentCliPath),
 		EnvVars:         append([]string(nil), item.EnvVars...),

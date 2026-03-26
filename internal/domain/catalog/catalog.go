@@ -5,9 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
-	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/google/uuid"
 )
 
@@ -17,7 +14,7 @@ type Organization struct {
 	ID                     uuid.UUID
 	Name                   string
 	Slug                   string
-	Status                 entorganization.Status
+	Status                 OrganizationStatus
 	DefaultAgentProviderID *uuid.UUID
 }
 
@@ -27,7 +24,7 @@ type Project struct {
 	Name                   string
 	Slug                   string
 	Description            string
-	Status                 entproject.Status
+	Status                 ProjectStatus
 	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
@@ -51,8 +48,8 @@ type TicketRepoScope struct {
 	RepoID         uuid.UUID
 	BranchName     string
 	PullRequestURL *string
-	PrStatus       entticketreposcope.PrStatus
-	CiStatus       entticketreposcope.CiStatus
+	PrStatus       TicketRepoScopePRStatus
+	CiStatus       TicketRepoScopeCIStatus
 	IsPrimaryScope bool
 }
 
@@ -109,7 +106,7 @@ type CreateProject struct {
 	Name                   string
 	Slug                   string
 	Description            string
-	Status                 entproject.Status
+	Status                 ProjectStatus
 	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
@@ -122,7 +119,7 @@ type UpdateProject struct {
 	Name                   string
 	Slug                   string
 	Description            string
-	Status                 entproject.Status
+	Status                 ProjectStatus
 	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
@@ -156,8 +153,8 @@ type CreateTicketRepoScope struct {
 	RepoID           uuid.UUID
 	BranchName       *string
 	PullRequestURL   *string
-	PrStatus         entticketreposcope.PrStatus
-	CiStatus         entticketreposcope.CiStatus
+	PrStatus         TicketRepoScopePRStatus
+	CiStatus         TicketRepoScopeCIStatus
 	RequestedPrimary *bool
 }
 
@@ -168,8 +165,8 @@ type UpdateTicketRepoScope struct {
 	RepoID         uuid.UUID
 	BranchName     *string
 	PullRequestURL *string
-	PrStatus       entticketreposcope.PrStatus
-	CiStatus       entticketreposcope.CiStatus
+	PrStatus       TicketRepoScopePRStatus
+	CiStatus       TicketRepoScopeCIStatus
 	IsPrimaryScope bool
 }
 
@@ -496,13 +493,13 @@ func parseUUIDList(fieldName string, raw []string) ([]uuid.UUID, error) {
 	return parsed, nil
 }
 
-func parseProjectStatus(raw string) (entproject.Status, error) {
+func parseProjectStatus(raw string) (ProjectStatus, error) {
 	if strings.TrimSpace(raw) == "" {
-		return entproject.DefaultStatus, nil
+		return DefaultProjectStatus, nil
 	}
 
-	status := entproject.Status(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entproject.StatusValidator(status); err != nil {
+	status := ProjectStatus(strings.ToLower(strings.TrimSpace(raw)))
+	if !status.IsValid() {
 		return "", fmt.Errorf("status must be one of planning, active, paused, archived")
 	}
 
@@ -511,7 +508,7 @@ func parseProjectStatus(raw string) (entproject.Status, error) {
 
 func parseMaxConcurrentAgents(raw *int) (int, error) {
 	if raw == nil {
-		return entproject.DefaultMaxConcurrentAgents, nil
+		return DefaultProjectMaxConcurrentAgents, nil
 	}
 	if *raw < 1 {
 		return 0, fmt.Errorf("max_concurrent_agents must be greater than zero")
@@ -520,26 +517,26 @@ func parseMaxConcurrentAgents(raw *int) (int, error) {
 	return *raw, nil
 }
 
-func parseTicketRepoScopePrStatus(raw string) (entticketreposcope.PrStatus, error) {
+func parseTicketRepoScopePrStatus(raw string) (TicketRepoScopePRStatus, error) {
 	if strings.TrimSpace(raw) == "" {
-		return entticketreposcope.DefaultPrStatus, nil
+		return DefaultTicketRepoScopePRStatus, nil
 	}
 
-	status := entticketreposcope.PrStatus(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entticketreposcope.PrStatusValidator(status); err != nil {
+	status := TicketRepoScopePRStatus(strings.ToLower(strings.TrimSpace(raw)))
+	if !status.IsValid() {
 		return "", fmt.Errorf("pr_status must be one of none, open, changes_requested, approved, merged, closed")
 	}
 
 	return status, nil
 }
 
-func parseTicketRepoScopeCiStatus(raw string) (entticketreposcope.CiStatus, error) {
+func parseTicketRepoScopeCiStatus(raw string) (TicketRepoScopeCIStatus, error) {
 	if strings.TrimSpace(raw) == "" {
-		return entticketreposcope.DefaultCiStatus, nil
+		return DefaultTicketRepoScopeCIStatus, nil
 	}
 
-	status := entticketreposcope.CiStatus(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entticketreposcope.CiStatusValidator(status); err != nil {
+	status := TicketRepoScopeCIStatus(strings.ToLower(strings.TrimSpace(raw)))
+	if !status.IsValid() {
 		return "", fmt.Errorf("ci_status must be one of pending, passing, failing")
 	}
 

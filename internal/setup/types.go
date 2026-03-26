@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 )
 
 type Mode string
@@ -25,13 +25,13 @@ type ModeOption struct {
 }
 
 type AgentOption struct {
-	ID          string                       `json:"id"`
-	Name        string                       `json:"name"`
-	Command     string                       `json:"command"`
-	AdapterType entagentprovider.AdapterType `json:"adapter_type"`
-	ModelName   string                       `json:"model_name"`
-	Available   bool                         `json:"available"`
-	Path        string                       `json:"path,omitempty"`
+	ID          string                                 `json:"id"`
+	Name        string                                 `json:"name"`
+	Command     string                                 `json:"command"`
+	AdapterType catalogdomain.AgentProviderAdapterType `json:"adapter_type"`
+	ModelName   string                                 `json:"model_name"`
+	Available   bool                                   `json:"available"`
+	Path        string                                 `json:"path,omitempty"`
 }
 
 type Bootstrap struct {

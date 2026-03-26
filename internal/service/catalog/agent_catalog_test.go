@@ -5,11 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
 
@@ -22,7 +18,7 @@ func TestCreateAgentProviderAutoDetectsCLICommand(t *testing.T) {
 	item, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
 		Name:           "Codex",
-		AdapterType:    entagentprovider.AdapterTypeCodexAppServer,
+		AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
 		ModelName:      "gpt-5.3-codex",
 		AuthConfig:     map[string]any{},
 	})
@@ -46,7 +42,7 @@ func TestCreateAgentProviderRejectsMissingCustomCLICommand(t *testing.T) {
 	_, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
 		Name:           "Custom",
-		AdapterType:    entagentprovider.AdapterTypeCustom,
+		AdapterType:    domain.AgentProviderAdapterTypeCustom,
 		ModelName:      "manual",
 		AuthConfig:     map[string]any{},
 	})
@@ -61,7 +57,7 @@ func TestCreateAgentProviderRejectsMissingExecutable(t *testing.T) {
 	_, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
 		Name:           "Gemini",
-		AdapterType:    entagentprovider.AdapterTypeGeminiCli,
+		AdapterType:    domain.AgentProviderAdapterTypeGeminiCLI,
 		ModelName:      "gemini-2.5-pro",
 		AuthConfig:     map[string]any{},
 	})
@@ -76,7 +72,7 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 			ID:             uuid.New(),
 			OrganizationID: uuid.New(),
 			Name:           "Codex",
-			AdapterType:    entagentprovider.AdapterTypeCodexAppServer,
+			AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
 			CliCommand:     "/usr/local/bin/codex",
 			ModelName:      "gpt-5.3-codex",
 			AuthConfig:     map[string]any{},
@@ -112,7 +108,7 @@ func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 				ID:             uuid.New(),
 				OrganizationID: orgID,
 				Name:           "Claude Code",
-				AdapterType:    entagentprovider.AdapterTypeClaudeCodeCli,
+				AdapterType:    domain.AgentProviderAdapterTypeClaudeCodeCLI,
 				CliCommand:     "claude",
 				ModelName:      "claude-sonnet-4-5",
 			},
@@ -120,7 +116,7 @@ func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 				ID:             uuid.New(),
 				OrganizationID: orgID,
 				Name:           "OpenAI Codex",
-				AdapterType:    entagentprovider.AdapterTypeCodexAppServer,
+				AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
 				CliCommand:     "codex",
 				ModelName:      "gpt-5.3-codex",
 			},
@@ -158,7 +154,7 @@ func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *tes
 				ID:             uuid.New(),
 				OrganizationID: orgID,
 				Name:           "Claude Code",
-				AdapterType:    entagentprovider.AdapterTypeClaudeCodeCli,
+				AdapterType:    domain.AgentProviderAdapterTypeClaudeCodeCLI,
 				CliCommand:     "claude",
 				ModelName:      "claude-sonnet-4-5",
 			},
@@ -166,7 +162,7 @@ func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *tes
 				ID:             uuid.New(),
 				OrganizationID: orgID,
 				Name:           "OpenAI Codex",
-				AdapterType:    entagentprovider.AdapterTypeCodexAppServer,
+				AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
 				CliCommand:     "codex",
 				ModelName:      "gpt-5.3-codex",
 			},
@@ -205,8 +201,8 @@ func TestCreateProjectSeedsDefaultStatuses(t *testing.T) {
 			Status:         "active",
 		},
 	}
-	resetter := &stubProjectStatusResetter{}
-	svc := New(repo, stubExecutableResolver{}, nil, WithProjectStatusResetter(resetter))
+	resetter := &stubProjectStatusBootstrapper{}
+	svc := New(repo, stubExecutableResolver{}, nil, WithProjectStatusBootstrapper(resetter))
 
 	item, err := svc.CreateProject(context.Background(), domain.CreateProject{
 		OrganizationID: repo.createdProject.OrganizationID,
@@ -256,10 +252,10 @@ func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 		agent: domain.Agent{
 			ID:                  agentID,
 			Name:                "worker-1",
-			Status:              entagent.StatusRunning,
+			Status:              domain.AgentStatusRunning,
 			CurrentTicketID:     &ticketID,
-			RuntimePhase:        entagent.RuntimePhaseReady,
-			RuntimeControlState: entagent.RuntimeControlStateActive,
+			RuntimePhase:        domain.AgentRuntimePhaseReady,
+			RuntimeControlState: domain.AgentRuntimeControlStateActive,
 		},
 	}
 	svc := New(repo, stubExecutableResolver{}, nil)
@@ -268,10 +264,10 @@ func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RequestAgentPause returned error: %v", err)
 	}
-	if item.RuntimeControlState != entagent.RuntimeControlStatePauseRequested {
+	if item.RuntimeControlState != domain.AgentRuntimeControlStatePauseRequested {
 		t.Fatalf("expected pause_requested state, got %+v", item)
 	}
-	if repo.updatedRuntimeControl == nil || repo.updatedRuntimeControl.RuntimeControlState != entagent.RuntimeControlStatePauseRequested {
+	if repo.updatedRuntimeControl == nil || repo.updatedRuntimeControl.RuntimeControlState != domain.AgentRuntimeControlStatePauseRequested {
 		t.Fatalf("expected repo runtime control update, got %+v", repo.updatedRuntimeControl)
 	}
 }
@@ -283,10 +279,10 @@ func TestRequestAgentResumeRejectsPauseRequestedState(t *testing.T) {
 		agent: domain.Agent{
 			ID:                  agentID,
 			Name:                "worker-1",
-			Status:              entagent.StatusClaimed,
+			Status:              domain.AgentStatusClaimed,
 			CurrentTicketID:     &ticketID,
-			RuntimePhase:        entagent.RuntimePhaseNone,
-			RuntimeControlState: entagent.RuntimeControlStatePauseRequested,
+			RuntimePhase:        domain.AgentRuntimePhaseNone,
+			RuntimeControlState: domain.AgentRuntimeControlStatePauseRequested,
 		},
 	}
 	svc := New(repo, stubExecutableResolver{}, nil)
@@ -503,7 +499,7 @@ func (r *stubRepository) DeleteTicketRepoScope(context.Context, uuid.UUID, uuid.
 	return domain.TicketRepoScope{}, nil
 }
 
-var _ catalogrepo.Repository = (*stubRepository)(nil)
+var _ Repository = (*stubRepository)(nil)
 
 func equalStrings(left []string, right []string) bool {
 	if len(left) != len(right) {
@@ -518,11 +514,11 @@ func equalStrings(left []string, right []string) bool {
 	return true
 }
 
-type stubProjectStatusResetter struct {
+type stubProjectStatusBootstrapper struct {
 	projectID uuid.UUID
 }
 
-func (s *stubProjectStatusResetter) ResetToDefaultTemplate(_ context.Context, projectID uuid.UUID) ([]ticketstatus.Status, error) {
+func (s *stubProjectStatusBootstrapper) BootstrapProjectStatuses(_ context.Context, projectID uuid.UUID) error {
 	s.projectID = projectID
-	return nil, nil
+	return nil
 }

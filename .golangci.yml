@@ -112,6 +112,8 @@ linters:
             - internal/workflow/*.go
             - internal/workflow/**/*.go
           deny:
+            - pkg: github.com/BetterAndBetterII/openase/internal/repo
+              desc: services must depend on consumer-owned repository ports, not repo adapters
             - pkg: github.com/BetterAndBetterII/openase/internal/app
               desc: services must not depend on app wiring
             - pkg: github.com/BetterAndBetterII/openase/internal/httpapi
@@ -122,6 +124,13 @@ linters:
               desc: services must not depend on setup flows
             - pkg: github.com/BetterAndBetterII/openase/internal/webui
               desc: services must not depend on UI delivery
+        catalog-service-no-peer-service-impls:
+          files:
+            - internal/service/catalog/*.go
+            - internal/service/catalog/**/*.go
+          deny:
+            - pkg: github.com/BetterAndBetterII/openase/internal/ticketstatus
+              desc: catalog service must consume project-status bootstrapping through an injected port
         runtime-no-delivery:
           files:
             - internal/runtime/*.go

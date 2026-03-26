@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/google/uuid"
 )
 
@@ -24,7 +23,7 @@ type Machine struct {
 	SSHKeyPath      *string
 	Description     string
 	Labels          []string
-	Status          entmachine.Status
+	Status          MachineStatus
 	WorkspaceRoot   *string
 	AgentCLIPath    *string
 	EnvVars         []string
@@ -62,7 +61,7 @@ type CreateMachine struct {
 	SSHKeyPath     *string
 	Description    string
 	Labels         []string
-	Status         entmachine.Status
+	Status         MachineStatus
 	WorkspaceRoot  *string
 	AgentCLIPath   *string
 	EnvVars        []string
@@ -78,7 +77,7 @@ type UpdateMachine struct {
 	SSHKeyPath     *string
 	Description    string
 	Labels         []string
-	Status         entmachine.Status
+	Status         MachineStatus
 	WorkspaceRoot  *string
 	AgentCLIPath   *string
 	EnvVars        []string
@@ -86,7 +85,7 @@ type UpdateMachine struct {
 
 type RecordMachineProbe struct {
 	ID              uuid.UUID
-	Status          entmachine.Status
+	Status          MachineStatus
 	LastHeartbeatAt time.Time
 	Resources       map[string]any
 }
@@ -207,16 +206,16 @@ func parseMachinePort(raw *int) (int, error) {
 	return *raw, nil
 }
 
-func parseMachineStatus(raw string, isLocal bool) (entmachine.Status, error) {
+func parseMachineStatus(raw string, isLocal bool) (MachineStatus, error) {
 	if strings.TrimSpace(raw) == "" {
 		if isLocal {
-			return entmachine.StatusOnline, nil
+			return MachineStatusOnline, nil
 		}
-		return entmachine.StatusMaintenance, nil
+		return MachineStatusMaintenance, nil
 	}
 
-	status := entmachine.Status(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entmachine.StatusValidator(status); err != nil {
+	status := MachineStatus(strings.ToLower(strings.TrimSpace(raw)))
+	if !status.IsValid() {
 		return "", fmt.Errorf("status must be one of online, offline, degraded, maintenance")
 	}
 

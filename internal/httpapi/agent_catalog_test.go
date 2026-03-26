@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -336,8 +335,8 @@ func TestListAgentsRouteReturnsEmptyCapabilitiesArray(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		Status:              entagent.StatusIdle,
-		RuntimeControlState: entagent.RuntimeControlStateActive,
+		Status:              domain.AgentStatusIdle,
+		RuntimeControlState: domain.AgentRuntimeControlStateActive,
 	}
 
 	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/projects/"+projectID.String()+"/agents", "")
@@ -390,10 +389,10 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		Status:              entagent.StatusRunning,
+		Status:              domain.AgentStatusRunning,
 		CurrentTicketID:     &ticketID,
-		RuntimePhase:        entagent.RuntimePhaseReady,
-		RuntimeControlState: entagent.RuntimeControlStateActive,
+		RuntimePhase:        domain.AgentRuntimePhaseReady,
+		RuntimeControlState: domain.AgentRuntimeControlStateActive,
 	}
 
 	pauseRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/pause", "")
@@ -414,10 +413,10 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		Status:              entagent.StatusClaimed,
+		Status:              domain.AgentStatusClaimed,
 		CurrentTicketID:     &ticketID,
-		RuntimePhase:        entagent.RuntimePhaseNone,
-		RuntimeControlState: entagent.RuntimeControlStatePaused,
+		RuntimePhase:        domain.AgentRuntimePhaseNone,
+		RuntimeControlState: domain.AgentRuntimeControlStatePaused,
 	}
 
 	resumeRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/resume", "")

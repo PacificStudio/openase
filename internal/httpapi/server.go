@@ -22,7 +22,6 @@ import (
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/BetterAndBetterII/openase/internal/webui"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -157,7 +156,7 @@ func NewServer(
 			return nil
 		},
 	}))
-	server.registerRoutes()
+	registerServerRoutes(server)
 
 	return server
 }
@@ -205,53 +204,6 @@ func (s *Server) Run(ctx context.Context) error {
 
 		return <-errCh
 	}
-}
-
-func (s *Server) registerRoutes() {
-	healthHandler := func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{
-			"service": "openase",
-			"status":  "ok",
-			"time":    time.Now().UTC().Format(time.RFC3339),
-			"port":    strconv.Itoa(s.cfg.Port),
-		})
-	}
-
-	s.echo.GET("/healthz", healthHandler)
-
-	api := s.echo.Group("/api/v1")
-	api.GET("/healthz", healthHandler)
-	api.GET("/openapi.json", s.handleOpenAPI)
-	api.GET("/system/dashboard", s.handleSystemDashboard)
-	api.GET("/system/metrics", s.handleMetrics)
-	api.GET("/events/stream", s.handleEventStream)
-	api.POST("/webhooks/github", s.handleLegacyGitHubWebhook)
-	api.POST("/webhooks/:connector/:provider", s.handleInboundWebhook)
-	api.GET("/projects/:projectId/tickets/stream", s.handleTicketStream)
-	api.GET("/projects/:projectId/agents/stream", s.handleAgentStream)
-	api.GET("/projects/:projectId/agents/:agentId/output/stream", s.streamAgentOutput)
-	api.GET("/projects/:projectId/hooks/stream", s.handleHookStream)
-	api.GET("/projects/:projectId/activity/stream", s.handleActivityStream)
-	if s.agentPlatform != nil {
-		s.registerAgentPlatformRoutes(api.Group("/platform", s.authenticateAgentToken))
-	}
-	if s.catalog != nil {
-		s.registerCatalogRoutes(api)
-	}
-	s.registerTicketRoutes(api)
-	s.registerChatRoutes(api)
-	s.registerWorkflowRoutes(api)
-	s.registerScheduledJobRoutes(api)
-	s.registerNotificationRoutes(api)
-	s.registerSecuritySettingsRoutes(api)
-	s.registerSkillRoutes(api)
-	s.registerRoleLibraryRoutes(api)
-	s.registerHRAdvisorRoutes(api)
-	s.registerTicketStatusRoutes()
-
-	uiHandler := echo.WrapHandler(webui.Handler())
-	s.echo.GET("/", uiHandler)
-	s.echo.GET("/*", uiHandler)
 }
 
 func (s *Server) metricsMiddleware() echo.MiddlewareFunc {

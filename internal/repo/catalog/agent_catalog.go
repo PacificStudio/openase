@@ -46,7 +46,7 @@ func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.Cr
 	item, err := r.client.AgentProvider.Create().
 		SetOrganizationID(input.OrganizationID).
 		SetName(input.Name).
-		SetAdapterType(input.AdapterType).
+		SetAdapterType(toEntAgentProviderAdapterType(input.AdapterType)).
 		SetCliCommand(input.CliCommand).
 		SetCliArgs(pgarray.StringArray(input.CliArgs)).
 		SetAuthConfig(input.AuthConfig).
@@ -76,7 +76,7 @@ func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.Up
 	item, err := r.client.AgentProvider.UpdateOneID(input.ID).
 		SetOrganizationID(input.OrganizationID).
 		SetName(input.Name).
-		SetAdapterType(input.AdapterType).
+		SetAdapterType(toEntAgentProviderAdapterType(input.AdapterType)).
 		SetCliCommand(input.CliCommand).
 		SetCliArgs(pgarray.StringArray(input.CliArgs)).
 		SetAuthConfig(input.AuthConfig).
@@ -133,10 +133,10 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		SetProjectID(input.ProjectID).
 		SetProviderID(input.ProviderID).
 		SetName(input.Name).
-		SetStatus(input.Status).
+		SetStatus(toEntAgentStatus(input.Status)).
 		SetSessionID(input.SessionID).
-		SetRuntimePhase(input.RuntimePhase).
-		SetRuntimeControlState(input.RuntimeControlState).
+		SetRuntimePhase(toEntAgentRuntimePhase(input.RuntimePhase)).
+		SetRuntimeControlState(toEntAgentRuntimeControlState(input.RuntimeControlState)).
 		SetLastError(input.LastError).
 		SetWorkspacePath(input.WorkspacePath).
 		SetCapabilities(pgarray.StringArray(input.Capabilities)).
@@ -171,7 +171,7 @@ func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agen
 
 func (r *EntRepository) UpdateAgentRuntimeControlState(ctx context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error) {
 	item, err := r.client.Agent.UpdateOneID(input.ID).
-		SetRuntimeControlState(input.RuntimeControlState).
+		SetRuntimeControlState(toEntAgentRuntimeControlState(input.RuntimeControlState)).
 		Save(ctx)
 	if err != nil {
 		return domain.Agent{}, mapWriteError("update agent runtime control state", err)
@@ -207,7 +207,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		ID:                 item.ID,
 		OrganizationID:     item.OrganizationID,
 		Name:               item.Name,
-		AdapterType:        item.AdapterType,
+		AdapterType:        toDomainAgentProviderAdapterType(item.AdapterType),
 		CliCommand:         item.CliCommand,
 		CliArgs:            append([]string(nil), item.CliArgs...),
 		AuthConfig:         cloneAnyMap(item.AuthConfig),
@@ -234,11 +234,11 @@ func mapAgent(item *ent.Agent) domain.Agent {
 		ProviderID:            item.ProviderID,
 		ProjectID:             item.ProjectID,
 		Name:                  item.Name,
-		Status:                item.Status,
+		Status:                toDomainAgentStatus(item.Status),
 		CurrentTicketID:       item.CurrentTicketID,
 		SessionID:             item.SessionID,
-		RuntimePhase:          item.RuntimePhase,
-		RuntimeControlState:   item.RuntimeControlState,
+		RuntimePhase:          toDomainAgentRuntimePhase(item.RuntimePhase),
+		RuntimeControlState:   toDomainAgentRuntimeControlState(item.RuntimeControlState),
 		RuntimeStartedAt:      cloneTimePointer(item.RuntimeStartedAt),
 		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,
