@@ -166,7 +166,6 @@ type OpenAPITicketExternalLink struct {
 
 type OpenAPITicketComment struct {
 	ID        string  `json:"id"`
-	ProjectID string  `json:"project_id"`
 	TicketID  string  `json:"ticket_id"`
 	Body      string  `json:"body"`
 	CreatedBy string  `json:"created_by"`

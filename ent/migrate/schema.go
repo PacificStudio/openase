@@ -612,6 +612,36 @@ var (
 			},
 		},
 	}
+	// TicketCommentsColumns holds the columns for the "ticket_comments" table.
+	TicketCommentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "body", Type: field.TypeString, Size: 2147483647},
+		{Name: "created_by", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "ticket_id", Type: field.TypeUUID},
+	}
+	// TicketCommentsTable holds the schema information for the "ticket_comments" table.
+	TicketCommentsTable = &schema.Table{
+		Name:       "ticket_comments",
+		Columns:    TicketCommentsColumns,
+		PrimaryKey: []*schema.Column{TicketCommentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "ticket_comments_tickets_comments",
+				Columns:    []*schema.Column{TicketCommentsColumns[5]},
+				RefColumns: []*schema.Column{TicketsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "ticketcomment_ticket_id_created_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{TicketCommentsColumns[5], TicketCommentsColumns[3], TicketCommentsColumns[0]},
+			},
+		},
+	}
 	// TicketDependenciesColumns holds the columns for the "ticket_dependencies" table.
 	TicketDependenciesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -849,6 +879,7 @@ var (
 		ProjectReposTable,
 		ScheduledJobsTable,
 		TicketsTable,
+		TicketCommentsTable,
 		TicketDependenciesTable,
 		TicketExternalLinksTable,
 		TicketRepoScopesTable,
@@ -885,6 +916,7 @@ func init() {
 	TicketsTable.ForeignKeys[3].RefTable = TicketsTable
 	TicketsTable.ForeignKeys[4].RefTable = TicketStatusTable
 	TicketsTable.ForeignKeys[5].RefTable = WorkflowsTable
+	TicketCommentsTable.ForeignKeys[0].RefTable = TicketsTable
 	TicketDependenciesTable.ForeignKeys[0].RefTable = TicketsTable
 	TicketDependenciesTable.ForeignKeys[1].RefTable = TicketsTable
 	TicketExternalLinksTable.ForeignKeys[0].RefTable = TicketsTable

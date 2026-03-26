@@ -18,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
@@ -338,6 +339,30 @@ func init() {
 	ticketDescID := ticketFields[0].Descriptor()
 	// ticket.DefaultID holds the default value on creation for the id field.
 	ticket.DefaultID = ticketDescID.Default.(func() uuid.UUID)
+	ticketcommentFields := schema.TicketComment{}.Fields()
+	_ = ticketcommentFields
+	// ticketcommentDescBody is the schema descriptor for body field.
+	ticketcommentDescBody := ticketcommentFields[2].Descriptor()
+	// ticketcomment.BodyValidator is a validator for the "body" field. It is called by the builders before save.
+	ticketcomment.BodyValidator = ticketcommentDescBody.Validators[0].(func(string) error)
+	// ticketcommentDescCreatedBy is the schema descriptor for created_by field.
+	ticketcommentDescCreatedBy := ticketcommentFields[3].Descriptor()
+	// ticketcomment.CreatedByValidator is a validator for the "created_by" field. It is called by the builders before save.
+	ticketcomment.CreatedByValidator = ticketcommentDescCreatedBy.Validators[0].(func(string) error)
+	// ticketcommentDescCreatedAt is the schema descriptor for created_at field.
+	ticketcommentDescCreatedAt := ticketcommentFields[4].Descriptor()
+	// ticketcomment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	ticketcomment.DefaultCreatedAt = ticketcommentDescCreatedAt.Default.(func() time.Time)
+	// ticketcommentDescUpdatedAt is the schema descriptor for updated_at field.
+	ticketcommentDescUpdatedAt := ticketcommentFields[5].Descriptor()
+	// ticketcomment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	ticketcomment.DefaultUpdatedAt = ticketcommentDescUpdatedAt.Default.(func() time.Time)
+	// ticketcomment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	ticketcomment.UpdateDefaultUpdatedAt = ticketcommentDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// ticketcommentDescID is the schema descriptor for id field.
+	ticketcommentDescID := ticketcommentFields[0].Descriptor()
+	// ticketcomment.DefaultID holds the default value on creation for the id field.
+	ticketcomment.DefaultID = ticketcommentDescID.Default.(func() uuid.UUID)
 	ticketdependencyFields := schema.TicketDependency{}.Fields()
 	_ = ticketdependencyFields
 	// ticketdependencyDescID is the schema descriptor for id field.

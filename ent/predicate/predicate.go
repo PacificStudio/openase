@@ -42,6 +42,9 @@ type ScheduledJob func(*sql.Selector)
 // Ticket is the predicate function for ticket builders.
 type Ticket func(*sql.Selector)
 
+// TicketComment is the predicate function for ticketcomment builders.
+type TicketComment func(*sql.Selector)
+
 // TicketDependency is the predicate function for ticketdependency builders.
 type TicketDependency func(*sql.Selector)
 

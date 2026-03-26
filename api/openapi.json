@@ -8874,9 +8874,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "project_id": {
-                            "type": "string"
-                          },
                           "ticket_id": {
                             "type": "string"
                           },
@@ -12297,9 +12294,6 @@
                         "id": {
                           "type": "string"
                         },
-                        "project_id": {
-                          "type": "string"
-                        },
                         "ticket_id": {
                           "type": "string"
                         },
@@ -12537,9 +12531,6 @@
                           "type": "string"
                         },
                         "id": {
-                          "type": "string"
-                        },
-                        "project_id": {
                           "type": "string"
                         },
                         "ticket_id": {

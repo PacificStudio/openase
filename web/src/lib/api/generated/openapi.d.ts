@@ -5925,7 +5925,6 @@ export interface operations {
               created_at?: string
               created_by?: string
               id?: string
-              project_id?: string
               ticket_id?: string
               updated_at?: string | null
             }[]
@@ -7607,7 +7606,6 @@ export interface operations {
               created_at?: string
               created_by?: string
               id?: string
-              project_id?: string
               ticket_id?: string
               updated_at?: string | null
             }
@@ -7748,7 +7746,6 @@ export interface operations {
               created_at?: string
               created_by?: string
               id?: string
-              project_id?: string
               ticket_id?: string
               updated_at?: string | null
             }

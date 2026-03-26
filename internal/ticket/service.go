@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketcomment "github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -24,12 +24,8 @@ import (
 )
 
 const (
-	defaultCreatedBy           = "user:api"
-	defaultCommentCreatedBy    = "user:web"
-	defaultIdentifierPrefix    = "ASE"
-	ticketCommentEventType     = "comment_added"
-	commentAuthorMetadataKey   = "comment_author"
-	commentEditedAtMetadataKey = "comment_edited_at"
+	defaultCreatedBy        = "user:api"
+	defaultIdentifierPrefix = "ASE"
 )
 
 var (
@@ -44,9 +40,9 @@ var (
 	ErrTargetMachineNotFound = errors.New("target machine not found in project organization")
 	ErrDependencyNotFound    = errors.New("ticket dependency not found")
 	ErrDependencyConflict    = errors.New("ticket dependency already exists")
+	ErrCommentNotFound       = errors.New("ticket comment not found")
 	ErrExternalLinkNotFound  = errors.New("ticket external link not found")
 	ErrExternalLinkConflict  = errors.New("ticket external link already exists")
-	ErrCommentNotFound       = errors.New("ticket comment not found")
 	ErrInvalidDependency     = errors.New("invalid ticket dependency")
 )
 
@@ -87,6 +83,16 @@ type ExternalLink struct {
 	Status     string                         `json:"status,omitempty"`
 	Relation   entticketexternallink.Relation `json:"relation"`
 	CreatedAt  time.Time                      `json:"created_at"`
+}
+
+// Comment describes a first-class user discussion item on a ticket.
+type Comment struct {
+	ID        uuid.UUID `json:"id"`
+	TicketID  uuid.UUID `json:"ticket_id"`
+	Body      string    `json:"body"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Ticket is the API-facing ticket aggregate returned by the service layer.
@@ -188,17 +194,6 @@ type DeleteDependencyResult struct {
 // DeleteExternalLinkResult reports which external link was removed.
 type DeleteExternalLinkResult struct {
 	DeletedExternalLinkID uuid.UUID `json:"deleted_external_link_id"`
-}
-
-// Comment describes a user-authored ticket discussion entry.
-type Comment struct {
-	ID        uuid.UUID  `json:"id"`
-	ProjectID uuid.UUID  `json:"project_id"`
-	TicketID  uuid.UUID  `json:"ticket_id"`
-	Body      string     `json:"body"`
-	CreatedBy string     `json:"created_by"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
 // AddCommentInput creates a new ticket comment.
@@ -666,6 +661,91 @@ func (s *Service) AddExternalLink(ctx context.Context, input AddExternalLinkInpu
 	return mapExternalLink(created), nil
 }
 
+// ListComments returns user discussion comments ordered oldest-first for stable thread rendering.
+func (s *Service) ListComments(ctx context.Context, ticketID uuid.UUID) ([]Comment, error) {
+	if s.client == nil {
+		return nil, ErrUnavailable
+	}
+	if _, err := s.client.Ticket.Get(ctx, ticketID); err != nil {
+		return nil, s.mapTicketReadError("get ticket for comment list", err)
+	}
+
+	items, err := s.client.TicketComment.Query().
+		Where(entticketcomment.TicketIDEQ(ticketID)).
+		Order(ent.Asc(entticketcomment.FieldCreatedAt), ent.Asc(entticketcomment.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list ticket comments: %w", err)
+	}
+
+	comments := make([]Comment, 0, len(items))
+	for _, item := range items {
+		comments = append(comments, mapComment(item))
+	}
+
+	return comments, nil
+}
+
+// AddComment creates a new user discussion comment on a ticket.
+func (s *Service) AddComment(ctx context.Context, input AddCommentInput) (Comment, error) {
+	if s.client == nil {
+		return Comment{}, ErrUnavailable
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Comment{}, fmt.Errorf("start add ticket comment tx: %w", err)
+	}
+	defer rollback(tx)
+
+	if _, err := tx.Ticket.Get(ctx, input.TicketID); err != nil {
+		return Comment{}, s.mapTicketReadError("get ticket for comment create", err)
+	}
+
+	item, err := tx.TicketComment.Create().
+		SetTicketID(input.TicketID).
+		SetBody(input.Body).
+		SetCreatedBy(resolveCreatedBy(input.CreatedBy)).
+		Save(ctx)
+	if err != nil {
+		return Comment{}, s.mapTicketWriteError("create ticket comment", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return Comment{}, fmt.Errorf("commit add ticket comment tx: %w", err)
+	}
+
+	return mapComment(item), nil
+}
+
+// UpdateComment updates the markdown body of an existing ticket discussion comment.
+func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (Comment, error) {
+	if s.client == nil {
+		return Comment{}, ErrUnavailable
+	}
+
+	existing, err := s.client.TicketComment.Query().
+		Where(
+			entticketcomment.IDEQ(input.CommentID),
+			entticketcomment.TicketIDEQ(input.TicketID),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return Comment{}, ErrCommentNotFound
+		}
+		return Comment{}, fmt.Errorf("get ticket comment for update: %w", err)
+	}
+
+	item, err := s.client.TicketComment.UpdateOneID(existing.ID).
+		SetBody(input.Body).
+		Save(ctx)
+	if err != nil {
+		return Comment{}, s.mapTicketWriteError("update ticket comment", err)
+	}
+
+	return mapComment(item), nil
+}
+
 // RemoveExternalLink deletes an external issue or PR association from a ticket.
 func (s *Service) RemoveExternalLink(ctx context.Context, ticketID uuid.UUID, externalLinkID uuid.UUID) (DeleteExternalLinkResult, error) {
 	if s.client == nil {
@@ -726,108 +806,16 @@ func (s *Service) RemoveExternalLink(ctx context.Context, ticketID uuid.UUID, ex
 	return DeleteExternalLinkResult{DeletedExternalLinkID: externalLinkID}, nil
 }
 
-// AddComment creates a new ticket discussion comment.
-func (s *Service) AddComment(ctx context.Context, input AddCommentInput) (Comment, error) {
-	if s.client == nil {
-		return Comment{}, ErrUnavailable
-	}
-
-	body := strings.TrimSpace(input.Body)
-	if body == "" {
-		return Comment{}, fmt.Errorf("comment body must not be empty")
-	}
-
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return Comment{}, fmt.Errorf("start create ticket comment tx: %w", err)
-	}
-	defer rollback(tx)
-
-	ticketItem, err := tx.Ticket.Get(ctx, input.TicketID)
-	if err != nil {
-		return Comment{}, s.mapTicketReadError("get ticket for comment create", err)
-	}
-
-	commentItem, err := tx.ActivityEvent.Create().
-		SetProjectID(ticketItem.ProjectID).
-		SetTicketID(ticketItem.ID).
-		SetEventType(ticketCommentEventType).
-		SetMessage(body).
-		SetMetadata(map[string]any{
-			commentAuthorMetadataKey: resolveCommentCreatedBy(input.CreatedBy),
-		}).
-		Save(ctx)
-	if err != nil {
-		return Comment{}, fmt.Errorf("create ticket comment: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return Comment{}, fmt.Errorf("commit create ticket comment tx: %w", err)
-	}
-
-	return mapComment(commentItem), nil
-}
-
-// UpdateComment updates an existing ticket discussion comment.
-func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (Comment, error) {
-	if s.client == nil {
-		return Comment{}, ErrUnavailable
-	}
-
-	body := strings.TrimSpace(input.Body)
-	if body == "" {
-		return Comment{}, fmt.Errorf("comment body must not be empty")
-	}
-
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return Comment{}, fmt.Errorf("start update ticket comment tx: %w", err)
-	}
-	defer rollback(tx)
-
-	commentItem, err := tx.ActivityEvent.Query().
-		Where(
-			entactivityevent.ID(input.CommentID),
-			entactivityevent.TicketIDEQ(input.TicketID),
-			entactivityevent.EventTypeEQ(ticketCommentEventType),
-		).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return Comment{}, ErrCommentNotFound
-		}
-		return Comment{}, fmt.Errorf("get ticket comment for update: %w", err)
-	}
-
-	metadata := cloneAnyMap(commentItem.Metadata)
-	metadata[commentEditedAtMetadataKey] = time.Now().UTC().Format(time.RFC3339)
-
-	updated, err := tx.ActivityEvent.UpdateOneID(commentItem.ID).
-		SetMessage(body).
-		SetMetadata(metadata).
-		Save(ctx)
-	if err != nil {
-		return Comment{}, fmt.Errorf("update ticket comment: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return Comment{}, fmt.Errorf("commit update ticket comment tx: %w", err)
-	}
-
-	return mapComment(updated), nil
-}
-
-// RemoveComment deletes a ticket discussion comment.
+// RemoveComment deletes a user discussion comment from a ticket.
 func (s *Service) RemoveComment(ctx context.Context, ticketID uuid.UUID, commentID uuid.UUID) (DeleteCommentResult, error) {
 	if s.client == nil {
 		return DeleteCommentResult{}, ErrUnavailable
 	}
 
-	deleted, err := s.client.ActivityEvent.Delete().
+	deleted, err := s.client.TicketComment.Delete().
 		Where(
-			entactivityevent.ID(commentID),
-			entactivityevent.TicketIDEQ(ticketID),
-			entactivityevent.EventTypeEQ(ticketCommentEventType),
+			entticketcomment.IDEQ(commentID),
+			entticketcomment.TicketIDEQ(ticketID),
 		).
 		Exec(ctx)
 	if err != nil {
@@ -1168,70 +1156,6 @@ func optionalUUIDPointerEqual(left *uuid.UUID, right *uuid.UUID) bool {
 	}
 }
 
-func cloneAnyMap(source map[string]any) map[string]any {
-	if len(source) == 0 {
-		return map[string]any{}
-	}
-
-	cloned := make(map[string]any, len(source))
-	for key, value := range source {
-		cloned[key] = value
-	}
-
-	return cloned
-}
-
-func resolveCommentCreatedBy(raw string) string {
-	if strings.TrimSpace(raw) == "" {
-		return defaultCommentCreatedBy
-	}
-
-	return strings.TrimSpace(raw)
-}
-
-func mapComment(item *ent.ActivityEvent) Comment {
-	ticketID := uuid.Nil
-	if item.TicketID != nil {
-		ticketID = *item.TicketID
-	}
-
-	comment := Comment{
-		ID:        item.ID,
-		ProjectID: item.ProjectID,
-		TicketID:  ticketID,
-		Body:      item.Message,
-		CreatedBy: commentCreatedBy(item.Metadata),
-		CreatedAt: item.CreatedAt.UTC(),
-	}
-	if updatedAt, ok := commentUpdatedAt(item.Metadata); ok {
-		comment.UpdatedAt = &updatedAt
-	}
-
-	return comment
-}
-
-func commentCreatedBy(metadata map[string]any) string {
-	if value, ok := metadata[commentAuthorMetadataKey].(string); ok && strings.TrimSpace(value) != "" {
-		return strings.TrimSpace(value)
-	}
-
-	return defaultCommentCreatedBy
-}
-
-func commentUpdatedAt(metadata map[string]any) (time.Time, bool) {
-	rawValue, ok := metadata[commentEditedAtMetadataKey].(string)
-	if !ok || strings.TrimSpace(rawValue) == "" {
-		return time.Time{}, false
-	}
-
-	parsed, err := time.Parse(time.RFC3339, rawValue)
-	if err != nil {
-		return time.Time{}, false
-	}
-
-	return parsed.UTC(), true
-}
-
 func mapTicket(item *ent.Ticket) Ticket {
 	result := Ticket{
 		ID:                item.ID,
@@ -1305,6 +1229,17 @@ func mapExternalLink(item *ent.TicketExternalLink) ExternalLink {
 		Status:     item.Status,
 		Relation:   item.Relation,
 		CreatedAt:  item.CreatedAt,
+	}
+}
+
+func mapComment(item *ent.TicketComment) Comment {
+	return Comment{
+		ID:        item.ID,
+		TicketID:  item.TicketID,
+		Body:      item.Body,
+		CreatedBy: item.CreatedBy,
+		CreatedAt: item.CreatedAt,
+		UpdatedAt: item.UpdatedAt,
 	}
 }
 

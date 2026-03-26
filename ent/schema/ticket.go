@@ -92,6 +92,7 @@ func (Ticket) Edges() []ent.Edge {
 			Unique(),
 		edge.To("children", Ticket.Type),
 		edge.To("repo_scopes", TicketRepoScope.Type),
+		edge.To("comments", TicketComment.Type),
 		edge.To("external_links", TicketExternalLink.Type),
 		edge.To("agent_tokens", AgentToken.Type),
 		edge.To("activity_events", ActivityEvent.Type),
