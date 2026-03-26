@@ -32,6 +32,7 @@
       <h1 class="text-foreground text-2xl font-semibold">Organizations</h1>
       <p class="text-muted-foreground mt-1 text-sm">
         Manage workspace organizations. Each organization scopes projects, providers, and machines.
+        Archived organizations are removed from the active workspace.
       </p>
     </div>
 
