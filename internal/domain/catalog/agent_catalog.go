@@ -39,7 +39,6 @@ type Agent struct {
 	RuntimeStartedAt      *time.Time
 	LastError             string
 	WorkspacePath         string
-	Capabilities          []string
 	TotalTokensUsed       int64
 	TotalTicketsCompleted int
 	LastHeartbeatAt       *time.Time
@@ -59,10 +58,9 @@ type AgentProviderInput struct {
 }
 
 type AgentInput struct {
-	ProviderID    string   `json:"provider_id"`
-	Name          string   `json:"name"`
-	WorkspacePath string   `json:"workspace_path"`
-	Capabilities  []string `json:"capabilities"`
+	ProviderID    string `json:"provider_id"`
+	Name          string `json:"name"`
+	WorkspacePath string `json:"workspace_path"`
 }
 
 type CreateAgentProvider struct {
@@ -106,7 +104,6 @@ type CreateAgent struct {
 	RuntimeStartedAt      *time.Time
 	LastError             string
 	WorkspacePath         string
-	Capabilities          []string
 	TotalTokensUsed       int64
 	TotalTicketsCompleted int
 	LastHeartbeatAt       *time.Time
@@ -201,11 +198,6 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		return CreateAgent{}, err
 	}
 
-	capabilities, err := parseStringList("capabilities", raw.Capabilities)
-	if err != nil {
-		return CreateAgent{}, err
-	}
-
 	return CreateAgent{
 		ProjectID:             projectID,
 		ProviderID:            providerID,
@@ -214,7 +206,6 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		RuntimePhase:          entagent.DefaultRuntimePhase,
 		RuntimeControlState:   entagent.DefaultRuntimeControlState,
 		WorkspacePath:         strings.TrimSpace(raw.WorkspacePath),
-		Capabilities:          capabilities,
 		TotalTokensUsed:       entagent.DefaultTotalTokensUsed,
 		TotalTicketsCompleted: entagent.DefaultTotalTicketsCompleted,
 	}, nil

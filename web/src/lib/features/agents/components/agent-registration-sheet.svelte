@@ -11,7 +11,6 @@
     SheetHeader,
     SheetTitle,
   } from '$ui/sheet'
-  import { Textarea } from '$ui/textarea'
   import type { AgentProvider } from '$lib/api/contracts'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
 
@@ -132,20 +131,6 @@
             placeholder="/srv/openase/workspaces/coding-01"
             oninput={(event) => updateField('workspacePath', event)}
           />
-        </div>
-
-        <div class="space-y-2">
-          <Label for="agent-capabilities">Capabilities</Label>
-          <Textarea
-            id="agent-capabilities"
-            value={draft.capabilitiesText}
-            rows={5}
-            placeholder="backend, go, testing"
-            oninput={(event) => updateField('capabilitiesText', event)}
-          />
-          <p class="text-muted-foreground text-xs">
-            Separate capabilities with commas or new lines. Duplicates are ignored.
-          </p>
         </div>
       </div>
 

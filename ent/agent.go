@@ -13,7 +13,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -44,8 +43,6 @@ type Agent struct {
 	LastError string `json:"last_error,omitempty"`
 	// WorkspacePath holds the value of the "workspace_path" field.
 	WorkspacePath string `json:"workspace_path,omitempty"`
-	// Capabilities holds the value of the "capabilities" field.
-	Capabilities pgarray.StringArray `json:"capabilities,omitempty"`
 	// TotalTokensUsed holds the value of the "total_tokens_used" field.
 	TotalTokensUsed int64 `json:"total_tokens_used,omitempty"`
 	// TotalTicketsCompleted holds the value of the "total_tickets_completed" field.
@@ -144,8 +141,6 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agent.FieldCurrentTicketID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case agent.FieldCapabilities:
-			values[i] = new(pgarray.StringArray)
 		case agent.FieldTotalTokensUsed, agent.FieldTotalTicketsCompleted:
 			values[i] = new(sql.NullInt64)
 		case agent.FieldName, agent.FieldStatus, agent.FieldSessionID, agent.FieldRuntimePhase, agent.FieldRuntimeControlState, agent.FieldLastError, agent.FieldWorkspacePath:
@@ -242,12 +237,6 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field workspace_path", values[i])
 			} else if value.Valid {
 				_m.WorkspacePath = value.String
-			}
-		case agent.FieldCapabilities:
-			if value, ok := values[i].(*pgarray.StringArray); !ok {
-				return fmt.Errorf("unexpected type %T for field capabilities", values[i])
-			} else if value != nil {
-				_m.Capabilities = *value
 			}
 		case agent.FieldTotalTokensUsed:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -370,9 +359,6 @@ func (_m *Agent) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("workspace_path=")
 	builder.WriteString(_m.WorkspacePath)
-	builder.WriteString(", ")
-	builder.WriteString("capabilities=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Capabilities))
 	builder.WriteString(", ")
 	builder.WriteString("total_tokens_used=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TotalTokensUsed))

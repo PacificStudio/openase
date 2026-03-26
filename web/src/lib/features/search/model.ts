@@ -229,7 +229,7 @@ function buildAgentItems({
         .join(' • '),
       badge: 'Agent',
       action: { kind: 'navigate', href: projectPath(currentOrg.id, currentProject.id, 'agents') },
-      keywords: [currentProject.name, agent.session_id, ...agent.capabilities],
+      keywords: [currentProject.name, agent.session_id, agent.workspace_path],
     }),
   )
 }

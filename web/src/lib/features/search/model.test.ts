@@ -88,7 +88,6 @@ const agentFixture: Agent = {
   runtime_started_at: null,
   last_error: '',
   workspace_path: '/tmp/agent-1',
-  capabilities: ['code', 'review'],
   total_tokens_used: 0,
   total_tickets_completed: 0,
   last_heartbeat_at: null,
