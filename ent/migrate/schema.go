@@ -62,17 +62,10 @@ var (
 	AgentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"idle", "claimed", "running", "paused", "failed", "terminated"}, Default: "idle"},
-		{Name: "session_id", Type: field.TypeString, Nullable: true},
-		{Name: "runtime_phase", Type: field.TypeEnum, Enums: []string{"none", "launching", "ready", "executing", "failed"}, Default: "none"},
 		{Name: "runtime_control_state", Type: field.TypeEnum, Enums: []string{"active", "pause_requested", "paused"}, Default: "active"},
-		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
-		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "workspace_path", Type: field.TypeString, Nullable: true},
 		{Name: "total_tokens_used", Type: field.TypeInt64, Default: 0},
 		{Name: "total_tickets_completed", Type: field.TypeInt, Default: 0},
-		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
-		{Name: "current_ticket_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "provider_id", Type: field.TypeUUID},
 		{Name: "project_id", Type: field.TypeUUID},
 	}
@@ -83,20 +76,14 @@ var (
 		PrimaryKey: []*schema.Column{AgentsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "agents_tickets_current_ticket",
-				Columns:    []*schema.Column{AgentsColumns[12]},
-				RefColumns: []*schema.Column{TicketsColumns[0]},
-				OnDelete:   schema.SetNull,
-			},
-			{
 				Symbol:     "agents_agent_providers_agents",
-				Columns:    []*schema.Column{AgentsColumns[13]},
+				Columns:    []*schema.Column{AgentsColumns[6]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agents_projects_agents",
-				Columns:    []*schema.Column{AgentsColumns[14]},
+				Columns:    []*schema.Column{AgentsColumns[7]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -105,17 +92,12 @@ var (
 			{
 				Name:    "agent_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{AgentsColumns[14], AgentsColumns[1]},
-			},
-			{
-				Name:    "agent_project_id_status_last_heartbeat_at",
-				Unique:  false,
-				Columns: []*schema.Column{AgentsColumns[14], AgentsColumns[2], AgentsColumns[11]},
+				Columns: []*schema.Column{AgentsColumns[7], AgentsColumns[1]},
 			},
 			{
 				Name:    "agent_project_id_runtime_control_state",
 				Unique:  false,
-				Columns: []*schema.Column{AgentsColumns[14], AgentsColumns[5]},
+				Columns: []*schema.Column{AgentsColumns[7], AgentsColumns[2]},
 			},
 		},
 	}
@@ -959,9 +941,8 @@ func init() {
 	ActivityEventsTable.ForeignKeys[0].RefTable = AgentsTable
 	ActivityEventsTable.ForeignKeys[1].RefTable = ProjectsTable
 	ActivityEventsTable.ForeignKeys[2].RefTable = TicketsTable
-	AgentsTable.ForeignKeys[0].RefTable = TicketsTable
-	AgentsTable.ForeignKeys[1].RefTable = AgentProvidersTable
-	AgentsTable.ForeignKeys[2].RefTable = ProjectsTable
+	AgentsTable.ForeignKeys[0].RefTable = AgentProvidersTable
+	AgentsTable.ForeignKeys[1].RefTable = ProjectsTable
 	AgentProvidersTable.ForeignKeys[0].RefTable = OrganizationsTable
 	AgentRunsTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentRunsTable.ForeignKeys[1].RefTable = AgentProvidersTable

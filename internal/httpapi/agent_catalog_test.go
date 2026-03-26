@@ -110,7 +110,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		Agent agentResponse `json:"agent"`
 	}
 	decodeResponse(t, agentRec, &agentPayload)
-	if agentPayload.Agent.Status != "idle" || agentPayload.Agent.RuntimePhase != "none" || agentPayload.Agent.RuntimeControlState != "active" || agentPayload.Agent.TotalTokensUsed != 0 {
+	if agentPayload.Agent.Runtime != nil || agentPayload.Agent.RuntimeControlState != "active" || agentPayload.Agent.TotalTokensUsed != 0 {
 		t.Fatalf("unexpected created agent payload: %+v", agentPayload.Agent)
 	}
 
@@ -223,7 +223,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		Agent agentResponse `json:"agent"`
 	}
 	decodeResponse(t, agentRec, &agentPayload)
-	if agentPayload.Agent.Status != "idle" || agentPayload.Agent.RuntimePhase != "none" || agentPayload.Agent.RuntimeControlState != "active" {
+	if agentPayload.Agent.Runtime != nil || agentPayload.Agent.RuntimeControlState != "active" {
 		t.Fatalf("expected runtime-owned fields to default, got %+v", agentPayload.Agent)
 	}
 }
@@ -332,7 +332,6 @@ func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		Status:              domain.AgentStatusIdle,
 		RuntimeControlState: domain.AgentRuntimeControlStateActive,
 	}
 
@@ -384,11 +383,13 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		CurrentRunID:        &runID,
-		Status:              domain.AgentStatusRunning,
-		CurrentTicketID:     &ticketID,
-		RuntimePhase:        domain.AgentRuntimePhaseReady,
 		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+		Runtime: &domain.AgentRuntime{
+			CurrentRunID:    &runID,
+			Status:          domain.AgentStatusRunning,
+			CurrentTicketID: &ticketID,
+			RuntimePhase:    domain.AgentRuntimePhaseReady,
+		},
 	}
 
 	pauseRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/pause", "")
@@ -409,11 +410,13 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		CurrentRunID:        &runID,
-		Status:              domain.AgentStatusClaimed,
-		CurrentTicketID:     &ticketID,
-		RuntimePhase:        domain.AgentRuntimePhaseNone,
 		RuntimeControlState: domain.AgentRuntimeControlStatePaused,
+		Runtime: &domain.AgentRuntime{
+			CurrentRunID:    &runID,
+			Status:          domain.AgentStatusClaimed,
+			CurrentTicketID: &ticketID,
+			RuntimePhase:    domain.AgentRuntimePhaseNone,
+		},
 	}
 
 	resumeRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/resume", "")
@@ -648,8 +651,6 @@ func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateA
 		WorkspacePath:         input.WorkspacePath,
 		TotalTokensUsed:       input.TotalTokensUsed,
 		TotalTicketsCompleted: input.TotalTicketsCompleted,
-		Status:                domain.DefaultAgentStatus,
-		RuntimePhase:          domain.DefaultAgentRuntimePhase,
 	}
 	f.agents[item.ID] = item
 

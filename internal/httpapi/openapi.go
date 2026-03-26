@@ -94,22 +94,26 @@ type OpenAPIAgentProvider struct {
 }
 
 type OpenAPIAgent struct {
-	ID                    string  `json:"id"`
-	ProviderID            string  `json:"provider_id"`
-	ProjectID             string  `json:"project_id"`
-	Name                  string  `json:"name"`
-	CurrentRunID          *string `json:"current_run_id,omitempty"`
-	Status                string  `json:"status"`
-	CurrentTicketID       *string `json:"current_ticket_id,omitempty"`
-	SessionID             string  `json:"session_id"`
-	RuntimePhase          string  `json:"runtime_phase"`
-	RuntimeControlState   string  `json:"runtime_control_state"`
-	RuntimeStartedAt      *string `json:"runtime_started_at,omitempty"`
-	LastError             string  `json:"last_error"`
-	WorkspacePath         string  `json:"workspace_path"`
-	TotalTokensUsed       int64   `json:"total_tokens_used"`
-	TotalTicketsCompleted int     `json:"total_tickets_completed"`
-	LastHeartbeatAt       *string `json:"last_heartbeat_at,omitempty"`
+	ID                    string               `json:"id"`
+	ProviderID            string               `json:"provider_id"`
+	ProjectID             string               `json:"project_id"`
+	Name                  string               `json:"name"`
+	RuntimeControlState   string               `json:"runtime_control_state"`
+	WorkspacePath         string               `json:"workspace_path"`
+	TotalTokensUsed       int64                `json:"total_tokens_used"`
+	TotalTicketsCompleted int                  `json:"total_tickets_completed"`
+	Runtime               *OpenAPIAgentRuntime `json:"runtime,omitempty"`
+}
+
+type OpenAPIAgentRuntime struct {
+	CurrentRunID     *string `json:"current_run_id,omitempty"`
+	Status           string  `json:"status"`
+	CurrentTicketID  *string `json:"current_ticket_id,omitempty"`
+	SessionID        string  `json:"session_id"`
+	RuntimePhase     string  `json:"runtime_phase"`
+	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
+	LastError        string  `json:"last_error"`
+	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
 }
 
 type OpenAPIAgentRuntimeControlResponse struct {

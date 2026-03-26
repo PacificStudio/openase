@@ -27,22 +27,26 @@ type agentProviderResponse struct {
 }
 
 type agentResponse struct {
-	ID                    string  `json:"id"`
-	ProviderID            string  `json:"provider_id"`
-	ProjectID             string  `json:"project_id"`
-	Name                  string  `json:"name"`
-	CurrentRunID          *string `json:"current_run_id,omitempty"`
-	Status                string  `json:"status"`
-	CurrentTicketID       *string `json:"current_ticket_id,omitempty"`
-	SessionID             string  `json:"session_id"`
-	RuntimePhase          string  `json:"runtime_phase"`
-	RuntimeControlState   string  `json:"runtime_control_state"`
-	RuntimeStartedAt      *string `json:"runtime_started_at,omitempty"`
-	LastError             string  `json:"last_error"`
-	WorkspacePath         string  `json:"workspace_path"`
-	TotalTokensUsed       int64   `json:"total_tokens_used"`
-	TotalTicketsCompleted int     `json:"total_tickets_completed"`
-	LastHeartbeatAt       *string `json:"last_heartbeat_at,omitempty"`
+	ID                    string                `json:"id"`
+	ProviderID            string                `json:"provider_id"`
+	ProjectID             string                `json:"project_id"`
+	Name                  string                `json:"name"`
+	RuntimeControlState   string                `json:"runtime_control_state"`
+	WorkspacePath         string                `json:"workspace_path"`
+	TotalTokensUsed       int64                 `json:"total_tokens_used"`
+	TotalTicketsCompleted int                   `json:"total_tickets_completed"`
+	Runtime               *agentRuntimeResponse `json:"runtime,omitempty"`
+}
+
+type agentRuntimeResponse struct {
+	CurrentRunID     *string `json:"current_run_id,omitempty"`
+	Status           string  `json:"status"`
+	CurrentTicketID  *string `json:"current_ticket_id,omitempty"`
+	SessionID        string  `json:"session_id"`
+	RuntimePhase     string  `json:"runtime_phase"`
+	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
+	LastError        string  `json:"last_error"`
+	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
 }
 
 type agentProviderPatchRequest struct {
@@ -344,18 +348,28 @@ func mapAgentResponse(item domain.Agent) agentResponse {
 		ProviderID:            item.ProviderID.String(),
 		ProjectID:             item.ProjectID.String(),
 		Name:                  item.Name,
-		CurrentRunID:          uuidToStringPointer(item.CurrentRunID),
-		Status:                item.Status.String(),
-		CurrentTicketID:       uuidToStringPointer(item.CurrentTicketID),
-		SessionID:             item.SessionID,
-		RuntimePhase:          item.RuntimePhase.String(),
 		RuntimeControlState:   item.RuntimeControlState.String(),
-		RuntimeStartedAt:      timeToStringPointer(item.RuntimeStartedAt),
-		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
-		LastHeartbeatAt:       timeToStringPointer(item.LastHeartbeatAt),
+		Runtime:               mapAgentRuntimeResponse(item.Runtime),
+	}
+}
+
+func mapAgentRuntimeResponse(item *domain.AgentRuntime) *agentRuntimeResponse {
+	if item == nil {
+		return nil
+	}
+
+	return &agentRuntimeResponse{
+		CurrentRunID:     uuidToStringPointer(item.CurrentRunID),
+		Status:           item.Status.String(),
+		CurrentTicketID:  uuidToStringPointer(item.CurrentTicketID),
+		SessionID:        item.SessionID,
+		RuntimePhase:     item.RuntimePhase.String(),
+		RuntimeStartedAt: timeToStringPointer(item.RuntimeStartedAt),
+		LastError:        item.LastError,
+		LastHeartbeatAt:  timeToStringPointer(item.LastHeartbeatAt),
 	}
 }
 

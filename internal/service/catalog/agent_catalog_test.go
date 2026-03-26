@@ -253,11 +253,13 @@ func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 		agent: domain.Agent{
 			ID:                  agentID,
 			Name:                "worker-1",
-			CurrentRunID:        &runID,
-			Status:              domain.AgentStatusRunning,
-			CurrentTicketID:     &ticketID,
-			RuntimePhase:        domain.AgentRuntimePhaseReady,
 			RuntimeControlState: domain.AgentRuntimeControlStateActive,
+			Runtime: &domain.AgentRuntime{
+				CurrentRunID:    &runID,
+				Status:          domain.AgentStatusRunning,
+				CurrentTicketID: &ticketID,
+				RuntimePhase:    domain.AgentRuntimePhaseReady,
+			},
 		},
 	}
 	svc := New(repo, stubExecutableResolver{}, nil)
@@ -282,11 +284,13 @@ func TestRequestAgentResumeRejectsPauseRequestedState(t *testing.T) {
 		agent: domain.Agent{
 			ID:                  agentID,
 			Name:                "worker-1",
-			CurrentRunID:        &runID,
-			Status:              domain.AgentStatusClaimed,
-			CurrentTicketID:     &ticketID,
-			RuntimePhase:        domain.AgentRuntimePhaseNone,
 			RuntimeControlState: domain.AgentRuntimeControlStatePauseRequested,
+			Runtime: &domain.AgentRuntime{
+				CurrentRunID:    &runID,
+				Status:          domain.AgentStatusClaimed,
+				CurrentTicketID: &ticketID,
+				RuntimePhase:    domain.AgentRuntimePhaseNone,
+			},
 		},
 	}
 	svc := New(repo, stubExecutableResolver{}, nil)

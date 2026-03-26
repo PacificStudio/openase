@@ -303,24 +303,16 @@ func mapAgents(items []*ent.Agent, currentRuns map[uuid.UUID]agentCurrentRunSnap
 }
 
 func mapAgent(item *ent.Agent, currentRun agentCurrentRunSnapshot) domain.Agent {
-	view := domain.BuildAgentRuntimeView(mapAgentRunPointer(currentRun.run), toDomainAgentRuntimeControlState(item.RuntimeControlState))
 	return domain.Agent{
 		ID:                    item.ID,
 		ProviderID:            item.ProviderID,
 		ProjectID:             item.ProjectID,
 		Name:                  item.Name,
-		CurrentRunID:          view.CurrentRunID,
-		Status:                view.Status,
-		CurrentTicketID:       view.CurrentTicketID,
-		SessionID:             view.SessionID,
-		RuntimePhase:          view.RuntimePhase,
 		RuntimeControlState:   toDomainAgentRuntimeControlState(item.RuntimeControlState),
-		RuntimeStartedAt:      cloneTimePointer(view.RuntimeStartedAt),
-		LastError:             view.LastError,
 		WorkspacePath:         item.WorkspacePath,
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
-		LastHeartbeatAt:       cloneTimePointer(view.LastHeartbeatAt),
+		Runtime:               domain.BuildAgentRuntime(mapAgentRunPointer(currentRun.run), toDomainAgentRuntimeControlState(item.RuntimeControlState)),
 	}
 }
 

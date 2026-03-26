@@ -29,18 +29,22 @@ type Agent struct {
 	ProviderID            uuid.UUID
 	ProjectID             uuid.UUID
 	Name                  string
-	CurrentRunID          *uuid.UUID
-	Status                AgentStatus
-	CurrentTicketID       *uuid.UUID
-	SessionID             string
-	RuntimePhase          AgentRuntimePhase
 	RuntimeControlState   AgentRuntimeControlState
-	RuntimeStartedAt      *time.Time
-	LastError             string
 	WorkspacePath         string
 	TotalTokensUsed       int64
 	TotalTicketsCompleted int
-	LastHeartbeatAt       *time.Time
+	Runtime               *AgentRuntime
+}
+
+type AgentRuntime struct {
+	CurrentRunID     *uuid.UUID
+	Status           AgentStatus
+	CurrentTicketID  *uuid.UUID
+	SessionID        string
+	RuntimePhase     AgentRuntimePhase
+	RuntimeStartedAt *time.Time
+	LastError        string
+	LastHeartbeatAt  *time.Time
 }
 
 type AgentRun struct {
@@ -215,46 +219,45 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 	}, nil
 }
 
-func BuildAgentRuntimeView(currentRun *AgentRun, controlState AgentRuntimeControlState) Agent {
-	view := Agent{
-		RuntimeControlState: controlState,
-		Status:              DefaultAgentStatus,
-		RuntimePhase:        DefaultAgentRuntimePhase,
-	}
+func BuildAgentRuntime(currentRun *AgentRun, controlState AgentRuntimeControlState) *AgentRuntime {
 	if currentRun == nil {
-		return view
+		return nil
 	}
 
-	view.CurrentRunID = &currentRun.ID
-	view.CurrentTicketID = &currentRun.TicketID
-	view.SessionID = currentRun.SessionID
-	view.RuntimeStartedAt = cloneTimePointer(currentRun.RuntimeStartedAt)
-	view.LastError = currentRun.LastError
-	view.LastHeartbeatAt = cloneTimePointer(currentRun.LastHeartbeatAt)
+	runtime := &AgentRuntime{
+		CurrentRunID:     &currentRun.ID,
+		Status:           DefaultAgentStatus,
+		CurrentTicketID:  &currentRun.TicketID,
+		SessionID:        currentRun.SessionID,
+		RuntimePhase:     DefaultAgentRuntimePhase,
+		RuntimeStartedAt: cloneTimePointer(currentRun.RuntimeStartedAt),
+		LastError:        currentRun.LastError,
+		LastHeartbeatAt:  cloneTimePointer(currentRun.LastHeartbeatAt),
+	}
 
 	switch currentRun.Status {
 	case AgentRunStatusLaunching:
-		view.Status = AgentStatusClaimed
-		view.RuntimePhase = AgentRuntimePhaseLaunching
+		runtime.Status = AgentStatusClaimed
+		runtime.RuntimePhase = AgentRuntimePhaseLaunching
 	case AgentRunStatusReady:
-		view.Status = AgentStatusRunning
-		view.RuntimePhase = AgentRuntimePhaseReady
+		runtime.Status = AgentStatusRunning
+		runtime.RuntimePhase = AgentRuntimePhaseReady
 	case AgentRunStatusExecuting:
-		view.Status = AgentStatusRunning
-		view.RuntimePhase = AgentRuntimePhaseExecuting
+		runtime.Status = AgentStatusRunning
+		runtime.RuntimePhase = AgentRuntimePhaseExecuting
 	case AgentRunStatusErrored:
-		view.Status = AgentStatusFailed
-		view.RuntimePhase = AgentRuntimePhaseFailed
+		runtime.Status = AgentStatusFailed
+		runtime.RuntimePhase = AgentRuntimePhaseFailed
 	case AgentRunStatusTerminated:
-		view.Status = AgentStatusTerminated
+		runtime.Status = AgentStatusTerminated
 		if controlState == AgentRuntimeControlStatePaused {
-			view.Status = AgentStatusPaused
+			runtime.Status = AgentStatusPaused
 		}
 	case AgentRunStatusCompleted:
-		view.Status = DefaultAgentStatus
+		runtime.Status = DefaultAgentStatus
 	}
 
-	return view
+	return runtime
 }
 
 func cloneTimePointer(value *time.Time) *time.Time {

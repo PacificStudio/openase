@@ -19,25 +19,12 @@ func (Agent) Fields() []ent.Field {
 		field.UUID("provider_id", uuidZero()),
 		field.UUID("project_id", uuidZero()),
 		field.String("name").NotEmpty(),
-		field.Enum("status").
-			Values("idle", "claimed", "running", "paused", "failed", "terminated").
-			Default("idle"),
-		field.UUID("current_ticket_id", uuidZero()).
-			Optional().
-			Nillable(),
-		field.String("session_id").Optional(),
-		field.Enum("runtime_phase").
-			Values("none", "launching", "ready", "executing", "failed").
-			Default("none"),
 		field.Enum("runtime_control_state").
 			Values("active", "pause_requested", "paused").
 			Default("active"),
-		field.Time("runtime_started_at").Optional().Nillable(),
-		field.String("last_error").Optional(),
 		field.String("workspace_path").Optional(),
 		field.Int64("total_tokens_used").Default(0),
 		field.Int("total_tickets_completed").Default(0),
-		field.Time("last_heartbeat_at").Optional().Nillable(),
 	}
 }
 
@@ -54,9 +41,6 @@ func (Agent) Edges() []ent.Edge {
 			Field("project_id").
 			Unique().
 			Required(),
-		edge.To("current_ticket", Ticket.Type).
-			Field("current_ticket_id").
-			Unique(),
 		edge.To("assigned_tickets", Ticket.Type),
 		edge.To("runs", AgentRun.Type),
 		edge.To("tokens", AgentToken.Type),
@@ -68,7 +52,6 @@ func (Agent) Edges() []ent.Edge {
 func (Agent) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("project_id", "name").Unique(),
-		index.Fields("project_id", "status", "last_heartbeat_at"),
 		index.Fields("project_id", "runtime_control_state"),
 	}
 }

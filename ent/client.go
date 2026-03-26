@@ -677,22 +677,6 @@ func (c *AgentClient) QueryProject(_m *Agent) *ProjectQuery {
 	return query
 }
 
-// QueryCurrentTicket queries the current_ticket edge of a Agent.
-func (c *AgentClient) QueryCurrentTicket(_m *Agent) *TicketQuery {
-	query := (&TicketClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(agent.Table, agent.FieldID, id),
-			sqlgraph.To(ticket.Table, ticket.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, agent.CurrentTicketTable, agent.CurrentTicketColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // QueryAssignedTickets queries the assigned_tickets edge of a Agent.
 func (c *AgentClient) QueryAssignedTickets(_m *Agent) *TicketQuery {
 	query := (&TicketClient{config: c.config}).Query()

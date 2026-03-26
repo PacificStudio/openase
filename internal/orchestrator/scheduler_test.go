@@ -274,8 +274,13 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload idle agent: %v", err)
 	}
-	if idleAgentAfter.Status != entagent.StatusIdle || idleAgentAfter.CurrentTicketID != nil {
+	if idleAgentAfter.RuntimeControlState != entagent.RuntimeControlStateActive {
 		t.Fatalf("expected idle agent unchanged, got %+v", idleAgentAfter)
+	}
+	if assignedCount, err := client.Ticket.Query().Where(entticket.AssignedAgentIDEQ(idleAgent.ID)).Count(ctx); err != nil {
+		t.Fatalf("count assigned tickets for idle agent: %v", err)
+	} else if assignedCount != 0 {
+		t.Fatalf("expected idle agent to remain unassigned, got %d assigned tickets", assignedCount)
 	}
 }
 
@@ -304,17 +309,10 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 		t.Fatalf("create workflow: %v", err)
 	}
 
-	staleHeartbeat := now.Add(-time.Hour)
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-01").
-		SetStatus(entagent.StatusIdle).
-		SetSessionID("stale-session").
-		SetRuntimePhase(entagent.RuntimePhaseReady).
-		SetRuntimeStartedAt(staleHeartbeat).
-		SetLastError("stale error").
-		SetLastHeartbeatAt(staleHeartbeat).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -786,7 +784,6 @@ func (f projectFixture) createAgent(ctx context.Context, t *testing.T, name stri
 		SetProjectID(f.projectID).
 		SetProviderID(f.providerID).
 		SetName(name).
-		SetStatus(entagent.StatusIdle).
 		SetTotalTicketsCompleted(totalTicketsCompleted).
 		Save(ctx)
 	if err != nil {

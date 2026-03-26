@@ -32,7 +32,6 @@ type AgentQuery struct {
 	predicates          []predicate.Agent
 	withProvider        *AgentProviderQuery
 	withProject         *ProjectQuery
-	withCurrentTicket   *TicketQuery
 	withAssignedTickets *TicketQuery
 	withRuns            *AgentRunQuery
 	withTokens          *AgentTokenQuery
@@ -110,28 +109,6 @@ func (_q *AgentQuery) QueryProject() *ProjectQuery {
 			sqlgraph.From(agent.Table, agent.FieldID, selector),
 			sqlgraph.To(project.Table, project.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, agent.ProjectTable, agent.ProjectColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// QueryCurrentTicket chains the current query on the "current_ticket" edge.
-func (_q *AgentQuery) QueryCurrentTicket() *TicketQuery {
-	query := (&TicketClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(agent.Table, agent.FieldID, selector),
-			sqlgraph.To(ticket.Table, ticket.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, agent.CurrentTicketTable, agent.CurrentTicketColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -421,7 +398,6 @@ func (_q *AgentQuery) Clone() *AgentQuery {
 		predicates:          append([]predicate.Agent{}, _q.predicates...),
 		withProvider:        _q.withProvider.Clone(),
 		withProject:         _q.withProject.Clone(),
-		withCurrentTicket:   _q.withCurrentTicket.Clone(),
 		withAssignedTickets: _q.withAssignedTickets.Clone(),
 		withRuns:            _q.withRuns.Clone(),
 		withTokens:          _q.withTokens.Clone(),
@@ -451,17 +427,6 @@ func (_q *AgentQuery) WithProject(opts ...func(*ProjectQuery)) *AgentQuery {
 		opt(query)
 	}
 	_q.withProject = query
-	return _q
-}
-
-// WithCurrentTicket tells the query-builder to eager-load the nodes that are connected to
-// the "current_ticket" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *AgentQuery) WithCurrentTicket(opts ...func(*TicketQuery)) *AgentQuery {
-	query := (&TicketClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withCurrentTicket = query
 	return _q
 }
 
@@ -587,10 +552,9 @@ func (_q *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 	var (
 		nodes       = []*Agent{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [6]bool{
 			_q.withProvider != nil,
 			_q.withProject != nil,
-			_q.withCurrentTicket != nil,
 			_q.withAssignedTickets != nil,
 			_q.withRuns != nil,
 			_q.withTokens != nil,
@@ -624,12 +588,6 @@ func (_q *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 	if query := _q.withProject; query != nil {
 		if err := _q.loadProject(ctx, query, nodes, nil,
 			func(n *Agent, e *Project) { n.Edges.Project = e }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withCurrentTicket; query != nil {
-		if err := _q.loadCurrentTicket(ctx, query, nodes, nil,
-			func(n *Agent, e *Ticket) { n.Edges.CurrentTicket = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -715,38 +673,6 @@ func (_q *AgentQuery) loadProject(ctx context.Context, query *ProjectQuery, node
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "project_id" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
-func (_q *AgentQuery) loadCurrentTicket(ctx context.Context, query *TicketQuery, nodes []*Agent, init func(*Agent), assign func(*Agent, *Ticket)) error {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	nodeids := make(map[uuid.UUID][]*Agent)
-	for i := range nodes {
-		if nodes[i].CurrentTicketID == nil {
-			continue
-		}
-		fk := *nodes[i].CurrentTicketID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(ticket.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "current_ticket_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -911,9 +837,6 @@ func (_q *AgentQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withProject != nil {
 			_spec.Node.AddColumnOnce(agent.FieldProjectID)
-		}
-		if _q.withCurrentTicket != nil {
-			_spec.Node.AddColumnOnce(agent.FieldCurrentTicketID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

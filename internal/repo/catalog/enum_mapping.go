@@ -59,22 +59,6 @@ func toDomainAgentProviderAdapterType(adapterType entagentprovider.AdapterType) 
 	return domain.AgentProviderAdapterType(adapterType)
 }
 
-func toEntAgentStatus(status domain.AgentStatus) entagent.Status {
-	return entagent.Status(status)
-}
-
-func toDomainAgentStatus(status entagent.Status) domain.AgentStatus {
-	return domain.AgentStatus(status)
-}
-
-func toEntAgentRuntimePhase(phase domain.AgentRuntimePhase) entagent.RuntimePhase {
-	return entagent.RuntimePhase(phase)
-}
-
-func toDomainAgentRuntimePhase(phase entagent.RuntimePhase) domain.AgentRuntimePhase {
-	return domain.AgentRuntimePhase(phase)
-}
-
 func toEntAgentRuntimeControlState(state domain.AgentRuntimeControlState) entagent.RuntimeControlState {
 	return entagent.RuntimeControlState(state)
 }

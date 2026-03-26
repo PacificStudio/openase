@@ -67,10 +67,10 @@ export function buildGovernanceAgents(
         id: agent.id,
         name: agent.name,
         providerName: provider?.name ?? 'Unknown provider',
-        status: normalizeAgentStatus(agent.status),
-        runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
+        status: normalizeAgentStatus(agent.runtime?.status ?? 'idle'),
+        runtimePhase: normalizeRuntimePhase(agent.runtime?.runtime_phase ?? 'none'),
         workspacePath: agent.workspace_path ?? '',
-        lastHeartbeat: agent.last_heartbeat_at,
+        lastHeartbeat: agent.runtime?.last_heartbeat_at ?? null,
       }
     })
     .sort((left, right) => left.name.localeCompare(right.name))

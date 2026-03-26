@@ -1103,19 +1103,21 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              current_run_id?: string | null
-              current_ticket_id?: string | null
               id?: string
-              last_error?: string
-              last_heartbeat_at?: string | null
               name?: string
               project_id?: string
               provider_id?: string
+              runtime?: {
+                current_run_id?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
               runtime_control_state?: string
-              runtime_phase?: string
-              runtime_started_at?: string | null
-              session_id?: string
-              status?: string
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
@@ -1182,19 +1184,21 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              current_run_id?: string | null
-              current_ticket_id?: string | null
               id?: string
-              last_error?: string
-              last_heartbeat_at?: string | null
               name?: string
               project_id?: string
               provider_id?: string
+              runtime?: {
+                current_run_id?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
               runtime_control_state?: string
-              runtime_phase?: string
-              runtime_started_at?: string | null
-              session_id?: string
-              status?: string
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
@@ -1273,19 +1277,21 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              current_run_id?: string | null
-              current_ticket_id?: string | null
               id?: string
-              last_error?: string
-              last_heartbeat_at?: string | null
               name?: string
               project_id?: string
               provider_id?: string
+              runtime?: {
+                current_run_id?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
               runtime_control_state?: string
-              runtime_phase?: string
-              runtime_started_at?: string | null
-              session_id?: string
-              status?: string
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
@@ -1364,19 +1370,21 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              current_run_id?: string | null
-              current_ticket_id?: string | null
               id?: string
-              last_error?: string
-              last_heartbeat_at?: string | null
               name?: string
               project_id?: string
               provider_id?: string
+              runtime?: {
+                current_run_id?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
               runtime_control_state?: string
-              runtime_phase?: string
-              runtime_started_at?: string | null
-              session_id?: string
-              status?: string
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
@@ -3979,19 +3987,21 @@ export interface operations {
         content: {
           'application/json': {
             agents?: {
-              current_run_id?: string | null
-              current_ticket_id?: string | null
               id?: string
-              last_error?: string
-              last_heartbeat_at?: string | null
               name?: string
               project_id?: string
               provider_id?: string
+              runtime?: {
+                current_run_id?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
               runtime_control_state?: string
-              runtime_phase?: string
-              runtime_started_at?: string | null
-              session_id?: string
-              status?: string
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
@@ -4067,19 +4077,21 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              current_run_id?: string | null
-              current_ticket_id?: string | null
               id?: string
-              last_error?: string
-              last_heartbeat_at?: string | null
               name?: string
               project_id?: string
               provider_id?: string
+              runtime?: {
+                current_run_id?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
               runtime_control_state?: string
-              runtime_phase?: string
-              runtime_started_at?: string | null
-              session_id?: string
-              status?: string
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number

@@ -96,9 +96,6 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-01").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
@@ -271,9 +268,6 @@ Runtime reconcile test
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-02").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
@@ -393,9 +387,6 @@ Implement the ticket using the current workspace.
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-runner-01").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
@@ -557,9 +548,6 @@ Handle a failing runtime turn.
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-runner-fail-01").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
@@ -713,9 +701,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-01").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/srv/openase/workspaces/ASE-401").
 		Save(ctx)
 	if err != nil {
@@ -824,9 +809,6 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-02").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/srv/openase/workspaces/ASE-402").
 		Save(ctx)
 	if err != nil {
@@ -921,9 +903,6 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *t
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-fake-01").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
@@ -1022,9 +1001,6 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-api-key-01").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
@@ -1129,15 +1105,12 @@ func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-pause-01").
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, nil)
@@ -1175,17 +1148,19 @@ func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing
 	if err != nil {
 		t.Fatalf("reload agent: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusClaimed {
-		t.Fatalf("expected claimed status after pause, got %s", agentAfter.Status)
-	}
-	if agentAfter.RuntimePhase != entagent.RuntimePhaseNone {
-		t.Fatalf("expected runtime phase none after pause, got %s", agentAfter.RuntimePhase)
-	}
 	if agentAfter.RuntimeControlState != entagent.RuntimeControlStatePaused {
 		t.Fatalf("expected paused control state, got %s", agentAfter.RuntimeControlState)
 	}
-	if agentAfter.SessionID != "" || agentAfter.RuntimeStartedAt != nil || agentAfter.LastHeartbeatAt != nil {
-		t.Fatalf("expected runtime state to be cleared after pause, got %+v", agentAfter)
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusTerminated {
+		t.Fatalf("expected terminated run after pause, got %s", runAfter.Status)
+	}
+	if runAfter.SessionID != "" || runAfter.RuntimeStartedAt != nil || runAfter.LastHeartbeatAt != nil {
+		t.Fatalf("expected runtime state to be cleared after pause, got %+v", runAfter)
 	}
 }
 
