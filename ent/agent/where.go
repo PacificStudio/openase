@@ -410,29 +410,6 @@ func HasProjectWith(preds ...predicate.Project) predicate.Agent {
 	})
 }
 
-// HasAssignedTickets applies the HasEdge predicate on the "assigned_tickets" edge.
-func HasAssignedTickets() predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, AssignedTicketsTable, AssignedTicketsColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasAssignedTicketsWith applies the HasEdge predicate on the "assigned_tickets" edge with a given conditions (other predicates).
-func HasAssignedTicketsWith(preds ...predicate.Ticket) predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := newAssignedTicketsStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasRuns applies the HasEdge predicate on the "runs" edge.
 func HasRuns() predicate.Agent {
 	return predicate.Agent(func(s *sql.Selector) {

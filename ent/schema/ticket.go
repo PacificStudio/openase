@@ -34,9 +34,6 @@ func (Ticket) Fields() []ent.Field {
 		field.UUID("target_machine_id", uuidZero()).
 			Optional().
 			Nillable(),
-		field.UUID("assigned_agent_id", uuidZero()).
-			Optional().
-			Nillable(),
 		field.String("created_by").NotEmpty(),
 		field.UUID("parent_ticket_id", uuidZero()).
 			Optional().
@@ -88,10 +85,6 @@ func (Ticket) Edges() []ent.Edge {
 		edge.From("target_machine", Machine.Type).
 			Ref("target_tickets").
 			Field("target_machine_id").
-			Unique(),
-		edge.From("assigned_agent", Agent.Type).
-			Ref("assigned_tickets").
-			Field("assigned_agent_id").
 			Unique(),
 		edge.From("parent", Ticket.Type).
 			Ref("children").

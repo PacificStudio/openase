@@ -8,7 +8,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
@@ -276,15 +275,15 @@ func loadAgentLifecycleState(ctx context.Context, client *ent.Client, agentID uu
 	}
 
 	state := agentLifecycleState{agent: item}
-	ticketItem, err := client.Ticket.Query().
+	runItem, err := client.AgentRun.Query().
 		Where(
-			entticket.AssignedAgentIDEQ(agentID),
-			entticket.CurrentRunIDNotNil(),
+			entagentrun.AgentIDEQ(agentID),
+			entagentrun.HasCurrentForTicket(),
 		).
-		WithCurrentRun().
+		Order(ent.Desc(entagentrun.FieldCreatedAt)).
 		Only(ctx)
 	if err == nil {
-		state.currentRun = ticketItem.Edges.CurrentRun
+		state.currentRun = runItem
 		return state, nil
 	}
 	if !ent.IsNotFound(err) {

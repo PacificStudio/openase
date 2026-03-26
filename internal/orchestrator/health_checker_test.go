@@ -41,7 +41,6 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
-		SetAssignedAgentID(agentItem.ID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
@@ -61,9 +60,6 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
 		t.Fatalf("reload ticket: %v", err)
-	}
-	if ticketAfter.AssignedAgentID != nil {
-		t.Fatalf("expected assigned agent to be cleared, got %+v", ticketAfter.AssignedAgentID)
 	}
 	if ticketAfter.CurrentRunID != nil {
 		t.Fatalf("expected current run to be cleared, got %+v", ticketAfter.CurrentRunID)
@@ -120,7 +116,6 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetPriority(entticket.PriorityMedium).
 		SetCreatedBy("user:test").
-		SetAssignedAgentID(agentItem.ID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
@@ -140,9 +135,6 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
 		t.Fatalf("reload ticket: %v", err)
-	}
-	if ticketAfter.AssignedAgentID == nil || *ticketAfter.AssignedAgentID != agentItem.ID {
-		t.Fatalf("expected assigned agent to stay %s, got %+v", agentItem.ID, ticketAfter.AssignedAgentID)
 	}
 	if ticketAfter.CurrentRunID == nil || *ticketAfter.CurrentRunID != runItem.ID {
 		t.Fatalf("expected current run to stay %s, got %+v", runItem.ID, ticketAfter.CurrentRunID)
@@ -196,7 +188,6 @@ func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
-		SetAssignedAgentID(agentItem.ID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
@@ -248,7 +239,6 @@ func mustCreateCurrentRun(
 		t.Fatalf("create agent run: %v", err)
 	}
 	if _, err := client.Ticket.UpdateOneID(ticketID).
-		SetAssignedAgentID(agentItem.ID).
 		SetCurrentRunID(runItem.ID).
 		Save(ctx); err != nil {
 		t.Fatalf("attach current run: %v", err)

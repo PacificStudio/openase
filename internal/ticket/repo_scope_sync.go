@@ -156,7 +156,6 @@ func (s *Service) scheduleRepoScopeRetry(ctx context.Context, tx *ent.Tx, ticket
 
 	nextAttemptCount := current.AttemptCount + 1
 	update := tx.Ticket.UpdateOneID(current.ID).
-		ClearAssignedAgentID().
 		ClearCurrentRunID().
 		SetAttemptCount(nextAttemptCount).
 		SetConsecutiveErrors(current.ConsecutiveErrors + 1).
@@ -197,7 +196,6 @@ func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.T
 	update := tx.Ticket.UpdateOneID(current.ID).
 		SetStatusID(*workflowItem.FinishStatusID).
 		SetCompletedAt(timeNowUTC()).
-		ClearAssignedAgentID().
 		ClearCurrentRunID()
 	if current.NextRetryAt != nil {
 		update.ClearNextRetryAt()

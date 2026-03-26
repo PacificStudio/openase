@@ -33,8 +33,6 @@ const (
 	EdgeProvider = "provider"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
-	// EdgeAssignedTickets holds the string denoting the assigned_tickets edge name in mutations.
-	EdgeAssignedTickets = "assigned_tickets"
 	// EdgeRuns holds the string denoting the runs edge name in mutations.
 	EdgeRuns = "runs"
 	// EdgeTokens holds the string denoting the tokens edge name in mutations.
@@ -57,13 +55,6 @@ const (
 	ProjectInverseTable = "projects"
 	// ProjectColumn is the table column denoting the project relation/edge.
 	ProjectColumn = "project_id"
-	// AssignedTicketsTable is the table that holds the assigned_tickets relation/edge.
-	AssignedTicketsTable = "tickets"
-	// AssignedTicketsInverseTable is the table name for the Ticket entity.
-	// It exists in this package in order to avoid circular dependency with the "ticket" package.
-	AssignedTicketsInverseTable = "tickets"
-	// AssignedTicketsColumn is the table column denoting the assigned_tickets relation/edge.
-	AssignedTicketsColumn = "assigned_agent_id"
 	// RunsTable is the table that holds the runs relation/edge.
 	RunsTable = "agent_runs"
 	// RunsInverseTable is the table name for the AgentRun entity.
@@ -204,20 +195,6 @@ func ByProjectField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
-// ByAssignedTicketsCount orders the results by assigned_tickets count.
-func ByAssignedTicketsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newAssignedTicketsStep(), opts...)
-	}
-}
-
-// ByAssignedTickets orders the results by assigned_tickets terms.
-func ByAssignedTickets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newAssignedTicketsStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByRunsCount orders the results by runs count.
 func ByRunsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -271,13 +248,6 @@ func newProjectStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProjectInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, ProjectTable, ProjectColumn),
-	)
-}
-func newAssignedTicketsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(AssignedTicketsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, AssignedTicketsTable, AssignedTicketsColumn),
 	)
 }
 func newRunsStep() *sqlgraph.Step {

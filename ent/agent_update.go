@@ -17,7 +17,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
-	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/google/uuid"
 )
 
@@ -162,21 +161,6 @@ func (_u *AgentUpdate) SetProject(v *Project) *AgentUpdate {
 	return _u.SetProjectID(v.ID)
 }
 
-// AddAssignedTicketIDs adds the "assigned_tickets" edge to the Ticket entity by IDs.
-func (_u *AgentUpdate) AddAssignedTicketIDs(ids ...uuid.UUID) *AgentUpdate {
-	_u.mutation.AddAssignedTicketIDs(ids...)
-	return _u
-}
-
-// AddAssignedTickets adds the "assigned_tickets" edges to the Ticket entity.
-func (_u *AgentUpdate) AddAssignedTickets(v ...*Ticket) *AgentUpdate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddAssignedTicketIDs(ids...)
-}
-
 // AddRunIDs adds the "runs" edge to the AgentRun entity by IDs.
 func (_u *AgentUpdate) AddRunIDs(ids ...uuid.UUID) *AgentUpdate {
 	_u.mutation.AddRunIDs(ids...)
@@ -237,27 +221,6 @@ func (_u *AgentUpdate) ClearProvider() *AgentUpdate {
 func (_u *AgentUpdate) ClearProject() *AgentUpdate {
 	_u.mutation.ClearProject()
 	return _u
-}
-
-// ClearAssignedTickets clears all "assigned_tickets" edges to the Ticket entity.
-func (_u *AgentUpdate) ClearAssignedTickets() *AgentUpdate {
-	_u.mutation.ClearAssignedTickets()
-	return _u
-}
-
-// RemoveAssignedTicketIDs removes the "assigned_tickets" edge to Ticket entities by IDs.
-func (_u *AgentUpdate) RemoveAssignedTicketIDs(ids ...uuid.UUID) *AgentUpdate {
-	_u.mutation.RemoveAssignedTicketIDs(ids...)
-	return _u
-}
-
-// RemoveAssignedTickets removes "assigned_tickets" edges to Ticket entities.
-func (_u *AgentUpdate) RemoveAssignedTickets(v ...*Ticket) *AgentUpdate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveAssignedTicketIDs(ids...)
 }
 
 // ClearRuns clears all "runs" edges to the AgentRun entity.
@@ -458,51 +421,6 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(project.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.AssignedTicketsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   agent.AssignedTicketsTable,
-			Columns: []string{agent.AssignedTicketsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedAssignedTicketsIDs(); len(nodes) > 0 && !_u.mutation.AssignedTicketsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   agent.AssignedTicketsTable,
-			Columns: []string{agent.AssignedTicketsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.AssignedTicketsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   agent.AssignedTicketsTable,
-			Columns: []string{agent.AssignedTicketsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -793,21 +711,6 @@ func (_u *AgentUpdateOne) SetProject(v *Project) *AgentUpdateOne {
 	return _u.SetProjectID(v.ID)
 }
 
-// AddAssignedTicketIDs adds the "assigned_tickets" edge to the Ticket entity by IDs.
-func (_u *AgentUpdateOne) AddAssignedTicketIDs(ids ...uuid.UUID) *AgentUpdateOne {
-	_u.mutation.AddAssignedTicketIDs(ids...)
-	return _u
-}
-
-// AddAssignedTickets adds the "assigned_tickets" edges to the Ticket entity.
-func (_u *AgentUpdateOne) AddAssignedTickets(v ...*Ticket) *AgentUpdateOne {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddAssignedTicketIDs(ids...)
-}
-
 // AddRunIDs adds the "runs" edge to the AgentRun entity by IDs.
 func (_u *AgentUpdateOne) AddRunIDs(ids ...uuid.UUID) *AgentUpdateOne {
 	_u.mutation.AddRunIDs(ids...)
@@ -868,27 +771,6 @@ func (_u *AgentUpdateOne) ClearProvider() *AgentUpdateOne {
 func (_u *AgentUpdateOne) ClearProject() *AgentUpdateOne {
 	_u.mutation.ClearProject()
 	return _u
-}
-
-// ClearAssignedTickets clears all "assigned_tickets" edges to the Ticket entity.
-func (_u *AgentUpdateOne) ClearAssignedTickets() *AgentUpdateOne {
-	_u.mutation.ClearAssignedTickets()
-	return _u
-}
-
-// RemoveAssignedTicketIDs removes the "assigned_tickets" edge to Ticket entities by IDs.
-func (_u *AgentUpdateOne) RemoveAssignedTicketIDs(ids ...uuid.UUID) *AgentUpdateOne {
-	_u.mutation.RemoveAssignedTicketIDs(ids...)
-	return _u
-}
-
-// RemoveAssignedTickets removes "assigned_tickets" edges to Ticket entities.
-func (_u *AgentUpdateOne) RemoveAssignedTickets(v ...*Ticket) *AgentUpdateOne {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveAssignedTicketIDs(ids...)
 }
 
 // ClearRuns clears all "runs" edges to the AgentRun entity.
@@ -1119,51 +1001,6 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(project.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.AssignedTicketsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   agent.AssignedTicketsTable,
-			Columns: []string{agent.AssignedTicketsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedAssignedTicketsIDs(); len(nodes) > 0 && !_u.mutation.AssignedTicketsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   agent.AssignedTicketsTable,
-			Columns: []string{agent.AssignedTicketsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.AssignedTicketsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   agent.AssignedTicketsTable,
-			Columns: []string{agent.AssignedTicketsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

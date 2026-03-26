@@ -580,7 +580,6 @@ var (
 		{Name: "started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
-		{Name: "assigned_agent_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "current_run_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "target_machine_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
@@ -595,44 +594,38 @@ var (
 		PrimaryKey: []*schema.Column{TicketsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "tickets_agents_assigned_tickets",
-				Columns:    []*schema.Column{TicketsColumns[24]},
-				RefColumns: []*schema.Column{AgentsColumns[0]},
-				OnDelete:   schema.SetNull,
-			},
-			{
 				Symbol:     "tickets_agent_runs_current_for_ticket",
-				Columns:    []*schema.Column{TicketsColumns[25]},
+				Columns:    []*schema.Column{TicketsColumns[24]},
 				RefColumns: []*schema.Column{AgentRunsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_machines_target_tickets",
-				Columns:    []*schema.Column{TicketsColumns[26]},
+				Columns:    []*schema.Column{TicketsColumns[25]},
 				RefColumns: []*schema.Column{MachinesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_projects_tickets",
-				Columns:    []*schema.Column{TicketsColumns[27]},
+				Columns:    []*schema.Column{TicketsColumns[26]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tickets_tickets_children",
-				Columns:    []*schema.Column{TicketsColumns[28]},
+				Columns:    []*schema.Column{TicketsColumns[27]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_ticket_status_tickets",
-				Columns:    []*schema.Column{TicketsColumns[29]},
+				Columns:    []*schema.Column{TicketsColumns[28]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tickets_workflows_tickets",
-				Columns:    []*schema.Column{TicketsColumns[30]},
+				Columns:    []*schema.Column{TicketsColumns[29]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -641,22 +634,22 @@ var (
 			{
 				Name:    "ticket_project_id_identifier",
 				Unique:  true,
-				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[1]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[1]},
 			},
 			{
 				Name:    "ticket_project_id_status_id_current_run_id_priority_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[29], TicketsColumns[25], TicketsColumns[4], TicketsColumns[23]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[28], TicketsColumns[24], TicketsColumns[4], TicketsColumns[23]},
 			},
 			{
 				Name:    "ticket_project_id_status_id",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[29]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[28]},
 			},
 			{
 				Name:    "ticket_project_id_external_ref",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[7]},
+				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[7]},
 			},
 		},
 	}
@@ -962,13 +955,12 @@ func init() {
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
-	TicketsTable.ForeignKeys[0].RefTable = AgentsTable
-	TicketsTable.ForeignKeys[1].RefTable = AgentRunsTable
-	TicketsTable.ForeignKeys[2].RefTable = MachinesTable
-	TicketsTable.ForeignKeys[3].RefTable = ProjectsTable
-	TicketsTable.ForeignKeys[4].RefTable = TicketsTable
-	TicketsTable.ForeignKeys[5].RefTable = TicketStatusTable
-	TicketsTable.ForeignKeys[6].RefTable = WorkflowsTable
+	TicketsTable.ForeignKeys[0].RefTable = AgentRunsTable
+	TicketsTable.ForeignKeys[1].RefTable = MachinesTable
+	TicketsTable.ForeignKeys[2].RefTable = ProjectsTable
+	TicketsTable.ForeignKeys[3].RefTable = TicketsTable
+	TicketsTable.ForeignKeys[4].RefTable = TicketStatusTable
+	TicketsTable.ForeignKeys[5].RefTable = WorkflowsTable
 	TicketCommentsTable.ForeignKeys[0].RefTable = TicketsTable
 	TicketDependenciesTable.ForeignKeys[0].RefTable = TicketsTable
 	TicketDependenciesTable.ForeignKeys[1].RefTable = TicketsTable

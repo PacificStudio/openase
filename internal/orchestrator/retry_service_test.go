@@ -39,7 +39,6 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 		SetTitle("Retry failed run").
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetWorkflowID(workflow.ID).
-		SetAssignedAgentID(agentItem.ID).
 		SetAttemptCount(1).
 		SetConsecutiveErrors(1).
 		SetCreatedBy("user:test").
@@ -76,9 +75,6 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
 		t.Fatalf("reload ticket: %v", err)
-	}
-	if ticketAfter.AssignedAgentID != nil {
-		t.Fatalf("expected retry to clear assignment, got %+v", ticketAfter.AssignedAgentID)
 	}
 	if ticketAfter.CurrentRunID != nil {
 		t.Fatalf("expected retry to clear current run, got %+v", ticketAfter.CurrentRunID)
@@ -131,7 +127,6 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 		SetTitle("Pause exhausted budget").
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetWorkflowID(workflow.ID).
-		SetAssignedAgentID(agentItem.ID).
 		SetBudgetUsd(5).
 		SetCostAmount(5).
 		SetCreatedBy("user:test").
@@ -233,7 +228,7 @@ func TestSchedulerRunTickSkipsRetryPausedTickets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload ready ticket: %v", err)
 	}
-	if readyTicketAfter.AssignedAgentID == nil {
+	if readyTicketAfter.CurrentRunID == nil {
 		t.Fatalf("expected ready ticket to be dispatched, got %+v", readyTicketAfter)
 	}
 }

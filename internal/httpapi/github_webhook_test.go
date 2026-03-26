@@ -182,9 +182,6 @@ func TestGitHubWebhookRouteFinishesTicketWhenAllRepoScopesMerge(t *testing.T) {
 	if ticketAfter.CompletedAt == nil || ticketAfter.CompletedAt.Before(before) || ticketAfter.CompletedAt.After(after) {
 		t.Fatalf("expected completed_at between %s and %s, got %+v", before, after, ticketAfter.CompletedAt)
 	}
-	if ticketAfter.AssignedAgentID != nil {
-		t.Fatalf("expected assigned agent to be cleared, got %+v", ticketAfter.AssignedAgentID)
-	}
 	if ticketAfter.NextRetryAt != nil || ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
 		t.Fatalf("expected finish to clear retry scheduling, got %+v", ticketAfter)
 	}
@@ -247,9 +244,6 @@ func TestGitHubWebhookRouteSchedulesRetryWhenPullRequestClosesWithoutMerge(t *te
 	wantMaxRetryAt := after.Add(20 * time.Second)
 	if ticketAfter.NextRetryAt == nil || ticketAfter.NextRetryAt.Before(wantMinRetryAt) || ticketAfter.NextRetryAt.After(wantMaxRetryAt) {
 		t.Fatalf("expected next_retry_at between %s and %s, got %+v", wantMinRetryAt, wantMaxRetryAt, ticketAfter.NextRetryAt)
-	}
-	if ticketAfter.AssignedAgentID != nil {
-		t.Fatalf("expected assigned agent to be cleared, got %+v", ticketAfter.AssignedAgentID)
 	}
 	if ticketAfter.CompletedAt != nil {
 		t.Fatalf("expected ticket to remain incomplete, got %+v", ticketAfter.CompletedAt)
@@ -482,7 +476,6 @@ func newGitHubWebhookLifecycleFixture(
 		SetTitle("Sync PR status lifecycle").
 		SetStatusID(todoID).
 		SetWorkflowID(workflowItem.ID).
-		SetAssignedAgentID(agentItem.ID).
 		SetCreatedBy("user:test").
 		Save(ctx)
 	if err != nil {

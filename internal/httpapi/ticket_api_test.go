@@ -1167,7 +1167,6 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		SetIdentifier("ASE-1").
 		SetTitle("Implement pickup/finish state transitions").
 		SetStatusID(todoID).
-		SetAssignedAgentID(assignedAgent.ID).
 		SetCreatedBy("user:test").
 		Save(ctx)
 	if err != nil {
@@ -1209,11 +1208,11 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload ticket after title update: %v", err)
 	}
-	if ticketAfterTitleOnly.AssignedAgentID == nil || *ticketAfterTitleOnly.AssignedAgentID != assignedAgent.ID {
-		t.Fatalf("expected non-status update to keep assignment, got %+v", ticketAfterTitleOnly.AssignedAgentID)
-	}
 	if ticketAfterTitleOnly.CurrentRunID == nil || *ticketAfterTitleOnly.CurrentRunID != runItem.ID {
 		t.Fatalf("expected non-status update to keep current run, got %+v", ticketAfterTitleOnly.CurrentRunID)
+	}
+	if titleOnlyResp.Ticket.CurrentRunID == nil || *titleOnlyResp.Ticket.CurrentRunID != runItem.ID.String() {
+		t.Fatalf("expected patch response to expose current_run_id %s, got %+v", runItem.ID, titleOnlyResp.Ticket.CurrentRunID)
 	}
 	runAfterTitleOnly, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
@@ -1243,11 +1242,11 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	if ticketAfterStatusChange.StatusID != doneID {
 		t.Fatalf("expected ticket status %s, got %s", doneID, ticketAfterStatusChange.StatusID)
 	}
-	if ticketAfterStatusChange.AssignedAgentID != nil {
-		t.Fatalf("expected status update to clear assignment, got %+v", ticketAfterStatusChange.AssignedAgentID)
-	}
 	if ticketAfterStatusChange.CurrentRunID != nil {
 		t.Fatalf("expected status update to clear current run, got %+v", ticketAfterStatusChange.CurrentRunID)
+	}
+	if statusResp.Ticket.CurrentRunID != nil {
+		t.Fatalf("expected status patch response to clear current_run_id, got %+v", statusResp.Ticket.CurrentRunID)
 	}
 	runAfterStatusChange, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {

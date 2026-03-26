@@ -119,8 +119,15 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 	if codingTicketAfter.WorkflowID == nil || *codingTicketAfter.WorkflowID != codingWorkflow.ID {
 		t.Fatalf("expected coding workflow claim %s, got %+v", codingWorkflow.ID, codingTicketAfter.WorkflowID)
 	}
-	if codingTicketAfter.AssignedAgentID == nil || *codingTicketAfter.AssignedAgentID != codingAgent.ID {
-		t.Fatalf("expected coding agent claim %s, got %+v", codingAgent.ID, codingTicketAfter.AssignedAgentID)
+	if codingTicketAfter.CurrentRunID == nil {
+		t.Fatalf("expected coding current run claim, got %+v", codingTicketAfter)
+	}
+	codingRunAfter, err := client.AgentRun.Get(ctx, *codingTicketAfter.CurrentRunID)
+	if err != nil {
+		t.Fatalf("reload coding run: %v", err)
+	}
+	if codingRunAfter.AgentID != codingAgent.ID {
+		t.Fatalf("expected coding run agent %s, got %s", codingAgent.ID, codingRunAfter.AgentID)
 	}
 
 	reviewTicketAfter, err := client.Ticket.Get(ctx, reviewTicket.ID)
@@ -130,8 +137,15 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 	if reviewTicketAfter.WorkflowID == nil || *reviewTicketAfter.WorkflowID != reviewWorkflow.ID {
 		t.Fatalf("expected review workflow claim %s, got %+v", reviewWorkflow.ID, reviewTicketAfter.WorkflowID)
 	}
-	if reviewTicketAfter.AssignedAgentID == nil || *reviewTicketAfter.AssignedAgentID != reviewAgent.ID {
-		t.Fatalf("expected review agent claim %s, got %+v", reviewAgent.ID, reviewTicketAfter.AssignedAgentID)
+	if reviewTicketAfter.CurrentRunID == nil {
+		t.Fatalf("expected review current run claim, got %+v", reviewTicketAfter)
+	}
+	reviewRunAfter, err := client.AgentRun.Get(ctx, *reviewTicketAfter.CurrentRunID)
+	if err != nil {
+		t.Fatalf("reload review run: %v", err)
+	}
+	if reviewRunAfter.AgentID != reviewAgent.ID {
+		t.Fatalf("expected review run agent %s, got %s", reviewAgent.ID, reviewRunAfter.AgentID)
 	}
 }
 
@@ -198,7 +212,7 @@ func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload target ticket: %v", err)
 	}
-	if targetAfter.AssignedAgentID != nil || targetAfter.WorkflowID != nil {
+	if targetAfter.CurrentRunID != nil || targetAfter.WorkflowID != nil {
 		t.Fatalf("expected blocked ticket to stay unclaimed, got %+v", targetAfter)
 	}
 }
@@ -233,7 +247,6 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		SetWorkflowID(workflow.ID).
-		SetAssignedAgentID(busyAgent.ID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create running ticket: %v", err)
@@ -266,7 +279,7 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload target ticket: %v", err)
 	}
-	if targetAfter.AssignedAgentID != nil || targetAfter.WorkflowID != nil {
+	if targetAfter.CurrentRunID != nil || targetAfter.WorkflowID != nil {
 		t.Fatalf("expected ticket to remain unclaimed, got %+v", targetAfter)
 	}
 
@@ -277,10 +290,13 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	if idleAgentAfter.RuntimeControlState != entagent.RuntimeControlStateActive {
 		t.Fatalf("expected idle agent unchanged, got %+v", idleAgentAfter)
 	}
-	if assignedCount, err := client.Ticket.Query().Where(entticket.AssignedAgentIDEQ(idleAgent.ID)).Count(ctx); err != nil {
-		t.Fatalf("count assigned tickets for idle agent: %v", err)
-	} else if assignedCount != 0 {
-		t.Fatalf("expected idle agent to remain unassigned, got %d assigned tickets", assignedCount)
+	if activeRunCount, err := client.AgentRun.Query().Where(
+		entagentrun.AgentIDEQ(idleAgent.ID),
+		entagentrun.HasCurrentForTicket(),
+	).Count(ctx); err != nil {
+		t.Fatalf("count active current runs for idle agent: %v", err)
+	} else if activeRunCount != 0 {
+		t.Fatalf("expected idle agent to remain idle, got %d current runs", activeRunCount)
 	}
 }
 
@@ -370,8 +386,6 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 	}
 	if ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID); err != nil {
 		t.Fatalf("reload ticket: %v", err)
-	} else if ticketAfter.AssignedAgentID == nil || *ticketAfter.AssignedAgentID != agentItem.ID {
-		t.Fatalf("expected ticket assigned agent %s, got %+v", agentItem.ID, ticketAfter.AssignedAgentID)
 	} else if ticketAfter.WorkflowID == nil || *ticketAfter.WorkflowID != workflow.ID {
 		t.Fatalf("expected ticket workflow %s, got %+v", workflow.ID, ticketAfter.WorkflowID)
 	} else if ticketAfter.CurrentRunID == nil {
@@ -380,6 +394,8 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 		t.Fatalf("expected ticket machine binding, got %+v", ticketAfter)
 	} else if runAfter, err := client.AgentRun.Get(ctx, *ticketAfter.CurrentRunID); err != nil {
 		t.Fatalf("reload agent run: %v", err)
+	} else if runAfter.AgentID != agentItem.ID {
+		t.Fatalf("expected current run agent %s, got %s", agentItem.ID, runAfter.AgentID)
 	} else if runAfter.Status != entagentrun.StatusLaunching || runAfter.SessionID != "" || runAfter.RuntimeStartedAt != nil || runAfter.LastHeartbeatAt != nil || runAfter.LastError != "" {
 		t.Fatalf("expected clean launching run after dispatch, got %+v", runAfter)
 	}
@@ -450,11 +466,18 @@ func TestSchedulerRunTickMatchesRequiredMachineLabelsAndBindsTicket(t *testing.T
 	if ticketAfter.TargetMachineID == nil || *ticketAfter.TargetMachineID != remoteMachine.ID {
 		t.Fatalf("expected ticket target machine %s, got %+v", remoteMachine.ID, ticketAfter.TargetMachineID)
 	}
-	if ticketAfter.AssignedAgentID == nil || *ticketAfter.AssignedAgentID != agentItem.ID {
-		t.Fatalf("expected claimed agent %s, got %+v", agentItem.ID, ticketAfter.AssignedAgentID)
+	if ticketAfter.CurrentRunID == nil {
+		t.Fatalf("expected current run for claimed ticket, got %+v", ticketAfter)
 	}
 	if ticketAfter.WorkflowID == nil || *ticketAfter.WorkflowID != workflow.ID {
 		t.Fatalf("expected workflow %s, got %+v", workflow.ID, ticketAfter.WorkflowID)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, *ticketAfter.CurrentRunID)
+	if err != nil {
+		t.Fatalf("reload claimed run: %v", err)
+	}
+	if runAfter.AgentID != agentItem.ID {
+		t.Fatalf("expected claimed run agent %s, got %s", agentItem.ID, runAfter.AgentID)
 	}
 }
 
@@ -610,8 +633,15 @@ func TestSchedulerRunTickCreatesDueScheduledJobTicketsBeforeDispatch(t *testing.
 	if createdTicket.WorkflowID == nil || *createdTicket.WorkflowID != workflow.ID {
 		t.Fatalf("expected created ticket to bind workflow %s, got %+v", workflow.ID, createdTicket.WorkflowID)
 	}
-	if createdTicket.AssignedAgentID == nil || *createdTicket.AssignedAgentID != agentItem.ID {
-		t.Fatalf("expected created ticket to be dispatched to agent %s, got %+v", agentItem.ID, createdTicket.AssignedAgentID)
+	if createdTicket.CurrentRunID == nil {
+		t.Fatalf("expected created ticket to be dispatched, got %+v", createdTicket)
+	}
+	createdRun, err := client.AgentRun.Get(ctx, *createdTicket.CurrentRunID)
+	if err != nil {
+		t.Fatalf("reload created run: %v", err)
+	}
+	if createdRun.AgentID != agentItem.ID {
+		t.Fatalf("expected created run agent %s, got %s", agentItem.ID, createdRun.AgentID)
 	}
 
 	jobAfter, err := client.ScheduledJob.Get(ctx, job.ID)
@@ -699,8 +729,15 @@ func TestSchedulerRunTickContinuesWhenOneDueScheduledJobFails(t *testing.T) {
 	if len(createdTickets) != 1 {
 		t.Fatalf("expected exactly one created ticket, got %d", len(createdTickets))
 	}
-	if createdTickets[0].AssignedAgentID == nil || *createdTickets[0].AssignedAgentID != agentItem.ID {
-		t.Fatalf("expected created ticket to dispatch to agent %s, got %+v", agentItem.ID, createdTickets[0].AssignedAgentID)
+	if createdTickets[0].CurrentRunID == nil {
+		t.Fatalf("expected created ticket to dispatch, got %+v", createdTickets[0])
+	}
+	createdRun, err := client.AgentRun.Get(ctx, *createdTickets[0].CurrentRunID)
+	if err != nil {
+		t.Fatalf("reload created scheduled run: %v", err)
+	}
+	if createdRun.AgentID != agentItem.ID {
+		t.Fatalf("expected created scheduled run agent %s, got %s", agentItem.ID, createdRun.AgentID)
 	}
 
 	jobAfter, err := client.ScheduledJob.Get(ctx, job.ID)

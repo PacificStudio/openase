@@ -63,10 +63,10 @@ func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 	tickets, err := h.client.Ticket.Query().
 		Where(
 			entticket.CurrentRunIDNotNil(),
-			entticket.HasAssignedAgentWith(
-				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-			),
 			entticket.HasCurrentRunWith(
+				entagentrun.HasAgentWith(
+					entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
+				),
 				entagentrun.StatusIn(
 					entagentrun.StatusLaunching,
 					entagentrun.StatusReady,
@@ -75,7 +75,6 @@ func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 				),
 			),
 		).
-		WithAssignedAgent().
 		WithCurrentRun().
 		WithWorkflow().
 		Order(ent.Asc(entticket.FieldCreatedAt)).
@@ -107,7 +106,7 @@ func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 
 		attrs := []any{
 			"ticket_id", ticket.ID,
-			"agent_id", ticket.AssignedAgentID,
+			"agent_id", ticket.Edges.CurrentRun.AgentID,
 			"reason", state.reason,
 			"timeout", state.timeout.String(),
 			"agent_released", agentReleased,
@@ -171,11 +170,11 @@ func (h *HealthChecker) releaseStalledClaim(
 	ticket *ent.Ticket,
 	now time.Time,
 ) (bool, bool, error) {
-	if ticket == nil || ticket.AssignedAgentID == nil {
+	if ticket == nil || ticket.CurrentRunID == nil || ticket.Edges.CurrentRun == nil {
 		return false, false, nil
 	}
 
-	agentID := *ticket.AssignedAgentID
+	agentID := ticket.Edges.CurrentRun.AgentID
 	tx, err := h.client.Tx(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("start health check tx: %w", err)
@@ -186,10 +185,9 @@ func (h *HealthChecker) releaseStalledClaim(
 	releasedTickets, err := tx.Ticket.Update().
 		Where(
 			entticket.IDEQ(ticket.ID),
-			entticket.AssignedAgentIDEQ(agentID),
 			entticket.CurrentRunIDNotNil(),
+			entticket.CurrentRunIDEQ(*ticket.CurrentRunID),
 		).
-		ClearAssignedAgentID().
 		ClearCurrentRunID().
 		SetNextRetryAt(retryAt).
 		SetRetryPaused(false).

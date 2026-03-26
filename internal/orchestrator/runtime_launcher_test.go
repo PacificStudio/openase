@@ -309,7 +309,6 @@ Runtime reconcile test
 	}
 
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
-		ClearAssignedAgentID().
 		ClearCurrentRunID().
 		Save(ctx); err != nil {
 		t.Fatalf("clear ticket runtime assignment in db: %v", err)
@@ -437,8 +436,7 @@ Implement the ticket using the current workspace.
 		if err != nil {
 			return false
 		}
-		return ticketSnapshot.AssignedAgentID == nil &&
-			ticketSnapshot.CurrentRunID == nil &&
+		return ticketSnapshot.CurrentRunID == nil &&
 			ticketSnapshot.NextRetryAt != nil &&
 			runSnapshot.Status == entagentrun.StatusTerminated
 	})
@@ -446,9 +444,6 @@ Implement the ticket using the current workspace.
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
 		t.Fatalf("reload ticket: %v", err)
-	}
-	if ticketAfter.AssignedAgentID != nil {
-		t.Fatalf("expected continuation scheduling to release assigned agent, got %+v", ticketAfter.AssignedAgentID)
 	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.UTC().Equal(now.Add(continuationRetryDelay)) {
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(continuationRetryDelay), ticketAfter.NextRetryAt)
@@ -586,8 +581,7 @@ Handle a failing runtime turn.
 		if err != nil {
 			return false
 		}
-		return ticketSnapshot.AssignedAgentID == nil &&
-			ticketSnapshot.CurrentRunID == nil &&
+		return ticketSnapshot.CurrentRunID == nil &&
 			ticketSnapshot.NextRetryAt != nil &&
 			ticketSnapshot.AttemptCount == 1 &&
 			ticketSnapshot.ConsecutiveErrors == 1 &&
@@ -597,9 +591,6 @@ Handle a failing runtime turn.
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
 		t.Fatalf("reload ticket: %v", err)
-	}
-	if ticketAfter.AssignedAgentID != nil {
-		t.Fatalf("expected retry path to clear assignment, got %+v", ticketAfter.AssignedAgentID)
 	}
 	if ticketAfter.AttemptCount != 1 || ticketAfter.ConsecutiveErrors != 1 {
 		t.Fatalf("expected retry counters to increment once, got %+v", ticketAfter)

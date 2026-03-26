@@ -33,11 +33,13 @@ func (l *RuntimeLauncher) startReadyExecutions(ctx context.Context) error {
 	}
 
 	assignments, err := l.listAssignments(ctx,
-		entticket.HasAssignedAgentWith(
-			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-		),
 		entticket.CurrentRunIDNotNil(),
-		entticket.HasCurrentRunWith(entagentrun.StatusEQ(entagentrun.StatusReady)),
+		entticket.HasCurrentRunWith(
+			entagentrun.HasAgentWith(
+				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
+			),
+			entagentrun.StatusEQ(entagentrun.StatusReady),
+		),
 	)
 	if err != nil {
 		return fmt.Errorf("list ready agents awaiting execution: %w", err)
@@ -317,16 +319,17 @@ func (l *RuntimeLauncher) recordTokenUsage(
 func (l *RuntimeLauncher) reloadExecutionTicket(ctx context.Context, ticketID uuid.UUID) (*ent.Ticket, error) {
 	return l.client.Ticket.Query().
 		Where(entticket.IDEQ(ticketID)).
+		WithCurrentRun().
 		WithWorkflow().
 		WithStatus().
 		Only(ctx)
 }
 
 func shouldContinueExecution(ticket *ent.Ticket, agentID uuid.UUID) bool {
-	if ticket == nil || ticket.WorkflowID == nil || ticket.AssignedAgentID == nil {
+	if ticket == nil || ticket.WorkflowID == nil || ticket.CurrentRunID == nil || ticket.Edges.CurrentRun == nil {
 		return false
 	}
-	if *ticket.AssignedAgentID != agentID {
+	if ticket.Edges.CurrentRun.AgentID != agentID {
 		return false
 	}
 	return ticket.Edges.Workflow != nil && ticket.StatusID == ticket.Edges.Workflow.PickupStatusID && !ticket.RetryPaused
@@ -349,9 +352,6 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID u
 
 	now := l.now().UTC()
 	ticketUpdate := tx.Ticket.UpdateOneID(ticket.ID)
-	if ticket.AssignedAgentID != nil && *ticket.AssignedAgentID == agentID {
-		ticketUpdate.ClearAssignedAgentID()
-	}
 	if ticket.CurrentRunID != nil {
 		ticketUpdate.ClearCurrentRunID()
 	}
@@ -463,9 +463,8 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, agentID uuid
 	if _, err := tx.Ticket.Update().
 		Where(
 			entticket.IDEQ(assignment.ticket.ID),
-			entticket.AssignedAgentIDEQ(agentID),
+			entticket.HasCurrentRunWith(entagentrun.AgentIDEQ(agentID)),
 		).
-		ClearAssignedAgentID().
 		ClearCurrentRunID().
 		SetNextRetryAt(l.now().UTC().Add(continuationRetryDelay)).
 		SetRetryPaused(false).

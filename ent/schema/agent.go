@@ -41,7 +41,6 @@ func (Agent) Edges() []ent.Edge {
 			Field("project_id").
 			Unique().
 			Required(),
-		edge.To("assigned_tickets", Ticket.Type),
 		edge.To("runs", AgentRun.Type),
 		edge.To("tokens", AgentToken.Type),
 		edge.To("activity_events", ActivityEvent.Type),

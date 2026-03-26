@@ -678,7 +678,7 @@ func (s *Service) mapHarnessProjectWorkflows(ctx context.Context, workflows []*e
 		activeTickets, err := s.client.Ticket.Query().
 			Where(
 				entticket.WorkflowIDIn(workflowIDs...),
-				entticket.AssignedAgentIDNotNil(),
+				entticket.CurrentRunIDNotNil(),
 			).
 			All(ctx)
 		if err != nil {
