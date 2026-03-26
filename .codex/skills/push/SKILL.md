@@ -42,8 +42,8 @@ guess which checks are needed:
 - Runs frontend CI with `make web-install` and `corepack pnpm --dir web run ci`
   when `web_changed=true`.
 - Runs backend and Go lint checks with `make check`, `make build`,
-  `LINT_BASE_REV=<base> make lint`, and `make lint-depguard` when
-  `go_changed=true`.
+  `LINT_BASE_REV=<base> make lint`, `make lint-depguard`, and
+  `make lint-architecture` when `go_changed=true`.
 
 If the branch scope is ambiguous, use the script anyway; it already biases
 toward the stricter CI-compatible outcome.

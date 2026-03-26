@@ -223,3 +223,6 @@ jobs:
 
       - name: Run Depguard Architecture Checks
         run: make lint-depguard
+
+      - name: Run Repository Architecture Guard
+        run: make lint-architecture

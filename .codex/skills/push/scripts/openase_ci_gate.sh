@@ -133,4 +133,5 @@ if [[ "${go_changed}" == "true" ]]; then
   run_cmd make build
   run_cmd make LINT_BASE_REV="${BASE_REV}" lint
   run_cmd make lint-depguard
+  run_cmd make lint-architecture
 fi

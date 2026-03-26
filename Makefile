@@ -10,7 +10,7 @@ OPENASE_BIN := ./bin/openase
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test check hooks-install hooks-run openapi-generate openapi-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard
+.PHONY: help format fmt-check test check hooks-install hooks-run openapi-generate openapi-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
 
 help:
 	@printf '%s\n' \
@@ -35,7 +35,8 @@ help:
 		'  make doctor        Run local environment diagnostics' \
 		'  make lint          Run lint on changes since merge-base with origin/main' \
 		'  make lint-all      Run the full lint suite' \
-		'  make lint-depguard Run only depguard lint checks'
+		'  make lint-depguard Run only depguard lint checks' \
+		'  make lint-architecture Run repository architecture guard checks'
 
 format:
 	@files="$$(git ls-files '*.go')"; \
@@ -129,3 +130,6 @@ lint-all:
 
 lint-depguard:
 	$(LINT_SCRIPT) --enable-only=depguard ./...
+
+lint-architecture:
+	python3 ./scripts/ci/architecture_guard.py
