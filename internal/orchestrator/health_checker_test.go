@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/google/uuid"
 )
 
 func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
@@ -45,13 +46,7 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	if _, err := client.Agent.UpdateOneID(agentItem.ID).
-		SetStatus(entagent.StatusRunning).
-		SetCurrentTicketID(ticketItem.ID).
-		SetLastHeartbeatAt(now.Add(-2 * time.Minute)).
-		Save(ctx); err != nil {
-		t.Fatalf("mark agent running: %v", err)
-	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now.Add(-2*time.Minute))
 
 	checker := newTestHealthChecker(client, now)
 	report, err := checker.Run(ctx)
@@ -70,6 +65,9 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if ticketAfter.AssignedAgentID != nil {
 		t.Fatalf("expected assigned agent to be cleared, got %+v", ticketAfter.AssignedAgentID)
 	}
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected current run to be cleared, got %+v", ticketAfter.CurrentRunID)
+	}
 	if ticketAfter.StallCount != 1 {
 		t.Fatalf("expected stall count 1, got %d", ticketAfter.StallCount)
 	}
@@ -81,8 +79,15 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload agent: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
-		t.Fatalf("expected agent returned to idle, got %+v", agentAfter)
+	if agentAfter.RuntimeControlState != "active" {
+		t.Fatalf("expected agent control state active, got %+v", agentAfter)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected stalled run errored, got %+v", runAfter)
 	}
 }
 
@@ -120,13 +125,7 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	if _, err := client.Agent.UpdateOneID(agentItem.ID).
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticketItem.ID).
-		SetLastHeartbeatAt(now.Add(-30 * time.Second)).
-		Save(ctx); err != nil {
-		t.Fatalf("mark agent claimed: %v", err)
-	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusLaunching, now.Add(-30*time.Second))
 
 	checker := newTestHealthChecker(client, now)
 	report, err := checker.Run(ctx)
@@ -145,6 +144,9 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 	if ticketAfter.AssignedAgentID == nil || *ticketAfter.AssignedAgentID != agentItem.ID {
 		t.Fatalf("expected assigned agent to stay %s, got %+v", agentItem.ID, ticketAfter.AssignedAgentID)
 	}
+	if ticketAfter.CurrentRunID == nil || *ticketAfter.CurrentRunID != runItem.ID {
+		t.Fatalf("expected current run to stay %s, got %+v", runItem.ID, ticketAfter.CurrentRunID)
+	}
 	if ticketAfter.StallCount != 0 || ticketAfter.NextRetryAt != nil {
 		t.Fatalf("expected healthy ticket unchanged, got %+v", ticketAfter)
 	}
@@ -153,8 +155,15 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload agent: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusClaimed || agentAfter.CurrentTicketID == nil || *agentAfter.CurrentTicketID != ticketItem.ID {
-		t.Fatalf("expected claimed agent unchanged, got %+v", agentAfter)
+	if agentAfter.RuntimeControlState != "active" {
+		t.Fatalf("expected claimed agent control state unchanged, got %+v", agentAfter)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusLaunching {
+		t.Fatalf("expected run unchanged, got %+v", runAfter)
 	}
 }
 
@@ -192,12 +201,7 @@ func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	if _, err := client.Agent.UpdateOneID(agentItem.ID).
-		SetStatus(entagent.StatusRunning).
-		SetCurrentTicketID(ticketItem.ID).
-		Save(ctx); err != nil {
-		t.Fatalf("mark agent running without heartbeat: %v", err)
-	}
+	mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, time.Time{})
 
 	checker := newTestHealthChecker(client, now)
 	report, err := checker.Run(ctx)
@@ -216,4 +220,38 @@ func newTestHealthChecker(client *ent.Client, now time.Time) *HealthChecker {
 		return now
 	}
 	return checker
+}
+
+func mustCreateCurrentRun(
+	ctx context.Context,
+	t *testing.T,
+	client *ent.Client,
+	agentItem *ent.Agent,
+	workflowID uuid.UUID,
+	ticketID uuid.UUID,
+	status entagentrun.Status,
+	lastHeartbeat time.Time,
+) *ent.AgentRun {
+	t.Helper()
+
+	builder := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowID).
+		SetTicketID(ticketID).
+		SetProviderID(agentItem.ProviderID).
+		SetStatus(status)
+	if !lastHeartbeat.IsZero() {
+		builder.SetLastHeartbeatAt(lastHeartbeat)
+	}
+	runItem, err := builder.Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(ticketID).
+		SetAssignedAgentID(agentItem.ID).
+		SetCurrentRunID(runItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("attach current run: %v", err)
+	}
+	return runItem
 }

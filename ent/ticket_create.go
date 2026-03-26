@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -108,6 +109,20 @@ func (_c *TicketCreate) SetWorkflowID(v uuid.UUID) *TicketCreate {
 func (_c *TicketCreate) SetNillableWorkflowID(v *uuid.UUID) *TicketCreate {
 	if v != nil {
 		_c.SetWorkflowID(*v)
+	}
+	return _c
+}
+
+// SetCurrentRunID sets the "current_run_id" field.
+func (_c *TicketCreate) SetCurrentRunID(v uuid.UUID) *TicketCreate {
+	_c.mutation.SetCurrentRunID(v)
+	return _c
+}
+
+// SetNillableCurrentRunID sets the "current_run_id" field if the given value is not nil.
+func (_c *TicketCreate) SetNillableCurrentRunID(v *uuid.UUID) *TicketCreate {
+	if v != nil {
+		_c.SetCurrentRunID(*v)
 	}
 	return _c
 }
@@ -419,6 +434,11 @@ func (_c *TicketCreate) SetWorkflow(v *Workflow) *TicketCreate {
 	return _c.SetWorkflowID(v.ID)
 }
 
+// SetCurrentRun sets the "current_run" edge to the AgentRun entity.
+func (_c *TicketCreate) SetCurrentRun(v *AgentRun) *TicketCreate {
+	return _c.SetCurrentRunID(v.ID)
+}
+
 // SetTargetMachine sets the "target_machine" edge to the Machine entity.
 func (_c *TicketCreate) SetTargetMachine(v *Machine) *TicketCreate {
 	return _c.SetTargetMachineID(v.ID)
@@ -536,6 +556,21 @@ func (_c *TicketCreate) AddActivityEvents(v ...*ActivityEvent) *TicketCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddActivityEventIDs(ids...)
+}
+
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by IDs.
+func (_c *TicketCreate) AddAgentRunIDs(ids ...uuid.UUID) *TicketCreate {
+	_c.mutation.AddAgentRunIDs(ids...)
+	return _c
+}
+
+// AddAgentRuns adds the "agent_runs" edges to the AgentRun entity.
+func (_c *TicketCreate) AddAgentRuns(v ...*AgentRun) *TicketCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentRunIDs(ids...)
 }
 
 // AddOutgoingDependencyIDs adds the "outgoing_dependencies" edge to the TicketDependency entity by IDs.
@@ -926,6 +961,23 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 		_node.WorkflowID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.CurrentRunIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticket.CurrentRunTable,
+			Columns: []string{ticket.CurrentRunColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.CurrentRunID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := _c.mutation.TargetMachineIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -1066,6 +1118,22 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentRunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentRunsTable,
+			Columns: []string{ticket.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
@@ -67,6 +68,7 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 
 	update := tx.Ticket.UpdateOneID(current.ID).
 		ClearAssignedAgentID().
+		ClearCurrentRunID().
 		SetAttemptCount(nextAttemptCount).
 		SetConsecutiveErrors(nextConsecutiveErrors).
 		SetNextRetryAt(nextRetryAt)
@@ -111,36 +113,27 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 }
 
 func releaseAssignedAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ticket) error {
-	if ticketItem == nil || ticketItem.AssignedAgentID == nil {
+	if ticketItem == nil {
 		return nil
 	}
 
-	if _, err := tx.Agent.Update().
-		Where(
-			entagent.IDEQ(*ticketItem.AssignedAgentID),
-			entagent.CurrentTicketIDEQ(ticketItem.ID),
-			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning, entagent.StatusPaused),
-		).
-		ClearCurrentTicketID().
-		SetStatus(entagent.StatusIdle).
-		ClearSessionID().
-		SetRuntimePhase(entagent.RuntimePhaseNone).
-		SetRuntimeControlState(entagent.RuntimeControlStateActive).
-		ClearRuntimeStartedAt().
-		SetLastError("").
-		ClearLastHeartbeatAt().
-		Save(ctx); err != nil {
-		return fmt.Errorf("release assigned agent to idle: %w", err)
+	if ticketItem.CurrentRunID != nil {
+		if _, err := tx.AgentRun.UpdateOneID(*ticketItem.CurrentRunID).
+			SetStatus(entagentrun.StatusErrored).
+			ClearSessionID().
+			ClearRuntimeStartedAt().
+			ClearLastHeartbeatAt().
+			Save(ctx); err != nil {
+			return fmt.Errorf("finalize failed agent run: %w", err)
+		}
 	}
 
-	if _, err := tx.Agent.Update().
-		Where(
-			entagent.IDEQ(*ticketItem.AssignedAgentID),
-			entagent.CurrentTicketIDEQ(ticketItem.ID),
-		).
-		ClearCurrentTicketID().
-		Save(ctx); err != nil {
-		return fmt.Errorf("clear assigned agent current ticket: %w", err)
+	if ticketItem.AssignedAgentID != nil {
+		if _, err := tx.Agent.UpdateOneID(*ticketItem.AssignedAgentID).
+			SetRuntimeControlState(entagent.RuntimeControlStateActive).
+			Save(ctx); err != nil {
+			return fmt.Errorf("reset assigned agent runtime control state: %w", err)
+		}
 	}
 
 	return nil

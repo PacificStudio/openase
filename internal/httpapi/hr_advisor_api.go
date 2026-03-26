@@ -154,8 +154,12 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 	}
 
 	for _, agentItem := range agents {
+		status := string(catalogdomain.DefaultAgentStatus)
+		if agentItem.Runtime != nil {
+			status = string(agentItem.Runtime.Status)
+		}
 		snapshot.Agents = append(snapshot.Agents, hrdomain.AgentContext{
-			Status: string(agentItem.Status),
+			Status: status,
 		})
 	}
 

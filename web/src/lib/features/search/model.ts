@@ -224,12 +224,16 @@ function buildAgentItems({
       group: 'Agents',
       kind: 'agent',
       title: agent.name,
-      subtitle: [agent.status, agent.runtime_phase, currentTicketLabel(agent.current_ticket_id)]
+      subtitle: [
+        agent.runtime?.status ?? 'idle',
+        agent.runtime?.runtime_phase ?? 'none',
+        currentTicketLabel(agent.runtime?.current_ticket_id ?? null),
+      ]
         .filter(Boolean)
         .join(' • '),
       badge: 'Agent',
       action: { kind: 'navigate', href: projectPath(currentOrg.id, currentProject.id, 'agents') },
-      keywords: [currentProject.name, agent.session_id, agent.workspace_path],
+      keywords: [currentProject.name, agent.runtime?.session_id ?? '', agent.workspace_path],
     }),
   )
 }

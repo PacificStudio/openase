@@ -3,6 +3,7 @@ package catalog
 import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
@@ -58,26 +59,14 @@ func toDomainAgentProviderAdapterType(adapterType entagentprovider.AdapterType) 
 	return domain.AgentProviderAdapterType(adapterType)
 }
 
-func toEntAgentStatus(status domain.AgentStatus) entagent.Status {
-	return entagent.Status(status)
-}
-
-func toDomainAgentStatus(status entagent.Status) domain.AgentStatus {
-	return domain.AgentStatus(status)
-}
-
-func toEntAgentRuntimePhase(phase domain.AgentRuntimePhase) entagent.RuntimePhase {
-	return entagent.RuntimePhase(phase)
-}
-
-func toDomainAgentRuntimePhase(phase entagent.RuntimePhase) domain.AgentRuntimePhase {
-	return domain.AgentRuntimePhase(phase)
-}
-
 func toEntAgentRuntimeControlState(state domain.AgentRuntimeControlState) entagent.RuntimeControlState {
 	return entagent.RuntimeControlState(state)
 }
 
 func toDomainAgentRuntimeControlState(state entagent.RuntimeControlState) domain.AgentRuntimeControlState {
 	return domain.AgentRuntimeControlState(state)
+}
+
+func toDomainAgentRunStatus(status entagentrun.Status) domain.AgentRunStatus {
+	return domain.AgentRunStatus(status)
 }

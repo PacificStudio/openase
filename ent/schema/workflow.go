@@ -52,6 +52,7 @@ func (Workflow) Edges() []ent.Edge {
 			Field("finish_status_id").
 			Unique(),
 		edge.To("tickets", Ticket.Type),
+		edge.To("agent_runs", AgentRun.Type),
 		edge.To("scheduled_jobs", ScheduledJob.Type),
 	}
 }

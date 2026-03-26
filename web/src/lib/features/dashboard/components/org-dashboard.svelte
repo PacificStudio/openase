@@ -93,7 +93,7 @@
           (ticket) => !isTerminalStatus(ticket.status_name),
         )
         const runningAgents = agentPayload.agents.filter(
-          (agent) => agent.status === 'running',
+          (agent) => agent.runtime?.status === 'running',
         ).length
         const totalCost = ticketPayload.tickets.reduce((sum, ticket) => sum + ticket.cost_amount, 0)
         const todayStart = new Date()

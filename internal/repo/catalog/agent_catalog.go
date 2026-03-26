@@ -8,7 +8,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
+	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -112,7 +114,34 @@ func (r *EntRepository) ListAgents(ctx context.Context, projectID uuid.UUID) ([]
 		return nil, fmt.Errorf("list agents: %w", err)
 	}
 
-	return mapAgents(items), nil
+	currentRuns, err := r.loadCurrentRunSnapshots(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapAgents(items, currentRuns), nil
+}
+
+func (r *EntRepository) ListAgentRuns(ctx context.Context, projectID uuid.UUID) ([]domain.AgentRun, error) {
+	exists, err := r.client.Project.Query().
+		Where(entproject.ID(projectID)).
+		Exist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check project before listing agent runs: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	items, err := r.client.AgentRun.Query().
+		Where(entagentrun.HasTicketWith(entticket.ProjectIDEQ(projectID))).
+		Order(ent.Desc(entagentrun.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list agent runs: %w", err)
+	}
+
+	return mapAgentRuns(items), nil
 }
 
 func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error) {
@@ -133,30 +162,17 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		SetProjectID(input.ProjectID).
 		SetProviderID(input.ProviderID).
 		SetName(input.Name).
-		SetStatus(toEntAgentStatus(input.Status)).
-		SetSessionID(input.SessionID).
-		SetRuntimePhase(toEntAgentRuntimePhase(input.RuntimePhase)).
 		SetRuntimeControlState(toEntAgentRuntimeControlState(input.RuntimeControlState)).
-		SetLastError(input.LastError).
 		SetWorkspacePath(input.WorkspacePath).
 		SetTotalTokensUsed(input.TotalTokensUsed).
 		SetTotalTicketsCompleted(input.TotalTicketsCompleted)
-	if input.CurrentTicketID != nil {
-		builder.SetCurrentTicketID(*input.CurrentTicketID)
-	}
-	if input.RuntimeStartedAt != nil {
-		builder.SetRuntimeStartedAt(*input.RuntimeStartedAt)
-	}
-	if input.LastHeartbeatAt != nil {
-		builder.SetLastHeartbeatAt(*input.LastHeartbeatAt)
-	}
 
 	item, err := builder.Save(ctx)
 	if err != nil {
 		return domain.Agent{}, mapWriteError("create agent", err)
 	}
 
-	return mapAgent(item), nil
+	return mapAgent(item, agentCurrentRunSnapshot{}), nil
 }
 
 func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
@@ -165,7 +181,21 @@ func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agen
 		return domain.Agent{}, mapReadError("get agent", err)
 	}
 
-	return mapAgent(item), nil
+	currentRun, err := r.loadCurrentRunSnapshotForAgent(ctx, item.ProjectID, item.ID)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+
+	return mapAgent(item, currentRun), nil
+}
+
+func (r *EntRepository) GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRun, error) {
+	item, err := r.client.AgentRun.Get(ctx, id)
+	if err != nil {
+		return domain.AgentRun{}, mapReadError("get agent run", err)
+	}
+
+	return mapAgentRun(item), nil
 }
 
 func (r *EntRepository) UpdateAgentRuntimeControlState(ctx context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error) {
@@ -176,7 +206,12 @@ func (r *EntRepository) UpdateAgentRuntimeControlState(ctx context.Context, inpu
 		return domain.Agent{}, mapWriteError("update agent runtime control state", err)
 	}
 
-	return mapAgent(item), nil
+	currentRun, err := r.loadCurrentRunSnapshotForAgent(ctx, item.ProjectID, item.ID)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+
+	return mapAgent(item, currentRun), nil
 }
 
 func (r *EntRepository) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
@@ -189,7 +224,7 @@ func (r *EntRepository) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.A
 		return domain.Agent{}, mapWriteError("delete agent", err)
 	}
 
-	return mapAgent(item), nil
+	return mapAgent(item, agentCurrentRunSnapshot{}), nil
 }
 
 func mapAgentProviders(items []*ent.AgentProvider) []domain.AgentProvider {
@@ -218,32 +253,100 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 	}
 }
 
-func mapAgents(items []*ent.Agent) []domain.Agent {
+type agentCurrentRunSnapshot struct {
+	run *ent.AgentRun
+}
+
+func (r *EntRepository) loadCurrentRunSnapshots(ctx context.Context, projectID uuid.UUID) (map[uuid.UUID]agentCurrentRunSnapshot, error) {
+	tickets, err := r.client.Ticket.Query().
+		Where(
+			entticket.ProjectIDEQ(projectID),
+			entticket.CurrentRunIDNotNil(),
+		).
+		WithCurrentRun().
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load current agent runs for project %s: %w", projectID, err)
+	}
+
+	snapshots := make(map[uuid.UUID]agentCurrentRunSnapshot, len(tickets))
+	for _, ticketItem := range tickets {
+		runItem := ticketItem.Edges.CurrentRun
+		if runItem == nil {
+			continue
+		}
+		current, exists := snapshots[runItem.AgentID]
+		if !exists || current.run == nil || current.run.CreatedAt.Before(runItem.CreatedAt) {
+			snapshots[runItem.AgentID] = agentCurrentRunSnapshot{run: runItem}
+		}
+	}
+
+	return snapshots, nil
+}
+
+func (r *EntRepository) loadCurrentRunSnapshotForAgent(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) (agentCurrentRunSnapshot, error) {
+	snapshots, err := r.loadCurrentRunSnapshots(ctx, projectID)
+	if err != nil {
+		return agentCurrentRunSnapshot{}, err
+	}
+
+	return snapshots[agentID], nil
+}
+
+func mapAgents(items []*ent.Agent, currentRuns map[uuid.UUID]agentCurrentRunSnapshot) []domain.Agent {
 	agents := make([]domain.Agent, 0, len(items))
 	for _, item := range items {
-		agents = append(agents, mapAgent(item))
+		agents = append(agents, mapAgent(item, currentRuns[item.ID]))
 	}
 
 	return agents
 }
 
-func mapAgent(item *ent.Agent) domain.Agent {
+func mapAgent(item *ent.Agent, currentRun agentCurrentRunSnapshot) domain.Agent {
 	return domain.Agent{
 		ID:                    item.ID,
 		ProviderID:            item.ProviderID,
 		ProjectID:             item.ProjectID,
 		Name:                  item.Name,
-		Status:                toDomainAgentStatus(item.Status),
-		CurrentTicketID:       item.CurrentTicketID,
-		SessionID:             item.SessionID,
-		RuntimePhase:          toDomainAgentRuntimePhase(item.RuntimePhase),
 		RuntimeControlState:   toDomainAgentRuntimeControlState(item.RuntimeControlState),
-		RuntimeStartedAt:      cloneTimePointer(item.RuntimeStartedAt),
-		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
-		LastHeartbeatAt:       cloneTimePointer(item.LastHeartbeatAt),
+		Runtime:               domain.BuildAgentRuntime(mapAgentRunPointer(currentRun.run), toDomainAgentRuntimeControlState(item.RuntimeControlState)),
+	}
+}
+
+func mapAgentRuns(items []*ent.AgentRun) []domain.AgentRun {
+	runs := make([]domain.AgentRun, 0, len(items))
+	for _, item := range items {
+		runs = append(runs, mapAgentRun(item))
+	}
+
+	return runs
+}
+
+func mapAgentRunPointer(item *ent.AgentRun) *domain.AgentRun {
+	if item == nil {
+		return nil
+	}
+
+	run := mapAgentRun(item)
+	return &run
+}
+
+func mapAgentRun(item *ent.AgentRun) domain.AgentRun {
+	return domain.AgentRun{
+		ID:               item.ID,
+		AgentID:          item.AgentID,
+		WorkflowID:       item.WorkflowID,
+		TicketID:         item.TicketID,
+		ProviderID:       item.ProviderID,
+		Status:           toDomainAgentRunStatus(item.Status),
+		SessionID:        item.SessionID,
+		RuntimeStartedAt: cloneTimePointer(item.RuntimeStartedAt),
+		LastError:        item.LastError,
+		LastHeartbeatAt:  cloneTimePointer(item.LastHeartbeatAt),
+		CreatedAt:        item.CreatedAt.UTC(),
 	}
 }
 

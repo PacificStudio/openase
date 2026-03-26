@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
@@ -156,6 +157,7 @@ func (s *Service) scheduleRepoScopeRetry(ctx context.Context, tx *ent.Tx, ticket
 	nextAttemptCount := current.AttemptCount + 1
 	update := tx.Ticket.UpdateOneID(current.ID).
 		ClearAssignedAgentID().
+		ClearCurrentRunID().
 		SetAttemptCount(nextAttemptCount).
 		SetConsecutiveErrors(current.ConsecutiveErrors + 1).
 		SetNextRetryAt(timeNowUTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount)))
@@ -169,7 +171,7 @@ func (s *Service) scheduleRepoScopeRetry(ctx context.Context, tx *ent.Tx, ticket
 		return s.mapTicketWriteError("update ticket repo scope retry", err)
 	}
 
-	return releaseTicketAgentClaim(ctx, tx, current)
+	return releaseTicketAgentClaim(ctx, tx, current, entagentrun.StatusErrored)
 }
 
 func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID) error {
@@ -195,7 +197,8 @@ func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.T
 	update := tx.Ticket.UpdateOneID(current.ID).
 		SetStatusID(*workflowItem.FinishStatusID).
 		SetCompletedAt(timeNowUTC()).
-		ClearAssignedAgentID()
+		ClearAssignedAgentID().
+		ClearCurrentRunID()
 	if current.NextRetryAt != nil {
 		update.ClearNextRetryAt()
 	}
@@ -210,7 +213,7 @@ func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.T
 		return s.mapTicketWriteError("finish ticket after repo scopes merged", err)
 	}
 
-	return releaseTicketAgentClaim(ctx, tx, current)
+	return releaseTicketAgentClaim(ctx, tx, current, entagentrun.StatusCompleted)
 }
 
 func timeNowUTC() time.Time {

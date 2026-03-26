@@ -1,0 +1,67 @@
+package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/edge"
+	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
+)
+
+// AgentRun defines the ent schema for runtime-managed agent execution records.
+type AgentRun struct {
+	ent.Schema
+}
+
+// Fields returns the AgentRun schema fields.
+func (AgentRun) Fields() []ent.Field {
+	return []ent.Field{
+		uuidField(),
+		field.UUID("agent_id", uuidZero()),
+		field.UUID("workflow_id", uuidZero()),
+		field.UUID("ticket_id", uuidZero()),
+		field.UUID("provider_id", uuidZero()),
+		field.Enum("status").
+			Values("launching", "ready", "executing", "completed", "errored", "terminated"),
+		field.String("session_id").Optional(),
+		field.Time("runtime_started_at").Optional().Nillable(),
+		field.String("last_error").Optional(),
+		field.Time("last_heartbeat_at").Optional().Nillable(),
+		createdAtField(),
+	}
+}
+
+// Edges returns the AgentRun schema edges.
+func (AgentRun) Edges() []ent.Edge {
+	return []ent.Edge{
+		edge.From("agent", Agent.Type).
+			Ref("runs").
+			Field("agent_id").
+			Unique().
+			Required(),
+		edge.From("workflow", Workflow.Type).
+			Ref("agent_runs").
+			Field("workflow_id").
+			Unique().
+			Required(),
+		edge.From("ticket", Ticket.Type).
+			Ref("agent_runs").
+			Field("ticket_id").
+			Unique().
+			Required(),
+		edge.From("provider", AgentProvider.Type).
+			Ref("agent_runs").
+			Field("provider_id").
+			Unique().
+			Required(),
+		edge.To("current_for_ticket", Ticket.Type),
+	}
+}
+
+// Indexes returns the AgentRun schema indexes.
+func (AgentRun) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("agent_id", "status", "last_heartbeat_at"),
+		index.Fields("provider_id", "status"),
+		index.Fields("ticket_id", "created_at"),
+	}
+}

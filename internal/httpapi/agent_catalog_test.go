@@ -110,7 +110,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		Agent agentResponse `json:"agent"`
 	}
 	decodeResponse(t, agentRec, &agentPayload)
-	if agentPayload.Agent.Status != "idle" || agentPayload.Agent.RuntimePhase != "none" || agentPayload.Agent.RuntimeControlState != "active" || agentPayload.Agent.TotalTokensUsed != 0 {
+	if agentPayload.Agent.Runtime != nil || agentPayload.Agent.RuntimeControlState != "active" || agentPayload.Agent.TotalTokensUsed != 0 {
 		t.Fatalf("unexpected created agent payload: %+v", agentPayload.Agent)
 	}
 
@@ -223,7 +223,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		Agent agentResponse `json:"agent"`
 	}
 	decodeResponse(t, agentRec, &agentPayload)
-	if agentPayload.Agent.Status != "idle" || agentPayload.Agent.RuntimePhase != "none" || agentPayload.Agent.RuntimeControlState != "active" {
+	if agentPayload.Agent.Runtime != nil || agentPayload.Agent.RuntimeControlState != "active" {
 		t.Fatalf("expected runtime-owned fields to default, got %+v", agentPayload.Agent)
 	}
 }
@@ -332,7 +332,6 @@ func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		Status:              domain.AgentStatusIdle,
 		RuntimeControlState: domain.AgentRuntimeControlStateActive,
 	}
 
@@ -374,6 +373,7 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 	projectID := uuid.New()
 	providerID := uuid.New()
 	agentID := uuid.New()
+	runID := uuid.New()
 	ticketID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
@@ -383,10 +383,13 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		Status:              domain.AgentStatusRunning,
-		CurrentTicketID:     &ticketID,
-		RuntimePhase:        domain.AgentRuntimePhaseReady,
 		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+		Runtime: &domain.AgentRuntime{
+			CurrentRunID:    &runID,
+			Status:          domain.AgentStatusRunning,
+			CurrentTicketID: &ticketID,
+			RuntimePhase:    domain.AgentRuntimePhaseReady,
+		},
 	}
 
 	pauseRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/pause", "")
@@ -407,10 +410,13 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 		ProviderID:          providerID,
 		ProjectID:           projectID,
 		Name:                "worker-1",
-		Status:              domain.AgentStatusClaimed,
-		CurrentTicketID:     &ticketID,
-		RuntimePhase:        domain.AgentRuntimePhaseNone,
 		RuntimeControlState: domain.AgentRuntimeControlStatePaused,
+		Runtime: &domain.AgentRuntime{
+			CurrentRunID:    &runID,
+			Status:          domain.AgentStatusClaimed,
+			CurrentTicketID: &ticketID,
+			RuntimePhase:    domain.AgentRuntimePhaseNone,
+		},
 	}
 
 	resumeRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/resume", "")
@@ -529,6 +535,22 @@ func (f *fakeCatalogService) ListAgents(_ context.Context, projectID uuid.UUID) 
 	return items, nil
 }
 
+func (f *fakeCatalogService) ListAgentRuns(_ context.Context, projectID uuid.UUID) ([]domain.AgentRun, error) {
+	if _, ok := f.projects[projectID]; !ok {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.AgentRun, 0)
+	for _, item := range f.agentRuns {
+		agentItem, ok := f.agents[item.AgentID]
+		if ok && agentItem.ProjectID == projectID {
+			items = append(items, item)
+		}
+	}
+
+	return items, nil
+}
+
 func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
 	if _, ok := f.projects[input.ProjectID]; !ok {
 		return nil, catalogservice.ErrNotFound
@@ -625,17 +647,10 @@ func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateA
 		ProviderID:            input.ProviderID,
 		ProjectID:             input.ProjectID,
 		Name:                  input.Name,
-		Status:                input.Status,
-		CurrentTicketID:       input.CurrentTicketID,
-		SessionID:             input.SessionID,
-		RuntimePhase:          input.RuntimePhase,
 		RuntimeControlState:   input.RuntimeControlState,
-		RuntimeStartedAt:      cloneTimePointer(input.RuntimeStartedAt),
-		LastError:             input.LastError,
 		WorkspacePath:         input.WorkspacePath,
 		TotalTokensUsed:       input.TotalTokensUsed,
 		TotalTicketsCompleted: input.TotalTicketsCompleted,
-		LastHeartbeatAt:       cloneTimePointer(input.LastHeartbeatAt),
 	}
 	f.agents[item.ID] = item
 
@@ -646,6 +661,15 @@ func (f *fakeCatalogService) GetAgent(_ context.Context, id uuid.UUID) (domain.A
 	item, ok := f.agents[id]
 	if !ok {
 		return domain.Agent{}, catalogservice.ErrNotFound
+	}
+
+	return item, nil
+}
+
+func (f *fakeCatalogService) GetAgentRun(_ context.Context, id uuid.UUID) (domain.AgentRun, error) {
+	item, ok := f.agentRuns[id]
+	if !ok {
+		return domain.AgentRun{}, catalogservice.ErrNotFound
 	}
 
 	return item, nil

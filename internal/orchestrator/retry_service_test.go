@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
@@ -47,12 +47,7 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	if _, err := client.Agent.UpdateOneID(agentItem.ID).
-		SetStatus(entagent.StatusRunning).
-		SetCurrentTicketID(ticketItem.ID).
-		Save(ctx); err != nil {
-		t.Fatalf("mark agent running: %v", err)
-	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
 	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	retryService.now = func() time.Time {
@@ -85,6 +80,9 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	if ticketAfter.AssignedAgentID != nil {
 		t.Fatalf("expected retry to clear assignment, got %+v", ticketAfter.AssignedAgentID)
 	}
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected retry to clear current run, got %+v", ticketAfter.CurrentRunID)
+	}
 	if ticketAfter.AttemptCount != 2 || ticketAfter.ConsecutiveErrors != 2 {
 		t.Fatalf("unexpected ticket counters after retry: %+v", ticketAfter)
 	}
@@ -96,8 +94,15 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	if err != nil {
 		t.Fatalf("reload agent: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
-		t.Fatalf("expected agent release after retry, got %+v", agentAfter)
+	if agentAfter.RuntimeControlState != "active" {
+		t.Fatalf("expected agent control active after retry, got %+v", agentAfter)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected run marked errored, got %+v", runAfter)
 	}
 }
 
@@ -106,6 +111,18 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 13, 30, 0, 0, time.UTC)
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
 
 	agentItem := fixture.createAgent(ctx, t, "coding-02", 0)
 	ticketItem, err := client.Ticket.Create().
@@ -113,6 +130,7 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 		SetIdentifier("ASE-402").
 		SetTitle("Pause exhausted budget").
 		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflow.ID).
 		SetAssignedAgentID(agentItem.ID).
 		SetBudgetUsd(5).
 		SetCostAmount(5).
@@ -121,12 +139,7 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	if _, err := client.Agent.UpdateOneID(agentItem.ID).
-		SetStatus(entagent.StatusRunning).
-		SetCurrentTicketID(ticketItem.ID).
-		Save(ctx); err != nil {
-		t.Fatalf("mark agent running: %v", err)
-	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
 	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	retryService.now = func() time.Time {
@@ -149,8 +162,18 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	if !ticketAfter.RetryPaused {
 		t.Fatal("expected ticket retry to be paused")
 	}
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected budget pause to clear current run, got %+v", ticketAfter.CurrentRunID)
+	}
 	if ticketAfter.PauseReason != ticketing.PauseReasonBudgetExhausted.String() {
 		t.Fatalf("expected pause reason %q, got %q", ticketing.PauseReasonBudgetExhausted, ticketAfter.PauseReason)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected budget exhausted run errored, got %+v", runAfter)
 	}
 }
 

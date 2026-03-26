@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -38,6 +39,7 @@ type TicketQuery struct {
 	withProject              *ProjectQuery
 	withStatus               *TicketStatusQuery
 	withWorkflow             *WorkflowQuery
+	withCurrentRun           *AgentRunQuery
 	withTargetMachine        *MachineQuery
 	withAssignedAgent        *AgentQuery
 	withParent               *TicketQuery
@@ -47,6 +49,7 @@ type TicketQuery struct {
 	withExternalLinks        *TicketExternalLinkQuery
 	withAgentTokens          *AgentTokenQuery
 	withActivityEvents       *ActivityEventQuery
+	withAgentRuns            *AgentRunQuery
 	withOutgoingDependencies *TicketDependencyQuery
 	withIncomingDependencies *TicketDependencyQuery
 	// intermediate query (i.e. traversal path).
@@ -144,6 +147,28 @@ func (_q *TicketQuery) QueryWorkflow() *WorkflowQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
 			sqlgraph.To(workflow.Table, workflow.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, ticket.WorkflowTable, ticket.WorkflowColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCurrentRun chains the current query on the "current_run" edge.
+func (_q *TicketQuery) QueryCurrentRun() *AgentRunQuery {
+	query := (&AgentRunClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
+			sqlgraph.To(agentrun.Table, agentrun.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticket.CurrentRunTable, ticket.CurrentRunColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -342,6 +367,28 @@ func (_q *TicketQuery) QueryActivityEvents() *ActivityEventQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
 			sqlgraph.To(activityevent.Table, activityevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, ticket.ActivityEventsTable, ticket.ActivityEventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentRuns chains the current query on the "agent_runs" edge.
+func (_q *TicketQuery) QueryAgentRuns() *AgentRunQuery {
+	query := (&AgentRunClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
+			sqlgraph.To(agentrun.Table, agentrun.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentRunsTable, ticket.AgentRunsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -588,6 +635,7 @@ func (_q *TicketQuery) Clone() *TicketQuery {
 		withProject:              _q.withProject.Clone(),
 		withStatus:               _q.withStatus.Clone(),
 		withWorkflow:             _q.withWorkflow.Clone(),
+		withCurrentRun:           _q.withCurrentRun.Clone(),
 		withTargetMachine:        _q.withTargetMachine.Clone(),
 		withAssignedAgent:        _q.withAssignedAgent.Clone(),
 		withParent:               _q.withParent.Clone(),
@@ -597,6 +645,7 @@ func (_q *TicketQuery) Clone() *TicketQuery {
 		withExternalLinks:        _q.withExternalLinks.Clone(),
 		withAgentTokens:          _q.withAgentTokens.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
+		withAgentRuns:            _q.withAgentRuns.Clone(),
 		withOutgoingDependencies: _q.withOutgoingDependencies.Clone(),
 		withIncomingDependencies: _q.withIncomingDependencies.Clone(),
 		// clone intermediate query.
@@ -635,6 +684,17 @@ func (_q *TicketQuery) WithWorkflow(opts ...func(*WorkflowQuery)) *TicketQuery {
 		opt(query)
 	}
 	_q.withWorkflow = query
+	return _q
+}
+
+// WithCurrentRun tells the query-builder to eager-load the nodes that are connected to
+// the "current_run" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TicketQuery) WithCurrentRun(opts ...func(*AgentRunQuery)) *TicketQuery {
+	query := (&AgentRunClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCurrentRun = query
 	return _q
 }
 
@@ -734,6 +794,17 @@ func (_q *TicketQuery) WithActivityEvents(opts ...func(*ActivityEventQuery)) *Ti
 		opt(query)
 	}
 	_q.withActivityEvents = query
+	return _q
+}
+
+// WithAgentRuns tells the query-builder to eager-load the nodes that are connected to
+// the "agent_runs" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TicketQuery) WithAgentRuns(opts ...func(*AgentRunQuery)) *TicketQuery {
+	query := (&AgentRunClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentRuns = query
 	return _q
 }
 
@@ -837,10 +908,11 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 	var (
 		nodes       = []*Ticket{}
 		_spec       = _q.querySpec()
-		loadedTypes = [14]bool{
+		loadedTypes = [16]bool{
 			_q.withProject != nil,
 			_q.withStatus != nil,
 			_q.withWorkflow != nil,
+			_q.withCurrentRun != nil,
 			_q.withTargetMachine != nil,
 			_q.withAssignedAgent != nil,
 			_q.withParent != nil,
@@ -850,6 +922,7 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 			_q.withExternalLinks != nil,
 			_q.withAgentTokens != nil,
 			_q.withActivityEvents != nil,
+			_q.withAgentRuns != nil,
 			_q.withOutgoingDependencies != nil,
 			_q.withIncomingDependencies != nil,
 		}
@@ -887,6 +960,12 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 	if query := _q.withWorkflow; query != nil {
 		if err := _q.loadWorkflow(ctx, query, nodes, nil,
 			func(n *Ticket, e *Workflow) { n.Edges.Workflow = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCurrentRun; query != nil {
+		if err := _q.loadCurrentRun(ctx, query, nodes, nil,
+			func(n *Ticket, e *AgentRun) { n.Edges.CurrentRun = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -947,6 +1026,13 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 		if err := _q.loadActivityEvents(ctx, query, nodes,
 			func(n *Ticket) { n.Edges.ActivityEvents = []*ActivityEvent{} },
 			func(n *Ticket, e *ActivityEvent) { n.Edges.ActivityEvents = append(n.Edges.ActivityEvents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentRuns; query != nil {
+		if err := _q.loadAgentRuns(ctx, query, nodes,
+			func(n *Ticket) { n.Edges.AgentRuns = []*AgentRun{} },
+			func(n *Ticket, e *AgentRun) { n.Edges.AgentRuns = append(n.Edges.AgentRuns, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1054,6 +1140,38 @@ func (_q *TicketQuery) loadWorkflow(ctx context.Context, query *WorkflowQuery, n
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "workflow_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *TicketQuery) loadCurrentRun(ctx context.Context, query *AgentRunQuery, nodes []*Ticket, init func(*Ticket), assign func(*Ticket, *AgentRun)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Ticket)
+	for i := range nodes {
+		if nodes[i].CurrentRunID == nil {
+			continue
+		}
+		fk := *nodes[i].CurrentRunID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(agentrun.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "current_run_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -1343,6 +1461,36 @@ func (_q *TicketQuery) loadActivityEvents(ctx context.Context, query *ActivityEv
 	}
 	return nil
 }
+func (_q *TicketQuery) loadAgentRuns(ctx context.Context, query *AgentRunQuery, nodes []*Ticket, init func(*Ticket), assign func(*Ticket, *AgentRun)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Ticket)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agentrun.FieldTicketID)
+	}
+	query.Where(predicate.AgentRun(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(ticket.AgentRunsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.TicketID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "ticket_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
 func (_q *TicketQuery) loadOutgoingDependencies(ctx context.Context, query *TicketDependencyQuery, nodes []*Ticket, init func(*Ticket), assign func(*Ticket, *TicketDependency)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[uuid.UUID]*Ticket)
@@ -1437,6 +1585,9 @@ func (_q *TicketQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withWorkflow != nil {
 			_spec.Node.AddColumnOnce(ticket.FieldWorkflowID)
+		}
+		if _q.withCurrentRun != nil {
+			_spec.Node.AddColumnOnce(ticket.FieldCurrentRunID)
 		}
 		if _q.withTargetMachine != nil {
 			_spec.Node.AddColumnOnce(ticket.FieldTargetMachineID)

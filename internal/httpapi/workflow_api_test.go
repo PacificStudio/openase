@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
@@ -564,7 +563,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetProviderID(provider.ID).
 		SetProjectID(project.ID).
 		SetName("claude-01").
-		SetStatus(entagent.StatusIdle).
 		SetTotalTicketsCompleted(47).
 		Save(ctx)
 	if err != nil {

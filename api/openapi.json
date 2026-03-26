@@ -30,18 +30,7 @@
                   "properties": {
                     "agent": {
                       "properties": {
-                        "current_ticket_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "id": {
-                          "type": "string"
-                        },
-                        "last_error": {
-                          "type": "string"
-                        },
-                        "last_heartbeat_at": {
-                          "nullable": true,
                           "type": "string"
                         },
                         "name": {
@@ -53,20 +42,41 @@
                         "provider_id": {
                           "type": "string"
                         },
-                        "runtime_control_state": {
-                          "type": "string"
-                        },
-                        "runtime_phase": {
-                          "type": "string"
-                        },
-                        "runtime_started_at": {
+                        "runtime": {
                           "nullable": true,
-                          "type": "string"
+                          "properties": {
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_ticket_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_error": {
+                              "type": "string"
+                            },
+                            "last_heartbeat_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "runtime_phase": {
+                              "type": "string"
+                            },
+                            "runtime_started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "session_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         },
-                        "session_id": {
-                          "type": "string"
-                        },
-                        "status": {
+                        "runtime_control_state": {
                           "type": "string"
                         },
                         "total_tickets_completed": {
@@ -189,18 +199,7 @@
                   "properties": {
                     "agent": {
                       "properties": {
-                        "current_ticket_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "id": {
-                          "type": "string"
-                        },
-                        "last_error": {
-                          "type": "string"
-                        },
-                        "last_heartbeat_at": {
-                          "nullable": true,
                           "type": "string"
                         },
                         "name": {
@@ -212,20 +211,41 @@
                         "provider_id": {
                           "type": "string"
                         },
-                        "runtime_control_state": {
-                          "type": "string"
-                        },
-                        "runtime_phase": {
-                          "type": "string"
-                        },
-                        "runtime_started_at": {
+                        "runtime": {
                           "nullable": true,
-                          "type": "string"
+                          "properties": {
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_ticket_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_error": {
+                              "type": "string"
+                            },
+                            "last_heartbeat_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "runtime_phase": {
+                              "type": "string"
+                            },
+                            "runtime_started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "session_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         },
-                        "session_id": {
-                          "type": "string"
-                        },
-                        "status": {
+                        "runtime_control_state": {
                           "type": "string"
                         },
                         "total_tickets_completed": {
@@ -332,18 +352,7 @@
                   "properties": {
                     "agent": {
                       "properties": {
-                        "current_ticket_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "id": {
-                          "type": "string"
-                        },
-                        "last_error": {
-                          "type": "string"
-                        },
-                        "last_heartbeat_at": {
-                          "nullable": true,
                           "type": "string"
                         },
                         "name": {
@@ -355,20 +364,41 @@
                         "provider_id": {
                           "type": "string"
                         },
-                        "runtime_control_state": {
-                          "type": "string"
-                        },
-                        "runtime_phase": {
-                          "type": "string"
-                        },
-                        "runtime_started_at": {
+                        "runtime": {
                           "nullable": true,
-                          "type": "string"
+                          "properties": {
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_ticket_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_error": {
+                              "type": "string"
+                            },
+                            "last_heartbeat_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "runtime_phase": {
+                              "type": "string"
+                            },
+                            "runtime_started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "session_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         },
-                        "session_id": {
-                          "type": "string"
-                        },
-                        "status": {
+                        "runtime_control_state": {
                           "type": "string"
                         },
                         "total_tickets_completed": {
@@ -493,18 +523,7 @@
                   "properties": {
                     "agent": {
                       "properties": {
-                        "current_ticket_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "id": {
-                          "type": "string"
-                        },
-                        "last_error": {
-                          "type": "string"
-                        },
-                        "last_heartbeat_at": {
-                          "nullable": true,
                           "type": "string"
                         },
                         "name": {
@@ -516,20 +535,41 @@
                         "provider_id": {
                           "type": "string"
                         },
-                        "runtime_control_state": {
-                          "type": "string"
-                        },
-                        "runtime_phase": {
-                          "type": "string"
-                        },
-                        "runtime_started_at": {
+                        "runtime": {
                           "nullable": true,
-                          "type": "string"
+                          "properties": {
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_ticket_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_error": {
+                              "type": "string"
+                            },
+                            "last_heartbeat_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "runtime_phase": {
+                              "type": "string"
+                            },
+                            "runtime_started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "session_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         },
-                        "session_id": {
-                          "type": "string"
-                        },
-                        "status": {
+                        "runtime_control_state": {
                           "type": "string"
                         },
                         "total_tickets_completed": {
@@ -5137,18 +5177,7 @@
                     "agents": {
                       "items": {
                         "properties": {
-                          "current_ticket_id": {
-                            "nullable": true,
-                            "type": "string"
-                          },
                           "id": {
-                            "type": "string"
-                          },
-                          "last_error": {
-                            "type": "string"
-                          },
-                          "last_heartbeat_at": {
-                            "nullable": true,
                             "type": "string"
                           },
                           "name": {
@@ -5160,20 +5189,41 @@
                           "provider_id": {
                             "type": "string"
                           },
-                          "runtime_control_state": {
-                            "type": "string"
-                          },
-                          "runtime_phase": {
-                            "type": "string"
-                          },
-                          "runtime_started_at": {
+                          "runtime": {
                             "nullable": true,
-                            "type": "string"
+                            "properties": {
+                              "current_run_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "current_ticket_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "last_error": {
+                                "type": "string"
+                              },
+                              "last_heartbeat_at": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "runtime_phase": {
+                                "type": "string"
+                              },
+                              "runtime_started_at": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "session_id": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
                           },
-                          "session_id": {
-                            "type": "string"
-                          },
-                          "status": {
+                          "runtime_control_state": {
                             "type": "string"
                           },
                           "total_tickets_completed": {
@@ -5302,18 +5352,7 @@
                   "properties": {
                     "agent": {
                       "properties": {
-                        "current_ticket_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "id": {
-                          "type": "string"
-                        },
-                        "last_error": {
-                          "type": "string"
-                        },
-                        "last_heartbeat_at": {
-                          "nullable": true,
                           "type": "string"
                         },
                         "name": {
@@ -5325,20 +5364,41 @@
                         "provider_id": {
                           "type": "string"
                         },
-                        "runtime_control_state": {
-                          "type": "string"
-                        },
-                        "runtime_phase": {
-                          "type": "string"
-                        },
-                        "runtime_started_at": {
+                        "runtime": {
                           "nullable": true,
-                          "type": "string"
+                          "properties": {
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_ticket_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_error": {
+                              "type": "string"
+                            },
+                            "last_heartbeat_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "runtime_phase": {
+                              "type": "string"
+                            },
+                            "runtime_started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "session_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         },
-                        "session_id": {
-                          "type": "string"
-                        },
-                        "status": {
+                        "runtime_control_state": {
                           "type": "string"
                         },
                         "total_tickets_completed": {

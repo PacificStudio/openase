@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -14,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -76,74 +76,6 @@ func (_u *AgentUpdate) SetNillableName(v *string) *AgentUpdate {
 	return _u
 }
 
-// SetStatus sets the "status" field.
-func (_u *AgentUpdate) SetStatus(v agent.Status) *AgentUpdate {
-	_u.mutation.SetStatus(v)
-	return _u
-}
-
-// SetNillableStatus sets the "status" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableStatus(v *agent.Status) *AgentUpdate {
-	if v != nil {
-		_u.SetStatus(*v)
-	}
-	return _u
-}
-
-// SetCurrentTicketID sets the "current_ticket_id" field.
-func (_u *AgentUpdate) SetCurrentTicketID(v uuid.UUID) *AgentUpdate {
-	_u.mutation.SetCurrentTicketID(v)
-	return _u
-}
-
-// SetNillableCurrentTicketID sets the "current_ticket_id" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableCurrentTicketID(v *uuid.UUID) *AgentUpdate {
-	if v != nil {
-		_u.SetCurrentTicketID(*v)
-	}
-	return _u
-}
-
-// ClearCurrentTicketID clears the value of the "current_ticket_id" field.
-func (_u *AgentUpdate) ClearCurrentTicketID() *AgentUpdate {
-	_u.mutation.ClearCurrentTicketID()
-	return _u
-}
-
-// SetSessionID sets the "session_id" field.
-func (_u *AgentUpdate) SetSessionID(v string) *AgentUpdate {
-	_u.mutation.SetSessionID(v)
-	return _u
-}
-
-// SetNillableSessionID sets the "session_id" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableSessionID(v *string) *AgentUpdate {
-	if v != nil {
-		_u.SetSessionID(*v)
-	}
-	return _u
-}
-
-// ClearSessionID clears the value of the "session_id" field.
-func (_u *AgentUpdate) ClearSessionID() *AgentUpdate {
-	_u.mutation.ClearSessionID()
-	return _u
-}
-
-// SetRuntimePhase sets the "runtime_phase" field.
-func (_u *AgentUpdate) SetRuntimePhase(v agent.RuntimePhase) *AgentUpdate {
-	_u.mutation.SetRuntimePhase(v)
-	return _u
-}
-
-// SetNillableRuntimePhase sets the "runtime_phase" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentUpdate {
-	if v != nil {
-		_u.SetRuntimePhase(*v)
-	}
-	return _u
-}
-
 // SetRuntimeControlState sets the "runtime_control_state" field.
 func (_u *AgentUpdate) SetRuntimeControlState(v agent.RuntimeControlState) *AgentUpdate {
 	_u.mutation.SetRuntimeControlState(v)
@@ -155,46 +87,6 @@ func (_u *AgentUpdate) SetNillableRuntimeControlState(v *agent.RuntimeControlSta
 	if v != nil {
 		_u.SetRuntimeControlState(*v)
 	}
-	return _u
-}
-
-// SetRuntimeStartedAt sets the "runtime_started_at" field.
-func (_u *AgentUpdate) SetRuntimeStartedAt(v time.Time) *AgentUpdate {
-	_u.mutation.SetRuntimeStartedAt(v)
-	return _u
-}
-
-// SetNillableRuntimeStartedAt sets the "runtime_started_at" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableRuntimeStartedAt(v *time.Time) *AgentUpdate {
-	if v != nil {
-		_u.SetRuntimeStartedAt(*v)
-	}
-	return _u
-}
-
-// ClearRuntimeStartedAt clears the value of the "runtime_started_at" field.
-func (_u *AgentUpdate) ClearRuntimeStartedAt() *AgentUpdate {
-	_u.mutation.ClearRuntimeStartedAt()
-	return _u
-}
-
-// SetLastError sets the "last_error" field.
-func (_u *AgentUpdate) SetLastError(v string) *AgentUpdate {
-	_u.mutation.SetLastError(v)
-	return _u
-}
-
-// SetNillableLastError sets the "last_error" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableLastError(v *string) *AgentUpdate {
-	if v != nil {
-		_u.SetLastError(*v)
-	}
-	return _u
-}
-
-// ClearLastError clears the value of the "last_error" field.
-func (_u *AgentUpdate) ClearLastError() *AgentUpdate {
-	_u.mutation.ClearLastError()
 	return _u
 }
 
@@ -260,26 +152,6 @@ func (_u *AgentUpdate) AddTotalTicketsCompleted(v int) *AgentUpdate {
 	return _u
 }
 
-// SetLastHeartbeatAt sets the "last_heartbeat_at" field.
-func (_u *AgentUpdate) SetLastHeartbeatAt(v time.Time) *AgentUpdate {
-	_u.mutation.SetLastHeartbeatAt(v)
-	return _u
-}
-
-// SetNillableLastHeartbeatAt sets the "last_heartbeat_at" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableLastHeartbeatAt(v *time.Time) *AgentUpdate {
-	if v != nil {
-		_u.SetLastHeartbeatAt(*v)
-	}
-	return _u
-}
-
-// ClearLastHeartbeatAt clears the value of the "last_heartbeat_at" field.
-func (_u *AgentUpdate) ClearLastHeartbeatAt() *AgentUpdate {
-	_u.mutation.ClearLastHeartbeatAt()
-	return _u
-}
-
 // SetProvider sets the "provider" edge to the AgentProvider entity.
 func (_u *AgentUpdate) SetProvider(v *AgentProvider) *AgentUpdate {
 	return _u.SetProviderID(v.ID)
@@ -288,11 +160,6 @@ func (_u *AgentUpdate) SetProvider(v *AgentProvider) *AgentUpdate {
 // SetProject sets the "project" edge to the Project entity.
 func (_u *AgentUpdate) SetProject(v *Project) *AgentUpdate {
 	return _u.SetProjectID(v.ID)
-}
-
-// SetCurrentTicket sets the "current_ticket" edge to the Ticket entity.
-func (_u *AgentUpdate) SetCurrentTicket(v *Ticket) *AgentUpdate {
-	return _u.SetCurrentTicketID(v.ID)
 }
 
 // AddAssignedTicketIDs adds the "assigned_tickets" edge to the Ticket entity by IDs.
@@ -308,6 +175,21 @@ func (_u *AgentUpdate) AddAssignedTickets(v ...*Ticket) *AgentUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddAssignedTicketIDs(ids...)
+}
+
+// AddRunIDs adds the "runs" edge to the AgentRun entity by IDs.
+func (_u *AgentUpdate) AddRunIDs(ids ...uuid.UUID) *AgentUpdate {
+	_u.mutation.AddRunIDs(ids...)
+	return _u
+}
+
+// AddRuns adds the "runs" edges to the AgentRun entity.
+func (_u *AgentUpdate) AddRuns(v ...*AgentRun) *AgentUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRunIDs(ids...)
 }
 
 // AddTokenIDs adds the "tokens" edge to the AgentToken entity by IDs.
@@ -357,12 +239,6 @@ func (_u *AgentUpdate) ClearProject() *AgentUpdate {
 	return _u
 }
 
-// ClearCurrentTicket clears the "current_ticket" edge to the Ticket entity.
-func (_u *AgentUpdate) ClearCurrentTicket() *AgentUpdate {
-	_u.mutation.ClearCurrentTicket()
-	return _u
-}
-
 // ClearAssignedTickets clears all "assigned_tickets" edges to the Ticket entity.
 func (_u *AgentUpdate) ClearAssignedTickets() *AgentUpdate {
 	_u.mutation.ClearAssignedTickets()
@@ -382,6 +258,27 @@ func (_u *AgentUpdate) RemoveAssignedTickets(v ...*Ticket) *AgentUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAssignedTicketIDs(ids...)
+}
+
+// ClearRuns clears all "runs" edges to the AgentRun entity.
+func (_u *AgentUpdate) ClearRuns() *AgentUpdate {
+	_u.mutation.ClearRuns()
+	return _u
+}
+
+// RemoveRunIDs removes the "runs" edge to AgentRun entities by IDs.
+func (_u *AgentUpdate) RemoveRunIDs(ids ...uuid.UUID) *AgentUpdate {
+	_u.mutation.RemoveRunIDs(ids...)
+	return _u
+}
+
+// RemoveRuns removes "runs" edges to AgentRun entities.
+func (_u *AgentUpdate) RemoveRuns(v ...*AgentRun) *AgentUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRunIDs(ids...)
 }
 
 // ClearTokens clears all "tokens" edges to the AgentToken entity.
@@ -460,16 +357,6 @@ func (_u *AgentUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Status(); ok {
-		if err := agent.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Agent.status": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.RuntimePhase(); ok {
-		if err := agent.RuntimePhaseValidator(v); err != nil {
-			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.RuntimeControlState(); ok {
 		if err := agent.RuntimeControlStateValidator(v); err != nil {
 			return &ValidationError{Name: "runtime_control_state", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_control_state": %w`, err)}
@@ -499,32 +386,8 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(agent.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.Status(); ok {
-		_spec.SetField(agent.FieldStatus, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.SessionID(); ok {
-		_spec.SetField(agent.FieldSessionID, field.TypeString, value)
-	}
-	if _u.mutation.SessionIDCleared() {
-		_spec.ClearField(agent.FieldSessionID, field.TypeString)
-	}
-	if value, ok := _u.mutation.RuntimePhase(); ok {
-		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
-	}
 	if value, ok := _u.mutation.RuntimeControlState(); ok {
 		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.RuntimeStartedAt(); ok {
-		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)
-	}
-	if _u.mutation.RuntimeStartedAtCleared() {
-		_spec.ClearField(agent.FieldRuntimeStartedAt, field.TypeTime)
-	}
-	if value, ok := _u.mutation.LastError(); ok {
-		_spec.SetField(agent.FieldLastError, field.TypeString, value)
-	}
-	if _u.mutation.LastErrorCleared() {
-		_spec.ClearField(agent.FieldLastError, field.TypeString)
 	}
 	if value, ok := _u.mutation.WorkspacePath(); ok {
 		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)
@@ -543,12 +406,6 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedTotalTicketsCompleted(); ok {
 		_spec.AddField(agent.FieldTotalTicketsCompleted, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.LastHeartbeatAt(); ok {
-		_spec.SetField(agent.FieldLastHeartbeatAt, field.TypeTime, value)
-	}
-	if _u.mutation.LastHeartbeatAtCleared() {
-		_spec.ClearField(agent.FieldLastHeartbeatAt, field.TypeTime)
 	}
 	if _u.mutation.ProviderCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -608,35 +465,6 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.CurrentTicketCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   agent.CurrentTicketTable,
-			Columns: []string{agent.CurrentTicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.CurrentTicketIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   agent.CurrentTicketTable,
-			Columns: []string{agent.CurrentTicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if _u.mutation.AssignedTicketsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -675,6 +503,51 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRunsIDs(); len(nodes) > 0 && !_u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -834,74 +707,6 @@ func (_u *AgentUpdateOne) SetNillableName(v *string) *AgentUpdateOne {
 	return _u
 }
 
-// SetStatus sets the "status" field.
-func (_u *AgentUpdateOne) SetStatus(v agent.Status) *AgentUpdateOne {
-	_u.mutation.SetStatus(v)
-	return _u
-}
-
-// SetNillableStatus sets the "status" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableStatus(v *agent.Status) *AgentUpdateOne {
-	if v != nil {
-		_u.SetStatus(*v)
-	}
-	return _u
-}
-
-// SetCurrentTicketID sets the "current_ticket_id" field.
-func (_u *AgentUpdateOne) SetCurrentTicketID(v uuid.UUID) *AgentUpdateOne {
-	_u.mutation.SetCurrentTicketID(v)
-	return _u
-}
-
-// SetNillableCurrentTicketID sets the "current_ticket_id" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableCurrentTicketID(v *uuid.UUID) *AgentUpdateOne {
-	if v != nil {
-		_u.SetCurrentTicketID(*v)
-	}
-	return _u
-}
-
-// ClearCurrentTicketID clears the value of the "current_ticket_id" field.
-func (_u *AgentUpdateOne) ClearCurrentTicketID() *AgentUpdateOne {
-	_u.mutation.ClearCurrentTicketID()
-	return _u
-}
-
-// SetSessionID sets the "session_id" field.
-func (_u *AgentUpdateOne) SetSessionID(v string) *AgentUpdateOne {
-	_u.mutation.SetSessionID(v)
-	return _u
-}
-
-// SetNillableSessionID sets the "session_id" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableSessionID(v *string) *AgentUpdateOne {
-	if v != nil {
-		_u.SetSessionID(*v)
-	}
-	return _u
-}
-
-// ClearSessionID clears the value of the "session_id" field.
-func (_u *AgentUpdateOne) ClearSessionID() *AgentUpdateOne {
-	_u.mutation.ClearSessionID()
-	return _u
-}
-
-// SetRuntimePhase sets the "runtime_phase" field.
-func (_u *AgentUpdateOne) SetRuntimePhase(v agent.RuntimePhase) *AgentUpdateOne {
-	_u.mutation.SetRuntimePhase(v)
-	return _u
-}
-
-// SetNillableRuntimePhase sets the "runtime_phase" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentUpdateOne {
-	if v != nil {
-		_u.SetRuntimePhase(*v)
-	}
-	return _u
-}
-
 // SetRuntimeControlState sets the "runtime_control_state" field.
 func (_u *AgentUpdateOne) SetRuntimeControlState(v agent.RuntimeControlState) *AgentUpdateOne {
 	_u.mutation.SetRuntimeControlState(v)
@@ -913,46 +718,6 @@ func (_u *AgentUpdateOne) SetNillableRuntimeControlState(v *agent.RuntimeControl
 	if v != nil {
 		_u.SetRuntimeControlState(*v)
 	}
-	return _u
-}
-
-// SetRuntimeStartedAt sets the "runtime_started_at" field.
-func (_u *AgentUpdateOne) SetRuntimeStartedAt(v time.Time) *AgentUpdateOne {
-	_u.mutation.SetRuntimeStartedAt(v)
-	return _u
-}
-
-// SetNillableRuntimeStartedAt sets the "runtime_started_at" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableRuntimeStartedAt(v *time.Time) *AgentUpdateOne {
-	if v != nil {
-		_u.SetRuntimeStartedAt(*v)
-	}
-	return _u
-}
-
-// ClearRuntimeStartedAt clears the value of the "runtime_started_at" field.
-func (_u *AgentUpdateOne) ClearRuntimeStartedAt() *AgentUpdateOne {
-	_u.mutation.ClearRuntimeStartedAt()
-	return _u
-}
-
-// SetLastError sets the "last_error" field.
-func (_u *AgentUpdateOne) SetLastError(v string) *AgentUpdateOne {
-	_u.mutation.SetLastError(v)
-	return _u
-}
-
-// SetNillableLastError sets the "last_error" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableLastError(v *string) *AgentUpdateOne {
-	if v != nil {
-		_u.SetLastError(*v)
-	}
-	return _u
-}
-
-// ClearLastError clears the value of the "last_error" field.
-func (_u *AgentUpdateOne) ClearLastError() *AgentUpdateOne {
-	_u.mutation.ClearLastError()
 	return _u
 }
 
@@ -1018,26 +783,6 @@ func (_u *AgentUpdateOne) AddTotalTicketsCompleted(v int) *AgentUpdateOne {
 	return _u
 }
 
-// SetLastHeartbeatAt sets the "last_heartbeat_at" field.
-func (_u *AgentUpdateOne) SetLastHeartbeatAt(v time.Time) *AgentUpdateOne {
-	_u.mutation.SetLastHeartbeatAt(v)
-	return _u
-}
-
-// SetNillableLastHeartbeatAt sets the "last_heartbeat_at" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableLastHeartbeatAt(v *time.Time) *AgentUpdateOne {
-	if v != nil {
-		_u.SetLastHeartbeatAt(*v)
-	}
-	return _u
-}
-
-// ClearLastHeartbeatAt clears the value of the "last_heartbeat_at" field.
-func (_u *AgentUpdateOne) ClearLastHeartbeatAt() *AgentUpdateOne {
-	_u.mutation.ClearLastHeartbeatAt()
-	return _u
-}
-
 // SetProvider sets the "provider" edge to the AgentProvider entity.
 func (_u *AgentUpdateOne) SetProvider(v *AgentProvider) *AgentUpdateOne {
 	return _u.SetProviderID(v.ID)
@@ -1046,11 +791,6 @@ func (_u *AgentUpdateOne) SetProvider(v *AgentProvider) *AgentUpdateOne {
 // SetProject sets the "project" edge to the Project entity.
 func (_u *AgentUpdateOne) SetProject(v *Project) *AgentUpdateOne {
 	return _u.SetProjectID(v.ID)
-}
-
-// SetCurrentTicket sets the "current_ticket" edge to the Ticket entity.
-func (_u *AgentUpdateOne) SetCurrentTicket(v *Ticket) *AgentUpdateOne {
-	return _u.SetCurrentTicketID(v.ID)
 }
 
 // AddAssignedTicketIDs adds the "assigned_tickets" edge to the Ticket entity by IDs.
@@ -1066,6 +806,21 @@ func (_u *AgentUpdateOne) AddAssignedTickets(v ...*Ticket) *AgentUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.AddAssignedTicketIDs(ids...)
+}
+
+// AddRunIDs adds the "runs" edge to the AgentRun entity by IDs.
+func (_u *AgentUpdateOne) AddRunIDs(ids ...uuid.UUID) *AgentUpdateOne {
+	_u.mutation.AddRunIDs(ids...)
+	return _u
+}
+
+// AddRuns adds the "runs" edges to the AgentRun entity.
+func (_u *AgentUpdateOne) AddRuns(v ...*AgentRun) *AgentUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRunIDs(ids...)
 }
 
 // AddTokenIDs adds the "tokens" edge to the AgentToken entity by IDs.
@@ -1115,12 +870,6 @@ func (_u *AgentUpdateOne) ClearProject() *AgentUpdateOne {
 	return _u
 }
 
-// ClearCurrentTicket clears the "current_ticket" edge to the Ticket entity.
-func (_u *AgentUpdateOne) ClearCurrentTicket() *AgentUpdateOne {
-	_u.mutation.ClearCurrentTicket()
-	return _u
-}
-
 // ClearAssignedTickets clears all "assigned_tickets" edges to the Ticket entity.
 func (_u *AgentUpdateOne) ClearAssignedTickets() *AgentUpdateOne {
 	_u.mutation.ClearAssignedTickets()
@@ -1140,6 +889,27 @@ func (_u *AgentUpdateOne) RemoveAssignedTickets(v ...*Ticket) *AgentUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAssignedTicketIDs(ids...)
+}
+
+// ClearRuns clears all "runs" edges to the AgentRun entity.
+func (_u *AgentUpdateOne) ClearRuns() *AgentUpdateOne {
+	_u.mutation.ClearRuns()
+	return _u
+}
+
+// RemoveRunIDs removes the "runs" edge to AgentRun entities by IDs.
+func (_u *AgentUpdateOne) RemoveRunIDs(ids ...uuid.UUID) *AgentUpdateOne {
+	_u.mutation.RemoveRunIDs(ids...)
+	return _u
+}
+
+// RemoveRuns removes "runs" edges to AgentRun entities.
+func (_u *AgentUpdateOne) RemoveRuns(v ...*AgentRun) *AgentUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRunIDs(ids...)
 }
 
 // ClearTokens clears all "tokens" edges to the AgentToken entity.
@@ -1231,16 +1001,6 @@ func (_u *AgentUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Status(); ok {
-		if err := agent.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Agent.status": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.RuntimePhase(); ok {
-		if err := agent.RuntimePhaseValidator(v); err != nil {
-			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.RuntimeControlState(); ok {
 		if err := agent.RuntimeControlStateValidator(v); err != nil {
 			return &ValidationError{Name: "runtime_control_state", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_control_state": %w`, err)}
@@ -1287,32 +1047,8 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(agent.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.Status(); ok {
-		_spec.SetField(agent.FieldStatus, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.SessionID(); ok {
-		_spec.SetField(agent.FieldSessionID, field.TypeString, value)
-	}
-	if _u.mutation.SessionIDCleared() {
-		_spec.ClearField(agent.FieldSessionID, field.TypeString)
-	}
-	if value, ok := _u.mutation.RuntimePhase(); ok {
-		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
-	}
 	if value, ok := _u.mutation.RuntimeControlState(); ok {
 		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.RuntimeStartedAt(); ok {
-		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)
-	}
-	if _u.mutation.RuntimeStartedAtCleared() {
-		_spec.ClearField(agent.FieldRuntimeStartedAt, field.TypeTime)
-	}
-	if value, ok := _u.mutation.LastError(); ok {
-		_spec.SetField(agent.FieldLastError, field.TypeString, value)
-	}
-	if _u.mutation.LastErrorCleared() {
-		_spec.ClearField(agent.FieldLastError, field.TypeString)
 	}
 	if value, ok := _u.mutation.WorkspacePath(); ok {
 		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)
@@ -1331,12 +1067,6 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if value, ok := _u.mutation.AddedTotalTicketsCompleted(); ok {
 		_spec.AddField(agent.FieldTotalTicketsCompleted, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.LastHeartbeatAt(); ok {
-		_spec.SetField(agent.FieldLastHeartbeatAt, field.TypeTime, value)
-	}
-	if _u.mutation.LastHeartbeatAtCleared() {
-		_spec.ClearField(agent.FieldLastHeartbeatAt, field.TypeTime)
 	}
 	if _u.mutation.ProviderCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1396,35 +1126,6 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.CurrentTicketCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   agent.CurrentTicketTable,
-			Columns: []string{agent.CurrentTicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.CurrentTicketIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   agent.CurrentTicketTable,
-			Columns: []string{agent.CurrentTicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if _u.mutation.AssignedTicketsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1463,6 +1164,51 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRunsIDs(); len(nodes) > 0 && !_u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

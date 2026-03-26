@@ -32,6 +32,8 @@ const (
 	FieldType = "type"
 	// FieldWorkflowID holds the string denoting the workflow_id field in the database.
 	FieldWorkflowID = "workflow_id"
+	// FieldCurrentRunID holds the string denoting the current_run_id field in the database.
+	FieldCurrentRunID = "current_run_id"
 	// FieldTargetMachineID holds the string denoting the target_machine_id field in the database.
 	FieldTargetMachineID = "target_machine_id"
 	// FieldAssignedAgentID holds the string denoting the assigned_agent_id field in the database.
@@ -80,6 +82,8 @@ const (
 	EdgeStatus = "status"
 	// EdgeWorkflow holds the string denoting the workflow edge name in mutations.
 	EdgeWorkflow = "workflow"
+	// EdgeCurrentRun holds the string denoting the current_run edge name in mutations.
+	EdgeCurrentRun = "current_run"
 	// EdgeTargetMachine holds the string denoting the target_machine edge name in mutations.
 	EdgeTargetMachine = "target_machine"
 	// EdgeAssignedAgent holds the string denoting the assigned_agent edge name in mutations.
@@ -98,6 +102,8 @@ const (
 	EdgeAgentTokens = "agent_tokens"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
 	EdgeActivityEvents = "activity_events"
+	// EdgeAgentRuns holds the string denoting the agent_runs edge name in mutations.
+	EdgeAgentRuns = "agent_runs"
 	// EdgeOutgoingDependencies holds the string denoting the outgoing_dependencies edge name in mutations.
 	EdgeOutgoingDependencies = "outgoing_dependencies"
 	// EdgeIncomingDependencies holds the string denoting the incoming_dependencies edge name in mutations.
@@ -125,6 +131,13 @@ const (
 	WorkflowInverseTable = "workflows"
 	// WorkflowColumn is the table column denoting the workflow relation/edge.
 	WorkflowColumn = "workflow_id"
+	// CurrentRunTable is the table that holds the current_run relation/edge.
+	CurrentRunTable = "tickets"
+	// CurrentRunInverseTable is the table name for the AgentRun entity.
+	// It exists in this package in order to avoid circular dependency with the "agentrun" package.
+	CurrentRunInverseTable = "agent_runs"
+	// CurrentRunColumn is the table column denoting the current_run relation/edge.
+	CurrentRunColumn = "current_run_id"
 	// TargetMachineTable is the table that holds the target_machine relation/edge.
 	TargetMachineTable = "tickets"
 	// TargetMachineInverseTable is the table name for the Machine entity.
@@ -182,6 +195,13 @@ const (
 	ActivityEventsInverseTable = "activity_events"
 	// ActivityEventsColumn is the table column denoting the activity_events relation/edge.
 	ActivityEventsColumn = "ticket_id"
+	// AgentRunsTable is the table that holds the agent_runs relation/edge.
+	AgentRunsTable = "agent_runs"
+	// AgentRunsInverseTable is the table name for the AgentRun entity.
+	// It exists in this package in order to avoid circular dependency with the "agentrun" package.
+	AgentRunsInverseTable = "agent_runs"
+	// AgentRunsColumn is the table column denoting the agent_runs relation/edge.
+	AgentRunsColumn = "ticket_id"
 	// OutgoingDependenciesTable is the table that holds the outgoing_dependencies relation/edge.
 	OutgoingDependenciesTable = "ticket_dependencies"
 	// OutgoingDependenciesInverseTable is the table name for the TicketDependency entity.
@@ -209,6 +229,7 @@ var Columns = []string{
 	FieldPriority,
 	FieldType,
 	FieldWorkflowID,
+	FieldCurrentRunID,
 	FieldTargetMachineID,
 	FieldAssignedAgentID,
 	FieldCreatedBy,
@@ -380,6 +401,11 @@ func ByWorkflowID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWorkflowID, opts...).ToFunc()
 }
 
+// ByCurrentRunID orders the results by the current_run_id field.
+func ByCurrentRunID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCurrentRunID, opts...).ToFunc()
+}
+
 // ByTargetMachineID orders the results by the target_machine_id field.
 func ByTargetMachineID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTargetMachineID, opts...).ToFunc()
@@ -501,6 +527,13 @@ func ByWorkflowField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByCurrentRunField orders the results by current_run field.
+func ByCurrentRunField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCurrentRunStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByTargetMachineField orders the results by target_machine field.
 func ByTargetMachineField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -606,6 +639,20 @@ func ByActivityEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAgentRunsCount orders the results by agent_runs count.
+func ByAgentRunsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentRunsStep(), opts...)
+	}
+}
+
+// ByAgentRuns orders the results by agent_runs terms.
+func ByAgentRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentRunsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByOutgoingDependenciesCount orders the results by outgoing_dependencies count.
 func ByOutgoingDependenciesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -652,6 +699,13 @@ func newWorkflowStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(WorkflowInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, WorkflowTable, WorkflowColumn),
+	)
+}
+func newCurrentRunStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CurrentRunInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, CurrentRunTable, CurrentRunColumn),
 	)
 }
 func newTargetMachineStep() *sqlgraph.Step {
@@ -715,6 +769,13 @@ func newActivityEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ActivityEventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ActivityEventsTable, ActivityEventsColumn),
+	)
+}
+func newAgentRunsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentRunsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentRunsTable, AgentRunsColumn),
 	)
 }
 func newOutgoingDependenciesStep() *sqlgraph.Step {

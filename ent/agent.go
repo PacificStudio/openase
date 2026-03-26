@@ -5,14 +5,12 @@ package ent
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/project"
-	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/google/uuid"
 )
 
@@ -27,28 +25,14 @@ type Agent struct {
 	ProjectID uuid.UUID `json:"project_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
-	// Status holds the value of the "status" field.
-	Status agent.Status `json:"status,omitempty"`
-	// CurrentTicketID holds the value of the "current_ticket_id" field.
-	CurrentTicketID *uuid.UUID `json:"current_ticket_id,omitempty"`
-	// SessionID holds the value of the "session_id" field.
-	SessionID string `json:"session_id,omitempty"`
-	// RuntimePhase holds the value of the "runtime_phase" field.
-	RuntimePhase agent.RuntimePhase `json:"runtime_phase,omitempty"`
 	// RuntimeControlState holds the value of the "runtime_control_state" field.
 	RuntimeControlState agent.RuntimeControlState `json:"runtime_control_state,omitempty"`
-	// RuntimeStartedAt holds the value of the "runtime_started_at" field.
-	RuntimeStartedAt *time.Time `json:"runtime_started_at,omitempty"`
-	// LastError holds the value of the "last_error" field.
-	LastError string `json:"last_error,omitempty"`
 	// WorkspacePath holds the value of the "workspace_path" field.
 	WorkspacePath string `json:"workspace_path,omitempty"`
 	// TotalTokensUsed holds the value of the "total_tokens_used" field.
 	TotalTokensUsed int64 `json:"total_tokens_used,omitempty"`
 	// TotalTicketsCompleted holds the value of the "total_tickets_completed" field.
 	TotalTicketsCompleted int `json:"total_tickets_completed,omitempty"`
-	// LastHeartbeatAt holds the value of the "last_heartbeat_at" field.
-	LastHeartbeatAt *time.Time `json:"last_heartbeat_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AgentQuery when eager-loading is set.
 	Edges        AgentEdges `json:"edges"`
@@ -61,10 +45,10 @@ type AgentEdges struct {
 	Provider *AgentProvider `json:"provider,omitempty"`
 	// Project holds the value of the project edge.
 	Project *Project `json:"project,omitempty"`
-	// CurrentTicket holds the value of the current_ticket edge.
-	CurrentTicket *Ticket `json:"current_ticket,omitempty"`
 	// AssignedTickets holds the value of the assigned_tickets edge.
 	AssignedTickets []*Ticket `json:"assigned_tickets,omitempty"`
+	// Runs holds the value of the runs edge.
+	Runs []*AgentRun `json:"runs,omitempty"`
 	// Tokens holds the value of the tokens edge.
 	Tokens []*AgentToken `json:"tokens,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
@@ -96,24 +80,22 @@ func (e AgentEdges) ProjectOrErr() (*Project, error) {
 	return nil, &NotLoadedError{edge: "project"}
 }
 
-// CurrentTicketOrErr returns the CurrentTicket value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e AgentEdges) CurrentTicketOrErr() (*Ticket, error) {
-	if e.CurrentTicket != nil {
-		return e.CurrentTicket, nil
-	} else if e.loadedTypes[2] {
-		return nil, &NotFoundError{label: ticket.Label}
-	}
-	return nil, &NotLoadedError{edge: "current_ticket"}
-}
-
 // AssignedTicketsOrErr returns the AssignedTickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) AssignedTicketsOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[2] {
 		return e.AssignedTickets, nil
 	}
 	return nil, &NotLoadedError{edge: "assigned_tickets"}
+}
+
+// RunsOrErr returns the Runs value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) RunsOrErr() ([]*AgentRun, error) {
+	if e.loadedTypes[3] {
+		return e.Runs, nil
+	}
+	return nil, &NotLoadedError{edge: "runs"}
 }
 
 // TokensOrErr returns the Tokens value or an error if the edge
@@ -139,14 +121,10 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case agent.FieldCurrentTicketID:
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case agent.FieldTotalTokensUsed, agent.FieldTotalTicketsCompleted:
 			values[i] = new(sql.NullInt64)
-		case agent.FieldName, agent.FieldStatus, agent.FieldSessionID, agent.FieldRuntimePhase, agent.FieldRuntimeControlState, agent.FieldLastError, agent.FieldWorkspacePath:
+		case agent.FieldName, agent.FieldRuntimeControlState, agent.FieldWorkspacePath:
 			values[i] = new(sql.NullString)
-		case agent.FieldRuntimeStartedAt, agent.FieldLastHeartbeatAt:
-			values[i] = new(sql.NullTime)
 		case agent.FieldID, agent.FieldProviderID, agent.FieldProjectID:
 			values[i] = new(uuid.UUID)
 		default:
@@ -188,49 +166,11 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Name = value.String
 			}
-		case agent.FieldStatus:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field status", values[i])
-			} else if value.Valid {
-				_m.Status = agent.Status(value.String)
-			}
-		case agent.FieldCurrentTicketID:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field current_ticket_id", values[i])
-			} else if value.Valid {
-				_m.CurrentTicketID = new(uuid.UUID)
-				*_m.CurrentTicketID = *value.S.(*uuid.UUID)
-			}
-		case agent.FieldSessionID:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field session_id", values[i])
-			} else if value.Valid {
-				_m.SessionID = value.String
-			}
-		case agent.FieldRuntimePhase:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field runtime_phase", values[i])
-			} else if value.Valid {
-				_m.RuntimePhase = agent.RuntimePhase(value.String)
-			}
 		case agent.FieldRuntimeControlState:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field runtime_control_state", values[i])
 			} else if value.Valid {
 				_m.RuntimeControlState = agent.RuntimeControlState(value.String)
-			}
-		case agent.FieldRuntimeStartedAt:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field runtime_started_at", values[i])
-			} else if value.Valid {
-				_m.RuntimeStartedAt = new(time.Time)
-				*_m.RuntimeStartedAt = value.Time
-			}
-		case agent.FieldLastError:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field last_error", values[i])
-			} else if value.Valid {
-				_m.LastError = value.String
 			}
 		case agent.FieldWorkspacePath:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -249,13 +189,6 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field total_tickets_completed", values[i])
 			} else if value.Valid {
 				_m.TotalTicketsCompleted = int(value.Int64)
-			}
-		case agent.FieldLastHeartbeatAt:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field last_heartbeat_at", values[i])
-			} else if value.Valid {
-				_m.LastHeartbeatAt = new(time.Time)
-				*_m.LastHeartbeatAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -280,14 +213,14 @@ func (_m *Agent) QueryProject() *ProjectQuery {
 	return NewAgentClient(_m.config).QueryProject(_m)
 }
 
-// QueryCurrentTicket queries the "current_ticket" edge of the Agent entity.
-func (_m *Agent) QueryCurrentTicket() *TicketQuery {
-	return NewAgentClient(_m.config).QueryCurrentTicket(_m)
-}
-
 // QueryAssignedTickets queries the "assigned_tickets" edge of the Agent entity.
 func (_m *Agent) QueryAssignedTickets() *TicketQuery {
 	return NewAgentClient(_m.config).QueryAssignedTickets(_m)
+}
+
+// QueryRuns queries the "runs" edge of the Agent entity.
+func (_m *Agent) QueryRuns() *AgentRunQuery {
+	return NewAgentClient(_m.config).QueryRuns(_m)
 }
 
 // QueryTokens queries the "tokens" edge of the Agent entity.
@@ -332,30 +265,8 @@ func (_m *Agent) String() string {
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
-	builder.WriteString("status=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Status))
-	builder.WriteString(", ")
-	if v := _m.CurrentTicketID; v != nil {
-		builder.WriteString("current_ticket_id=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	builder.WriteString("session_id=")
-	builder.WriteString(_m.SessionID)
-	builder.WriteString(", ")
-	builder.WriteString("runtime_phase=")
-	builder.WriteString(fmt.Sprintf("%v", _m.RuntimePhase))
-	builder.WriteString(", ")
 	builder.WriteString("runtime_control_state=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RuntimeControlState))
-	builder.WriteString(", ")
-	if v := _m.RuntimeStartedAt; v != nil {
-		builder.WriteString("runtime_started_at=")
-		builder.WriteString(v.Format(time.ANSIC))
-	}
-	builder.WriteString(", ")
-	builder.WriteString("last_error=")
-	builder.WriteString(_m.LastError)
 	builder.WriteString(", ")
 	builder.WriteString("workspace_path=")
 	builder.WriteString(_m.WorkspacePath)
@@ -365,11 +276,6 @@ func (_m *Agent) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("total_tickets_completed=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TotalTicketsCompleted))
-	builder.WriteString(", ")
-	if v := _m.LastHeartbeatAt; v != nil {
-		builder.WriteString("last_heartbeat_at=")
-		builder.WriteString(v.Format(time.ANSIC))
-	}
 	builder.WriteByte(')')
 	return builder.String()
 }

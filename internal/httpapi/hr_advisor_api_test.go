@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -115,17 +115,18 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create agent provider: %v", err)
 	}
-	if _, err := client.Agent.Create().
+	agentItem, err := client.Agent.Create().
 		SetProviderID(provider.ID).
 		SetProjectID(project.ID).
 		SetName("codex-1").
-		SetStatus(entagent.StatusRunning).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
 
+	var activeTicketID uuid.UUID
 	for index := 0; index < 4; index++ {
-		if _, err := client.Ticket.Create().
+		ticketItem, err := client.Ticket.Create().
 			SetProjectID(project.ID).
 			SetIdentifier(fmt.Sprintf("ASE-%d", index+1)).
 			SetTitle(fmt.Sprintf("Ticket %d", index+1)).
@@ -134,9 +135,30 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 			SetType(entticket.TypeFeature).
 			SetWorkflowID(parseUUID(t, workflowResp.Workflow.ID)).
 			SetCreatedBy("user:test").
-			Save(ctx); err != nil {
+			Save(ctx)
+		if err != nil {
 			t.Fatalf("create ticket %d: %v", index+1, err)
 		}
+		if index == 0 {
+			activeTicketID = ticketItem.ID
+		}
+	}
+
+	runItem, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(parseUUID(t, workflowResp.Workflow.ID)).
+		SetTicketID(activeTicketID).
+		SetProviderID(provider.ID).
+		SetStatus(entagentrun.StatusExecuting).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create active run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(activeTicketID).
+		SetAssignedAgentID(agentItem.ID).
+		SetCurrentRunID(runItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind active run to ticket: %v", err)
 	}
 
 	resp := struct {

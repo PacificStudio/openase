@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -93,6 +94,7 @@ func checkColumn(t, c string) error {
 			activityevent.Table:       activityevent.ValidColumn,
 			agent.Table:               agent.ValidColumn,
 			agentprovider.Table:       agentprovider.ValidColumn,
+			agentrun.Table:            agentrun.ValidColumn,
 			agenttoken.Table:          agenttoken.ValidColumn,
 			machine.Table:             machine.ValidColumn,
 			notificationchannel.Table: notificationchannel.ValidColumn,

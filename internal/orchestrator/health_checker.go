@@ -8,6 +8,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 )
 
@@ -61,13 +62,21 @@ func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 	now := h.now().UTC()
 	tickets, err := h.client.Ticket.Query().
 		Where(
-			entticket.AssignedAgentIDNotNil(),
+			entticket.CurrentRunIDNotNil(),
 			entticket.HasAssignedAgentWith(
-				entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
 				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
+			),
+			entticket.HasCurrentRunWith(
+				entagentrun.StatusIn(
+					entagentrun.StatusLaunching,
+					entagentrun.StatusReady,
+					entagentrun.StatusExecuting,
+					entagentrun.StatusErrored,
+				),
 			),
 		).
 		WithAssignedAgent().
+		WithCurrentRun().
 		WithWorkflow().
 		Order(ent.Asc(entticket.FieldCreatedAt)).
 		All(ctx)
@@ -122,8 +131,8 @@ func evaluateClaimHealth(ticket *ent.Ticket, now time.Time) claimHealthState {
 	}
 
 	timeout := stallTimeoutForWorkflow(ticket.Edges.Workflow)
-	agent := ticket.Edges.AssignedAgent
-	if agent == nil || agent.LastHeartbeatAt == nil {
+	run := ticket.Edges.CurrentRun
+	if run == nil || run.LastHeartbeatAt == nil {
 		return claimHealthState{
 			stalled: true,
 			reason:  "missing_heartbeat",
@@ -131,7 +140,7 @@ func evaluateClaimHealth(ticket *ent.Ticket, now time.Time) claimHealthState {
 		}
 	}
 
-	lastHeartbeat := agent.LastHeartbeatAt.UTC()
+	lastHeartbeat := run.LastHeartbeatAt.UTC()
 	age := now.Sub(lastHeartbeat)
 	if age < 0 {
 		age = 0
@@ -178,8 +187,10 @@ func (h *HealthChecker) releaseStalledClaim(
 		Where(
 			entticket.IDEQ(ticket.ID),
 			entticket.AssignedAgentIDEQ(agentID),
+			entticket.CurrentRunIDNotNil(),
 		).
 		ClearAssignedAgentID().
+		ClearCurrentRunID().
 		SetNextRetryAt(retryAt).
 		SetRetryPaused(false).
 		AddStallCount(1).
@@ -191,21 +202,35 @@ func (h *HealthChecker) releaseStalledClaim(
 		return false, false, nil
 	}
 
+	releasedRuns := 0
+	if ticket.CurrentRunID != nil {
+		releasedRuns, err = tx.AgentRun.Update().
+			Where(
+				entagentrun.IDEQ(*ticket.CurrentRunID),
+				entagentrun.StatusIn(
+					entagentrun.StatusLaunching,
+					entagentrun.StatusReady,
+					entagentrun.StatusExecuting,
+					entagentrun.StatusErrored,
+				),
+			).
+			SetStatus(entagentrun.StatusErrored).
+			SetLastError("runtime stalled or heartbeat missing").
+			ClearSessionID().
+			ClearRuntimeStartedAt().
+			ClearLastHeartbeatAt().
+			Save(ctx)
+		if err != nil {
+			return false, false, fmt.Errorf("release stalled run: %w", err)
+		}
+	}
+
 	releasedAgents, err := tx.Agent.Update().
 		Where(
 			entagent.IDEQ(agentID),
-			entagent.CurrentTicketIDEQ(ticket.ID),
-			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
 			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
 		).
-		ClearCurrentTicketID().
-		SetStatus(entagent.StatusIdle).
-		ClearSessionID().
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetRuntimeControlState(entagent.RuntimeControlStateActive).
-		ClearRuntimeStartedAt().
-		SetLastError("").
-		ClearLastHeartbeatAt().
 		Save(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("release stalled agent: %w", err)
@@ -215,5 +240,5 @@ func (h *HealthChecker) releaseStalledClaim(
 		return false, false, fmt.Errorf("commit stalled release tx: %w", err)
 	}
 
-	return true, releasedAgents > 0, nil
+	return true, releasedAgents > 0 || releasedRuns > 0, nil
 }

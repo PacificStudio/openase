@@ -21,36 +21,22 @@ const (
 	FieldProjectID = "project_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
-	// FieldStatus holds the string denoting the status field in the database.
-	FieldStatus = "status"
-	// FieldCurrentTicketID holds the string denoting the current_ticket_id field in the database.
-	FieldCurrentTicketID = "current_ticket_id"
-	// FieldSessionID holds the string denoting the session_id field in the database.
-	FieldSessionID = "session_id"
-	// FieldRuntimePhase holds the string denoting the runtime_phase field in the database.
-	FieldRuntimePhase = "runtime_phase"
 	// FieldRuntimeControlState holds the string denoting the runtime_control_state field in the database.
 	FieldRuntimeControlState = "runtime_control_state"
-	// FieldRuntimeStartedAt holds the string denoting the runtime_started_at field in the database.
-	FieldRuntimeStartedAt = "runtime_started_at"
-	// FieldLastError holds the string denoting the last_error field in the database.
-	FieldLastError = "last_error"
 	// FieldWorkspacePath holds the string denoting the workspace_path field in the database.
 	FieldWorkspacePath = "workspace_path"
 	// FieldTotalTokensUsed holds the string denoting the total_tokens_used field in the database.
 	FieldTotalTokensUsed = "total_tokens_used"
 	// FieldTotalTicketsCompleted holds the string denoting the total_tickets_completed field in the database.
 	FieldTotalTicketsCompleted = "total_tickets_completed"
-	// FieldLastHeartbeatAt holds the string denoting the last_heartbeat_at field in the database.
-	FieldLastHeartbeatAt = "last_heartbeat_at"
 	// EdgeProvider holds the string denoting the provider edge name in mutations.
 	EdgeProvider = "provider"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
-	// EdgeCurrentTicket holds the string denoting the current_ticket edge name in mutations.
-	EdgeCurrentTicket = "current_ticket"
 	// EdgeAssignedTickets holds the string denoting the assigned_tickets edge name in mutations.
 	EdgeAssignedTickets = "assigned_tickets"
+	// EdgeRuns holds the string denoting the runs edge name in mutations.
+	EdgeRuns = "runs"
 	// EdgeTokens holds the string denoting the tokens edge name in mutations.
 	EdgeTokens = "tokens"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
@@ -71,13 +57,6 @@ const (
 	ProjectInverseTable = "projects"
 	// ProjectColumn is the table column denoting the project relation/edge.
 	ProjectColumn = "project_id"
-	// CurrentTicketTable is the table that holds the current_ticket relation/edge.
-	CurrentTicketTable = "agents"
-	// CurrentTicketInverseTable is the table name for the Ticket entity.
-	// It exists in this package in order to avoid circular dependency with the "ticket" package.
-	CurrentTicketInverseTable = "tickets"
-	// CurrentTicketColumn is the table column denoting the current_ticket relation/edge.
-	CurrentTicketColumn = "current_ticket_id"
 	// AssignedTicketsTable is the table that holds the assigned_tickets relation/edge.
 	AssignedTicketsTable = "tickets"
 	// AssignedTicketsInverseTable is the table name for the Ticket entity.
@@ -85,6 +64,13 @@ const (
 	AssignedTicketsInverseTable = "tickets"
 	// AssignedTicketsColumn is the table column denoting the assigned_tickets relation/edge.
 	AssignedTicketsColumn = "assigned_agent_id"
+	// RunsTable is the table that holds the runs relation/edge.
+	RunsTable = "agent_runs"
+	// RunsInverseTable is the table name for the AgentRun entity.
+	// It exists in this package in order to avoid circular dependency with the "agentrun" package.
+	RunsInverseTable = "agent_runs"
+	// RunsColumn is the table column denoting the runs relation/edge.
+	RunsColumn = "agent_id"
 	// TokensTable is the table that holds the tokens relation/edge.
 	TokensTable = "agent_tokens"
 	// TokensInverseTable is the table name for the AgentToken entity.
@@ -107,17 +93,10 @@ var Columns = []string{
 	FieldProviderID,
 	FieldProjectID,
 	FieldName,
-	FieldStatus,
-	FieldCurrentTicketID,
-	FieldSessionID,
-	FieldRuntimePhase,
 	FieldRuntimeControlState,
-	FieldRuntimeStartedAt,
-	FieldLastError,
 	FieldWorkspacePath,
 	FieldTotalTokensUsed,
 	FieldTotalTicketsCompleted,
-	FieldLastHeartbeatAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -140,65 +119,6 @@ var (
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
-
-// Status defines the type for the "status" enum field.
-type Status string
-
-// StatusIdle is the default value of the Status enum.
-const DefaultStatus = StatusIdle
-
-// Status values.
-const (
-	StatusIdle       Status = "idle"
-	StatusClaimed    Status = "claimed"
-	StatusRunning    Status = "running"
-	StatusPaused     Status = "paused"
-	StatusFailed     Status = "failed"
-	StatusTerminated Status = "terminated"
-)
-
-func (s Status) String() string {
-	return string(s)
-}
-
-// StatusValidator is a validator for the "status" field enum values. It is called by the builders before save.
-func StatusValidator(s Status) error {
-	switch s {
-	case StatusIdle, StatusClaimed, StatusRunning, StatusPaused, StatusFailed, StatusTerminated:
-		return nil
-	default:
-		return fmt.Errorf("agent: invalid enum value for status field: %q", s)
-	}
-}
-
-// RuntimePhase defines the type for the "runtime_phase" enum field.
-type RuntimePhase string
-
-// RuntimePhaseNone is the default value of the RuntimePhase enum.
-const DefaultRuntimePhase = RuntimePhaseNone
-
-// RuntimePhase values.
-const (
-	RuntimePhaseNone      RuntimePhase = "none"
-	RuntimePhaseLaunching RuntimePhase = "launching"
-	RuntimePhaseReady     RuntimePhase = "ready"
-	RuntimePhaseExecuting RuntimePhase = "executing"
-	RuntimePhaseFailed    RuntimePhase = "failed"
-)
-
-func (rp RuntimePhase) String() string {
-	return string(rp)
-}
-
-// RuntimePhaseValidator is a validator for the "runtime_phase" field enum values. It is called by the builders before save.
-func RuntimePhaseValidator(rp RuntimePhase) error {
-	switch rp {
-	case RuntimePhaseNone, RuntimePhaseLaunching, RuntimePhaseReady, RuntimePhaseExecuting, RuntimePhaseFailed:
-		return nil
-	default:
-		return fmt.Errorf("agent: invalid enum value for runtime_phase field: %q", rp)
-	}
-}
 
 // RuntimeControlState defines the type for the "runtime_control_state" enum field.
 type RuntimeControlState string
@@ -250,39 +170,9 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
 }
 
-// ByStatus orders the results by the status field.
-func ByStatus(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldStatus, opts...).ToFunc()
-}
-
-// ByCurrentTicketID orders the results by the current_ticket_id field.
-func ByCurrentTicketID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCurrentTicketID, opts...).ToFunc()
-}
-
-// BySessionID orders the results by the session_id field.
-func BySessionID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldSessionID, opts...).ToFunc()
-}
-
-// ByRuntimePhase orders the results by the runtime_phase field.
-func ByRuntimePhase(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRuntimePhase, opts...).ToFunc()
-}
-
 // ByRuntimeControlState orders the results by the runtime_control_state field.
 func ByRuntimeControlState(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRuntimeControlState, opts...).ToFunc()
-}
-
-// ByRuntimeStartedAt orders the results by the runtime_started_at field.
-func ByRuntimeStartedAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRuntimeStartedAt, opts...).ToFunc()
-}
-
-// ByLastError orders the results by the last_error field.
-func ByLastError(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldLastError, opts...).ToFunc()
 }
 
 // ByWorkspacePath orders the results by the workspace_path field.
@@ -300,11 +190,6 @@ func ByTotalTicketsCompleted(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTotalTicketsCompleted, opts...).ToFunc()
 }
 
-// ByLastHeartbeatAt orders the results by the last_heartbeat_at field.
-func ByLastHeartbeatAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldLastHeartbeatAt, opts...).ToFunc()
-}
-
 // ByProviderField orders the results by provider field.
 func ByProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -319,13 +204,6 @@ func ByProjectField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
-// ByCurrentTicketField orders the results by current_ticket field.
-func ByCurrentTicketField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newCurrentTicketStep(), sql.OrderByField(field, opts...))
-	}
-}
-
 // ByAssignedTicketsCount orders the results by assigned_tickets count.
 func ByAssignedTicketsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -337,6 +215,20 @@ func ByAssignedTicketsCount(opts ...sql.OrderTermOption) OrderOption {
 func ByAssignedTickets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newAssignedTicketsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByRunsCount orders the results by runs count.
+func ByRunsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRunsStep(), opts...)
+	}
+}
+
+// ByRuns orders the results by runs terms.
+func ByRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRunsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -381,18 +273,18 @@ func newProjectStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.M2O, true, ProjectTable, ProjectColumn),
 	)
 }
-func newCurrentTicketStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(CurrentTicketInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, false, CurrentTicketTable, CurrentTicketColumn),
-	)
-}
 func newAssignedTicketsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AssignedTicketsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AssignedTicketsTable, AssignedTicketsColumn),
+	)
+}
+func newRunsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RunsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RunsTable, RunsColumn),
 	)
 }
 func newTokensStep() *sqlgraph.Step {

@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -443,8 +442,6 @@ func seedAgentPlatformHTTPFixture(ctx context.Context, t *testing.T, client *ent
 		SetProjectID(project.ID).
 		SetProviderID(provider.ID).
 		SetName("coding-01").
-		SetStatus(entagent.StatusRunning).
-		SetCurrentTicketID(currentTicket.ID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)

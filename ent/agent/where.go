@@ -3,8 +3,6 @@
 package agent
 
 import (
-	"time"
-
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -71,26 +69,6 @@ func Name(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldName, v))
 }
 
-// CurrentTicketID applies equality check predicate on the "current_ticket_id" field. It's identical to CurrentTicketIDEQ.
-func CurrentTicketID(v uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldCurrentTicketID, v))
-}
-
-// SessionID applies equality check predicate on the "session_id" field. It's identical to SessionIDEQ.
-func SessionID(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldSessionID, v))
-}
-
-// RuntimeStartedAt applies equality check predicate on the "runtime_started_at" field. It's identical to RuntimeStartedAtEQ.
-func RuntimeStartedAt(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldRuntimeStartedAt, v))
-}
-
-// LastError applies equality check predicate on the "last_error" field. It's identical to LastErrorEQ.
-func LastError(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldLastError, v))
-}
-
 // WorkspacePath applies equality check predicate on the "workspace_path" field. It's identical to WorkspacePathEQ.
 func WorkspacePath(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldWorkspacePath, v))
@@ -104,11 +82,6 @@ func TotalTokensUsed(v int64) predicate.Agent {
 // TotalTicketsCompleted applies equality check predicate on the "total_tickets_completed" field. It's identical to TotalTicketsCompletedEQ.
 func TotalTicketsCompleted(v int) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldTotalTicketsCompleted, v))
-}
-
-// LastHeartbeatAt applies equality check predicate on the "last_heartbeat_at" field. It's identical to LastHeartbeatAtEQ.
-func LastHeartbeatAt(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldLastHeartbeatAt, v))
 }
 
 // ProviderIDEQ applies the EQ predicate on the "provider_id" field.
@@ -216,151 +189,6 @@ func NameContainsFold(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldContainsFold(FieldName, v))
 }
 
-// StatusEQ applies the EQ predicate on the "status" field.
-func StatusEQ(v Status) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldStatus, v))
-}
-
-// StatusNEQ applies the NEQ predicate on the "status" field.
-func StatusNEQ(v Status) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldStatus, v))
-}
-
-// StatusIn applies the In predicate on the "status" field.
-func StatusIn(vs ...Status) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldStatus, vs...))
-}
-
-// StatusNotIn applies the NotIn predicate on the "status" field.
-func StatusNotIn(vs ...Status) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldStatus, vs...))
-}
-
-// CurrentTicketIDEQ applies the EQ predicate on the "current_ticket_id" field.
-func CurrentTicketIDEQ(v uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldCurrentTicketID, v))
-}
-
-// CurrentTicketIDNEQ applies the NEQ predicate on the "current_ticket_id" field.
-func CurrentTicketIDNEQ(v uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldCurrentTicketID, v))
-}
-
-// CurrentTicketIDIn applies the In predicate on the "current_ticket_id" field.
-func CurrentTicketIDIn(vs ...uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldCurrentTicketID, vs...))
-}
-
-// CurrentTicketIDNotIn applies the NotIn predicate on the "current_ticket_id" field.
-func CurrentTicketIDNotIn(vs ...uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldCurrentTicketID, vs...))
-}
-
-// CurrentTicketIDIsNil applies the IsNil predicate on the "current_ticket_id" field.
-func CurrentTicketIDIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldCurrentTicketID))
-}
-
-// CurrentTicketIDNotNil applies the NotNil predicate on the "current_ticket_id" field.
-func CurrentTicketIDNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldCurrentTicketID))
-}
-
-// SessionIDEQ applies the EQ predicate on the "session_id" field.
-func SessionIDEQ(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldSessionID, v))
-}
-
-// SessionIDNEQ applies the NEQ predicate on the "session_id" field.
-func SessionIDNEQ(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldSessionID, v))
-}
-
-// SessionIDIn applies the In predicate on the "session_id" field.
-func SessionIDIn(vs ...string) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldSessionID, vs...))
-}
-
-// SessionIDNotIn applies the NotIn predicate on the "session_id" field.
-func SessionIDNotIn(vs ...string) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldSessionID, vs...))
-}
-
-// SessionIDGT applies the GT predicate on the "session_id" field.
-func SessionIDGT(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldGT(FieldSessionID, v))
-}
-
-// SessionIDGTE applies the GTE predicate on the "session_id" field.
-func SessionIDGTE(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldGTE(FieldSessionID, v))
-}
-
-// SessionIDLT applies the LT predicate on the "session_id" field.
-func SessionIDLT(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldLT(FieldSessionID, v))
-}
-
-// SessionIDLTE applies the LTE predicate on the "session_id" field.
-func SessionIDLTE(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldLTE(FieldSessionID, v))
-}
-
-// SessionIDContains applies the Contains predicate on the "session_id" field.
-func SessionIDContains(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldContains(FieldSessionID, v))
-}
-
-// SessionIDHasPrefix applies the HasPrefix predicate on the "session_id" field.
-func SessionIDHasPrefix(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldHasPrefix(FieldSessionID, v))
-}
-
-// SessionIDHasSuffix applies the HasSuffix predicate on the "session_id" field.
-func SessionIDHasSuffix(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldHasSuffix(FieldSessionID, v))
-}
-
-// SessionIDIsNil applies the IsNil predicate on the "session_id" field.
-func SessionIDIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldSessionID))
-}
-
-// SessionIDNotNil applies the NotNil predicate on the "session_id" field.
-func SessionIDNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldSessionID))
-}
-
-// SessionIDEqualFold applies the EqualFold predicate on the "session_id" field.
-func SessionIDEqualFold(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEqualFold(FieldSessionID, v))
-}
-
-// SessionIDContainsFold applies the ContainsFold predicate on the "session_id" field.
-func SessionIDContainsFold(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldContainsFold(FieldSessionID, v))
-}
-
-// RuntimePhaseEQ applies the EQ predicate on the "runtime_phase" field.
-func RuntimePhaseEQ(v RuntimePhase) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldRuntimePhase, v))
-}
-
-// RuntimePhaseNEQ applies the NEQ predicate on the "runtime_phase" field.
-func RuntimePhaseNEQ(v RuntimePhase) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldRuntimePhase, v))
-}
-
-// RuntimePhaseIn applies the In predicate on the "runtime_phase" field.
-func RuntimePhaseIn(vs ...RuntimePhase) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldRuntimePhase, vs...))
-}
-
-// RuntimePhaseNotIn applies the NotIn predicate on the "runtime_phase" field.
-func RuntimePhaseNotIn(vs ...RuntimePhase) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldRuntimePhase, vs...))
-}
-
 // RuntimeControlStateEQ applies the EQ predicate on the "runtime_control_state" field.
 func RuntimeControlStateEQ(v RuntimeControlState) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldRuntimeControlState, v))
@@ -379,131 +207,6 @@ func RuntimeControlStateIn(vs ...RuntimeControlState) predicate.Agent {
 // RuntimeControlStateNotIn applies the NotIn predicate on the "runtime_control_state" field.
 func RuntimeControlStateNotIn(vs ...RuntimeControlState) predicate.Agent {
 	return predicate.Agent(sql.FieldNotIn(FieldRuntimeControlState, vs...))
-}
-
-// RuntimeStartedAtEQ applies the EQ predicate on the "runtime_started_at" field.
-func RuntimeStartedAtEQ(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldRuntimeStartedAt, v))
-}
-
-// RuntimeStartedAtNEQ applies the NEQ predicate on the "runtime_started_at" field.
-func RuntimeStartedAtNEQ(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldRuntimeStartedAt, v))
-}
-
-// RuntimeStartedAtIn applies the In predicate on the "runtime_started_at" field.
-func RuntimeStartedAtIn(vs ...time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldRuntimeStartedAt, vs...))
-}
-
-// RuntimeStartedAtNotIn applies the NotIn predicate on the "runtime_started_at" field.
-func RuntimeStartedAtNotIn(vs ...time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldRuntimeStartedAt, vs...))
-}
-
-// RuntimeStartedAtGT applies the GT predicate on the "runtime_started_at" field.
-func RuntimeStartedAtGT(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldGT(FieldRuntimeStartedAt, v))
-}
-
-// RuntimeStartedAtGTE applies the GTE predicate on the "runtime_started_at" field.
-func RuntimeStartedAtGTE(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldGTE(FieldRuntimeStartedAt, v))
-}
-
-// RuntimeStartedAtLT applies the LT predicate on the "runtime_started_at" field.
-func RuntimeStartedAtLT(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldLT(FieldRuntimeStartedAt, v))
-}
-
-// RuntimeStartedAtLTE applies the LTE predicate on the "runtime_started_at" field.
-func RuntimeStartedAtLTE(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldLTE(FieldRuntimeStartedAt, v))
-}
-
-// RuntimeStartedAtIsNil applies the IsNil predicate on the "runtime_started_at" field.
-func RuntimeStartedAtIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldRuntimeStartedAt))
-}
-
-// RuntimeStartedAtNotNil applies the NotNil predicate on the "runtime_started_at" field.
-func RuntimeStartedAtNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldRuntimeStartedAt))
-}
-
-// LastErrorEQ applies the EQ predicate on the "last_error" field.
-func LastErrorEQ(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldLastError, v))
-}
-
-// LastErrorNEQ applies the NEQ predicate on the "last_error" field.
-func LastErrorNEQ(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldLastError, v))
-}
-
-// LastErrorIn applies the In predicate on the "last_error" field.
-func LastErrorIn(vs ...string) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldLastError, vs...))
-}
-
-// LastErrorNotIn applies the NotIn predicate on the "last_error" field.
-func LastErrorNotIn(vs ...string) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldLastError, vs...))
-}
-
-// LastErrorGT applies the GT predicate on the "last_error" field.
-func LastErrorGT(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldGT(FieldLastError, v))
-}
-
-// LastErrorGTE applies the GTE predicate on the "last_error" field.
-func LastErrorGTE(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldGTE(FieldLastError, v))
-}
-
-// LastErrorLT applies the LT predicate on the "last_error" field.
-func LastErrorLT(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldLT(FieldLastError, v))
-}
-
-// LastErrorLTE applies the LTE predicate on the "last_error" field.
-func LastErrorLTE(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldLTE(FieldLastError, v))
-}
-
-// LastErrorContains applies the Contains predicate on the "last_error" field.
-func LastErrorContains(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldContains(FieldLastError, v))
-}
-
-// LastErrorHasPrefix applies the HasPrefix predicate on the "last_error" field.
-func LastErrorHasPrefix(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldHasPrefix(FieldLastError, v))
-}
-
-// LastErrorHasSuffix applies the HasSuffix predicate on the "last_error" field.
-func LastErrorHasSuffix(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldHasSuffix(FieldLastError, v))
-}
-
-// LastErrorIsNil applies the IsNil predicate on the "last_error" field.
-func LastErrorIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldLastError))
-}
-
-// LastErrorNotNil applies the NotNil predicate on the "last_error" field.
-func LastErrorNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldLastError))
-}
-
-// LastErrorEqualFold applies the EqualFold predicate on the "last_error" field.
-func LastErrorEqualFold(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEqualFold(FieldLastError, v))
-}
-
-// LastErrorContainsFold applies the ContainsFold predicate on the "last_error" field.
-func LastErrorContainsFold(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldContainsFold(FieldLastError, v))
 }
 
 // WorkspacePathEQ applies the EQ predicate on the "workspace_path" field.
@@ -661,56 +364,6 @@ func TotalTicketsCompletedLTE(v int) predicate.Agent {
 	return predicate.Agent(sql.FieldLTE(FieldTotalTicketsCompleted, v))
 }
 
-// LastHeartbeatAtEQ applies the EQ predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtEQ(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldLastHeartbeatAt, v))
-}
-
-// LastHeartbeatAtNEQ applies the NEQ predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtNEQ(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldLastHeartbeatAt, v))
-}
-
-// LastHeartbeatAtIn applies the In predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtIn(vs ...time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldLastHeartbeatAt, vs...))
-}
-
-// LastHeartbeatAtNotIn applies the NotIn predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtNotIn(vs ...time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldLastHeartbeatAt, vs...))
-}
-
-// LastHeartbeatAtGT applies the GT predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtGT(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldGT(FieldLastHeartbeatAt, v))
-}
-
-// LastHeartbeatAtGTE applies the GTE predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtGTE(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldGTE(FieldLastHeartbeatAt, v))
-}
-
-// LastHeartbeatAtLT applies the LT predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtLT(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldLT(FieldLastHeartbeatAt, v))
-}
-
-// LastHeartbeatAtLTE applies the LTE predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtLTE(v time.Time) predicate.Agent {
-	return predicate.Agent(sql.FieldLTE(FieldLastHeartbeatAt, v))
-}
-
-// LastHeartbeatAtIsNil applies the IsNil predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldLastHeartbeatAt))
-}
-
-// LastHeartbeatAtNotNil applies the NotNil predicate on the "last_heartbeat_at" field.
-func LastHeartbeatAtNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldLastHeartbeatAt))
-}
-
 // HasProvider applies the HasEdge predicate on the "provider" edge.
 func HasProvider() predicate.Agent {
 	return predicate.Agent(func(s *sql.Selector) {
@@ -757,29 +410,6 @@ func HasProjectWith(preds ...predicate.Project) predicate.Agent {
 	})
 }
 
-// HasCurrentTicket applies the HasEdge predicate on the "current_ticket" edge.
-func HasCurrentTicket() predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, CurrentTicketTable, CurrentTicketColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasCurrentTicketWith applies the HasEdge predicate on the "current_ticket" edge with a given conditions (other predicates).
-func HasCurrentTicketWith(preds ...predicate.Ticket) predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := newCurrentTicketStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasAssignedTickets applies the HasEdge predicate on the "assigned_tickets" edge.
 func HasAssignedTickets() predicate.Agent {
 	return predicate.Agent(func(s *sql.Selector) {
@@ -795,6 +425,29 @@ func HasAssignedTickets() predicate.Agent {
 func HasAssignedTicketsWith(preds ...predicate.Ticket) predicate.Agent {
 	return predicate.Agent(func(s *sql.Selector) {
 		step := newAssignedTicketsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRuns applies the HasEdge predicate on the "runs" edge.
+func HasRuns() predicate.Agent {
+	return predicate.Agent(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RunsTable, RunsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRunsWith applies the HasEdge predicate on the "runs" edge with a given conditions (other predicates).
+func HasRunsWith(preds ...predicate.AgentRun) predicate.Agent {
+	return predicate.Agent(func(s *sql.Selector) {
+		step := newRunsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

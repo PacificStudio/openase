@@ -10,6 +10,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -445,6 +446,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 		targetMachineChanged = !optionalUUIDPointerEqual(current.TargetMachineID, input.TargetMachineID.Value)
 		if targetMachineChanged {
 			builder.ClearAssignedAgentID()
+			builder.ClearCurrentRunID()
 		}
 	}
 	if input.CreatedBy.Set {
@@ -479,13 +481,14 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	}
 	if statusChanged {
 		builder.ClearAssignedAgentID()
+		builder.ClearCurrentRunID()
 	}
 
 	if _, err := builder.Save(ctx); err != nil {
 		return Ticket{}, s.mapTicketWriteError("update ticket", err)
 	}
 	if statusChanged || targetMachineChanged {
-		if err := releaseTicketAgentClaim(ctx, tx, current); err != nil {
+		if err := releaseTicketAgentClaim(ctx, tx, current, entagentrun.StatusTerminated); err != nil {
 			return Ticket{}, err
 		}
 	}
@@ -975,36 +978,31 @@ func ensureTargetMachineBelongsToProjectOrganization(ctx context.Context, tx *en
 	return nil
 }
 
-func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ticket) error {
-	if ticketItem == nil || ticketItem.AssignedAgentID == nil {
+func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ticket, runStatus entagentrun.Status) error {
+	if ticketItem == nil {
 		return nil
 	}
 
-	if _, err := tx.Agent.Update().
-		Where(
-			entagent.IDEQ(*ticketItem.AssignedAgentID),
-			entagent.CurrentTicketIDEQ(ticketItem.ID),
-			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning, entagent.StatusPaused),
-		).
-		ClearCurrentTicketID().
-		SetStatus(entagent.StatusIdle).
-		ClearSessionID().
-		SetRuntimePhase(entagent.RuntimePhaseNone).
-		ClearRuntimeStartedAt().
-		SetLastError("").
-		ClearLastHeartbeatAt().
-		Save(ctx); err != nil {
-		return fmt.Errorf("release assigned agent to idle: %w", err)
+	if ticketItem.CurrentRunID != nil {
+		runUpdate := tx.AgentRun.UpdateOneID(*ticketItem.CurrentRunID).
+			SetStatus(runStatus).
+			ClearSessionID().
+			ClearRuntimeStartedAt().
+			ClearLastHeartbeatAt()
+		if runStatus != entagentrun.StatusErrored {
+			runUpdate.SetLastError("")
+		}
+		if _, err := runUpdate.Save(ctx); err != nil {
+			return fmt.Errorf("finalize current agent run: %w", err)
+		}
 	}
 
-	if _, err := tx.Agent.Update().
-		Where(
-			entagent.IDEQ(*ticketItem.AssignedAgentID),
-			entagent.CurrentTicketIDEQ(ticketItem.ID),
-		).
-		ClearCurrentTicketID().
-		Save(ctx); err != nil {
-		return fmt.Errorf("clear assigned agent current ticket: %w", err)
+	if ticketItem.AssignedAgentID != nil {
+		if _, err := tx.Agent.UpdateOneID(*ticketItem.AssignedAgentID).
+			SetRuntimeControlState(entagent.RuntimeControlStateActive).
+			Save(ctx); err != nil {
+			return fmt.Errorf("reset assigned agent runtime control state: %w", err)
+		}
 	}
 
 	return nil

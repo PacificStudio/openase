@@ -142,7 +142,10 @@ export function buildAgentRows(
 
   return agentItems.map((agent) => {
     const provider = providerMap.get(agent.provider_id)
-    const currentTicket = agent.current_ticket_id ? ticketMap.get(agent.current_ticket_id) : null
+    const runtime = agent.runtime ?? null
+    const currentTicket = runtime?.current_ticket_id
+      ? ticketMap.get(runtime.current_ticket_id)
+      : null
 
     return {
       id: agent.id,
@@ -150,8 +153,8 @@ export function buildAgentRows(
       providerId: agent.provider_id,
       providerName: provider?.name ?? 'Unknown provider',
       modelName: provider?.model_name ?? 'Unknown model',
-      status: normalizeAgentStatus(agent.status),
-      runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
+      status: normalizeAgentStatus(runtime?.status ?? 'idle'),
+      runtimePhase: normalizeRuntimePhase(runtime?.runtime_phase ?? 'none'),
       runtimeControlState: normalizeRuntimeControlState(agent.runtime_control_state),
       currentTicket: currentTicket
         ? {
@@ -160,10 +163,10 @@ export function buildAgentRows(
             title: currentTicket.title,
           }
         : undefined,
-      lastHeartbeat: agent.last_heartbeat_at,
-      runtimeStartedAt: agent.runtime_started_at,
-      sessionId: agent.session_id,
-      lastError: agent.last_error,
+      lastHeartbeat: runtime?.last_heartbeat_at ?? null,
+      runtimeStartedAt: runtime?.runtime_started_at ?? null,
+      sessionId: runtime?.session_id ?? '',
+      lastError: runtime?.last_error ?? '',
       todayCompleted: agent.total_tickets_completed,
       todayCost: 0,
     }

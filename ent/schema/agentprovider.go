@@ -41,6 +41,7 @@ func (AgentProvider) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("agents", Agent.Type),
+		edge.To("agent_runs", AgentRun.Type),
 	}
 }
 

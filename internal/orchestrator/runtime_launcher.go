@@ -14,8 +14,11 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
@@ -43,6 +46,12 @@ type RuntimeLauncher struct {
 	executions   map[uuid.UUID]struct{}
 
 	tickets *ticketservice.Service
+}
+
+type runtimeAssignment struct {
+	ticket *ent.Ticket
+	agent  *ent.Agent
+	run    *ent.AgentRun
 }
 
 func NewRuntimeLauncher(
@@ -89,23 +98,22 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return err
 	}
 
-	claimedAgents, err := l.client.Agent.Query().
-		Where(
-			entagent.StatusEQ(entagent.StatusClaimed),
-			entagent.RuntimePhaseEQ(entagent.RuntimePhaseNone),
+	assignments, err := l.listAssignments(ctx,
+		entticket.HasAssignedAgentWith(
 			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-			entagent.CurrentTicketIDNotNil(),
-		).
-		WithProvider().
-		Order(ent.Asc(entagent.FieldName)).
-		All(ctx)
+		),
+		entticket.CurrentRunIDNotNil(),
+		entticket.HasCurrentRunWith(
+			entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusTerminated),
+		),
+	)
 	if err != nil {
-		return fmt.Errorf("list claimed agents awaiting launch: %w", err)
+		return fmt.Errorf("list current runs awaiting launch: %w", err)
 	}
 
-	for _, agentItem := range claimedAgents {
-		if err := l.launchAgent(ctx, agentItem); err != nil {
-			l.logger.Error("launch claimed agent", "agent_id", agentItem.ID, "error", err)
+	for _, assignment := range assignments {
+		if err := l.launchAgent(ctx, assignment); err != nil {
+			l.logger.Error("launch current run", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
 		}
 	}
 
@@ -126,19 +134,26 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 		}
 
 		now := l.now().UTC()
-		if _, err := clearRuntimeState(
-			l.client.Agent.Update().
-				Where(
-					entagent.IDEQ(agentID),
-					entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
-				).
-				SetStatus(entagent.StatusTerminated),
-		).Save(ctx); err != nil {
-			l.logger.Warn("mark agent terminated", "agent_id", agentID, "error", err)
+		assignment, err := l.loadAssignmentByAgent(ctx, agentID)
+		if err != nil {
+			l.logger.Warn("load agent assignment during close", "agent_id", agentID, "error", err)
 			continue
 		}
+		if assignment.run != nil {
+			if _, err := clearRuntimeState(
+				l.client.AgentRun.Update().
+					Where(
+						entagentrun.IDEQ(assignment.run.ID),
+						entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
+					).
+					SetStatus(entagentrun.StatusTerminated),
+			).Save(ctx); err != nil {
+				l.logger.Warn("mark agent run terminated", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
+				continue
+			}
+		}
 
-		agentItem, err := loadAgentLifecycleState(ctx, l.client, agentID)
+		agentState, err := loadAgentLifecycleState(ctx, l.client, agentID)
 		if err != nil {
 			l.logger.Warn("reload terminated agent", "agent_id", agentID, "error", err)
 			continue
@@ -148,9 +163,9 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			l.client,
 			l.events,
 			agentTerminatedType,
-			agentItem,
-			lifecycleMessage(agentTerminatedType, agentItem.Name),
-			runtimeEventMetadata(agentItem),
+			agentState,
+			lifecycleMessage(agentTerminatedType, agentState.agent.Name),
+			runtimeEventMetadataForState(agentState),
 			now,
 		); err != nil {
 			l.logger.Warn("publish terminated lifecycle", "agent_id", agentID, "error", err)
@@ -160,33 +175,31 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 	return nil
 }
 
-func (l *RuntimeLauncher) launchAgent(ctx context.Context, agentItem *ent.Agent) error {
-	if agentItem == nil || agentItem.CurrentTicketID == nil {
+func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAssignment) error {
+	if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil {
 		return nil
 	}
 
 	now := l.now().UTC()
-	launchingCount, err := l.client.Agent.Update().
+	launchingCount, err := l.client.AgentRun.Update().
 		Where(
-			entagent.IDEQ(agentItem.ID),
-			entagent.StatusEQ(entagent.StatusClaimed),
-			entagent.RuntimePhaseEQ(entagent.RuntimePhaseNone),
-			entagent.CurrentTicketIDEQ(*agentItem.CurrentTicketID),
+			entagentrun.IDEQ(assignment.run.ID),
+			entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusTerminated),
 		).
-		SetRuntimePhase(entagent.RuntimePhaseLaunching).
+		SetStatus(entagentrun.StatusLaunching).
 		SetLastError("").
 		ClearSessionID().
 		ClearRuntimeStartedAt().
 		ClearLastHeartbeatAt().
 		Save(ctx)
 	if err != nil {
-		return fmt.Errorf("mark agent %s launching: %w", agentItem.ID, err)
+		return fmt.Errorf("mark run %s launching: %w", assignment.run.ID, err)
 	}
 	if launchingCount == 0 {
 		return nil
 	}
 
-	launchingAgent, err := loadAgentLifecycleState(ctx, l.client, agentItem.ID)
+	launchingAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID)
 	if err != nil {
 		return err
 	}
@@ -196,46 +209,44 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, agentItem *ent.Agent)
 		l.events,
 		agentLaunchingType,
 		launchingAgent,
-		lifecycleMessage(agentLaunchingType, launchingAgent.Name),
-		runtimeEventMetadata(launchingAgent),
+		lifecycleMessage(agentLaunchingType, launchingAgent.agent.Name),
+		runtimeEventMetadataForState(launchingAgent),
 		now,
 	); err != nil {
 		return err
 	}
 
-	session, launchErr := l.startCodexSession(ctx, agentItem)
+	session, launchErr := l.startCodexSession(ctx, assignment)
 	if launchErr != nil {
-		return l.markLaunchFailed(ctx, agentItem.ID, launchErr)
+		return l.markLaunchFailed(ctx, assignment.agent.ID, assignment.run.ID, launchErr)
 	}
 
-	l.storeSession(agentItem.ID, session)
+	l.storeSession(assignment.agent.ID, session)
 
 	readyAt := l.now().UTC()
-	readyCount, err := l.client.Agent.Update().
+	readyCount, err := l.client.AgentRun.Update().
 		Where(
-			entagent.IDEQ(agentItem.ID),
-			entagent.StatusEQ(entagent.StatusClaimed),
-			entagent.RuntimePhaseEQ(entagent.RuntimePhaseLaunching),
+			entagentrun.IDEQ(assignment.run.ID),
+			entagentrun.StatusEQ(entagentrun.StatusLaunching),
 		).
-		SetStatus(entagent.StatusRunning).
 		SetSessionID(session.ThreadID()).
-		SetRuntimePhase(entagent.RuntimePhaseReady).
+		SetStatus(entagentrun.StatusReady).
 		SetRuntimeStartedAt(readyAt).
 		SetLastHeartbeatAt(readyAt).
 		SetLastError("").
 		Save(ctx)
 	if err != nil {
-		l.deleteSession(agentItem.ID)
+		l.deleteSession(assignment.agent.ID)
 		stopSession(context.Background(), session)
-		return fmt.Errorf("mark agent %s ready: %w", agentItem.ID, err)
+		return fmt.Errorf("mark run %s ready: %w", assignment.run.ID, err)
 	}
 	if readyCount == 0 {
-		l.deleteSession(agentItem.ID)
+		l.deleteSession(assignment.agent.ID)
 		stopSession(context.Background(), session)
 		return nil
 	}
 
-	readyAgent, err := loadAgentLifecycleState(ctx, l.client, agentItem.ID)
+	readyAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID)
 	if err != nil {
 		return err
 	}
@@ -245,8 +256,8 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, agentItem *ent.Agent)
 		l.events,
 		agentReadyType,
 		readyAgent,
-		lifecycleMessage(agentReadyType, readyAgent.Name),
-		runtimeEventMetadata(readyAgent),
+		lifecycleMessage(agentReadyType, readyAgent.agent.Name),
+		runtimeEventMetadataForState(readyAgent),
 		readyAt,
 	); err != nil {
 		return err
@@ -257,8 +268,8 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, agentItem *ent.Agent)
 		l.events,
 		agentHeartbeatType,
 		readyAgent,
-		lifecycleMessage(agentHeartbeatType, readyAgent.Name),
-		runtimeEventMetadata(readyAgent),
+		lifecycleMessage(agentHeartbeatType, readyAgent.agent.Name),
+		runtimeEventMetadataForState(readyAgent),
 		readyAt,
 	); err != nil {
 		return err
@@ -267,23 +278,21 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, agentItem *ent.Agent)
 	return nil
 }
 
-func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUID, launchErr error) error {
+func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUID, runID uuid.UUID, launchErr error) error {
 	now := l.now().UTC()
-	count, err := l.client.Agent.Update().
+	count, err := l.client.AgentRun.Update().
 		Where(
-			entagent.IDEQ(agentID),
-			entagent.StatusEQ(entagent.StatusClaimed),
-			entagent.RuntimePhaseEQ(entagent.RuntimePhaseLaunching),
+			entagentrun.IDEQ(runID),
+			entagentrun.StatusEQ(entagentrun.StatusLaunching),
 		).
-		SetStatus(entagent.StatusFailed).
-		SetRuntimePhase(entagent.RuntimePhaseFailed).
+		SetStatus(entagentrun.StatusErrored).
 		SetLastError(strings.TrimSpace(launchErr.Error())).
 		ClearSessionID().
 		ClearRuntimeStartedAt().
 		ClearLastHeartbeatAt().
 		Save(ctx)
 	if err != nil {
-		return fmt.Errorf("mark agent %s failed: %w", agentID, err)
+		return fmt.Errorf("mark run %s failed: %w", runID, err)
 	}
 	if count == 0 {
 		return nil
@@ -299,27 +308,25 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 		l.events,
 		agentFailedType,
 		failedAgent,
-		lifecycleMessage(agentFailedType, failedAgent.Name),
-		runtimeEventMetadata(failedAgent),
+		lifecycleMessage(agentFailedType, failedAgent.agent.Name),
+		runtimeEventMetadataForState(failedAgent),
 		now,
 	)
 }
 
 func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
-	pausedAgents, err := l.client.Agent.Query().
-		Where(
+	pausedAssignments, err := l.listAssignments(ctx,
+		entticket.HasAssignedAgentWith(
 			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStatePauseRequested),
-			entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
-			entagent.CurrentTicketIDNotNil(),
-		).
-		Order(ent.Asc(entagent.FieldName)).
-		All(ctx)
+		),
+		entticket.CurrentRunIDNotNil(),
+	)
 	if err != nil {
 		return fmt.Errorf("list agents pending pause: %w", err)
 	}
 
-	for _, agentItem := range pausedAgents {
-		if err := l.pauseAgent(ctx, agentItem); err != nil {
+	for _, assignment := range pausedAssignments {
+		if err := l.pauseAgent(ctx, assignment); err != nil {
 			return err
 		}
 	}
@@ -341,14 +348,16 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 
 	now := l.now().UTC()
 	for _, agentID := range sessionIDs {
-		agentItem, err := l.client.Agent.Get(ctx, agentID)
+		assignment, err := l.loadAssignmentByAgent(ctx, agentID)
 		if err != nil {
 			stopSession(context.Background(), l.loadSession(agentID))
 			l.deleteSession(agentID)
 			l.finishExecution(agentID)
 			continue
 		}
-		if agentItem.Status != entagent.StatusRunning || (agentItem.RuntimePhase != entagent.RuntimePhaseReady && agentItem.RuntimePhase != entagent.RuntimePhaseExecuting) || agentItem.CurrentTicketID == nil {
+		if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil ||
+			assignment.agent.RuntimeControlState != entagent.RuntimeControlStateActive ||
+			(assignment.run.Status != entagentrun.StatusReady && assignment.run.Status != entagentrun.StatusExecuting) {
 			stopSession(context.Background(), l.loadSession(agentID))
 			l.deleteSession(agentID)
 			l.finishExecution(agentID)
@@ -360,42 +369,45 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 	return nil
 }
 
-func (l *RuntimeLauncher) pauseAgent(ctx context.Context, agentItem *ent.Agent) error {
-	if agentItem == nil {
+func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssignment) error {
+	if assignment.agent == nil || assignment.run == nil {
 		return nil
 	}
 
-	session := l.loadSession(agentItem.ID)
+	session := l.loadSession(assignment.agent.ID)
 	if session != nil {
 		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		stopErr := session.Stop(stopCtx)
 		cancel()
 		if stopErr != nil {
-			return fmt.Errorf("stop runtime session for agent %s: %w", agentItem.ID, stopErr)
+			return fmt.Errorf("stop runtime session for agent %s: %w", assignment.agent.ID, stopErr)
 		}
-		l.deleteSession(agentItem.ID)
+		l.deleteSession(assignment.agent.ID)
 	}
 
 	pausedAt := l.now().UTC()
 	pausedCount, err := clearRuntimeState(
-		l.client.Agent.Update().
+		l.client.AgentRun.Update().
 			Where(
-				entagent.IDEQ(agentItem.ID),
-				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStatePauseRequested),
-				entagent.StatusIn(entagent.StatusClaimed, entagent.StatusRunning),
-				entagent.CurrentTicketIDNotNil(),
+				entagentrun.IDEQ(assignment.run.ID),
+				entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
 			).
-			SetStatus(entagent.StatusClaimed).
-			SetRuntimeControlState(entagent.RuntimeControlStatePaused),
+			SetStatus(entagentrun.StatusTerminated),
 	).Save(ctx)
 	if err != nil {
-		return fmt.Errorf("mark agent %s paused: %w", agentItem.ID, err)
+		return fmt.Errorf("mark agent %s paused: %w", assignment.agent.ID, err)
 	}
 	if pausedCount == 0 {
 		return nil
 	}
 
-	pausedAgent, err := loadAgentLifecycleState(ctx, l.client, agentItem.ID)
+	if _, err := l.client.Agent.UpdateOneID(assignment.agent.ID).
+		SetRuntimeControlState(entagent.RuntimeControlStatePaused).
+		Save(ctx); err != nil {
+		return fmt.Errorf("mark agent %s control paused: %w", assignment.agent.ID, err)
+	}
+
+	pausedAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID)
 	if err != nil {
 		return err
 	}
@@ -405,14 +417,14 @@ func (l *RuntimeLauncher) pauseAgent(ctx context.Context, agentItem *ent.Agent) 
 		l.events,
 		agentPausedType,
 		pausedAgent,
-		lifecycleMessage(agentPausedType, pausedAgent.Name),
-		runtimeEventMetadata(pausedAgent),
+		lifecycleMessage(agentPausedType, pausedAgent.agent.Name),
+		runtimeEventMetadataForState(pausedAgent),
 		pausedAt,
 	)
 }
 
-func (l *RuntimeLauncher) startCodexSession(ctx context.Context, agentItem *ent.Agent) (*codex.Session, error) {
-	launchContext, err := l.loadLaunchContext(ctx, agentItem)
+func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runtimeAssignment) (*codex.Session, error) {
+	launchContext, err := l.loadLaunchContext(ctx, assignment.agent.ID, assignment.ticket.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -570,48 +582,92 @@ type runtimeLaunchContext struct {
 	ticketScopes []*ent.TicketRepoScope
 }
 
-func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentItem *ent.Agent) (runtimeLaunchContext, error) {
-	if agentItem == nil {
-		return runtimeLaunchContext{}, fmt.Errorf("agent must not be nil")
+func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UUID, ticketID uuid.UUID) (runtimeLaunchContext, error) {
+	if agentID == uuid.Nil {
+		return runtimeLaunchContext{}, fmt.Errorf("agent id must not be empty")
+	}
+	if ticketID == uuid.Nil {
+		return runtimeLaunchContext{}, fmt.Errorf("ticket id must not be empty")
 	}
 
-	loaded, err := l.client.Agent.Query().
-		Where(entagent.IDEQ(agentItem.ID)).
+	loadedAgent, err := l.client.Agent.Query().
+		Where(entagent.IDEQ(agentID)).
 		WithProvider().
 		WithProject(func(query *ent.ProjectQuery) {
 			query.WithRepos(func(repoQuery *ent.ProjectRepoQuery) {
 				repoQuery.Order(entprojectrepo.ByName())
 			})
 		}).
-		WithCurrentTicket(func(query *ent.TicketQuery) {
-			query.WithRepoScopes(func(scopeQuery *ent.TicketRepoScopeQuery) {
-				scopeQuery.Order(
-					entticketreposcope.ByIsPrimaryScope(),
-					entticketreposcope.ByRepoID(),
-				)
-			})
+		Only(ctx)
+	if err != nil {
+		return runtimeLaunchContext{}, fmt.Errorf("load runtime launch context for agent %s: %w", agentID, err)
+	}
+	if loadedAgent.Edges.Provider == nil {
+		return runtimeLaunchContext{}, fmt.Errorf("agent provider must be loaded")
+	}
+	if loadedAgent.Edges.Project == nil {
+		return runtimeLaunchContext{}, fmt.Errorf("agent project must be loaded")
+	}
+
+	ticketItem, err := l.client.Ticket.Query().
+		Where(entticket.IDEQ(ticketID)).
+		WithRepoScopes(func(scopeQuery *ent.TicketRepoScopeQuery) {
+			scopeQuery.Order(
+				entticketreposcope.ByIsPrimaryScope(),
+				entticketreposcope.ByRepoID(),
+			)
 		}).
 		Only(ctx)
 	if err != nil {
-		return runtimeLaunchContext{}, fmt.Errorf("load runtime launch context for agent %s: %w", agentItem.ID, err)
-	}
-	if loaded.Edges.Provider == nil {
-		return runtimeLaunchContext{}, fmt.Errorf("agent provider must be loaded")
-	}
-	if loaded.Edges.Project == nil {
-		return runtimeLaunchContext{}, fmt.Errorf("agent project must be loaded")
-	}
-	if loaded.Edges.CurrentTicket == nil {
-		return runtimeLaunchContext{}, fmt.Errorf("agent current ticket must be loaded")
+		return runtimeLaunchContext{}, fmt.Errorf("load runtime launch ticket %s: %w", ticketID, err)
 	}
 
 	return runtimeLaunchContext{
-		agent:        loaded,
-		project:      loaded.Edges.Project,
-		ticket:       loaded.Edges.CurrentTicket,
-		projectRepos: loaded.Edges.Project.Edges.Repos,
-		ticketScopes: loaded.Edges.CurrentTicket.Edges.RepoScopes,
+		agent:        loadedAgent,
+		project:      loadedAgent.Edges.Project,
+		ticket:       ticketItem,
+		projectRepos: loadedAgent.Edges.Project.Edges.Repos,
+		ticketScopes: ticketItem.Edges.RepoScopes,
 	}, nil
+}
+
+func (l *RuntimeLauncher) listAssignments(ctx context.Context, predicates ...predicate.Ticket) ([]runtimeAssignment, error) {
+	items, err := l.client.Ticket.Query().
+		Where(predicates...).
+		WithAssignedAgent().
+		WithCurrentRun().
+		Order(ent.Asc(entticket.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	assignments := make([]runtimeAssignment, 0, len(items))
+	for _, ticketItem := range items {
+		if ticketItem.Edges.AssignedAgent == nil || ticketItem.Edges.CurrentRun == nil {
+			continue
+		}
+		assignments = append(assignments, runtimeAssignment{
+			ticket: ticketItem,
+			agent:  ticketItem.Edges.AssignedAgent,
+			run:    ticketItem.Edges.CurrentRun,
+		})
+	}
+	return assignments, nil
+}
+
+func (l *RuntimeLauncher) loadAssignmentByAgent(ctx context.Context, agentID uuid.UUID) (runtimeAssignment, error) {
+	assignments, err := l.listAssignments(ctx,
+		entticket.AssignedAgentIDEQ(agentID),
+		entticket.CurrentRunIDNotNil(),
+	)
+	if err != nil {
+		return runtimeAssignment{}, err
+	}
+	if len(assignments) == 0 {
+		return runtimeAssignment{}, nil
+	}
+	return assignments[0], nil
 }
 
 func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContext runtimeLaunchContext) (catalogdomain.Machine, bool, error) {

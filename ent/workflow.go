@@ -65,11 +65,13 @@ type WorkflowEdges struct {
 	FinishStatus *TicketStatus `json:"finish_status,omitempty"`
 	// Tickets holds the value of the tickets edge.
 	Tickets []*Ticket `json:"tickets,omitempty"`
+	// AgentRuns holds the value of the agent_runs edge.
+	AgentRuns []*AgentRun `json:"agent_runs,omitempty"`
 	// ScheduledJobs holds the value of the scheduled_jobs edge.
 	ScheduledJobs []*ScheduledJob `json:"scheduled_jobs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -114,10 +116,19 @@ func (e WorkflowEdges) TicketsOrErr() ([]*Ticket, error) {
 	return nil, &NotLoadedError{edge: "tickets"}
 }
 
+// AgentRunsOrErr returns the AgentRuns value or an error if the edge
+// was not loaded in eager-loading.
+func (e WorkflowEdges) AgentRunsOrErr() ([]*AgentRun, error) {
+	if e.loadedTypes[4] {
+		return e.AgentRuns, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_runs"}
+}
+
 // ScheduledJobsOrErr returns the ScheduledJobs value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.ScheduledJobs, nil
 	}
 	return nil, &NotLoadedError{edge: "scheduled_jobs"}
@@ -281,6 +292,11 @@ func (_m *Workflow) QueryFinishStatus() *TicketStatusQuery {
 // QueryTickets queries the "tickets" edge of the Workflow entity.
 func (_m *Workflow) QueryTickets() *TicketQuery {
 	return NewWorkflowClient(_m.config).QueryTickets(_m)
+}
+
+// QueryAgentRuns queries the "agent_runs" edge of the Workflow entity.
+func (_m *Workflow) QueryAgentRuns() *AgentRunQuery {
+	return NewWorkflowClient(_m.config).QueryAgentRuns(_m)
 }
 
 // QueryScheduledJobs queries the "scheduled_jobs" edge of the Workflow entity.

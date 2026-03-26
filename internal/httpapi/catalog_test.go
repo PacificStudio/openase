@@ -34,6 +34,7 @@ type fakeCatalogService struct {
 	ticketScopes   map[uuid.UUID]domain.TicketRepoScope
 	providers      map[uuid.UUID]domain.AgentProvider
 	agents         map[uuid.UUID]domain.Agent
+	agentRuns      map[uuid.UUID]domain.AgentRun
 	activityEvents []domain.ActivityEvent
 }
 
@@ -52,6 +53,7 @@ func newFakeCatalogService() *fakeCatalogService {
 		ticketScopes:   map[uuid.UUID]domain.TicketRepoScope{},
 		providers:      map[uuid.UUID]domain.AgentProvider{},
 		agents:         map[uuid.UUID]domain.Agent{},
+		agentRuns:      map[uuid.UUID]domain.AgentRun{},
 		activityEvents: []domain.ActivityEvent{},
 	}
 }

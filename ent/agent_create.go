@@ -6,13 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -44,62 +44,6 @@ func (_c *AgentCreate) SetName(v string) *AgentCreate {
 	return _c
 }
 
-// SetStatus sets the "status" field.
-func (_c *AgentCreate) SetStatus(v agent.Status) *AgentCreate {
-	_c.mutation.SetStatus(v)
-	return _c
-}
-
-// SetNillableStatus sets the "status" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableStatus(v *agent.Status) *AgentCreate {
-	if v != nil {
-		_c.SetStatus(*v)
-	}
-	return _c
-}
-
-// SetCurrentTicketID sets the "current_ticket_id" field.
-func (_c *AgentCreate) SetCurrentTicketID(v uuid.UUID) *AgentCreate {
-	_c.mutation.SetCurrentTicketID(v)
-	return _c
-}
-
-// SetNillableCurrentTicketID sets the "current_ticket_id" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableCurrentTicketID(v *uuid.UUID) *AgentCreate {
-	if v != nil {
-		_c.SetCurrentTicketID(*v)
-	}
-	return _c
-}
-
-// SetSessionID sets the "session_id" field.
-func (_c *AgentCreate) SetSessionID(v string) *AgentCreate {
-	_c.mutation.SetSessionID(v)
-	return _c
-}
-
-// SetNillableSessionID sets the "session_id" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableSessionID(v *string) *AgentCreate {
-	if v != nil {
-		_c.SetSessionID(*v)
-	}
-	return _c
-}
-
-// SetRuntimePhase sets the "runtime_phase" field.
-func (_c *AgentCreate) SetRuntimePhase(v agent.RuntimePhase) *AgentCreate {
-	_c.mutation.SetRuntimePhase(v)
-	return _c
-}
-
-// SetNillableRuntimePhase sets the "runtime_phase" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableRuntimePhase(v *agent.RuntimePhase) *AgentCreate {
-	if v != nil {
-		_c.SetRuntimePhase(*v)
-	}
-	return _c
-}
-
 // SetRuntimeControlState sets the "runtime_control_state" field.
 func (_c *AgentCreate) SetRuntimeControlState(v agent.RuntimeControlState) *AgentCreate {
 	_c.mutation.SetRuntimeControlState(v)
@@ -110,34 +54,6 @@ func (_c *AgentCreate) SetRuntimeControlState(v agent.RuntimeControlState) *Agen
 func (_c *AgentCreate) SetNillableRuntimeControlState(v *agent.RuntimeControlState) *AgentCreate {
 	if v != nil {
 		_c.SetRuntimeControlState(*v)
-	}
-	return _c
-}
-
-// SetRuntimeStartedAt sets the "runtime_started_at" field.
-func (_c *AgentCreate) SetRuntimeStartedAt(v time.Time) *AgentCreate {
-	_c.mutation.SetRuntimeStartedAt(v)
-	return _c
-}
-
-// SetNillableRuntimeStartedAt sets the "runtime_started_at" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableRuntimeStartedAt(v *time.Time) *AgentCreate {
-	if v != nil {
-		_c.SetRuntimeStartedAt(*v)
-	}
-	return _c
-}
-
-// SetLastError sets the "last_error" field.
-func (_c *AgentCreate) SetLastError(v string) *AgentCreate {
-	_c.mutation.SetLastError(v)
-	return _c
-}
-
-// SetNillableLastError sets the "last_error" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableLastError(v *string) *AgentCreate {
-	if v != nil {
-		_c.SetLastError(*v)
 	}
 	return _c
 }
@@ -184,20 +100,6 @@ func (_c *AgentCreate) SetNillableTotalTicketsCompleted(v *int) *AgentCreate {
 	return _c
 }
 
-// SetLastHeartbeatAt sets the "last_heartbeat_at" field.
-func (_c *AgentCreate) SetLastHeartbeatAt(v time.Time) *AgentCreate {
-	_c.mutation.SetLastHeartbeatAt(v)
-	return _c
-}
-
-// SetNillableLastHeartbeatAt sets the "last_heartbeat_at" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableLastHeartbeatAt(v *time.Time) *AgentCreate {
-	if v != nil {
-		_c.SetLastHeartbeatAt(*v)
-	}
-	return _c
-}
-
 // SetID sets the "id" field.
 func (_c *AgentCreate) SetID(v uuid.UUID) *AgentCreate {
 	_c.mutation.SetID(v)
@@ -222,11 +124,6 @@ func (_c *AgentCreate) SetProject(v *Project) *AgentCreate {
 	return _c.SetProjectID(v.ID)
 }
 
-// SetCurrentTicket sets the "current_ticket" edge to the Ticket entity.
-func (_c *AgentCreate) SetCurrentTicket(v *Ticket) *AgentCreate {
-	return _c.SetCurrentTicketID(v.ID)
-}
-
 // AddAssignedTicketIDs adds the "assigned_tickets" edge to the Ticket entity by IDs.
 func (_c *AgentCreate) AddAssignedTicketIDs(ids ...uuid.UUID) *AgentCreate {
 	_c.mutation.AddAssignedTicketIDs(ids...)
@@ -240,6 +137,21 @@ func (_c *AgentCreate) AddAssignedTickets(v ...*Ticket) *AgentCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddAssignedTicketIDs(ids...)
+}
+
+// AddRunIDs adds the "runs" edge to the AgentRun entity by IDs.
+func (_c *AgentCreate) AddRunIDs(ids ...uuid.UUID) *AgentCreate {
+	_c.mutation.AddRunIDs(ids...)
+	return _c
+}
+
+// AddRuns adds the "runs" edges to the AgentRun entity.
+func (_c *AgentCreate) AddRuns(v ...*AgentRun) *AgentCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRunIDs(ids...)
 }
 
 // AddTokenIDs adds the "tokens" edge to the AgentToken entity by IDs.
@@ -307,14 +219,6 @@ func (_c *AgentCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AgentCreate) defaults() {
-	if _, ok := _c.mutation.Status(); !ok {
-		v := agent.DefaultStatus
-		_c.mutation.SetStatus(v)
-	}
-	if _, ok := _c.mutation.RuntimePhase(); !ok {
-		v := agent.DefaultRuntimePhase
-		_c.mutation.SetRuntimePhase(v)
-	}
 	if _, ok := _c.mutation.RuntimeControlState(); !ok {
 		v := agent.DefaultRuntimeControlState
 		_c.mutation.SetRuntimeControlState(v)
@@ -347,22 +251,6 @@ func (_c *AgentCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := agent.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Agent.name": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.Status(); !ok {
-		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Agent.status"`)}
-	}
-	if v, ok := _c.mutation.Status(); ok {
-		if err := agent.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Agent.status": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.RuntimePhase(); !ok {
-		return &ValidationError{Name: "runtime_phase", err: errors.New(`ent: missing required field "Agent.runtime_phase"`)}
-	}
-	if v, ok := _c.mutation.RuntimePhase(); ok {
-		if err := agent.RuntimePhaseValidator(v); err != nil {
-			return &ValidationError{Name: "runtime_phase", err: fmt.Errorf(`ent: validator failed for field "Agent.runtime_phase": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.RuntimeControlState(); !ok {
@@ -424,29 +312,9 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 		_spec.SetField(agent.FieldName, field.TypeString, value)
 		_node.Name = value
 	}
-	if value, ok := _c.mutation.Status(); ok {
-		_spec.SetField(agent.FieldStatus, field.TypeEnum, value)
-		_node.Status = value
-	}
-	if value, ok := _c.mutation.SessionID(); ok {
-		_spec.SetField(agent.FieldSessionID, field.TypeString, value)
-		_node.SessionID = value
-	}
-	if value, ok := _c.mutation.RuntimePhase(); ok {
-		_spec.SetField(agent.FieldRuntimePhase, field.TypeEnum, value)
-		_node.RuntimePhase = value
-	}
 	if value, ok := _c.mutation.RuntimeControlState(); ok {
 		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
 		_node.RuntimeControlState = value
-	}
-	if value, ok := _c.mutation.RuntimeStartedAt(); ok {
-		_spec.SetField(agent.FieldRuntimeStartedAt, field.TypeTime, value)
-		_node.RuntimeStartedAt = &value
-	}
-	if value, ok := _c.mutation.LastError(); ok {
-		_spec.SetField(agent.FieldLastError, field.TypeString, value)
-		_node.LastError = value
 	}
 	if value, ok := _c.mutation.WorkspacePath(); ok {
 		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)
@@ -459,10 +327,6 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.TotalTicketsCompleted(); ok {
 		_spec.SetField(agent.FieldTotalTicketsCompleted, field.TypeInt, value)
 		_node.TotalTicketsCompleted = value
-	}
-	if value, ok := _c.mutation.LastHeartbeatAt(); ok {
-		_spec.SetField(agent.FieldLastHeartbeatAt, field.TypeTime, value)
-		_node.LastHeartbeatAt = &value
 	}
 	if nodes := _c.mutation.ProviderIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -498,23 +362,6 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 		_node.ProjectID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := _c.mutation.CurrentTicketIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   agent.CurrentTicketTable,
-			Columns: []string{agent.CurrentTicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_node.CurrentTicketID = &nodes[0]
-		_spec.Edges = append(_spec.Edges, edge)
-	}
 	if nodes := _c.mutation.AssignedTicketsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -524,6 +371,22 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

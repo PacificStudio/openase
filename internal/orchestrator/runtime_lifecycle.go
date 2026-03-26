@@ -7,6 +7,8 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
@@ -28,11 +30,17 @@ type agentLifecycleEnvelope struct {
 	Agent agentLifecycleSnapshot `json:"agent"`
 }
 
+type agentLifecycleState struct {
+	agent      *ent.Agent
+	currentRun *ent.AgentRun
+}
+
 type agentLifecycleSnapshot struct {
 	ID                    string  `json:"id"`
 	ProviderID            string  `json:"provider_id"`
 	ProjectID             string  `json:"project_id"`
 	Name                  string  `json:"name"`
+	CurrentRunID          *string `json:"current_run_id,omitempty"`
 	Status                string  `json:"status"`
 	CurrentTicketID       *string `json:"current_ticket_id,omitempty"`
 	SessionID             string  `json:"session_id"`
@@ -66,12 +74,12 @@ func publishAgentLifecycleEvent(
 	client *ent.Client,
 	events provider.EventProvider,
 	eventType provider.EventType,
-	agentItem *ent.Agent,
+	state agentLifecycleState,
 	message string,
 	metadata map[string]any,
 	publishedAt time.Time,
 ) error {
-	if agentItem == nil {
+	if state.agent == nil {
 		return fmt.Errorf("agent lifecycle event requires an agent")
 	}
 
@@ -79,7 +87,7 @@ func publishAgentLifecycleEvent(
 		event, err := provider.NewJSONEvent(
 			agentLifecycleTopic,
 			eventType,
-			agentLifecycleEnvelope{Agent: mapAgentLifecycleSnapshot(agentItem)},
+			agentLifecycleEnvelope{Agent: mapAgentLifecycleSnapshot(state)},
 			publishedAt,
 		)
 		if err != nil {
@@ -95,14 +103,14 @@ func publishAgentLifecycleEvent(
 	}
 
 	activityCreate := client.ActivityEvent.Create().
-		SetProjectID(agentItem.ProjectID).
-		SetAgentID(agentItem.ID).
+		SetProjectID(state.agent.ProjectID).
+		SetAgentID(state.agent.ID).
 		SetEventType(eventType.String()).
 		SetMessage(message).
 		SetMetadata(cloneLifecycleMetadata(metadata)).
 		SetCreatedAt(publishedAt.UTC())
-	if agentItem.CurrentTicketID != nil {
-		activityCreate.SetTicketID(*agentItem.CurrentTicketID)
+	if state.currentRun != nil {
+		activityCreate.SetTicketID(state.currentRun.TicketID)
 	}
 
 	activityItem, err := activityCreate.
@@ -131,23 +139,25 @@ func publishAgentLifecycleEvent(
 	return nil
 }
 
-func mapAgentLifecycleSnapshot(item *ent.Agent) agentLifecycleSnapshot {
+func mapAgentLifecycleSnapshot(state agentLifecycleState) agentLifecycleSnapshot {
+	status, runtimePhase := lifecycleAgentStatus(state), lifecycleAgentRuntimePhase(state)
 	return agentLifecycleSnapshot{
-		ID:                    item.ID.String(),
-		ProviderID:            item.ProviderID.String(),
-		ProjectID:             item.ProjectID.String(),
-		Name:                  item.Name,
-		Status:                item.Status.String(),
-		CurrentTicketID:       uuidPointerToString(item.CurrentTicketID),
-		SessionID:             item.SessionID,
-		RuntimePhase:          item.RuntimePhase.String(),
-		RuntimeControlState:   item.RuntimeControlState.String(),
-		RuntimeStartedAt:      timePointerToRFC3339(item.RuntimeStartedAt),
-		LastError:             item.LastError,
-		WorkspacePath:         item.WorkspacePath,
-		TotalTokensUsed:       item.TotalTokensUsed,
-		TotalTicketsCompleted: item.TotalTicketsCompleted,
-		LastHeartbeatAt:       timePointerToRFC3339(item.LastHeartbeatAt),
+		ID:                    state.agent.ID.String(),
+		ProviderID:            state.agent.ProviderID.String(),
+		ProjectID:             state.agent.ProjectID.String(),
+		Name:                  state.agent.Name,
+		CurrentRunID:          lifecycleCurrentRunID(state),
+		Status:                status,
+		CurrentTicketID:       lifecycleCurrentTicketID(state),
+		SessionID:             lifecycleSessionID(state),
+		RuntimePhase:          runtimePhase,
+		RuntimeControlState:   state.agent.RuntimeControlState.String(),
+		RuntimeStartedAt:      lifecycleRuntimeStartedAt(state),
+		LastError:             lifecycleLastError(state),
+		WorkspacePath:         state.agent.WorkspacePath,
+		TotalTokensUsed:       state.agent.TotalTokensUsed,
+		TotalTicketsCompleted: state.agent.TotalTicketsCompleted,
+		LastHeartbeatAt:       lifecycleLastHeartbeatAt(state),
 	}
 }
 
@@ -164,10 +174,17 @@ func mapActivityLifecycleSnapshot(item *ent.ActivityEvent) activityLifecycleSnap
 	}
 }
 
-func clearRuntimeState(update *ent.AgentUpdate) *ent.AgentUpdate {
+func clearRuntimeState(update *ent.AgentRunUpdate) *ent.AgentRunUpdate {
 	return update.
 		ClearSessionID().
-		SetRuntimePhase(entagent.RuntimePhaseNone).
+		ClearRuntimeStartedAt().
+		SetLastError("").
+		ClearLastHeartbeatAt()
+}
+
+func clearRuntimeStateOne(update *ent.AgentRunUpdateOne) *ent.AgentRunUpdateOne {
+	return update.
+		ClearSessionID().
 		ClearRuntimeStartedAt().
 		SetLastError("").
 		ClearLastHeartbeatAt()
@@ -226,30 +243,138 @@ func lifecycleMessage(eventType provider.EventType, agentName string) string {
 }
 
 func runtimeEventMetadata(agentItem *ent.Agent) map[string]any {
+	return runtimeEventMetadataForState(agentLifecycleState{agent: agentItem})
+}
+
+func runtimeEventMetadataForState(state agentLifecycleState) map[string]any {
 	metadata := map[string]any{
-		"status":                agentItem.Status.String(),
-		"runtime_phase":         agentItem.RuntimePhase.String(),
-		"runtime_control_state": agentItem.RuntimeControlState.String(),
+		"status":                lifecycleAgentStatus(state),
+		"runtime_phase":         lifecycleAgentRuntimePhase(state),
+		"runtime_control_state": state.agent.RuntimeControlState.String(),
 	}
-	if agentItem.CurrentTicketID != nil {
-		metadata["ticket_id"] = agentItem.CurrentTicketID.String()
+	if runID := lifecycleCurrentRunID(state); runID != nil {
+		metadata["current_run_id"] = *runID
 	}
-	if agentItem.SessionID != "" {
-		metadata["session_id"] = agentItem.SessionID
+	if ticketID := lifecycleCurrentTicketID(state); ticketID != nil {
+		metadata["ticket_id"] = *ticketID
 	}
-	if agentItem.LastError != "" {
-		metadata["last_error"] = agentItem.LastError
+	if sessionID := lifecycleSessionID(state); sessionID != "" {
+		metadata["session_id"] = sessionID
+	}
+	if lastError := lifecycleLastError(state); lastError != "" {
+		metadata["last_error"] = lastError
 	}
 	return metadata
 }
 
-func loadAgentLifecycleState(ctx context.Context, client *ent.Client, agentID uuid.UUID) (*ent.Agent, error) {
+func loadAgentLifecycleState(ctx context.Context, client *ent.Client, agentID uuid.UUID) (agentLifecycleState, error) {
 	item, err := client.Agent.Query().
 		Where(entagent.IDEQ(agentID)).
 		Only(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("load agent lifecycle state %s: %w", agentID, err)
+		return agentLifecycleState{}, fmt.Errorf("load agent lifecycle state %s: %w", agentID, err)
 	}
 
-	return item, nil
+	state := agentLifecycleState{agent: item}
+	ticketItem, err := client.Ticket.Query().
+		Where(
+			entticket.AssignedAgentIDEQ(agentID),
+			entticket.CurrentRunIDNotNil(),
+		).
+		WithCurrentRun().
+		Only(ctx)
+	if err == nil {
+		state.currentRun = ticketItem.Edges.CurrentRun
+		return state, nil
+	}
+	if !ent.IsNotFound(err) {
+		return agentLifecycleState{}, fmt.Errorf("load current run for agent %s: %w", agentID, err)
+	}
+
+	return state, nil
+}
+
+func lifecycleCurrentRunID(state agentLifecycleState) *string {
+	if state.currentRun == nil {
+		return nil
+	}
+	value := state.currentRun.ID.String()
+	return &value
+}
+
+func lifecycleCurrentTicketID(state agentLifecycleState) *string {
+	if state.currentRun == nil {
+		return nil
+	}
+	value := state.currentRun.TicketID.String()
+	return &value
+}
+
+func lifecycleSessionID(state agentLifecycleState) string {
+	if state.currentRun == nil {
+		return ""
+	}
+	return state.currentRun.SessionID
+}
+
+func lifecycleRuntimeStartedAt(state agentLifecycleState) *string {
+	if state.currentRun == nil {
+		return nil
+	}
+	return timePointerToRFC3339(state.currentRun.RuntimeStartedAt)
+}
+
+func lifecycleLastError(state agentLifecycleState) string {
+	if state.currentRun == nil {
+		return ""
+	}
+	return state.currentRun.LastError
+}
+
+func lifecycleLastHeartbeatAt(state agentLifecycleState) *string {
+	if state.currentRun == nil {
+		return nil
+	}
+	return timePointerToRFC3339(state.currentRun.LastHeartbeatAt)
+}
+
+func lifecycleAgentStatus(state agentLifecycleState) string {
+	switch {
+	case state.currentRun == nil:
+		return "idle"
+	case state.agent.RuntimeControlState == entagent.RuntimeControlStatePaused:
+		return "paused"
+	}
+
+	switch state.currentRun.Status {
+	case entagentrun.StatusLaunching:
+		return "claimed"
+	case entagentrun.StatusReady, entagentrun.StatusExecuting:
+		return "running"
+	case entagentrun.StatusErrored:
+		return "failed"
+	case entagentrun.StatusTerminated:
+		return "terminated"
+	default:
+		return "idle"
+	}
+}
+
+func lifecycleAgentRuntimePhase(state agentLifecycleState) string {
+	if state.currentRun == nil {
+		return "none"
+	}
+
+	switch state.currentRun.Status {
+	case entagentrun.StatusLaunching:
+		return "launching"
+	case entagentrun.StatusReady:
+		return "ready"
+	case entagentrun.StatusExecuting:
+		return "executing"
+	case entagentrun.StatusErrored:
+		return "failed"
+	default:
+		return "none"
+	}
 }
