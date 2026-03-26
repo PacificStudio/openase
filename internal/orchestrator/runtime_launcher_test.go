@@ -206,6 +206,90 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 }
 
+func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	bus := eventinfra.NewChannelBus()
+	stream, err := bus.Subscribe(ctx, agentLifecycleTopic)
+	if err != nil {
+		t.Fatalf("subscribe agent lifecycle stream: %v", err)
+	}
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-402").
+		SetTitle("Release graceful shutdown claim").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-close-01").
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil, nil)
+	launcher.storeSession(agentItem.ID, nil)
+
+	if err := launcher.Close(ctx); err != nil {
+		t.Fatalf("close launcher: %v", err)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after close: %v", err)
+	}
+	if ticketAfter.StatusID != fixture.statusIDs["Todo"] {
+		t.Fatalf("expected graceful shutdown to keep status Todo, got %+v", ticketAfter.StatusID)
+	}
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected graceful shutdown to clear current run, got %+v", ticketAfter.CurrentRunID)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run after close: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusTerminated {
+		t.Fatalf("expected graceful shutdown to terminate run, got %+v", runAfter)
+	}
+
+	terminatedEvent := waitForAgentLifecycleEvent(t, stream, agentTerminatedType)
+	payload := decodeLifecycleEnvelope(t, terminatedEvent.Payload)
+	if payload.Agent.ID != agentItem.ID.String() {
+		t.Fatalf("unexpected terminated event payload: %+v", payload.Agent)
+	}
+	if payload.Agent.CurrentRunID != nil {
+		t.Fatalf("expected terminated event to publish cleared current_run_id, got %+v", payload.Agent.CurrentRunID)
+	}
+}
+
 func TestRuntimeLauncherRunTickDropsCachedSessionWhenAgentLeavesRunningState(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)

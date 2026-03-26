@@ -140,15 +140,39 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			continue
 		}
 		if assignment.run != nil {
+			tx, err := l.client.Tx(ctx)
+			if err != nil {
+				l.logger.Warn("start graceful shutdown tx", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
+				continue
+			}
+
 			if _, err := clearRuntimeState(
-				l.client.AgentRun.Update().
+				tx.AgentRun.Update().
 					Where(
 						entagentrun.IDEQ(assignment.run.ID),
 						entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
 					).
 					SetStatus(entagentrun.StatusTerminated),
 			).Save(ctx); err != nil {
+				rollback(tx)
 				l.logger.Warn("mark agent run terminated", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
+				continue
+			}
+			if assignment.ticket != nil && assignment.ticket.CurrentRunID != nil {
+				if _, err := tx.Ticket.Update().
+					Where(
+						entticket.IDEQ(assignment.ticket.ID),
+						entticket.CurrentRunIDEQ(assignment.run.ID),
+					).
+					ClearCurrentRunID().
+					Save(ctx); err != nil {
+					rollback(tx)
+					l.logger.Warn("clear ticket current run during close", "agent_id", agentID, "ticket_id", assignment.ticket.ID, "run_id", assignment.run.ID, "error", err)
+					continue
+				}
+			}
+			if err := tx.Commit(); err != nil {
+				l.logger.Warn("commit graceful shutdown release", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
 				continue
 			}
 		}
