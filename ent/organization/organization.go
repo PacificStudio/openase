@@ -3,6 +3,8 @@
 package organization
 
 import (
+	"fmt"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
@@ -17,6 +19,8 @@ const (
 	FieldName = "name"
 	// FieldSlug holds the string denoting the slug field in the database.
 	FieldSlug = "slug"
+	// FieldStatus holds the string denoting the status field in the database.
+	FieldStatus = "status"
 	// FieldDefaultAgentProviderID holds the string denoting the default_agent_provider_id field in the database.
 	FieldDefaultAgentProviderID = "default_agent_provider_id"
 	// EdgeProjects holds the string denoting the projects edge name in mutations.
@@ -73,6 +77,7 @@ var Columns = []string{
 	FieldID,
 	FieldName,
 	FieldSlug,
+	FieldStatus,
 	FieldDefaultAgentProviderID,
 }
 
@@ -95,6 +100,32 @@ var (
 	DefaultID func() uuid.UUID
 )
 
+// Status defines the type for the "status" enum field.
+type Status string
+
+// StatusActive is the default value of the Status enum.
+const DefaultStatus = StatusActive
+
+// Status values.
+const (
+	StatusActive   Status = "active"
+	StatusArchived Status = "archived"
+)
+
+func (s Status) String() string {
+	return string(s)
+}
+
+// StatusValidator is a validator for the "status" field enum values. It is called by the builders before save.
+func StatusValidator(s Status) error {
+	switch s {
+	case StatusActive, StatusArchived:
+		return nil
+	default:
+		return fmt.Errorf("organization: invalid enum value for status field: %q", s)
+	}
+}
+
 // OrderOption defines the ordering options for the Organization queries.
 type OrderOption func(*sql.Selector)
 
@@ -111,6 +142,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // BySlug orders the results by the slug field.
 func BySlug(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSlug, opts...).ToFunc()
+}
+
+// ByStatus orders the results by the status field.
+func ByStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStatus, opts...).ToFunc()
 }
 
 // ByDefaultAgentProviderID orders the results by the default_agent_provider_id field.

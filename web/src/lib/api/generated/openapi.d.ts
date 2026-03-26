@@ -292,8 +292,8 @@ export interface paths {
     get?: never
     put?: never
     post?: never
-    /** Delete an organization */
-    delete: operations['deleteOrganization']
+    /** Archive an organization and all its projects */
+    delete: operations['archiveOrganization']
     options?: never
     head?: never
     /** Update an organization */
@@ -2640,6 +2640,7 @@ export interface operations {
               id?: string
               name?: string
               slug?: string
+              status?: string
             }[]
           }
         }
@@ -2688,6 +2689,7 @@ export interface operations {
               id?: string
               name?: string
               slug?: string
+              status?: string
             }
           }
         }
@@ -2730,7 +2732,7 @@ export interface operations {
       }
     }
   }
-  deleteOrganization: {
+  archiveOrganization: {
     parameters: {
       query?: never
       header?: never
@@ -2742,7 +2744,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Delete an organization response. */
+      /** @description Archive an organization and all its projects response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -2754,6 +2756,7 @@ export interface operations {
               id?: string
               name?: string
               slug?: string
+              status?: string
             }
           }
         }
@@ -2841,6 +2844,7 @@ export interface operations {
               id?: string
               name?: string
               slug?: string
+              status?: string
             }
           }
         }

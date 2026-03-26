@@ -29,8 +29,7 @@ type Repository interface {
 	CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error)
-	DeleteOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
-	CountActiveProjects(ctx context.Context, organizationID uuid.UUID) (int, error)
+	ArchiveOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error)
 	CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error)
 	GetMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
@@ -74,7 +73,10 @@ func NewEntRepository(client *ent.Client) *EntRepository {
 }
 
 func (r *EntRepository) ListOrganizations(ctx context.Context) ([]domain.Organization, error) {
-	items, err := r.client.Organization.Query().Order(entorganization.ByName()).All(ctx)
+	items, err := r.client.Organization.Query().
+		Where(entorganization.StatusEQ(entorganization.StatusActive)).
+		Order(entorganization.ByName()).
+		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list organizations: %w", err)
 	}
@@ -91,7 +93,8 @@ func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.Cre
 
 	builder := tx.Organization.Create().
 		SetName(input.Name).
-		SetSlug(input.Slug)
+		SetSlug(input.Slug).
+		SetStatus(entorganization.StatusActive)
 
 	item, err := builder.Save(ctx)
 	if err != nil {
@@ -121,15 +124,19 @@ func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.Cre
 }
 
 func (r *EntRepository) GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error) {
-	item, err := r.client.Organization.Get(ctx, id)
+	item, err := r.getActiveOrganization(ctx, id)
 	if err != nil {
-		return domain.Organization{}, mapReadError("get organization", err)
+		return domain.Organization{}, err
 	}
 
 	return mapOrganization(item), nil
 }
 
 func (r *EntRepository) UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error) {
+	if _, err := r.getActiveOrganization(ctx, input.ID); err != nil {
+		return domain.Organization{}, err
+	}
+
 	builder := r.client.Organization.UpdateOneID(input.ID).
 		SetName(input.Name).
 		SetSlug(input.Slug)
@@ -147,37 +154,44 @@ func (r *EntRepository) UpdateOrganization(ctx context.Context, input domain.Upd
 	return mapOrganization(item), nil
 }
 
-func (r *EntRepository) DeleteOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error) {
-	item, err := r.client.Organization.Get(ctx, id)
+func (r *EntRepository) ArchiveOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error) {
+	tx, err := r.client.Tx(ctx)
 	if err != nil {
-		return domain.Organization{}, mapReadError("get organization for delete", err)
+		return domain.Organization{}, fmt.Errorf("start archive organization transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	item, err := tx.Organization.Query().Where(activeOrganizationPredicates(id)...).Only(ctx)
+	if err != nil {
+		return domain.Organization{}, mapReadError("get organization for archive", err)
 	}
 
-	if err := r.client.Organization.DeleteOneID(id).Exec(ctx); err != nil {
-		return domain.Organization{}, mapWriteError("delete organization", err)
+	if _, err := tx.Project.Update().
+		Where(
+			entproject.OrganizationID(id),
+			entproject.StatusNEQ(entproject.StatusArchived),
+		).
+		SetStatus(entproject.StatusArchived).
+		Save(ctx); err != nil {
+		return domain.Organization{}, mapWriteError("archive organization projects", err)
+	}
+
+	item, err = tx.Organization.UpdateOneID(id).
+		SetStatus(entorganization.StatusArchived).
+		Save(ctx)
+	if err != nil {
+		return domain.Organization{}, mapWriteError("archive organization", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.Organization{}, fmt.Errorf("commit archive organization: %w", err)
 	}
 
 	return mapOrganization(item), nil
 }
 
-func (r *EntRepository) CountActiveProjects(ctx context.Context, organizationID uuid.UUID) (int, error) {
-	count, err := r.client.Project.Query().
-		Where(
-			entproject.OrganizationID(organizationID),
-			entproject.StatusNEQ(entproject.StatusArchived),
-		).
-		Count(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("count active projects: %w", err)
-	}
-
-	return count, nil
-}
-
 func (r *EntRepository) ListProjects(ctx context.Context, organizationID uuid.UUID) ([]domain.Project, error) {
-	exists, err := r.client.Organization.Query().
-		Where(entorganization.ID(organizationID)).
-		Exist(ctx)
+	exists, err := r.organizationIsActive(ctx, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("check organization before listing projects: %w", err)
 	}
@@ -197,9 +211,7 @@ func (r *EntRepository) ListProjects(ctx context.Context, organizationID uuid.UU
 }
 
 func (r *EntRepository) CreateProject(ctx context.Context, input domain.CreateProject) (domain.Project, error) {
-	exists, err := r.client.Organization.Query().
-		Where(entorganization.ID(input.OrganizationID)).
-		Exist(ctx)
+	exists, err := r.organizationIsActive(ctx, input.OrganizationID)
 	if err != nil {
 		return domain.Project{}, fmt.Errorf("check organization before creating project: %w", err)
 	}
@@ -699,8 +711,29 @@ func mapOrganization(item *ent.Organization) domain.Organization {
 		ID:                     item.ID,
 		Name:                   item.Name,
 		Slug:                   item.Slug,
+		Status:                 item.Status,
 		DefaultAgentProviderID: item.DefaultAgentProviderID,
 	}
+}
+
+func activeOrganizationPredicates(id uuid.UUID) []predicate.Organization {
+	return []predicate.Organization{
+		entorganization.ID(id),
+		entorganization.StatusEQ(entorganization.StatusActive),
+	}
+}
+
+func (r *EntRepository) organizationIsActive(ctx context.Context, id uuid.UUID) (bool, error) {
+	return r.client.Organization.Query().Where(activeOrganizationPredicates(id)...).Exist(ctx)
+}
+
+func (r *EntRepository) getActiveOrganization(ctx context.Context, id uuid.UUID) (*ent.Organization, error) {
+	item, err := r.client.Organization.Query().Where(activeOrganizationPredicates(id)...).Only(ctx)
+	if err != nil {
+		return nil, mapReadError("get organization", err)
+	}
+
+	return item, nil
 }
 
 func mapProjects(items []*ent.Project) []domain.Project {

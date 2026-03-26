@@ -596,6 +596,7 @@ Organization → Project → ProjectRepo (1:N)
 | id | UUID | 主键 |
 | name | String | 组织名称 |
 | slug | String | URL 友好标识 |
+| status | Enum | active / archived |
 | default_agent_provider_id | FK (nullable) | 默认 Agent Provider |
 
 ### 6.3 Project（项目）
@@ -4665,6 +4666,7 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | POST | `/api/v1/orgs` | 创建组织 |
 | GET | `/api/v1/orgs/:orgId` | 获取组织详情 |
 | PATCH | `/api/v1/orgs/:orgId` | 更新组织 |
+| DELETE | `/api/v1/orgs/:orgId` | 归档组织并自动归档其下所有项目（软删除） |
 
 **Project**
 

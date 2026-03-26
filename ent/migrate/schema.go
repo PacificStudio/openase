@@ -356,6 +356,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
 		{Name: "slug", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "archived"}, Default: "active"},
 		{Name: "default_agent_provider_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// OrganizationsTable holds the schema information for the "organizations" table.
@@ -366,7 +367,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "organizations_agent_providers_default_agent_provider",
-				Columns:    []*schema.Column{OrganizationsColumns[3]},
+				Columns:    []*schema.Column{OrganizationsColumns[4]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

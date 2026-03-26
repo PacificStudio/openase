@@ -225,6 +225,30 @@ func TestCreateProjectSeedsDefaultStatuses(t *testing.T) {
 	}
 }
 
+func TestArchiveOrganizationDelegatesToRepository(t *testing.T) {
+	orgID := uuid.New()
+	repo := &stubRepository{
+		createdOrganization: domain.Organization{
+			ID:     orgID,
+			Name:   "Acme",
+			Slug:   "acme",
+			Status: "archived",
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	item, err := svc.ArchiveOrganization(context.Background(), orgID)
+	if err != nil {
+		t.Fatalf("ArchiveOrganization returned error: %v", err)
+	}
+	if repo.archivedOrganizationID != orgID {
+		t.Fatalf("expected archive organization call for %s, got %s", orgID, repo.archivedOrganizationID)
+	}
+	if item.Status != "archived" {
+		t.Fatalf("expected archived organization, got %+v", item)
+	}
+}
+
 func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 	agentID := uuid.New()
 	ticketID := uuid.New()
@@ -286,15 +310,16 @@ func (r stubExecutableResolver) LookPath(name string) (string, error) {
 }
 
 type stubRepository struct {
-	createdProvider       *domain.CreateAgentProvider
-	updatedProvider       *domain.UpdateAgentProvider
-	updatedRuntimeControl *domain.UpdateAgentRuntimeControlState
-	updatedOrganization   *domain.UpdateOrganization
-	createdOrganization   domain.Organization
-	createdProject        domain.Project
-	listedProviders       []domain.AgentProvider
-	provider              domain.AgentProvider
-	agent                 domain.Agent
+	createdProvider        *domain.CreateAgentProvider
+	updatedProvider        *domain.UpdateAgentProvider
+	updatedRuntimeControl  *domain.UpdateAgentRuntimeControlState
+	updatedOrganization    *domain.UpdateOrganization
+	archivedOrganizationID uuid.UUID
+	createdOrganization    domain.Organization
+	createdProject         domain.Project
+	listedProviders        []domain.AgentProvider
+	provider               domain.AgentProvider
+	agent                  domain.Agent
 }
 
 func (r *stubRepository) ListOrganizations(context.Context) ([]domain.Organization, error) {
@@ -311,15 +336,18 @@ func (r *stubRepository) GetOrganization(context.Context, uuid.UUID) (domain.Org
 
 func (r *stubRepository) UpdateOrganization(_ context.Context, input domain.UpdateOrganization) (domain.Organization, error) {
 	r.updatedOrganization = &input
-	r.createdOrganization = domain.Organization(input)
+	r.createdOrganization = domain.Organization{
+		ID:                     input.ID,
+		Name:                   input.Name,
+		Slug:                   input.Slug,
+		Status:                 r.createdOrganization.Status,
+		DefaultAgentProviderID: input.DefaultAgentProviderID,
+	}
 	return r.createdOrganization, nil
 }
 
-func (r *stubRepository) CountActiveProjects(context.Context, uuid.UUID) (int, error) {
-	return 0, nil
-}
-
-func (r *stubRepository) DeleteOrganization(context.Context, uuid.UUID) (domain.Organization, error) {
+func (r *stubRepository) ArchiveOrganization(_ context.Context, id uuid.UUID) (domain.Organization, error) {
+	r.archivedOrganizationID = id
 	return r.createdOrganization, nil
 }
 

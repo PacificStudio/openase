@@ -82,6 +82,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	if createOrgPayload.Organization.Name != "Acme Platform" {
 		t.Fatalf("expected organization name to round-trip, got %+v", createOrgPayload.Organization)
 	}
+	if createOrgPayload.Organization.Status != "active" {
+		t.Fatalf("expected created organization to be active, got %+v", createOrgPayload.Organization)
+	}
 
 	listOrgRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs", "")
 	if listOrgRec.Code != http.StatusOK {
@@ -277,6 +280,66 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, archiveProjectRec, &archiveProjectPayload)
 	if archiveProjectPayload.Project.Status != "archived" {
 		t.Fatalf("expected archived project status, got %+v", archiveProjectPayload.Project)
+	}
+}
+
+func TestArchiveOrganizationRouteArchivesOrganizationAndProjects(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgID := uuid.New()
+	service.organizations[orgID] = domain.Organization{
+		ID:     orgID,
+		Name:   "Acme",
+		Slug:   "acme",
+		Status: "active",
+	}
+	projectID := uuid.New()
+	service.projects[projectID] = domain.Project{
+		ID:             projectID,
+		OrganizationID: orgID,
+		Name:           "OpenASE",
+		Slug:           "openase",
+		Status:         "active",
+	}
+
+	rec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/orgs/"+orgID.String(), "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected organization archive 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	decodeResponse(t, rec, &payload)
+	if payload.Organization.Status != "archived" {
+		t.Fatalf("expected archived organization response, got %+v", payload.Organization)
+	}
+	if project := service.projects[projectID]; project.Status != "archived" {
+		t.Fatalf("expected project to be archived with org, got %+v", project)
+	}
+
+	listRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs", "")
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected organization list 200, got %d: %s", listRec.Code, listRec.Body.String())
+	}
+
+	var listPayload struct {
+		Organizations []organizationResponse `json:"organizations"`
+	}
+	decodeResponse(t, listRec, &listPayload)
+	if len(listPayload.Organizations) != 0 {
+		t.Fatalf("expected archived organization to be hidden from list, got %+v", listPayload.Organizations)
 	}
 }
 
@@ -807,6 +870,9 @@ func decodeResponse(t *testing.T, rec *httptest.ResponseRecorder, target any) {
 func (f *fakeCatalogService) ListOrganizations(context.Context) ([]domain.Organization, error) {
 	items := make([]domain.Organization, 0, len(f.organizations))
 	for _, item := range f.organizations {
+		if item.Status == "archived" {
+			continue
+		}
 		items = append(items, item)
 	}
 	sort.Slice(items, func(i, j int) bool {
@@ -827,6 +893,7 @@ func (f *fakeCatalogService) CreateOrganization(_ context.Context, input domain.
 		ID:                     uuid.New(),
 		Name:                   input.Name,
 		Slug:                   input.Slug,
+		Status:                 "active",
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
 	}
 	f.organizations[item.ID] = item
@@ -863,7 +930,7 @@ func (f *fakeCatalogService) CreateOrganization(_ context.Context, input domain.
 
 func (f *fakeCatalogService) GetOrganization(_ context.Context, id uuid.UUID) (domain.Organization, error) {
 	item, ok := f.organizations[id]
-	if !ok {
+	if !ok || item.Status == "archived" {
 		return domain.Organization{}, catalogservice.ErrNotFound
 	}
 
@@ -871,27 +938,43 @@ func (f *fakeCatalogService) GetOrganization(_ context.Context, id uuid.UUID) (d
 }
 
 func (f *fakeCatalogService) UpdateOrganization(_ context.Context, input domain.UpdateOrganization) (domain.Organization, error) {
-	if _, ok := f.organizations[input.ID]; !ok {
+	current, ok := f.organizations[input.ID]
+	if !ok || current.Status == "archived" {
 		return domain.Organization{}, catalogservice.ErrNotFound
 	}
 
-	item := domain.Organization(input)
+	item := domain.Organization{
+		ID:                     input.ID,
+		Name:                   input.Name,
+		Slug:                   input.Slug,
+		Status:                 current.Status,
+		DefaultAgentProviderID: input.DefaultAgentProviderID,
+	}
 	f.organizations[input.ID] = item
 
 	return item, nil
 }
 
-func (f *fakeCatalogService) DeleteOrganization(_ context.Context, id uuid.UUID) (domain.Organization, error) {
+func (f *fakeCatalogService) ArchiveOrganization(_ context.Context, id uuid.UUID) (domain.Organization, error) {
 	item, ok := f.organizations[id]
-	if !ok {
+	if !ok || item.Status == "archived" {
 		return domain.Organization{}, catalogservice.ErrNotFound
 	}
-	delete(f.organizations, id)
+	item.Status = "archived"
+	f.organizations[id] = item
+	for projectID, project := range f.projects {
+		if project.OrganizationID != id {
+			continue
+		}
+		project.Status = "archived"
+		f.projects[projectID] = project
+	}
 	return item, nil
 }
 
 func (f *fakeCatalogService) ListMachines(_ context.Context, organizationID uuid.UUID) ([]domain.Machine, error) {
-	if _, ok := f.organizations[organizationID]; !ok {
+	item, ok := f.organizations[organizationID]
+	if !ok || item.Status == "archived" {
 		return nil, catalogservice.ErrNotFound
 	}
 
@@ -909,7 +992,8 @@ func (f *fakeCatalogService) ListMachines(_ context.Context, organizationID uuid
 }
 
 func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.CreateMachine) (domain.Machine, error) {
-	if _, ok := f.organizations[input.OrganizationID]; !ok {
+	org, ok := f.organizations[input.OrganizationID]
+	if !ok || org.Status == "archived" {
 		return domain.Machine{}, catalogservice.ErrNotFound
 	}
 	for _, item := range f.machines {
@@ -918,7 +1002,7 @@ func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.Creat
 		}
 	}
 
-	item := domain.Machine{
+	machine := domain.Machine{
 		ID:             uuid.New(),
 		OrganizationID: input.OrganizationID,
 		Name:           input.Name,
@@ -934,9 +1018,9 @@ func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.Creat
 		EnvVars:        append([]string(nil), input.EnvVars...),
 		Resources:      map[string]any{},
 	}
-	f.machines[item.ID] = item
+	f.machines[machine.ID] = machine
 
-	return item, nil
+	return machine, nil
 }
 
 func (f *fakeCatalogService) GetMachine(_ context.Context, id uuid.UUID) (domain.Machine, error) {
@@ -1015,7 +1099,8 @@ func (f *fakeCatalogService) TestMachineConnection(_ context.Context, id uuid.UU
 }
 
 func (f *fakeCatalogService) ListProjects(_ context.Context, organizationID uuid.UUID) ([]domain.Project, error) {
-	if _, ok := f.organizations[organizationID]; !ok {
+	item, ok := f.organizations[organizationID]
+	if !ok || item.Status == "archived" {
 		return nil, catalogservice.ErrNotFound
 	}
 
@@ -1033,7 +1118,8 @@ func (f *fakeCatalogService) ListProjects(_ context.Context, organizationID uuid
 }
 
 func (f *fakeCatalogService) CreateProject(_ context.Context, input domain.CreateProject) (domain.Project, error) {
-	if _, ok := f.organizations[input.OrganizationID]; !ok {
+	org, ok := f.organizations[input.OrganizationID]
+	if !ok || org.Status == "archived" {
 		return domain.Project{}, catalogservice.ErrNotFound
 	}
 
@@ -1043,7 +1129,7 @@ func (f *fakeCatalogService) CreateProject(_ context.Context, input domain.Creat
 		}
 	}
 
-	item := domain.Project{
+	project := domain.Project{
 		ID:                     uuid.New(),
 		OrganizationID:         input.OrganizationID,
 		Name:                   input.Name,
@@ -1055,9 +1141,9 @@ func (f *fakeCatalogService) CreateProject(_ context.Context, input domain.Creat
 		AccessibleMachineIDs:   append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,
 	}
-	f.projects[item.ID] = item
+	f.projects[project.ID] = project
 
-	return item, nil
+	return project, nil
 }
 
 func (f *fakeCatalogService) GetProject(_ context.Context, id uuid.UUID) (domain.Project, error) {

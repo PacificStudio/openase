@@ -63,7 +63,7 @@
               class="text-destructive hover:text-destructive"
               onclick={() => openDelete(org)}
             >
-              Delete
+              Archive
             </Button>
           </div>
         </div>
