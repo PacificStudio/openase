@@ -107,6 +107,9 @@ func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
 	}
 
 	branchName := fmt.Sprintf("agent/%s/%s", agentName, ticketIdentifier)
+	// Tickets without registered project repos still need a deterministic
+	// workspace root so hooks, harness rendering, and agent launches can share
+	// the same ticket-scoped path convention.
 	repos := make([]RepoRequest, 0, len(input.Repos))
 	clonePaths := make(map[string]struct{}, len(input.Repos))
 	for index, rawRepo := range input.Repos {

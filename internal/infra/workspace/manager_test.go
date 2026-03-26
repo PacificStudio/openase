@@ -37,6 +37,25 @@ func TestParseSetupRequestRejectsNonCanonicalBranchName(t *testing.T) {
 	}
 }
 
+func TestParseSetupRequestAllowsEmptyRepos(t *testing.T) {
+	request, err := ParseSetupRequest(SetupInput{
+		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		AgentName:        "codex-01",
+		TicketIdentifier: "ASE-33",
+	})
+	if err != nil {
+		t.Fatalf("expected parse to allow empty repos: %v", err)
+	}
+	if len(request.Repos) != 0 {
+		t.Fatalf("expected no repos, got %+v", request.Repos)
+	}
+	if request.BranchName != "agent/codex-01/ASE-33" {
+		t.Fatalf("unexpected branch name %q", request.BranchName)
+	}
+}
+
 func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 	backendRepoPath, _ := createRemoteRepo(t, "main", map[string]string{
 		"README.md": "backend",
