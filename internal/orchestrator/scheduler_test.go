@@ -65,6 +65,12 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 	codingAgent := fixture.createAgent(ctx, t, "coding-01", 0)
 	reviewAgent := fixture.createAgent(ctx, t, "review-01", 1)
 	fixture.createAgent(ctx, t, "general-01", 10)
+	if _, err := client.Workflow.UpdateOneID(codingWorkflow.ID).SetAgentID(codingAgent.ID).Save(ctx); err != nil {
+		t.Fatalf("bind coding workflow agent: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(reviewWorkflow.ID).SetAgentID(reviewAgent.ID).Save(ctx); err != nil {
+		t.Fatalf("bind review workflow agent: %v", err)
+	}
 
 	codingTicket, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -166,7 +172,13 @@ func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
-	fixture.createAgent(ctx, t, "coding-01", 0)
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Workflow.Update().
+		Where(entworkflow.ProjectIDEQ(fixture.projectID), entworkflow.NameEQ("Coding")).
+		SetAgentID(agentItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
 
 	blocker, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -238,6 +250,9 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 
 	busyAgent := fixture.createAgent(ctx, t, "busy-01", 0)
 	idleAgent := fixture.createAgent(ctx, t, "idle-01", 1)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(busyAgent.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
 
 	runningTicket, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -332,6 +347,9 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
 	}
 
 	ticketItem, err := client.Ticket.Create().
@@ -439,6 +457,9 @@ func TestSchedulerRunTickMatchesRequiredMachineLabelsAndBindsTicket(t *testing.T
 		t.Fatalf("create workflow: %v", err)
 	}
 	agentItem := fixture.createAgent(ctx, t, "trainer-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetIdentifier("ASE-401").
@@ -517,7 +538,13 @@ func TestSchedulerRunTickHonorsExplicitTargetMachineBinding(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
-	fixture.createAgent(ctx, t, "coding-01", 0)
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Workflow.Update().
+		Where(entworkflow.ProjectIDEQ(fixture.projectID), entworkflow.NameEQ("Coding")).
+		SetAgentID(agentItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -546,6 +573,125 @@ func TestSchedulerRunTickHonorsExplicitTargetMachineBinding(t *testing.T) {
 	}
 	if ticketAfter.TargetMachineID == nil || *ticketAfter.TargetMachineID != explicitMachine.ID {
 		t.Fatalf("expected explicit target machine %s, got %+v", explicitMachine.ID, ticketAfter.TargetMachineID)
+	}
+}
+
+func TestSchedulerRunTickSkipsWorkflowWhenBoundAgentIsPaused(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 14, 0, 0, 0, time.UTC)
+
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Agent.UpdateOneID(agentItem.ID).
+		SetRuntimeControlState(entagent.RuntimeControlStatePaused).
+		Save(ctx); err != nil {
+		t.Fatalf("pause agent: %v", err)
+	}
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetAgentID(agentItem.ID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-403").
+		SetTitle("Wait for bound agent").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	report, err := newTestScheduler(client, now).RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 0 || report.TicketsSkipped[skipReasonNoAgent] != 1 {
+		t.Fatalf("expected bound paused agent to skip dispatch, got %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.CurrentRunID != nil || ticketAfter.WorkflowID != nil {
+		t.Fatalf("expected ticket to remain unclaimed when bound agent is paused, got %+v", ticketAfter)
+	}
+	if workflowAfter, err := client.Workflow.Get(ctx, workflow.ID); err != nil {
+		t.Fatalf("reload workflow: %v", err)
+	} else if workflowAfter.AgentID == nil || *workflowAfter.AgentID != agentItem.ID {
+		t.Fatalf("expected workflow to stay bound to %s, got %+v", agentItem.ID, workflowAfter.AgentID)
+	}
+}
+
+func TestSchedulerRunTickSkipsWorkflowWhenBoundAgentIsMissing(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 14, 30, 0, 0, time.UTC)
+
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetAgentID(agentItem.ID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).ClearAgentID().Save(ctx); err != nil {
+		t.Fatalf("clear workflow agent binding: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-404").
+		SetTitle("Bound agent record removed").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	report, err := newTestScheduler(client, now).RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 0 || report.TicketsSkipped[skipReasonNoAgent] != 1 {
+		t.Fatalf("expected missing bound agent to skip dispatch, got %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.CurrentRunID != nil || ticketAfter.WorkflowID != nil {
+		t.Fatalf("expected ticket to remain unclaimed when bound agent is missing, got %+v", ticketAfter)
+	}
+	if workflowAfter, err := client.Workflow.Get(ctx, workflow.ID); err != nil {
+		t.Fatalf("reload workflow: %v", err)
+	} else if workflowAfter.AgentID != nil {
+		t.Fatalf("expected workflow binding to be missing, got %+v", workflowAfter.AgentID)
 	}
 }
 
@@ -588,6 +734,9 @@ func TestSchedulerRunTickCreatesDueScheduledJobTicketsBeforeDispatch(t *testing.
 		t.Fatalf("create workflow: %v", err)
 	}
 	agentItem := fixture.createAgent(ctx, t, "security-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
 
 	job, err := client.ScheduledJob.Create().
 		SetProjectID(fixture.projectID).
@@ -675,6 +824,9 @@ func TestSchedulerRunTickContinuesWhenOneDueScheduledJobFails(t *testing.T) {
 		t.Fatalf("create workflow: %v", err)
 	}
 	agentItem := fixture.createAgent(ctx, t, "security-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
 
 	if _, err := client.ScheduledJob.Create().
 		SetProjectID(fixture.projectID).

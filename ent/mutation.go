@@ -945,6 +945,9 @@ type AgentMutation struct {
 	clearedprovider            bool
 	project                    *uuid.UUID
 	clearedproject             bool
+	workflows                  map[uuid.UUID]struct{}
+	removedworkflows           map[uuid.UUID]struct{}
+	clearedworkflows           bool
 	runs                       map[uuid.UUID]struct{}
 	removedruns                map[uuid.UUID]struct{}
 	clearedruns                bool
@@ -1422,6 +1425,60 @@ func (m *AgentMutation) ResetProject() {
 	m.clearedproject = false
 }
 
+// AddWorkflowIDs adds the "workflows" edge to the Workflow entity by ids.
+func (m *AgentMutation) AddWorkflowIDs(ids ...uuid.UUID) {
+	if m.workflows == nil {
+		m.workflows = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.workflows[ids[i]] = struct{}{}
+	}
+}
+
+// ClearWorkflows clears the "workflows" edge to the Workflow entity.
+func (m *AgentMutation) ClearWorkflows() {
+	m.clearedworkflows = true
+}
+
+// WorkflowsCleared reports if the "workflows" edge to the Workflow entity was cleared.
+func (m *AgentMutation) WorkflowsCleared() bool {
+	return m.clearedworkflows
+}
+
+// RemoveWorkflowIDs removes the "workflows" edge to the Workflow entity by IDs.
+func (m *AgentMutation) RemoveWorkflowIDs(ids ...uuid.UUID) {
+	if m.removedworkflows == nil {
+		m.removedworkflows = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.workflows, ids[i])
+		m.removedworkflows[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedWorkflows returns the removed IDs of the "workflows" edge to the Workflow entity.
+func (m *AgentMutation) RemovedWorkflowsIDs() (ids []uuid.UUID) {
+	for id := range m.removedworkflows {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// WorkflowsIDs returns the "workflows" edge IDs in the mutation.
+func (m *AgentMutation) WorkflowsIDs() (ids []uuid.UUID) {
+	for id := range m.workflows {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetWorkflows resets all changes to the "workflows" edge.
+func (m *AgentMutation) ResetWorkflows() {
+	m.workflows = nil
+	m.clearedworkflows = false
+	m.removedworkflows = nil
+}
+
 // AddRunIDs adds the "runs" edge to the AgentRun entity by ids.
 func (m *AgentMutation) AddRunIDs(ids ...uuid.UUID) {
 	if m.runs == nil {
@@ -1855,12 +1912,15 @@ func (m *AgentMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.provider != nil {
 		edges = append(edges, agent.EdgeProvider)
 	}
 	if m.project != nil {
 		edges = append(edges, agent.EdgeProject)
+	}
+	if m.workflows != nil {
+		edges = append(edges, agent.EdgeWorkflows)
 	}
 	if m.runs != nil {
 		edges = append(edges, agent.EdgeRuns)
@@ -1886,6 +1946,12 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 		if id := m.project; id != nil {
 			return []ent.Value{*id}
 		}
+	case agent.EdgeWorkflows:
+		ids := make([]ent.Value, 0, len(m.workflows))
+		for id := range m.workflows {
+			ids = append(ids, id)
+		}
+		return ids
 	case agent.EdgeRuns:
 		ids := make([]ent.Value, 0, len(m.runs))
 		for id := range m.runs {
@@ -1910,7 +1976,10 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
+	if m.removedworkflows != nil {
+		edges = append(edges, agent.EdgeWorkflows)
+	}
 	if m.removedruns != nil {
 		edges = append(edges, agent.EdgeRuns)
 	}
@@ -1927,6 +1996,12 @@ func (m *AgentMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case agent.EdgeWorkflows:
+		ids := make([]ent.Value, 0, len(m.removedworkflows))
+		for id := range m.removedworkflows {
+			ids = append(ids, id)
+		}
+		return ids
 	case agent.EdgeRuns:
 		ids := make([]ent.Value, 0, len(m.removedruns))
 		for id := range m.removedruns {
@@ -1951,12 +2026,15 @@ func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedprovider {
 		edges = append(edges, agent.EdgeProvider)
 	}
 	if m.clearedproject {
 		edges = append(edges, agent.EdgeProject)
+	}
+	if m.clearedworkflows {
+		edges = append(edges, agent.EdgeWorkflows)
 	}
 	if m.clearedruns {
 		edges = append(edges, agent.EdgeRuns)
@@ -1978,6 +2056,8 @@ func (m *AgentMutation) EdgeCleared(name string) bool {
 		return m.clearedprovider
 	case agent.EdgeProject:
 		return m.clearedproject
+	case agent.EdgeWorkflows:
+		return m.clearedworkflows
 	case agent.EdgeRuns:
 		return m.clearedruns
 	case agent.EdgeTokens:
@@ -2011,6 +2091,9 @@ func (m *AgentMutation) ResetEdge(name string) error {
 		return nil
 	case agent.EdgeProject:
 		m.ResetProject()
+		return nil
+	case agent.EdgeWorkflows:
+		m.ResetWorkflows()
 		return nil
 	case agent.EdgeRuns:
 		m.ResetRuns()
@@ -19800,6 +19883,8 @@ type WorkflowMutation struct {
 	clearedFields            map[string]struct{}
 	project                  *uuid.UUID
 	clearedproject           bool
+	agent                    *uuid.UUID
+	clearedagent             bool
 	pickup_status            *uuid.UUID
 	clearedpickup_status     bool
 	finish_status            *uuid.UUID
@@ -19956,6 +20041,55 @@ func (m *WorkflowMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err e
 // ResetProjectID resets all changes to the "project_id" field.
 func (m *WorkflowMutation) ResetProjectID() {
 	m.project = nil
+}
+
+// SetAgentID sets the "agent_id" field.
+func (m *WorkflowMutation) SetAgentID(u uuid.UUID) {
+	m.agent = &u
+}
+
+// AgentID returns the value of the "agent_id" field in the mutation.
+func (m *WorkflowMutation) AgentID() (r uuid.UUID, exists bool) {
+	v := m.agent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentID returns the old "agent_id" field's value of the Workflow entity.
+// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowMutation) OldAgentID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentID: %w", err)
+	}
+	return oldValue.AgentID, nil
+}
+
+// ClearAgentID clears the value of the "agent_id" field.
+func (m *WorkflowMutation) ClearAgentID() {
+	m.agent = nil
+	m.clearedFields[workflow.FieldAgentID] = struct{}{}
+}
+
+// AgentIDCleared returns if the "agent_id" field was cleared in this mutation.
+func (m *WorkflowMutation) AgentIDCleared() bool {
+	_, ok := m.clearedFields[workflow.FieldAgentID]
+	return ok
+}
+
+// ResetAgentID resets all changes to the "agent_id" field.
+func (m *WorkflowMutation) ResetAgentID() {
+	m.agent = nil
+	delete(m.clearedFields, workflow.FieldAgentID)
 }
 
 // SetName sets the "name" field.
@@ -20579,6 +20713,33 @@ func (m *WorkflowMutation) ResetProject() {
 	m.clearedproject = false
 }
 
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (m *WorkflowMutation) ClearAgent() {
+	m.clearedagent = true
+	m.clearedFields[workflow.FieldAgentID] = struct{}{}
+}
+
+// AgentCleared reports if the "agent" edge to the Agent entity was cleared.
+func (m *WorkflowMutation) AgentCleared() bool {
+	return m.AgentIDCleared() || m.clearedagent
+}
+
+// AgentIDs returns the "agent" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentID instead. It exists only for internal usage by the builders.
+func (m *WorkflowMutation) AgentIDs() (ids []uuid.UUID) {
+	if id := m.agent; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgent resets all changes to the "agent" edge.
+func (m *WorkflowMutation) ResetAgent() {
+	m.agent = nil
+	m.clearedagent = false
+}
+
 // ClearPickupStatus clears the "pickup_status" edge to the TicketStatus entity.
 func (m *WorkflowMutation) ClearPickupStatus() {
 	m.clearedpickup_status = true
@@ -20829,9 +20990,12 @@ func (m *WorkflowMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *WorkflowMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.project != nil {
 		fields = append(fields, workflow.FieldProjectID)
+	}
+	if m.agent != nil {
+		fields = append(fields, workflow.FieldAgentID)
 	}
 	if m.name != nil {
 		fields = append(fields, workflow.FieldName)
@@ -20882,6 +21046,8 @@ func (m *WorkflowMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case workflow.FieldProjectID:
 		return m.ProjectID()
+	case workflow.FieldAgentID:
+		return m.AgentID()
 	case workflow.FieldName:
 		return m.Name()
 	case workflow.FieldType:
@@ -20919,6 +21085,8 @@ func (m *WorkflowMutation) OldField(ctx context.Context, name string) (ent.Value
 	switch name {
 	case workflow.FieldProjectID:
 		return m.OldProjectID(ctx)
+	case workflow.FieldAgentID:
+		return m.OldAgentID(ctx)
 	case workflow.FieldName:
 		return m.OldName(ctx)
 	case workflow.FieldType:
@@ -20960,6 +21128,13 @@ func (m *WorkflowMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetProjectID(v)
+		return nil
+	case workflow.FieldAgentID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentID(v)
 		return nil
 	case workflow.FieldName:
 		v, ok := value.(string)
@@ -21145,6 +21320,9 @@ func (m *WorkflowMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *WorkflowMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(workflow.FieldAgentID) {
+		fields = append(fields, workflow.FieldAgentID)
+	}
 	if m.FieldCleared(workflow.FieldRequiredMachineLabels) {
 		fields = append(fields, workflow.FieldRequiredMachineLabels)
 	}
@@ -21165,6 +21343,9 @@ func (m *WorkflowMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *WorkflowMutation) ClearField(name string) error {
 	switch name {
+	case workflow.FieldAgentID:
+		m.ClearAgentID()
+		return nil
 	case workflow.FieldRequiredMachineLabels:
 		m.ClearRequiredMachineLabels()
 		return nil
@@ -21181,6 +21362,9 @@ func (m *WorkflowMutation) ResetField(name string) error {
 	switch name {
 	case workflow.FieldProjectID:
 		m.ResetProjectID()
+		return nil
+	case workflow.FieldAgentID:
+		m.ResetAgentID()
 		return nil
 	case workflow.FieldName:
 		m.ResetName()
@@ -21227,9 +21411,12 @@ func (m *WorkflowMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *WorkflowMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.project != nil {
 		edges = append(edges, workflow.EdgeProject)
+	}
+	if m.agent != nil {
+		edges = append(edges, workflow.EdgeAgent)
 	}
 	if m.pickup_status != nil {
 		edges = append(edges, workflow.EdgePickupStatus)
@@ -21255,6 +21442,10 @@ func (m *WorkflowMutation) AddedIDs(name string) []ent.Value {
 	switch name {
 	case workflow.EdgeProject:
 		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case workflow.EdgeAgent:
+		if id := m.agent; id != nil {
 			return []ent.Value{*id}
 		}
 	case workflow.EdgePickupStatus:
@@ -21289,7 +21480,7 @@ func (m *WorkflowMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *WorkflowMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removedtickets != nil {
 		edges = append(edges, workflow.EdgeTickets)
 	}
@@ -21330,9 +21521,12 @@ func (m *WorkflowMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *WorkflowMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.clearedproject {
 		edges = append(edges, workflow.EdgeProject)
+	}
+	if m.clearedagent {
+		edges = append(edges, workflow.EdgeAgent)
 	}
 	if m.clearedpickup_status {
 		edges = append(edges, workflow.EdgePickupStatus)
@@ -21358,6 +21552,8 @@ func (m *WorkflowMutation) EdgeCleared(name string) bool {
 	switch name {
 	case workflow.EdgeProject:
 		return m.clearedproject
+	case workflow.EdgeAgent:
+		return m.clearedagent
 	case workflow.EdgePickupStatus:
 		return m.clearedpickup_status
 	case workflow.EdgeFinishStatus:
@@ -21379,6 +21575,9 @@ func (m *WorkflowMutation) ClearEdge(name string) error {
 	case workflow.EdgeProject:
 		m.ClearProject()
 		return nil
+	case workflow.EdgeAgent:
+		m.ClearAgent()
+		return nil
 	case workflow.EdgePickupStatus:
 		m.ClearPickupStatus()
 		return nil
@@ -21395,6 +21594,9 @@ func (m *WorkflowMutation) ResetEdge(name string) error {
 	switch name {
 	case workflow.EdgeProject:
 		m.ResetProject()
+		return nil
+	case workflow.EdgeAgent:
+		m.ResetAgent()
 		return nil
 	case workflow.EdgePickupStatus:
 		m.ResetPickupStatus()

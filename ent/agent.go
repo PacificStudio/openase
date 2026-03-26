@@ -45,6 +45,8 @@ type AgentEdges struct {
 	Provider *AgentProvider `json:"provider,omitempty"`
 	// Project holds the value of the project edge.
 	Project *Project `json:"project,omitempty"`
+	// Workflows holds the value of the workflows edge.
+	Workflows []*Workflow `json:"workflows,omitempty"`
 	// Runs holds the value of the runs edge.
 	Runs []*AgentRun `json:"runs,omitempty"`
 	// Tokens holds the value of the tokens edge.
@@ -53,7 +55,7 @@ type AgentEdges struct {
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // ProviderOrErr returns the Provider value or an error if the edge
@@ -78,10 +80,19 @@ func (e AgentEdges) ProjectOrErr() (*Project, error) {
 	return nil, &NotLoadedError{edge: "project"}
 }
 
+// WorkflowsOrErr returns the Workflows value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) WorkflowsOrErr() ([]*Workflow, error) {
+	if e.loadedTypes[2] {
+		return e.Workflows, nil
+	}
+	return nil, &NotLoadedError{edge: "workflows"}
+}
+
 // RunsOrErr returns the Runs value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) RunsOrErr() ([]*AgentRun, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.Runs, nil
 	}
 	return nil, &NotLoadedError{edge: "runs"}
@@ -90,7 +101,7 @@ func (e AgentEdges) RunsOrErr() ([]*AgentRun, error) {
 // TokensOrErr returns the Tokens value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) TokensOrErr() ([]*AgentToken, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.Tokens, nil
 	}
 	return nil, &NotLoadedError{edge: "tokens"}
@@ -99,7 +110,7 @@ func (e AgentEdges) TokensOrErr() ([]*AgentToken, error) {
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -200,6 +211,11 @@ func (_m *Agent) QueryProvider() *AgentProviderQuery {
 // QueryProject queries the "project" edge of the Agent entity.
 func (_m *Agent) QueryProject() *ProjectQuery {
 	return NewAgentClient(_m.config).QueryProject(_m)
+}
+
+// QueryWorkflows queries the "workflows" edge of the Agent entity.
+func (_m *Agent) QueryWorkflows() *WorkflowQuery {
+	return NewAgentClient(_m.config).QueryWorkflows(_m)
 }
 
 // QueryRuns queries the "runs" edge of the Agent entity.

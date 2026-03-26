@@ -757,6 +757,24 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 		)
 		todoID := findStatusIDByName(t, statuses.Statuses, "Todo")
 		doneID := findStatusIDByName(t, statuses.Statuses, "Done")
+		provider, err := client.AgentProvider.Create().
+			SetOrganizationID(org.ID).
+			SetName(fmt.Sprintf("Codex %d", index+1)).
+			SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+			SetCliCommand("codex").
+			SetModelName("gpt-5.4").
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("create provider %d: %v", index+1, err)
+		}
+		agent, err := client.Agent.Create().
+			SetProviderID(provider.ID).
+			SetProjectID(project.ID).
+			SetName(fmt.Sprintf("codex-%d", index+1)).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("create agent %d: %v", index+1, err)
+		}
 
 		workflowResp := struct {
 			Workflow workflowResponse `json:"workflow"`
@@ -767,6 +785,7 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 			http.MethodPost,
 			fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
 			map[string]any{
+				"agent_id":         agent.ID.String(),
 				"name":             fmt.Sprintf("Coding Workflow %d", index+1),
 				"type":             "coding",
 				"pickup_status_id": todoID.String(),

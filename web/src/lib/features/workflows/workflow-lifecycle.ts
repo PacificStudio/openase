@@ -1,6 +1,7 @@
 import type { WorkflowSummary } from './types'
 
 export type WorkflowLifecycleDraft = {
+  agentId: string
   name: string
   pickupStatusId: string
   finishStatusId: string
@@ -12,6 +13,7 @@ export type WorkflowLifecycleDraft = {
 }
 
 export type WorkflowLifecyclePayload = {
+  agent_id: string
   finish_status_id: string | null
   is_active: boolean
   max_concurrent: number
@@ -26,6 +28,7 @@ type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string }
 
 export function createWorkflowLifecycleDraft(workflow: WorkflowSummary): WorkflowLifecycleDraft {
   return {
+    agentId: workflow.agentId ?? '',
     name: workflow.name,
     pickupStatusId: workflow.pickupStatusId,
     finishStatusId: workflow.finishStatusId ?? '',
@@ -43,6 +46,9 @@ export function parseWorkflowLifecycleDraft(
   const name = draft.name.trim()
   if (!name) {
     return { ok: false, error: 'Name must not be empty.' }
+  }
+  if (!draft.agentId) {
+    return { ok: false, error: 'Bound agent is required.' }
   }
   if (!draft.pickupStatusId) {
     return { ok: false, error: 'Pickup status is required.' }
@@ -63,6 +69,7 @@ export function parseWorkflowLifecycleDraft(
   return {
     ok: true,
     value: {
+      agent_id: draft.agentId,
       finish_status_id: draft.finishStatusId || null,
       is_active: draft.isActive,
       max_concurrent: maxConcurrent.value,

@@ -115,12 +115,13 @@ const settingsAuditCases: SettingsAuditCase[] = [
     expectedState: 'available',
     summarySnippets: [
       'lifecycle management',
+      'explicit agent binding',
       'renaming, scheduling policy, activation, and deletion',
     ],
     sources: [
       {
         file: './settings/components/workflow-settings.svelte',
-        snippets: ['WorkflowLifecycleSidebar', 'loadWorkflowCatalog(projectId)'],
+        snippets: ['WorkflowLifecycleSidebar', 'loadWorkflowCatalog(projectId, orgId)'],
       },
       {
         file: './workflows/workflow-management.ts',

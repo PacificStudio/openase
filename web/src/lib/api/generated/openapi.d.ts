@@ -6452,6 +6452,7 @@ export interface operations {
         content: {
           'application/json': {
             workflows?: {
+              agent_id?: string | null
               finish_status_id?: string | null
               harness_content?: string | null
               harness_path?: string
@@ -6526,6 +6527,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          agent_id?: string
           finish_status_id?: string | null
           harness_content?: string
           harness_path?: string | null
@@ -6553,6 +6555,7 @@ export interface operations {
         content: {
           'application/json': {
             workflow?: {
+              agent_id?: string | null
               finish_status_id?: string | null
               harness_content?: string | null
               harness_path?: string
@@ -8150,6 +8153,7 @@ export interface operations {
         content: {
           'application/json': {
             workflow?: {
+              agent_id?: string | null
               finish_status_id?: string | null
               harness_content?: string | null
               harness_path?: string
@@ -8316,6 +8320,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          agent_id?: string | null
           finish_status_id?: string | null
           harness_path?: string | null
           hooks?: {
@@ -8342,6 +8347,7 @@ export interface operations {
         content: {
           'application/json': {
             workflow?: {
+              agent_id?: string | null
               finish_status_id?: string | null
               harness_content?: string | null
               harness_path?: string

@@ -9,6 +9,7 @@
     loadWorkflowCatalog,
     WorkflowLifecycleSidebar,
     WorkflowList,
+    type WorkflowAgentOption,
     type WorkflowStatusOption,
     type WorkflowSummary,
   } from '$lib/features/workflows'
@@ -21,6 +22,7 @@
   let loading = $state(false)
   let error = $state('')
   let workflows = $state<WorkflowSummary[]>([])
+  let agentOptions = $state<WorkflowAgentOption[]>([])
   let statuses = $state<WorkflowStatusOption[]>([])
   let selectedId = $state('')
 
@@ -28,8 +30,10 @@
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
-    if (!projectId) {
+    const orgId = appStore.currentOrg?.id
+    if (!projectId || !orgId) {
       workflows = []
+      agentOptions = []
       statuses = []
       selectedId = ''
       error = ''
@@ -44,10 +48,11 @@
       error = ''
 
       try {
-        const payload = await loadWorkflowCatalog(projectId)
+        const payload = await loadWorkflowCatalog(projectId, orgId)
         if (cancelled) return
 
         workflows = payload.workflows
+        agentOptions = payload.agentOptions
         statuses = payload.statuses
         if (!selectedId || !payload.workflows.some((workflow) => workflow.id === selectedId)) {
           selectedId = payload.workflows[0]?.id ?? ''
@@ -103,6 +108,7 @@
               workflow={selectedWorkflow}
               {workflows}
               {statuses}
+              {agentOptions}
               onWorkflowsChange={(nextWorkflows) => (workflows = nextWorkflows)}
               onSelectedIdChange={(nextSelectedId) => (selectedId = nextSelectedId)}
               class="border-l-0"

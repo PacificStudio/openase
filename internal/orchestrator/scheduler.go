@@ -167,6 +167,13 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 	if workflow.MaxConcurrent <= 0 || project.MaxConcurrentAgents <= 0 {
 		return false, skipReasonMaxConcurrency, nil
 	}
+	agent, err := s.resolveWorkflowAgent(ctx, workflow)
+	if err != nil {
+		return false, "", fmt.Errorf("resolve workflow agent: %w", err)
+	}
+	if agent == nil {
+		return false, skipReasonNoAgent, nil
+	}
 	machine, err := s.selectMachine(ctx, project.OrganizationID, workflow, ticket)
 	if err != nil {
 		return false, "", fmt.Errorf("select machine: %w", err)
@@ -175,51 +182,43 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 		return false, skipReasonNoMachine, nil
 	}
 
-	agents, err := s.listIdleAgents(ctx, workflow.ProjectID)
+	outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, machine, agent, project.MaxConcurrentAgents, now)
 	if err != nil {
-		return false, "", fmt.Errorf("list idle agents: %w", err)
+		return false, "", err
 	}
-	if len(agents) == 0 {
-		return false, skipReasonNoAgent, nil
-	}
-
-	sortAgentsForDispatch(agents)
-	for _, agent := range agents {
-		outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, machine, agent, project.MaxConcurrentAgents, now)
-		if err != nil {
-			return false, "", err
-		}
-		if outcome == "" {
-			s.logger.Info(
-				"ticket dispatched",
-				"ticket_id", ticket.ID,
-				"workflow_id", workflow.ID,
-				"agent_id", agent.ID,
-			)
-			return true, "", nil
-		}
-		if outcome == skipReasonMaxConcurrency {
-			return false, skipReasonMaxConcurrency, nil
-		}
+	if outcome == "" {
+		s.logger.Info(
+			"ticket dispatched to workflow-bound agent",
+			"ticket_id", ticket.ID,
+			"workflow_id", workflow.ID,
+			"agent_id", agent.ID,
+		)
+		return true, "", nil
 	}
 
-	return false, skipReasonNoAgent, nil
+	return false, outcome, nil
 }
 
-func (s *Scheduler) listIdleAgents(ctx context.Context, projectID uuid.UUID) ([]*ent.Agent, error) {
-	agents, err := s.client.Agent.Query().
+func (s *Scheduler) resolveWorkflowAgent(ctx context.Context, workflow *ent.Workflow) (*ent.Agent, error) {
+	if workflow.AgentID == nil {
+		return nil, nil
+	}
+
+	agentItem, err := s.client.Agent.Query().
 		Where(
-			entagent.ProjectIDEQ(projectID),
+			entagent.IDEQ(*workflow.AgentID),
+			entagent.ProjectIDEQ(workflow.ProjectID),
 			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-			entagent.Not(entagent.HasRunsWith(entagentrun.HasCurrentForTicket())),
 		).
-		Order(ent.Asc(entagent.FieldName)).
-		All(ctx)
+		Only(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
-	return agents, nil
+	return agentItem, nil
 }
 
 func (s *Scheduler) selectMachine(
@@ -482,15 +481,6 @@ func sortTicketsByPriorityAndAge(tickets []*ent.Ticket) {
 			return 1
 		}
 		return strings.Compare(left.Identifier, right.Identifier)
-	})
-}
-
-func sortAgentsForDispatch(agents []*ent.Agent) {
-	slices.SortFunc(agents, func(left, right *ent.Agent) int {
-		if left.TotalTicketsCompleted != right.TotalTicketsCompleted {
-			return left.TotalTicketsCompleted - right.TotalTicketsCompleted
-		}
-		return strings.Compare(left.Name, right.Name)
 	})
 }
 

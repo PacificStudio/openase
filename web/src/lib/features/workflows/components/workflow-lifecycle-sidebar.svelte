@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import type { WorkflowStatusOption, WorkflowSummary } from '../types'
+  import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
   import type { WorkflowLifecyclePayload } from '../workflow-lifecycle'
   import {
     destroyWorkflow,
@@ -13,6 +13,7 @@
     workflow,
     workflows,
     statuses,
+    agentOptions = [],
     class: className = '',
     onWorkflowsChange,
     onSelectedIdChange,
@@ -20,6 +21,7 @@
     workflow: WorkflowSummary
     workflows: WorkflowSummary[]
     statuses: WorkflowStatusOption[]
+    agentOptions?: WorkflowAgentOption[]
     class?: string
     onWorkflowsChange?: (workflows: WorkflowSummary[]) => void
     onSelectedIdChange?: (selectedId: string) => void
@@ -68,6 +70,7 @@
 <WorkflowDetailPanel
   {workflow}
   {statuses}
+  {agentOptions}
   {saving}
   {deleting}
   {statusMessage}

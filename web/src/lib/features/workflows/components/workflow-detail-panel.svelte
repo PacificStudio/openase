@@ -10,11 +10,14 @@
     CheckCircle2,
     Clock3,
     Layers3,
+    Bot,
+    Cpu,
+    HardDrive,
     Power,
     RotateCcw,
     Trash2,
   } from '@lucide/svelte'
-  import type { WorkflowStatusOption, WorkflowSummary } from '../types'
+  import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
   import {
     createWorkflowLifecycleDraft,
     parseWorkflowLifecycleDraft,
@@ -28,6 +31,7 @@
   let {
     workflow,
     statuses = [],
+    agentOptions = [],
     saving = false,
     deleting = false,
     statusMessage = '',
@@ -38,6 +42,7 @@
   }: {
     workflow: WorkflowSummary
     statuses?: WorkflowStatusOption[]
+    agentOptions?: WorkflowAgentOption[]
     saving?: boolean
     deleting?: boolean
     statusMessage?: string
@@ -48,6 +53,7 @@
   } = $props()
 
   let draft = $state<WorkflowLifecycleDraft>({
+    agentId: '',
     name: '',
     pickupStatusId: '',
     finishStatusId: '',
@@ -62,7 +68,8 @@
 
   const baseDraft = $derived(createWorkflowLifecycleDraft(workflow))
   const isDirty = $derived(
-    draft.name !== baseDraft.name ||
+    draft.agentId !== baseDraft.agentId ||
+      draft.name !== baseDraft.name ||
       draft.pickupStatusId !== baseDraft.pickupStatusId ||
       draft.finishStatusId !== baseDraft.finishStatusId ||
       draft.maxConcurrent !== baseDraft.maxConcurrent ||
@@ -74,17 +81,27 @@
   const selectedPickupStatusLabel = $derived(
     statuses.find((status) => status.id === draft.pickupStatusId)?.name ?? 'Select status',
   )
+  const selectedAgentLabel = $derived(
+    agentOptions.find((option) => option.id === draft.agentId)?.label ?? 'Select bound agent',
+  )
   const selectedFinishStatusLabel = $derived(
     draft.finishStatusId
       ? (statuses.find((status) => status.id === draft.finishStatusId)?.name ?? 'Unknown status')
       : 'Leave unchanged',
   )
   const finishStatusValue = $derived(draft.finishStatusId || unchangedFinishStatusValue)
+  const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
+  const machineSummary = $derived(
+    workflow.requiredMachineLabels.length > 0
+      ? `Labels: ${workflow.requiredMachineLabels.join(', ')}`
+      : 'Local default machine',
+  )
 
   $effect(() => {
     const nextKey = [
       workflow.id,
       workflow.version,
+      workflow.agentId ?? '',
       workflow.name,
       workflow.isActive,
       workflow.pickupStatusId,
@@ -183,6 +200,99 @@
         />
       </div>
 
+      <div class="space-y-2">
+        <Label>Bound Agent</Label>
+        <Select.Root
+          type="single"
+          value={draft.agentId}
+          disabled={saving || deleting || agentOptions.length === 0}
+          onValueChange={(value) => updateDraftField('agentId', value || '')}
+        >
+          <Select.Trigger class="w-full">{selectedAgentLabel}</Select.Trigger>
+          <Select.Content>
+            {#each agentOptions as option (option.id)}
+              <Select.Item value={option.id}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <WorkflowNumberField
+          id="workflow-max-concurrent"
+          label="Max Concurrent"
+          value={draft.maxConcurrent}
+          icon={Layers3}
+          disabled={saving || deleting}
+          oninput={(value) => updateDraftField('maxConcurrent', value)}
+        />
+        <WorkflowNumberField
+          id="workflow-max-retry"
+          label="Max Retry Attempts"
+          value={draft.maxRetryAttempts}
+          icon={RotateCcw}
+          disabled={saving || deleting}
+          oninput={(value) => updateDraftField('maxRetryAttempts', value)}
+        />
+        <WorkflowNumberField
+          id="workflow-timeout"
+          label="Timeout Minutes"
+          value={draft.timeoutMinutes}
+          icon={Clock3}
+          disabled={saving || deleting}
+          oninput={(value) => updateDraftField('timeoutMinutes', value)}
+        />
+        <WorkflowNumberField
+          id="workflow-stall-timeout"
+          label="Stall Timeout Minutes"
+          value={draft.stallTimeoutMinutes}
+          icon={Clock3}
+          disabled={saving || deleting}
+          oninput={(value) => updateDraftField('stallTimeoutMinutes', value)}
+        />
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="space-y-2">
+          <Label>Provider</Label>
+          <div
+            class="border-border text-foreground flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm"
+          >
+            <Bot class="text-muted-foreground size-4" />
+            <span>{selectedAgent?.providerName ?? 'Select an agent first'}</span>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <Label>Model</Label>
+          <div
+            class="border-border text-foreground flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm"
+          >
+            <Cpu class="text-muted-foreground size-4" />
+            <span>{selectedAgent?.modelName ?? 'Select an agent first'}</span>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <Label>Machine</Label>
+          <div
+            class="border-border text-foreground flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm"
+          >
+            <HardDrive class="text-muted-foreground size-4" />
+            <span>{machineSummary}</span>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <Label>Workspace</Label>
+          <div
+            class="border-border text-foreground min-h-10 rounded-md border px-3 py-2 text-sm break-all"
+          >
+            {selectedAgent?.workspacePath || 'Platform-derived ticket workspace'}
+          </div>
+        </div>
+      </div>
+
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-2">
           <Label>Pickup Status</Label>
@@ -222,41 +332,6 @@
             </Select.Content>
           </Select.Root>
         </div>
-      </div>
-
-      <div class="grid gap-4 sm:grid-cols-2">
-        <WorkflowNumberField
-          id="workflow-max-concurrent"
-          label="Max Concurrent"
-          value={draft.maxConcurrent}
-          icon={Layers3}
-          disabled={saving || deleting}
-          oninput={(value) => updateDraftField('maxConcurrent', value)}
-        />
-        <WorkflowNumberField
-          id="workflow-max-retry"
-          label="Max Retry Attempts"
-          value={draft.maxRetryAttempts}
-          icon={RotateCcw}
-          disabled={saving || deleting}
-          oninput={(value) => updateDraftField('maxRetryAttempts', value)}
-        />
-        <WorkflowNumberField
-          id="workflow-timeout"
-          label="Timeout Minutes"
-          value={draft.timeoutMinutes}
-          icon={Clock3}
-          disabled={saving || deleting}
-          oninput={(value) => updateDraftField('timeoutMinutes', value)}
-        />
-        <WorkflowNumberField
-          id="workflow-stall-timeout"
-          label="Stall Timeout Minutes"
-          value={draft.stallTimeoutMinutes}
-          icon={Clock3}
-          disabled={saving || deleting}
-          oninput={(value) => updateDraftField('stallTimeoutMinutes', value)}
-        />
       </div>
 
       {#if statusMessage}

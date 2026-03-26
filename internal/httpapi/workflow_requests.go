@@ -10,6 +10,7 @@ import (
 )
 
 type rawCreateWorkflowRequest struct {
+	AgentID               string         `json:"agent_id"`
 	Name                  string         `json:"name"`
 	Type                  string         `json:"type"`
 	HarnessPath           *string        `json:"harness_path"`
@@ -26,6 +27,7 @@ type rawCreateWorkflowRequest struct {
 }
 
 type rawUpdateWorkflowRequest struct {
+	AgentID               *string         `json:"agent_id"`
 	Name                  *string         `json:"name"`
 	Type                  *string         `json:"type"`
 	HarnessPath           *string         `json:"harness_path"`
@@ -55,6 +57,10 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 	}
 
 	workflowType, err := parseWorkflowType(raw.Type)
+	if err != nil {
+		return workflowservice.CreateInput{}, err
+	}
+	agentID, err := parseUUIDString("agent_id", raw.AgentID)
 	if err != nil {
 		return workflowservice.CreateInput{}, err
 	}
@@ -88,6 +94,7 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 
 	input := workflowservice.CreateInput{
 		ProjectID:             projectID,
+		AgentID:               agentID,
 		Name:                  name,
 		Type:                  workflowType,
 		HarnessContent:        raw.HarnessContent,
@@ -114,6 +121,14 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 
 func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowRequest) (workflowservice.UpdateInput, error) {
 	input := workflowservice.UpdateInput{WorkflowID: workflowID}
+
+	if raw.AgentID != nil {
+		agentID, err := parseUUIDString("agent_id", *raw.AgentID)
+		if err != nil {
+			return workflowservice.UpdateInput{}, err
+		}
+		input.AgentID = workflowservice.Some(agentID)
+	}
 
 	if raw.Name != nil {
 		name := strings.TrimSpace(*raw.Name)

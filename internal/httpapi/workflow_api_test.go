@@ -78,6 +78,24 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	doneID := findStatusIDByName(t, statuses, "Done")
 	activateMarkerPath := filepath.Join(repoRoot, "activate.marker")
 	reloadMarkerPath := filepath.Join(repoRoot, "reload.marker")
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
 
 	createResp := struct {
 		Workflow workflowResponse `json:"workflow"`
@@ -88,6 +106,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
 		map[string]any{
+			"agent_id":                agent.ID.String(),
 			"name":                    "Coding Workflow",
 			"type":                    "coding",
 			"pickup_status_id":        todoID.String(),
@@ -110,6 +129,9 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	)
 	if createResp.Workflow.Type != "coding" {
 		t.Fatalf("expected coding workflow, got %+v", createResp.Workflow)
+	}
+	if createResp.Workflow.AgentID == nil || *createResp.Workflow.AgentID != agent.ID.String() {
+		t.Fatalf("expected bound agent %s, got %+v", agent.ID, createResp.Workflow.AgentID)
 	}
 	if len(createResp.Workflow.RequiredMachineLabels) != 2 || createResp.Workflow.RequiredMachineLabels[0] != "gpu" {
 		t.Fatalf("expected required machine labels in create response, got %+v", createResp.Workflow.RequiredMachineLabels)
@@ -465,6 +487,25 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	inReviewID := findStatusIDByName(t, statuses, "In Review")
 	doneID := findStatusIDByName(t, statuses, "Done")
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetName("Claude Code").
+		SetAdapterType(entagentprovider.AdapterTypeClaudeCodeCli).
+		SetCliCommand("claude").
+		SetModelName("claude-sonnet-4-6").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("claude-01").
+		SetTotalTicketsCompleted(47).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
 
 	templateContent := `---
 workflow:
@@ -499,6 +540,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 
 	createdWorkflow, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
 		ProjectID:           project.ID,
+		AgentID:             agent.ID,
 		Name:                "Coding Workflow",
 		Type:                "coding",
 		HarnessContent:      templateContent,
@@ -516,6 +558,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	}
 	if _, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
 		ProjectID:           project.ID,
+		AgentID:             agent.ID,
 		Name:                "Dispatcher Workflow",
 		Type:                "custom",
 		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Backlog\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
@@ -550,25 +593,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		t.Fatalf("create frontend repo: %v", err)
 	}
 
-	provider, err := client.AgentProvider.Create().
-		SetOrganizationID(org.ID).
-		SetName("Claude Code").
-		SetAdapterType(entagentprovider.AdapterTypeClaudeCodeCli).
-		SetCliCommand("claude").
-		SetModelName("claude-sonnet-4-6").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create provider: %v", err)
-	}
-	agent, err := client.Agent.Create().
-		SetProviderID(provider.ID).
-		SetProjectID(project.ID).
-		SetName("claude-01").
-		SetTotalTicketsCompleted(47).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create agent: %v", err)
-	}
 	activeTicket, err := client.Ticket.Create().
 		SetProjectID(project.ID).
 		SetIdentifier("ASE-40").

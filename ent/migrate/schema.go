@@ -864,6 +864,7 @@ var (
 		{Name: "stall_timeout_minutes", Type: field.TypeInt, Default: 5},
 		{Name: "version", Type: field.TypeInt, Default: 1},
 		{Name: "is_active", Type: field.TypeBool, Default: true},
+		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
 		{Name: "pickup_status_id", Type: field.TypeUUID},
 		{Name: "finish_status_id", Type: field.TypeUUID, Nullable: true},
@@ -875,20 +876,26 @@ var (
 		PrimaryKey: []*schema.Column{WorkflowsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "workflows_projects_workflows",
+				Symbol:     "workflows_agents_workflows",
 				Columns:    []*schema.Column{WorkflowsColumns[12]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "workflows_projects_workflows",
+				Columns:    []*schema.Column{WorkflowsColumns[13]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "workflows_ticket_status_pickup_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[13]},
+				Columns:    []*schema.Column{WorkflowsColumns[14]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "workflows_ticket_status_finish_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[14]},
+				Columns:    []*schema.Column{WorkflowsColumns[15]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -897,12 +904,12 @@ var (
 			{
 				Name:    "workflow_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[1]},
+				Columns: []*schema.Column{WorkflowsColumns[13], WorkflowsColumns[1]},
 			},
 			{
 				Name:    "workflow_project_id_is_active",
 				Unique:  false,
-				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[11]},
+				Columns: []*schema.Column{WorkflowsColumns[13], WorkflowsColumns[11]},
 			},
 		},
 	}
@@ -968,7 +975,8 @@ func init() {
 	TicketRepoScopesTable.ForeignKeys[0].RefTable = ProjectReposTable
 	TicketRepoScopesTable.ForeignKeys[1].RefTable = TicketsTable
 	TicketStatusTable.ForeignKeys[0].RefTable = ProjectsTable
-	WorkflowsTable.ForeignKeys[0].RefTable = ProjectsTable
-	WorkflowsTable.ForeignKeys[1].RefTable = TicketStatusTable
+	WorkflowsTable.ForeignKeys[0].RefTable = AgentsTable
+	WorkflowsTable.ForeignKeys[1].RefTable = ProjectsTable
 	WorkflowsTable.ForeignKeys[2].RefTable = TicketStatusTable
+	WorkflowsTable.ForeignKeys[3].RefTable = TicketStatusTable
 }
