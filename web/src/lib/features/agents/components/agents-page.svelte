@@ -166,7 +166,6 @@
         providerId: parsed.value.providerId,
         name: parsed.value.name,
         workspacePath: parsed.value.workspacePath,
-        capabilities: parsed.value.capabilities,
       })
       applyPageData(result.data)
       registerFeedback = 'Agent created.'

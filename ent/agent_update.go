@@ -18,7 +18,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -216,18 +215,6 @@ func (_u *AgentUpdate) SetNillableWorkspacePath(v *string) *AgentUpdate {
 // ClearWorkspacePath clears the value of the "workspace_path" field.
 func (_u *AgentUpdate) ClearWorkspacePath() *AgentUpdate {
 	_u.mutation.ClearWorkspacePath()
-	return _u
-}
-
-// SetCapabilities sets the "capabilities" field.
-func (_u *AgentUpdate) SetCapabilities(v pgarray.StringArray) *AgentUpdate {
-	_u.mutation.SetCapabilities(v)
-	return _u
-}
-
-// ClearCapabilities clears the value of the "capabilities" field.
-func (_u *AgentUpdate) ClearCapabilities() *AgentUpdate {
-	_u.mutation.ClearCapabilities()
 	return _u
 }
 
@@ -544,12 +531,6 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.WorkspacePathCleared() {
 		_spec.ClearField(agent.FieldWorkspacePath, field.TypeString)
-	}
-	if value, ok := _u.mutation.Capabilities(); ok {
-		_spec.SetField(agent.FieldCapabilities, field.TypeOther, value)
-	}
-	if _u.mutation.CapabilitiesCleared() {
-		_spec.ClearField(agent.FieldCapabilities, field.TypeOther)
 	}
 	if value, ok := _u.mutation.TotalTokensUsed(); ok {
 		_spec.SetField(agent.FieldTotalTokensUsed, field.TypeInt64, value)
@@ -995,18 +976,6 @@ func (_u *AgentUpdateOne) ClearWorkspacePath() *AgentUpdateOne {
 	return _u
 }
 
-// SetCapabilities sets the "capabilities" field.
-func (_u *AgentUpdateOne) SetCapabilities(v pgarray.StringArray) *AgentUpdateOne {
-	_u.mutation.SetCapabilities(v)
-	return _u
-}
-
-// ClearCapabilities clears the value of the "capabilities" field.
-func (_u *AgentUpdateOne) ClearCapabilities() *AgentUpdateOne {
-	_u.mutation.ClearCapabilities()
-	return _u
-}
-
 // SetTotalTokensUsed sets the "total_tokens_used" field.
 func (_u *AgentUpdateOne) SetTotalTokensUsed(v int64) *AgentUpdateOne {
 	_u.mutation.ResetTotalTokensUsed()
@@ -1350,12 +1319,6 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if _u.mutation.WorkspacePathCleared() {
 		_spec.ClearField(agent.FieldWorkspacePath, field.TypeString)
-	}
-	if value, ok := _u.mutation.Capabilities(); ok {
-		_spec.SetField(agent.FieldCapabilities, field.TypeOther, value)
-	}
-	if _u.mutation.CapabilitiesCleared() {
-		_spec.ClearField(agent.FieldCapabilities, field.TypeOther)
 	}
 	if value, ok := _u.mutation.TotalTokensUsed(); ok {
 		_spec.SetField(agent.FieldTotalTokensUsed, field.TypeInt64, value)

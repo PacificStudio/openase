@@ -159,7 +159,6 @@ type HarnessAgentData struct {
 	Provider              string
 	AdapterType           string
 	Model                 string
-	Capabilities          []string
 	TotalTicketsCompleted int
 }
 
@@ -495,7 +494,6 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "agent.provider", Type: "string", Description: "Provider 名称", Example: "Claude Code"},
 				{Path: "agent.adapter_type", Type: "string", Description: "适配器类型", Example: "claude-code-cli"},
 				{Path: "agent.model", Type: "string", Description: "模型名称", Example: "claude-sonnet-4-6"},
-				{Path: "agent.capabilities", Type: "list", Description: "能力标签", Example: "[\"backend\", \"go\", \"testing\"]"},
 				{Path: "agent.total_tickets_completed", Type: "int", Description: "历史完成工单数", Example: "47"},
 			},
 		},
@@ -825,7 +823,6 @@ func mapHarnessAgent(item *ent.Agent) HarnessAgentData {
 		Provider:              providerName,
 		AdapterType:           adapterType,
 		Model:                 modelName,
-		Capabilities:          append([]string(nil), item.Capabilities...),
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
 	}
 }
@@ -1105,7 +1102,6 @@ func agentMap(item HarnessAgentData) map[string]any {
 		"provider":                item.Provider,
 		"adapter_type":            item.AdapterType,
 		"model":                   item.Model,
-		"capabilities":            append([]string(nil), item.Capabilities...),
 		"total_tickets_completed": item.TotalTicketsCompleted,
 	}
 }

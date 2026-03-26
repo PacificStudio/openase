@@ -139,7 +139,6 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		SetRuntimeControlState(toEntAgentRuntimeControlState(input.RuntimeControlState)).
 		SetLastError(input.LastError).
 		SetWorkspacePath(input.WorkspacePath).
-		SetCapabilities(pgarray.StringArray(input.Capabilities)).
 		SetTotalTokensUsed(input.TotalTokensUsed).
 		SetTotalTicketsCompleted(input.TotalTicketsCompleted)
 	if input.CurrentTicketID != nil {
@@ -242,7 +241,6 @@ func mapAgent(item *ent.Agent) domain.Agent {
 		RuntimeStartedAt:      cloneTimePointer(item.RuntimeStartedAt),
 		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,
-		Capabilities:          append([]string(nil), item.Capabilities...),
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
 		LastHeartbeatAt:       cloneTimePointer(item.LastHeartbeatAt),

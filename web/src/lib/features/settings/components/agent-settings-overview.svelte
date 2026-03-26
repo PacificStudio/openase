@@ -6,17 +6,15 @@
     orgDefaultProviderName,
     agentCount,
     runningAgentCount,
-    distinctCapabilityCount,
   }: {
     selectedDefaultProviderName: string | null
     orgDefaultProviderName: string | null
     agentCount: number
     runningAgentCount: number
-    distinctCapabilityCount: number
   } = $props()
 </script>
 
-<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
   <Card.Root>
     <Card.Header class="pb-3">
       <Card.Description>Default provider</Card.Description>
@@ -50,16 +48,6 @@
     </Card.Header>
     <Card.Content class="text-muted-foreground pt-0 text-xs">
       Current execution state is surfaced here for governance context only.
-    </Card.Content>
-  </Card.Root>
-
-  <Card.Root>
-    <Card.Header class="pb-3">
-      <Card.Description>Capability labels</Card.Description>
-      <Card.Title>{distinctCapabilityCount}</Card.Title>
-    </Card.Header>
-    <Card.Content class="text-muted-foreground pt-0 text-xs">
-      Distinct capability tags across all registered agents.
     </Card.Content>
   </Card.Root>
 </div>
