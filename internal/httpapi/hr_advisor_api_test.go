@@ -155,7 +155,6 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 		t.Fatalf("create active run: %v", err)
 	}
 	if _, err := client.Ticket.UpdateOneID(activeTicketID).
-		SetAssignedAgentID(agentItem.ID).
 		SetCurrentRunID(runItem.ID).
 		Save(ctx); err != nil {
 		t.Fatalf("bind active run to ticket: %v", err)

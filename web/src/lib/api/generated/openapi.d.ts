@@ -5609,6 +5609,7 @@ export interface operations {
               cost_tokens_output?: number
               created_at?: string
               created_by?: string
+              current_run_id?: string | null
               dependencies?: {
                 id?: string
                 target?: {
@@ -5753,6 +5754,7 @@ export interface operations {
               cost_tokens_output?: number
               created_at?: string
               created_by?: string
+              current_run_id?: string | null
               dependencies?: {
                 id?: string
                 target?: {
@@ -5992,6 +5994,7 @@ export interface operations {
               cost_tokens_output?: number
               created_at?: string
               created_by?: string
+              current_run_id?: string | null
               dependencies?: {
                 id?: string
                 target?: {
@@ -7002,6 +7005,7 @@ export interface operations {
               cost_tokens_output?: number
               created_at?: string
               created_by?: string
+              current_run_id?: string | null
               dependencies?: {
                 id?: string
                 target?: {
@@ -7343,6 +7347,7 @@ export interface operations {
               cost_tokens_output?: number
               created_at?: string
               created_by?: string
+              current_run_id?: string | null
               dependencies?: {
                 id?: string
                 target?: {
@@ -7487,6 +7492,7 @@ export interface operations {
               cost_tokens_output?: number
               created_at?: string
               created_by?: string
+              current_run_id?: string | null
               dependencies?: {
                 id?: string
                 target?: {

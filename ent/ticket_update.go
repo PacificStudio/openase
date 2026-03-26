@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
-	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/machine"
@@ -202,26 +201,6 @@ func (_u *TicketUpdate) SetNillableTargetMachineID(v *uuid.UUID) *TicketUpdate {
 // ClearTargetMachineID clears the value of the "target_machine_id" field.
 func (_u *TicketUpdate) ClearTargetMachineID() *TicketUpdate {
 	_u.mutation.ClearTargetMachineID()
-	return _u
-}
-
-// SetAssignedAgentID sets the "assigned_agent_id" field.
-func (_u *TicketUpdate) SetAssignedAgentID(v uuid.UUID) *TicketUpdate {
-	_u.mutation.SetAssignedAgentID(v)
-	return _u
-}
-
-// SetNillableAssignedAgentID sets the "assigned_agent_id" field if the given value is not nil.
-func (_u *TicketUpdate) SetNillableAssignedAgentID(v *uuid.UUID) *TicketUpdate {
-	if v != nil {
-		_u.SetAssignedAgentID(*v)
-	}
-	return _u
-}
-
-// ClearAssignedAgentID clears the value of the "assigned_agent_id" field.
-func (_u *TicketUpdate) ClearAssignedAgentID() *TicketUpdate {
-	_u.mutation.ClearAssignedAgentID()
 	return _u
 }
 
@@ -592,11 +571,6 @@ func (_u *TicketUpdate) SetTargetMachine(v *Machine) *TicketUpdate {
 	return _u.SetTargetMachineID(v.ID)
 }
 
-// SetAssignedAgent sets the "assigned_agent" edge to the Agent entity.
-func (_u *TicketUpdate) SetAssignedAgent(v *Agent) *TicketUpdate {
-	return _u.SetAssignedAgentID(v.ID)
-}
-
 // SetParentID sets the "parent" edge to the Ticket entity by ID.
 func (_u *TicketUpdate) SetParentID(id uuid.UUID) *TicketUpdate {
 	_u.mutation.SetParentID(id)
@@ -783,12 +757,6 @@ func (_u *TicketUpdate) ClearCurrentRun() *TicketUpdate {
 // ClearTargetMachine clears the "target_machine" edge to the Machine entity.
 func (_u *TicketUpdate) ClearTargetMachine() *TicketUpdate {
 	_u.mutation.ClearTargetMachine()
-	return _u
-}
-
-// ClearAssignedAgent clears the "assigned_agent" edge to the Agent entity.
-func (_u *TicketUpdate) ClearAssignedAgent() *TicketUpdate {
-	_u.mutation.ClearAssignedAgent()
 	return _u
 }
 
@@ -1311,35 +1279,6 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.AssignedAgentCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticket.AssignedAgentTable,
-			Columns: []string{ticket.AssignedAgentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.AssignedAgentIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticket.AssignedAgentTable,
-			Columns: []string{ticket.AssignedAgentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1965,26 +1904,6 @@ func (_u *TicketUpdateOne) ClearTargetMachineID() *TicketUpdateOne {
 	return _u
 }
 
-// SetAssignedAgentID sets the "assigned_agent_id" field.
-func (_u *TicketUpdateOne) SetAssignedAgentID(v uuid.UUID) *TicketUpdateOne {
-	_u.mutation.SetAssignedAgentID(v)
-	return _u
-}
-
-// SetNillableAssignedAgentID sets the "assigned_agent_id" field if the given value is not nil.
-func (_u *TicketUpdateOne) SetNillableAssignedAgentID(v *uuid.UUID) *TicketUpdateOne {
-	if v != nil {
-		_u.SetAssignedAgentID(*v)
-	}
-	return _u
-}
-
-// ClearAssignedAgentID clears the value of the "assigned_agent_id" field.
-func (_u *TicketUpdateOne) ClearAssignedAgentID() *TicketUpdateOne {
-	_u.mutation.ClearAssignedAgentID()
-	return _u
-}
-
 // SetCreatedBy sets the "created_by" field.
 func (_u *TicketUpdateOne) SetCreatedBy(v string) *TicketUpdateOne {
 	_u.mutation.SetCreatedBy(v)
@@ -2352,11 +2271,6 @@ func (_u *TicketUpdateOne) SetTargetMachine(v *Machine) *TicketUpdateOne {
 	return _u.SetTargetMachineID(v.ID)
 }
 
-// SetAssignedAgent sets the "assigned_agent" edge to the Agent entity.
-func (_u *TicketUpdateOne) SetAssignedAgent(v *Agent) *TicketUpdateOne {
-	return _u.SetAssignedAgentID(v.ID)
-}
-
 // SetParentID sets the "parent" edge to the Ticket entity by ID.
 func (_u *TicketUpdateOne) SetParentID(id uuid.UUID) *TicketUpdateOne {
 	_u.mutation.SetParentID(id)
@@ -2543,12 +2457,6 @@ func (_u *TicketUpdateOne) ClearCurrentRun() *TicketUpdateOne {
 // ClearTargetMachine clears the "target_machine" edge to the Machine entity.
 func (_u *TicketUpdateOne) ClearTargetMachine() *TicketUpdateOne {
 	_u.mutation.ClearTargetMachine()
-	return _u
-}
-
-// ClearAssignedAgent clears the "assigned_agent" edge to the Agent entity.
-func (_u *TicketUpdateOne) ClearAssignedAgent() *TicketUpdateOne {
-	_u.mutation.ClearAssignedAgent()
 	return _u
 }
 
@@ -3101,35 +3009,6 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.AssignedAgentCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticket.AssignedAgentTable,
-			Columns: []string{ticket.AssignedAgentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.AssignedAgentIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticket.AssignedAgentTable,
-			Columns: []string{ticket.AssignedAgentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -96,11 +96,6 @@ func TargetMachineID(v uuid.UUID) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldTargetMachineID, v))
 }
 
-// AssignedAgentID applies equality check predicate on the "assigned_agent_id" field. It's identical to AssignedAgentIDEQ.
-func AssignedAgentID(v uuid.UUID) predicate.Ticket {
-	return predicate.Ticket(sql.FieldEQ(FieldAssignedAgentID, v))
-}
-
 // CreatedBy applies equality check predicate on the "created_by" field. It's identical to CreatedByEQ.
 func CreatedBy(v string) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldCreatedBy, v))
@@ -564,36 +559,6 @@ func TargetMachineIDIsNil() predicate.Ticket {
 // TargetMachineIDNotNil applies the NotNil predicate on the "target_machine_id" field.
 func TargetMachineIDNotNil() predicate.Ticket {
 	return predicate.Ticket(sql.FieldNotNull(FieldTargetMachineID))
-}
-
-// AssignedAgentIDEQ applies the EQ predicate on the "assigned_agent_id" field.
-func AssignedAgentIDEQ(v uuid.UUID) predicate.Ticket {
-	return predicate.Ticket(sql.FieldEQ(FieldAssignedAgentID, v))
-}
-
-// AssignedAgentIDNEQ applies the NEQ predicate on the "assigned_agent_id" field.
-func AssignedAgentIDNEQ(v uuid.UUID) predicate.Ticket {
-	return predicate.Ticket(sql.FieldNEQ(FieldAssignedAgentID, v))
-}
-
-// AssignedAgentIDIn applies the In predicate on the "assigned_agent_id" field.
-func AssignedAgentIDIn(vs ...uuid.UUID) predicate.Ticket {
-	return predicate.Ticket(sql.FieldIn(FieldAssignedAgentID, vs...))
-}
-
-// AssignedAgentIDNotIn applies the NotIn predicate on the "assigned_agent_id" field.
-func AssignedAgentIDNotIn(vs ...uuid.UUID) predicate.Ticket {
-	return predicate.Ticket(sql.FieldNotIn(FieldAssignedAgentID, vs...))
-}
-
-// AssignedAgentIDIsNil applies the IsNil predicate on the "assigned_agent_id" field.
-func AssignedAgentIDIsNil() predicate.Ticket {
-	return predicate.Ticket(sql.FieldIsNull(FieldAssignedAgentID))
-}
-
-// AssignedAgentIDNotNil applies the NotNil predicate on the "assigned_agent_id" field.
-func AssignedAgentIDNotNil() predicate.Ticket {
-	return predicate.Ticket(sql.FieldNotNull(FieldAssignedAgentID))
 }
 
 // CreatedByEQ applies the EQ predicate on the "created_by" field.
@@ -1543,29 +1508,6 @@ func HasTargetMachine() predicate.Ticket {
 func HasTargetMachineWith(preds ...predicate.Machine) predicate.Ticket {
 	return predicate.Ticket(func(s *sql.Selector) {
 		step := newTargetMachineStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasAssignedAgent applies the HasEdge predicate on the "assigned_agent" edge.
-func HasAssignedAgent() predicate.Ticket {
-	return predicate.Ticket(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, AssignedAgentTable, AssignedAgentColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasAssignedAgentWith applies the HasEdge predicate on the "assigned_agent" edge with a given conditions (other predicates).
-func HasAssignedAgentWith(preds ...predicate.Agent) predicate.Ticket {
-	return predicate.Ticket(func(s *sql.Selector) {
-		step := newAssignedAgentStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

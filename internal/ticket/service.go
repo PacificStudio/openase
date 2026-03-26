@@ -108,6 +108,7 @@ type Ticket struct {
 	Priority          entticket.Priority `json:"priority"`
 	Type              entticket.Type     `json:"type"`
 	WorkflowID        *uuid.UUID         `json:"workflow_id,omitempty"`
+	CurrentRunID      *uuid.UUID         `json:"current_run_id,omitempty"`
 	TargetMachineID   *uuid.UUID         `json:"target_machine_id,omitempty"`
 	CreatedBy         string             `json:"created_by"`
 	Parent            *TicketReference   `json:"parent,omitempty"`
@@ -445,7 +446,6 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 		}
 		targetMachineChanged = !optionalUUIDPointerEqual(current.TargetMachineID, input.TargetMachineID.Value)
 		if targetMachineChanged {
-			builder.ClearAssignedAgentID()
 			builder.ClearCurrentRunID()
 		}
 	}
@@ -480,7 +480,6 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 		}
 	}
 	if statusChanged {
-		builder.ClearAssignedAgentID()
 		builder.ClearCurrentRunID()
 	}
 
@@ -983,8 +982,15 @@ func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ti
 		return nil
 	}
 
+	var runItem *ent.AgentRun
 	if ticketItem.CurrentRunID != nil {
-		runUpdate := tx.AgentRun.UpdateOneID(*ticketItem.CurrentRunID).
+		currentRun, err := tx.AgentRun.Get(ctx, *ticketItem.CurrentRunID)
+		if err != nil {
+			return fmt.Errorf("load current agent run: %w", err)
+		}
+		runItem = currentRun
+
+		runUpdate := tx.AgentRun.UpdateOneID(currentRun.ID).
 			SetStatus(runStatus).
 			ClearSessionID().
 			ClearRuntimeStartedAt().
@@ -997,11 +1003,11 @@ func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ti
 		}
 	}
 
-	if ticketItem.AssignedAgentID != nil {
-		if _, err := tx.Agent.UpdateOneID(*ticketItem.AssignedAgentID).
+	if runItem != nil {
+		if _, err := tx.Agent.UpdateOneID(runItem.AgentID).
 			SetRuntimeControlState(entagent.RuntimeControlStateActive).
 			Save(ctx); err != nil {
-			return fmt.Errorf("reset assigned agent runtime control state: %w", err)
+			return fmt.Errorf("reset current run agent runtime control state: %w", err)
 		}
 	}
 
@@ -1165,6 +1171,7 @@ func mapTicket(item *ent.Ticket) Ticket {
 		Priority:          item.Priority,
 		Type:              item.Type,
 		WorkflowID:        item.WorkflowID,
+		CurrentRunID:      item.CurrentRunID,
 		TargetMachineID:   item.TargetMachineID,
 		CreatedBy:         item.CreatedBy,
 		Children:          []TicketReference{},

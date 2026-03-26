@@ -11,7 +11,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
-	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/machine"
@@ -137,20 +136,6 @@ func (_c *TicketCreate) SetTargetMachineID(v uuid.UUID) *TicketCreate {
 func (_c *TicketCreate) SetNillableTargetMachineID(v *uuid.UUID) *TicketCreate {
 	if v != nil {
 		_c.SetTargetMachineID(*v)
-	}
-	return _c
-}
-
-// SetAssignedAgentID sets the "assigned_agent_id" field.
-func (_c *TicketCreate) SetAssignedAgentID(v uuid.UUID) *TicketCreate {
-	_c.mutation.SetAssignedAgentID(v)
-	return _c
-}
-
-// SetNillableAssignedAgentID sets the "assigned_agent_id" field if the given value is not nil.
-func (_c *TicketCreate) SetNillableAssignedAgentID(v *uuid.UUID) *TicketCreate {
-	if v != nil {
-		_c.SetAssignedAgentID(*v)
 	}
 	return _c
 }
@@ -442,11 +427,6 @@ func (_c *TicketCreate) SetCurrentRun(v *AgentRun) *TicketCreate {
 // SetTargetMachine sets the "target_machine" edge to the Machine entity.
 func (_c *TicketCreate) SetTargetMachine(v *Machine) *TicketCreate {
 	return _c.SetTargetMachineID(v.ID)
-}
-
-// SetAssignedAgent sets the "assigned_agent" edge to the Agent entity.
-func (_c *TicketCreate) SetAssignedAgent(v *Agent) *TicketCreate {
-	return _c.SetAssignedAgentID(v.ID)
 }
 
 // SetParentID sets the "parent" edge to the Ticket entity by ID.
@@ -993,23 +973,6 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.TargetMachineID = &nodes[0]
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.AssignedAgentIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticket.AssignedAgentTable,
-			Columns: []string{ticket.AssignedAgentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_node.AssignedAgentID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.ParentIDs(); len(nodes) > 0 {

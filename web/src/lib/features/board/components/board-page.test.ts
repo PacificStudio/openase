@@ -84,6 +84,7 @@ const ticketsFixture: TicketPayload = {
       priority: 'high',
       type: 'feature',
       workflow_id: 'workflow-1',
+      current_run_id: null,
       target_machine_id: null,
       created_by: 'codex',
       parent: null,

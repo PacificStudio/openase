@@ -59,6 +59,7 @@ type ticketResponse struct {
 	Priority          string                       `json:"priority"`
 	Type              string                       `json:"type"`
 	WorkflowID        *string                      `json:"workflow_id,omitempty"`
+	CurrentRunID      *string                      `json:"current_run_id,omitempty"`
 	TargetMachineID   *string                      `json:"target_machine_id,omitempty"`
 	CreatedBy         string                       `json:"created_by"`
 	Parent            *ticketReferenceResponse     `json:"parent,omitempty"`
@@ -673,6 +674,10 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 	if item.WorkflowID != nil {
 		workflowID := item.WorkflowID.String()
 		response.WorkflowID = &workflowID
+	}
+	if item.CurrentRunID != nil {
+		currentRunID := item.CurrentRunID.String()
+		response.CurrentRunID = &currentRunID
 	}
 	if item.TargetMachineID != nil {
 		targetMachineID := item.TargetMachineID.String()

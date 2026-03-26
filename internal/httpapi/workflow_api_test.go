@@ -14,6 +14,7 @@ import (
 	"time"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -568,7 +569,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
-	if _, err := client.Ticket.Create().
+	activeTicket, err := client.Ticket.Create().
 		SetProjectID(project.ID).
 		SetIdentifier("ASE-40").
 		SetTitle("Implement auth boundary parsing").
@@ -577,9 +578,24 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetType(entticket.TypeFeature).
 		SetCreatedBy("user:gary").
 		SetWorkflowID(createdWorkflow.ID).
-		SetAssignedAgentID(agent.ID).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create active workflow ticket: %v", err)
+	}
+	activeRun, err := client.AgentRun.Create().
+		SetAgentID(agent.ID).
+		SetWorkflowID(createdWorkflow.ID).
+		SetTicketID(activeTicket.ID).
+		SetProviderID(provider.ID).
+		SetStatus(entagentrun.StatusExecuting).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create active workflow run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(activeTicket.ID).
+		SetCurrentRunID(activeRun.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("attach active workflow run: %v", err)
 	}
 	if _, err := client.Ticket.Create().
 		SetProjectID(project.ID).

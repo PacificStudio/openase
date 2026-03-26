@@ -36,8 +36,6 @@ const (
 	FieldCurrentRunID = "current_run_id"
 	// FieldTargetMachineID holds the string denoting the target_machine_id field in the database.
 	FieldTargetMachineID = "target_machine_id"
-	// FieldAssignedAgentID holds the string denoting the assigned_agent_id field in the database.
-	FieldAssignedAgentID = "assigned_agent_id"
 	// FieldCreatedBy holds the string denoting the created_by field in the database.
 	FieldCreatedBy = "created_by"
 	// FieldParentTicketID holds the string denoting the parent_ticket_id field in the database.
@@ -86,8 +84,6 @@ const (
 	EdgeCurrentRun = "current_run"
 	// EdgeTargetMachine holds the string denoting the target_machine edge name in mutations.
 	EdgeTargetMachine = "target_machine"
-	// EdgeAssignedAgent holds the string denoting the assigned_agent edge name in mutations.
-	EdgeAssignedAgent = "assigned_agent"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
 	EdgeParent = "parent"
 	// EdgeChildren holds the string denoting the children edge name in mutations.
@@ -145,13 +141,6 @@ const (
 	TargetMachineInverseTable = "machines"
 	// TargetMachineColumn is the table column denoting the target_machine relation/edge.
 	TargetMachineColumn = "target_machine_id"
-	// AssignedAgentTable is the table that holds the assigned_agent relation/edge.
-	AssignedAgentTable = "tickets"
-	// AssignedAgentInverseTable is the table name for the Agent entity.
-	// It exists in this package in order to avoid circular dependency with the "agent" package.
-	AssignedAgentInverseTable = "agents"
-	// AssignedAgentColumn is the table column denoting the assigned_agent relation/edge.
-	AssignedAgentColumn = "assigned_agent_id"
 	// ParentTable is the table that holds the parent relation/edge.
 	ParentTable = "tickets"
 	// ParentColumn is the table column denoting the parent relation/edge.
@@ -231,7 +220,6 @@ var Columns = []string{
 	FieldWorkflowID,
 	FieldCurrentRunID,
 	FieldTargetMachineID,
-	FieldAssignedAgentID,
 	FieldCreatedBy,
 	FieldParentTicketID,
 	FieldExternalRef,
@@ -411,11 +399,6 @@ func ByTargetMachineID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTargetMachineID, opts...).ToFunc()
 }
 
-// ByAssignedAgentID orders the results by the assigned_agent_id field.
-func ByAssignedAgentID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldAssignedAgentID, opts...).ToFunc()
-}
-
 // ByCreatedBy orders the results by the created_by field.
 func ByCreatedBy(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedBy, opts...).ToFunc()
@@ -538,13 +521,6 @@ func ByCurrentRunField(field string, opts ...sql.OrderTermOption) OrderOption {
 func ByTargetMachineField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newTargetMachineStep(), sql.OrderByField(field, opts...))
-	}
-}
-
-// ByAssignedAgentField orders the results by assigned_agent field.
-func ByAssignedAgentField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newAssignedAgentStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -713,13 +689,6 @@ func newTargetMachineStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TargetMachineInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, TargetMachineTable, TargetMachineColumn),
-	)
-}
-func newAssignedAgentStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(AssignedAgentInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, AssignedAgentTable, AssignedAgentColumn),
 	)
 }
 func newParentStep() *sqlgraph.Step {

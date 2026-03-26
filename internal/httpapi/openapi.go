@@ -188,6 +188,7 @@ type OpenAPITicket struct {
 	Priority          string                      `json:"priority"`
 	Type              string                      `json:"type"`
 	WorkflowID        *string                     `json:"workflow_id,omitempty"`
+	CurrentRunID      *string                     `json:"current_run_id,omitempty"`
 	TargetMachineID   *string                     `json:"target_machine_id,omitempty"`
 	CreatedBy         string                      `json:"created_by"`
 	Parent            *OpenAPITicketReference     `json:"parent,omitempty"`

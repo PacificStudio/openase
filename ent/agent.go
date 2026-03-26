@@ -45,8 +45,6 @@ type AgentEdges struct {
 	Provider *AgentProvider `json:"provider,omitempty"`
 	// Project holds the value of the project edge.
 	Project *Project `json:"project,omitempty"`
-	// AssignedTickets holds the value of the assigned_tickets edge.
-	AssignedTickets []*Ticket `json:"assigned_tickets,omitempty"`
 	// Runs holds the value of the runs edge.
 	Runs []*AgentRun `json:"runs,omitempty"`
 	// Tokens holds the value of the tokens edge.
@@ -55,7 +53,7 @@ type AgentEdges struct {
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [5]bool
 }
 
 // ProviderOrErr returns the Provider value or an error if the edge
@@ -80,19 +78,10 @@ func (e AgentEdges) ProjectOrErr() (*Project, error) {
 	return nil, &NotLoadedError{edge: "project"}
 }
 
-// AssignedTicketsOrErr returns the AssignedTickets value or an error if the edge
-// was not loaded in eager-loading.
-func (e AgentEdges) AssignedTicketsOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[2] {
-		return e.AssignedTickets, nil
-	}
-	return nil, &NotLoadedError{edge: "assigned_tickets"}
-}
-
 // RunsOrErr returns the Runs value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) RunsOrErr() ([]*AgentRun, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[2] {
 		return e.Runs, nil
 	}
 	return nil, &NotLoadedError{edge: "runs"}
@@ -101,7 +90,7 @@ func (e AgentEdges) RunsOrErr() ([]*AgentRun, error) {
 // TokensOrErr returns the Tokens value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) TokensOrErr() ([]*AgentToken, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[3] {
 		return e.Tokens, nil
 	}
 	return nil, &NotLoadedError{edge: "tokens"}
@@ -110,7 +99,7 @@ func (e AgentEdges) TokensOrErr() ([]*AgentToken, error) {
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[4] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -211,11 +200,6 @@ func (_m *Agent) QueryProvider() *AgentProviderQuery {
 // QueryProject queries the "project" edge of the Agent entity.
 func (_m *Agent) QueryProject() *ProjectQuery {
 	return NewAgentClient(_m.config).QueryProject(_m)
-}
-
-// QueryAssignedTickets queries the "assigned_tickets" edge of the Agent entity.
-func (_m *Agent) QueryAssignedTickets() *TicketQuery {
-	return NewAgentClient(_m.config).QueryAssignedTickets(_m)
 }
 
 // QueryRuns queries the "runs" edge of the Agent entity.

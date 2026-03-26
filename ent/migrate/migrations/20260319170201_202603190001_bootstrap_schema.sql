@@ -200,7 +200,7 @@ CREATE TABLE "tickets" (
   "started_at" timestamptz NULL,
   "completed_at" timestamptz NULL,
   "created_at" timestamptz NOT NULL,
-  "assigned_agent_id" uuid NULL,
+  "current_run_id" uuid NULL,
   "target_machine_id" uuid NULL,
   "project_id" uuid NOT NULL,
   "parent_ticket_id" uuid NULL,
@@ -215,8 +215,8 @@ CREATE UNIQUE INDEX "ticket_project_id_identifier" ON "tickets" ("project_id", "
 CREATE INDEX "ticket_project_id_external_ref" ON "tickets" ("project_id", "external_ref");
 -- Create index "ticket_project_id_status_id" to table: "tickets"
 CREATE INDEX "ticket_project_id_status_id" ON "tickets" ("project_id", "status_id");
--- Create index "ticket_project_id_status_id_assigned_agent_id_priority_created_" to table: "tickets"
-CREATE INDEX "ticket_project_id_status_id_assigned_agent_id_priority_created_" ON "tickets" ("project_id", "status_id", "assigned_agent_id", "priority", "created_at");
+-- Create index "ticket_project_id_status_id_current_run_id_priority_created_at" to table: "tickets"
+CREATE INDEX "ticket_project_id_status_id_current_run_id_priority_created_at" ON "tickets" ("project_id", "status_id", "current_run_id", "priority", "created_at");
 -- Create "workflows" table
 CREATE TABLE "workflows" (
   "id" uuid NOT NULL,
@@ -263,6 +263,6 @@ ALTER TABLE "ticket_repo_scopes" ADD CONSTRAINT "ticket_repo_scopes_project_repo
 -- Modify "ticket_status" table
 ALTER TABLE "ticket_status" ADD CONSTRAINT "ticket_status_projects_statuses" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
 -- Modify "tickets" table
-ALTER TABLE "tickets" ADD CONSTRAINT "tickets_agents_assigned_tickets" FOREIGN KEY ("assigned_agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE SET NULL, ADD CONSTRAINT "tickets_machines_target_tickets" FOREIGN KEY ("target_machine_id") REFERENCES "machines" ("id") ON UPDATE NO ACTION ON DELETE SET NULL, ADD CONSTRAINT "tickets_projects_tickets" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "tickets_ticket_status_tickets" FOREIGN KEY ("status_id") REFERENCES "ticket_status" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "tickets_workflows_tickets" FOREIGN KEY ("workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE SET NULL;
+ALTER TABLE "tickets" ADD CONSTRAINT "tickets_agent_runs_current_for_ticket" FOREIGN KEY ("current_run_id") REFERENCES "agent_runs" ("id") ON UPDATE NO ACTION ON DELETE SET NULL, ADD CONSTRAINT "tickets_machines_target_tickets" FOREIGN KEY ("target_machine_id") REFERENCES "machines" ("id") ON UPDATE NO ACTION ON DELETE SET NULL, ADD CONSTRAINT "tickets_projects_tickets" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "tickets_ticket_status_tickets" FOREIGN KEY ("status_id") REFERENCES "ticket_status" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "tickets_workflows_tickets" FOREIGN KEY ("workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE SET NULL;
 -- Modify "workflows" table
 ALTER TABLE "workflows" ADD CONSTRAINT "workflows_projects_workflows" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "workflows_ticket_status_finish_workflows" FOREIGN KEY ("finish_status_id") REFERENCES "ticket_status" ("id") ON UPDATE NO ACTION ON DELETE SET NULL, ADD CONSTRAINT "workflows_ticket_status_pickup_workflows" FOREIGN KEY ("pickup_status_id") REFERENCES "ticket_status" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;

@@ -945,9 +945,6 @@ type AgentMutation struct {
 	clearedprovider            bool
 	project                    *uuid.UUID
 	clearedproject             bool
-	assigned_tickets           map[uuid.UUID]struct{}
-	removedassigned_tickets    map[uuid.UUID]struct{}
-	clearedassigned_tickets    bool
 	runs                       map[uuid.UUID]struct{}
 	removedruns                map[uuid.UUID]struct{}
 	clearedruns                bool
@@ -1425,60 +1422,6 @@ func (m *AgentMutation) ResetProject() {
 	m.clearedproject = false
 }
 
-// AddAssignedTicketIDs adds the "assigned_tickets" edge to the Ticket entity by ids.
-func (m *AgentMutation) AddAssignedTicketIDs(ids ...uuid.UUID) {
-	if m.assigned_tickets == nil {
-		m.assigned_tickets = make(map[uuid.UUID]struct{})
-	}
-	for i := range ids {
-		m.assigned_tickets[ids[i]] = struct{}{}
-	}
-}
-
-// ClearAssignedTickets clears the "assigned_tickets" edge to the Ticket entity.
-func (m *AgentMutation) ClearAssignedTickets() {
-	m.clearedassigned_tickets = true
-}
-
-// AssignedTicketsCleared reports if the "assigned_tickets" edge to the Ticket entity was cleared.
-func (m *AgentMutation) AssignedTicketsCleared() bool {
-	return m.clearedassigned_tickets
-}
-
-// RemoveAssignedTicketIDs removes the "assigned_tickets" edge to the Ticket entity by IDs.
-func (m *AgentMutation) RemoveAssignedTicketIDs(ids ...uuid.UUID) {
-	if m.removedassigned_tickets == nil {
-		m.removedassigned_tickets = make(map[uuid.UUID]struct{})
-	}
-	for i := range ids {
-		delete(m.assigned_tickets, ids[i])
-		m.removedassigned_tickets[ids[i]] = struct{}{}
-	}
-}
-
-// RemovedAssignedTickets returns the removed IDs of the "assigned_tickets" edge to the Ticket entity.
-func (m *AgentMutation) RemovedAssignedTicketsIDs() (ids []uuid.UUID) {
-	for id := range m.removedassigned_tickets {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// AssignedTicketsIDs returns the "assigned_tickets" edge IDs in the mutation.
-func (m *AgentMutation) AssignedTicketsIDs() (ids []uuid.UUID) {
-	for id := range m.assigned_tickets {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// ResetAssignedTickets resets all changes to the "assigned_tickets" edge.
-func (m *AgentMutation) ResetAssignedTickets() {
-	m.assigned_tickets = nil
-	m.clearedassigned_tickets = false
-	m.removedassigned_tickets = nil
-}
-
 // AddRunIDs adds the "runs" edge to the AgentRun entity by ids.
 func (m *AgentMutation) AddRunIDs(ids ...uuid.UUID) {
 	if m.runs == nil {
@@ -1912,15 +1855,12 @@ func (m *AgentMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 5)
 	if m.provider != nil {
 		edges = append(edges, agent.EdgeProvider)
 	}
 	if m.project != nil {
 		edges = append(edges, agent.EdgeProject)
-	}
-	if m.assigned_tickets != nil {
-		edges = append(edges, agent.EdgeAssignedTickets)
 	}
 	if m.runs != nil {
 		edges = append(edges, agent.EdgeRuns)
@@ -1946,12 +1886,6 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 		if id := m.project; id != nil {
 			return []ent.Value{*id}
 		}
-	case agent.EdgeAssignedTickets:
-		ids := make([]ent.Value, 0, len(m.assigned_tickets))
-		for id := range m.assigned_tickets {
-			ids = append(ids, id)
-		}
-		return ids
 	case agent.EdgeRuns:
 		ids := make([]ent.Value, 0, len(m.runs))
 		for id := range m.runs {
@@ -1976,10 +1910,7 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
-	if m.removedassigned_tickets != nil {
-		edges = append(edges, agent.EdgeAssignedTickets)
-	}
+	edges := make([]string, 0, 5)
 	if m.removedruns != nil {
 		edges = append(edges, agent.EdgeRuns)
 	}
@@ -1996,12 +1927,6 @@ func (m *AgentMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
-	case agent.EdgeAssignedTickets:
-		ids := make([]ent.Value, 0, len(m.removedassigned_tickets))
-		for id := range m.removedassigned_tickets {
-			ids = append(ids, id)
-		}
-		return ids
 	case agent.EdgeRuns:
 		ids := make([]ent.Value, 0, len(m.removedruns))
 		for id := range m.removedruns {
@@ -2026,15 +1951,12 @@ func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 5)
 	if m.clearedprovider {
 		edges = append(edges, agent.EdgeProvider)
 	}
 	if m.clearedproject {
 		edges = append(edges, agent.EdgeProject)
-	}
-	if m.clearedassigned_tickets {
-		edges = append(edges, agent.EdgeAssignedTickets)
 	}
 	if m.clearedruns {
 		edges = append(edges, agent.EdgeRuns)
@@ -2056,8 +1978,6 @@ func (m *AgentMutation) EdgeCleared(name string) bool {
 		return m.clearedprovider
 	case agent.EdgeProject:
 		return m.clearedproject
-	case agent.EdgeAssignedTickets:
-		return m.clearedassigned_tickets
 	case agent.EdgeRuns:
 		return m.clearedruns
 	case agent.EdgeTokens:
@@ -2091,9 +2011,6 @@ func (m *AgentMutation) ResetEdge(name string) error {
 		return nil
 	case agent.EdgeProject:
 		m.ResetProject()
-		return nil
-	case agent.EdgeAssignedTickets:
-		m.ResetAssignedTickets()
 		return nil
 	case agent.EdgeRuns:
 		m.ResetRuns()
@@ -12774,8 +12691,6 @@ type TicketMutation struct {
 	clearedcurrent_run           bool
 	target_machine               *uuid.UUID
 	clearedtarget_machine        bool
-	assigned_agent               *uuid.UUID
-	clearedassigned_agent        bool
 	parent                       *uuid.UUID
 	clearedparent                bool
 	children                     map[uuid.UUID]struct{}
@@ -13324,55 +13239,6 @@ func (m *TicketMutation) TargetMachineIDCleared() bool {
 func (m *TicketMutation) ResetTargetMachineID() {
 	m.target_machine = nil
 	delete(m.clearedFields, ticket.FieldTargetMachineID)
-}
-
-// SetAssignedAgentID sets the "assigned_agent_id" field.
-func (m *TicketMutation) SetAssignedAgentID(u uuid.UUID) {
-	m.assigned_agent = &u
-}
-
-// AssignedAgentID returns the value of the "assigned_agent_id" field in the mutation.
-func (m *TicketMutation) AssignedAgentID() (r uuid.UUID, exists bool) {
-	v := m.assigned_agent
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldAssignedAgentID returns the old "assigned_agent_id" field's value of the Ticket entity.
-// If the Ticket object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *TicketMutation) OldAssignedAgentID(ctx context.Context) (v *uuid.UUID, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldAssignedAgentID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldAssignedAgentID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldAssignedAgentID: %w", err)
-	}
-	return oldValue.AssignedAgentID, nil
-}
-
-// ClearAssignedAgentID clears the value of the "assigned_agent_id" field.
-func (m *TicketMutation) ClearAssignedAgentID() {
-	m.assigned_agent = nil
-	m.clearedFields[ticket.FieldAssignedAgentID] = struct{}{}
-}
-
-// AssignedAgentIDCleared returns if the "assigned_agent_id" field was cleared in this mutation.
-func (m *TicketMutation) AssignedAgentIDCleared() bool {
-	_, ok := m.clearedFields[ticket.FieldAssignedAgentID]
-	return ok
-}
-
-// ResetAssignedAgentID resets all changes to the "assigned_agent_id" field.
-func (m *TicketMutation) ResetAssignedAgentID() {
-	m.assigned_agent = nil
-	delete(m.clearedFields, ticket.FieldAssignedAgentID)
 }
 
 // SetCreatedBy sets the "created_by" field.
@@ -14445,33 +14311,6 @@ func (m *TicketMutation) ResetTargetMachine() {
 	m.clearedtarget_machine = false
 }
 
-// ClearAssignedAgent clears the "assigned_agent" edge to the Agent entity.
-func (m *TicketMutation) ClearAssignedAgent() {
-	m.clearedassigned_agent = true
-	m.clearedFields[ticket.FieldAssignedAgentID] = struct{}{}
-}
-
-// AssignedAgentCleared reports if the "assigned_agent" edge to the Agent entity was cleared.
-func (m *TicketMutation) AssignedAgentCleared() bool {
-	return m.AssignedAgentIDCleared() || m.clearedassigned_agent
-}
-
-// AssignedAgentIDs returns the "assigned_agent" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// AssignedAgentID instead. It exists only for internal usage by the builders.
-func (m *TicketMutation) AssignedAgentIDs() (ids []uuid.UUID) {
-	if id := m.assigned_agent; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetAssignedAgent resets all changes to the "assigned_agent" edge.
-func (m *TicketMutation) ResetAssignedAgent() {
-	m.assigned_agent = nil
-	m.clearedassigned_agent = false
-}
-
 // SetParentID sets the "parent" edge to the Ticket entity by id.
 func (m *TicketMutation) SetParentID(id uuid.UUID) {
 	m.parent = &id
@@ -15032,7 +14871,7 @@ func (m *TicketMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TicketMutation) Fields() []string {
-	fields := make([]string, 0, 30)
+	fields := make([]string, 0, 29)
 	if m.project != nil {
 		fields = append(fields, ticket.FieldProjectID)
 	}
@@ -15062,9 +14901,6 @@ func (m *TicketMutation) Fields() []string {
 	}
 	if m.target_machine != nil {
 		fields = append(fields, ticket.FieldTargetMachineID)
-	}
-	if m.assigned_agent != nil {
-		fields = append(fields, ticket.FieldAssignedAgentID)
 	}
 	if m.created_by != nil {
 		fields = append(fields, ticket.FieldCreatedBy)
@@ -15151,8 +14987,6 @@ func (m *TicketMutation) Field(name string) (ent.Value, bool) {
 		return m.CurrentRunID()
 	case ticket.FieldTargetMachineID:
 		return m.TargetMachineID()
-	case ticket.FieldAssignedAgentID:
-		return m.AssignedAgentID()
 	case ticket.FieldCreatedBy:
 		return m.CreatedBy()
 	case ticket.FieldParentTicketID:
@@ -15220,8 +15054,6 @@ func (m *TicketMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldCurrentRunID(ctx)
 	case ticket.FieldTargetMachineID:
 		return m.OldTargetMachineID(ctx)
-	case ticket.FieldAssignedAgentID:
-		return m.OldAssignedAgentID(ctx)
 	case ticket.FieldCreatedBy:
 		return m.OldCreatedBy(ctx)
 	case ticket.FieldParentTicketID:
@@ -15338,13 +15170,6 @@ func (m *TicketMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTargetMachineID(v)
-		return nil
-	case ticket.FieldAssignedAgentID:
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetAssignedAgentID(v)
 		return nil
 	case ticket.FieldCreatedBy:
 		v, ok := value.(string)
@@ -15620,9 +15445,6 @@ func (m *TicketMutation) ClearedFields() []string {
 	if m.FieldCleared(ticket.FieldTargetMachineID) {
 		fields = append(fields, ticket.FieldTargetMachineID)
 	}
-	if m.FieldCleared(ticket.FieldAssignedAgentID) {
-		fields = append(fields, ticket.FieldAssignedAgentID)
-	}
 	if m.FieldCleared(ticket.FieldParentTicketID) {
 		fields = append(fields, ticket.FieldParentTicketID)
 	}
@@ -15669,9 +15491,6 @@ func (m *TicketMutation) ClearField(name string) error {
 		return nil
 	case ticket.FieldTargetMachineID:
 		m.ClearTargetMachineID()
-		return nil
-	case ticket.FieldAssignedAgentID:
-		m.ClearAssignedAgentID()
 		return nil
 	case ticket.FieldParentTicketID:
 		m.ClearParentTicketID()
@@ -15731,9 +15550,6 @@ func (m *TicketMutation) ResetField(name string) error {
 		return nil
 	case ticket.FieldTargetMachineID:
 		m.ResetTargetMachineID()
-		return nil
-	case ticket.FieldAssignedAgentID:
-		m.ResetAssignedAgentID()
 		return nil
 	case ticket.FieldCreatedBy:
 		m.ResetCreatedBy()
@@ -15798,7 +15614,7 @@ func (m *TicketMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TicketMutation) AddedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 15)
 	if m.project != nil {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -15813,9 +15629,6 @@ func (m *TicketMutation) AddedEdges() []string {
 	}
 	if m.target_machine != nil {
 		edges = append(edges, ticket.EdgeTargetMachine)
-	}
-	if m.assigned_agent != nil {
-		edges = append(edges, ticket.EdgeAssignedAgent)
 	}
 	if m.parent != nil {
 		edges = append(edges, ticket.EdgeParent)
@@ -15872,10 +15685,6 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 		}
 	case ticket.EdgeTargetMachine:
 		if id := m.target_machine; id != nil {
-			return []ent.Value{*id}
-		}
-	case ticket.EdgeAssignedAgent:
-		if id := m.assigned_agent; id != nil {
 			return []ent.Value{*id}
 		}
 	case ticket.EdgeParent:
@@ -15942,7 +15751,7 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TicketMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 15)
 	if m.removedchildren != nil {
 		edges = append(edges, ticket.EdgeChildren)
 	}
@@ -16037,7 +15846,7 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TicketMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 15)
 	if m.clearedproject {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -16052,9 +15861,6 @@ func (m *TicketMutation) ClearedEdges() []string {
 	}
 	if m.clearedtarget_machine {
 		edges = append(edges, ticket.EdgeTargetMachine)
-	}
-	if m.clearedassigned_agent {
-		edges = append(edges, ticket.EdgeAssignedAgent)
 	}
 	if m.clearedparent {
 		edges = append(edges, ticket.EdgeParent)
@@ -16103,8 +15909,6 @@ func (m *TicketMutation) EdgeCleared(name string) bool {
 		return m.clearedcurrent_run
 	case ticket.EdgeTargetMachine:
 		return m.clearedtarget_machine
-	case ticket.EdgeAssignedAgent:
-		return m.clearedassigned_agent
 	case ticket.EdgeParent:
 		return m.clearedparent
 	case ticket.EdgeChildren:
@@ -16148,9 +15952,6 @@ func (m *TicketMutation) ClearEdge(name string) error {
 	case ticket.EdgeTargetMachine:
 		m.ClearTargetMachine()
 		return nil
-	case ticket.EdgeAssignedAgent:
-		m.ClearAssignedAgent()
-		return nil
 	case ticket.EdgeParent:
 		m.ClearParent()
 		return nil
@@ -16176,9 +15977,6 @@ func (m *TicketMutation) ResetEdge(name string) error {
 		return nil
 	case ticket.EdgeTargetMachine:
 		m.ResetTargetMachine()
-		return nil
-	case ticket.EdgeAssignedAgent:
-		m.ResetAssignedAgent()
 		return nil
 	case ticket.EdgeParent:
 		m.ResetParent()

@@ -99,11 +99,11 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 	}
 
 	assignments, err := l.listAssignments(ctx,
-		entticket.HasAssignedAgentWith(
-			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-		),
 		entticket.CurrentRunIDNotNil(),
 		entticket.HasCurrentRunWith(
+			entagentrun.HasAgentWith(
+				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
+			),
 			entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusTerminated),
 		),
 	)
@@ -140,15 +140,39 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			continue
 		}
 		if assignment.run != nil {
+			tx, err := l.client.Tx(ctx)
+			if err != nil {
+				l.logger.Warn("start graceful shutdown tx", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
+				continue
+			}
+
 			if _, err := clearRuntimeState(
-				l.client.AgentRun.Update().
+				tx.AgentRun.Update().
 					Where(
 						entagentrun.IDEQ(assignment.run.ID),
 						entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
 					).
 					SetStatus(entagentrun.StatusTerminated),
 			).Save(ctx); err != nil {
+				rollback(tx)
 				l.logger.Warn("mark agent run terminated", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
+				continue
+			}
+			if assignment.ticket != nil && assignment.ticket.CurrentRunID != nil {
+				if _, err := tx.Ticket.Update().
+					Where(
+						entticket.IDEQ(assignment.ticket.ID),
+						entticket.CurrentRunIDEQ(assignment.run.ID),
+					).
+					ClearCurrentRunID().
+					Save(ctx); err != nil {
+					rollback(tx)
+					l.logger.Warn("clear ticket current run during close", "agent_id", agentID, "ticket_id", assignment.ticket.ID, "run_id", assignment.run.ID, "error", err)
+					continue
+				}
+			}
+			if err := tx.Commit(); err != nil {
+				l.logger.Warn("commit graceful shutdown release", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
 				continue
 			}
 		}
@@ -316,10 +340,12 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 
 func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
 	pausedAssignments, err := l.listAssignments(ctx,
-		entticket.HasAssignedAgentWith(
-			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStatePauseRequested),
-		),
 		entticket.CurrentRunIDNotNil(),
+		entticket.HasCurrentRunWith(
+			entagentrun.HasAgentWith(
+				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStatePauseRequested),
+			),
+		),
 	)
 	if err != nil {
 		return fmt.Errorf("list agents pending pause: %w", err)
@@ -634,8 +660,9 @@ func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UU
 func (l *RuntimeLauncher) listAssignments(ctx context.Context, predicates ...predicate.Ticket) ([]runtimeAssignment, error) {
 	items, err := l.client.Ticket.Query().
 		Where(predicates...).
-		WithAssignedAgent().
-		WithCurrentRun().
+		WithCurrentRun(func(query *ent.AgentRunQuery) {
+			query.WithAgent()
+		}).
 		Order(ent.Asc(entticket.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
@@ -644,12 +671,12 @@ func (l *RuntimeLauncher) listAssignments(ctx context.Context, predicates ...pre
 
 	assignments := make([]runtimeAssignment, 0, len(items))
 	for _, ticketItem := range items {
-		if ticketItem.Edges.AssignedAgent == nil || ticketItem.Edges.CurrentRun == nil {
+		if ticketItem.Edges.CurrentRun == nil || ticketItem.Edges.CurrentRun.Edges.Agent == nil {
 			continue
 		}
 		assignments = append(assignments, runtimeAssignment{
 			ticket: ticketItem,
-			agent:  ticketItem.Edges.AssignedAgent,
+			agent:  ticketItem.Edges.CurrentRun.Edges.Agent,
 			run:    ticketItem.Edges.CurrentRun,
 		})
 	}
@@ -658,8 +685,8 @@ func (l *RuntimeLauncher) listAssignments(ctx context.Context, predicates ...pre
 
 func (l *RuntimeLauncher) loadAssignmentByAgent(ctx context.Context, agentID uuid.UUID) (runtimeAssignment, error) {
 	assignments, err := l.listAssignments(ctx,
-		entticket.AssignedAgentIDEQ(agentID),
 		entticket.CurrentRunIDNotNil(),
+		entticket.HasCurrentRunWith(entagentrun.AgentIDEQ(agentID)),
 	)
 	if err != nil {
 		return runtimeAssignment{}, err

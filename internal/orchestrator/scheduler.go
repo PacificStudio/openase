@@ -211,7 +211,7 @@ func (s *Scheduler) listIdleAgents(ctx context.Context, projectID uuid.UUID) ([]
 		Where(
 			entagent.ProjectIDEQ(projectID),
 			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-			entagent.Not(entagent.HasAssignedTickets()),
+			entagent.Not(entagent.HasRunsWith(entagentrun.HasCurrentForTicket())),
 		).
 		Order(ent.Asc(entagent.FieldName)).
 		All(ctx)
@@ -328,7 +328,7 @@ func (s *Scheduler) claimTicketWithAgent(
 		Where(
 			entagent.IDEQ(agent.ID),
 			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-			entagent.Not(entagent.HasAssignedTickets()),
+			entagent.Not(entagent.HasRunsWith(entagentrun.HasCurrentForTicket())),
 		).
 		SetRuntimeControlState(entagent.RuntimeControlStateActive).
 		Save(ctx)
@@ -354,7 +354,6 @@ func (s *Scheduler) claimTicketWithAgent(
 		Where(
 			entticket.IDEQ(ticket.ID),
 			entticket.StatusIDEQ(workflow.PickupStatusID),
-			entticket.AssignedAgentIDIsNil(),
 			entticket.CurrentRunIDIsNil(),
 			entticket.RetryPaused(false),
 			entticket.Or(
@@ -362,7 +361,6 @@ func (s *Scheduler) claimTicketWithAgent(
 				entticket.NextRetryAtLTE(now),
 			),
 		).
-		SetAssignedAgentID(agent.ID).
 		SetCurrentRunID(runItem.ID).
 		SetWorkflowID(workflow.ID).
 		SetTargetMachineID(machine.ID).

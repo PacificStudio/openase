@@ -61,13 +61,19 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 		return RetryResult{}, fmt.Errorf("load ticket %s for retry: %w", ticketID, err)
 	}
 
-	releasedAgentID := current.AssignedAgentID
+	releasedAgentID := (*uuid.UUID)(nil)
+	if current.CurrentRunID != nil {
+		runItem, err := tx.AgentRun.Get(ctx, *current.CurrentRunID)
+		if err != nil {
+			return RetryResult{}, fmt.Errorf("load current run %s for retry: %w", *current.CurrentRunID, err)
+		}
+		releasedAgentID = &runItem.AgentID
+	}
 	nextAttemptCount := current.AttemptCount + 1
 	nextConsecutiveErrors := current.ConsecutiveErrors + 1
 	nextRetryAt := s.now().UTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount))
 
 	update := tx.Ticket.UpdateOneID(current.ID).
-		ClearAssignedAgentID().
 		ClearCurrentRunID().
 		SetAttemptCount(nextAttemptCount).
 		SetConsecutiveErrors(nextConsecutiveErrors).
@@ -84,7 +90,7 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 		return RetryResult{}, fmt.Errorf("update ticket %s retry state: %w", ticketID, err)
 	}
 
-	if err := releaseAssignedAgentClaim(ctx, tx, current); err != nil {
+	if err := releaseCurrentRunClaim(ctx, tx, current); err != nil {
 		return RetryResult{}, err
 	}
 
@@ -112,28 +118,33 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 	}, nil
 }
 
-func releaseAssignedAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ticket) error {
+func releaseCurrentRunClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ticket) error {
 	if ticketItem == nil {
 		return nil
 	}
 
-	if ticketItem.CurrentRunID != nil {
-		if _, err := tx.AgentRun.UpdateOneID(*ticketItem.CurrentRunID).
-			SetStatus(entagentrun.StatusErrored).
-			ClearSessionID().
-			ClearRuntimeStartedAt().
-			ClearLastHeartbeatAt().
-			Save(ctx); err != nil {
-			return fmt.Errorf("finalize failed agent run: %w", err)
-		}
+	if ticketItem.CurrentRunID == nil {
+		return nil
 	}
 
-	if ticketItem.AssignedAgentID != nil {
-		if _, err := tx.Agent.UpdateOneID(*ticketItem.AssignedAgentID).
-			SetRuntimeControlState(entagent.RuntimeControlStateActive).
-			Save(ctx); err != nil {
-			return fmt.Errorf("reset assigned agent runtime control state: %w", err)
-		}
+	runItem, err := tx.AgentRun.Get(ctx, *ticketItem.CurrentRunID)
+	if err != nil {
+		return fmt.Errorf("load failed current run: %w", err)
+	}
+
+	if _, err := tx.AgentRun.UpdateOneID(runItem.ID).
+		SetStatus(entagentrun.StatusErrored).
+		ClearSessionID().
+		ClearRuntimeStartedAt().
+		ClearLastHeartbeatAt().
+		Save(ctx); err != nil {
+		return fmt.Errorf("finalize failed agent run: %w", err)
+	}
+
+	if _, err := tx.Agent.UpdateOneID(runItem.AgentID).
+		SetRuntimeControlState(entagent.RuntimeControlStateActive).
+		Save(ctx); err != nil {
+		return fmt.Errorf("reset current run agent runtime control state: %w", err)
 	}
 
 	return nil
