@@ -1053,6 +1053,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	orgPatch.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}", http.MethodPatch, orgPatch)
 
+	orgDelete, err := b.jsonOperation(
+		"deleteOrganization",
+		"Delete an organization",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIOrganizationResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgDelete.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}", http.MethodDelete, orgDelete)
+
 	projectGet, err := b.jsonOperation(
 		"getProject",
 		"Get a project",

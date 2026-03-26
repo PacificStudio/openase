@@ -292,8 +292,7 @@ export interface paths {
     get?: never
     put?: never
     post?: never
-    /** Delete an organization */
-    delete: operations['deleteOrganization']
+    delete?: never
     options?: never
     head?: never
     /** Update an organization */
@@ -2725,58 +2724,6 @@ export interface operations {
           'application/json': {
             code?: string
             message?: string
-          }
-        }
-      }
-    }
-  }
-  deleteOrganization: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Organization ID. */
-        orgId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Delete an organization response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            organization?: {
-              default_agent_provider_id?: string | null
-              id?: string
-              name?: string
-              slug?: string
-            }
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            error?: string
-          }
-        }
-      }
-      /** @description Organization has active projects. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            error?: string
           }
         }
       }
