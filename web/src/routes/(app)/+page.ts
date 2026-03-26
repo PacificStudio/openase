@@ -1,6 +1,6 @@
+import { redirect } from '@sveltejs/kit'
 import type { PageLoad } from './$types'
-import { redirectToDefaultOrganization } from './legacy-redirect'
 
-export const load: PageLoad = async ({ fetch }) => {
-  return redirectToDefaultOrganization(fetch)
+export const load: PageLoad = async () => {
+  throw redirect(307, '/orgs')
 }
