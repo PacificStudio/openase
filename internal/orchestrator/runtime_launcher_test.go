@@ -15,6 +15,7 @@ import (
 
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
@@ -103,6 +104,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
+	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 	localWorkspaceRoot := "/srv/openase/workspaces"
 	localMachine, err := client.Machine.Query().
 		Where(
@@ -161,27 +163,24 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		t.Fatalf("run launcher tick: %v", err)
 	}
 
-	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
-		t.Fatalf("reload agent: %v", err)
+		t.Fatalf("reload run: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusRunning {
-		t.Fatalf("expected running status, got %s", agentAfter.Status)
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
 	}
-	if agentAfter.RuntimePhase != entagent.RuntimePhaseReady {
-		t.Fatalf("expected runtime phase ready, got %s", agentAfter.RuntimePhase)
+	if runAfter.SessionID != "thread-runtime-1" {
+		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
-	if agentAfter.SessionID != "thread-runtime-1" {
-		t.Fatalf("expected thread-runtime-1 session id, got %q", agentAfter.SessionID)
+	if runAfter.RuntimeStartedAt == nil || !runAfter.RuntimeStartedAt.UTC().Equal(now) {
+		t.Fatalf("expected runtime_started_at %s, got %+v", now.Format(time.RFC3339), runAfter.RuntimeStartedAt)
 	}
-	if agentAfter.RuntimeStartedAt == nil || !agentAfter.RuntimeStartedAt.UTC().Equal(now) {
-		t.Fatalf("expected runtime_started_at %s, got %+v", now.Format(time.RFC3339), agentAfter.RuntimeStartedAt)
+	if runAfter.LastHeartbeatAt == nil || !runAfter.LastHeartbeatAt.UTC().Equal(now) {
+		t.Fatalf("expected last_heartbeat_at %s, got %+v", now.Format(time.RFC3339), runAfter.LastHeartbeatAt)
 	}
-	if agentAfter.LastHeartbeatAt == nil || !agentAfter.LastHeartbeatAt.UTC().Equal(now) {
-		t.Fatalf("expected last_heartbeat_at %s, got %+v", now.Format(time.RFC3339), agentAfter.LastHeartbeatAt)
-	}
-	if agentAfter.LastError != "" {
-		t.Fatalf("expected empty last_error, got %q", agentAfter.LastError)
+	if runAfter.LastError != "" {
+		t.Fatalf("expected empty last_error, got %q", runAfter.LastError)
 	}
 
 	readyEvent := waitForAgentLifecycleEvent(t, stream, agentReadyType)
@@ -280,6 +279,7 @@ Runtime reconcile test
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
+	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 	localMachine, err := client.Machine.Query().
 		Where(
 			entmachine.OrganizationIDEQ(fixture.orgID),
@@ -306,23 +306,19 @@ Runtime reconcile test
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("launch initial runtime: %v", err)
 	}
-	agentAfterLaunch, err := client.Agent.Get(ctx, agentItem.ID)
+	runAfterLaunch, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
-		t.Fatalf("reload launched agent: %v", err)
+		t.Fatalf("reload launched run: %v", err)
 	}
-	if agentAfterLaunch.Status != entagent.StatusRunning || agentAfterLaunch.RuntimePhase != entagent.RuntimePhaseReady {
-		t.Fatalf("expected running ready agent after launch, got %+v", agentAfterLaunch)
+	if runAfterLaunch.Status != entagentrun.StatusReady || runAfterLaunch.SessionID != "thread-runtime-1" {
+		t.Fatalf("expected ready run after launch, got %+v", runAfterLaunch)
 	}
 
-	if _, err := client.Agent.UpdateOneID(agentItem.ID).
-		SetStatus(entagent.StatusClaimed).
-		SetRuntimePhase(entagent.RuntimePhaseNone).
-		ClearCurrentTicketID().
-		ClearSessionID().
-		ClearRuntimeStartedAt().
-		ClearLastHeartbeatAt().
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		ClearAssignedAgentID().
+		ClearCurrentRunID().
 		Save(ctx); err != nil {
-		t.Fatalf("mark agent as no longer running in db: %v", err)
+		t.Fatalf("clear ticket runtime assignment in db: %v", err)
 	}
 
 	if err := launcher.RunTick(ctx); err != nil {
@@ -405,11 +401,7 @@ Implement the ticket using the current workspace.
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
-		SetAssignedAgentID(agentItem.ID).
-		Save(ctx); err != nil {
-		t.Fatalf("assign ticket to claimed agent: %v", err)
-	}
+	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{
 		turnInputDelta:  5,
@@ -450,14 +442,14 @@ Implement the ticket using the current workspace.
 		if err != nil {
 			return false
 		}
-		agentSnapshot, err := client.Agent.Get(ctx, agentItem.ID)
+		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
 		if err != nil {
 			return false
 		}
 		return ticketSnapshot.AssignedAgentID == nil &&
+			ticketSnapshot.CurrentRunID == nil &&
 			ticketSnapshot.NextRetryAt != nil &&
-			agentSnapshot.Status == entagent.StatusIdle &&
-			agentSnapshot.CurrentTicketID == nil
+			runSnapshot.Status == entagentrun.StatusTerminated
 	})
 
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
@@ -480,12 +472,19 @@ Implement the ticket using the current workspace.
 		t.Fatalf("expected started_at %s, got %+v", now.Format(time.RFC3339), ticketAfter.StartedAt)
 	}
 
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected continuation scheduling to clear current run, got %+v", ticketAfter.CurrentRunID)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusTerminated {
+		t.Fatalf("expected terminated run after continuation scheduling, got %+v", runAfter)
+	}
 	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
 	if err != nil {
 		t.Fatalf("reload agent: %v", err)
-	}
-	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
-		t.Fatalf("expected idle agent after continuation scheduling, got %+v", agentAfter)
 	}
 	if agentAfter.TotalTokensUsed != int64(defaultRuntimeMaxTurns)*(manager.turnInputDelta+manager.turnOutputDelta) {
 		t.Fatalf("expected total tokens %d, got %d", int64(defaultRuntimeMaxTurns)*(manager.turnInputDelta+manager.turnOutputDelta), agentAfter.TotalTokensUsed)
@@ -566,11 +565,7 @@ Handle a failing runtime turn.
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
-		SetAssignedAgentID(agentItem.ID).
-		Save(ctx); err != nil {
-		t.Fatalf("assign ticket to claimed agent: %v", err)
-	}
+	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{
 		turnInputDelta:  5,
@@ -599,16 +594,16 @@ Handle a failing runtime turn.
 		if err != nil {
 			return false
 		}
-		agentSnapshot, err := client.Agent.Get(ctx, agentItem.ID)
+		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
 		if err != nil {
 			return false
 		}
 		return ticketSnapshot.AssignedAgentID == nil &&
+			ticketSnapshot.CurrentRunID == nil &&
 			ticketSnapshot.NextRetryAt != nil &&
 			ticketSnapshot.AttemptCount == 1 &&
 			ticketSnapshot.ConsecutiveErrors == 1 &&
-			agentSnapshot.Status == entagent.StatusIdle &&
-			agentSnapshot.CurrentTicketID == nil
+			runSnapshot.Status == entagentrun.StatusErrored
 	})
 
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
@@ -625,18 +620,18 @@ Handle a failing runtime turn.
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(10*time.Second), ticketAfter.NextRetryAt)
 	}
 
-	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected retry path to clear current run, got %+v", ticketAfter.CurrentRunID)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
-		t.Fatalf("reload agent: %v", err)
+		t.Fatalf("reload run: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
-		t.Fatalf("expected idle agent after failed turn retry, got %+v", agentAfter)
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run after failed turn retry, got %+v", runAfter)
 	}
-	if agentAfter.RuntimePhase != entagent.RuntimePhaseNone {
-		t.Fatalf("expected runtime phase none after failed turn retry, got %+v", agentAfter.RuntimePhase)
-	}
-	if agentAfter.LastError != "" {
-		t.Fatalf("expected retry release to clear last error, got %q", agentAfter.LastError)
+	if runAfter.LastError == "" {
+		t.Fatalf("expected retry release to preserve run error, got %+v", runAfter)
 	}
 	if manager.capturedTurnCount() != 1 {
 		t.Fatalf("expected one failed turn, got %d", manager.capturedTurnCount())
@@ -648,7 +643,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
 
-	if _, err := client.Workflow.Create().
+	workflowItem, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
 		SetName("Coding").
 		SetType(entworkflow.TypeCoding).
@@ -656,7 +651,8 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetMaxConcurrent(1).
 		SetPickupStatusID(fixture.statusIDs["Todo"]).
 		SetFinishStatusID(fixture.statusIDs["Done"]).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
 
@@ -665,6 +661,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetIdentifier("ASE-401").
 		SetTitle("Launch Codex on remote machine").
 		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx)
@@ -724,6 +721,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
+	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	prepareSession := &runtimeSSHPrepareSession{}
 	processSession := newRuntimeSSHProcessSession()
@@ -743,15 +741,15 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		t.Fatalf("run launcher tick: %v", err)
 	}
 
-	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
-		t.Fatalf("reload agent: %v", err)
+		t.Fatalf("reload run: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusRunning {
-		t.Fatalf("expected running status, got %s", agentAfter.Status)
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
 	}
-	if agentAfter.SessionID != "thread-runtime-1" {
-		t.Fatalf("expected thread-runtime-1 session id, got %q", agentAfter.SessionID)
+	if runAfter.SessionID != "thread-runtime-1" {
+		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
 	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
@@ -769,7 +767,7 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
 
-	if _, err := client.Workflow.Create().
+	workflowItem, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
 		SetName("Coding").
 		SetType(entworkflow.TypeCoding).
@@ -777,7 +775,8 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 		SetMaxConcurrent(1).
 		SetPickupStatusID(fixture.statusIDs["Todo"]).
 		SetFinishStatusID(fixture.statusIDs["Done"]).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
 
@@ -786,6 +785,7 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 		SetIdentifier("ASE-402").
 		SetTitle("Launch Codex on remote machine without auth").
 		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx)
@@ -832,6 +832,7 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
+	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
 	t.Cleanup(func() {
@@ -844,15 +845,15 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 		t.Fatalf("run launcher tick: %v", err)
 	}
 
-	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
-		t.Fatalf("reload agent: %v", err)
+		t.Fatalf("reload run: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusFailed || agentAfter.RuntimePhase != entagent.RuntimePhaseFailed {
-		t.Fatalf("expected failed runtime state, got %+v", agentAfter)
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(agentAfter.LastError, "codex cli is not logged in") {
-		t.Fatalf("expected codex auth failure in last error, got %q", agentAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "codex cli is not logged in") {
+		t.Fatalf("expected codex auth failure in last error, got %q", runAfter.LastError)
 	}
 }
 
@@ -860,6 +861,17 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *t
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Fake app server").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
 
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetCliCommand("python3").
@@ -872,6 +884,7 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *t
 		SetIdentifier("ASE-403").
 		SetTitle("Launch fake Codex app server").
 		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx)
@@ -916,6 +929,7 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *t
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
+	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
 	t.Cleanup(func() {
@@ -928,18 +942,18 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *t
 		t.Fatalf("run launcher tick: %v", err)
 	}
 
-	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
-		t.Fatalf("reload agent: %v", err)
+		t.Fatalf("reload run: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusRunning || agentAfter.RuntimePhase != entagent.RuntimePhaseReady {
-		t.Fatalf("expected ready runtime state, got %+v", agentAfter)
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
 	}
-	if agentAfter.SessionID != "thread-runtime-1" {
-		t.Fatalf("expected thread-runtime-1 session id, got %q", agentAfter.SessionID)
+	if runAfter.SessionID != "thread-runtime-1" {
+		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
-	if agentAfter.LastError != "" {
-		t.Fatalf("expected empty last error, got %q", agentAfter.LastError)
+	if runAfter.LastError != "" {
+		t.Fatalf("expected empty last error, got %q", runAfter.LastError)
 	}
 }
 
@@ -947,6 +961,17 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("API key launch").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
 
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetAuthConfig(map[string]any{"openai_api_key": "sk-test-runtime"}).
@@ -985,6 +1010,7 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 		SetIdentifier("ASE-404").
 		SetTitle("Launch Codex with API key auth").
 		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx)
@@ -1004,6 +1030,7 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
+	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, nil)
@@ -1017,12 +1044,12 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 		t.Fatalf("run launcher tick: %v", err)
 	}
 
-	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
-		t.Fatalf("reload agent: %v", err)
+		t.Fatalf("reload run: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusRunning || agentAfter.RuntimePhase != entagent.RuntimePhaseReady {
-		t.Fatalf("expected ready runtime state, got %+v", agentAfter)
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
 	}
 
 	processSpec := manager.capturedProcessSpec()
@@ -1073,12 +1100,24 @@ func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing
 	if err != nil {
 		t.Fatalf("subscribe agent lifecycle stream: %v", err)
 	}
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Pause runtime").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetIdentifier("ASE-405").
 		SetTitle("Pause Codex runtime").
 		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx)
@@ -1098,6 +1137,7 @@ func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
+	mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, nil)

@@ -247,11 +247,13 @@ func TestArchiveOrganizationDelegatesToRepository(t *testing.T) {
 
 func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 	agentID := uuid.New()
+	runID := uuid.New()
 	ticketID := uuid.New()
 	repo := &stubRepository{
 		agent: domain.Agent{
 			ID:                  agentID,
 			Name:                "worker-1",
+			CurrentRunID:        &runID,
 			Status:              domain.AgentStatusRunning,
 			CurrentTicketID:     &ticketID,
 			RuntimePhase:        domain.AgentRuntimePhaseReady,
@@ -274,11 +276,13 @@ func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 
 func TestRequestAgentResumeRejectsPauseRequestedState(t *testing.T) {
 	agentID := uuid.New()
+	runID := uuid.New()
 	ticketID := uuid.New()
 	repo := &stubRepository{
 		agent: domain.Agent{
 			ID:                  agentID,
 			Name:                "worker-1",
+			CurrentRunID:        &runID,
 			Status:              domain.AgentStatusClaimed,
 			CurrentTicketID:     &ticketID,
 			RuntimePhase:        domain.AgentRuntimePhaseNone,
@@ -433,6 +437,10 @@ func (r *stubRepository) ListAgents(context.Context, uuid.UUID) ([]domain.Agent,
 	return nil, nil
 }
 
+func (r *stubRepository) ListAgentRuns(context.Context, uuid.UUID) ([]domain.AgentRun, error) {
+	return nil, nil
+}
+
 func (r *stubRepository) ListActivityEvents(context.Context, domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
 	return nil, nil
 }
@@ -447,6 +455,10 @@ func (r *stubRepository) CreateAgent(context.Context, domain.CreateAgent) (domai
 
 func (r *stubRepository) GetAgent(context.Context, uuid.UUID) (domain.Agent, error) {
 	return r.agent, nil
+}
+
+func (r *stubRepository) GetAgentRun(context.Context, uuid.UUID) (domain.AgentRun, error) {
+	return domain.AgentRun{}, nil
 }
 
 func (r *stubRepository) UpdateAgentRuntimeControlState(_ context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error) {

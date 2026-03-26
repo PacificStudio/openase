@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -197,12 +197,19 @@ func TestGitHubWebhookRouteFinishesTicketWhenAllRepoScopesMerge(t *testing.T) {
 		t.Fatalf("expected primary scope to be merged, got %q", scopeAfter.PrStatus)
 	}
 
-	agentAfter, err := client.Agent.Get(ctx, fixture.agentID)
-	if err != nil {
-		t.Fatalf("reload agent: %v", err)
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected current run to be cleared, got %+v", ticketAfter.CurrentRunID)
 	}
-	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
-		t.Fatalf("expected agent release after finish, got %+v", agentAfter)
+	runAfter, err := client.AgentRun.Get(ctx, fixture.runID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusCompleted ||
+		runAfter.SessionID != "" ||
+		runAfter.RuntimeStartedAt != nil ||
+		runAfter.LastHeartbeatAt != nil ||
+		runAfter.LastError != "" {
+		t.Fatalf("expected completed run release after finish, got %+v", runAfter)
 	}
 }
 
@@ -256,12 +263,18 @@ func TestGitHubWebhookRouteSchedulesRetryWhenPullRequestClosesWithoutMerge(t *te
 		t.Fatalf("expected primary scope to be closed, got %q", scopeAfter.PrStatus)
 	}
 
-	agentAfter, err := client.Agent.Get(ctx, fixture.agentID)
-	if err != nil {
-		t.Fatalf("reload agent: %v", err)
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected current run to be cleared, got %+v", ticketAfter.CurrentRunID)
 	}
-	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
-		t.Fatalf("expected agent release after retry scheduling, got %+v", agentAfter)
+	runAfter, err := client.AgentRun.Get(ctx, fixture.runID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored ||
+		runAfter.SessionID != "" ||
+		runAfter.RuntimeStartedAt != nil ||
+		runAfter.LastHeartbeatAt != nil {
+		t.Fatalf("expected errored run release after retry scheduling, got %+v", runAfter)
 	}
 }
 
@@ -392,6 +405,7 @@ type gitHubWebhookLifecycleFixture struct {
 	todoID         uuid.UUID
 	doneID         uuid.UUID
 	agentID        uuid.UUID
+	runID          uuid.UUID
 	primaryScopeID uuid.UUID
 }
 
@@ -447,7 +461,6 @@ func newGitHubWebhookLifecycleFixture(
 		SetProjectID(project.ID).
 		SetProviderID(providerItem.ID).
 		SetName("codex-01").
-		SetStatus(entagent.StatusRunning).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -475,10 +488,24 @@ func newGitHubWebhookLifecycleFixture(
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	if _, err := client.Agent.UpdateOneID(agentItem.ID).
-		SetCurrentTicketID(ticketItem.ID).
+	runStartedAt := time.Now().UTC().Truncate(time.Second)
+	runItem, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusExecuting).
+		SetSessionID("codex-thread-42").
+		SetRuntimeStartedAt(runStartedAt).
+		SetLastHeartbeatAt(runStartedAt).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetCurrentRunID(runItem.ID).
 		Save(ctx); err != nil {
-		t.Fatalf("attach agent to ticket: %v", err)
+		t.Fatalf("attach run to ticket: %v", err)
 	}
 
 	backendRepo, err := client.ProjectRepo.Create().
@@ -533,6 +560,7 @@ func newGitHubWebhookLifecycleFixture(
 		todoID:         todoID,
 		doneID:         doneID,
 		agentID:        agentItem.ID,
+		runID:          runItem.ID,
 		primaryScopeID: primaryScope.ID,
 	}
 }

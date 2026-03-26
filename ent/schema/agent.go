@@ -58,6 +58,7 @@ func (Agent) Edges() []ent.Edge {
 			Field("current_ticket_id").
 			Unique(),
 		edge.To("assigned_tickets", Ticket.Type),
+		edge.To("runs", AgentRun.Type),
 		edge.To("tokens", AgentToken.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 	}
@@ -68,5 +69,6 @@ func (Agent) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("project_id", "name").Unique(),
 		index.Fields("project_id", "status", "last_heartbeat_at"),
+		index.Fields("project_id", "runtime_control_state"),
 	}
 }

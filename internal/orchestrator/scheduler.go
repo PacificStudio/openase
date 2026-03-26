@@ -10,6 +10,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
@@ -118,7 +119,7 @@ func (s *Scheduler) runWorkflowTick(ctx context.Context, workflow *ent.Workflow,
 		Where(
 			entticket.ProjectIDEQ(workflow.ProjectID),
 			entticket.StatusIDEQ(workflow.PickupStatusID),
-			entticket.AssignedAgentIDIsNil(),
+			entticket.CurrentRunIDIsNil(),
 			entticket.RetryPaused(false),
 			entticket.Or(
 				entticket.NextRetryAtIsNil(),
@@ -209,8 +210,8 @@ func (s *Scheduler) listIdleAgents(ctx context.Context, projectID uuid.UUID) ([]
 	agents, err := s.client.Agent.Query().
 		Where(
 			entagent.ProjectIDEQ(projectID),
-			entagent.StatusEQ(entagent.StatusIdle),
-			entagent.CurrentTicketIDIsNil(),
+			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
+			entagent.Not(entagent.HasAssignedTickets()),
 		).
 		Order(ent.Asc(entagent.FieldName)).
 		All(ctx)
@@ -300,7 +301,7 @@ func (s *Scheduler) claimTicketWithAgent(
 	workflowActive, err := tx.Ticket.Query().
 		Where(
 			entticket.WorkflowIDEQ(workflow.ID),
-			entticket.AssignedAgentIDNotNil(),
+			entticket.CurrentRunIDNotNil(),
 		).
 		Count(ctx)
 	if err != nil {
@@ -313,7 +314,7 @@ func (s *Scheduler) claimTicketWithAgent(
 	projectActive, err := tx.Ticket.Query().
 		Where(
 			entticket.ProjectIDEQ(workflow.ProjectID),
-			entticket.AssignedAgentIDNotNil(),
+			entticket.CurrentRunIDNotNil(),
 		).
 		Count(ctx)
 	if err != nil {
@@ -326,17 +327,10 @@ func (s *Scheduler) claimTicketWithAgent(
 	claimedAgents, err := tx.Agent.Update().
 		Where(
 			entagent.IDEQ(agent.ID),
-			entagent.StatusEQ(entagent.StatusIdle),
-			entagent.CurrentTicketIDIsNil(),
+			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
+			entagent.Not(entagent.HasAssignedTickets()),
 		).
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(ticket.ID).
-		ClearSessionID().
-		SetRuntimePhase(entagent.RuntimePhaseNone).
 		SetRuntimeControlState(entagent.RuntimeControlStateActive).
-		ClearRuntimeStartedAt().
-		SetLastError("").
-		ClearLastHeartbeatAt().
 		Save(ctx)
 	if err != nil {
 		return "", fmt.Errorf("claim agent %s: %w", agent.ID, err)
@@ -345,11 +339,23 @@ func (s *Scheduler) claimTicketWithAgent(
 		return skipReasonNoAgent, nil
 	}
 
+	runItem, err := tx.AgentRun.Create().
+		SetAgentID(agent.ID).
+		SetWorkflowID(workflow.ID).
+		SetTicketID(ticket.ID).
+		SetProviderID(agent.ProviderID).
+		SetStatus(entagentrun.StatusLaunching).
+		Save(ctx)
+	if err != nil {
+		return "", fmt.Errorf("create agent run for ticket %s: %w", ticket.ID, err)
+	}
+
 	claimedTickets, err := tx.Ticket.Update().
 		Where(
 			entticket.IDEQ(ticket.ID),
 			entticket.StatusIDEQ(workflow.PickupStatusID),
 			entticket.AssignedAgentIDIsNil(),
+			entticket.CurrentRunIDIsNil(),
 			entticket.RetryPaused(false),
 			entticket.Or(
 				entticket.NextRetryAtIsNil(),
@@ -357,6 +363,7 @@ func (s *Scheduler) claimTicketWithAgent(
 			),
 		).
 		SetAssignedAgentID(agent.ID).
+		SetCurrentRunID(runItem.ID).
 		SetWorkflowID(workflow.ID).
 		SetTargetMachineID(machine.ID).
 		Save(ctx)
@@ -381,7 +388,7 @@ func (s *Scheduler) claimTicketWithAgent(
 		s.events,
 		agentClaimedType,
 		claimedAgent,
-		lifecycleMessage(agentClaimedType, claimedAgent.Name),
+		lifecycleMessage(agentClaimedType, claimedAgent.agent.Name),
 		schedulerRuntimeEventMetadata(claimedAgent, machine),
 		now,
 	); err != nil {
@@ -453,8 +460,8 @@ func machineHasAllLabels(machineLabels []string, requiredLabels []string) bool {
 	return true
 }
 
-func schedulerRuntimeEventMetadata(agentItem *ent.Agent, machine *ent.Machine) map[string]any {
-	metadata := runtimeEventMetadata(agentItem)
+func schedulerRuntimeEventMetadata(agentState agentLifecycleState, machine *ent.Machine) map[string]any {
+	metadata := runtimeEventMetadataForState(agentState)
 	if machine == nil {
 		return metadata
 	}

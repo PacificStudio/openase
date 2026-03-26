@@ -12,8 +12,8 @@ type UpdateAgentRuntimeControlState struct {
 }
 
 func ResolvePauseRuntimeControlState(agent Agent) (AgentRuntimeControlState, error) {
-	if agent.CurrentTicketID == nil {
-		return "", fmt.Errorf("agent must have an assigned ticket before it can be paused")
+	if agent.CurrentRunID == nil || agent.CurrentTicketID == nil {
+		return "", fmt.Errorf("agent must have an active run before it can be paused")
 	}
 	if agent.Status != AgentStatusClaimed && agent.Status != AgentStatusRunning {
 		return "", fmt.Errorf("agent must be claimed or running before it can be paused")
@@ -28,8 +28,8 @@ func ResolvePauseRuntimeControlState(agent Agent) (AgentRuntimeControlState, err
 }
 
 func ResolveResumeRuntimeControlState(agent Agent) (AgentRuntimeControlState, error) {
-	if agent.CurrentTicketID == nil {
-		return "", fmt.Errorf("agent must keep its assigned ticket before it can be resumed")
+	if agent.CurrentRunID == nil || agent.CurrentTicketID == nil {
+		return "", fmt.Errorf("agent must keep its active run before it can be resumed")
 	}
 	if agent.RuntimeControlState == AgentRuntimeControlStateActive {
 		return "", fmt.Errorf("agent runtime is already active")

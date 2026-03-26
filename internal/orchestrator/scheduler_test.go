@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
@@ -237,12 +238,7 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create running ticket: %v", err)
 	}
-	if _, err := client.Agent.UpdateOneID(busyAgent.ID).
-		SetStatus(entagent.StatusClaimed).
-		SetCurrentTicketID(runningTicket.ID).
-		Save(ctx); err != nil {
-		t.Fatalf("claim busy agent: %v", err)
-	}
+	mustCreateCurrentRun(t, ctx, client, busyAgent, workflow.ID, runningTicket.ID, entagentrun.StatusExecuting, now)
 
 	target, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -353,14 +349,8 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 	if err != nil {
 		t.Fatalf("reload agent: %v", err)
 	}
-	if agentAfter.Status != entagent.StatusClaimed {
-		t.Fatalf("expected claimed status, got %s", agentAfter.Status)
-	}
-	if agentAfter.RuntimePhase != entagent.RuntimePhaseNone {
-		t.Fatalf("expected runtime phase none, got %s", agentAfter.RuntimePhase)
-	}
-	if agentAfter.SessionID != "" || agentAfter.LastError != "" || agentAfter.RuntimeStartedAt != nil || agentAfter.LastHeartbeatAt != nil {
-		t.Fatalf("expected runtime state to be cleared, got %+v", agentAfter)
+	if agentAfter.RuntimeControlState != entagent.RuntimeControlStateActive {
+		t.Fatalf("expected active runtime control state, got %+v", agentAfter)
 	}
 
 	event := waitForSchedulerEvent(t, stream, agentClaimedType)
@@ -372,15 +362,28 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
 		t.Fatalf("decode event payload: %v", err)
 	}
-	if payload.Agent.ID != agentItem.ID.String() || payload.Agent.RuntimePhase != "none" || payload.Agent.SessionID != "" {
+	if payload.Agent.ID != agentItem.ID.String() ||
+		payload.Agent.Status != "claimed" ||
+		payload.Agent.RuntimePhase != "launching" ||
+		payload.Agent.SessionID != "" ||
+		payload.Agent.CurrentRunID == nil ||
+		payload.Agent.CurrentTicketID == nil {
 		t.Fatalf("unexpected lifecycle payload: %+v", payload.Agent)
 	}
 	if ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID); err != nil {
 		t.Fatalf("reload ticket: %v", err)
+	} else if ticketAfter.AssignedAgentID == nil || *ticketAfter.AssignedAgentID != agentItem.ID {
+		t.Fatalf("expected ticket assigned agent %s, got %+v", agentItem.ID, ticketAfter.AssignedAgentID)
 	} else if ticketAfter.WorkflowID == nil || *ticketAfter.WorkflowID != workflow.ID {
 		t.Fatalf("expected ticket workflow %s, got %+v", workflow.ID, ticketAfter.WorkflowID)
+	} else if ticketAfter.CurrentRunID == nil {
+		t.Fatalf("expected ticket current run after dispatch, got %+v", ticketAfter)
 	} else if ticketAfter.TargetMachineID == nil {
 		t.Fatalf("expected ticket machine binding, got %+v", ticketAfter)
+	} else if runAfter, err := client.AgentRun.Get(ctx, *ticketAfter.CurrentRunID); err != nil {
+		t.Fatalf("reload agent run: %v", err)
+	} else if runAfter.Status != entagentrun.StatusLaunching || runAfter.SessionID != "" || runAfter.RuntimeStartedAt != nil || runAfter.LastHeartbeatAt != nil || runAfter.LastError != "" {
+		t.Fatalf("expected clean launching run after dispatch, got %+v", runAfter)
 	}
 }
 

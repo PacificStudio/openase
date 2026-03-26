@@ -62,12 +62,20 @@ func (s *service) ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain
 	return s.repo.ListAgents(ctx, projectID)
 }
 
+func (s *service) ListAgentRuns(ctx context.Context, projectID uuid.UUID) ([]domain.AgentRun, error) {
+	return s.repo.ListAgentRuns(ctx, projectID)
+}
+
 func (s *service) CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error) {
 	return s.repo.CreateAgent(ctx, input)
 }
 
 func (s *service) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
 	return s.repo.GetAgent(ctx, id)
+}
+
+func (s *service) GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRun, error) {
+	return s.repo.GetAgentRun(ctx, id)
 }
 
 func (s *service) RequestAgentPause(ctx context.Context, id uuid.UUID) (domain.Agent, error) {

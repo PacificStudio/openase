@@ -15,6 +15,9 @@ type Agent func(*sql.Selector)
 // AgentProvider is the predicate function for agentprovider builders.
 type AgentProvider func(*sql.Selector)
 
+// AgentRun is the predicate function for agentrun builders.
+type AgentRun func(*sql.Selector)
+
 // AgentToken is the predicate function for agenttoken builders.
 type AgentToken func(*sql.Selector)
 

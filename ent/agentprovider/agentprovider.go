@@ -41,6 +41,8 @@ const (
 	EdgeOrganization = "organization"
 	// EdgeAgents holds the string denoting the agents edge name in mutations.
 	EdgeAgents = "agents"
+	// EdgeAgentRuns holds the string denoting the agent_runs edge name in mutations.
+	EdgeAgentRuns = "agent_runs"
 	// Table holds the table name of the agentprovider in the database.
 	Table = "agent_providers"
 	// OrganizationTable is the table that holds the organization relation/edge.
@@ -57,6 +59,13 @@ const (
 	AgentsInverseTable = "agents"
 	// AgentsColumn is the table column denoting the agents relation/edge.
 	AgentsColumn = "provider_id"
+	// AgentRunsTable is the table that holds the agent_runs relation/edge.
+	AgentRunsTable = "agent_runs"
+	// AgentRunsInverseTable is the table name for the AgentRun entity.
+	// It exists in this package in order to avoid circular dependency with the "agentrun" package.
+	AgentRunsInverseTable = "agent_runs"
+	// AgentRunsColumn is the table column denoting the agent_runs relation/edge.
+	AgentRunsColumn = "provider_id"
 )
 
 // Columns holds all SQL columns for agentprovider fields.
@@ -209,6 +218,20 @@ func ByAgents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newAgentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByAgentRunsCount orders the results by agent_runs count.
+func ByAgentRunsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentRunsStep(), opts...)
+	}
+}
+
+// ByAgentRuns orders the results by agent_runs terms.
+func ByAgentRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentRunsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newOrganizationStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -221,5 +244,12 @@ func newAgentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentsTable, AgentsColumn),
+	)
+}
+func newAgentRunsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentRunsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentRunsTable, AgentRunsColumn),
 	)
 }

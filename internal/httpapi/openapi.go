@@ -98,6 +98,7 @@ type OpenAPIAgent struct {
 	ProviderID            string  `json:"provider_id"`
 	ProjectID             string  `json:"project_id"`
 	Name                  string  `json:"name"`
+	CurrentRunID          *string `json:"current_run_id,omitempty"`
 	Status                string  `json:"status"`
 	CurrentTicketID       *string `json:"current_ticket_id,omitempty"`
 	SessionID             string  `json:"session_id"`

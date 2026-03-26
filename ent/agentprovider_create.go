@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -153,6 +154,21 @@ func (_c *AgentProviderCreate) AddAgents(v ...*Agent) *AgentProviderCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddAgentIDs(ids...)
+}
+
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by IDs.
+func (_c *AgentProviderCreate) AddAgentRunIDs(ids ...uuid.UUID) *AgentProviderCreate {
+	_c.mutation.AddAgentRunIDs(ids...)
+	return _c
+}
+
+// AddAgentRuns adds the "agent_runs" edges to the AgentRun entity.
+func (_c *AgentProviderCreate) AddAgentRuns(v ...*AgentRun) *AgentProviderCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentRunIDs(ids...)
 }
 
 // Mutation returns the AgentProviderMutation object of the builder.
@@ -372,6 +388,22 @@ func (_c *AgentProviderCreate) createSpec() (*AgentProvider, *sqlgraph.CreateSpe
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentRunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentprovider.AgentRunsTable,
+			Columns: []string{agentprovider.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

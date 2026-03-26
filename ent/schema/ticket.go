@@ -28,6 +28,9 @@ func (Ticket) Fields() []ent.Field {
 		field.UUID("workflow_id", uuidZero()).
 			Optional().
 			Nillable(),
+		field.UUID("current_run_id", uuidZero()).
+			Optional().
+			Nillable(),
 		field.UUID("target_machine_id", uuidZero()).
 			Optional().
 			Nillable(),
@@ -78,6 +81,10 @@ func (Ticket) Edges() []ent.Edge {
 			Ref("tickets").
 			Field("workflow_id").
 			Unique(),
+		edge.From("current_run", AgentRun.Type).
+			Ref("current_for_ticket").
+			Field("current_run_id").
+			Unique(),
 		edge.From("target_machine", Machine.Type).
 			Ref("target_tickets").
 			Field("target_machine_id").
@@ -96,6 +103,7 @@ func (Ticket) Edges() []ent.Edge {
 		edge.To("external_links", TicketExternalLink.Type),
 		edge.To("agent_tokens", AgentToken.Type),
 		edge.To("activity_events", ActivityEvent.Type),
+		edge.To("agent_runs", AgentRun.Type),
 		edge.To("outgoing_dependencies", TicketDependency.Type),
 		edge.To("incoming_dependencies", TicketDependency.Type),
 	}
@@ -104,7 +112,7 @@ func (Ticket) Edges() []ent.Edge {
 func (Ticket) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("project_id", "identifier").Unique(),
-		index.Fields("project_id", "status_id", "assigned_agent_id", "priority", "created_at"),
+		index.Fields("project_id", "status_id", "current_run_id", "priority", "created_at"),
 		index.Fields("project_id", "status_id"),
 		index.Fields("project_id", "external_ref"),
 	}

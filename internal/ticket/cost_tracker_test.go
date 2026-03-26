@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -70,7 +69,6 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 		SetProjectID(project.ID).
 		SetProviderID(providerItem.ID).
 		SetName("coding-01").
-		SetStatus(entagent.StatusRunning).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)

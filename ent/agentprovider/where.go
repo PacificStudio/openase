@@ -591,6 +591,29 @@ func HasAgentsWith(preds ...predicate.Agent) predicate.AgentProvider {
 	})
 }
 
+// HasAgentRuns applies the HasEdge predicate on the "agent_runs" edge.
+func HasAgentRuns() predicate.AgentProvider {
+	return predicate.AgentProvider(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentRunsTable, AgentRunsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentRunsWith applies the HasEdge predicate on the "agent_runs" edge with a given conditions (other predicates).
+func HasAgentRunsWith(preds ...predicate.AgentRun) predicate.AgentProvider {
+	return predicate.AgentProvider(func(s *sql.Selector) {
+		step := newAgentRunsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.AgentProvider) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.AndPredicates(predicates...))

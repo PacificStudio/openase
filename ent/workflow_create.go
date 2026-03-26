@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -207,6 +208,21 @@ func (_c *WorkflowCreate) AddTickets(v ...*Ticket) *WorkflowCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddTicketIDs(ids...)
+}
+
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by IDs.
+func (_c *WorkflowCreate) AddAgentRunIDs(ids ...uuid.UUID) *WorkflowCreate {
+	_c.mutation.AddAgentRunIDs(ids...)
+	return _c
+}
+
+// AddAgentRuns adds the "agent_runs" edges to the AgentRun entity.
+func (_c *WorkflowCreate) AddAgentRuns(v ...*AgentRun) *WorkflowCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentRunIDs(ids...)
 }
 
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by IDs.
@@ -491,6 +507,22 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentRunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.AgentRunsTable,
+			Columns: []string{workflow.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

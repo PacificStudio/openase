@@ -803,6 +803,29 @@ func HasAssignedTicketsWith(preds ...predicate.Ticket) predicate.Agent {
 	})
 }
 
+// HasRuns applies the HasEdge predicate on the "runs" edge.
+func HasRuns() predicate.Agent {
+	return predicate.Agent(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RunsTable, RunsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRunsWith applies the HasEdge predicate on the "runs" edge with a given conditions (other predicates).
+func HasRunsWith(preds ...predicate.AgentRun) predicate.Agent {
+	return predicate.Agent(func(s *sql.Selector) {
+		step := newRunsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasTokens applies the HasEdge predicate on the "tokens" edge.
 func HasTokens() predicate.Agent {
 	return predicate.Agent(func(s *sql.Selector) {

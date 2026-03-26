@@ -8,6 +8,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
@@ -31,46 +32,41 @@ func (l *RuntimeLauncher) startReadyExecutions(ctx context.Context) error {
 		return nil
 	}
 
-	readyAgents, err := l.client.Agent.Query().
-		Where(
-			entagent.StatusEQ(entagent.StatusRunning),
-			entagent.RuntimePhaseEQ(entagent.RuntimePhaseReady),
+	assignments, err := l.listAssignments(ctx,
+		entticket.HasAssignedAgentWith(
 			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-			entagent.CurrentTicketIDNotNil(),
-		).
-		Order(ent.Asc(entagent.FieldName)).
-		All(ctx)
+		),
+		entticket.CurrentRunIDNotNil(),
+		entticket.HasCurrentRunWith(entagentrun.StatusEQ(entagentrun.StatusReady)),
+	)
 	if err != nil {
 		return fmt.Errorf("list ready agents awaiting execution: %w", err)
 	}
 
-	for _, agentItem := range readyAgents {
-		if l.loadSession(agentItem.ID) == nil {
+	for _, assignment := range assignments {
+		if l.loadSession(assignment.agent.ID) == nil {
 			continue
 		}
-		if !l.beginExecution(agentItem.ID) {
+		if !l.beginExecution(assignment.agent.ID) {
 			continue
 		}
-		executingCount, err := l.client.Agent.Update().
+		executingCount, err := l.client.AgentRun.Update().
 			Where(
-				entagent.IDEQ(agentItem.ID),
-				entagent.StatusEQ(entagent.StatusRunning),
-				entagent.RuntimePhaseEQ(entagent.RuntimePhaseReady),
-				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-				entagent.CurrentTicketIDNotNil(),
+				entagentrun.IDEQ(assignment.run.ID),
+				entagentrun.StatusEQ(entagentrun.StatusReady),
 			).
-			SetRuntimePhase(entagent.RuntimePhaseExecuting).
+			SetStatus(entagentrun.StatusExecuting).
 			Save(ctx)
 		if err != nil {
-			l.finishExecution(agentItem.ID)
-			return fmt.Errorf("mark agent %s executing: %w", agentItem.ID, err)
+			l.finishExecution(assignment.agent.ID)
+			return fmt.Errorf("mark run %s executing: %w", assignment.run.ID, err)
 		}
 		if executingCount == 0 {
-			l.finishExecution(agentItem.ID)
+			l.finishExecution(assignment.agent.ID)
 			continue
 		}
 
-		go l.runReadyExecution(agentItem.ID)
+		go l.runReadyExecution(assignment.agent.ID)
 	}
 
 	return nil
@@ -106,13 +102,13 @@ func (l *RuntimeLauncher) runReadyExecution(agentID uuid.UUID) {
 			return
 		}
 
-		if err := l.consumeTurn(ctx, state.agent.ID, state.ticket.ID, session, turn.TurnID, &highWater); err != nil {
+		if err := l.consumeTurn(ctx, state.agent.ID, state.run.ID, state.ticket.ID, session, turn.TurnID, &highWater); err != nil {
 			lastError = err.Error()
 			l.handleExecutionFailure(ctx, state.agent.ID, state.ticket.ID, err)
 			return
 		}
 
-		reloaded, err := l.reloadExecutionTicket(ctx, state.agent.ID, state.ticket.ID)
+		reloaded, err := l.reloadExecutionTicket(ctx, state.ticket.ID)
 		if err != nil {
 			l.logger.Error("reload execution ticket", "agent_id", state.agent.ID, "ticket_id", state.ticket.ID, "error", err)
 			stopSession(context.Background(), session)
@@ -135,12 +131,21 @@ func (l *RuntimeLauncher) runReadyExecution(agentID uuid.UUID) {
 
 type runtimeExecutionState struct {
 	agent         *ent.Agent
+	run           *ent.AgentRun
 	ticket        *ent.Ticket
 	launchContext runtimeLaunchContext
 }
 
 func (l *RuntimeLauncher) loadExecutionState(ctx context.Context, agentID uuid.UUID, turnNumber int, lastError string) (runtimeExecutionState, string, error) {
-	launchContext, err := l.loadLaunchContext(ctx, &ent.Agent{ID: agentID})
+	assignment, err := l.loadAssignmentByAgent(ctx, agentID)
+	if err != nil {
+		return runtimeExecutionState{}, "", err
+	}
+	if assignment.agent == nil || assignment.ticket == nil || assignment.run == nil {
+		return runtimeExecutionState{}, "", fmt.Errorf("agent %s no longer has an active run", agentID)
+	}
+
+	launchContext, err := l.loadLaunchContext(ctx, assignment.agent.ID, assignment.ticket.ID)
 	if err != nil {
 		return runtimeExecutionState{}, "", err
 	}
@@ -167,6 +172,7 @@ func (l *RuntimeLauncher) loadExecutionState(ctx context.Context, agentID uuid.U
 
 	return runtimeExecutionState{
 		agent:         launchContext.agent,
+		run:           assignment.run,
 		ticket:        launchContext.ticket,
 		launchContext: launchContext,
 	}, prompt, nil
@@ -191,6 +197,7 @@ func buildContinuationPrompt(ticket *ent.Ticket, turnNumber int, maxTurns int, l
 func (l *RuntimeLauncher) consumeTurn(
 	ctx context.Context,
 	agentID uuid.UUID,
+	runID uuid.UUID,
 	ticketID uuid.UUID,
 	session *codex.Session,
 	turnID string,
@@ -202,8 +209,8 @@ func (l *RuntimeLauncher) consumeTurn(
 			return fmt.Errorf("codex session closed before turn %s completed", turnID)
 		}
 
-		if err := l.touchHeartbeat(ctx, agentID); err != nil {
-			l.logger.Warn("update agent heartbeat", "agent_id", agentID, "error", err)
+		if err := l.touchHeartbeat(ctx, runID); err != nil {
+			l.logger.Warn("update agent heartbeat", "run_id", runID, "error", err)
 		}
 
 		switch event.Type {
@@ -249,17 +256,16 @@ func (l *RuntimeLauncher) consumeTurn(
 	}
 }
 
-func (l *RuntimeLauncher) touchHeartbeat(ctx context.Context, agentID uuid.UUID) error {
-	_, err := l.client.Agent.Update().
+func (l *RuntimeLauncher) touchHeartbeat(ctx context.Context, runID uuid.UUID) error {
+	_, err := l.client.AgentRun.Update().
 		Where(
-			entagent.IDEQ(agentID),
-			entagent.StatusEQ(entagent.StatusRunning),
-			entagent.RuntimePhaseEQ(entagent.RuntimePhaseExecuting),
+			entagentrun.IDEQ(runID),
+			entagentrun.StatusEQ(entagentrun.StatusExecuting),
 		).
 		SetLastHeartbeatAt(l.now().UTC()).
 		Save(ctx)
 	if err != nil {
-		return fmt.Errorf("touch heartbeat for agent %s: %w", agentID, err)
+		return fmt.Errorf("touch heartbeat for run %s: %w", runID, err)
 	}
 	return nil
 }
@@ -309,7 +315,7 @@ func (l *RuntimeLauncher) recordTokenUsage(
 	return nil
 }
 
-func (l *RuntimeLauncher) reloadExecutionTicket(ctx context.Context, agentID uuid.UUID, ticketID uuid.UUID) (*ent.Ticket, error) {
+func (l *RuntimeLauncher) reloadExecutionTicket(ctx context.Context, ticketID uuid.UUID) (*ent.Ticket, error) {
 	return l.client.Ticket.Query().
 		Where(entticket.IDEQ(ticketID)).
 		WithWorkflow().
@@ -331,6 +337,11 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID u
 	stopSession(context.Background(), l.loadSession(agentID))
 	l.deleteSession(agentID)
 
+	assignment, err := l.loadAssignmentByAgent(ctx, agentID)
+	if err != nil {
+		return err
+	}
+
 	tx, err := l.client.Tx(ctx)
 	if err != nil {
 		return fmt.Errorf("start finish execution tx: %w", err)
@@ -342,6 +353,9 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID u
 	if ticket.AssignedAgentID != nil && *ticket.AssignedAgentID == agentID {
 		ticketUpdate.ClearAssignedAgentID()
 	}
+	if ticket.CurrentRunID != nil {
+		ticketUpdate.ClearCurrentRunID()
+	}
 	if isDependencyResolved(ticket) && ticket.CompletedAt == nil {
 		ticketUpdate.SetCompletedAt(now)
 	}
@@ -349,18 +363,27 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID u
 		return fmt.Errorf("update ticket %s after execution: %w", ticket.ID, err)
 	}
 
-	agentUpdate := clearRuntimeState(
-		tx.Agent.Update().
-			Where(entagent.IDEQ(agentID)).
-			ClearCurrentTicketID().
-			SetStatus(entagent.StatusIdle).
-			SetRuntimeControlState(entagent.RuntimeControlStateActive),
-	)
+	agentUpdate := tx.Agent.Update().
+		Where(entagent.IDEQ(agentID)).
+		SetRuntimeControlState(entagent.RuntimeControlStateActive)
 	if isDependencyResolved(ticket) {
 		agentUpdate.AddTotalTicketsCompleted(1)
 	}
 	if _, err := agentUpdate.Save(ctx); err != nil {
 		return fmt.Errorf("update agent %s after execution: %w", agentID, err)
+	}
+
+	if assignment.run != nil {
+		runStatus := entagentrun.StatusTerminated
+		if isDependencyResolved(ticket) {
+			runStatus = entagentrun.StatusCompleted
+		}
+		if _, err := clearRuntimeStateOne(
+			tx.AgentRun.UpdateOneID(assignment.run.ID).
+				SetStatus(runStatus),
+		).Save(ctx); err != nil {
+			return fmt.Errorf("update run %s after execution: %w", assignment.run.ID, err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -377,8 +400,8 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID u
 		l.events,
 		agentTerminatedType,
 		agentItem,
-		lifecycleMessage(agentTerminatedType, agentItem.Name),
-		runtimeEventMetadata(agentItem),
+		lifecycleMessage(agentTerminatedType, agentItem.agent.Name),
+		runtimeEventMetadataForState(agentItem),
 		now,
 	)
 }
@@ -388,21 +411,27 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, agentID uu
 	l.deleteSession(agentID)
 
 	now := l.now().UTC()
-	if _, err := l.client.Agent.Update().
-		Where(entagent.IDEQ(agentID)).
-		SetLastError(strings.TrimSpace(failure.Error())).
-		Save(ctx); err == nil {
-		if failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID); err == nil {
-			_ = publishAgentLifecycleEvent(
-				ctx,
-				l.client,
-				l.events,
-				agentFailedType,
-				failedAgent,
-				lifecycleMessage(agentFailedType, failedAgent.Name),
-				runtimeEventMetadata(failedAgent),
-				now,
-			)
+	assignment, assignmentErr := l.loadAssignmentByAgent(ctx, agentID)
+	if assignmentErr != nil {
+		l.logger.Error("load failed assignment", "ticket_id", ticketID, "agent_id", agentID, "error", assignmentErr)
+	} else if assignment.run != nil {
+		if _, err := l.client.AgentRun.Update().
+			Where(entagentrun.IDEQ(assignment.run.ID)).
+			SetStatus(entagentrun.StatusErrored).
+			SetLastError(strings.TrimSpace(failure.Error())).
+			Save(ctx); err == nil {
+			if failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID); err == nil {
+				_ = publishAgentLifecycleEvent(
+					ctx,
+					l.client,
+					l.events,
+					agentFailedType,
+					failedAgent,
+					lifecycleMessage(agentFailedType, failedAgent.agent.Name),
+					runtimeEventMetadataForState(failedAgent),
+					now,
+				)
+			}
 		}
 	}
 
@@ -418,11 +447,11 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, agentID uuid
 	stopSession(context.Background(), session)
 	l.deleteSession(agentID)
 
-	agentItem, err := l.client.Agent.Get(ctx, agentID)
+	assignment, err := l.loadAssignmentByAgent(ctx, agentID)
 	if err != nil {
 		return fmt.Errorf("load agent %s for continuation: %w", agentID, err)
 	}
-	if agentItem.CurrentTicketID == nil {
+	if assignment.agent == nil || assignment.ticket == nil || assignment.run == nil {
 		return nil
 	}
 
@@ -434,24 +463,28 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, agentID uuid
 
 	if _, err := tx.Ticket.Update().
 		Where(
-			entticket.IDEQ(*agentItem.CurrentTicketID),
+			entticket.IDEQ(assignment.ticket.ID),
 			entticket.AssignedAgentIDEQ(agentID),
 		).
 		ClearAssignedAgentID().
+		ClearCurrentRunID().
 		SetNextRetryAt(l.now().UTC().Add(continuationRetryDelay)).
 		SetRetryPaused(false).
 		Save(ctx); err != nil {
 		return fmt.Errorf("schedule ticket continuation: %w", err)
 	}
 
-	if _, err := clearRuntimeState(
-		tx.Agent.Update().
-			Where(entagent.IDEQ(agentID)).
-			ClearCurrentTicketID().
-			SetStatus(entagent.StatusIdle).
-			SetRuntimeControlState(entagent.RuntimeControlStateActive),
-	).Save(ctx); err != nil {
+	if _, err := tx.Agent.UpdateOneID(agentID).
+		SetRuntimeControlState(entagent.RuntimeControlStateActive).
+		Save(ctx); err != nil {
 		return fmt.Errorf("reset agent %s after continuation limit: %w", agentID, err)
+	}
+
+	if _, err := clearRuntimeStateOne(
+		tx.AgentRun.UpdateOneID(assignment.run.ID).
+			SetStatus(entagentrun.StatusTerminated),
+	).Save(ctx); err != nil {
+		return fmt.Errorf("reset run %s after continuation limit: %w", assignment.run.ID, err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -468,8 +501,8 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, agentID uuid
 		l.events,
 		agentTerminatedType,
 		reloaded,
-		lifecycleMessage(agentTerminatedType, reloaded.Name),
-		runtimeEventMetadata(reloaded),
+		lifecycleMessage(agentTerminatedType, reloaded.agent.Name),
+		runtimeEventMetadataForState(reloaded),
 		l.now().UTC(),
 	)
 }

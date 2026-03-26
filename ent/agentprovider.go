@@ -54,9 +54,11 @@ type AgentProviderEdges struct {
 	Organization *Organization `json:"organization,omitempty"`
 	// Agents holds the value of the agents edge.
 	Agents []*Agent `json:"agents,omitempty"`
+	// AgentRuns holds the value of the agent_runs edge.
+	AgentRuns []*AgentRun `json:"agent_runs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -77,6 +79,15 @@ func (e AgentProviderEdges) AgentsOrErr() ([]*Agent, error) {
 		return e.Agents, nil
 	}
 	return nil, &NotLoadedError{edge: "agents"}
+}
+
+// AgentRunsOrErr returns the AgentRuns value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentProviderEdges) AgentRunsOrErr() ([]*AgentRun, error) {
+	if e.loadedTypes[2] {
+		return e.AgentRuns, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_runs"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -206,6 +217,11 @@ func (_m *AgentProvider) QueryOrganization() *OrganizationQuery {
 // QueryAgents queries the "agents" edge of the AgentProvider entity.
 func (_m *AgentProvider) QueryAgents() *AgentQuery {
 	return NewAgentProviderClient(_m.config).QueryAgents(_m)
+}
+
+// QueryAgentRuns queries the "agent_runs" edge of the AgentProvider entity.
+func (_m *AgentProvider) QueryAgentRuns() *AgentRunQuery {
+	return NewAgentProviderClient(_m.config).QueryAgentRuns(_m)
 }
 
 // Update returns a builder for updating this AgentProvider.

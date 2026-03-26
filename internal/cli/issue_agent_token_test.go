@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
@@ -209,8 +208,6 @@ func seedCLIPlatformFixture(ctx context.Context, t *testing.T, client *ent.Clien
 		SetProjectID(project.ID).
 		SetProviderID(provider.ID).
 		SetName("coding-cli").
-		SetStatus(entagent.StatusRunning).
-		SetCurrentTicketID(ticketItem.ID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)

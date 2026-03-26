@@ -687,6 +687,29 @@ func HasTicketsWith(preds ...predicate.Ticket) predicate.Workflow {
 	})
 }
 
+// HasAgentRuns applies the HasEdge predicate on the "agent_runs" edge.
+func HasAgentRuns() predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentRunsTable, AgentRunsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentRunsWith applies the HasEdge predicate on the "agent_runs" edge with a given conditions (other predicates).
+func HasAgentRunsWith(preds ...predicate.AgentRun) predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := newAgentRunsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasScheduledJobs applies the HasEdge predicate on the "scheduled_jobs" edge.
 func HasScheduledJobs() predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {

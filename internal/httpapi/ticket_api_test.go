@@ -15,6 +15,7 @@ import (
 
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticketcomment "github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
@@ -1141,12 +1142,22 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("coding-workflow").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		SetPickupStatusID(todoID).
+		SetFinishStatusID(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
 
 	assignedAgent, err := client.Agent.Create().
 		SetProjectID(project.ID).
 		SetProviderID(provider.ID).
 		SetName("coding-01").
-		SetStatus(entagent.StatusClaimed).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -1162,10 +1173,23 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	if _, err := client.Agent.UpdateOneID(assignedAgent.ID).
-		SetCurrentTicketID(ticketItem.ID).
+	runStartedAt := time.Now().UTC().Truncate(time.Second)
+	runItem, err := client.AgentRun.Create().
+		SetAgentID(assignedAgent.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(provider.ID).
+		SetStatus(entagentrun.StatusReady).
+		SetRuntimeStartedAt(runStartedAt).
+		SetLastHeartbeatAt(runStartedAt).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetCurrentRunID(runItem.ID).
 		Save(ctx); err != nil {
-		t.Fatalf("claim agent for ticket: %v", err)
+		t.Fatalf("attach current run to ticket: %v", err)
 	}
 
 	titleOnlyResp := struct {
@@ -1188,12 +1212,15 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	if ticketAfterTitleOnly.AssignedAgentID == nil || *ticketAfterTitleOnly.AssignedAgentID != assignedAgent.ID {
 		t.Fatalf("expected non-status update to keep assignment, got %+v", ticketAfterTitleOnly.AssignedAgentID)
 	}
-	agentAfterTitleOnly, err := client.Agent.Get(ctx, assignedAgent.ID)
-	if err != nil {
-		t.Fatalf("reload agent after title update: %v", err)
+	if ticketAfterTitleOnly.CurrentRunID == nil || *ticketAfterTitleOnly.CurrentRunID != runItem.ID {
+		t.Fatalf("expected non-status update to keep current run, got %+v", ticketAfterTitleOnly.CurrentRunID)
 	}
-	if agentAfterTitleOnly.Status != entagent.StatusClaimed || agentAfterTitleOnly.CurrentTicketID == nil || *agentAfterTitleOnly.CurrentTicketID != ticketItem.ID {
-		t.Fatalf("expected non-status update to keep agent claim, got %+v", agentAfterTitleOnly)
+	runAfterTitleOnly, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run after title update: %v", err)
+	}
+	if runAfterTitleOnly.Status != entagentrun.StatusReady {
+		t.Fatalf("expected non-status update to keep run ready, got %+v", runAfterTitleOnly)
 	}
 
 	statusResp := struct {
@@ -1219,13 +1246,25 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	if ticketAfterStatusChange.AssignedAgentID != nil {
 		t.Fatalf("expected status update to clear assignment, got %+v", ticketAfterStatusChange.AssignedAgentID)
 	}
-
+	if ticketAfterStatusChange.CurrentRunID != nil {
+		t.Fatalf("expected status update to clear current run, got %+v", ticketAfterStatusChange.CurrentRunID)
+	}
+	runAfterStatusChange, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run after status update: %v", err)
+	}
+	if runAfterStatusChange.Status != entagentrun.StatusTerminated ||
+		runAfterStatusChange.SessionID != "" ||
+		runAfterStatusChange.RuntimeStartedAt != nil ||
+		runAfterStatusChange.LastHeartbeatAt != nil {
+		t.Fatalf("expected status update to finalize agent run, got %+v", runAfterStatusChange)
+	}
 	agentAfterStatusChange, err := client.Agent.Get(ctx, assignedAgent.ID)
 	if err != nil {
 		t.Fatalf("reload agent after status update: %v", err)
 	}
-	if agentAfterStatusChange.Status != entagent.StatusIdle || agentAfterStatusChange.CurrentTicketID != nil {
-		t.Fatalf("expected status update to release agent, got %+v", agentAfterStatusChange)
+	if agentAfterStatusChange.RuntimeControlState != entagent.RuntimeControlStateActive {
+		t.Fatalf("expected status update to reset agent control state, got %+v", agentAfterStatusChange)
 	}
 }
 

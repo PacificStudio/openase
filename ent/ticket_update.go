@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -161,6 +162,26 @@ func (_u *TicketUpdate) SetNillableWorkflowID(v *uuid.UUID) *TicketUpdate {
 // ClearWorkflowID clears the value of the "workflow_id" field.
 func (_u *TicketUpdate) ClearWorkflowID() *TicketUpdate {
 	_u.mutation.ClearWorkflowID()
+	return _u
+}
+
+// SetCurrentRunID sets the "current_run_id" field.
+func (_u *TicketUpdate) SetCurrentRunID(v uuid.UUID) *TicketUpdate {
+	_u.mutation.SetCurrentRunID(v)
+	return _u
+}
+
+// SetNillableCurrentRunID sets the "current_run_id" field if the given value is not nil.
+func (_u *TicketUpdate) SetNillableCurrentRunID(v *uuid.UUID) *TicketUpdate {
+	if v != nil {
+		_u.SetCurrentRunID(*v)
+	}
+	return _u
+}
+
+// ClearCurrentRunID clears the value of the "current_run_id" field.
+func (_u *TicketUpdate) ClearCurrentRunID() *TicketUpdate {
+	_u.mutation.ClearCurrentRunID()
 	return _u
 }
 
@@ -561,6 +582,11 @@ func (_u *TicketUpdate) SetWorkflow(v *Workflow) *TicketUpdate {
 	return _u.SetWorkflowID(v.ID)
 }
 
+// SetCurrentRun sets the "current_run" edge to the AgentRun entity.
+func (_u *TicketUpdate) SetCurrentRun(v *AgentRun) *TicketUpdate {
+	return _u.SetCurrentRunID(v.ID)
+}
+
 // SetTargetMachine sets the "target_machine" edge to the Machine entity.
 func (_u *TicketUpdate) SetTargetMachine(v *Machine) *TicketUpdate {
 	return _u.SetTargetMachineID(v.ID)
@@ -680,6 +706,21 @@ func (_u *TicketUpdate) AddActivityEvents(v ...*ActivityEvent) *TicketUpdate {
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by IDs.
+func (_u *TicketUpdate) AddAgentRunIDs(ids ...uuid.UUID) *TicketUpdate {
+	_u.mutation.AddAgentRunIDs(ids...)
+	return _u
+}
+
+// AddAgentRuns adds the "agent_runs" edges to the AgentRun entity.
+func (_u *TicketUpdate) AddAgentRuns(v ...*AgentRun) *TicketUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentRunIDs(ids...)
+}
+
 // AddOutgoingDependencyIDs adds the "outgoing_dependencies" edge to the TicketDependency entity by IDs.
 func (_u *TicketUpdate) AddOutgoingDependencyIDs(ids ...uuid.UUID) *TicketUpdate {
 	_u.mutation.AddOutgoingDependencyIDs(ids...)
@@ -730,6 +771,12 @@ func (_u *TicketUpdate) ClearStatus() *TicketUpdate {
 // ClearWorkflow clears the "workflow" edge to the Workflow entity.
 func (_u *TicketUpdate) ClearWorkflow() *TicketUpdate {
 	_u.mutation.ClearWorkflow()
+	return _u
+}
+
+// ClearCurrentRun clears the "current_run" edge to the AgentRun entity.
+func (_u *TicketUpdate) ClearCurrentRun() *TicketUpdate {
+	_u.mutation.ClearCurrentRun()
 	return _u
 }
 
@@ -875,6 +922,27 @@ func (_u *TicketUpdate) RemoveActivityEvents(v ...*ActivityEvent) *TicketUpdate 
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearAgentRuns clears all "agent_runs" edges to the AgentRun entity.
+func (_u *TicketUpdate) ClearAgentRuns() *TicketUpdate {
+	_u.mutation.ClearAgentRuns()
+	return _u
+}
+
+// RemoveAgentRunIDs removes the "agent_runs" edge to AgentRun entities by IDs.
+func (_u *TicketUpdate) RemoveAgentRunIDs(ids ...uuid.UUID) *TicketUpdate {
+	_u.mutation.RemoveAgentRunIDs(ids...)
+	return _u
+}
+
+// RemoveAgentRuns removes "agent_runs" edges to AgentRun entities.
+func (_u *TicketUpdate) RemoveAgentRuns(v ...*AgentRun) *TicketUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentRunIDs(ids...)
 }
 
 // ClearOutgoingDependencies clears all "outgoing_dependencies" edges to the TicketDependency entity.
@@ -1185,6 +1253,35 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CurrentRunCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticket.CurrentRunTable,
+			Columns: []string{ticket.CurrentRunColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CurrentRunIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticket.CurrentRunTable,
+			Columns: []string{ticket.CurrentRunColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1549,6 +1646,51 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.AgentRunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentRunsTable,
+			Columns: []string{ticket.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentRunsIDs(); len(nodes) > 0 && !_u.mutation.AgentRunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentRunsTable,
+			Columns: []string{ticket.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentRunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentRunsTable,
+			Columns: []string{ticket.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.OutgoingDependenciesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1780,6 +1922,26 @@ func (_u *TicketUpdateOne) SetNillableWorkflowID(v *uuid.UUID) *TicketUpdateOne 
 // ClearWorkflowID clears the value of the "workflow_id" field.
 func (_u *TicketUpdateOne) ClearWorkflowID() *TicketUpdateOne {
 	_u.mutation.ClearWorkflowID()
+	return _u
+}
+
+// SetCurrentRunID sets the "current_run_id" field.
+func (_u *TicketUpdateOne) SetCurrentRunID(v uuid.UUID) *TicketUpdateOne {
+	_u.mutation.SetCurrentRunID(v)
+	return _u
+}
+
+// SetNillableCurrentRunID sets the "current_run_id" field if the given value is not nil.
+func (_u *TicketUpdateOne) SetNillableCurrentRunID(v *uuid.UUID) *TicketUpdateOne {
+	if v != nil {
+		_u.SetCurrentRunID(*v)
+	}
+	return _u
+}
+
+// ClearCurrentRunID clears the value of the "current_run_id" field.
+func (_u *TicketUpdateOne) ClearCurrentRunID() *TicketUpdateOne {
+	_u.mutation.ClearCurrentRunID()
 	return _u
 }
 
@@ -2180,6 +2342,11 @@ func (_u *TicketUpdateOne) SetWorkflow(v *Workflow) *TicketUpdateOne {
 	return _u.SetWorkflowID(v.ID)
 }
 
+// SetCurrentRun sets the "current_run" edge to the AgentRun entity.
+func (_u *TicketUpdateOne) SetCurrentRun(v *AgentRun) *TicketUpdateOne {
+	return _u.SetCurrentRunID(v.ID)
+}
+
 // SetTargetMachine sets the "target_machine" edge to the Machine entity.
 func (_u *TicketUpdateOne) SetTargetMachine(v *Machine) *TicketUpdateOne {
 	return _u.SetTargetMachineID(v.ID)
@@ -2299,6 +2466,21 @@ func (_u *TicketUpdateOne) AddActivityEvents(v ...*ActivityEvent) *TicketUpdateO
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by IDs.
+func (_u *TicketUpdateOne) AddAgentRunIDs(ids ...uuid.UUID) *TicketUpdateOne {
+	_u.mutation.AddAgentRunIDs(ids...)
+	return _u
+}
+
+// AddAgentRuns adds the "agent_runs" edges to the AgentRun entity.
+func (_u *TicketUpdateOne) AddAgentRuns(v ...*AgentRun) *TicketUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentRunIDs(ids...)
+}
+
 // AddOutgoingDependencyIDs adds the "outgoing_dependencies" edge to the TicketDependency entity by IDs.
 func (_u *TicketUpdateOne) AddOutgoingDependencyIDs(ids ...uuid.UUID) *TicketUpdateOne {
 	_u.mutation.AddOutgoingDependencyIDs(ids...)
@@ -2349,6 +2531,12 @@ func (_u *TicketUpdateOne) ClearStatus() *TicketUpdateOne {
 // ClearWorkflow clears the "workflow" edge to the Workflow entity.
 func (_u *TicketUpdateOne) ClearWorkflow() *TicketUpdateOne {
 	_u.mutation.ClearWorkflow()
+	return _u
+}
+
+// ClearCurrentRun clears the "current_run" edge to the AgentRun entity.
+func (_u *TicketUpdateOne) ClearCurrentRun() *TicketUpdateOne {
+	_u.mutation.ClearCurrentRun()
 	return _u
 }
 
@@ -2494,6 +2682,27 @@ func (_u *TicketUpdateOne) RemoveActivityEvents(v ...*ActivityEvent) *TicketUpda
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearAgentRuns clears all "agent_runs" edges to the AgentRun entity.
+func (_u *TicketUpdateOne) ClearAgentRuns() *TicketUpdateOne {
+	_u.mutation.ClearAgentRuns()
+	return _u
+}
+
+// RemoveAgentRunIDs removes the "agent_runs" edge to AgentRun entities by IDs.
+func (_u *TicketUpdateOne) RemoveAgentRunIDs(ids ...uuid.UUID) *TicketUpdateOne {
+	_u.mutation.RemoveAgentRunIDs(ids...)
+	return _u
+}
+
+// RemoveAgentRuns removes "agent_runs" edges to AgentRun entities.
+func (_u *TicketUpdateOne) RemoveAgentRuns(v ...*AgentRun) *TicketUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentRunIDs(ids...)
 }
 
 // ClearOutgoingDependencies clears all "outgoing_dependencies" edges to the TicketDependency entity.
@@ -2834,6 +3043,35 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CurrentRunCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticket.CurrentRunTable,
+			Columns: []string{ticket.CurrentRunColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CurrentRunIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticket.CurrentRunTable,
+			Columns: []string{ticket.CurrentRunColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -3191,6 +3429,51 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentRunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentRunsTable,
+			Columns: []string{ticket.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentRunsIDs(); len(nodes) > 0 && !_u.mutation.AgentRunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentRunsTable,
+			Columns: []string{ticket.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentRunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentRunsTable,
+			Columns: []string{ticket.AgentRunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

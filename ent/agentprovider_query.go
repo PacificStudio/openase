@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/google/uuid"
@@ -28,6 +29,7 @@ type AgentProviderQuery struct {
 	predicates       []predicate.AgentProvider
 	withOrganization *OrganizationQuery
 	withAgents       *AgentQuery
+	withAgentRuns    *AgentRunQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -101,6 +103,28 @@ func (_q *AgentProviderQuery) QueryAgents() *AgentQuery {
 			sqlgraph.From(agentprovider.Table, agentprovider.FieldID, selector),
 			sqlgraph.To(agent.Table, agent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, agentprovider.AgentsTable, agentprovider.AgentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentRuns chains the current query on the "agent_runs" edge.
+func (_q *AgentProviderQuery) QueryAgentRuns() *AgentRunQuery {
+	query := (&AgentRunClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentprovider.Table, agentprovider.FieldID, selector),
+			sqlgraph.To(agentrun.Table, agentrun.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agentprovider.AgentRunsTable, agentprovider.AgentRunsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -302,6 +326,7 @@ func (_q *AgentProviderQuery) Clone() *AgentProviderQuery {
 		predicates:       append([]predicate.AgentProvider{}, _q.predicates...),
 		withOrganization: _q.withOrganization.Clone(),
 		withAgents:       _q.withAgents.Clone(),
+		withAgentRuns:    _q.withAgentRuns.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -327,6 +352,17 @@ func (_q *AgentProviderQuery) WithAgents(opts ...func(*AgentQuery)) *AgentProvid
 		opt(query)
 	}
 	_q.withAgents = query
+	return _q
+}
+
+// WithAgentRuns tells the query-builder to eager-load the nodes that are connected to
+// the "agent_runs" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AgentProviderQuery) WithAgentRuns(opts ...func(*AgentRunQuery)) *AgentProviderQuery {
+	query := (&AgentRunClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentRuns = query
 	return _q
 }
 
@@ -408,9 +444,10 @@ func (_q *AgentProviderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	var (
 		nodes       = []*AgentProvider{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withOrganization != nil,
 			_q.withAgents != nil,
+			_q.withAgentRuns != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -441,6 +478,13 @@ func (_q *AgentProviderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 		if err := _q.loadAgents(ctx, query, nodes,
 			func(n *AgentProvider) { n.Edges.Agents = []*Agent{} },
 			func(n *AgentProvider, e *Agent) { n.Edges.Agents = append(n.Edges.Agents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentRuns; query != nil {
+		if err := _q.loadAgentRuns(ctx, query, nodes,
+			func(n *AgentProvider) { n.Edges.AgentRuns = []*AgentRun{} },
+			func(n *AgentProvider, e *AgentRun) { n.Edges.AgentRuns = append(n.Edges.AgentRuns, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -491,6 +535,36 @@ func (_q *AgentProviderQuery) loadAgents(ctx context.Context, query *AgentQuery,
 	}
 	query.Where(predicate.Agent(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(agentprovider.AgentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProviderID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "provider_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AgentProviderQuery) loadAgentRuns(ctx context.Context, query *AgentRunQuery, nodes []*AgentProvider, init func(*AgentProvider), assign func(*AgentProvider, *AgentRun)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*AgentProvider)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agentrun.FieldProviderID)
+	}
+	query.Where(predicate.AgentRun(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(agentprovider.AgentRunsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

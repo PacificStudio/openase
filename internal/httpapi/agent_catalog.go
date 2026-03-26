@@ -31,6 +31,7 @@ type agentResponse struct {
 	ProviderID            string  `json:"provider_id"`
 	ProjectID             string  `json:"project_id"`
 	Name                  string  `json:"name"`
+	CurrentRunID          *string `json:"current_run_id,omitempty"`
 	Status                string  `json:"status"`
 	CurrentTicketID       *string `json:"current_ticket_id,omitempty"`
 	SessionID             string  `json:"session_id"`
@@ -343,6 +344,7 @@ func mapAgentResponse(item domain.Agent) agentResponse {
 		ProviderID:            item.ProviderID.String(),
 		ProjectID:             item.ProjectID.String(),
 		Name:                  item.Name,
+		CurrentRunID:          uuidToStringPointer(item.CurrentRunID),
 		Status:                item.Status.String(),
 		CurrentTicketID:       uuidToStringPointer(item.CurrentTicketID),
 		SessionID:             item.SessionID,

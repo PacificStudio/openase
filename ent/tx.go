@@ -18,6 +18,8 @@ type Tx struct {
 	Agent *AgentClient
 	// AgentProvider is the client for interacting with the AgentProvider builders.
 	AgentProvider *AgentProviderClient
+	// AgentRun is the client for interacting with the AgentRun builders.
+	AgentRun *AgentRunClient
 	// AgentToken is the client for interacting with the AgentToken builders.
 	AgentToken *AgentTokenClient
 	// Machine is the client for interacting with the Machine builders.
@@ -182,6 +184,7 @@ func (tx *Tx) init() {
 	tx.ActivityEvent = NewActivityEventClient(tx.config)
 	tx.Agent = NewAgentClient(tx.config)
 	tx.AgentProvider = NewAgentProviderClient(tx.config)
+	tx.AgentRun = NewAgentRunClient(tx.config)
 	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.Machine = NewMachineClient(tx.config)
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)

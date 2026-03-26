@@ -193,6 +193,30 @@ func (s AgentRuntimePhase) IsValid() bool {
 	}
 }
 
+type AgentRunStatus string
+
+const (
+	AgentRunStatusLaunching  AgentRunStatus = "launching"
+	AgentRunStatusReady      AgentRunStatus = "ready"
+	AgentRunStatusExecuting  AgentRunStatus = "executing"
+	AgentRunStatusCompleted  AgentRunStatus = "completed"
+	AgentRunStatusErrored    AgentRunStatus = "errored"
+	AgentRunStatusTerminated AgentRunStatus = "terminated"
+)
+
+func (s AgentRunStatus) String() string {
+	return string(s)
+}
+
+func (s AgentRunStatus) IsValid() bool {
+	switch s {
+	case AgentRunStatusLaunching, AgentRunStatusReady, AgentRunStatusExecuting, AgentRunStatusCompleted, AgentRunStatusErrored, AgentRunStatusTerminated:
+		return true
+	default:
+		return false
+	}
+}
+
 type AgentRuntimeControlState string
 
 const (

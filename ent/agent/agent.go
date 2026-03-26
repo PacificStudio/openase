@@ -51,6 +51,8 @@ const (
 	EdgeCurrentTicket = "current_ticket"
 	// EdgeAssignedTickets holds the string denoting the assigned_tickets edge name in mutations.
 	EdgeAssignedTickets = "assigned_tickets"
+	// EdgeRuns holds the string denoting the runs edge name in mutations.
+	EdgeRuns = "runs"
 	// EdgeTokens holds the string denoting the tokens edge name in mutations.
 	EdgeTokens = "tokens"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
@@ -85,6 +87,13 @@ const (
 	AssignedTicketsInverseTable = "tickets"
 	// AssignedTicketsColumn is the table column denoting the assigned_tickets relation/edge.
 	AssignedTicketsColumn = "assigned_agent_id"
+	// RunsTable is the table that holds the runs relation/edge.
+	RunsTable = "agent_runs"
+	// RunsInverseTable is the table name for the AgentRun entity.
+	// It exists in this package in order to avoid circular dependency with the "agentrun" package.
+	RunsInverseTable = "agent_runs"
+	// RunsColumn is the table column denoting the runs relation/edge.
+	RunsColumn = "agent_id"
 	// TokensTable is the table that holds the tokens relation/edge.
 	TokensTable = "agent_tokens"
 	// TokensInverseTable is the table name for the AgentToken entity.
@@ -340,6 +349,20 @@ func ByAssignedTickets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByRunsCount orders the results by runs count.
+func ByRunsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRunsStep(), opts...)
+	}
+}
+
+// ByRuns orders the results by runs terms.
+func ByRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRunsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByTokensCount orders the results by tokens count.
 func ByTokensCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -393,6 +416,13 @@ func newAssignedTicketsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AssignedTicketsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AssignedTicketsTable, AssignedTicketsColumn),
+	)
+}
+func newRunsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RunsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RunsTable, RunsColumn),
 	)
 }
 func newTokensStep() *sqlgraph.Step {

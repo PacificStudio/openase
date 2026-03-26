@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
@@ -32,6 +33,7 @@ type WorkflowQuery struct {
 	withPickupStatus  *TicketStatusQuery
 	withFinishStatus  *TicketStatusQuery
 	withTickets       *TicketQuery
+	withAgentRuns     *AgentRunQuery
 	withScheduledJobs *ScheduledJobQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -150,6 +152,28 @@ func (_q *WorkflowQuery) QueryTickets() *TicketQuery {
 			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
 			sqlgraph.To(ticket.Table, ticket.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, workflow.TicketsTable, workflow.TicketsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentRuns chains the current query on the "agent_runs" edge.
+func (_q *WorkflowQuery) QueryAgentRuns() *AgentRunQuery {
+	query := (&AgentRunClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
+			sqlgraph.To(agentrun.Table, agentrun.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workflow.AgentRunsTable, workflow.AgentRunsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -375,6 +399,7 @@ func (_q *WorkflowQuery) Clone() *WorkflowQuery {
 		withPickupStatus:  _q.withPickupStatus.Clone(),
 		withFinishStatus:  _q.withFinishStatus.Clone(),
 		withTickets:       _q.withTickets.Clone(),
+		withAgentRuns:     _q.withAgentRuns.Clone(),
 		withScheduledJobs: _q.withScheduledJobs.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -423,6 +448,17 @@ func (_q *WorkflowQuery) WithTickets(opts ...func(*TicketQuery)) *WorkflowQuery 
 		opt(query)
 	}
 	_q.withTickets = query
+	return _q
+}
+
+// WithAgentRuns tells the query-builder to eager-load the nodes that are connected to
+// the "agent_runs" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkflowQuery) WithAgentRuns(opts ...func(*AgentRunQuery)) *WorkflowQuery {
+	query := (&AgentRunClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentRuns = query
 	return _q
 }
 
@@ -515,11 +551,12 @@ func (_q *WorkflowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wor
 	var (
 		nodes       = []*Workflow{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withProject != nil,
 			_q.withPickupStatus != nil,
 			_q.withFinishStatus != nil,
 			_q.withTickets != nil,
+			_q.withAgentRuns != nil,
 			_q.withScheduledJobs != nil,
 		}
 	)
@@ -563,6 +600,13 @@ func (_q *WorkflowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wor
 		if err := _q.loadTickets(ctx, query, nodes,
 			func(n *Workflow) { n.Edges.Tickets = []*Ticket{} },
 			func(n *Workflow, e *Ticket) { n.Edges.Tickets = append(n.Edges.Tickets, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentRuns; query != nil {
+		if err := _q.loadAgentRuns(ctx, query, nodes,
+			func(n *Workflow) { n.Edges.AgentRuns = []*AgentRun{} },
+			func(n *Workflow, e *AgentRun) { n.Edges.AgentRuns = append(n.Edges.AgentRuns, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -694,6 +738,36 @@ func (_q *WorkflowQuery) loadTickets(ctx context.Context, query *TicketQuery, no
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "workflow_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *WorkflowQuery) loadAgentRuns(ctx context.Context, query *AgentRunQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *AgentRun)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Workflow)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agentrun.FieldWorkflowID)
+	}
+	query.Where(predicate.AgentRun(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(workflow.AgentRunsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.WorkflowID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "workflow_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

@@ -29,6 +29,7 @@ type Agent struct {
 	ProviderID            uuid.UUID
 	ProjectID             uuid.UUID
 	Name                  string
+	CurrentRunID          *uuid.UUID
 	Status                AgentStatus
 	CurrentTicketID       *uuid.UUID
 	SessionID             string
@@ -40,6 +41,20 @@ type Agent struct {
 	TotalTokensUsed       int64
 	TotalTicketsCompleted int
 	LastHeartbeatAt       *time.Time
+}
+
+type AgentRun struct {
+	ID               uuid.UUID
+	AgentID          uuid.UUID
+	WorkflowID       uuid.UUID
+	TicketID         uuid.UUID
+	ProviderID       uuid.UUID
+	Status           AgentRunStatus
+	SessionID        string
+	RuntimeStartedAt *time.Time
+	LastError        string
+	LastHeartbeatAt  *time.Time
+	CreatedAt        time.Time
 }
 
 type AgentProviderInput struct {
@@ -94,17 +109,10 @@ type CreateAgent struct {
 	ProjectID             uuid.UUID
 	ProviderID            uuid.UUID
 	Name                  string
-	Status                AgentStatus
-	CurrentTicketID       *uuid.UUID
-	SessionID             string
-	RuntimePhase          AgentRuntimePhase
 	RuntimeControlState   AgentRuntimeControlState
-	RuntimeStartedAt      *time.Time
-	LastError             string
 	WorkspacePath         string
 	TotalTokensUsed       int64
 	TotalTicketsCompleted int
-	LastHeartbeatAt       *time.Time
 }
 
 func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) (CreateAgentProvider, error) {
@@ -200,13 +208,62 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		ProjectID:             projectID,
 		ProviderID:            providerID,
 		Name:                  name,
-		Status:                DefaultAgentStatus,
-		RuntimePhase:          DefaultAgentRuntimePhase,
 		RuntimeControlState:   DefaultAgentRuntimeControlState,
 		WorkspacePath:         strings.TrimSpace(raw.WorkspacePath),
 		TotalTokensUsed:       DefaultAgentTotalTokensUsed,
 		TotalTicketsCompleted: DefaultAgentTotalTicketsCompleted,
 	}, nil
+}
+
+func BuildAgentRuntimeView(currentRun *AgentRun, controlState AgentRuntimeControlState) Agent {
+	view := Agent{
+		RuntimeControlState: controlState,
+		Status:              DefaultAgentStatus,
+		RuntimePhase:        DefaultAgentRuntimePhase,
+	}
+	if currentRun == nil {
+		return view
+	}
+
+	view.CurrentRunID = &currentRun.ID
+	view.CurrentTicketID = &currentRun.TicketID
+	view.SessionID = currentRun.SessionID
+	view.RuntimeStartedAt = cloneTimePointer(currentRun.RuntimeStartedAt)
+	view.LastError = currentRun.LastError
+	view.LastHeartbeatAt = cloneTimePointer(currentRun.LastHeartbeatAt)
+
+	switch currentRun.Status {
+	case AgentRunStatusLaunching:
+		view.Status = AgentStatusClaimed
+		view.RuntimePhase = AgentRuntimePhaseLaunching
+	case AgentRunStatusReady:
+		view.Status = AgentStatusRunning
+		view.RuntimePhase = AgentRuntimePhaseReady
+	case AgentRunStatusExecuting:
+		view.Status = AgentStatusRunning
+		view.RuntimePhase = AgentRuntimePhaseExecuting
+	case AgentRunStatusErrored:
+		view.Status = AgentStatusFailed
+		view.RuntimePhase = AgentRuntimePhaseFailed
+	case AgentRunStatusTerminated:
+		view.Status = AgentStatusTerminated
+		if controlState == AgentRuntimeControlStatePaused {
+			view.Status = AgentStatusPaused
+		}
+	case AgentRunStatusCompleted:
+		view.Status = DefaultAgentStatus
+	}
+
+	return view
+}
+
+func cloneTimePointer(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+
+	copied := value.UTC()
+	return &copied
 }
 
 func parseRequiredUUID(fieldName string, raw string) (uuid.UUID, error) {

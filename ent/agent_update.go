@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -310,6 +311,21 @@ func (_u *AgentUpdate) AddAssignedTickets(v ...*Ticket) *AgentUpdate {
 	return _u.AddAssignedTicketIDs(ids...)
 }
 
+// AddRunIDs adds the "runs" edge to the AgentRun entity by IDs.
+func (_u *AgentUpdate) AddRunIDs(ids ...uuid.UUID) *AgentUpdate {
+	_u.mutation.AddRunIDs(ids...)
+	return _u
+}
+
+// AddRuns adds the "runs" edges to the AgentRun entity.
+func (_u *AgentUpdate) AddRuns(v ...*AgentRun) *AgentUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRunIDs(ids...)
+}
+
 // AddTokenIDs adds the "tokens" edge to the AgentToken entity by IDs.
 func (_u *AgentUpdate) AddTokenIDs(ids ...uuid.UUID) *AgentUpdate {
 	_u.mutation.AddTokenIDs(ids...)
@@ -382,6 +398,27 @@ func (_u *AgentUpdate) RemoveAssignedTickets(v ...*Ticket) *AgentUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAssignedTicketIDs(ids...)
+}
+
+// ClearRuns clears all "runs" edges to the AgentRun entity.
+func (_u *AgentUpdate) ClearRuns() *AgentUpdate {
+	_u.mutation.ClearRuns()
+	return _u
+}
+
+// RemoveRunIDs removes the "runs" edge to AgentRun entities by IDs.
+func (_u *AgentUpdate) RemoveRunIDs(ids ...uuid.UUID) *AgentUpdate {
+	_u.mutation.RemoveRunIDs(ids...)
+	return _u
+}
+
+// RemoveRuns removes "runs" edges to AgentRun entities.
+func (_u *AgentUpdate) RemoveRuns(v ...*AgentRun) *AgentUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRunIDs(ids...)
 }
 
 // ClearTokens clears all "tokens" edges to the AgentToken entity.
@@ -675,6 +712,51 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRunsIDs(); len(nodes) > 0 && !_u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1068,6 +1150,21 @@ func (_u *AgentUpdateOne) AddAssignedTickets(v ...*Ticket) *AgentUpdateOne {
 	return _u.AddAssignedTicketIDs(ids...)
 }
 
+// AddRunIDs adds the "runs" edge to the AgentRun entity by IDs.
+func (_u *AgentUpdateOne) AddRunIDs(ids ...uuid.UUID) *AgentUpdateOne {
+	_u.mutation.AddRunIDs(ids...)
+	return _u
+}
+
+// AddRuns adds the "runs" edges to the AgentRun entity.
+func (_u *AgentUpdateOne) AddRuns(v ...*AgentRun) *AgentUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRunIDs(ids...)
+}
+
 // AddTokenIDs adds the "tokens" edge to the AgentToken entity by IDs.
 func (_u *AgentUpdateOne) AddTokenIDs(ids ...uuid.UUID) *AgentUpdateOne {
 	_u.mutation.AddTokenIDs(ids...)
@@ -1140,6 +1237,27 @@ func (_u *AgentUpdateOne) RemoveAssignedTickets(v ...*Ticket) *AgentUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAssignedTicketIDs(ids...)
+}
+
+// ClearRuns clears all "runs" edges to the AgentRun entity.
+func (_u *AgentUpdateOne) ClearRuns() *AgentUpdateOne {
+	_u.mutation.ClearRuns()
+	return _u
+}
+
+// RemoveRunIDs removes the "runs" edge to AgentRun entities by IDs.
+func (_u *AgentUpdateOne) RemoveRunIDs(ids ...uuid.UUID) *AgentUpdateOne {
+	_u.mutation.RemoveRunIDs(ids...)
+	return _u
+}
+
+// RemoveRuns removes "runs" edges to AgentRun entities.
+func (_u *AgentUpdateOne) RemoveRuns(v ...*AgentRun) *AgentUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRunIDs(ids...)
 }
 
 // ClearTokens clears all "tokens" edges to the AgentToken entity.
@@ -1463,6 +1581,51 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRunsIDs(); len(nodes) > 0 && !_u.mutation.RunsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RunsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.RunsTable,
+			Columns: []string{agent.RunsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

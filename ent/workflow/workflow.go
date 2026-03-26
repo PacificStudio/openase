@@ -51,6 +51,8 @@ const (
 	EdgeFinishStatus = "finish_status"
 	// EdgeTickets holds the string denoting the tickets edge name in mutations.
 	EdgeTickets = "tickets"
+	// EdgeAgentRuns holds the string denoting the agent_runs edge name in mutations.
+	EdgeAgentRuns = "agent_runs"
 	// EdgeScheduledJobs holds the string denoting the scheduled_jobs edge name in mutations.
 	EdgeScheduledJobs = "scheduled_jobs"
 	// Table holds the table name of the workflow in the database.
@@ -83,6 +85,13 @@ const (
 	TicketsInverseTable = "tickets"
 	// TicketsColumn is the table column denoting the tickets relation/edge.
 	TicketsColumn = "workflow_id"
+	// AgentRunsTable is the table that holds the agent_runs relation/edge.
+	AgentRunsTable = "agent_runs"
+	// AgentRunsInverseTable is the table name for the AgentRun entity.
+	// It exists in this package in order to avoid circular dependency with the "agentrun" package.
+	AgentRunsInverseTable = "agent_runs"
+	// AgentRunsColumn is the table column denoting the agent_runs relation/edge.
+	AgentRunsColumn = "workflow_id"
 	// ScheduledJobsTable is the table that holds the scheduled_jobs relation/edge.
 	ScheduledJobsTable = "scheduled_jobs"
 	// ScheduledJobsInverseTable is the table name for the ScheduledJob entity.
@@ -280,6 +289,20 @@ func ByTickets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAgentRunsCount orders the results by agent_runs count.
+func ByAgentRunsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentRunsStep(), opts...)
+	}
+}
+
+// ByAgentRuns orders the results by agent_runs terms.
+func ByAgentRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentRunsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByScheduledJobsCount orders the results by scheduled_jobs count.
 func ByScheduledJobsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -319,6 +342,13 @@ func newTicketsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TicketsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TicketsTable, TicketsColumn),
+	)
+}
+func newAgentRunsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentRunsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentRunsTable, AgentRunsColumn),
 	)
 }
 func newScheduledJobsStep() *sqlgraph.Step {
