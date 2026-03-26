@@ -14,7 +14,8 @@
     providerItems,
     machineItems,
     registrationDraft,
-    workspaceConvention,
+    currentOrgSlug,
+    currentProjectSlug,
     registerSaving = false,
     registerError = '',
     registerFeedback = '',
@@ -41,7 +42,8 @@
     providerItems: AgentProvider[]
     machineItems: Machine[]
     registrationDraft: AgentRegistrationDraft
-    workspaceConvention: string
+    currentOrgSlug?: string
+    currentProjectSlug?: string
     registerSaving?: boolean
     registerError?: string
     registerFeedback?: string
@@ -68,7 +70,8 @@
   bind:open={registerSheetOpen}
   providers={providerItems}
   draft={registrationDraft}
-  {workspaceConvention}
+  {currentOrgSlug}
+  {currentProjectSlug}
   saving={registerSaving}
   error={registerError}
   feedback={registerFeedback}

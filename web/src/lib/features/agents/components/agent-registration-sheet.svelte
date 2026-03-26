@@ -3,6 +3,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
+  import { deriveWorkspaceConvention } from '../registration'
   import {
     Sheet,
     SheetContent,
@@ -18,7 +19,8 @@
     open = $bindable(false),
     providers,
     draft,
-    workspaceConvention = '~/.openase/workspace/{org}/{project}/{ticket}',
+    currentOrgSlug,
+    currentProjectSlug,
     saving = false,
     error = '',
     feedback = '',
@@ -29,7 +31,8 @@
     open?: boolean
     providers: AgentProvider[]
     draft: AgentRegistrationDraft
-    workspaceConvention?: string
+    currentOrgSlug?: string
+    currentProjectSlug?: string
     saving?: boolean
     error?: string
     feedback?: string
@@ -62,6 +65,14 @@
     const provider = providers.find((item) => item.id === draft.providerId)
     return provider ? providerLabel(provider) : 'Select provider'
   }
+
+  const workspaceConvention = $derived(
+    deriveWorkspaceConvention(
+      providers.find((item) => item.id === draft.providerId),
+      currentOrgSlug,
+      currentProjectSlug,
+    ),
+  )
 </script>
 
 <Sheet bind:open>

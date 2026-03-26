@@ -5,11 +5,7 @@
   import type { AgentsPageData } from '../data'
   import { loadAgentsPageResult } from '../page-data'
   import { applyUpdatedProviderState } from '../model'
-  import {
-    createAgentRegistrationDraft,
-    deriveWorkspaceConvention,
-    parseAgentRegistrationDraft,
-  } from '../registration'
+  import { createAgentRegistrationDraft, parseAgentRegistrationDraft } from '../registration'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import type { AgentInstance, ProviderConfig, ProviderDraftField } from '../types'
   import {
@@ -18,11 +14,10 @@
     runRuntimeAction,
     runtimeActionError,
   } from '../runtime-actions'
+  import AgentsPageContent from './agents-page-content.svelte'
   import { createAgentOutputState } from './agent-output-state.svelte'
   import { wireAgentOutputStream } from './agent-output-stream.svelte'
   import { createProviderEditorState } from './provider-editor-state.svelte'
-  import AgentsPageDrawers from './agents-page-drawers.svelte'
-  import AgentsPagePanel from './agents-page-panel.svelte'
 
   let activeTab = $state('instances')
   let agents = $state<AgentInstance[]>([])
@@ -52,16 +47,6 @@
   )
   const selectedOutputAgent = $derived(
     agents.find((agent) => agent.id === outputState.selectedAgentId) ?? null,
-  )
-  const registrationProvider = $derived(
-    providerItems.find((provider) => provider.id === registrationDraft.providerId),
-  )
-  const registrationWorkspaceConvention = $derived(
-    deriveWorkspaceConvention(
-      registrationProvider,
-      appStore.currentOrg?.slug,
-      appStore.currentProject?.slug,
-    ),
   )
 
   $effect(() => {
@@ -255,8 +240,12 @@
   }
 </script>
 
-<AgentsPagePanel
+<AgentsPageContent
   bind:activeTab
+  bind:registerSheetOpen
+  bind:providerConfigOpen
+  bind:outputSheetOpen
+  canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
   {agents}
   {providers}
   {loading}
@@ -264,16 +253,13 @@
   {pageFeedback}
   {pageError}
   {runtimeActionAgentId}
-  canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
   registerButtonTitle={providerItems.length === 0
     ? 'Register a provider before creating agents.'
     : appStore.currentProject?.id
       ? undefined
       : 'Project context is unavailable.'}
   onOpenRegister={() => handleRegisterOpenChange(true)}
-  onSelectTicket={(ticketId) => {
-    appStore.openRightPanel({ type: 'ticket', id: ticketId })
-  }}
+  onSelectTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
   onViewOutput={(agentId) => {
     outputState.open(agentId)
     outputSheetOpen = true
@@ -281,16 +267,11 @@
   onConfigureProvider={handleConfigureProvider}
   onPauseAgent={(agentId) => handleRuntimeAction('pause', agentId)}
   onResumeAgent={(agentId) => handleRuntimeAction('resume', agentId)}
-/>
-
-<AgentsPageDrawers
-  bind:registerSheetOpen
-  bind:providerConfigOpen
-  bind:outputSheetOpen
   {providerItems}
   {machineItems}
   {registrationDraft}
-  workspaceConvention={registrationWorkspaceConvention}
+  currentOrgSlug={appStore.currentOrg?.slug}
+  currentProjectSlug={appStore.currentProject?.slug}
   {registerSaving}
   {registerError}
   {registerFeedback}
