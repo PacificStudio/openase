@@ -81,6 +81,7 @@ const agentFixture: Agent = {
   project_id: 'project-1',
   name: 'Codex Worker',
   status: 'running',
+  current_run_id: null,
   current_ticket_id: 'ticket-1',
   session_id: 'session-1',
   runtime_phase: 'ready',

@@ -13,8 +13,8 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -205,13 +205,13 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 	}
 	if err := publishAgentLifecycleEvent(
 		ctx,
-			l.client,
-			l.events,
-			agentLaunchingType,
-			launchingAgent,
-			lifecycleMessage(agentLaunchingType, launchingAgent.agent.Name),
-			runtimeEventMetadataForState(launchingAgent),
-			now,
+		l.client,
+		l.events,
+		agentLaunchingType,
+		launchingAgent,
+		lifecycleMessage(agentLaunchingType, launchingAgent.agent.Name),
+		runtimeEventMetadataForState(launchingAgent),
+		now,
 	); err != nil {
 		return err
 	}
@@ -252,25 +252,25 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 	}
 	if err := publishAgentLifecycleEvent(
 		ctx,
-			l.client,
-			l.events,
-			agentReadyType,
-			readyAgent,
-			lifecycleMessage(agentReadyType, readyAgent.agent.Name),
-			runtimeEventMetadataForState(readyAgent),
-			readyAt,
+		l.client,
+		l.events,
+		agentReadyType,
+		readyAgent,
+		lifecycleMessage(agentReadyType, readyAgent.agent.Name),
+		runtimeEventMetadataForState(readyAgent),
+		readyAt,
 	); err != nil {
 		return err
 	}
 	if err := publishAgentLifecycleEvent(
 		ctx,
-			l.client,
-			l.events,
-			agentHeartbeatType,
-			readyAgent,
-			lifecycleMessage(agentHeartbeatType, readyAgent.agent.Name),
-			runtimeEventMetadataForState(readyAgent),
-			readyAt,
+		l.client,
+		l.events,
+		agentHeartbeatType,
+		readyAgent,
+		lifecycleMessage(agentHeartbeatType, readyAgent.agent.Name),
+		runtimeEventMetadataForState(readyAgent),
+		readyAt,
 	); err != nil {
 		return err
 	}

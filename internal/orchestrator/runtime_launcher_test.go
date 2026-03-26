@@ -104,7 +104,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 	localWorkspaceRoot := "/srv/openase/workspaces"
 	localMachine, err := client.Machine.Query().
 		Where(
@@ -279,7 +279,7 @@ Runtime reconcile test
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 	localMachine, err := client.Machine.Query().
 		Where(
 			entmachine.OrganizationIDEQ(fixture.orgID),
@@ -401,7 +401,7 @@ Implement the ticket using the current workspace.
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{
 		turnInputDelta:  5,
@@ -565,7 +565,7 @@ Handle a failing runtime turn.
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{
 		turnInputDelta:  5,
@@ -721,7 +721,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	prepareSession := &runtimeSSHPrepareSession{}
 	processSession := newRuntimeSSHProcessSession()
@@ -832,7 +832,7 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
 	t.Cleanup(func() {
@@ -929,7 +929,7 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *t
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
 	t.Cleanup(func() {
@@ -1030,7 +1030,7 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, nil)
@@ -1137,7 +1137,7 @@ func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
 	}
-	mustCreateCurrentRun(t, ctx, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	manager := &runtimeFakeProcessManager{}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, nil)

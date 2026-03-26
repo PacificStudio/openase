@@ -46,7 +46,7 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now.Add(-2*time.Minute))
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now.Add(-2*time.Minute))
 
 	checker := newTestHealthChecker(client, now)
 	report, err := checker.Run(ctx)
@@ -125,7 +125,7 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusLaunching, now.Add(-30*time.Second))
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusLaunching, now.Add(-30*time.Second))
 
 	checker := newTestHealthChecker(client, now)
 	report, err := checker.Run(ctx)
@@ -201,7 +201,7 @@ func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	mustCreateCurrentRun(t, ctx, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, time.Time{})
+	mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, time.Time{})
 
 	checker := newTestHealthChecker(client, now)
 	report, err := checker.Run(ctx)
@@ -223,8 +223,8 @@ func newTestHealthChecker(client *ent.Client, now time.Time) *HealthChecker {
 }
 
 func mustCreateCurrentRun(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	client *ent.Client,
 	agentItem *ent.Agent,
 	workflowID uuid.UUID,

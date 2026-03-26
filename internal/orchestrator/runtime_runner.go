@@ -66,16 +66,15 @@ func (l *RuntimeLauncher) startReadyExecutions(ctx context.Context) error {
 			continue
 		}
 
-		go l.runReadyExecution(assignment.agent.ID)
+		//nolint:gosec // runtime executions intentionally continue asynchronously after the launcher tick claims the run.
+		go l.runReadyExecution(ctx, assignment.agent.ID)
 	}
 
 	return nil
 }
 
-func (l *RuntimeLauncher) runReadyExecution(agentID uuid.UUID) {
+func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, agentID uuid.UUID) {
 	defer l.finishExecution(agentID)
-
-	ctx := context.Background()
 	session := l.loadSession(agentID)
 	if session == nil {
 		return

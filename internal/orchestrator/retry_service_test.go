@@ -47,7 +47,7 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
 	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	retryService.now = func() time.Time {
@@ -139,7 +139,7 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	runItem := mustCreateCurrentRun(t, ctx, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
 	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	retryService.now = func() time.Time {

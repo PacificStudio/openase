@@ -238,7 +238,7 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create running ticket: %v", err)
 	}
-	mustCreateCurrentRun(t, ctx, client, busyAgent, workflow.ID, runningTicket.ID, entagentrun.StatusExecuting, now)
+	mustCreateCurrentRun(ctx, t, client, busyAgent, workflow.ID, runningTicket.ID, entagentrun.StatusExecuting, now)
 
 	target, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).

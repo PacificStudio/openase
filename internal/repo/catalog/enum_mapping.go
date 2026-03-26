@@ -2,8 +2,8 @@ package catalog
 
 import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
@@ -81,10 +81,6 @@ func toEntAgentRuntimeControlState(state domain.AgentRuntimeControlState) entage
 
 func toDomainAgentRuntimeControlState(state entagent.RuntimeControlState) domain.AgentRuntimeControlState {
 	return domain.AgentRuntimeControlState(state)
-}
-
-func toEntAgentRunStatus(status domain.AgentRunStatus) entagentrun.Status {
-	return entagentrun.Status(status)
 }
 
 func toDomainAgentRunStatus(status entagentrun.Status) domain.AgentRunStatus {
