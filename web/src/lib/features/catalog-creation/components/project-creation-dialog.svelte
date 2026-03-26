@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation'
+  import { goto } from '$app/navigation'
   import type { AgentProvider } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { createProject } from '$lib/api/openase'

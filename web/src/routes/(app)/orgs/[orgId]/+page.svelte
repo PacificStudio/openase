@@ -4,7 +4,7 @@
   import ProjectCreationDialog from '$lib/features/catalog-creation/components/project-creation-dialog.svelte'
   import ProviderCreationDialog from '$lib/features/catalog-creation/components/provider-creation-dialog.svelte'
   import { appStore } from '$lib/stores/app.svelte'
-  import { organizationPath, projectPath } from '$lib/stores/app-context'
+  import { organizationPath } from '$lib/stores/app-context'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import type { PageData } from './$types'
