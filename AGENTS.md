@@ -1,5 +1,9 @@
 # Workspace Notes
 
+## 需求文档
+
+需求文档位于 OpenASE-PRD.md
+
 ## Environment
 
 - This workspace may not have `go` or `gofmt` on `PATH`. If Go validation is needed, first try the workspace-local toolchain under `.tooling/go/bin/`, for example `PATH=$PWD/.tooling/go/bin:$PATH go test ./...`.
