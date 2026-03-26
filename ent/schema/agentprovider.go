@@ -15,6 +15,7 @@ func (AgentProvider) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
 		field.UUID("organization_id", uuidZero()),
+		field.UUID("machine_id", uuidZero()),
 		field.String("name").NotEmpty(),
 		field.Enum("adapter_type").
 			Values("claude-code-cli", "codex-app-server", "gemini-cli", "custom"),
@@ -38,6 +39,11 @@ func (AgentProvider) Edges() []ent.Edge {
 		edge.From("organization", Organization.Type).
 			Ref("providers").
 			Field("organization_id").
+			Unique().
+			Required(),
+		edge.From("machine", Machine.Type).
+			Ref("providers").
+			Field("machine_id").
 			Unique().
 			Required(),
 		edge.To("agents", Agent.Type),

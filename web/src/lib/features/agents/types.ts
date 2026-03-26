@@ -18,6 +18,11 @@ export type AgentInstance = {
 
 export type ProviderConfig = {
   id: string
+  machineId: string
+  machineName: string
+  machineHost: string
+  machineStatus: string
+  machineWorkspaceRoot?: string | null
   name: string
   adapterType: string
   available: boolean
@@ -36,6 +41,7 @@ export type ProviderConfig = {
 export type ProviderAdapterType = 'claude-code-cli' | 'codex-app-server' | 'gemini-cli' | 'custom'
 
 export type ProviderDraft = {
+  machineId: string
   name: string
   adapterType: string
   cliCommand: string
@@ -51,6 +57,7 @@ export type ProviderDraft = {
 export type ProviderDraftField = keyof ProviderDraft
 
 export type ProviderMutation = {
+  machine_id: string
   name: string
   adapter_type: ProviderAdapterType
   cli_command: string

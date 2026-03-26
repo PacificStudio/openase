@@ -921,6 +921,10 @@ func (f *fakeCatalogService) CreateOrganization(_ context.Context, input domain.
 		f.providers[providerID] = domain.AgentProvider{
 			ID:             providerID,
 			OrganizationID: item.ID,
+			MachineID:      localID,
+			MachineName:    domain.LocalMachineName,
+			MachineHost:    domain.LocalMachineHost,
+			MachineStatus:  domain.MachineStatusOnline,
 			Name:           template.Name,
 			AdapterType:    template.AdapterType,
 			CliCommand:     template.Command,

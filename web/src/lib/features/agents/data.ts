@@ -1,5 +1,5 @@
-import { listAgents, listProviders, listTickets } from '$lib/api/openase'
-import type { AgentProvider } from '$lib/api/contracts'
+import { listAgents, listMachines, listProviders, listTickets } from '$lib/api/openase'
+import type { AgentProvider, Machine } from '$lib/api/contracts'
 import { buildAgentRows, buildProviderCards } from './model'
 import type { AgentInstance, ProviderConfig } from './types'
 
@@ -7,6 +7,7 @@ export type AgentsPageData = {
   agents: AgentInstance[]
   providers: ProviderConfig[]
   providerItems: AgentProvider[]
+  machineItems: Machine[]
 }
 
 export async function loadAgentsPageData(
@@ -14,14 +15,16 @@ export async function loadAgentsPageData(
   orgId: string,
   defaultProviderId: string | null,
 ): Promise<AgentsPageData> {
-  const [agentPayload, providerPayload, ticketPayload] = await Promise.all([
+  const [agentPayload, providerPayload, ticketPayload, machinePayload] = await Promise.all([
     listAgents(projectId),
     listProviders(orgId),
     listTickets(projectId),
+    listMachines(orgId),
   ])
 
   return {
     providerItems: providerPayload.providers,
+    machineItems: machinePayload.machines,
     providers: buildProviderCards(
       providerPayload.providers,
       agentPayload.agents,

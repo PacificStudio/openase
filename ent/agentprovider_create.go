@@ -12,6 +12,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -27,6 +28,12 @@ type AgentProviderCreate struct {
 // SetOrganizationID sets the "organization_id" field.
 func (_c *AgentProviderCreate) SetOrganizationID(v uuid.UUID) *AgentProviderCreate {
 	_c.mutation.SetOrganizationID(v)
+	return _c
+}
+
+// SetMachineID sets the "machine_id" field.
+func (_c *AgentProviderCreate) SetMachineID(v uuid.UUID) *AgentProviderCreate {
+	_c.mutation.SetMachineID(v)
 	return _c
 }
 
@@ -141,6 +148,11 @@ func (_c *AgentProviderCreate) SetOrganization(v *Organization) *AgentProviderCr
 	return _c.SetOrganizationID(v.ID)
 }
 
+// SetMachine sets the "machine" edge to the Machine entity.
+func (_c *AgentProviderCreate) SetMachine(v *Machine) *AgentProviderCreate {
+	return _c.SetMachineID(v.ID)
+}
+
 // AddAgentIDs adds the "agents" edge to the Agent entity by IDs.
 func (_c *AgentProviderCreate) AddAgentIDs(ids ...uuid.UUID) *AgentProviderCreate {
 	_c.mutation.AddAgentIDs(ids...)
@@ -237,6 +249,9 @@ func (_c *AgentProviderCreate) check() error {
 	if _, ok := _c.mutation.OrganizationID(); !ok {
 		return &ValidationError{Name: "organization_id", err: errors.New(`ent: missing required field "AgentProvider.organization_id"`)}
 	}
+	if _, ok := _c.mutation.MachineID(); !ok {
+		return &ValidationError{Name: "machine_id", err: errors.New(`ent: missing required field "AgentProvider.machine_id"`)}
+	}
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "AgentProvider.name"`)}
 	}
@@ -286,6 +301,9 @@ func (_c *AgentProviderCreate) check() error {
 	}
 	if len(_c.mutation.OrganizationIDs()) == 0 {
 		return &ValidationError{Name: "organization", err: errors.New(`ent: missing required edge "AgentProvider.organization"`)}
+	}
+	if len(_c.mutation.MachineIDs()) == 0 {
+		return &ValidationError{Name: "machine", err: errors.New(`ent: missing required edge "AgentProvider.machine"`)}
 	}
 	return nil
 }
@@ -377,6 +395,23 @@ func (_c *AgentProviderCreate) createSpec() (*AgentProvider, *sqlgraph.CreateSpe
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.OrganizationID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.MachineIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentprovider.MachineTable,
+			Columns: []string{agentprovider.MachineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.MachineID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.AgentsIDs(); len(nodes) > 0 {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AgentOutputEntry, AgentProvider } from '$lib/api/contracts'
+  import type { AgentOutputEntry, AgentProvider, Machine } from '$lib/api/contracts'
   import type { StreamConnectionState } from '$lib/api/sse'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
@@ -12,6 +12,7 @@
     providerConfigOpen = $bindable(false),
     outputSheetOpen = $bindable(false),
     providerItems,
+    machineItems,
     registrationDraft,
     registerSaving = false,
     registerError = '',
@@ -37,6 +38,7 @@
     providerConfigOpen?: boolean
     outputSheetOpen?: boolean
     providerItems: AgentProvider[]
+    machineItems: Machine[]
     registrationDraft: AgentRegistrationDraft
     registerSaving?: boolean
     registerError?: string
@@ -75,6 +77,7 @@
 <ProviderConfigSheet
   bind:open={providerConfigOpen}
   provider={selectedProvider}
+  machines={machineItems}
   draft={providerDraft}
   saving={providerSaving}
   feedback={providerFeedback}

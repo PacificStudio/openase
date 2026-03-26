@@ -50,7 +50,7 @@
                 <Badge variant="secondary" class="text-[10px]">{agent.providerName}</Badge>
               </div>
               <div class="text-muted-foreground mt-1 text-xs">
-                Runtime phase: {agent.runtimePhase}
+                Runtime phase: {agent.runtimePhase} · Machine: {agent.machineName}
               </div>
             </div>
             <div class="text-muted-foreground text-right text-xs">

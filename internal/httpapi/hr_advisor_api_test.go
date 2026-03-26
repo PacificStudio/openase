@@ -72,6 +72,16 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
@@ -87,6 +97,7 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
 		SetName("Codex").
 		SetAdapterType(entagentprovider.AdapterTypeCustom).
 		SetCliCommand("codex").

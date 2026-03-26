@@ -45,6 +45,8 @@ const (
 	FieldResources = "resources"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
+	// EdgeProviders holds the string denoting the providers edge name in mutations.
+	EdgeProviders = "providers"
 	// EdgeTargetTickets holds the string denoting the target_tickets edge name in mutations.
 	EdgeTargetTickets = "target_tickets"
 	// Table holds the table name of the machine in the database.
@@ -56,6 +58,13 @@ const (
 	OrganizationInverseTable = "organizations"
 	// OrganizationColumn is the table column denoting the organization relation/edge.
 	OrganizationColumn = "organization_id"
+	// ProvidersTable is the table that holds the providers relation/edge.
+	ProvidersTable = "agent_providers"
+	// ProvidersInverseTable is the table name for the AgentProvider entity.
+	// It exists in this package in order to avoid circular dependency with the "agentprovider" package.
+	ProvidersInverseTable = "agent_providers"
+	// ProvidersColumn is the table column denoting the providers relation/edge.
+	ProvidersColumn = "machine_id"
 	// TargetTicketsTable is the table that holds the target_tickets relation/edge.
 	TargetTicketsTable = "tickets"
 	// TargetTicketsInverseTable is the table name for the Ticket entity.
@@ -215,6 +224,20 @@ func ByOrganizationField(field string, opts ...sql.OrderTermOption) OrderOption 
 	}
 }
 
+// ByProvidersCount orders the results by providers count.
+func ByProvidersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newProvidersStep(), opts...)
+	}
+}
+
+// ByProviders orders the results by providers terms.
+func ByProviders(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newProvidersStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByTargetTicketsCount orders the results by target_tickets count.
 func ByTargetTicketsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -233,6 +256,13 @@ func newOrganizationStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OrganizationInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, OrganizationTable, OrganizationColumn),
+	)
+}
+func newProvidersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ProvidersInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ProvidersTable, ProvidersColumn),
 	)
 }
 func newTargetTicketsStep() *sqlgraph.Step {

@@ -2131,6 +2131,8 @@ type AgentProviderMutation struct {
 	clearedFields            map[string]struct{}
 	organization             *uuid.UUID
 	clearedorganization      bool
+	machine                  *uuid.UUID
+	clearedmachine           bool
 	agents                   map[uuid.UUID]struct{}
 	removedagents            map[uuid.UUID]struct{}
 	clearedagents            bool
@@ -2280,6 +2282,42 @@ func (m *AgentProviderMutation) OldOrganizationID(ctx context.Context) (v uuid.U
 // ResetOrganizationID resets all changes to the "organization_id" field.
 func (m *AgentProviderMutation) ResetOrganizationID() {
 	m.organization = nil
+}
+
+// SetMachineID sets the "machine_id" field.
+func (m *AgentProviderMutation) SetMachineID(u uuid.UUID) {
+	m.machine = &u
+}
+
+// MachineID returns the value of the "machine_id" field in the mutation.
+func (m *AgentProviderMutation) MachineID() (r uuid.UUID, exists bool) {
+	v := m.machine
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMachineID returns the old "machine_id" field's value of the AgentProvider entity.
+// If the AgentProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentProviderMutation) OldMachineID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMachineID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMachineID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMachineID: %w", err)
+	}
+	return oldValue.MachineID, nil
+}
+
+// ResetMachineID resets all changes to the "machine_id" field.
+func (m *AgentProviderMutation) ResetMachineID() {
+	m.machine = nil
 }
 
 // SetName sets the "name" field.
@@ -2762,6 +2800,33 @@ func (m *AgentProviderMutation) ResetOrganization() {
 	m.clearedorganization = false
 }
 
+// ClearMachine clears the "machine" edge to the Machine entity.
+func (m *AgentProviderMutation) ClearMachine() {
+	m.clearedmachine = true
+	m.clearedFields[agentprovider.FieldMachineID] = struct{}{}
+}
+
+// MachineCleared reports if the "machine" edge to the Machine entity was cleared.
+func (m *AgentProviderMutation) MachineCleared() bool {
+	return m.clearedmachine
+}
+
+// MachineIDs returns the "machine" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MachineID instead. It exists only for internal usage by the builders.
+func (m *AgentProviderMutation) MachineIDs() (ids []uuid.UUID) {
+	if id := m.machine; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMachine resets all changes to the "machine" edge.
+func (m *AgentProviderMutation) ResetMachine() {
+	m.machine = nil
+	m.clearedmachine = false
+}
+
 // AddAgentIDs adds the "agents" edge to the Agent entity by ids.
 func (m *AgentProviderMutation) AddAgentIDs(ids ...uuid.UUID) {
 	if m.agents == nil {
@@ -2904,9 +2969,12 @@ func (m *AgentProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentProviderMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
 	if m.organization != nil {
 		fields = append(fields, agentprovider.FieldOrganizationID)
+	}
+	if m.machine != nil {
+		fields = append(fields, agentprovider.FieldMachineID)
 	}
 	if m.name != nil {
 		fields = append(fields, agentprovider.FieldName)
@@ -2948,6 +3016,8 @@ func (m *AgentProviderMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case agentprovider.FieldOrganizationID:
 		return m.OrganizationID()
+	case agentprovider.FieldMachineID:
+		return m.MachineID()
 	case agentprovider.FieldName:
 		return m.Name()
 	case agentprovider.FieldAdapterType:
@@ -2979,6 +3049,8 @@ func (m *AgentProviderMutation) OldField(ctx context.Context, name string) (ent.
 	switch name {
 	case agentprovider.FieldOrganizationID:
 		return m.OldOrganizationID(ctx)
+	case agentprovider.FieldMachineID:
+		return m.OldMachineID(ctx)
 	case agentprovider.FieldName:
 		return m.OldName(ctx)
 	case agentprovider.FieldAdapterType:
@@ -3014,6 +3086,13 @@ func (m *AgentProviderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetOrganizationID(v)
+		return nil
+	case agentprovider.FieldMachineID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMachineID(v)
 		return nil
 	case agentprovider.FieldName:
 		v, ok := value.(string)
@@ -3197,6 +3276,9 @@ func (m *AgentProviderMutation) ResetField(name string) error {
 	case agentprovider.FieldOrganizationID:
 		m.ResetOrganizationID()
 		return nil
+	case agentprovider.FieldMachineID:
+		m.ResetMachineID()
+		return nil
 	case agentprovider.FieldName:
 		m.ResetName()
 		return nil
@@ -3233,9 +3315,12 @@ func (m *AgentProviderMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentProviderMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.organization != nil {
 		edges = append(edges, agentprovider.EdgeOrganization)
+	}
+	if m.machine != nil {
+		edges = append(edges, agentprovider.EdgeMachine)
 	}
 	if m.agents != nil {
 		edges = append(edges, agentprovider.EdgeAgents)
@@ -3252,6 +3337,10 @@ func (m *AgentProviderMutation) AddedIDs(name string) []ent.Value {
 	switch name {
 	case agentprovider.EdgeOrganization:
 		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	case agentprovider.EdgeMachine:
+		if id := m.machine; id != nil {
 			return []ent.Value{*id}
 		}
 	case agentprovider.EdgeAgents:
@@ -3272,7 +3361,7 @@ func (m *AgentProviderMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentProviderMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedagents != nil {
 		edges = append(edges, agentprovider.EdgeAgents)
 	}
@@ -3304,9 +3393,12 @@ func (m *AgentProviderMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentProviderMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedorganization {
 		edges = append(edges, agentprovider.EdgeOrganization)
+	}
+	if m.clearedmachine {
+		edges = append(edges, agentprovider.EdgeMachine)
 	}
 	if m.clearedagents {
 		edges = append(edges, agentprovider.EdgeAgents)
@@ -3323,6 +3415,8 @@ func (m *AgentProviderMutation) EdgeCleared(name string) bool {
 	switch name {
 	case agentprovider.EdgeOrganization:
 		return m.clearedorganization
+	case agentprovider.EdgeMachine:
+		return m.clearedmachine
 	case agentprovider.EdgeAgents:
 		return m.clearedagents
 	case agentprovider.EdgeAgentRuns:
@@ -3338,6 +3432,9 @@ func (m *AgentProviderMutation) ClearEdge(name string) error {
 	case agentprovider.EdgeOrganization:
 		m.ClearOrganization()
 		return nil
+	case agentprovider.EdgeMachine:
+		m.ClearMachine()
+		return nil
 	}
 	return fmt.Errorf("unknown AgentProvider unique edge %s", name)
 }
@@ -3348,6 +3445,9 @@ func (m *AgentProviderMutation) ResetEdge(name string) error {
 	switch name {
 	case agentprovider.EdgeOrganization:
 		m.ResetOrganization()
+		return nil
+	case agentprovider.EdgeMachine:
+		m.ResetMachine()
 		return nil
 	case agentprovider.EdgeAgents:
 		m.ResetAgents()
@@ -5450,6 +5550,9 @@ type MachineMutation struct {
 	clearedFields         map[string]struct{}
 	organization          *uuid.UUID
 	clearedorganization   bool
+	providers             map[uuid.UUID]struct{}
+	removedproviders      map[uuid.UUID]struct{}
+	clearedproviders      bool
 	target_tickets        map[uuid.UUID]struct{}
 	removedtarget_tickets map[uuid.UUID]struct{}
 	clearedtarget_tickets bool
@@ -6217,6 +6320,60 @@ func (m *MachineMutation) ResetOrganization() {
 	m.clearedorganization = false
 }
 
+// AddProviderIDs adds the "providers" edge to the AgentProvider entity by ids.
+func (m *MachineMutation) AddProviderIDs(ids ...uuid.UUID) {
+	if m.providers == nil {
+		m.providers = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.providers[ids[i]] = struct{}{}
+	}
+}
+
+// ClearProviders clears the "providers" edge to the AgentProvider entity.
+func (m *MachineMutation) ClearProviders() {
+	m.clearedproviders = true
+}
+
+// ProvidersCleared reports if the "providers" edge to the AgentProvider entity was cleared.
+func (m *MachineMutation) ProvidersCleared() bool {
+	return m.clearedproviders
+}
+
+// RemoveProviderIDs removes the "providers" edge to the AgentProvider entity by IDs.
+func (m *MachineMutation) RemoveProviderIDs(ids ...uuid.UUID) {
+	if m.removedproviders == nil {
+		m.removedproviders = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.providers, ids[i])
+		m.removedproviders[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedProviders returns the removed IDs of the "providers" edge to the AgentProvider entity.
+func (m *MachineMutation) RemovedProvidersIDs() (ids []uuid.UUID) {
+	for id := range m.removedproviders {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ProvidersIDs returns the "providers" edge IDs in the mutation.
+func (m *MachineMutation) ProvidersIDs() (ids []uuid.UUID) {
+	for id := range m.providers {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetProviders resets all changes to the "providers" edge.
+func (m *MachineMutation) ResetProviders() {
+	m.providers = nil
+	m.clearedproviders = false
+	m.removedproviders = nil
+}
+
 // AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by ids.
 func (m *MachineMutation) AddTargetTicketIDs(ids ...uuid.UUID) {
 	if m.target_tickets == nil {
@@ -6691,9 +6848,12 @@ func (m *MachineMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *MachineMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.organization != nil {
 		edges = append(edges, machine.EdgeOrganization)
+	}
+	if m.providers != nil {
+		edges = append(edges, machine.EdgeProviders)
 	}
 	if m.target_tickets != nil {
 		edges = append(edges, machine.EdgeTargetTickets)
@@ -6709,6 +6869,12 @@ func (m *MachineMutation) AddedIDs(name string) []ent.Value {
 		if id := m.organization; id != nil {
 			return []ent.Value{*id}
 		}
+	case machine.EdgeProviders:
+		ids := make([]ent.Value, 0, len(m.providers))
+		for id := range m.providers {
+			ids = append(ids, id)
+		}
+		return ids
 	case machine.EdgeTargetTickets:
 		ids := make([]ent.Value, 0, len(m.target_tickets))
 		for id := range m.target_tickets {
@@ -6721,7 +6887,10 @@ func (m *MachineMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *MachineMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
+	if m.removedproviders != nil {
+		edges = append(edges, machine.EdgeProviders)
+	}
 	if m.removedtarget_tickets != nil {
 		edges = append(edges, machine.EdgeTargetTickets)
 	}
@@ -6732,6 +6901,12 @@ func (m *MachineMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *MachineMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case machine.EdgeProviders:
+		ids := make([]ent.Value, 0, len(m.removedproviders))
+		for id := range m.removedproviders {
+			ids = append(ids, id)
+		}
+		return ids
 	case machine.EdgeTargetTickets:
 		ids := make([]ent.Value, 0, len(m.removedtarget_tickets))
 		for id := range m.removedtarget_tickets {
@@ -6744,9 +6919,12 @@ func (m *MachineMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *MachineMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedorganization {
 		edges = append(edges, machine.EdgeOrganization)
+	}
+	if m.clearedproviders {
+		edges = append(edges, machine.EdgeProviders)
 	}
 	if m.clearedtarget_tickets {
 		edges = append(edges, machine.EdgeTargetTickets)
@@ -6760,6 +6938,8 @@ func (m *MachineMutation) EdgeCleared(name string) bool {
 	switch name {
 	case machine.EdgeOrganization:
 		return m.clearedorganization
+	case machine.EdgeProviders:
+		return m.clearedproviders
 	case machine.EdgeTargetTickets:
 		return m.clearedtarget_tickets
 	}
@@ -6783,6 +6963,9 @@ func (m *MachineMutation) ResetEdge(name string) error {
 	switch name {
 	case machine.EdgeOrganization:
 		m.ResetOrganization()
+		return nil
+	case machine.EdgeProviders:
+		m.ResetProviders()
 		return nil
 	case machine.EdgeTargetTickets:
 		m.ResetTargetTickets()

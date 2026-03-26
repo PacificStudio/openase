@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Machine } from '$lib/api/contracts'
   import { providerAdapterOptions } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
   import { Button } from '$ui/button'
@@ -10,6 +11,7 @@
 
   let {
     draft,
+    machines = [],
     creating = false,
     feedback = '',
     error = '',
@@ -18,6 +20,7 @@
     onSubmit,
   }: {
     draft: ProviderDraft
+    machines?: Machine[]
     creating?: boolean
     feedback?: string
     error?: string
@@ -55,6 +58,26 @@
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-2">
+          <Label>Execution machine</Label>
+          <Select.Root
+            type="single"
+            value={draft.machineId}
+            onValueChange={(value) => onFieldChange?.('machineId', value || '')}
+          >
+            <Select.Trigger class="w-full">
+              {machines.find((machine) => machine.id === draft.machineId)?.name ?? 'Select machine'}
+            </Select.Trigger>
+            <Select.Content>
+              {#each machines as machine (machine.id)}
+                <Select.Item value={machine.id}
+                  >{machine.name} · {machine.status} · {machine.host}</Select.Item
+                >
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+
         <div class="space-y-2">
           <Label>Adapter</Label>
           <Select.Root

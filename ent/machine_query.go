@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -27,6 +28,7 @@ type MachineQuery struct {
 	inters            []Interceptor
 	predicates        []predicate.Machine
 	withOrganization  *OrganizationQuery
+	withProviders     *AgentProviderQuery
 	withTargetTickets *TicketQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -79,6 +81,28 @@ func (_q *MachineQuery) QueryOrganization() *OrganizationQuery {
 			sqlgraph.From(machine.Table, machine.FieldID, selector),
 			sqlgraph.To(organization.Table, organization.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, machine.OrganizationTable, machine.OrganizationColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryProviders chains the current query on the "providers" edge.
+func (_q *MachineQuery) QueryProviders() *AgentProviderQuery {
+	query := (&AgentProviderClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machine.Table, machine.FieldID, selector),
+			sqlgraph.To(agentprovider.Table, agentprovider.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, machine.ProvidersTable, machine.ProvidersColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -301,6 +325,7 @@ func (_q *MachineQuery) Clone() *MachineQuery {
 		inters:            append([]Interceptor{}, _q.inters...),
 		predicates:        append([]predicate.Machine{}, _q.predicates...),
 		withOrganization:  _q.withOrganization.Clone(),
+		withProviders:     _q.withProviders.Clone(),
 		withTargetTickets: _q.withTargetTickets.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -316,6 +341,17 @@ func (_q *MachineQuery) WithOrganization(opts ...func(*OrganizationQuery)) *Mach
 		opt(query)
 	}
 	_q.withOrganization = query
+	return _q
+}
+
+// WithProviders tells the query-builder to eager-load the nodes that are connected to
+// the "providers" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *MachineQuery) WithProviders(opts ...func(*AgentProviderQuery)) *MachineQuery {
+	query := (&AgentProviderClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withProviders = query
 	return _q
 }
 
@@ -408,8 +444,9 @@ func (_q *MachineQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mach
 	var (
 		nodes       = []*Machine{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withOrganization != nil,
+			_q.withProviders != nil,
 			_q.withTargetTickets != nil,
 		}
 	)
@@ -434,6 +471,13 @@ func (_q *MachineQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mach
 	if query := _q.withOrganization; query != nil {
 		if err := _q.loadOrganization(ctx, query, nodes, nil,
 			func(n *Machine, e *Organization) { n.Edges.Organization = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withProviders; query != nil {
+		if err := _q.loadProviders(ctx, query, nodes,
+			func(n *Machine) { n.Edges.Providers = []*AgentProvider{} },
+			func(n *Machine, e *AgentProvider) { n.Edges.Providers = append(n.Edges.Providers, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -473,6 +517,36 @@ func (_q *MachineQuery) loadOrganization(ctx context.Context, query *Organizatio
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *MachineQuery) loadProviders(ctx context.Context, query *AgentProviderQuery, nodes []*Machine, init func(*Machine), assign func(*Machine, *AgentProvider)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Machine)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agentprovider.FieldMachineID)
+	}
+	query.Where(predicate.AgentProvider(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(machine.ProvidersColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.MachineID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "machine_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

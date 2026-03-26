@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -264,6 +265,21 @@ func (_u *MachineUpdate) SetOrganization(v *Organization) *MachineUpdate {
 	return _u.SetOrganizationID(v.ID)
 }
 
+// AddProviderIDs adds the "providers" edge to the AgentProvider entity by IDs.
+func (_u *MachineUpdate) AddProviderIDs(ids ...uuid.UUID) *MachineUpdate {
+	_u.mutation.AddProviderIDs(ids...)
+	return _u
+}
+
+// AddProviders adds the "providers" edges to the AgentProvider entity.
+func (_u *MachineUpdate) AddProviders(v ...*AgentProvider) *MachineUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddProviderIDs(ids...)
+}
+
 // AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
 func (_u *MachineUpdate) AddTargetTicketIDs(ids ...uuid.UUID) *MachineUpdate {
 	_u.mutation.AddTargetTicketIDs(ids...)
@@ -288,6 +304,27 @@ func (_u *MachineUpdate) Mutation() *MachineMutation {
 func (_u *MachineUpdate) ClearOrganization() *MachineUpdate {
 	_u.mutation.ClearOrganization()
 	return _u
+}
+
+// ClearProviders clears all "providers" edges to the AgentProvider entity.
+func (_u *MachineUpdate) ClearProviders() *MachineUpdate {
+	_u.mutation.ClearProviders()
+	return _u
+}
+
+// RemoveProviderIDs removes the "providers" edge to AgentProvider entities by IDs.
+func (_u *MachineUpdate) RemoveProviderIDs(ids ...uuid.UUID) *MachineUpdate {
+	_u.mutation.RemoveProviderIDs(ids...)
+	return _u
+}
+
+// RemoveProviders removes "providers" edges to AgentProvider entities.
+func (_u *MachineUpdate) RemoveProviders(v ...*AgentProvider) *MachineUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveProviderIDs(ids...)
 }
 
 // ClearTargetTickets clears all "target_tickets" edges to the Ticket entity.
@@ -461,6 +498,51 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ProvidersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ProvidersTable,
+			Columns: []string{machine.ProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedProvidersIDs(); len(nodes) > 0 && !_u.mutation.ProvidersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ProvidersTable,
+			Columns: []string{machine.ProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ProvidersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ProvidersTable,
+			Columns: []string{machine.ProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -765,6 +847,21 @@ func (_u *MachineUpdateOne) SetOrganization(v *Organization) *MachineUpdateOne {
 	return _u.SetOrganizationID(v.ID)
 }
 
+// AddProviderIDs adds the "providers" edge to the AgentProvider entity by IDs.
+func (_u *MachineUpdateOne) AddProviderIDs(ids ...uuid.UUID) *MachineUpdateOne {
+	_u.mutation.AddProviderIDs(ids...)
+	return _u
+}
+
+// AddProviders adds the "providers" edges to the AgentProvider entity.
+func (_u *MachineUpdateOne) AddProviders(v ...*AgentProvider) *MachineUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddProviderIDs(ids...)
+}
+
 // AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
 func (_u *MachineUpdateOne) AddTargetTicketIDs(ids ...uuid.UUID) *MachineUpdateOne {
 	_u.mutation.AddTargetTicketIDs(ids...)
@@ -789,6 +886,27 @@ func (_u *MachineUpdateOne) Mutation() *MachineMutation {
 func (_u *MachineUpdateOne) ClearOrganization() *MachineUpdateOne {
 	_u.mutation.ClearOrganization()
 	return _u
+}
+
+// ClearProviders clears all "providers" edges to the AgentProvider entity.
+func (_u *MachineUpdateOne) ClearProviders() *MachineUpdateOne {
+	_u.mutation.ClearProviders()
+	return _u
+}
+
+// RemoveProviderIDs removes the "providers" edge to AgentProvider entities by IDs.
+func (_u *MachineUpdateOne) RemoveProviderIDs(ids ...uuid.UUID) *MachineUpdateOne {
+	_u.mutation.RemoveProviderIDs(ids...)
+	return _u
+}
+
+// RemoveProviders removes "providers" edges to AgentProvider entities.
+func (_u *MachineUpdateOne) RemoveProviders(v ...*AgentProvider) *MachineUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveProviderIDs(ids...)
 }
 
 // ClearTargetTickets clears all "target_tickets" edges to the Ticket entity.
@@ -992,6 +1110,51 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ProvidersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ProvidersTable,
+			Columns: []string{machine.ProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedProvidersIDs(); len(nodes) > 0 && !_u.mutation.ProvidersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ProvidersTable,
+			Columns: []string{machine.ProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ProvidersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ProvidersTable,
+			Columns: []string{machine.ProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

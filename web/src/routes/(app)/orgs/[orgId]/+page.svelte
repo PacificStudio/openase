@@ -95,11 +95,12 @@
               <div class="min-w-0">
                 <p class="text-foreground truncate text-sm font-medium">{provider.name}</p>
                 <p class="text-muted-foreground truncate text-xs">
-                  {provider.model_name} · {provider.adapter_type}
+                  {provider.model_name} · {provider.adapter_type} · {provider.machine_name}
                 </p>
               </div>
             </div>
             <div class="flex shrink-0 items-center gap-2">
+              <Badge variant="outline">{provider.machine_status}</Badge>
               <Badge variant={provider.available ? 'secondary' : 'outline'}>
                 {provider.available ? 'Available' : 'Unavailable'}
               </Badge>

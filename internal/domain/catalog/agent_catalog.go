@@ -9,19 +9,27 @@ import (
 )
 
 type AgentProvider struct {
-	ID                 uuid.UUID
-	OrganizationID     uuid.UUID
-	Name               string
-	AdapterType        AgentProviderAdapterType
-	Available          bool
-	CliCommand         string
-	CliArgs            []string
-	AuthConfig         map[string]any
-	ModelName          string
-	ModelTemperature   float64
-	ModelMaxTokens     int
-	CostPerInputToken  float64
-	CostPerOutputToken float64
+	ID                   uuid.UUID
+	OrganizationID       uuid.UUID
+	MachineID            uuid.UUID
+	MachineName          string
+	MachineHost          string
+	MachineStatus        MachineStatus
+	MachineSSHUser       *string
+	MachineWorkspaceRoot *string
+	MachineAgentCLIPath  *string
+	MachineResources     map[string]any
+	Name                 string
+	AdapterType          AgentProviderAdapterType
+	Available            bool
+	CliCommand           string
+	CliArgs              []string
+	AuthConfig           map[string]any
+	ModelName            string
+	ModelTemperature     float64
+	ModelMaxTokens       int
+	CostPerInputToken    float64
+	CostPerOutputToken   float64
 }
 
 type Agent struct {
@@ -62,6 +70,7 @@ type AgentRun struct {
 }
 
 type AgentProviderInput struct {
+	MachineID          string         `json:"machine_id"`
 	Name               string         `json:"name"`
 	AdapterType        string         `json:"adapter_type"`
 	CliCommand         string         `json:"cli_command"`
@@ -82,6 +91,7 @@ type AgentInput struct {
 
 type CreateAgentProvider struct {
 	OrganizationID     uuid.UUID
+	MachineID          uuid.UUID
 	Name               string
 	AdapterType        AgentProviderAdapterType
 	CliCommand         string
@@ -97,6 +107,7 @@ type CreateAgentProvider struct {
 type UpdateAgentProvider struct {
 	ID                 uuid.UUID
 	OrganizationID     uuid.UUID
+	MachineID          uuid.UUID
 	Name               string
 	AdapterType        AgentProviderAdapterType
 	CliCommand         string
@@ -120,6 +131,11 @@ type CreateAgent struct {
 }
 
 func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) (CreateAgentProvider, error) {
+	machineID, err := parseRequiredUUID("machine_id", raw.MachineID)
+	if err != nil {
+		return CreateAgentProvider{}, err
+	}
+
 	name, err := parseName("name", raw.Name)
 	if err != nil {
 		return CreateAgentProvider{}, err
@@ -162,6 +178,7 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 
 	return CreateAgentProvider{
 		OrganizationID:     organizationID,
+		MachineID:          machineID,
 		Name:               name,
 		AdapterType:        adapterType,
 		CliCommand:         strings.TrimSpace(raw.CliCommand),
@@ -184,6 +201,7 @@ func ParseUpdateAgentProvider(id uuid.UUID, organizationID uuid.UUID, raw AgentP
 	return UpdateAgentProvider{
 		ID:                 id,
 		OrganizationID:     input.OrganizationID,
+		MachineID:          input.MachineID,
 		Name:               input.Name,
 		AdapterType:        input.AdapterType,
 		CliCommand:         input.CliCommand,

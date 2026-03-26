@@ -4186,6 +4186,26 @@
                           "id": {
                             "type": "string"
                           },
+                          "machine_host": {
+                            "type": "string"
+                          },
+                          "machine_id": {
+                            "type": "string"
+                          },
+                          "machine_name": {
+                            "type": "string"
+                          },
+                          "machine_ssh_user": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "machine_status": {
+                            "type": "string"
+                          },
+                          "machine_workspace_root": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "model_max_tokens": {
                             "type": "integer"
                           },
@@ -4319,6 +4339,9 @@
                     "nullable": true,
                     "type": "number"
                   },
+                  "machine_id": {
+                    "type": "string"
+                  },
                   "model_max_tokens": {
                     "nullable": true,
                     "type": "integer"
@@ -4378,6 +4401,26 @@
                           "type": "number"
                         },
                         "id": {
+                          "type": "string"
+                        },
+                        "machine_host": {
+                          "type": "string"
+                        },
+                        "machine_id": {
+                          "type": "string"
+                        },
+                        "machine_name": {
+                          "type": "string"
+                        },
+                        "machine_ssh_user": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "machine_status": {
+                          "type": "string"
+                        },
+                        "machine_workspace_root": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "model_max_tokens": {
@@ -10380,6 +10423,10 @@
                     "nullable": true,
                     "type": "number"
                   },
+                  "machine_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "model_max_tokens": {
                     "nullable": true,
                     "type": "integer"
@@ -10441,6 +10488,26 @@
                           "type": "number"
                         },
                         "id": {
+                          "type": "string"
+                        },
+                        "machine_host": {
+                          "type": "string"
+                        },
+                        "machine_id": {
+                          "type": "string"
+                        },
+                        "machine_name": {
+                          "type": "string"
+                        },
+                        "machine_ssh_user": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "machine_status": {
+                          "type": "string"
+                        },
+                        "machine_workspace_root": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "model_max_tokens": {

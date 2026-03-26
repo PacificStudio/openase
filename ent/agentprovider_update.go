@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
@@ -42,6 +43,20 @@ func (_u *AgentProviderUpdate) SetOrganizationID(v uuid.UUID) *AgentProviderUpda
 func (_u *AgentProviderUpdate) SetNillableOrganizationID(v *uuid.UUID) *AgentProviderUpdate {
 	if v != nil {
 		_u.SetOrganizationID(*v)
+	}
+	return _u
+}
+
+// SetMachineID sets the "machine_id" field.
+func (_u *AgentProviderUpdate) SetMachineID(v uuid.UUID) *AgentProviderUpdate {
+	_u.mutation.SetMachineID(v)
+	return _u
+}
+
+// SetNillableMachineID sets the "machine_id" field if the given value is not nil.
+func (_u *AgentProviderUpdate) SetNillableMachineID(v *uuid.UUID) *AgentProviderUpdate {
+	if v != nil {
+		_u.SetMachineID(*v)
 	}
 	return _u
 }
@@ -209,6 +224,11 @@ func (_u *AgentProviderUpdate) SetOrganization(v *Organization) *AgentProviderUp
 	return _u.SetOrganizationID(v.ID)
 }
 
+// SetMachine sets the "machine" edge to the Machine entity.
+func (_u *AgentProviderUpdate) SetMachine(v *Machine) *AgentProviderUpdate {
+	return _u.SetMachineID(v.ID)
+}
+
 // AddAgentIDs adds the "agents" edge to the Agent entity by IDs.
 func (_u *AgentProviderUpdate) AddAgentIDs(ids ...uuid.UUID) *AgentProviderUpdate {
 	_u.mutation.AddAgentIDs(ids...)
@@ -247,6 +267,12 @@ func (_u *AgentProviderUpdate) Mutation() *AgentProviderMutation {
 // ClearOrganization clears the "organization" edge to the Organization entity.
 func (_u *AgentProviderUpdate) ClearOrganization() *AgentProviderUpdate {
 	_u.mutation.ClearOrganization()
+	return _u
+}
+
+// ClearMachine clears the "machine" edge to the Machine entity.
+func (_u *AgentProviderUpdate) ClearMachine() *AgentProviderUpdate {
+	_u.mutation.ClearMachine()
 	return _u
 }
 
@@ -344,6 +370,9 @@ func (_u *AgentProviderUpdate) check() error {
 	if _u.mutation.OrganizationCleared() && len(_u.mutation.OrganizationIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "AgentProvider.organization"`)
 	}
+	if _u.mutation.MachineCleared() && len(_u.mutation.MachineIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "AgentProvider.machine"`)
+	}
 	return nil
 }
 
@@ -426,6 +455,35 @@ func (_u *AgentProviderUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MachineCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentprovider.MachineTable,
+			Columns: []string{agentprovider.MachineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MachineIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentprovider.MachineTable,
+			Columns: []string{agentprovider.MachineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -553,6 +611,20 @@ func (_u *AgentProviderUpdateOne) SetOrganizationID(v uuid.UUID) *AgentProviderU
 func (_u *AgentProviderUpdateOne) SetNillableOrganizationID(v *uuid.UUID) *AgentProviderUpdateOne {
 	if v != nil {
 		_u.SetOrganizationID(*v)
+	}
+	return _u
+}
+
+// SetMachineID sets the "machine_id" field.
+func (_u *AgentProviderUpdateOne) SetMachineID(v uuid.UUID) *AgentProviderUpdateOne {
+	_u.mutation.SetMachineID(v)
+	return _u
+}
+
+// SetNillableMachineID sets the "machine_id" field if the given value is not nil.
+func (_u *AgentProviderUpdateOne) SetNillableMachineID(v *uuid.UUID) *AgentProviderUpdateOne {
+	if v != nil {
+		_u.SetMachineID(*v)
 	}
 	return _u
 }
@@ -720,6 +792,11 @@ func (_u *AgentProviderUpdateOne) SetOrganization(v *Organization) *AgentProvide
 	return _u.SetOrganizationID(v.ID)
 }
 
+// SetMachine sets the "machine" edge to the Machine entity.
+func (_u *AgentProviderUpdateOne) SetMachine(v *Machine) *AgentProviderUpdateOne {
+	return _u.SetMachineID(v.ID)
+}
+
 // AddAgentIDs adds the "agents" edge to the Agent entity by IDs.
 func (_u *AgentProviderUpdateOne) AddAgentIDs(ids ...uuid.UUID) *AgentProviderUpdateOne {
 	_u.mutation.AddAgentIDs(ids...)
@@ -758,6 +835,12 @@ func (_u *AgentProviderUpdateOne) Mutation() *AgentProviderMutation {
 // ClearOrganization clears the "organization" edge to the Organization entity.
 func (_u *AgentProviderUpdateOne) ClearOrganization() *AgentProviderUpdateOne {
 	_u.mutation.ClearOrganization()
+	return _u
+}
+
+// ClearMachine clears the "machine" edge to the Machine entity.
+func (_u *AgentProviderUpdateOne) ClearMachine() *AgentProviderUpdateOne {
+	_u.mutation.ClearMachine()
 	return _u
 }
 
@@ -868,6 +951,9 @@ func (_u *AgentProviderUpdateOne) check() error {
 	if _u.mutation.OrganizationCleared() && len(_u.mutation.OrganizationIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "AgentProvider.organization"`)
 	}
+	if _u.mutation.MachineCleared() && len(_u.mutation.MachineIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "AgentProvider.machine"`)
+	}
 	return nil
 }
 
@@ -967,6 +1053,35 @@ func (_u *AgentProviderUpdateOne) sqlSave(ctx context.Context) (_node *AgentProv
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MachineCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentprovider.MachineTable,
+			Columns: []string{agentprovider.MachineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MachineIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentprovider.MachineTable,
+			Columns: []string{agentprovider.MachineColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

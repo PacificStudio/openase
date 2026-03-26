@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -22,6 +23,8 @@ type AgentProvider struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// OrganizationID holds the value of the "organization_id" field.
 	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
+	// MachineID holds the value of the "machine_id" field.
+	MachineID uuid.UUID `json:"machine_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// AdapterType holds the value of the "adapter_type" field.
@@ -52,13 +55,15 @@ type AgentProvider struct {
 type AgentProviderEdges struct {
 	// Organization holds the value of the organization edge.
 	Organization *Organization `json:"organization,omitempty"`
+	// Machine holds the value of the machine edge.
+	Machine *Machine `json:"machine,omitempty"`
 	// Agents holds the value of the agents edge.
 	Agents []*Agent `json:"agents,omitempty"`
 	// AgentRuns holds the value of the agent_runs edge.
 	AgentRuns []*AgentRun `json:"agent_runs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -72,10 +77,21 @@ func (e AgentProviderEdges) OrganizationOrErr() (*Organization, error) {
 	return nil, &NotLoadedError{edge: "organization"}
 }
 
+// MachineOrErr returns the Machine value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e AgentProviderEdges) MachineOrErr() (*Machine, error) {
+	if e.Machine != nil {
+		return e.Machine, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: machine.Label}
+	}
+	return nil, &NotLoadedError{edge: "machine"}
+}
+
 // AgentsOrErr returns the Agents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentProviderEdges) AgentsOrErr() ([]*Agent, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		return e.Agents, nil
 	}
 	return nil, &NotLoadedError{edge: "agents"}
@@ -84,7 +100,7 @@ func (e AgentProviderEdges) AgentsOrErr() ([]*Agent, error) {
 // AgentRunsOrErr returns the AgentRuns value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentProviderEdges) AgentRunsOrErr() ([]*AgentRun, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.AgentRuns, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_runs"}
@@ -105,7 +121,7 @@ func (*AgentProvider) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case agentprovider.FieldName, agentprovider.FieldAdapterType, agentprovider.FieldCliCommand, agentprovider.FieldModelName:
 			values[i] = new(sql.NullString)
-		case agentprovider.FieldID, agentprovider.FieldOrganizationID:
+		case agentprovider.FieldID, agentprovider.FieldOrganizationID, agentprovider.FieldMachineID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -133,6 +149,12 @@ func (_m *AgentProvider) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field organization_id", values[i])
 			} else if value != nil {
 				_m.OrganizationID = *value
+			}
+		case agentprovider.FieldMachineID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field machine_id", values[i])
+			} else if value != nil {
+				_m.MachineID = *value
 			}
 		case agentprovider.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -214,6 +236,11 @@ func (_m *AgentProvider) QueryOrganization() *OrganizationQuery {
 	return NewAgentProviderClient(_m.config).QueryOrganization(_m)
 }
 
+// QueryMachine queries the "machine" edge of the AgentProvider entity.
+func (_m *AgentProvider) QueryMachine() *MachineQuery {
+	return NewAgentProviderClient(_m.config).QueryMachine(_m)
+}
+
 // QueryAgents queries the "agents" edge of the AgentProvider entity.
 func (_m *AgentProvider) QueryAgents() *AgentQuery {
 	return NewAgentProviderClient(_m.config).QueryAgents(_m)
@@ -249,6 +276,9 @@ func (_m *AgentProvider) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("organization_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.OrganizationID))
+	builder.WriteString(", ")
+	builder.WriteString("machine_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MachineID))
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

@@ -3,6 +3,7 @@ import type { Agent, AgentProvider } from '$lib/api/contracts'
 export type ProviderOption = {
   id: string
   name: string
+  machineName: string
   adapterType: string
   modelName: string
   available: boolean
@@ -13,6 +14,7 @@ export type GovernanceAgent = {
   id: string
   name: string
   providerName: string
+  machineName: string
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
   workspacePath: string
@@ -46,6 +48,7 @@ export function buildProviderOptions(
   return providerItems.map((provider) => ({
     id: provider.id,
     name: provider.name,
+    machineName: provider.machine_name,
     adapterType: provider.adapter_type,
     modelName: provider.model_name,
     available: provider.available,
@@ -67,6 +70,7 @@ export function buildGovernanceAgents(
         id: agent.id,
         name: agent.name,
         providerName: provider?.name ?? 'Unknown provider',
+        machineName: provider?.machine_name ?? 'Unknown machine',
         status: normalizeAgentStatus(agent.runtime?.status ?? 'idle'),
         runtimePhase: normalizeRuntimePhase(agent.runtime?.runtime_phase ?? 'none'),
         workspacePath: agent.workspace_path ?? '',

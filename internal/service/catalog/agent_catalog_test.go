@@ -17,6 +17,7 @@ func TestCreateAgentProviderAutoDetectsCLICommand(t *testing.T) {
 
 	item, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
+		MachineID:      uuid.New(),
 		Name:           "Codex",
 		AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
 		ModelName:      "gpt-5.3-codex",
@@ -41,6 +42,7 @@ func TestCreateAgentProviderRejectsMissingCustomCLICommand(t *testing.T) {
 
 	_, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
+		MachineID:      uuid.New(),
 		Name:           "Custom",
 		AdapterType:    domain.AgentProviderAdapterTypeCustom,
 		ModelName:      "manual",
@@ -56,6 +58,7 @@ func TestCreateAgentProviderRejectsMissingExecutable(t *testing.T) {
 
 	_, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
 		OrganizationID: uuid.New(),
+		MachineID:      uuid.New(),
 		Name:           "Gemini",
 		AdapterType:    domain.AgentProviderAdapterTypeGeminiCLI,
 		ModelName:      "gemini-2.5-pro",
@@ -71,6 +74,7 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 		provider: domain.AgentProvider{
 			ID:             uuid.New(),
 			OrganizationID: uuid.New(),
+			MachineID:      uuid.New(),
 			Name:           "Codex",
 			AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
 			CliCommand:     "/usr/local/bin/codex",
@@ -83,6 +87,7 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 	item, err := svc.UpdateAgentProvider(context.Background(), domain.UpdateAgentProvider{
 		ID:             repo.provider.ID,
 		OrganizationID: repo.provider.OrganizationID,
+		MachineID:      repo.provider.MachineID,
 		Name:           repo.provider.Name,
 		AdapterType:    repo.provider.AdapterType,
 		CliCommand:     repo.provider.CliCommand,
@@ -107,6 +112,7 @@ func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 			{
 				ID:             uuid.New(),
 				OrganizationID: orgID,
+				MachineID:      uuid.New(),
 				Name:           "Claude Code",
 				AdapterType:    domain.AgentProviderAdapterTypeClaudeCodeCLI,
 				CliCommand:     "claude",
@@ -115,6 +121,7 @@ func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 			{
 				ID:             uuid.New(),
 				OrganizationID: orgID,
+				MachineID:      uuid.New(),
 				Name:           "OpenAI Codex",
 				AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
 				CliCommand:     "codex",
@@ -153,6 +160,7 @@ func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *tes
 			{
 				ID:             uuid.New(),
 				OrganizationID: orgID,
+				MachineID:      uuid.New(),
 				Name:           "Claude Code",
 				AdapterType:    domain.AgentProviderAdapterTypeClaudeCodeCLI,
 				CliCommand:     "claude",
@@ -161,6 +169,7 @@ func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *tes
 			{
 				ID:             uuid.New(),
 				OrganizationID: orgID,
+				MachineID:      uuid.New(),
 				Name:           "OpenAI Codex",
 				AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
 				CliCommand:     "codex",
@@ -409,6 +418,7 @@ func (r *stubRepository) CreateAgentProvider(_ context.Context, input domain.Cre
 	return domain.AgentProvider{
 		ID:             uuid.New(),
 		OrganizationID: input.OrganizationID,
+		MachineID:      input.MachineID,
 		Name:           input.Name,
 		AdapterType:    input.AdapterType,
 		CliCommand:     input.CliCommand,
@@ -428,6 +438,7 @@ func (r *stubRepository) UpdateAgentProvider(_ context.Context, input domain.Upd
 	return domain.AgentProvider{
 		ID:             input.ID,
 		OrganizationID: input.OrganizationID,
+		MachineID:      input.MachineID,
 		Name:           input.Name,
 		AdapterType:    input.AdapterType,
 		CliCommand:     input.CliCommand,

@@ -33,6 +33,9 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 		if err := reconcileLegacyProjectAccessibleMachineIDs(ctx, trimmedDSN); err != nil {
 			return err
 		}
+		if err := reconcileLegacyAgentProviderMachineIDs(ctx, trimmedDSN); err != nil {
+			return err
+		}
 		if err := client.Schema.Create(
 			ctx,
 			entmigrate.WithDropColumn(false),
@@ -168,6 +171,99 @@ func reconcileLegacyTicketIdentifierIndex(ctx context.Context, dsn string) error
 	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS "ticket_project_id_identifier" ON "tickets" ("project_id", "identifier")`); err != nil {
 		return fmt.Errorf("create project-scoped ticket identifier index: %w", err)
+	}
+
+	return nil
+}
+
+func reconcileLegacyAgentProviderMachineIDs(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database for agent provider machine reconciliation: %w", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database for agent provider machine reconciliation: %w", err)
+	}
+
+	var providerTableExists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = current_schema()
+			  AND table_name = 'agent_providers'
+		)`,
+	).Scan(&providerTableExists); err != nil {
+		return fmt.Errorf("check agent_providers table: %w", err)
+	}
+	if !providerTableExists {
+		return nil
+	}
+
+	var machineTableExists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = current_schema()
+			  AND table_name = 'machines'
+		)`,
+	).Scan(&machineTableExists); err != nil {
+		return fmt.Errorf("check machines table: %w", err)
+	}
+	if !machineTableExists {
+		return nil
+	}
+
+	var columnExists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = current_schema()
+			  AND table_name = 'agent_providers'
+			  AND column_name = 'machine_id'
+		)`,
+	).Scan(&columnExists); err != nil {
+		return fmt.Errorf("check agent provider machine_id column: %w", err)
+	}
+	if !columnExists {
+		if _, err := db.ExecContext(
+			ctx,
+			`ALTER TABLE "agent_providers" ADD COLUMN "machine_id" uuid NULL`,
+		); err != nil {
+			return fmt.Errorf("add agent provider machine_id column: %w", err)
+		}
+	}
+
+	if _, err := db.ExecContext(
+		ctx,
+		`UPDATE "agent_providers" AS ap
+		SET "machine_id" = m."id"
+		FROM "machines" AS m
+		WHERE ap."machine_id" IS NULL
+		  AND m."organization_id" = ap."organization_id"
+		  AND m."name" = 'local'`,
+	); err != nil {
+		return fmt.Errorf("backfill agent provider machine ids: %w", err)
+	}
+
+	var unresolved int
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(1) FROM "agent_providers" WHERE "machine_id" IS NULL`,
+	).Scan(&unresolved); err != nil {
+		return fmt.Errorf("count unresolved agent provider machine ids: %w", err)
+	}
+	if unresolved > 0 {
+		return fmt.Errorf("backfill agent provider machine ids: %d providers still missing a local machine binding", unresolved)
 	}
 
 	return nil

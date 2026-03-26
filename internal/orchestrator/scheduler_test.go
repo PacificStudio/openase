@@ -26,7 +26,6 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
 )
@@ -419,7 +418,7 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 	}
 }
 
-func TestSchedulerRunTickMatchesRequiredMachineLabelsAndBindsTicket(t *testing.T) {
+func TestSchedulerRunTickResolvesExecutionMachineFromBoundProvider(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -443,12 +442,17 @@ func TestSchedulerRunTickMatchesRequiredMachineLabelsAndBindsTicket(t *testing.T
 		t.Fatalf("create remote machine: %v", err)
 	}
 
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider machine: %v", err)
+	}
+
 	workflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
 		SetName("Training").
 		SetType(entworkflow.TypeCustom).
 		SetHarnessPath(".openase/harnesses/training.md").
-		SetRequiredMachineLabels(pgarray.StringArray{"gpu"}).
 		SetMaxConcurrent(1).
 		SetPickupStatusID(fixture.statusIDs["Todo"]).
 		SetFinishStatusID(fixture.statusIDs["Done"]).
@@ -502,7 +506,7 @@ func TestSchedulerRunTickMatchesRequiredMachineLabelsAndBindsTicket(t *testing.T
 	}
 }
 
-func TestSchedulerRunTickHonorsExplicitTargetMachineBinding(t *testing.T) {
+func TestSchedulerRunTickIgnoresTicketTargetMachineAndUsesProviderBinding(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -526,12 +530,17 @@ func TestSchedulerRunTickHonorsExplicitTargetMachineBinding(t *testing.T) {
 		t.Fatalf("create explicit machine: %v", err)
 	}
 
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(fixture.localMachineID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider machine: %v", err)
+	}
+
 	if _, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
 		SetName("Coding").
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
-		SetRequiredMachineLabels(pgarray.StringArray{"gpu"}).
 		SetMaxConcurrent(1).
 		SetPickupStatusID(fixture.statusIDs["Todo"]).
 		SetFinishStatusID(fixture.statusIDs["Done"]).
@@ -571,8 +580,8 @@ func TestSchedulerRunTickHonorsExplicitTargetMachineBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload ticket: %v", err)
 	}
-	if ticketAfter.TargetMachineID == nil || *ticketAfter.TargetMachineID != explicitMachine.ID {
-		t.Fatalf("expected explicit target machine %s, got %+v", explicitMachine.ID, ticketAfter.TargetMachineID)
+	if ticketAfter.TargetMachineID == nil || *ticketAfter.TargetMachineID != fixture.localMachineID {
+		t.Fatalf("expected provider-bound machine %s, got %+v", fixture.localMachineID, ticketAfter.TargetMachineID)
 	}
 }
 
@@ -708,11 +717,12 @@ func waitForSchedulerEvent(t *testing.T, stream <-chan provider.Event, want prov
 }
 
 type projectFixture struct {
-	client     *ent.Client
-	orgID      uuid.UUID
-	projectID  uuid.UUID
-	providerID uuid.UUID
-	statusIDs  map[string]uuid.UUID
+	client         *ent.Client
+	orgID          uuid.UUID
+	projectID      uuid.UUID
+	providerID     uuid.UUID
+	localMachineID uuid.UUID
+	statusIDs      map[string]uuid.UUID
 }
 
 func TestSchedulerRunTickCreatesDueScheduledJobTicketsBeforeDispatch(t *testing.T) {
@@ -911,7 +921,7 @@ func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) p
 	if err != nil {
 		t.Fatalf("create organization: %v", err)
 	}
-	if _, err := client.Machine.Create().
+	localMachine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName(domaincatalog.LocalMachineName).
 		SetHost(domaincatalog.LocalMachineHost).
@@ -922,7 +932,8 @@ func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) p
 			"transport":    "local",
 			"last_success": true,
 		}).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create local machine: %v", err)
 	}
 	project, err := client.Project.Create().
@@ -937,6 +948,7 @@ func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) p
 	}
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
 		SetName("Codex").
 		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
 		SetCliCommand("codex").
@@ -958,11 +970,12 @@ func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) p
 	}
 
 	return projectFixture{
-		client:     client,
-		orgID:      org.ID,
-		projectID:  project.ID,
-		providerID: provider.ID,
-		statusIDs:  statusIDs,
+		client:         client,
+		orgID:          org.ID,
+		projectID:      project.ID,
+		providerID:     provider.ID,
+		localMachineID: localMachine.ID,
+		statusIDs:      statusIDs,
 	}
 }
 

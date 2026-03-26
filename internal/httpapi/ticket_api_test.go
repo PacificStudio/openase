@@ -742,6 +742,16 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 		if err != nil {
 			t.Fatalf("create project %d: %v", index+1, err)
 		}
+		localMachine, err := client.Machine.Create().
+			SetOrganizationID(org.ID).
+			SetName(fmt.Sprintf("local-%d", index+1)).
+			SetHost("local").
+			SetPort(22).
+			SetStatus("online").
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("create local machine %d: %v", index+1, err)
+		}
 
 		statuses := struct {
 			Statuses []ticketstatus.Status `json:"statuses"`
@@ -759,6 +769,7 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 		doneID := findStatusIDByName(t, statuses.Statuses, "Done")
 		provider, err := client.AgentProvider.Create().
 			SetOrganizationID(org.ID).
+			SetMachineID(localMachine.ID).
 			SetName(fmt.Sprintf("Codex %d", index+1)).
 			SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
 			SetCliCommand("codex").
@@ -1136,6 +1147,16 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create organization: %v", err)
 	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
 	project, err := client.Project.Create().
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
@@ -1146,6 +1167,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	}
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
 		SetName("Codex").
 		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
 		SetCliCommand("codex").

@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/google/uuid"
@@ -28,6 +29,7 @@ type AgentProviderQuery struct {
 	inters           []Interceptor
 	predicates       []predicate.AgentProvider
 	withOrganization *OrganizationQuery
+	withMachine      *MachineQuery
 	withAgents       *AgentQuery
 	withAgentRuns    *AgentRunQuery
 	// intermediate query (i.e. traversal path).
@@ -81,6 +83,28 @@ func (_q *AgentProviderQuery) QueryOrganization() *OrganizationQuery {
 			sqlgraph.From(agentprovider.Table, agentprovider.FieldID, selector),
 			sqlgraph.To(organization.Table, organization.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, agentprovider.OrganizationTable, agentprovider.OrganizationColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMachine chains the current query on the "machine" edge.
+func (_q *AgentProviderQuery) QueryMachine() *MachineQuery {
+	query := (&MachineClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentprovider.Table, agentprovider.FieldID, selector),
+			sqlgraph.To(machine.Table, machine.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentprovider.MachineTable, agentprovider.MachineColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -325,6 +349,7 @@ func (_q *AgentProviderQuery) Clone() *AgentProviderQuery {
 		inters:           append([]Interceptor{}, _q.inters...),
 		predicates:       append([]predicate.AgentProvider{}, _q.predicates...),
 		withOrganization: _q.withOrganization.Clone(),
+		withMachine:      _q.withMachine.Clone(),
 		withAgents:       _q.withAgents.Clone(),
 		withAgentRuns:    _q.withAgentRuns.Clone(),
 		// clone intermediate query.
@@ -341,6 +366,17 @@ func (_q *AgentProviderQuery) WithOrganization(opts ...func(*OrganizationQuery))
 		opt(query)
 	}
 	_q.withOrganization = query
+	return _q
+}
+
+// WithMachine tells the query-builder to eager-load the nodes that are connected to
+// the "machine" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AgentProviderQuery) WithMachine(opts ...func(*MachineQuery)) *AgentProviderQuery {
+	query := (&MachineClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMachine = query
 	return _q
 }
 
@@ -444,8 +480,9 @@ func (_q *AgentProviderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	var (
 		nodes       = []*AgentProvider{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withOrganization != nil,
+			_q.withMachine != nil,
 			_q.withAgents != nil,
 			_q.withAgentRuns != nil,
 		}
@@ -471,6 +508,12 @@ func (_q *AgentProviderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	if query := _q.withOrganization; query != nil {
 		if err := _q.loadOrganization(ctx, query, nodes, nil,
 			func(n *AgentProvider, e *Organization) { n.Edges.Organization = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMachine; query != nil {
+		if err := _q.loadMachine(ctx, query, nodes, nil,
+			func(n *AgentProvider, e *Machine) { n.Edges.Machine = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -513,6 +556,35 @@ func (_q *AgentProviderQuery) loadOrganization(ctx context.Context, query *Organ
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "organization_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *AgentProviderQuery) loadMachine(ctx context.Context, query *MachineQuery, nodes []*AgentProvider, init func(*AgentProvider), assign func(*AgentProvider, *Machine)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*AgentProvider)
+	for i := range nodes {
+		fk := nodes[i].MachineID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(machine.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "machine_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -608,6 +680,9 @@ func (_q *AgentProviderQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withOrganization != nil {
 			_spec.Node.AddColumnOnce(agentprovider.FieldOrganizationID)
+		}
+		if _q.withMachine != nil {
+			_spec.Node.AddColumnOnce(agentprovider.FieldMachineID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

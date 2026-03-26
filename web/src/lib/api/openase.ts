@@ -165,6 +165,7 @@ export function listProviders(orgId: string) {
 export function createProvider(
   orgId: string,
   body: {
+    machine_id: string
     name: string
     adapter_type: string
     cli_command?: string
@@ -662,6 +663,7 @@ export function listBuiltinRoles() {
 export function updateProvider(
   providerId: string,
   body: {
+    machine_id?: string
     name?: string
     adapter_type?: string
     cli_command?: string
