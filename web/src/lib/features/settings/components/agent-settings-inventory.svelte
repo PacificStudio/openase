@@ -21,7 +21,7 @@
     <div>
       <Card.Title>Registered agents</Card.Title>
       <Card.Description>
-        Governance inventory for provider coverage, workspace paths, and capability tags.
+        Governance inventory for provider coverage and workspace paths.
       </Card.Description>
     </div>
     <Button href={agentsConsoleHref} variant="outline" size="sm">
@@ -66,18 +66,6 @@
             <div>
               <div class="text-foreground font-medium">Workspace</div>
               <div class="mt-1 font-mono break-all">{agent.workspacePath || 'Not provided'}</div>
-            </div>
-            <div>
-              <div class="text-foreground font-medium">Capabilities</div>
-              <div class="mt-1 flex flex-wrap gap-1.5">
-                {#if agent.capabilities.length === 0}
-                  <span>No capability labels</span>
-                {:else}
-                  {#each agent.capabilities as capability (capability)}
-                    <Badge variant="outline" class="text-[10px]">{capability}</Badge>
-                  {/each}
-                {/if}
-              </div>
             </div>
           </div>
         </div>

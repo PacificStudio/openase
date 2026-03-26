@@ -939,7 +939,6 @@ type AgentMutation struct {
 	runtime_started_at         *time.Time
 	last_error                 *string
 	workspace_path             *string
-	capabilities               *pgarray.StringArray
 	total_tokens_used          *int64
 	addtotal_tokens_used       *int64
 	total_tickets_completed    *int
@@ -1531,55 +1530,6 @@ func (m *AgentMutation) ResetWorkspacePath() {
 	delete(m.clearedFields, agent.FieldWorkspacePath)
 }
 
-// SetCapabilities sets the "capabilities" field.
-func (m *AgentMutation) SetCapabilities(pa pgarray.StringArray) {
-	m.capabilities = &pa
-}
-
-// Capabilities returns the value of the "capabilities" field in the mutation.
-func (m *AgentMutation) Capabilities() (r pgarray.StringArray, exists bool) {
-	v := m.capabilities
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCapabilities returns the old "capabilities" field's value of the Agent entity.
-// If the Agent object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AgentMutation) OldCapabilities(ctx context.Context) (v pgarray.StringArray, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCapabilities is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCapabilities requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCapabilities: %w", err)
-	}
-	return oldValue.Capabilities, nil
-}
-
-// ClearCapabilities clears the value of the "capabilities" field.
-func (m *AgentMutation) ClearCapabilities() {
-	m.capabilities = nil
-	m.clearedFields[agent.FieldCapabilities] = struct{}{}
-}
-
-// CapabilitiesCleared returns if the "capabilities" field was cleared in this mutation.
-func (m *AgentMutation) CapabilitiesCleared() bool {
-	_, ok := m.clearedFields[agent.FieldCapabilities]
-	return ok
-}
-
-// ResetCapabilities resets all changes to the "capabilities" field.
-func (m *AgentMutation) ResetCapabilities() {
-	m.capabilities = nil
-	delete(m.clearedFields, agent.FieldCapabilities)
-}
-
 // SetTotalTokensUsed sets the "total_tokens_used" field.
 func (m *AgentMutation) SetTotalTokensUsed(i int64) {
 	m.total_tokens_used = &i
@@ -2018,7 +1968,7 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 14)
 	if m.provider != nil {
 		fields = append(fields, agent.FieldProviderID)
 	}
@@ -2051,9 +2001,6 @@ func (m *AgentMutation) Fields() []string {
 	}
 	if m.workspace_path != nil {
 		fields = append(fields, agent.FieldWorkspacePath)
-	}
-	if m.capabilities != nil {
-		fields = append(fields, agent.FieldCapabilities)
 	}
 	if m.total_tokens_used != nil {
 		fields = append(fields, agent.FieldTotalTokensUsed)
@@ -2094,8 +2041,6 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 		return m.LastError()
 	case agent.FieldWorkspacePath:
 		return m.WorkspacePath()
-	case agent.FieldCapabilities:
-		return m.Capabilities()
 	case agent.FieldTotalTokensUsed:
 		return m.TotalTokensUsed()
 	case agent.FieldTotalTicketsCompleted:
@@ -2133,8 +2078,6 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldLastError(ctx)
 	case agent.FieldWorkspacePath:
 		return m.OldWorkspacePath(ctx)
-	case agent.FieldCapabilities:
-		return m.OldCapabilities(ctx)
 	case agent.FieldTotalTokensUsed:
 		return m.OldTotalTokensUsed(ctx)
 	case agent.FieldTotalTicketsCompleted:
@@ -2226,13 +2169,6 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetWorkspacePath(v)
-		return nil
-	case agent.FieldCapabilities:
-		v, ok := value.(pgarray.StringArray)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCapabilities(v)
 		return nil
 	case agent.FieldTotalTokensUsed:
 		v, ok := value.(int64)
@@ -2327,9 +2263,6 @@ func (m *AgentMutation) ClearedFields() []string {
 	if m.FieldCleared(agent.FieldWorkspacePath) {
 		fields = append(fields, agent.FieldWorkspacePath)
 	}
-	if m.FieldCleared(agent.FieldCapabilities) {
-		fields = append(fields, agent.FieldCapabilities)
-	}
 	if m.FieldCleared(agent.FieldLastHeartbeatAt) {
 		fields = append(fields, agent.FieldLastHeartbeatAt)
 	}
@@ -2361,9 +2294,6 @@ func (m *AgentMutation) ClearField(name string) error {
 		return nil
 	case agent.FieldWorkspacePath:
 		m.ClearWorkspacePath()
-		return nil
-	case agent.FieldCapabilities:
-		m.ClearCapabilities()
 		return nil
 	case agent.FieldLastHeartbeatAt:
 		m.ClearLastHeartbeatAt()
@@ -2408,9 +2338,6 @@ func (m *AgentMutation) ResetField(name string) error {
 		return nil
 	case agent.FieldWorkspacePath:
 		m.ResetWorkspacePath()
-		return nil
-	case agent.FieldCapabilities:
-		m.ResetCapabilities()
 		return nil
 	case agent.FieldTotalTokensUsed:
 		m.ResetTotalTokensUsed()

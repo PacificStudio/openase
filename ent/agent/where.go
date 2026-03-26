@@ -8,7 +8,6 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -95,11 +94,6 @@ func LastError(v string) predicate.Agent {
 // WorkspacePath applies equality check predicate on the "workspace_path" field. It's identical to WorkspacePathEQ.
 func WorkspacePath(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldWorkspacePath, v))
-}
-
-// Capabilities applies equality check predicate on the "capabilities" field. It's identical to CapabilitiesEQ.
-func Capabilities(v pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldCapabilities, v))
 }
 
 // TotalTokensUsed applies equality check predicate on the "total_tokens_used" field. It's identical to TotalTokensUsedEQ.
@@ -585,56 +579,6 @@ func WorkspacePathEqualFold(v string) predicate.Agent {
 // WorkspacePathContainsFold applies the ContainsFold predicate on the "workspace_path" field.
 func WorkspacePathContainsFold(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldContainsFold(FieldWorkspacePath, v))
-}
-
-// CapabilitiesEQ applies the EQ predicate on the "capabilities" field.
-func CapabilitiesEQ(v pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldCapabilities, v))
-}
-
-// CapabilitiesNEQ applies the NEQ predicate on the "capabilities" field.
-func CapabilitiesNEQ(v pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldCapabilities, v))
-}
-
-// CapabilitiesIn applies the In predicate on the "capabilities" field.
-func CapabilitiesIn(vs ...pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldCapabilities, vs...))
-}
-
-// CapabilitiesNotIn applies the NotIn predicate on the "capabilities" field.
-func CapabilitiesNotIn(vs ...pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldCapabilities, vs...))
-}
-
-// CapabilitiesGT applies the GT predicate on the "capabilities" field.
-func CapabilitiesGT(v pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldGT(FieldCapabilities, v))
-}
-
-// CapabilitiesGTE applies the GTE predicate on the "capabilities" field.
-func CapabilitiesGTE(v pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldGTE(FieldCapabilities, v))
-}
-
-// CapabilitiesLT applies the LT predicate on the "capabilities" field.
-func CapabilitiesLT(v pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldLT(FieldCapabilities, v))
-}
-
-// CapabilitiesLTE applies the LTE predicate on the "capabilities" field.
-func CapabilitiesLTE(v pgarray.StringArray) predicate.Agent {
-	return predicate.Agent(sql.FieldLTE(FieldCapabilities, v))
-}
-
-// CapabilitiesIsNil applies the IsNil predicate on the "capabilities" field.
-func CapabilitiesIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldCapabilities))
-}
-
-// CapabilitiesNotNil applies the NotNil predicate on the "capabilities" field.
-func CapabilitiesNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldCapabilities))
 }
 
 // TotalTokensUsedEQ applies the EQ predicate on the "total_tokens_used" field.

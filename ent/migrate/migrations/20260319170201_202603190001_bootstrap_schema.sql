@@ -39,7 +39,6 @@ CREATE TABLE "agents" (
   "status" character varying NOT NULL DEFAULT 'idle',
   "session_id" character varying NULL,
   "workspace_path" character varying NULL,
-  "capabilities" text[] NULL,
   "total_tokens_used" bigint NOT NULL DEFAULT 0,
   "total_tickets_completed" bigint NOT NULL DEFAULT 0,
   "last_heartbeat_at" timestamptz NULL,
@@ -48,8 +47,6 @@ CREATE TABLE "agents" (
   "project_id" uuid NOT NULL,
   PRIMARY KEY ("id")
 );
--- Create index "agent_capabilities" to table: "agents"
-CREATE INDEX "agent_capabilities" ON "agents" USING GIN ("capabilities");
 -- Create index "agent_project_id_name" to table: "agents"
 CREATE UNIQUE INDEX "agent_project_id_name" ON "agents" ("project_id", "name");
 -- Create index "agent_project_id_status_last_heartbeat_at" to table: "agents"

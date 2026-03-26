@@ -166,7 +166,6 @@ export function buildAgentRows(
       lastError: agent.last_error,
       todayCompleted: agent.total_tickets_completed,
       todayCost: 0,
-      capabilities: agent.capabilities,
     }
   })
 }

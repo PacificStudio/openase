@@ -54,7 +54,6 @@
   const runningAgents = $derived(
     agents.filter((agent) => agent.status === 'running' || agent.status === 'claimed').length,
   )
-  const distinctCapabilities = $derived(new Set(agents.flatMap((agent) => agent.capabilities)).size)
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -164,7 +163,6 @@
       orgDefaultProviderName={orgDefaultProvider?.name ?? null}
       agentCount={agents.length}
       runningAgentCount={runningAgents}
-      distinctCapabilityCount={distinctCapabilities}
     />
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,22rem),minmax(0,1fr)]">

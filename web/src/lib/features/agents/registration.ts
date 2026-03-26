@@ -4,7 +4,6 @@ export type AgentRegistrationDraft = {
   providerId: string
   name: string
   workspacePath: string
-  capabilitiesText: string
 }
 
 export type AgentRegistrationDraftField = keyof AgentRegistrationDraft
@@ -13,7 +12,6 @@ export type AgentRegistrationInput = {
   providerId: string
   name: string
   workspacePath: string
-  capabilities: string[]
 }
 
 type AgentRegistrationParseResult =
@@ -28,7 +26,6 @@ export function createAgentRegistrationDraft(
     providerId: resolveProviderId(providers, defaultProviderId),
     name: '',
     workspacePath: '',
-    capabilitiesText: '',
   }
 }
 
@@ -61,7 +58,6 @@ export function parseAgentRegistrationDraft(
       providerId,
       name,
       workspacePath,
-      capabilities: parseCapabilities(draft.capabilitiesText),
     },
   }
 }
@@ -72,21 +68,4 @@ function resolveProviderId(providers: AgentProvider[], defaultProviderId?: strin
   }
 
   return providers.find((provider) => provider.available)?.id ?? providers[0]?.id ?? ''
-}
-
-function parseCapabilities(raw: string) {
-  const capabilities: string[] = []
-  const seen = new Set<string>()
-
-  for (const value of raw.split(/[\n,]/)) {
-    const capability = value.trim()
-    if (capability === '' || seen.has(capability)) {
-      continue
-    }
-
-    seen.add(capability)
-    capabilities.push(capability)
-  }
-
-  return capabilities
 }

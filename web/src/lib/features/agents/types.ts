@@ -14,7 +14,6 @@ export type AgentInstance = {
   lastError?: string
   todayCompleted: number
   todayCost: number
-  capabilities: string[]
 }
 
 export type ProviderConfig = {
