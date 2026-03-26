@@ -67,15 +67,16 @@
     <div class="border-border divide-border divide-y rounded-lg border">
       <div class="flex items-center gap-4 px-5 py-3">
         <input
+          id="orgs-select-all"
           type="checkbox"
           class="size-4 accent-current"
           checked={allSelected}
           indeterminate={someSelected}
           onchange={toggleAll}
         />
-        <span class="text-muted-foreground text-xs font-medium">
+        <label for="orgs-select-all" class="text-muted-foreground text-xs font-medium">
           {allSelected ? 'Deselect all' : 'Select all'}
-        </span>
+        </label>
       </div>
 
       {#each organizations as organization (organization.id)}
@@ -88,11 +89,16 @@
         >
           <div class="flex min-w-0 items-center gap-4">
             <input
+              id={`org-select-${organization.id}`}
               type="checkbox"
               class="size-4 shrink-0 accent-current"
               checked={selectedIds.has(organization.id)}
+              aria-label={`Select organization ${organization.name}`}
               onchange={() => toggleSelect(organization.id)}
             />
+            <label class="sr-only" for={`org-select-${organization.id}`}>
+              Select organization {organization.name}
+            </label>
             <div class="min-w-0">
               <a
                 href={organizationPath(organization.id)}
