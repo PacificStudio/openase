@@ -30,6 +30,10 @@
                   "properties": {
                     "agent": {
                       "properties": {
+                        "current_run_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "current_ticket_id": {
                           "nullable": true,
                           "type": "string"
@@ -189,6 +193,10 @@
                   "properties": {
                     "agent": {
                       "properties": {
+                        "current_run_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "current_ticket_id": {
                           "nullable": true,
                           "type": "string"
@@ -332,6 +340,10 @@
                   "properties": {
                     "agent": {
                       "properties": {
+                        "current_run_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "current_ticket_id": {
                           "nullable": true,
                           "type": "string"
@@ -493,6 +505,10 @@
                   "properties": {
                     "agent": {
                       "properties": {
+                        "current_run_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "current_ticket_id": {
                           "nullable": true,
                           "type": "string"
@@ -5137,6 +5153,10 @@
                     "agents": {
                       "items": {
                         "properties": {
+                          "current_run_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "current_ticket_id": {
                             "nullable": true,
                             "type": "string"
@@ -5302,6 +5322,10 @@
                   "properties": {
                     "agent": {
                       "properties": {
+                        "current_run_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "current_ticket_id": {
                           "nullable": true,
                           "type": "string"

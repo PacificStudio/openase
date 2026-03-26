@@ -1103,6 +1103,7 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
+              current_run_id?: string | null
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -1181,6 +1182,7 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
+              current_run_id?: string | null
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -1271,6 +1273,7 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
+              current_run_id?: string | null
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -1361,6 +1364,7 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
+              current_run_id?: string | null
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -3975,6 +3979,7 @@ export interface operations {
         content: {
           'application/json': {
             agents?: {
+              current_run_id?: string | null
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -4062,6 +4067,7 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
+              current_run_id?: string | null
               current_ticket_id?: string | null
               id?: string
               last_error?: string
