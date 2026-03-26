@@ -279,153 +279,141 @@ OpenASE 后端采用 DDD（Domain-Driven Design）四层架构，配合 Provider
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Interface Layer (接口层)                      │
-│  cmd/ (CLI)  ·  api/handler/ (HTTP)  ·  setup/ (Setup Wizard)  │
+│                 Interface / Entry Layer (接口入口层)               │
+│  cmd/openase  ·  internal/cli  ·  internal/httpapi              │
+│  internal/webui  ·  internal/setup                              │
 ├─────────────────────────────────────────────────────────────────┤
-│                    Application Layer (应用层)                     │
-│  app/command/ (写操作)  ·  app/query/ (读操作)  ·  app/dto/     │
+│              Service / Use-Case Layer (服务 / 用例层)             │
+│  internal/service/*  ·  internal/ticket  ·  internal/workflow   │
+│  internal/chat  ·  internal/notification  ·  internal/agentplatform │
 ├────────────────────────────────────────────╥────────────────────┤
-│              Domain Layer (领域层)           ║   Provider (横切)  ║
-│  domain/ticket/   domain/workflow/         ║                    ║
-│  domain/agent/    domain/project/          ║  auth.Provider     ║
-│  domain/hook/                              ║  trace.Provider    ║
-│                                            ║  metrics.Provider  ║
-│  每个领域包含：                               ║  event.Provider    ║
-│    entity.go      (实体 + 值对象)            ║  notify.Provider   ║
-│    repository.go  (仓储接口)                 ║  log.Provider      ║
-│    service.go     (领域服务)                 ║                    ║
-│    event.go       (领域事件)                 ║  全部定义为接口，     ║
-│                                            ║  注入到各层使用       ║
+│        Domain / Core Types (领域 / 核心类型) ║   Provider (横切)  ║
+│  internal/domain/*                         ║                    ║
+│  internal/types/*                          ║  TraceProvider     ║
+│                                            ║  MetricsProvider   ║
+│                                            ║  EventProvider     ║
+│  当前仓库以 parse / value object /          ║                    ║
+│  pure logic 为主，不强制每个子包都有         ║  ExecutableResolver║
+│  entity/repository/service/event 四件套      ║  AgentCLIProcessMgr║
+│                                            ║                    ║
+│                                            ║  UserServiceMgr    ║
+│                                            ║  由 app/cmd 装配    ║
 ├────────────────────────────────────────────╨────────────────────┤
 │                  Infrastructure Layer (基础设施层)                 │
-│  infra/persistence/ (ent 仓储实现)                                │
-│  infra/adapter/     (Agent CLI 适配器: claudecode, codex, gemini)│
-│  infra/gitops/      (go-git 封装)                                │
-│  infra/hook/        (Hook 脚本执行引擎)                            │
-│  infra/sse/         (SSE 推送)                                   │
-│  infra/workspace/   (多 Repo 联合工作区管理)                       │
-│  infra/provider/    (Provider 接口实现)                            │
-│    auth/   (Local Token / OIDC 实现)                              │
-│    otel/   (OpenTelemetry tracing + metrics 实现)                 │
-│    notify/ (Slack / Email / Webhook 实现)                         │
-│    event/  (Go channel / PG LISTEN/NOTIFY 实现)                   │
+│  internal/repo/     (DB-backed Repository / ent 仓储适配器)      │
+│  internal/infra/    (Agent CLI / hook / SSE / workspace 等实现) │
+│  internal/provider/ (Provider contracts + noop/default pieces)   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **各层职责：**
 
-**Domain Layer（领域层）**——系统的核心，纯 Go 代码，零外部依赖。
+**Domain / Core Types（领域 / 核心类型层）**——当前仓库中主要承载领域解析、值对象、纯逻辑和少量稳定枚举映射。
 
-- `domain/ticket/`：Ticket 实体、TicketStatus 值对象、状态机转换规则、依赖检查逻辑
-- `domain/workflow/`：Workflow 实体、Harness 解析/渲染接口、Hook 定义
-- `domain/agent/`：Agent 实体、AgentAdapter 接口（适配器抽象在此定义，实现在 infra 层）
-- `domain/project/`：Project、ProjectRepo、TicketRepoScope 实体和业务规则
-- `domain/hook/`：Hook 定义、执行结果、阻塞/非阻塞策略
-- 每个领域子包导出 `Repository` 接口（如 `ticket.Repository`），不依赖任何具体存储实现
+- `internal/domain/catalog`、`internal/domain/ticketing`、`internal/domain/notification` 等：输入解析、值对象、纯业务规则、稳定的数据结构
+- `internal/types/*`：底层领域类型和数据库边界类型
+- 不再假设每个领域子包都严格对应 `entity.go / repository.go / service.go / event.go` 四件套；以当前仓库真实职责为准
 
-**Application Layer（应用层）**——编排用例，不含业务规则。
+**Service / Use-Case Layer（服务 / 用例层）**——编排用例、衔接 repository/provider/domain，不再使用旧 PRD 中 `app/command`、`app/query` 的目录命名。
 
-- `app/command/`：写操作。`CreateTicketCmd`、`ClaimTicketCmd`、`CompleteTicketCmd` 等。每个 Command Handler 调用领域服务 + 仓储接口 + Provider，组装一个完整的业务用例
-- `app/query/`：读操作。`ListTicketsQuery`、`GetTicketDetailQuery`、`GetAgentStatusQuery` 等。可以绕过领域层直接读仓储（CQRS 读写分离的思路）
-- `app/dto/`：数据传输对象，用于应用层与接口层之间的数据转换
+- 当前主要对应 `internal/service/*`、`internal/ticket`、`internal/workflow`、`internal/chat`、`internal/notification`、`internal/scheduledjob`、`internal/agentplatform`
+- 这些包承担旧 PRD 中 application layer 的职责：编排完整用例、调用 domain 解析结果、访问 repository、驱动 provider
+- 某些包会同时包含 command-style 写操作与 query-style 读操作，但以服务对象暴露，而不是按 `app/command`、`app/query` 目录拆分
 
 **Infrastructure Layer（基础设施层）**——所有外部依赖的实现。
 
-- `infra/persistence/`：`ticket.Repository` 的 ent 实现、`workflow.Repository` 的 ent 实现等
-- `infra/adapter/`：`agent.Adapter` 接口的各 CLI 实现（Claude Code、Codex、Gemini）
-- `infra/gitops/`：go-git 封装，Branch 创建、PR 管理等
-- `infra/hook/`：Hook 脚本执行引擎，子进程管理、超时控制、stdout/stderr 捕获
-- `infra/sse/`：SSE 推送实现
-- `infra/workspace/`：多 Repo 联合工作区的 clone、checkout、cleanup
-- `infra/provider/`：所有 Provider 接口的具体实现（见 5.6）
+- `internal/repo/*`：数据库相关的 repository 适配器，当前仓库里这部分承担了旧 PRD `infra/persistence/` 的职责
+- `internal/infra/adapter/*`：各 Agent CLI 适配器实现（Claude Code、Codex 等）
+- `internal/infra/hook`、`internal/infra/sse`、`internal/infra/workspace`、`internal/infra/event` 等：外部系统与运行时边界实现
+- `internal/provider`：横切 Provider 接口与默认实现（见 5.6）
 
-**Interface Layer（接口层）**——外部入口，薄薄一层。
+**Interface / Entry Layer（接口 / 入口层）**——外部入口，保持薄层。
 
-- `cmd/`：cobra CLI 入口，负责 wire 依赖注入、启动服务
-- `api/handler/`：Echo HTTP handler，接收请求 → 转换为 Command/Query → 调用应用层 → 返回响应
-- `api/middleware/`：HTTP 中间件（auth、tracing、rate limit、CORS），全部通过 Provider 注入
-- `setup/`：Setup Wizard 的 HTTP handler（首次运行引导）
+- `cmd/openase`：CLI 入口，负责启动命令、参数装配和退出码处理
+- `internal/httpapi`：Echo HTTP API handler、路由注册、请求绑定、错误映射、SSE/webhook 入口
+- `internal/cli`：CLI 子命令与终端交互
+- `internal/setup`、`internal/webui`：首次运行引导与 Web UI 入口
 
 ### 5.6 Provider 横切架构
 
-Provider 是 OpenASE 处理横切关注点的统一模式。每个 Provider 定义为 Go interface，在 `cmd/` 层通过依赖注入装配具体实现。任何层的代码都可以使用 Provider，但只依赖接口，不依赖实现。
+Provider 是 OpenASE 处理横切关注点的统一模式。每个 Provider 定义为 Go interface，在 `cmd/openase` / `internal/app` 装配。任何层的代码都可以使用 Provider，但只依赖接口，不依赖实现。
 
 ```go
-// 所有 Provider 接口定义在 domain/provider/ 中
+// 所有 Provider 接口定义在 internal/provider/ 中
 package provider
-
-// AuthProvider — 认证与授权
-type AuthProvider interface {
-    // 从 HTTP 请求中提取并验证身份
-    Authenticate(ctx context.Context, token string) (Identity, error)
-    // 检查权限
-    Authorize(ctx context.Context, identity Identity, action string, resource string) error
-}
 
 // TraceProvider — 分布式追踪
 type TraceProvider interface {
-    // 创建 Span
-    StartSpan(ctx context.Context, name string, opts ...SpanOption) (context.Context, Span)
+    ExtractHTTPContext(ctx context.Context, header http.Header) context.Context
+    InjectHTTPHeaders(ctx context.Context, header http.Header)
+    StartSpan(ctx context.Context, name string, opts ...SpanStartOption) (context.Context, Span)
+    Shutdown(ctx context.Context) error
 }
 
 // MetricsProvider — 指标采集
 type MetricsProvider interface {
-    // 计数器
     Counter(name string, tags Tags) Counter
-    // 直方图（延迟分布）
     Histogram(name string, tags Tags) Histogram
-    // 仪表盘（当前值）
     Gauge(name string, tags Tags) Gauge
 }
 
 // EventProvider — 进程间事件通信
 type EventProvider interface {
-    // 发布事件（工单状态变更、Agent 心跳等）
-    Publish(ctx context.Context, topic string, event Event) error
-    // 订阅事件
-    Subscribe(ctx context.Context, topic string) (<-chan Event, error)
+    Publish(ctx context.Context, event Event) error
+    Subscribe(ctx context.Context, topics ...Topic) (<-chan Event, error)
+    Close() error
 }
 
-// NotifyProvider — 外部通知
-type NotifyProvider interface {
-    // 发送通知（审批请求、工单完成、告警等）
-    Send(ctx context.Context, channel string, message Notification) error
+// ExecutableResolver — 本地可执行文件定位
+type ExecutableResolver interface {
+    LookPath(name string) (string, error)
+}
+
+// AgentCLIProcessManager — Agent CLI 子进程管理
+type AgentCLIProcessManager interface {
+    Start(ctx context.Context, spec AgentCLIProcessSpec) (AgentCLIProcess, error)
+}
+
+// UserServiceManager — 平台相关用户服务管理
+type UserServiceManager interface {
+    Platform() string
+    Apply(context.Context, UserServiceInstallSpec) error
+    Down(context.Context, ServiceName) error
+    Restart(context.Context, ServiceName) error
+    Logs(context.Context, ServiceName, UserServiceLogsOptions) error
 }
 ```
 
+当前仓库里，认证边界主要落在 `internal/httpapi` 的安全设置与 webhook 验签入口；通知则不再通过一个统一的 `NotifyProvider` 暴露，而是由 `internal/notification` 的 channel adapter / rule engine 管理。
+
 **Provider 实现矩阵：**
 
-| Provider | 默认实现 | 可选实现 | 注入位置 |
+| Provider / Contract | 当前默认实现 | 可选实现 / 扩展点 | 注入位置 |
 |----------|---------|---------|---------|
-| AuthProvider | LocalTokenAuth（单 Token） | OIDCAuth（企业 SSO） | HTTP 中间件、CLI 命令 |
-| TraceProvider | OTelTracer（OpenTelemetry） | NoopTracer（关闭追踪） | 全部层 |
-| MetricsProvider | OTelMetrics（OpenTelemetry） | PrometheusMetrics | 全部层 |
-| EventProvider | ChannelBus（Go channel） | PGNotifyBus（PG LISTEN/NOTIFY） | 应用层、编排引擎 |
-| NotifyProvider | LogNotifier（仅日志） | SlackNotifier、WebhookNotifier | 应用层 |
-| LogProvider | SlogLogger（标准库 slog） | — | 全部层 |
+| `TraceProvider` | `internal/provider/noop_trace.go` | `internal/infra/otel/trace.go` | interface、service、runtime |
+| `MetricsProvider` | `internal/provider/metrics.go`（noop） | `internal/infra/otel/metrics.go` | interface、service、runtime |
+| `EventProvider` | `internal/infra/event/channel.go` | `internal/infra/event/pgnotify.go` | service、orchestrator、httpapi |
+| `ExecutableResolver` | `internal/infra/executable/path.go` | 自定义 resolver | service |
+| `AgentCLIProcessManager` | `internal/infra/agentcli/process.go` | fake / test manager | chat、adapter、orchestrator |
+| `UserServiceManager` | `internal/infra/userservice/*.go` | 平台相关实现 | runtime / deploy |
 
-**依赖注入（wire）：** 在 `cmd/openase/wire.go` 中完成所有组装。根据 `~/.openase/config.yaml` 的配置选择具体实现：
+**依赖注入（wiring）：** 当前主要在 `internal/app/app.go`、`cmd/openase/main.go` 和 CLI 子命令中完成组装。根据 `~/.openase/config.yaml` 的配置选择具体实现：
 
 ```go
 // 伪代码
 func buildProviders(cfg Config) Providers {
-    var auth provider.AuthProvider
-    if cfg.Auth.Mode == "oidc" {
-        auth = oidcauth.New(cfg.Auth.OIDC)
-    } else {
-        auth = localauth.New(cfg.Auth.LocalToken)
-    }
-
     var event provider.EventProvider
     if cfg.Event.Driver == "pgnotify" {
         event = pgnotify.New(cfg.Database.DSN)
     } else {
-        // 默认 "channel"，all-in-one 模式下自动选择
-        event = channelbus.New()
+        event = channelbus.New() // all-in-one 默认 channel
     }
 
-    // ... 其余 Provider 同理
-    return Providers{Auth: auth, Event: event, ...}
+    trace := oteltrace.NewOrNoop(cfg.Observability)
+    metrics := otelmetrics.NewOrNoop(cfg.Observability)
+    resolver := executable.NewPathResolver()
+
+    return Providers{Event: event, Trace: trace, Metrics: metrics, Resolver: resolver}
 }
 ```
 
@@ -434,118 +422,30 @@ func buildProviders(cfg Config) Providers {
 ```
 openase/
 ├── cmd/openase/
-│   ├── main.go                  # cobra 入口
-│   ├── serve.go                 # API 服务子命令
-│   ├── orchestrate.go           # 编排引擎子命令
-│   ├── allinone.go              # 单进程模式（默认）
-│   └── wire.go                  # 依赖注入装配
+│   └── main.go                  # CLI 入口
 │
-├── domain/                      # ── 领域层（零外部依赖）──
-│   ├── ticket/
-│   │   ├── entity.go            # Ticket, TicketStatus, Priority, TicketDependency
-│   │   ├── statemachine.go      # 状态转换规则 + 前置检查
-│   │   ├── repository.go        # type Repository interface { ... }
-│   │   ├── service.go           # 领域服务（分配逻辑、依赖检查）
-│   │   └── event.go             # TicketCreated, TicketClaimed, TicketCompleted 等
-│   ├── workflow/
-│   │   ├── entity.go            # Workflow, HarnessTemplate
-│   │   ├── repository.go
-│   │   └── service.go           # Harness 渲染、Workflow 匹配
-│   ├── agent/
-│   │   ├── entity.go            # Agent, AgentStatus, Session
-│   │   ├── adapter.go           # type Adapter interface { Start, Stop, Resume, ... }
-│   │   ├── repository.go
-│   │   └── service.go           # 能力匹配、负载均衡
-│   ├── project/
-│   │   ├── entity.go            # Project, ProjectRepo, TicketRepoScope
-│   │   └── repository.go
-│   ├── hook/
-│   │   ├── definition.go        # HookType, HookConfig, HookResult
-│   │   └── executor.go          # type Executor interface { Run(ctx, hook, env) Result }
-│   └── provider/
-│       ├── auth.go              # AuthProvider interface
-│       ├── trace.go             # TraceProvider interface
-│       ├── metrics.go           # MetricsProvider interface
-│       ├── event.go             # EventProvider interface
-│       └── notify.go            # NotifyProvider interface
+├── internal/
+│   ├── app/                     # 启动入口与 runtime wiring
+│   ├── domain/                  # 领域解析、纯逻辑、值对象
+│   ├── types/                   # 底层领域类型 / DB 边界类型
+│   ├── provider/                # 跨层 provider contracts
+│   ├── repo/                    # ent-backed repository adapters
+│   ├── service/                 # 典型 service/use-case 包
+│   ├── ticket/                  # 工单 service/use-case
+│   ├── workflow/                # workflow service/use-case
+│   ├── chat/                    # chat service/use-case
+│   ├── notification/            # notification service/use-case
+│   ├── scheduledjob/            # scheduled job service/use-case
+│   ├── agentplatform/           # agent platform service/use-case
+│   ├── infra/                   # adapter / hook / ssh / workspace / event / otel 等实现
+│   ├── httpapi/                 # Echo HTTP API、SSE、webhook、OpenAPI handler
+│   ├── cli/                     # CLI 子命令
+│   ├── orchestrator/            # 调度与运行编排
+│   ├── runtime/                 # runtime 支撑（DB、观测）
+│   ├── setup/                   # setup 向导
+│   └── webui/                   # embed 的 Web UI handler
 │
-├── app/                         # ── 应用层（用例编排）──
-│   ├── command/
-│   │   ├── create_ticket.go     # CreateTicketCmd + Handler
-│   │   ├── claim_ticket.go      # ClaimTicketCmd + Handler（含 on_claim Hook 调用）
-│   │   ├── complete_ticket.go   # CompleteTicketCmd + Handler（含 on_complete Hook 调用）
-│   │   ├── approve_gate.go
-│   │   ├── create_project.go
-│   │   └── register_agent.go
-│   ├── query/
-│   │   ├── list_tickets.go
-│   │   ├── ticket_detail.go
-│   │   ├── agent_status.go
-│   │   └── dashboard_stats.go   # 仪表盘聚合查询
-│   └── dto/
-│       ├── ticket.go            # Request/Response DTO
-│       ├── agent.go
-│       └── project.go
-│
-├── infra/                       # ── 基础设施层（外部依赖实现）──
-│   ├── persistence/
-│   │   ├── ent/                 # ent Schema 定义
-│   │   │   └── schema/
-│   │   ├── ticket_repo.go       # ticket.Repository 的 ent 实现
-│   │   ├── workflow_repo.go
-│   │   ├── agent_repo.go
-│   │   ├── project_repo.go
-│   │   └── approval_repo.go
-│   ├── adapter/
-│   │   ├── claudecode/          # agent.Adapter 的 Claude Code 实现
-│   │   ├── codex/               # agent.Adapter 的 Codex 实现
-│   │   └── gemini/              # agent.Adapter 的 Gemini 实现
-│   ├── hook/
-│   │   └── shell_executor.go    # hook.Executor 的 shell 脚本实现
-│   ├── gitops/                  # go-git 封装
-│   ├── workspace/               # 多 Repo 联合工作区
-│   ├── sse/                     # SSE 推送
-│   └── provider/
-│       ├── auth/
-│       │   ├── local.go         # LocalTokenAuth
-│       │   └── oidc.go          # OIDCAuth
-│       ├── otel/
-│       │   ├── tracer.go        # OTelTracer
-│       │   └── metrics.go       # OTelMetrics
-│       ├── event/
-│       │   ├── channel.go       # ChannelBus (Go channel)
-│       │   └── pgnotify.go      # PGNotifyBus (PG LISTEN/NOTIFY)
-│       └── notify/
-│           ├── log.go           # LogNotifier (默认)
-│           ├── slack.go         # SlackNotifier
-│           └── webhook.go       # WebhookNotifier
-│
-├── api/                         # ── 接口层 ──
-│   ├── handler/                 # Echo HTTP handler
-│   │   ├── ticket.go
-│   │   ├── workflow.go
-│   │   ├── agent.go
-│   │   ├── project.go
-│   │   ├── approval.go
-│   │   ├── activity.go
-│   │   └── sse.go               # SSE 推送端点
-│   ├── middleware/
-│   │   ├── auth.go              # AuthProvider 中间件
-│   │   ├── tracing.go           # TraceProvider 中间件（自动创建请求 Span）
-│   │   ├── metrics.go           # MetricsProvider 中间件（请求计数/延迟）
-│   │   ├── ratelimit.go         # 速率限制
-│   │   └── cors.go
-│   ├── openapi/                 # OpenAPI spec + oapi-codegen 生成代码
-│   └── setup/                   # Setup Wizard handler
-│
-├── orchestrator/                # ── 编排引擎（独立入口，共享 domain + app）──
-│   ├── scheduler.go             # 调度循环（Tick 模式）
-│   ├── worker_pool.go           # Worker 生命周期管理
-│   ├── worker.go                # 单工单 Worker（goroutine）
-│   ├── harness_watcher.go       # Harness 文件热重载
-│   └── health_checker.go        # Agent 心跳 + Stall 检测
-│
-├── web/                         # SvelteKit 前端（构建后 embed）
+├── web/                         # Svelte 前端（构建后 embed）
 ├── go.mod
 └── Dockerfile                   # 可选
 ```
@@ -1059,7 +959,7 @@ s.ticketRepo.Save(ctx, t)
 **关键规则：任何 `status_id` 变更都清空 `assigned_agent_id`。** 无论是编排引擎自动移状态、Agent 通过 Platform API 改状态、还是人类在看板上手动拖拽——只要 status_id 变了，assigned_agent_id 就清空。这保证工单回到任何 pickup 列都能被重新领取。
 
 ```go
-// api/handler/ticket.go — 人类通过 UI 拖拽工单时
+// internal/httpapi/ticket_api.go — 人类通过 UI 拖拽工单时
 func (h *TicketHandler) UpdateStatus(c echo.Context) error {
     ...
     if newStatusID != t.StatusID {
@@ -1506,11 +1406,11 @@ OpenASE 在真正 claim + launch 前应执行：
 | 组件 | 实现 | 职责 |
 |------|------|------|
 | Scheduler | 单一 goroutine + ticker | 序列化所有调度决策 |
-| WorkerPool | goroutine 池 + sync.Map | 管理所有 Worker 生命周期 |
-| Worker | 每工单一个 goroutine | 管理单个 Agent CLI 子进程 |
-| HarnessWatcher | fsnotify | 监控 Harness 文件变更 |
+| RuntimeRegistry | 编排引擎内存映射 | 管理活动 runtime / session 生命周期 |
+| RuntimeRunner | 每工单一个 goroutine | 管理单个 Agent CLI 子进程与事件泵 |
+| Harness Loader | DB + 文件系统读取 | 解析 Harness 内容并为运行时提供输入 |
 | EventBus | Go channel（同进程）/ PG LISTEN/NOTIFY（分开部署） | 与 API 服务的事件通信 |
-| HealthChecker | 定时 goroutine | 周期性检查 Worker 心跳 |
+| HealthChecker / RetryService | 定时 goroutine | 周期性检查 runtime 心跳、清理异常态、驱动重试 |
 
 ---
 
@@ -2933,8 +2833,8 @@ import (
     "github.com/labstack/echo/v4"    // 外部依赖
     "go.opentelemetry.io/otel"
 
-    "github.com/openase/openase/domain/ticket"   // 内部包
-    "github.com/openase/openase/app/command"
+    "github.com/BetterAndBetterII/openase/internal/domain/ticketing" // 内部包
+    "github.com/BetterAndBetterII/openase/internal/httpapi"
 )
 ```
 
@@ -3005,7 +2905,7 @@ linters-settings:
       - name: increment-decrement
 ```
 
-**depguard 是架构守卫的关键**——它在 lint 阶段强制执行 DDD 的依赖方向：domain 不能 import infra，app 不能 import api。违反就报错，PR 无法合并。
+**depguard / architecture guard 是架构守卫的关键**——它在 lint 阶段强制执行当前仓库的依赖方向：`internal/domain` / `internal/types` 不能向上依赖 `repo/service/httpapi/app wiring`，`internal/service` 不能 import `internal/httpapi` / `internal/setup` / `cmd/openase`，并且禁止新的 `ent/*` 混入本该保持纯净的 domain/service 边界。违反就报错，PR 无法合并。
 
 **命名规范**
 
@@ -3018,7 +2918,7 @@ linters-settings:
 | Context | 第一个参数 | `func (s *Service) Claim(ctx context.Context, ...) error` |
 | 构造函数 | `New` + 类型名 | `NewScheduler(cfg Config) *Scheduler` |
 | DTO | `XxxRequest` / `XxxResponse` | `CreateTicketRequest`、`TicketDetailResponse` |
-| Command | `XxxCmd` | `ClaimTicketCmd`、`CompleteTicketCmd` |
+| Use-case Input | `XxxInput` / `CreateXxx` / `UpdateXxx` | `PullRequestStatusInput`、`CreateInput`、`UpdateAgentProvider` |
 | Domain Event | 过去时 | `TicketClaimed`、`HookFailed`、`AgentStalled` |
 
 **Error 处理**
@@ -3444,7 +3344,7 @@ pre-commit:
 
     go-test:
       glob: "*.go"
-      run: go test ./domain/... ./app/... -short -count=1
+      run: go test ./internal/domain/... ./internal/service/... ./internal/ticket ./internal/workflow ./internal/httpapi -short -count=1
 
     go-vet:
       glob: "*.go"
@@ -3532,7 +3432,7 @@ git commit
 |--------|----------------------|--------------|
 | gofmt + goimports | 自动修复 | 检查（不修复） |
 | golangci-lint | 增量（本次变更） | 全量 |
-| go test (unit) | domain + app 层，`-short` | 全部包，含覆盖率 |
+| go test (unit) | `internal/domain` + service/use-case + `internal/httpapi`，`-short` | 全部包，含覆盖率 |
 | go test (integration) | 跳过 | testcontainers-go |
 | Prettier | 自动修复 | 检查 |
 | ESLint + svelte-check | 增量 | 全量 |
@@ -3559,43 +3459,35 @@ git commit
 这是最基础的写操作路径，展示 Interface → Application → Domain → Infrastructure 的标准调用链。
 
 ```
-┌──────────┐    POST /api/tickets     ┌──────────────┐
-│  Web UI  │ ──────────────────────→  │ ticket.Handler│
-│ (Svelte) │    CreateTicketRequest   │  (Interface)  │
+┌──────────┐   POST /api/v1/projects/:id/tickets   ┌──────────────┐
+│  Web UI  │ ────────────────────────────────────→ │ internal/httpapi │
+│ (Svelte) │    createTicketRequest                │  (Interface)     │
 └──────────┘                          └──────┬───────┘
                                              │
                   ┌──────────────────────────┘
                   ▼
-         ┌─────────────────┐
-         │ CreateTicketCmd  │  (Application Layer)
-         │    Handler       │
-         └────────┬────────┘
+         ┌────────────────────────┐
+         │ ticket/service.go      │
+         │ or service/* package   │  (Service / Use-Case Layer)
+         └──────────┬─────────────┘
                   │
                   ▼
 ```
 
 ```go
-// api/handler/ticket.go — Interface 层
+// internal/httpapi/ticket_api.go — Interface / Entry 层
 func (h *TicketHandler) Create(c echo.Context) error {
     ctx := c.Request().Context()
     ctx, span := h.tracer.StartSpan(ctx, "handler.ticket.create")  // Provider: Trace
     defer span.End()
 
-    var req dto.CreateTicketRequest
+    var req createTicketRequest
     if err := c.Bind(&req); err != nil {
         return echo.NewHTTPError(400, err.Error())
     }
 
-    // 调用 Application 层
-    result, err := h.createCmd.Handle(ctx, command.CreateTicketCmd{
-        ProjectID:   req.ProjectID,
-        Title:       req.Title,
-        Description: req.Description,
-        Priority:    req.Priority,
-        Type:        req.Type,
-        WorkflowID:  req.WorkflowID,       // 可选，用户手动指定
-        RepoScopes:  req.RepoScopes,        // 可选，涉及哪些 Repo
-    })
+    // 调用 Service / Use-Case 层
+    result, err := h.ticketService.Create(ctx, req.toCreateInput())
     if err != nil {
         return mapDomainError(err)  // domain error → HTTP status
     }
@@ -3605,79 +3497,33 @@ func (h *TicketHandler) Create(c echo.Context) error {
 ```
 
 ```go
-// app/command/create_ticket.go — Application 层
-func (h *CreateTicketHandler) Handle(ctx context.Context, cmd CreateTicketCmd) (*dto.TicketResponse, error) {
-    ctx, span := h.tracer.StartSpan(ctx, "cmd.ticket.create")
+// internal/ticket/service.go — Service / Use-Case 层
+func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error) {
+    ctx, span := s.trace.StartSpan(ctx, "ticket.create")
     defer span.End()
 
-    // 1. 通过 Domain Service 创建工单（含业务规则校验）
-    t, err := h.ticketSvc.Create(ctx, ticket.CreateParams{
-        ProjectID:   cmd.ProjectID,
-        Title:       cmd.Title,
-        Description: cmd.Description,
-        Priority:    ticket.Priority(cmd.Priority),
-        Type:        ticket.Type(cmd.Type),
-    })
+    params, err := parseCreateInput(input)
     if err != nil {
-        return nil, err  // domain error 原样冒泡
+        return Ticket{}, err
     }
 
-    // 2. 分配 Workflow（如果用户没指定，走自动匹配）
-    if cmd.WorkflowID != "" {
-        t.WorkflowID = cmd.WorkflowID
-    } else if h.projectCfg.AutoAssignWorkflow {
-        wf, err := h.workflowSvc.AutoMatch(ctx, t.Title, t.Description)
-        if err == nil {
-            t.WorkflowID = wf.ID
-        }
+    created, err := s.repo.Create(ctx, params)
+    if err != nil {
+        return Ticket{}, fmt.Errorf("create ticket: %w", err)
     }
 
-    // 3. 绑定 RepoScope（如果用户指定了涉及的 Repo）
-    for _, scope := range cmd.RepoScopes {
-        t.AddRepoScope(scope.RepoID, scope.IsPrimary)
-    }
-
-    // 4. 持久化
-    if err := h.ticketRepo.Save(ctx, t); err != nil {
-        return nil, fmt.Errorf("save ticket: %w", err)
-    }
-
-    // 5. 发布领域事件 → EventProvider 广播
-    h.eventBus.Publish(ctx, "ticket.events", ticket.CreatedEvent{
-        TicketID:   t.ID,
-        Identifier: t.Identifier,
-        ProjectID:  t.ProjectID,
-    })
-
-    // 6. 指标埋点
-    h.metrics.Counter("openase.ticket.created_total", provider.Tags{
-        "project": t.ProjectID,
-        "workflow_type": t.WorkflowType(),
-        "source": "manual",
-    }).Inc()
-
-    return dto.ToTicketResponse(t), nil
+    return created, nil
 }
 ```
 
 ```go
-// domain/ticket/service.go — Domain 层（纯业务规则）
-func (s *Service) Create(ctx context.Context, p CreateParams) (*Ticket, error) {
-    // 业务规则校验（不涉及任何外部依赖）
-    if p.Title == "" {
-        return nil, ErrTitleRequired
+// internal/domain/ticketing/retry.go — Domain / Core Types 层（纯业务规则）
+func NextRetryAt(attempt int, baseDelay time.Duration, now time.Time) time.Time {
+    if attempt < 1 {
+        attempt = 1
     }
-
-    t := &Ticket{
-        ID:         uuid.New(),
-        Identifier: s.nextIdentifier(),  // 如 ASE-42
-        Status:     StatusBacklog,
-        Priority:   p.Priority,
-        Type:       p.Type,
-        Title:      p.Title,
-        CreatedAt:  time.Now(),
-    }
-    return t, nil
+    delay := baseDelay * time.Duration(1<<(attempt-1))
+    return now.Add(delay)
 }
 ```
 
@@ -3687,10 +3533,10 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (*Ticket, error) {
 
 ### 16.2 路径二：编排引擎调度 Tick（系统内部核心循环）
 
-这是编排引擎每隔 N 秒执行一次的调度循环，展示编排引擎如何与 Domain 层和 Provider 交互。
+这是编排引擎每隔 N 秒执行一次的调度循环，展示编排引擎如何与 service/use-case、domain 规则和 provider 边界交互。
 
 ```go
-// orchestrator/scheduler.go
+// internal/orchestrator/scheduler.go
 func (s *Scheduler) runTick(ctx context.Context) {
     ctx, span := s.tracer.StartSpan(ctx, "orchestrator.tick")
     defer span.End()
@@ -3768,14 +3614,14 @@ func (s *Scheduler) runTick(ctx context.Context) {
 Scheduler.dispatch()
     │
     ▼
-┌─────────────┐   on_claim Hook    ┌──────────────┐   Agent CLI    ┌───────────┐
-│ ClaimTicket  │ ───────────────→   │ HookExecutor │ ────────────→  │  Adapter  │
-│   Cmd        │   (仓库克隆等)      │  (Shell)     │   (启动)       │(ClaudeCode)│
-└─────────────┘                    └──────────────┘               └───────────┘
+┌────────────────────┐  on_claim Hook   ┌──────────────┐   Agent CLI   ┌───────────┐
+│ ticket.Service     │ ───────────────→ │ HookExecutor │ ────────────→ │  Adapter  │
+│ Claim / Assign     │  (仓库克隆等)     │  (Shell)     │   (启动)      │(ClaudeCode)│
+└────────────────────┘                  └──────────────┘              └───────────┘
 ```
 
 ```go
-// orchestrator/scheduler.go
+// internal/orchestrator/scheduler.go
 func (s *Scheduler) dispatch(ctx context.Context, t *ticket.Ticket) error {
     ctx, span := s.tracer.StartSpan(ctx, "orchestrator.dispatch",
         trace.WithAttributes("ticket.id", t.Identifier))
@@ -3787,11 +3633,8 @@ func (s *Scheduler) dispatch(ctx context.Context, t *ticket.Ticket) error {
         return fmt.Errorf("select agent: %w", err)
     }
 
-    // 2. 通过 Application 层执行 Claim（含 on_claim Hook）
-    err = s.claimCmd.Handle(ctx, command.ClaimTicketCmd{
-        TicketID: t.ID,
-        AgentID:  agent.ID,
-    })
+    // 2. 通过 Service / Use-Case 层执行 Claim（含 on_claim Hook）
+    err = s.ticketService.Claim(ctx, t.ID, agent.ID)
     if err != nil {
         return fmt.Errorf("claim ticket: %w", err)
     }
@@ -3806,12 +3649,12 @@ func (s *Scheduler) dispatch(ctx context.Context, t *ticket.Ticket) error {
 ```
 
 ```go
-// app/command/claim_ticket.go — Claim 包含 Hook 执行
-func (h *ClaimTicketHandler) Handle(ctx context.Context, cmd ClaimTicketCmd) error {
-    ctx, span := h.tracer.StartSpan(ctx, "cmd.ticket.claim")
+// internal/ticket/service.go — Claim / 状态流转包含 Hook 执行
+func (s *Service) Claim(ctx context.Context, ticketID uuid.UUID, agentID uuid.UUID) error {
+    ctx, span := s.trace.StartSpan(ctx, "ticket.claim")
     defer span.End()
 
-    t, err := h.ticketRepo.Get(ctx, cmd.TicketID)
+    t, err := s.repo.Get(ctx, ticketID)
     if err != nil {
         return err
     }
@@ -3820,43 +3663,43 @@ func (h *ClaimTicketHandler) Handle(ctx context.Context, cmd ClaimTicketCmd) err
     if err := t.TransitionTo(ticket.StatusInProgress); err != nil {
         return err  // 比如 ErrAlreadyClaimed, ErrBlockedByDependency
     }
-    t.AssignedAgentID = cmd.AgentID
+    t.AssignedAgentID = agentID
 
     // 2. 准备 Hook 环境变量
-    repos, _ := h.repoScopeRepo.ListByTicket(ctx, t.ID)
+    repos, _ := s.repoScopeRepo.ListByTicket(ctx, t.ID)
     hookEnv := hook.Env{
         TicketID:         t.ID,
         TicketIdentifier: t.Identifier,
         WorkflowType:     t.WorkflowType(),
-        AgentName:        cmd.AgentID,
+        AgentName:        agentID,
         Repos:            repos,
     }
 
     // 3. 执行 on_claim Hook（阻塞型：失败则不领取）
-    workflow, _ := h.workflowRepo.Get(ctx, t.WorkflowID)
-    results, err := h.hookExec.RunAll(ctx, workflow.Hooks.OnClaim, hookEnv)
+    workflow, _ := s.workflowRepo.Get(ctx, t.WorkflowID)
+    results, err := s.hookExec.RunAll(ctx, workflow.Hooks.OnClaim, hookEnv)
     if err != nil {
         // Hook 失败 → 记录日志 → 工单不领取，留在 todo
-        h.eventBus.Publish(ctx, "ticket.events", ticket.HookFailedEvent{
+        s.eventBus.Publish(ctx, "ticket.events", ticket.HookFailedEvent{
             TicketID: t.ID,
             Hook:     "on_claim",
             Error:    err.Error(),
             Results:  results,
         })
-        h.metrics.Counter("openase.hook.block_total",
+        s.metrics.Counter("openase.hook.block_total",
             provider.Tags{"hook_name": "on_claim"}).Inc()
         return fmt.Errorf("on_claim hook failed: %w", err)
     }
 
     // 4. 持久化状态变更
-    if err := h.ticketRepo.Save(ctx, t); err != nil {
+    if err := s.repo.Save(ctx, t); err != nil {
         return err
     }
 
     // 5. 广播事件
-    h.eventBus.Publish(ctx, "ticket.events", ticket.ClaimedEvent{
+    s.eventBus.Publish(ctx, "ticket.events", ticket.ClaimedEvent{
         TicketID: t.ID,
-        AgentID:  cmd.AgentID,
+        AgentID:  agentID,
     })
 
     return nil
@@ -3864,7 +3707,7 @@ func (h *ClaimTicketHandler) Handle(ctx context.Context, cmd ClaimTicketCmd) err
 ```
 
 ```go
-// orchestrator/worker.go — Worker 执行 Agent
+// internal/orchestrator/runtime_runner.go — Worker 执行 Agent（概念示意）
 func (s *Scheduler) runWorker(ctx context.Context, t *ticket.Ticket, agent *agent.Agent) {
     ctx, span := s.tracer.StartSpan(ctx, "worker.run",
         trace.WithAttributes("ticket.id", t.Identifier, "agent.name", agent.Name))
@@ -3925,10 +3768,7 @@ func (s *Scheduler) runWorker(ctx context.Context, t *ticket.Ticket, agent *agen
     }
 
     // 5. Agent 执行完毕 → 调用 CompleteTicket（含 on_complete Hook）
-    err = s.completeCmd.Handle(ctx, command.CompleteTicketCmd{
-        TicketID:  t.ID,
-        SessionID: session.ID,
-    })
+    err = s.ticketService.Complete(ctx, t.ID, session.ID)
     if err != nil {
         // on_complete Hook 失败 → Agent 会收到反馈继续工作（重试逻辑）
         s.handleRetry(ctx, t.ID, RetryReasonHookFailed)
@@ -4000,8 +3840,8 @@ func (r *AgentRunner) Run(ctx context.Context, ticket *ticket.Ticket, agent *age
 
 **通知方式：**
 - `on_claim` Hook 失败 → `EventProvider.Publish("ticket.events", HookFailedEvent)` → SSE → 前端显示"领取失败"
-- Agent 执行中 → `EventProvider.Publish("agent.events", AgentProgressEvent)` → SSE → 前端实时流
-- Agent 完成 → `CompleteTicketCmd` → `on_complete` Hook → 成功则 `EventProvider.Publish("ticket.events", CompletedEvent)` → SSE → 前端状态更新
+- Agent 执行中 → `EventProvider.Publish(agent progress event)` → SSE → 前端实时流
+- Agent 完成 → `internal/ticket` 的完成路径 → `on_complete` Hook → 成功则 `EventProvider.Publish(ticket completed event)` → SSE → 前端状态更新
 
 ---
 
@@ -4010,13 +3850,13 @@ func (r *AgentRunner) Run(ctx context.Context, ticket *ticket.Ticket, agent *age
 这条路径展示 Hook 如何作为质量门禁阻止或放行状态推进。
 
 ```go
-// app/command/complete_ticket.go
-func (h *CompleteTicketHandler) Handle(ctx context.Context, cmd CompleteTicketCmd) error {
-    ctx, span := h.tracer.StartSpan(ctx, "cmd.ticket.complete")
+// internal/ticket/service.go — 简化伪代码，表示当前 service 层中的完成路径
+func (s *Service) CompleteAfterAgentRun(ctx context.Context, ticketID uuid.UUID) error {
+    ctx, span := s.trace.StartSpan(ctx, "ticket.complete_after_agent_run")
     defer span.End()
 
-    t, _ := h.ticketRepo.Get(ctx, cmd.TicketID)
-    workflow, _ := h.workflowRepo.Get(ctx, t.WorkflowID)
+    t, _ := s.loadTicket(ctx, ticketID)
+    workflow, _ := s.loadWorkflow(ctx, t.WorkflowID)
 
     // 1. 执行 on_complete Hook（阻塞型）
     hookEnv := hook.Env{
@@ -4025,34 +3865,27 @@ func (h *CompleteTicketHandler) Handle(ctx context.Context, cmd CompleteTicketCm
         Workspace:        t.WorkspacePath(),
         Repos:            t.RepoScopes(),
     }
-    results, err := h.hookExec.RunAll(ctx, workflow.Hooks.OnComplete, hookEnv)
+    results, err := s.runOnCompleteHooks(ctx, workflow, hookEnv)
 
     // 逐个记录 Hook 结果
     for _, r := range results {
-        h.metrics.Histogram("openase.hook.duration_seconds",
+        s.metrics.Histogram("openase.hook.duration_seconds",
             provider.Tags{"hook_name": r.Name}).Observe(r.Duration.Seconds())
-        h.metrics.Counter("openase.hook.execution_total",
+        s.metrics.Counter("openase.hook.execution_total",
             provider.Tags{"hook_name": r.Name, "outcome": r.Outcome}).Inc()
     }
 
     if err != nil {
         // ── Hook 失败：工单留在 in_progress ──
         //    把失败信息作为 "反馈" 返回给 Agent，让它修复后重试
-        h.eventBus.Publish(ctx, "ticket.events", ticket.HookFailedEvent{
-            TicketID: t.ID,
-            Hook:     "on_complete",
-            Error:    err.Error(),
-            Results:  results,
-            // Agent 适配器会读到这个事件，注入到下一轮 Prompt 中：
-            // "on_complete Hook 失败：run-tests.sh 退出码 1，stderr: FAIL api/auth_test.go"
-        })
+        s.publishHookFailed(ctx, t.ID, "on_complete", err, results)
         return fmt.Errorf("on_complete hook failed: %w", err)
     }
 
     // ── Hook 全部通过 ──
 
     // 2. 检查所有 Repo 的 PR 是否已提交
-    scopes, _ := h.repoScopeRepo.ListByTicket(ctx, t.ID)
+    scopes, _ := s.listRepoScopes(ctx, t.ID)
     allPRsOpen := true
     for _, scope := range scopes {
         if scope.PRStatus == "none" {
@@ -4068,23 +3901,15 @@ func (h *CompleteTicketHandler) Handle(ctx context.Context, cmd CompleteTicketCm
     if err := t.TransitionTo(ticket.StatusInReview); err != nil {
         return err
     }
-    h.ticketRepo.Save(ctx, t)
+    s.saveTicket(ctx, t)
 
     // 4. 通知 Reviewer，工单保持在 in_review
-    h.notifier.Send(ctx, "ticket.in_review", provider.Notification{
-        Title:   fmt.Sprintf("工单 %s 等待人工确认", t.Identifier),
-        Body:    fmt.Sprintf("Agent 已完成工作，%d 个 Hook 全部通过。", len(results)),
-        Link:    fmt.Sprintf("/tickets/%s", t.Identifier),
-    })
+    s.notificationEngine.NotifyTicketReadyForReview(ctx, t, len(results))
 
     // 5. 广播
-    h.eventBus.Publish(ctx, "ticket.events", ticket.MovedToReviewEvent{
-        TicketID:        t.ID,
-        HookResults:     results,
-        ApprovalCreated: false,
-    })
+    s.publishMovedToReview(ctx, t.ID, results)
 
-    h.metrics.Histogram("openase.ticket.agent_time_seconds",
+    s.metrics.Histogram("openase.ticket.agent_time_seconds",
         provider.Tags{"workflow_type": t.WorkflowType()}).
         Observe(time.Since(t.StartedAt).Seconds())
 
@@ -4094,7 +3919,7 @@ func (h *CompleteTicketHandler) Handle(ctx context.Context, cmd CompleteTicketCm
 
 **通知方式：**
 - Hook 失败 → `EventProvider` → SSE → 前端标红显示 + Agent 收到反馈重试
-- Hook 通过 → `NotifyProvider.Send("ticket.in_review", ...)` → Slack/Email/Webhook → Reviewer 收到通知
+- Hook 通过 → `internal/notification` / `NotificationEngine` → Slack/Email/Webhook → Reviewer 收到通知
 - 人类把工单移到 finish → 触发 `on_done` → 工单完成
 
 ---
@@ -4104,7 +3929,7 @@ func (h *CompleteTicketHandler) Handle(ctx context.Context, cmd CompleteTicketCm
 这条路径展示外部事件如何触发内部状态变更。
 
 ```
-GitHub  ──POST /api/webhooks/github──→  WebhookHandler  ──→  SyncPRStatusCmd
+GitHub  ──POST /api/v1/webhooks/github──→  httpapi webhook handler  ──→  ticket/workflow service
                                            │
                                            ▼
                                      匹配 branch name
@@ -4128,13 +3953,13 @@ GitHub  ──POST /api/webhooks/github──→  WebhookHandler  ──→  Syn
 ```
 
 ```go
-// api/handler/webhook.go — Interface 层
+// internal/httpapi/github_webhook.go — Interface / Entry 层
 func (h *WebhookHandler) HandleGitHub(c echo.Context) error {
     payload, _ := github.ParseWebhook(c)
 
     switch payload.Action {
     case "opened", "synchronize", "closed":
-        return h.syncPRCmd.Handle(c.Request().Context(), command.SyncPRStatusCmd{
+        return h.ticketService.SyncPullRequestStatus(c.Request().Context(), PullRequestStatusInput{
             RepoURL:    payload.Repository.CloneURL,
             PRNumber:   payload.PullRequest.Number,
             PRStatus:   mapGHStatus(payload),
@@ -4143,7 +3968,7 @@ func (h *WebhookHandler) HandleGitHub(c echo.Context) error {
         })
     case "submitted":  // PR review
         if payload.Review.State == "changes_requested" {
-            return h.syncPRCmd.Handle(c.Request().Context(), command.SyncPRStatusCmd{
+            return h.ticketService.SyncPullRequestStatus(c.Request().Context(), PullRequestStatusInput{
                 RepoURL:  payload.Repository.CloneURL,
                 PRStatus: "changes_requested",
                 ...
@@ -4155,27 +3980,27 @@ func (h *WebhookHandler) HandleGitHub(c echo.Context) error {
 ```
 
 ```go
-// app/command/sync_pr_status.go — Application 层
-func (h *SyncPRStatusHandler) Handle(ctx context.Context, cmd SyncPRStatusCmd) error {
+// internal/ticket/service.go — Service / Use-Case 层
+func (s *Service) SyncPullRequestStatus(ctx context.Context, input PullRequestStatusInput) error {
     // 1. 从 branch name 解析工单标识：agent/claude-01/ASE-42 → ASE-42
-    ticketIdentifier := parseBranchTicketID(cmd.BranchName)
+    ticketIdentifier := parseBranchTicketID(input.BranchName)
     if ticketIdentifier == "" {
         return nil  // 不是 OpenASE 管理的分支，忽略
     }
 
     // 2. 找到对应的 TicketRepoScope
-    scope, err := h.repoScopeRepo.FindByTicketAndRepo(ctx, ticketIdentifier, cmd.RepoURL)
+    scope, err := s.repoScopeRepo.FindByTicketAndRepo(ctx, ticketIdentifier, input.RepoURL)
     if err != nil {
         return nil  // 找不到就忽略
     }
 
     // 3. 更新 PR 状态
-    scope.PRStatus = cmd.PRStatus
-    scope.PRURL = cmd.PRURL
-    h.repoScopeRepo.Save(ctx, scope)
+    scope.PRStatus = input.PRStatus
+    scope.PRURL = input.PRURL
+    s.repoScopeRepo.Save(ctx, scope)
 
     // 4. 检查该工单的所有 RepoScope 状态
-    allScopes, _ := h.repoScopeRepo.ListByTicket(ctx, scope.TicketID)
+    allScopes, _ := s.repoScopeRepo.ListByTicket(ctx, scope.TicketID)
 
     allMerged := true
     anyClosed := false
@@ -4185,7 +4010,7 @@ func (h *SyncPRStatusHandler) Handle(ctx context.Context, cmd SyncPRStatusCmd) e
     }
 
     // 5. 根据聚合状态推进工单
-    t, _ := h.ticketRepo.Get(ctx, scope.TicketID)
+    t, _ := s.repo.Get(ctx, scope.TicketID)
 
     if anyClosed {
         // 有 PR 被关闭 → 不标记 failed，走重试流程
@@ -4193,27 +4018,27 @@ func (h *SyncPRStatusHandler) Handle(ctx context.Context, cmd SyncPRStatusCmd) e
         t.ConsecutiveErrors++
         backoff := min(10*time.Second*(1<<(t.AttemptCount-1)), 30*time.Minute)
         t.NextRetryAt = time.Now().Add(backoff)
-        h.ticketRepo.Save(ctx, t)
-        h.eventBus.Publish(ctx, "ticket.events", ticket.ErrorEvent{
+        s.repo.Save(ctx, t)
+        s.eventBus.Publish(ctx, "ticket.events", ticket.ErrorEvent{
             TicketID: t.ID, Reason: "PR closed without merge, will retry",
         })
     } else if allMerged {
         // 所有 PR 合并 → 执行 on_done Hook → 工单完成
-        workflow, _ := h.workflowRepo.Get(ctx, t.WorkflowID)
-        h.hookExec.RunAll(ctx, workflow.Hooks.OnDone, hook.Env{TicketID: t.ID})
+        workflow, _ := s.workflowRepo.Get(ctx, t.WorkflowID)
+        s.hookExec.RunAll(ctx, workflow.Hooks.OnDone, hook.Env{TicketID: t.ID})
 
         t.StatusID = workflow.FinishStatusID
         t.CompletedAt = time.Now()
-        h.ticketRepo.Save(ctx, t)
+        s.repo.Save(ctx, t)
 
-        h.eventBus.Publish(ctx, "ticket.events", ticket.DoneEvent{TicketID: t.ID})
-        h.metrics.Counter("openase.ticket.completed_total",
+        s.eventBus.Publish(ctx, "ticket.events", ticket.DoneEvent{TicketID: t.ID})
+        s.metrics.Counter("openase.ticket.completed_total",
             provider.Tags{"outcome": "done"}).Inc()
-        h.metrics.Histogram("openase.ticket.cycle_time_seconds").
+        s.metrics.Histogram("openase.ticket.cycle_time_seconds").
             Observe(time.Since(t.StartedAt).Seconds())
-    } else if cmd.PRStatus == "changes_requested" {
+    } else if input.PRStatus == "changes_requested" {
         // Reviewer 要求修改 → 通知 Agent 继续
-        h.eventBus.Publish(ctx, "ticket.events", ticket.ChangesRequestedEvent{
+        s.eventBus.Publish(ctx, "ticket.events", ticket.ChangesRequestedEvent{
             TicketID: t.ID,
             RepoName: scope.RepoName,
         })
@@ -4298,7 +4123,7 @@ func (h *Hub) Run(ctx context.Context, eventBus provider.EventProvider) {
 **SSE 端点：每个浏览器连接注册到 Hub，收到属于自己 project 的事件：**
 
 ```go
-// api/handler/sse.go
+// internal/httpapi/sse.go
 func (h *SSEHandler) TicketStream(c echo.Context) error {
     projectID := c.Param("projectId")
     ctx := c.Request().Context()
@@ -4469,14 +4294,14 @@ export function createTicketStream(projectId: string) {
 
 | 外部系统 | 对接方式 | OpenASE 侧接口 | 数据流向 | 对接时机 |
 |---------|---------|---------------|---------|---------|
-| **GitHub / GitLab** | REST API + Webhook | `infra/gitops/` + `api/handler/webhook.go` | 双向 | Phase 2 |
-| **Claude Code** | CLI subprocess (NDJSON stream) | `infra/adapter/claudecode/` | 双向 | Phase 1 |
-| **OpenAI Codex** | JSON-RPC over stdio | `infra/adapter/codex/` | 双向 | Phase 1 |
-| **Gemini CLI** | CLI subprocess (stdio stream) | `infra/adapter/gemini/` | 双向 | Phase 2 |
-| **PostgreSQL** | SQL (ent ORM) + LISTEN/NOTIFY | `infra/persistence/` + `infra/provider/event/pgnotify.go` | 双向 | Phase 1 |
-| **OIDC Provider** | OIDC Discovery + JWT 验证 | `infra/provider/auth/oidc.go` | 读 | Phase 4 |
-| **Slack** | Incoming Webhook | `infra/provider/notify/slack.go` | 写 | Phase 2 |
-| **OTel Collector** | OTLP gRPC/HTTP | `infra/provider/otel/` | 写 | Phase 2 |
+| **GitHub / GitLab** | REST API + Webhook | `internal/httpapi/github_webhook.go` + `internal/infra/issueconnector/github/connector.go` | 双向 | Phase 2 |
+| **Claude Code** | CLI subprocess (NDJSON stream) | `internal/infra/adapter/claudecode/` | 双向 | Phase 1 |
+| **OpenAI Codex** | JSON-RPC over stdio | `internal/infra/adapter/codex/` | 双向 | Phase 1 |
+| **Gemini CLI** | CLI subprocess (stdio stream) | 当前作为 Agent Provider 扩展点，由 `internal/service/catalog` + `internal/domain/catalog` 管理 | 双向 | Phase 2 |
+| **PostgreSQL** | SQL (ent ORM) + LISTEN/NOTIFY | `internal/repo/` + `internal/infra/event/pgnotify.go` | 双向 | Phase 1 |
+| **OIDC Provider** | OIDC Discovery + JWT 验证 | 当前仓库尚未落地统一 OIDC adapter，安全边界说明见 `internal/httpapi/security_settings_api.go` | 读 | Phase 4 |
+| **Slack / Telegram / Webhook / WeCom** | Webhook / Bot API | `internal/notification/` | 写 | Phase 2 |
+| **OTel Collector** | OTLP gRPC/HTTP | `internal/infra/otel/` | 写 | Phase 2 |
 
 ### 17.3 信息归属与单一信源（Source of Truth）
 
@@ -4487,10 +4312,10 @@ export function createTicketStream(projectId: string) {
 | **工单状态** | OpenASE DB | PostgreSQL `tickets.status` | serve (API) / orchestrate (状态机) | serve (API/SSE)、orchestrate (调度) |
 | **工单描述/元数据** | OpenASE DB | PostgreSQL `tickets.*` | serve (API) | 所有 |
 | **Workflow 定义** | OpenASE DB | PostgreSQL `workflows.*` | serve (API) | orchestrate (调度) |
-| **Harness 内容** | Git 仓库 | 项目 repo `.openase/harnesses/*.md` | 人类 (git push) / refine-harness Agent | orchestrate (HarnessWatcher) |
+| **Harness 内容** | Git 仓库 | 项目 repo `.openase/harnesses/*.md` | 人类 (git push) / refine-harness Agent | orchestrate（Harness loader / scheduler） |
 | **Hook 脚本** | Git 仓库 | 项目 repo `scripts/ci/*`（Harness 中引用） | 人类 (git push) | orchestrate (HookExecutor) |
 | **Agent 注册信息** | OpenASE DB | PostgreSQL `agents.*` + `agent_providers.*` | serve (API) | orchestrate (调度) |
-| **Agent 运行状态** | 编排引擎内存 | WorkerPool (sync.Map) | orchestrate (Worker) | orchestrate (HealthChecker) |
+| **Agent 运行状态** | 编排引擎内存 | runtime registry（活动 session / worker map） | orchestrate (runtime runner) | orchestrate (health checker) |
 | **Agent 会话 ID** | Agent CLI | Agent CLI 内部管理 | Agent CLI | orchestrate (Adapter 读取) |
 | **Git 分支存在性** | Git 平台 | GitHub / GitLab 仓库 | Agent (git push) | serve (Webhook 回调) |
 | **PR 状态** | Git 平台 | GitHub / GitLab API | GitHub (Webhook) | serve (Webhook handler → DB) |
@@ -4512,7 +4337,7 @@ export function createTicketStream(projectId: string) {
 
 | 信息 | 为什么不会不一致 |
 |------|----------------|
-| 工单状态 | 所有状态变更都经过 domain/ticket/statemachine.go 的校验，写入同一个 PostgreSQL 事务 |
+| 工单状态 | 所有状态变更都经过 `internal/ticket` / `internal/ticketstatus` 的规则与持久化路径，写入同一个 PostgreSQL 事务 |
 | Workflow 定义 | 只有 serve 进程的 API 可以写 |
 | 累计成本 | 只有 orchestrate 进程的 Worker 在 Agent 事件中累加 |
 
@@ -4570,14 +4395,14 @@ export function createTicketStream(projectId: string) {
 **自动修复（后台 Reconciler）：**
 
 ```go
-// orchestrator/reconciler.go — 每 10 分钟运行一次
+// internal/orchestrator/health_checker.go / retry_service.go — 周期检查（概念示意）
 func (r *Reconciler) Run(ctx context.Context) {
     // 1. PR 状态对账
     //    遍历所有 in_review 工单 → 通过 Git API 查询真实 PR 状态 → 更新 DB
     r.reconcilePRStatus(ctx)
 
-    // 2. 孤儿 Worker 清理
-    //    检查 WorkerPool 中的 Worker 对应的工单是否还存在（未被删除/取消）
+    // 2. 孤儿 runtime 清理
+    //    检查活动 runtime registry 中的任务是否仍然存在（未被删除/取消）
     r.cleanOrphanWorkers(ctx)
 
     // 3. 卡住工单检测
@@ -4837,18 +4662,18 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 ### 19.1 分层错误处理
 
 ```
-Domain Layer     → 返回领域错误（ErrTicketBlocked, ErrInvalidTransition）
-                     纯业务语义，不含 HTTP 概念
-       ↓
-Application Layer → 包装上下文（fmt.Errorf("claim ticket %s: %w", id, err)）
-                     不吞错误，不转换
-       ↓
-Interface Layer  → 映射到 HTTP 状态码 + 统一错误响应
-                     domain error → 4xx，infra error → 5xx
+Domain / Core Types Layer → 返回领域错误（ErrTicketBlocked, ErrInvalidTransition）
+                            纯业务语义，不含 HTTP 概念
+          ↓
+Service / Use-Case Layer → 包装上下文（fmt.Errorf("claim ticket %s: %w", id, err)）
+                            不吞错误，不转换
+          ↓
+Interface / Entry Layer → 映射到 HTTP 状态码 + 统一错误响应
+                            domain error → 4xx，infra error → 5xx
 ```
 
 ```go
-// api/middleware/error_handler.go
+// internal/httpapi/server.go / ticket_api.go
 func ErrorHandler(err error, c echo.Context) {
     var domainErr *domain.Error
     if errors.As(err, &domainErr) {
@@ -5456,22 +5281,22 @@ DDD 分层的核心价值之一就是可测试性——每一层有明确的输�
 
 ### 24.2 逐层测试策略
 
-**Domain Layer — 100% 覆盖率目标，全部纯单元测试**
+**Domain / Core Types Layer — 100% 覆盖率目标，全部纯单元测试**
 
 这一层是纯 Go 代码，零外部依赖，零接口调用。测试直接构造实体对象，调用方法，断言结果。没有任何东西需要 mock——因为 domain 层不依赖任何接口。
 
 | 测试对象 | 测试内容 | mock 需求 | 覆盖率目标 |
 |---------|---------|-----------|----------|
-| `ticket/statemachine.go` | 所有合法/非法状态转换、前置条件校验 | 无 | 100% |
-| `ticket/entity.go` | 实体创建、字段校验、`AddRepoScope` 等方法 | 无 | 100% |
-| `ticket/service.go` | 依赖检查 `IsBlocked`、优先级排序、标识符生成 | 无 | 100% |
-| `workflow/service.go` | Harness 模板渲染、变量替换、Workflow 类型匹配 | 无 | 100% |
-| `agent/service.go` | 能力匹配算法、负载均衡选择 | 无 | 100% |
-| `approval/entity.go` | 审批状态转换规则 | 无 | 100% |
-| `hook/definition.go` | Hook 配置解析、阻塞策略判断 | 无 | 100% |
+| `internal/domain/ticketing/retry.go` | 指数退避、预算暂停判定 | 无 | 100% |
+| `internal/domain/ticketing/cost.go` | token/cost 解析、金额舍入 | 无 | 100% |
+| `internal/domain/catalog/*.go` | 输入解析、UUID/limit/枚举解析、machine/provider 纯规则 | 无 | 100% |
+| `internal/domain/notification/channel.go` | 通知渠道类型、配置规范化、消息结构 | 无 | 100% |
+| `internal/domain/notification/rule.go` | 订阅规则解析、匹配逻辑 | 无 | 100% |
+| `internal/domain/issueconnector/connector.go` | Connector 配置解析、边界输入规范化 | 无 | 100% |
+| `internal/types/pgarray/string_array.go` | PostgreSQL array 边界类型 | 无 | 100% |
 
 ```go
-// domain/ticket/statemachine_test.go — 示例
+// internal/domain/ticketing/retry_test.go / internal/ticket/*_test.go — 示例
 func Test_Transition_TodoToInProgress_Success(t *testing.T) {
     ticket := NewTicket("ASE-1", "Fix bug")
     ticket.Status = StatusTodo
@@ -5505,49 +5330,34 @@ func Test_Transition_InProgressToInReview_BlockedByDependency(t *testing.T) {
 }
 ```
 
-**Application Layer — 95%+ 覆盖率目标，mock Repository + Provider**
+**Service / Use-Case Layer — 95%+ 覆盖率目标，mock Repository + Provider**
 
 这一层编排用例：调用 domain service → 调用 repository → 调用 provider。所有依赖都是接口，全部 mock。
 
 | 测试对象 | mock 的接口 | 验证重点 |
 |---------|-----------|---------|
-| `command/create_ticket.go` | `ticket.Repository`, `workflow.Repository`, `EventProvider`, `MetricsProvider` | 创建逻辑、自动 Workflow 匹配、事件发布、指标埋点 |
-| `command/claim_ticket.go` | `ticket.Repository`, `hook.Executor`, `EventProvider` | 状态转换、on_claim Hook 调用顺序、Hook 失败回滚 |
-| `command/complete_ticket.go` | `ticket.Repository`, `hook.Executor`, `NotifyProvider` | on_complete Hook、PR 状态聚合、通知发送 |
-| `query/list_tickets.go` | `ticket.Repository` | 分页、过滤、排序参数透传 |
+| `internal/service/catalog/*.go` | `internal/repo/catalog.Repository`, `provider.ExecutableResolver`, `MachineTester` | 编排 catalog 用例、资源探测、默认值/联动更新 |
+| `internal/ticket/*.go` | Ent client / repository 边界、事件总线、状态模板依赖 | 工单创建/状态流转/依赖关系/预算与外链逻辑 |
+| `internal/workflow/*.go` | repo / filesystem / provider 边界 | Harness 校验、模板渲染、技能安装、工作流编排 |
+| `internal/chat/*.go`、`internal/notification/*.go` | adapter / provider / service mock | 对话编排、通知发送、副作用传播 |
 
 ```go
-// app/command/claim_ticket_test.go — 示例
-func Test_ClaimTicket_OnClaimHookFails_TicketStaysInTodo(t *testing.T) {
+// internal/service/catalog/agent_catalog_test.go — 示例
+func TestCreateAgentProviderRejectsMissingExecutable(t *testing.T) {
     // Arrange
-    mockRepo := &mocks.TicketRepository{}
-    mockHook := &mocks.HookExecutor{}
-    mockEvent := &mocks.EventProvider{}
-    mockMetrics := &mocks.MetricsProvider{}
-
-    ticket := domain.NewTicket("ASE-1", "Fix bug")
-    ticket.Status = domain.StatusTodo
-
-    mockRepo.On("Get", mock.Anything, "ASE-1").Return(ticket, nil)
-    mockHook.On("RunAll", mock.Anything, mock.Anything, mock.Anything).
-        Return(nil, fmt.Errorf("clone-repos.sh: exit code 1"))  // Hook 失败
-    mockEvent.On("Publish", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-    mockMetrics.On("Counter", mock.Anything, mock.Anything).Return(&mocks.Counter{})
-
-    handler := command.NewClaimTicketHandler(mockRepo, mockHook, mockEvent, mockMetrics)
+    svc := New(&stubRepository{}, stubExecutableResolver{}, nil)
 
     // Act
-    err := handler.Handle(ctx, command.ClaimTicketCmd{TicketID: "ASE-1", AgentID: "agent-1"})
+    _, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
+        OrganizationID: uuid.New(),
+        Name:           "Gemini",
+        AdapterType:    entagentprovider.AdapterTypeGeminiCli,
+        ModelName:      "gemini-2.5-pro",
+        AuthConfig:     map[string]any{},
+    })
 
     // Assert
-    assert.Error(t, err)
-    assert.Equal(t, domain.StatusTodo, ticket.Status)  // 没有变更
-    mockRepo.AssertNotCalled(t, "Save")                 // 没有持久化
-    mockEvent.AssertCalled(t, "Publish", mock.Anything,  // 但发了 HookFailed 事件
-        "ticket.events", mock.MatchedBy(func(e interface{}) bool {
-            _, ok := e.(domain.HookFailedEvent)
-            return ok
-        }))
+    assert.ErrorIs(t, err, ErrInvalidInput)
 }
 ```
 
@@ -5557,21 +5367,19 @@ func Test_ClaimTicket_OnClaimHookFails_TicketStaysInTodo(t *testing.T) {
 
 | 组件 | 测试方式 | mock / 真实 | 覆盖率目标 |
 |------|---------|------------|----------|
-| `infra/persistence/` (ent Repo) | 集成测试 | **真实 PostgreSQL**（testcontainers-go） | 90% |
-| `infra/adapter/claudecode/` | 单元测试 | **mock CLI subprocess**（fake NDJSON stream） | 85% |
-| `infra/adapter/codex/` | 单元测试 | **mock JSON-RPC server**（stdin/stdout pipe） | 85% |
-| `infra/hook/shell_executor.go` | 单元测试 + 集成 | **真实 shell**（执行测试脚本） | 90% |
-| `infra/gitops/` | 集成测试 | **真实 go-git**（内存 repo 或 temp dir） | 80% |
-| `infra/workspace/` | 集成测试 | **真实文件系统**（temp dir） | 80% |
-| `infra/sse/` | 单元测试 | **mock HTTP ResponseWriter** | 90% |
-| `infra/provider/auth/local.go` | 单元测试 | 无外部依赖 | 100% |
-| `infra/provider/auth/oidc.go` | 单元测试 | **mock OIDC issuer**（httptest） | 90% |
-| `infra/provider/event/channel.go` | 单元测试 | 无外部依赖（纯 Go channel） | 100% |
-| `infra/provider/event/pgnotify.go` | 集成测试 | **真实 PostgreSQL** | 85% |
-| `infra/provider/notify/slack.go` | 单元测试 | **mock HTTP**（httptest） | 90% |
+| `internal/repo/` (ent-backed repository adapters) | 集成测试 | **真实 PostgreSQL**（testcontainers-go） | 90% |
+| `internal/infra/adapter/claudecode/` | 单元测试 | **mock CLI subprocess**（fake NDJSON stream） | 85% |
+| `internal/infra/adapter/codex/` | 单元测试 | **mock JSON-RPC server**（stdin/stdout pipe） | 85% |
+| `internal/infra/hook/shell_executor.go` | 单元测试 + 集成 | **真实 shell**（执行测试脚本） | 90% |
+| `internal/infra/workspace/` | 集成测试 | **真实文件系统**（temp dir） | 80% |
+| `internal/infra/sse/hub.go` | 单元测试 | **mock HTTP ResponseWriter / fake subscribers** | 90% |
+| `internal/infra/otel/*.go` | 单元测试 | fake exporter / noop provider | 80-90% |
+| `internal/infra/event/channel.go` | 单元测试 | 无外部依赖（纯 Go channel） | 100% |
+| `internal/infra/event/pgnotify.go` | 集成测试 | **真实 PostgreSQL** | 85% |
+| `internal/notification/*` | 单元测试 | **mock HTTP**（httptest） | 90% |
 
 ```go
-// infra/adapter/claudecode/adapter_test.go — mock CLI subprocess
+// internal/infra/adapter/claudecode/adapter_test.go — mock CLI subprocess
 func Test_ClaudeCodeAdapter_StreamEvents_ParsesNDJSON(t *testing.T) {
     // 构造一个 fake claude 进程，输出预定义的 NDJSON
     fakeOutput := strings.Join([]string{
@@ -5603,7 +5411,7 @@ func Test_ClaudeCodeAdapter_StreamEvents_ParsesNDJSON(t *testing.T) {
 ```
 
 ```go
-// infra/persistence/ticket_repo_test.go — 真实 PostgreSQL
+// internal/repo/catalog/repo_test.go — 真实 PostgreSQL
 func Test_TicketRepo_ListByStatus_WithPagination(t *testing.T) {
     if testing.Short() { t.Skip("requires PostgreSQL") }
 
@@ -5634,82 +5442,61 @@ func Test_TicketRepo_ListByStatus_WithPagination(t *testing.T) {
 
 | 组件 | 测试方式 | mock 的接口 | 验证重点 |
 |------|---------|-----------|---------|
-| `scheduler.go` | 单元测试 | `ticket.Repository`, `agent.Service`, `WorkerPool` | Tick 调度逻辑、过滤排序、并发限制 |
-| `worker.go` | 单元测试 | `agent.Adapter`, `hook.Executor`, command handlers | Worker 完整生命周期、重试逻辑 |
-| `worker_pool.go` | 单元测试 | 无（纯 goroutine 管理） | Start/Stop/Kill、并发安全 |
-| `health_checker.go` | 单元测试 | `WorkerPool` | Stall 检测阈值、连续 Stall 暂停重试 |
-| `harness_watcher.go` | 集成测试 | 真实文件系统（temp dir） | 文件变更检测、hash 对比、热重载 |
+| `internal/orchestrator/scheduler.go` | 单元测试 + 集成测试 | event provider、ent fixture、service 边界 | Tick 调度逻辑、阻塞判断、并发限制、Machine/Agent 选择 |
+| `internal/orchestrator/runtime_launcher.go` / `runtime_runner.go` | 单元测试 | `AgentCLIProcessManager`、`TraceProvider`、filesystem 边界 | runtime 启动、事件泵送、session 生命周期 |
+| `internal/orchestrator/health_checker.go` | 单元测试 | ent fixture / fake clock | Stall 检测阈值、僵尸 runtime 清理 |
+| `internal/orchestrator/machine_monitor.go` | 单元测试 + 集成测试 | SSH/process 边界 | 远端机器可用性、认证状态、监控事件 |
+| `internal/orchestrator/retry_service.go` | 单元测试 | ticket/retry 数据 fixture | backoff、恢复、暂停条件 |
+| `internal/orchestrator/connector_syncer.go` | 集成测试 | 真实 DB + connector fake | 外部 issue 同步、幂等更新 |
 | 调度循环完整流程 | 集成测试 | 真实 DB + mock Adapter | 工单从 todo → claimed → running → review 全流程 |
 
 ```go
-// orchestrator/scheduler_test.go
-func Test_Scheduler_Tick_SkipsBlockedTickets(t *testing.T) {
-    mockRepo := &mocks.TicketRepository{}
-    mockAgent := &mocks.AgentService{}
-    mockPool := &mocks.WorkerPool{}
+// internal/orchestrator/scheduler_test.go — 简化示意
+func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
+    fixture := newSchedulerFixture(t)
+    fixture.createBlockedCandidate("ASE-2")
+    fixture.createRunnableCandidate("ASE-3")
 
-    // ASE-1 blocks ASE-2
-    ase1 := testutils.NewTicket("ASE-1", ticket.StatusInProgress)
-    ase2 := testutils.NewTicket("ASE-2", ticket.StatusTodo)
-    ase2.AddDependency(ase1.ID, ticket.DependencyBlocks)
-    ase3 := testutils.NewTicket("ASE-3", ticket.StatusTodo)  // 无依赖
+    report, err := fixture.scheduler.RunTick(context.Background())
 
-    mockRepo.On("ListByStatus", mock.Anything, ticket.StatusTodo).
-        Return([]*ticket.Ticket{ase2, ase3}, nil)
-    mockPool.On("ActiveCount").Return(0)
-    mockPool.On("Start", mock.Anything, mock.Anything).Return()
-
-    scheduler := orchestrator.NewScheduler(mockRepo, mockAgent, mockPool, defaultConfig)
-    scheduler.RunTick(ctx)
-
-    // ASE-2 被跳过（blocked），ASE-3 被分发
-    mockPool.AssertNumberOfCalls(t, "Start", 1)
+    require.NoError(t, err)
+    assert.Equal(t, 1, report.TicketsSkipped["blocked"])
+    assert.Equal(t, 1, report.TicketsDispatched)
 }
 ```
 
-**Interface Layer — 薄层，测试 HTTP 契约**
+**Interface / Entry Layer — 薄层，测试 HTTP 契约**
 
 | 组件 | 测试方式 | mock | 验证重点 |
 |------|---------|------|---------|
-| `api/handler/*.go` | 单元测试 | command/query handlers | HTTP 状态码、请求参数绑定、响应格式、错误映射 |
-| `api/middleware/auth.go` | 单元测试 | `AuthProvider` | Token 提取、401/403 响应 |
-| `api/middleware/tracing.go` | 单元测试 | `TraceProvider` | Span 创建、request_id 注入 |
-| `api/handler/sse.go` | 集成测试 | `EventProvider` (ChannelBus) | SSE 事件格式、ping keepalive、过滤逻辑 |
+| `internal/httpapi/*.go` | 单元测试 + 集成测试 | service/use-case 边界、provider | HTTP 状态码、请求参数绑定、响应格式、错误映射 |
+| `internal/httpapi/tracing.go` | 单元测试 | `TraceProvider` | Span 创建、request_id 注入 |
+| `internal/httpapi/sse.go` | 集成测试 | `EventProvider` (ChannelBus) | SSE 事件格式、ping keepalive、过滤逻辑 |
+| `cmd/openase/main.go`、`internal/cli/*.go` | 单元测试 | command/service mock | 入口参数、退出码、错误透传 |
 
 ```go
-// api/handler/ticket_test.go — httptest
+// internal/httpapi/ticket_api_test.go — httptest（简化示意）
 func Test_CreateTicket_Returns201_WithIdentifier(t *testing.T) {
-    mockCmd := &mocks.CreateTicketHandler{}
-    mockCmd.On("Handle", mock.Anything, mock.Anything).Return(&dto.TicketResponse{
-        ID: "uuid-1", Identifier: "ASE-1", Status: "backlog",
-    }, nil)
-
-    e := echo.New()
-    handler := api.NewTicketHandler(mockCmd, nil, nil)
-    handler.Register(e)
+    server := newHTTPServerFixture(t)
 
     req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/proj-1/tickets",
         strings.NewReader(`{"title":"Fix bug","priority":"high"}`))
     req.Header.Set("Content-Type", "application/json")
     rec := httptest.NewRecorder()
-    e.ServeHTTP(rec, req)
+    server.echo.ServeHTTP(rec, req)
 
     assert.Equal(t, 201, rec.Code)
-    var resp map[string]interface{}
-    json.Unmarshal(rec.Body.Bytes(), &resp)
-    assert.Equal(t, "ASE-1", resp["data"].(map[string]interface{})["identifier"])
+    assert.Contains(t, rec.Body.String(), "\"identifier\":\"ASE-1\"")
 }
 
 func Test_CreateTicket_Returns400_WhenTitleMissing(t *testing.T) {
-    e := echo.New()
-    handler := api.NewTicketHandler(nil, nil, nil)
-    handler.Register(e)
+    server := newHTTPServerFixture(t)
 
     req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/proj-1/tickets",
         strings.NewReader(`{"priority":"high"}`))  // 缺少 title
     req.Header.Set("Content-Type", "application/json")
     rec := httptest.NewRecorder()
-    e.ServeHTTP(rec, req)
+    server.echo.ServeHTTP(rec, req)
 
     assert.Equal(t, 400, rec.Code)
 }
@@ -5721,19 +5508,15 @@ func Test_CreateTicket_Returns400_WhenTitleMissing(t *testing.T) {
 
 | 接口 | 定义位置 | mock 生成方式 |
 |------|---------|-------------|
-| `ticket.Repository` | `domain/ticket/repository.go` | `mockery` 自动生成 |
-| `workflow.Repository` | `domain/workflow/repository.go` | `mockery` |
-| `agent.Repository` | `domain/agent/repository.go` | `mockery` |
-| `agent.Adapter` | `domain/agent/adapter.go` | `mockery` |
-| `hook.Executor` | `domain/hook/executor.go` | `mockery` |
-| `project.Repository` | `domain/project/repository.go` | `mockery` |
-| `provider.AuthProvider` | `domain/provider/auth.go` | `mockery` |
-| `provider.TraceProvider` | `domain/provider/trace.go` | `mockery` 或用 `NoopTracer` |
-| `provider.MetricsProvider` | `domain/provider/metrics.go` | `mockery` 或用 `NoopMetrics` |
-| `provider.EventProvider` | `domain/provider/event.go` | `mockery` 或用 `ChannelBus`（真实但轻量） |
-| `provider.NotifyProvider` | `domain/provider/notify.go` | `mockery` 或用 `LogNotifier` |
+| `catalog.Repository` | `internal/repo/catalog/repo.go` | `mockery` 或手写 stub |
+| `MachineTester` | `internal/service/catalog/service.go` | 手写 stub / mock |
+| `provider.TraceProvider` | `internal/provider/trace.go` | `mockery` 或用 `NoopTracer` |
+| `provider.MetricsProvider` | `internal/provider/metrics.go` | `mockery` 或用 `NoopMetrics` |
+| `provider.EventProvider` | `internal/provider/event.go` | `mockery` 或用 `ChannelBus`（真实但轻量） |
+| `AgentCLIProcessManager` | `internal/provider/agentcli.go` | `mockery` 或 fake manager |
+| `UserServiceManager` | `internal/provider/service.go` | `mockery` |
 
-一个原则：**domain 层定义的所有接口都应该有对应的 mock。** 用 `mockery` 自动生成，放在 `mocks/` 目录。
+一个原则：**当前 service / provider 边界上暴露的接口都应该有对应的 mock 或 stub。** 优先在稳定的 provider / repository 边界生成 mock；对局部 service 依赖，手写 stub 往往更可控。
 
 **不应该 mock 的（集成测试中必须用真实实现）：**
 
@@ -5843,10 +5626,11 @@ describe('createTicketStream', () => {
 
 | 层 | 100% 可行？ | 现实目标 | 说明 |
 |----|-----------|---------|------|
-| Domain | **是的，必须** | 100% | 纯逻辑，零外部依赖，没有任何理由不到 100% |
-| Application | 几乎可以 | 95%+ | Command/Query handlers 全部可 mock 测试。剩余 5% 是 error wrapping 等防御代码路径 |
+| Domain / Core Types | **是的，必须** | 100% | 主要对应 `internal/domain/*` 与 `internal/types/*` 的纯逻辑与解析代码 |
+| Service / Use-Case | 几乎可以 | 95%+ | 当前仓库主要对应 `internal/service/*`、`internal/ticket`、`internal/workflow`、`internal/chat` 等服务包；多数依赖可 mock |
 | Infrastructure | 不现实 | 80-90% | 外部系统交互的边界情况难以完整覆盖（网络超时、并发竞争等） |
-| Interface | 可以接近 | 90%+ | HTTP handler 很薄，主要是参数绑定和错误映射 |
+| Repository / Persistence | 可以接近 | 90% | 当前仓库主要对应 `internal/repo/*`，适合用真实 PostgreSQL 做集成测试 |
+| Interface / Entry | 可以接近 | 90%+ | 当前仓库主要对应 `internal/httpapi`、`internal/cli`、`cmd/openase`；HTTP handler 应保持薄，入口 wiring 单独统计 |
 | Orchestrator | 不现实 | 85% | 涉及 goroutine 并发、定时器、子进程管理，某些竞态条件难以确定性触发 |
 | Frontend | 不现实 | 80% | UI 交互的边界情况（浏览器兼容、动画时序）难以完整覆盖 |
 
@@ -5858,23 +5642,23 @@ describe('createTicketStream', () => {
 
 ```yaml
 # 在 Makefile 中定义
-test-unit:             ## 运行单元测试（domain + app + handler）
-	go test ./domain/... ./app/... ./api/... -short -count=1 -coverprofile=coverage-unit.out
+test-unit:             ## 运行单元测试（domain/core + service/use-case + httpapi）
+	go test ./internal/domain/... ./internal/service/... ./internal/ticket ./internal/workflow ./internal/chat ./internal/notification ./internal/httpapi -short -count=1 -coverprofile=coverage-unit.out
 
-test-integration:      ## 运行集成测试（需要 Docker 启动 PostgreSQL）
-	go test ./infra/... ./orchestrator/... -count=1 -coverprofile=coverage-integration.out
+test-integration:      ## 运行集成测试（repository + infra + orchestrator，需要 PostgreSQL）
+	go test ./internal/repo/... ./internal/infra/... ./internal/orchestrator ./internal/runtime/... -count=1 -coverprofile=coverage-integration.out
 
 test-all:              ## 运行全部测试
 	go test ./... -count=1 -coverprofile=coverage-all.out
 
 test-coverage:         ## 覆盖率报告
 	go tool cover -func=coverage-all.out | tail -1
-	@echo "Domain coverage:"
-	go test ./domain/... -coverprofile=coverage-domain.out
+	@echo "Domain/Core coverage:"
+	go test ./internal/domain/... ./internal/types/... -coverprofile=coverage-domain.out
 	go tool cover -func=coverage-domain.out | tail -1
 
 mock-generate:         ## 生成 mock（mockery）
-	mockery --all --dir=./domain --output=./mocks --outpkg=mocks
+	mockery --all --dir=./internal --output=./mocks --outpkg=mocks
 
 test-frontend:         ## 前端测试
 	cd web && pnpm run test
@@ -5887,37 +5671,41 @@ test-e2e:              ## E2E 测试（需要完整服务运行）
 
 ```
 openase/
-├── domain/
-│   ├── ticket/
-│   │   ├── statemachine.go
-│   │   └── statemachine_test.go          # 单元测试，与源码同目录
-│   ├── workflow/
-│   │   ├── service.go
-│   │   └── service_test.go
-│   └── ...
-├── app/
-│   ├── command/
-│   │   ├── claim_ticket.go
-│   │   └── claim_ticket_test.go          # 单元测试，mock 注入
-│   └── ...
-├── infra/
-│   ├── persistence/
-│   │   ├── ticket_repo.go
-│   │   └── ticket_repo_test.go           # 集成测试（testcontainers）
-│   ├── adapter/
-│   │   ├── claudecode/
-│   │   │   ├── adapter.go
-│   │   │   └── adapter_test.go           # 单元测试（fake NDJSON）
+├── internal/
+│   ├── domain/
+│   │   ├── ticketing/
+│   │   │   ├── retry.go
+│   │   │   └── retry_test.go             # 纯逻辑单元测试
+│   │   ├── notification/
 │   │   └── ...
-│   └── ...
-├── orchestrator/
-│   ├── scheduler.go
-│   ├── scheduler_test.go                 # 单元测试
+│   ├── service/
+│   │   ├── catalog/
+│   │   │   ├── service.go
+│   │   │   └── agent_catalog_test.go     # 服务层单元测试
+│   │   └── ...
+│   ├── repo/
+│   │   ├── catalog/
+│   │   │   ├── repo.go
+│   │   │   └── repo_test.go              # 仓储集成测试（testcontainers / Postgres）
+│   │   └── ...
+│   ├── infra/
+│   │   ├── adapter/
+│   │   │   ├── claudecode/
+│   │   │   │   ├── adapter.go
+│   │   │   │   └── adapter_test.go       # 单元测试（fake NDJSON）
+│   │   │   └── ...
+│   │   └── ...
+│   ├── orchestrator/
+│   │   ├── scheduler.go
+│   │   ├── scheduler_test.go             # 单元/集成混合测试
+│   │   └── ...
+│   ├── httpapi/
+│   │   ├── ticket_api.go
+│   │   └── ticket_api_test.go            # HTTP 契约测试
 │   └── ...
 ├── mocks/                                # mockery 自动生成
-│   ├── ticket_repository.go
+│   ├── catalog_repository.go
 │   ├── agent_adapter.go
-│   ├── hook_executor.go
 │   ├── event_provider.go
 │   └── ...
 ├── tests/
@@ -5931,7 +5719,7 @@ openase/
 │   ├── testutils/
 │   │   ├── postgres.go                   # testcontainers 封装
 │   │   ├── fixtures.go                   # 测试数据工厂
-│   │   └── fake_adapter.go              # 假 Agent Adapter
+│   │   └── fake_adapter.go               # 假 Agent Adapter
 │   └── testdata/
 │       ├── harnesses/                    # 测试用 Harness 文件
 │       └── hooks/                        # 测试用 Hook 脚本
@@ -6096,7 +5884,7 @@ Workflow 表新增字段：
 **Repo 策略：远端 git clone（不是 rsync，不依赖共享存储）。** 每台远端机器独立 clone 仓库到自己的本地工作区。原因：远端机器可能在不同网络，共享存储不可靠；git clone 保证每次都是干净的代码状态；Agent 在远端执行 git push 不需要回传文件到控制平面。
 
 ```go
-// orchestrator/worker.go — 远端执行
+// internal/orchestrator/runtime_runner.go — 远端执行（概念示意）
 func (w *Worker) runOnRemote(ctx context.Context, m *machine.Machine, t *ticket.Ticket, harness *Harness) error {
     sshClient, err := w.sshPool.Get(ctx, m)
     if err != nil {
@@ -6467,13 +6255,12 @@ openase ticket create \
 
 | 组件 | 影响 |
 |------|------|
-| Domain 层 | 新增 `domain/machine/` 子包（entity, repository, service） |
-| Application 层 | `ClaimTicketCmd` 新增 Machine 选择逻辑 |
-| Orchestrator | Scheduler 新增 `selectMachine`；Worker 新增 `runOnRemote`；新增 `MachineMonitor` |
-| Infrastructure 层 | 新增 `infra/ssh/`（连接池 + 命令执行封装） |
-| Adapter 层 | **不变**。远端执行时 Adapter 感知不到 Machine——它只看到一个 stdin/stdout 管道，本地是 os/exec 的，远端是 SSH session 的 |
-| API | 新增 Machine CRUD 端点 |
-| Web UI | 设置中新增机器管理页面；工单创建时新增机器选择；Agent 控制台显示机器信息 |
+| Domain / Core Types | 在 `internal/domain/catalog` 中新增 machine 相关类型、解析与纯逻辑 |
+| Service / Use-Case | `internal/service/catalog` 与 `internal/ticket` 增加 Machine 选择和探测编排 |
+| Orchestrator | `internal/orchestrator` 新增 `selectMachine`、`runOnRemote`、`MachineMonitor` |
+| Infrastructure | 新增 `internal/infra/ssh/`（连接池 + 命令执行封装） |
+| Adapter 层 | **不变**。远端执行时 Adapter 感知不到 Machine，它只看到一个 stdin/stdout 管道，本地是 os/exec，远端是 SSH session |
+| Interface / Entry | `internal/httpapi` 和 Web UI 新增 Machine CRUD 与机器选择入口 |
 | Hook | Hook 在远端机器上执行（SSH session 中运行脚本） |
 | 数据库 | 新增 `machines` 表；`tickets` 新增 `target_machine_id`；`workflows` 新增 `required_machine_labels`；`projects` 新增 `accessible_machine_ids` |
 
@@ -7080,11 +6867,11 @@ Agent Token 的 scope 限定在当前 `project_id`，不能跨项目操作。一
 
 | 组件 | 变化 |
 |------|------|
-| API 中间件 | 新增 Agent Token 校验逻辑：解析 scope、校验 project_id 边界、速率限制 |
-| 编排引擎 Worker | 启动 Agent 时生成 Agent Token，注入环境变量 |
-| Domain: `provider/auth.go` | `AuthProvider.Authenticate` 需要区分 User Token 和 Agent Token |
+| `internal/httpapi` | 新增 Agent Token 校验逻辑：解析 scope、校验 project_id 边界、速率限制 |
+| `internal/orchestrator` Worker | 启动 Agent 时生成 Agent Token，注入环境变量 |
+| `internal/agentplatform` / provider contracts | 认证与 Token 校验需要区分 User Token 和 Agent Token |
 | Harness 渲染 | 注入 `OPENASE_API_URL`、`OPENASE_AGENT_TOKEN` 等环境变量 |
-| CLI: `openase` | Agent 在工作区中通过 CLI 调用 API（CLI 读 `OPENASE_AGENT_TOKEN` 环境变量自动认证） |
+| `cmd/openase` / CLI | Agent 在工作区中通过 CLI 调用 API（CLI 读 `OPENASE_AGENT_TOKEN` 环境变量自动认证） |
 | ActivityEvent | `created_by` 支持 `user:xxx` 和 `agent:xxx` 两种格式 |
 | 数据库 | 新增 `agent_tokens` 表（token_hash, agent_id, ticket_id, scopes, expires_at） |
 
@@ -7491,7 +7278,7 @@ func (s *ConnectorSyncer) syncIssueToTicket(ctx context.Context, conn *IssueConn
 | Web UI | 设置中新增 Connector 管理页面 |
 | 第十二章 GitHub 集成 | GitHub 的 Webhook 接收和 PR 状态同步保持不变，Issue 同步能力迁移到 Connector 体系 |
 
-之前 PRD 中分散在 GitHub/GitLab 集成章节里的 Issue 同步逻辑，现在统一收敛到 Connector 标准接口中。GitHub/GitLab 的 PR 事件监听（Webhook）仍然由 `api/handler/webhook.go` 处理（因为 PR 关联的是 TicketRepoScope 而非 Connector），但 Issue 同步统一走 Connector。
+之前 PRD 中分散在 GitHub/GitLab 集成章节里的 Issue 同步逻辑，现在统一收敛到 Connector 标准接口中。GitHub/GitLab 的 PR 事件监听（Webhook）仍然由 `internal/httpapi/github_webhook.go` 处理（因为 PR 关联的是 TicketRepoScope 而非 Connector），但 Issue 同步统一走 Connector。
 
 ---
 
@@ -8877,7 +8664,7 @@ skills:
 Agent 启动前，编排引擎将 Harness 中绑定的 Skills 复制到工作区的 Agent CLI skills 目录中：
 
 ```go
-// orchestrator/worker.go — Skill 注入
+// internal/orchestrator/runtime_runner.go — Skill 注入（概念示意）
 func (w *Worker) injectSkills(ctx context.Context, workspace string, harness *Harness, adapterType string) error {
     // 1. 确定 Agent CLI 的 skills 目录路径
     var skillsDir string
@@ -9001,7 +8788,7 @@ Agent 执行工单 ASE-42
 ```
 
 ```go
-// orchestrator/worker.go — Skill 收割
+// internal/orchestrator/runtime_runner.go — Skill 收割（概念示意）
 func (w *Worker) harvestNewSkills(ctx context.Context, workspace string, harness *Harness, adapterType string) {
     var skillsDir string
     switch adapterType {
