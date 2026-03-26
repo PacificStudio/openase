@@ -29,22 +29,21 @@ type agentLifecycleEnvelope struct {
 }
 
 type agentLifecycleSnapshot struct {
-	ID                    string   `json:"id"`
-	ProviderID            string   `json:"provider_id"`
-	ProjectID             string   `json:"project_id"`
-	Name                  string   `json:"name"`
-	Status                string   `json:"status"`
-	CurrentTicketID       *string  `json:"current_ticket_id,omitempty"`
-	SessionID             string   `json:"session_id"`
-	RuntimePhase          string   `json:"runtime_phase"`
-	RuntimeControlState   string   `json:"runtime_control_state"`
-	RuntimeStartedAt      *string  `json:"runtime_started_at,omitempty"`
-	LastError             string   `json:"last_error"`
-	WorkspacePath         string   `json:"workspace_path"`
-	Capabilities          []string `json:"capabilities"`
-	TotalTokensUsed       int64    `json:"total_tokens_used"`
-	TotalTicketsCompleted int      `json:"total_tickets_completed"`
-	LastHeartbeatAt       *string  `json:"last_heartbeat_at,omitempty"`
+	ID                    string  `json:"id"`
+	ProviderID            string  `json:"provider_id"`
+	ProjectID             string  `json:"project_id"`
+	Name                  string  `json:"name"`
+	Status                string  `json:"status"`
+	CurrentTicketID       *string `json:"current_ticket_id,omitempty"`
+	SessionID             string  `json:"session_id"`
+	RuntimePhase          string  `json:"runtime_phase"`
+	RuntimeControlState   string  `json:"runtime_control_state"`
+	RuntimeStartedAt      *string `json:"runtime_started_at,omitempty"`
+	LastError             string  `json:"last_error"`
+	WorkspacePath         string  `json:"workspace_path"`
+	TotalTokensUsed       int64   `json:"total_tokens_used"`
+	TotalTicketsCompleted int     `json:"total_tickets_completed"`
+	LastHeartbeatAt       *string `json:"last_heartbeat_at,omitempty"`
 }
 
 type activityLifecycleEnvelope struct {
@@ -146,7 +145,6 @@ func mapAgentLifecycleSnapshot(item *ent.Agent) agentLifecycleSnapshot {
 		RuntimeStartedAt:      timePointerToRFC3339(item.RuntimeStartedAt),
 		LastError:             item.LastError,
 		WorkspacePath:         item.WorkspacePath,
-		Capabilities:          append([]string(nil), item.Capabilities...),
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
 		LastHeartbeatAt:       timePointerToRFC3339(item.LastHeartbeatAt),

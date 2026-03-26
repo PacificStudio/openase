@@ -16,7 +16,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -154,12 +153,6 @@ func (_c *AgentCreate) SetNillableWorkspacePath(v *string) *AgentCreate {
 	if v != nil {
 		_c.SetWorkspacePath(*v)
 	}
-	return _c
-}
-
-// SetCapabilities sets the "capabilities" field.
-func (_c *AgentCreate) SetCapabilities(v pgarray.StringArray) *AgentCreate {
-	_c.mutation.SetCapabilities(v)
 	return _c
 }
 
@@ -458,10 +451,6 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.WorkspacePath(); ok {
 		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)
 		_node.WorkspacePath = value
-	}
-	if value, ok := _c.mutation.Capabilities(); ok {
-		_spec.SetField(agent.FieldCapabilities, field.TypeOther, value)
-		_node.Capabilities = value
 	}
 	if value, ok := _c.mutation.TotalTokensUsed(); ok {
 		_spec.SetField(agent.FieldTotalTokensUsed, field.TypeInt64, value)

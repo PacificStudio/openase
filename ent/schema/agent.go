@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -36,7 +35,6 @@ func (Agent) Fields() []ent.Field {
 		field.Time("runtime_started_at").Optional().Nillable(),
 		field.String("last_error").Optional(),
 		field.String("workspace_path").Optional(),
-		textArrayField("capabilities"),
 		field.Int64("total_tokens_used").Default(0),
 		field.Int("total_tickets_completed").Default(0),
 		field.Time("last_heartbeat_at").Optional().Nillable(),
@@ -70,7 +68,5 @@ func (Agent) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("project_id", "name").Unique(),
 		index.Fields("project_id", "status", "last_heartbeat_at"),
-		index.Fields("capabilities").
-			Annotations(entsql.IndexType("GIN")),
 	}
 }

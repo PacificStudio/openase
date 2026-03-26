@@ -16,7 +16,6 @@ export type GovernanceAgent = {
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
   workspacePath: string
-  capabilities: string[]
   lastHeartbeat?: string | null
 }
 
@@ -71,7 +70,6 @@ export function buildGovernanceAgents(
         status: normalizeAgentStatus(agent.status),
         runtimePhase: normalizeRuntimePhase(agent.runtime_phase),
         workspacePath: agent.workspace_path ?? '',
-        capabilities: agent.capabilities,
         lastHeartbeat: agent.last_heartbeat_at,
       }
     })

@@ -101,7 +101,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+projectPayload.Project.ID+"/agents",
-		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","workspace_path":"/tmp/openase","capabilities":["go","backend"]}`,
+		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","workspace_path":"/tmp/openase"}`,
 	)
 	if agentRec.Code != http.StatusCreated {
 		t.Fatalf("expected agent create 201, got %d: %s", agentRec.Code, agentRec.Body.String())
@@ -214,7 +214,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+projectPayload.Project.ID+"/agents",
-		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","workspace_path":"/tmp/openase","capabilities":["go","backend"]}`,
+		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","workspace_path":"/tmp/openase"}`,
 	)
 	if agentRec.Code != http.StatusCreated {
 		t.Fatalf("expected agent create 201, got %d: %s", agentRec.Code, agentRec.Body.String())
@@ -224,9 +224,6 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		Agent agentResponse `json:"agent"`
 	}
 	decodeResponse(t, agentRec, &agentPayload)
-	if want := []string{"go", "backend"}; !slices.Equal(agentPayload.Agent.Capabilities, want) {
-		t.Fatalf("expected agent capabilities %v, got %+v", want, agentPayload.Agent)
-	}
 	if agentPayload.Agent.Status != "idle" || agentPayload.Agent.RuntimePhase != "none" || agentPayload.Agent.RuntimeControlState != "active" {
 		t.Fatalf("expected runtime-owned fields to default, got %+v", agentPayload.Agent)
 	}
@@ -310,7 +307,7 @@ func TestListAgentProvidersIncludesBuiltinCatalogAvailability(t *testing.T) {
 	}
 }
 
-func TestListAgentsRouteReturnsEmptyCapabilitiesArray(t *testing.T) {
+func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -344,8 +341,8 @@ func TestListAgentsRouteReturnsEmptyCapabilitiesArray(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected agent list 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"capabilities":[]`) {
-		t.Fatalf("expected empty capabilities array in payload, got %s", rec.Body.String())
+	if strings.Contains(rec.Body.String(), `"capabilities"`) {
+		t.Fatalf("expected capabilities field to be omitted from payload, got %s", rec.Body.String())
 	}
 
 	var payload struct {
@@ -354,9 +351,6 @@ func TestListAgentsRouteReturnsEmptyCapabilitiesArray(t *testing.T) {
 	decodeResponse(t, rec, &payload)
 	if len(payload.Agents) != 1 {
 		t.Fatalf("expected one agent, got %+v", payload.Agents)
-	}
-	if payload.Agents[0].Capabilities == nil || len(payload.Agents[0].Capabilities) != 0 {
-		t.Fatalf("expected non-nil empty capabilities slice, got %+v", payload.Agents[0].Capabilities)
 	}
 	if payload.Agents[0].RuntimeControlState != "active" {
 		t.Fatalf("expected runtime control state active, got %+v", payload.Agents[0])
@@ -640,7 +634,6 @@ func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateA
 		RuntimeStartedAt:      cloneTimePointer(input.RuntimeStartedAt),
 		LastError:             input.LastError,
 		WorkspacePath:         input.WorkspacePath,
-		Capabilities:          append([]string(nil), input.Capabilities...),
 		TotalTokensUsed:       input.TotalTokensUsed,
 		TotalTicketsCompleted: input.TotalTicketsCompleted,
 		LastHeartbeatAt:       cloneTimePointer(input.LastHeartbeatAt),

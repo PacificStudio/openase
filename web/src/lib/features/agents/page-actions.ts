@@ -68,7 +68,6 @@ export async function runAgentRegistration({
       provider_id: parsed.value.providerId,
       name: parsed.value.name,
       workspace_path: parsed.value.workspacePath,
-      capabilities: parsed.value.capabilities,
     })
 
     setFeedback('Agent created. Refreshing list...')

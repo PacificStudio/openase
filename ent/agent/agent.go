@@ -37,8 +37,6 @@ const (
 	FieldLastError = "last_error"
 	// FieldWorkspacePath holds the string denoting the workspace_path field in the database.
 	FieldWorkspacePath = "workspace_path"
-	// FieldCapabilities holds the string denoting the capabilities field in the database.
-	FieldCapabilities = "capabilities"
 	// FieldTotalTokensUsed holds the string denoting the total_tokens_used field in the database.
 	FieldTotalTokensUsed = "total_tokens_used"
 	// FieldTotalTicketsCompleted holds the string denoting the total_tickets_completed field in the database.
@@ -117,7 +115,6 @@ var Columns = []string{
 	FieldRuntimeStartedAt,
 	FieldLastError,
 	FieldWorkspacePath,
-	FieldCapabilities,
 	FieldTotalTokensUsed,
 	FieldTotalTicketsCompleted,
 	FieldLastHeartbeatAt,
@@ -291,11 +288,6 @@ func ByLastError(opts ...sql.OrderTermOption) OrderOption {
 // ByWorkspacePath orders the results by the workspace_path field.
 func ByWorkspacePath(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWorkspacePath, opts...).ToFunc()
-}
-
-// ByCapabilities orders the results by the capabilities field.
-func ByCapabilities(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCapabilities, opts...).ToFunc()
 }
 
 // ByTotalTokensUsed orders the results by the total_tokens_used field.

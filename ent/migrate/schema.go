@@ -69,7 +69,6 @@ var (
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "workspace_path", Type: field.TypeString, Nullable: true},
-		{Name: "capabilities", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "total_tokens_used", Type: field.TypeInt64, Default: 0},
 		{Name: "total_tickets_completed", Type: field.TypeInt, Default: 0},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
@@ -85,19 +84,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agents_tickets_current_ticket",
-				Columns:    []*schema.Column{AgentsColumns[13]},
+				Columns:    []*schema.Column{AgentsColumns[12]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "agents_agent_providers_agents",
-				Columns:    []*schema.Column{AgentsColumns[14]},
+				Columns:    []*schema.Column{AgentsColumns[13]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agents_projects_agents",
-				Columns:    []*schema.Column{AgentsColumns[15]},
+				Columns:    []*schema.Column{AgentsColumns[14]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -106,20 +105,12 @@ var (
 			{
 				Name:    "agent_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{AgentsColumns[15], AgentsColumns[1]},
+				Columns: []*schema.Column{AgentsColumns[14], AgentsColumns[1]},
 			},
 			{
 				Name:    "agent_project_id_status_last_heartbeat_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentsColumns[15], AgentsColumns[2], AgentsColumns[12]},
-			},
-			{
-				Name:    "agent_capabilities",
-				Unique:  false,
-				Columns: []*schema.Column{AgentsColumns[9]},
-				Annotation: &entsql.IndexAnnotation{
-					Type: "GIN",
-				},
+				Columns: []*schema.Column{AgentsColumns[14], AgentsColumns[2], AgentsColumns[11]},
 			},
 		},
 	}

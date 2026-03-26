@@ -1103,7 +1103,6 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              capabilities?: string[]
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -1182,7 +1181,6 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              capabilities?: string[]
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -1273,7 +1271,6 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              capabilities?: string[]
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -1364,7 +1361,6 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              capabilities?: string[]
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -3979,7 +3975,6 @@ export interface operations {
         content: {
           'application/json': {
             agents?: {
-              capabilities?: string[]
               current_ticket_id?: string | null
               id?: string
               last_error?: string
@@ -4052,7 +4047,6 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          capabilities?: string[]
           name?: string
           provider_id?: string
           workspace_path?: string
@@ -4068,7 +4062,6 @@ export interface operations {
         content: {
           'application/json': {
             agent?: {
-              capabilities?: string[]
               current_ticket_id?: string | null
               id?: string
               last_error?: string
