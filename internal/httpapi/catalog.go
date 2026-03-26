@@ -17,6 +17,7 @@ type organizationResponse struct {
 	ID                     string  `json:"id"`
 	Name                   string  `json:"name"`
 	Slug                   string  `json:"slug"`
+	Status                 string  `json:"status"`
 	DefaultAgentProviderID *string `json:"default_agent_provider_id,omitempty"`
 }
 
@@ -133,7 +134,7 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.POST("/orgs", s.createOrganization)
 	api.GET("/orgs/:orgId", s.getOrganization)
 	api.PATCH("/orgs/:orgId", s.patchOrganization)
-	api.DELETE("/orgs/:orgId", s.deleteOrganization)
+	api.DELETE("/orgs/:orgId", s.archiveOrganization)
 	api.GET("/orgs/:orgId/projects", s.listProjects)
 	api.POST("/orgs/:orgId/projects", s.createProject)
 	api.GET("/orgs/:orgId/machines", s.listMachines)
@@ -261,13 +262,13 @@ func (s *Server) patchOrganization(c echo.Context) error {
 	})
 }
 
-func (s *Server) deleteOrganization(c echo.Context) error {
+func (s *Server) archiveOrganization(c echo.Context) error {
 	orgID, err := parseUUIDPathParam(c, "orgId")
 	if err != nil {
 		return err
 	}
 
-	item, err := s.catalog.DeleteOrganization(c.Request().Context(), orgID)
+	item, err := s.catalog.ArchiveOrganization(c.Request().Context(), orgID)
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
@@ -952,6 +953,7 @@ func mapOrganizationResponse(item domain.Organization) organizationResponse {
 		ID:                     item.ID.String(),
 		Name:                   item.Name,
 		Slug:                   item.Slug,
+		Status:                 string(item.Status),
 		DefaultAgentProviderID: uuidToStringPointer(item.DefaultAgentProviderID),
 	}
 }

@@ -60,6 +60,20 @@ func (_u *OrganizationUpdate) SetNillableSlug(v *string) *OrganizationUpdate {
 	return _u
 }
 
+// SetStatus sets the "status" field.
+func (_u *OrganizationUpdate) SetStatus(v organization.Status) *OrganizationUpdate {
+	_u.mutation.SetStatus(v)
+	return _u
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_u *OrganizationUpdate) SetNillableStatus(v *organization.Status) *OrganizationUpdate {
+	if v != nil {
+		_u.SetStatus(*v)
+	}
+	return _u
+}
+
 // SetDefaultAgentProviderID sets the "default_agent_provider_id" field.
 func (_u *OrganizationUpdate) SetDefaultAgentProviderID(v uuid.UUID) *OrganizationUpdate {
 	_u.mutation.SetDefaultAgentProviderID(v)
@@ -279,6 +293,11 @@ func (_u *OrganizationUpdate) check() error {
 			return &ValidationError{Name: "slug", err: fmt.Errorf(`ent: validator failed for field "Organization.slug": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Status(); ok {
+		if err := organization.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Organization.status": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -299,6 +318,9 @@ func (_u *OrganizationUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.Slug(); ok {
 		_spec.SetField(organization.FieldSlug, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Status(); ok {
+		_spec.SetField(organization.FieldStatus, field.TypeEnum, value)
 	}
 	if _u.mutation.ProjectsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -557,6 +579,20 @@ func (_u *OrganizationUpdateOne) SetNillableSlug(v *string) *OrganizationUpdateO
 	return _u
 }
 
+// SetStatus sets the "status" field.
+func (_u *OrganizationUpdateOne) SetStatus(v organization.Status) *OrganizationUpdateOne {
+	_u.mutation.SetStatus(v)
+	return _u
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_u *OrganizationUpdateOne) SetNillableStatus(v *organization.Status) *OrganizationUpdateOne {
+	if v != nil {
+		_u.SetStatus(*v)
+	}
+	return _u
+}
+
 // SetDefaultAgentProviderID sets the "default_agent_provider_id" field.
 func (_u *OrganizationUpdateOne) SetDefaultAgentProviderID(v uuid.UUID) *OrganizationUpdateOne {
 	_u.mutation.SetDefaultAgentProviderID(v)
@@ -789,6 +825,11 @@ func (_u *OrganizationUpdateOne) check() error {
 			return &ValidationError{Name: "slug", err: fmt.Errorf(`ent: validator failed for field "Organization.slug": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Status(); ok {
+		if err := organization.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Organization.status": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -826,6 +867,9 @@ func (_u *OrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Organizati
 	}
 	if value, ok := _u.mutation.Slug(); ok {
 		_spec.SetField(organization.FieldSlug, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Status(); ok {
+		_spec.SetField(organization.FieldStatus, field.TypeEnum, value)
 	}
 	if _u.mutation.ProjectsCleared() {
 		edge := &sqlgraph.EdgeSpec{

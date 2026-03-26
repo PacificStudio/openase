@@ -6,16 +6,13 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
 func (r *EntRepository) ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error) {
-	exists, err := r.client.Organization.Query().
-		Where(entorganization.ID(organizationID)).
-		Exist(ctx)
+	exists, err := r.organizationIsActive(ctx, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("check organization before listing machines: %w", err)
 	}
@@ -35,9 +32,7 @@ func (r *EntRepository) ListMachines(ctx context.Context, organizationID uuid.UU
 }
 
 func (r *EntRepository) CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error) {
-	exists, err := r.client.Organization.Query().
-		Where(entorganization.ID(input.OrganizationID)).
-		Exist(ctx)
+	exists, err := r.organizationIsActive(ctx, input.OrganizationID)
 	if err != nil {
 		return domain.Machine{}, fmt.Errorf("check organization before creating machine: %w", err)
 	}

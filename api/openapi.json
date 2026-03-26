@@ -2737,6 +2737,9 @@
                           },
                           "slug": {
                             "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
                           }
                         },
                         "type": "object"
@@ -2819,6 +2822,9 @@
                         },
                         "slug": {
                           "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -2893,7 +2899,7 @@
     },
     "/api/v1/orgs/{orgId}": {
       "delete": {
-        "operationId": "deleteOrganization",
+        "operationId": "archiveOrganization",
         "parameters": [
           {
             "description": "Organization ID.",
@@ -2926,6 +2932,9 @@
                         },
                         "slug": {
                           "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -2935,7 +2944,7 @@
                 }
               }
             },
-            "description": "Delete an organization response."
+            "description": "Archive an organization and all its projects response."
           },
           "400": {
             "content": {
@@ -3010,7 +3019,7 @@
             "description": "Internal Server Error response."
           }
         },
-        "summary": "Delete an organization",
+        "summary": "Archive an organization and all its projects",
         "tags": [
           "catalog"
         ]
@@ -3073,6 +3082,9 @@
                           "type": "string"
                         },
                         "slug": {
+                          "type": "string"
+                        },
+                        "status": {
                           "type": "string"
                         }
                       },
@@ -8862,9 +8874,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "project_id": {
-                            "type": "string"
-                          },
                           "ticket_id": {
                             "type": "string"
                           },
@@ -12285,9 +12294,6 @@
                         "id": {
                           "type": "string"
                         },
-                        "project_id": {
-                          "type": "string"
-                        },
                         "ticket_id": {
                           "type": "string"
                         },
@@ -12525,9 +12531,6 @@
                           "type": "string"
                         },
                         "id": {
-                          "type": "string"
-                        },
-                        "project_id": {
                           "type": "string"
                         },
                         "ticket_id": {

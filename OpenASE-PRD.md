@@ -504,6 +504,7 @@ Organization → Project → ProjectRepo (1:N)
 | id | UUID | 主键 |
 | name | String | 组织名称 |
 | slug | String | URL 友好标识 |
+| status | Enum | active / archived |
 | default_agent_provider_id | FK (nullable) | 默认 Agent Provider |
 
 ### 6.3 Project（项目）
@@ -2190,6 +2191,34 @@ Ticket Detail 必须支持类似 GitHub Issue 的评论线程，作为用户和 
 - 请求审批 / 处理审批
 - 打开完整页面
 - 问 AI 分析
+
+#### 13.8.1 Comment Thread
+
+Ticket 详情必须内建 GitHub 风格讨论串，作为人工 review、handoff 和决策沉淀的固定位置，不能继续把 discussion 混进 system activity。
+
+**讨论区要求：**
+
+- 在 Ticket Detail 抽屉内提供 first-class comment thread，支持读取、创建、编辑、删除评论
+- 评论内容支持安全 Markdown 渲染，至少覆盖段落、列表、代码块、行内代码和链接
+- 评论列表与 system activity 必须视觉分区，discussion 在上，system activity 独立展示在下方或侧边
+- 新增评论输入区位于讨论区底部，提交后无需关闭抽屉即可刷新当前详情
+- 编辑、删除已有评论时，当前打开的 detail surface 必须即时反映最新结果
+
+**API / 数据要求：**
+
+- `GET /api/v1/projects/:projectId/tickets/:ticketId/detail` 返回 `comments`
+- `POST /api/v1/tickets/:ticketId/comments` 创建评论
+- `PATCH /api/v1/tickets/:ticketId/comments/:commentId` 编辑评论
+- `DELETE /api/v1/tickets/:ticketId/comments/:commentId` 删除评论
+- comment mutation 必须复用现有 detail reload / SSE wiring，让已打开抽屉自动刷新
+
+**验收标准：**
+
+- 从 Board 或 Tickets 打开任意 Ticket Detail，可看到独立 Discussion 区和独立 System Activity 区
+- 在 Discussion 底部输入 Markdown 评论并提交后，评论立即出现在当前详情中
+- 已有评论可以进入 edit flow，保存后内容在当前抽屉中更新
+- 已有评论可以删除，删除后无需 reopen drawer
+- Markdown 中的列表、代码块、链接能正确渲染，且不执行不安全 HTML / script 内容
 
 ### 13.9 Workflows 与 Harness 编辑器设计
 
@@ -4590,6 +4619,7 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | POST | `/api/v1/orgs` | 创建组织 |
 | GET | `/api/v1/orgs/:orgId` | 获取组织详情 |
 | PATCH | `/api/v1/orgs/:orgId` | 更新组织 |
+| DELETE | `/api/v1/orgs/:orgId` | 归档组织并自动归档其下所有项目（软删除） |
 
 **Project**
 

@@ -24,6 +24,7 @@ type OpenAPIOrganization struct {
 	ID                     string  `json:"id"`
 	Name                   string  `json:"name"`
 	Slug                   string  `json:"slug"`
+	Status                 string  `json:"status"`
 	DefaultAgentProviderID *string `json:"default_agent_provider_id,omitempty"`
 }
 
@@ -165,7 +166,6 @@ type OpenAPITicketExternalLink struct {
 
 type OpenAPITicketComment struct {
 	ID        string  `json:"id"`
-	ProjectID string  `json:"project_id"`
 	TicketID  string  `json:"ticket_id"`
 	Body      string  `json:"body"`
 	CreatedBy string  `json:"created_by"`
@@ -1054,8 +1054,8 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	b.doc.AddOperation("/api/v1/orgs/{orgId}", http.MethodPatch, orgPatch)
 
 	orgDelete, err := b.jsonOperation(
-		"deleteOrganization",
-		"Delete an organization",
+		"archiveOrganization",
+		"Archive an organization and all its projects",
 		[]string{"catalog"},
 		http.StatusOK,
 		OpenAPIOrganizationResponse{},

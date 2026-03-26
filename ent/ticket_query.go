@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
@@ -42,6 +43,7 @@ type TicketQuery struct {
 	withParent               *TicketQuery
 	withChildren             *TicketQuery
 	withRepoScopes           *TicketRepoScopeQuery
+	withComments             *TicketCommentQuery
 	withExternalLinks        *TicketExternalLinkQuery
 	withAgentTokens          *AgentTokenQuery
 	withActivityEvents       *ActivityEventQuery
@@ -252,6 +254,28 @@ func (_q *TicketQuery) QueryRepoScopes() *TicketRepoScopeQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
 			sqlgraph.To(ticketreposcope.Table, ticketreposcope.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, ticket.RepoScopesTable, ticket.RepoScopesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryComments chains the current query on the "comments" edge.
+func (_q *TicketQuery) QueryComments() *TicketCommentQuery {
+	query := (&TicketCommentClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
+			sqlgraph.To(ticketcomment.Table, ticketcomment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticket.CommentsTable, ticket.CommentsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -569,6 +593,7 @@ func (_q *TicketQuery) Clone() *TicketQuery {
 		withParent:               _q.withParent.Clone(),
 		withChildren:             _q.withChildren.Clone(),
 		withRepoScopes:           _q.withRepoScopes.Clone(),
+		withComments:             _q.withComments.Clone(),
 		withExternalLinks:        _q.withExternalLinks.Clone(),
 		withAgentTokens:          _q.withAgentTokens.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
@@ -665,6 +690,17 @@ func (_q *TicketQuery) WithRepoScopes(opts ...func(*TicketRepoScopeQuery)) *Tick
 		opt(query)
 	}
 	_q.withRepoScopes = query
+	return _q
+}
+
+// WithComments tells the query-builder to eager-load the nodes that are connected to
+// the "comments" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TicketQuery) WithComments(opts ...func(*TicketCommentQuery)) *TicketQuery {
+	query := (&TicketCommentClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withComments = query
 	return _q
 }
 
@@ -801,7 +837,7 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 	var (
 		nodes       = []*Ticket{}
 		_spec       = _q.querySpec()
-		loadedTypes = [13]bool{
+		loadedTypes = [14]bool{
 			_q.withProject != nil,
 			_q.withStatus != nil,
 			_q.withWorkflow != nil,
@@ -810,6 +846,7 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 			_q.withParent != nil,
 			_q.withChildren != nil,
 			_q.withRepoScopes != nil,
+			_q.withComments != nil,
 			_q.withExternalLinks != nil,
 			_q.withAgentTokens != nil,
 			_q.withActivityEvents != nil,
@@ -882,6 +919,13 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 		if err := _q.loadRepoScopes(ctx, query, nodes,
 			func(n *Ticket) { n.Edges.RepoScopes = []*TicketRepoScope{} },
 			func(n *Ticket, e *TicketRepoScope) { n.Edges.RepoScopes = append(n.Edges.RepoScopes, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withComments; query != nil {
+		if err := _q.loadComments(ctx, query, nodes,
+			func(n *Ticket) { n.Edges.Comments = []*TicketComment{} },
+			func(n *Ticket, e *TicketComment) { n.Edges.Comments = append(n.Edges.Comments, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1161,6 +1205,36 @@ func (_q *TicketQuery) loadRepoScopes(ctx context.Context, query *TicketRepoScop
 	}
 	query.Where(predicate.TicketRepoScope(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(ticket.RepoScopesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.TicketID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "ticket_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *TicketQuery) loadComments(ctx context.Context, query *TicketCommentQuery, nodes []*Ticket, init func(*Ticket), assign func(*Ticket, *TicketComment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Ticket)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(ticketcomment.FieldTicketID)
+	}
+	query.Where(predicate.TicketComment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(ticket.CommentsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

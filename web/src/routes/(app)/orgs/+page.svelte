@@ -1,12 +1,9 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation'
-  import { ApiError } from '$lib/api/client'
-  import { deleteOrganization } from '$lib/api/openase'
+  import OrganizationBulkArchiveBar from '$lib/features/catalog-creation/components/organization-bulk-archive-bar.svelte'
   import OrganizationCreationDialog from '$lib/features/catalog-creation/components/organization-creation-dialog.svelte'
   import OrganizationDeleteDialog from '$lib/features/catalog-creation/components/organization-delete-dialog.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { Button } from '$ui/button'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
   import type { PageData } from './$types'
 
   let { data }: { data: PageData } = $props()
@@ -21,11 +18,11 @@
 
   // Multi-select state
   let selectedIds = $state(new Set<string>())
-  let bulkDeleting = $state(false)
   let bulkError = $state('')
 
-  const selectedCount = $derived(selectedIds.size)
-  const allSelected = $derived(organizations.length > 0 && selectedIds.size === organizations.length)
+  const allSelected = $derived(
+    organizations.length > 0 && selectedIds.size === organizations.length,
+  )
   const someSelected = $derived(selectedIds.size > 0 && selectedIds.size < organizations.length)
 
   function toggleSelect(id: string) {
@@ -51,31 +48,6 @@
     deleteTarget = org
     showDeleteDialog = true
   }
-
-  async function bulkDelete() {
-    if (selectedCount === 0) return
-    bulkDeleting = true
-    bulkError = ''
-    try {
-      const results = await Promise.allSettled(
-        [...selectedIds].map((id) => deleteOrganization(id)),
-      )
-      const failures = results.filter((r) => r.status === 'rejected')
-      if (failures.length > 0) {
-        const first = failures[0] as PromiseRejectedResult
-        bulkError =
-          first.reason instanceof ApiError
-            ? `${failures.length} failed: ${first.reason.detail}`
-            : `${failures.length} deletion(s) failed.`
-      }
-      selectedIds = new Set()
-      await invalidateAll()
-    } catch {
-      bulkError = 'Bulk delete failed.'
-    } finally {
-      bulkDeleting = false
-    }
-  }
 </script>
 
 <svelte:head>
@@ -89,38 +61,18 @@
       <h1 class="text-foreground text-2xl font-semibold">Organizations</h1>
       <p class="text-muted-foreground mt-1 text-sm">
         Manage workspace organizations. Each organization scopes projects, providers, and machines.
+        Archived organizations are removed from the active workspace.
       </p>
     </div>
 
     <Button onclick={() => (showCreateDialog = true)}>New organization</Button>
   </div>
 
-  <!-- Bulk action bar -->
-  {#if selectedCount > 0}
-    <div
-      class="bg-muted/60 border-border flex items-center justify-between rounded-lg border px-4 py-3"
-    >
-      <span class="text-foreground text-sm font-medium">
-        {selectedCount} selected
-      </span>
-      <div class="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onclick={clearSelection}>Cancel</Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          disabled={bulkDeleting}
-          onclick={bulkDelete}
-        >
-          <Trash2 class="mr-1.5 size-4" />
-          {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount}`}
-        </Button>
-      </div>
-    </div>
-  {/if}
-
-  {#if bulkError}
-    <p class="text-destructive text-sm">{bulkError}</p>
-  {/if}
+  <OrganizationBulkArchiveBar
+    selectedIds={[...selectedIds]}
+    bind:error={bulkError}
+    onClear={clearSelection}
+  />
 
   <!-- Org list -->
   {#if organizations.length > 0}
@@ -141,7 +93,11 @@
 
       {#each organizations as org (org.id)}
         <div
-          class="flex items-center justify-between gap-4 px-5 py-4 transition-colors {selectedIds.has(org.id) ? 'bg-muted/40' : ''}"
+          class="flex items-center justify-between gap-4 px-5 py-4 transition-colors {selectedIds.has(
+            org.id,
+          )
+            ? 'bg-muted/40'
+            : ''}"
         >
           <div class="flex min-w-0 items-center gap-4">
             <input
@@ -171,7 +127,7 @@
               class="text-destructive hover:text-destructive"
               onclick={() => openDelete(org)}
             >
-              Delete
+              Archive
             </Button>
           </div>
         </div>

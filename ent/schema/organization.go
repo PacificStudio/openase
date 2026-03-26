@@ -18,6 +18,9 @@ func (Organization) Fields() []ent.Field {
 		uuidField(),
 		field.String("name").NotEmpty(),
 		field.String("slug").NotEmpty(),
+		field.Enum("status").
+			Values("active", "archived").
+			Default("active"),
 		field.UUID("default_agent_provider_id", uuidZero()).
 			Optional().
 			Nillable(),

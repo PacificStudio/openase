@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ type Organization struct {
 	ID                     uuid.UUID
 	Name                   string
 	Slug                   string
+	Status                 entorganization.Status
 	DefaultAgentProviderID *uuid.UUID
 }
 

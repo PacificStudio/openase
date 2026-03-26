@@ -8,7 +8,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
-	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
@@ -16,9 +15,7 @@ import (
 )
 
 func (r *EntRepository) ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error) {
-	exists, err := r.client.Organization.Query().
-		Where(entorganization.ID(organizationID)).
-		Exist(ctx)
+	exists, err := r.organizationIsActive(ctx, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("check organization before listing agent providers: %w", err)
 	}
@@ -38,9 +35,7 @@ func (r *EntRepository) ListAgentProviders(ctx context.Context, organizationID u
 }
 
 func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error) {
-	exists, err := r.client.Organization.Query().
-		Where(entorganization.ID(input.OrganizationID)).
-		Exist(ctx)
+	exists, err := r.organizationIsActive(ctx, input.OrganizationID)
 	if err != nil {
 		return domain.AgentProvider{}, fmt.Errorf("check organization before creating agent provider: %w", err)
 	}

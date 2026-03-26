@@ -36,6 +36,20 @@ func (_c *OrganizationCreate) SetSlug(v string) *OrganizationCreate {
 	return _c
 }
 
+// SetStatus sets the "status" field.
+func (_c *OrganizationCreate) SetStatus(v organization.Status) *OrganizationCreate {
+	_c.mutation.SetStatus(v)
+	return _c
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_c *OrganizationCreate) SetNillableStatus(v *organization.Status) *OrganizationCreate {
+	if v != nil {
+		_c.SetStatus(*v)
+	}
+	return _c
+}
+
 // SetDefaultAgentProviderID sets the "default_agent_provider_id" field.
 func (_c *OrganizationCreate) SetDefaultAgentProviderID(v uuid.UUID) *OrganizationCreate {
 	_c.mutation.SetDefaultAgentProviderID(v)
@@ -164,6 +178,10 @@ func (_c *OrganizationCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *OrganizationCreate) defaults() {
+	if _, ok := _c.mutation.Status(); !ok {
+		v := organization.DefaultStatus
+		_c.mutation.SetStatus(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := organization.DefaultID()
 		_c.mutation.SetID(v)
@@ -186,6 +204,14 @@ func (_c *OrganizationCreate) check() error {
 	if v, ok := _c.mutation.Slug(); ok {
 		if err := organization.SlugValidator(v); err != nil {
 			return &ValidationError{Name: "slug", err: fmt.Errorf(`ent: validator failed for field "Organization.slug": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Status(); !ok {
+		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Organization.status"`)}
+	}
+	if v, ok := _c.mutation.Status(); ok {
+		if err := organization.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Organization.status": %w`, err)}
 		}
 	}
 	return nil
@@ -230,6 +256,10 @@ func (_c *OrganizationCreate) createSpec() (*Organization, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.Slug(); ok {
 		_spec.SetField(organization.FieldSlug, field.TypeString, value)
 		_node.Slug = value
+	}
+	if value, ok := _c.mutation.Status(); ok {
+		_spec.SetField(organization.FieldStatus, field.TypeEnum, value)
+		_node.Status = value
 	}
 	if nodes := _c.mutation.ProjectsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
