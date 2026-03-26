@@ -515,6 +515,7 @@ export function listWorkflows(projectId: string) {
 export function createWorkflow(
   projectId: string,
   body: {
+    agent_id: string
     finish_status_id?: string | null
     harness_content?: string
     harness_path?: string | null
@@ -542,6 +543,7 @@ export function getWorkflow(workflowId: string) {
 export function updateWorkflow(
   workflowId: string,
   body: {
+    agent_id?: string | null
     finish_status_id?: string | null
     harness_path?: string | null
     hooks?: Record<string, unknown> | null

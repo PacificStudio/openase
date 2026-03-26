@@ -11,6 +11,7 @@ import (
 type workflowResponse struct {
 	ID                    string         `json:"id"`
 	ProjectID             string         `json:"project_id"`
+	AgentID               *string        `json:"agent_id,omitempty"`
 	Name                  string         `json:"name"`
 	Type                  string         `json:"type"`
 	HarnessPath           string         `json:"harness_path"`
@@ -254,6 +255,8 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "WORKFLOW_NOT_FOUND", err.Error())
 	case errors.Is(err, workflowservice.ErrStatusNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_FOUND", err.Error())
+	case errors.Is(err, workflowservice.ErrAgentNotFound):
+		return writeAPIError(c, http.StatusBadRequest, "AGENT_NOT_FOUND", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowConflict):
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_CONFLICT", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowInUse):
@@ -285,9 +288,16 @@ func mapWorkflowResponses(items []workflowservice.Workflow) []workflowResponse {
 }
 
 func mapWorkflowResponse(item workflowservice.Workflow) workflowResponse {
+	var agentID *string
+	if item.AgentID != nil {
+		value := item.AgentID.String()
+		agentID = &value
+	}
+
 	return workflowResponse{
 		ID:                    item.ID.String(),
 		ProjectID:             item.ProjectID.String(),
+		AgentID:               agentID,
 		Name:                  item.Name,
 		Type:                  item.Type.String(),
 		HarnessPath:           item.HarnessPath,

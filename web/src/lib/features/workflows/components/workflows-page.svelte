@@ -7,21 +7,26 @@
     unbindWorkflowSkills,
     validateHarness,
   } from '$lib/api/openase'
-  import Button from '$ui/button/button.svelte'
-  import { Plus, PanelRightClose, PanelRight } from '@lucide/svelte'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
-  import type { HarnessVariableGroup, WorkflowStatusOption, WorkflowSummary } from '../types'
+  import type {
+    HarnessVariableGroup,
+    WorkflowAgentOption,
+    WorkflowStatusOption,
+    WorkflowSummary,
+  } from '../types'
   import { type SkillState, toHarnessContent } from '../model'
-  import { createDefaultWorkflow, loadWorkflowHarness, loadWorkflowIndex } from '../data'
+  import { loadWorkflowHarness, loadWorkflowIndex } from '../data'
   import WorkflowList from './workflow-list.svelte'
+  import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
   import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
+  import WorkflowsPageToolbar from './workflows-page-toolbar.svelte'
 
   let showDetail = $state(true)
+  let showCreateDialog = $state(false)
   let loading = $state(false),
     saving = $state(false),
-    validating = $state(false),
-    creating = $state(false)
+    validating = $state(false)
   let error = $state(''),
     statusMessage = $state('')
   let workflows = $state<WorkflowSummary[]>([]),
@@ -32,19 +37,22 @@
   let validationIssues = $state<HarnessValidationIssue[]>([])
   let builtinRoleContent = $state(''),
     statuses = $state<WorkflowStatusOption[]>([])
+  let agentOptions = $state<WorkflowAgentOption[]>([])
   let variableGroups = $state<HarnessVariableGroup[]>([])
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
   let isDirty = $derived(harness ? draftHarness !== harness.rawContent : false)
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
-    if (!projectId) {
+    const orgId = appStore.currentOrg?.id
+    if (!projectId || !orgId) {
       workflows = []
       selectedId = ''
       harness = null
       draftHarness = ''
       skillStates = []
       statuses = []
+      agentOptions = []
       variableGroups = []
       validationIssues = []
       statusMessage = ''
@@ -60,11 +68,12 @@
       error = ''
 
       try {
-        const payload = await loadWorkflowIndex(projectId, selectedId)
+        const payload = await loadWorkflowIndex(projectId, orgId, selectedId)
         if (cancelled) return
 
         const nextWorkflows = payload.workflows
         workflows = nextWorkflows
+        agentOptions = payload.agentOptions
         if (!selectedId || !nextWorkflows.some((workflow) => workflow.id === selectedId)) {
           selectedId = nextWorkflows[0]?.id ?? ''
         }
@@ -171,29 +180,8 @@
   }
 
   async function handleCreateWorkflow() {
-    const projectId = appStore.currentProject?.id
-    if (!projectId || statuses.length === 0) return
-
-    creating = true
-    statusMessage = ''
-    error = ''
-
-    try {
-      const payload = await createDefaultWorkflow(
-        projectId,
-        workflows.length,
-        statuses,
-        builtinRoleContent,
-      )
-
-      workflows = [...workflows, payload.workflow]
-      selectedId = payload.selectedId
-      statusMessage = 'Workflow created.'
-    } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create workflow.'
-    } finally {
-      creating = false
-    }
+    if (statuses.length === 0 || agentOptions.length === 0) return
+    showCreateDialog = true
   }
 
   async function handleToggleSkill(skill: SkillState) {
@@ -232,22 +220,12 @@
 </script>
 
 <div class="flex h-full flex-col">
-  <div class="border-border flex items-center justify-between border-b px-4 py-2.5">
-    <h1 class="text-foreground text-sm font-semibold">Workflows</h1>
-    <div class="flex items-center gap-2">
-      <Button variant="ghost" size="sm" onclick={() => (showDetail = !showDetail)}>
-        {#if showDetail}
-          <PanelRightClose class="size-4" />
-        {:else}
-          <PanelRight class="size-4" />
-        {/if}
-      </Button>
-      <Button size="sm" onclick={handleCreateWorkflow} disabled={creating || statuses.length === 0}>
-        <Plus class="size-4" />
-        {creating ? 'Creating…' : 'New Workflow'}
-      </Button>
-    </div>
-  </div>
+  <WorkflowsPageToolbar
+    {showDetail}
+    canCreate={statuses.length > 0 && agentOptions.length > 0}
+    onToggleDetail={() => (showDetail = !showDetail)}
+    onCreate={handleCreateWorkflow}
+  />
   {#if loading}
     <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
       Loading workflows…
@@ -289,6 +267,7 @@
             workflow={selectedWorkflow}
             {workflows}
             {statuses}
+            {agentOptions}
             onWorkflowsChange={(nextWorkflows) => (workflows = nextWorkflows)}
             onSelectedIdChange={(nextSelectedId) => (selectedId = nextSelectedId)}
           />
@@ -297,3 +276,18 @@
     </div>
   {/if}
 </div>
+
+<WorkflowCreationDialog
+  bind:open={showCreateDialog}
+  projectId={appStore.currentProject?.id ?? ''}
+  {statuses}
+  {agentOptions}
+  existingCount={workflows.length}
+  {builtinRoleContent}
+  onCreated={({ workflow, selectedId: nextSelectedId }) => {
+    workflows = [...workflows, workflow]
+    selectedId = nextSelectedId
+    statusMessage = 'Workflow created.'
+    error = ''
+  }}
+/>

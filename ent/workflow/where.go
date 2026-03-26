@@ -60,6 +60,11 @@ func ProjectID(v uuid.UUID) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldProjectID, v))
 }
 
+// AgentID applies equality check predicate on the "agent_id" field. It's identical to AgentIDEQ.
+func AgentID(v uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldAgentID, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldName, v))
@@ -133,6 +138,36 @@ func ProjectIDIn(vs ...uuid.UUID) predicate.Workflow {
 // ProjectIDNotIn applies the NotIn predicate on the "project_id" field.
 func ProjectIDNotIn(vs ...uuid.UUID) predicate.Workflow {
 	return predicate.Workflow(sql.FieldNotIn(FieldProjectID, vs...))
+}
+
+// AgentIDEQ applies the EQ predicate on the "agent_id" field.
+func AgentIDEQ(v uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldAgentID, v))
+}
+
+// AgentIDNEQ applies the NEQ predicate on the "agent_id" field.
+func AgentIDNEQ(v uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNEQ(FieldAgentID, v))
+}
+
+// AgentIDIn applies the In predicate on the "agent_id" field.
+func AgentIDIn(vs ...uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldIn(FieldAgentID, vs...))
+}
+
+// AgentIDNotIn applies the NotIn predicate on the "agent_id" field.
+func AgentIDNotIn(vs ...uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotIn(FieldAgentID, vs...))
+}
+
+// AgentIDIsNil applies the IsNil predicate on the "agent_id" field.
+func AgentIDIsNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldIsNull(FieldAgentID))
+}
+
+// AgentIDNotNil applies the NotNil predicate on the "agent_id" field.
+func AgentIDNotNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotNull(FieldAgentID))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -610,6 +645,29 @@ func HasProject() predicate.Workflow {
 func HasProjectWith(preds ...predicate.Project) predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {
 		step := newProjectStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgent applies the HasEdge predicate on the "agent" edge.
+func HasAgent() predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, AgentTable, AgentColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentWith applies the HasEdge predicate on the "agent" edge with a given conditions (other predicates).
+func HasAgentWith(preds ...predicate.Agent) predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := newAgentStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

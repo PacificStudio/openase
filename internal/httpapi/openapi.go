@@ -260,6 +260,7 @@ type OpenAPITicketStatus struct {
 type OpenAPIWorkflow struct {
 	ID                    string         `json:"id"`
 	ProjectID             string         `json:"project_id"`
+	AgentID               *string        `json:"agent_id,omitempty"`
 	Name                  string         `json:"name"`
 	Type                  string         `json:"type"`
 	HarnessPath           string         `json:"harness_path"`

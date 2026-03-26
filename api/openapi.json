@@ -9965,6 +9965,10 @@
                     "workflows": {
                       "items": {
                         "properties": {
+                          "agent_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "finish_status_id": {
                             "nullable": true,
                             "type": "string"
@@ -10110,6 +10114,9 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "agent_id": {
+                    "type": "string"
+                  },
                   "finish_status_id": {
                     "nullable": true,
                     "type": "string"
@@ -10176,6 +10183,10 @@
                   "properties": {
                     "workflow": {
                       "properties": {
+                        "agent_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "finish_status_id": {
                           "nullable": true,
                           "type": "string"
@@ -13225,6 +13236,10 @@
                   "properties": {
                     "workflow": {
                       "properties": {
+                        "agent_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "finish_status_id": {
                           "nullable": true,
                           "type": "string"
@@ -13389,6 +13404,10 @@
                   "properties": {
                     "workflow": {
                       "properties": {
+                        "agent_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "finish_status_id": {
                           "nullable": true,
                           "type": "string"
@@ -13532,6 +13551,10 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "agent_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "finish_status_id": {
                     "nullable": true,
                     "type": "string"
@@ -13600,6 +13623,10 @@
                   "properties": {
                     "workflow": {
                       "properties": {
+                        "agent_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "finish_status_id": {
                           "nullable": true,
                           "type": "string"

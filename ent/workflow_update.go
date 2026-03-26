@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -45,6 +46,26 @@ func (_u *WorkflowUpdate) SetNillableProjectID(v *uuid.UUID) *WorkflowUpdate {
 	if v != nil {
 		_u.SetProjectID(*v)
 	}
+	return _u
+}
+
+// SetAgentID sets the "agent_id" field.
+func (_u *WorkflowUpdate) SetAgentID(v uuid.UUID) *WorkflowUpdate {
+	_u.mutation.SetAgentID(v)
+	return _u
+}
+
+// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
+func (_u *WorkflowUpdate) SetNillableAgentID(v *uuid.UUID) *WorkflowUpdate {
+	if v != nil {
+		_u.SetAgentID(*v)
+	}
+	return _u
+}
+
+// ClearAgentID clears the value of the "agent_id" field.
+func (_u *WorkflowUpdate) ClearAgentID() *WorkflowUpdate {
+	_u.mutation.ClearAgentID()
 	return _u
 }
 
@@ -266,6 +287,11 @@ func (_u *WorkflowUpdate) SetProject(v *Project) *WorkflowUpdate {
 	return _u.SetProjectID(v.ID)
 }
 
+// SetAgent sets the "agent" edge to the Agent entity.
+func (_u *WorkflowUpdate) SetAgent(v *Agent) *WorkflowUpdate {
+	return _u.SetAgentID(v.ID)
+}
+
 // SetPickupStatus sets the "pickup_status" edge to the TicketStatus entity.
 func (_u *WorkflowUpdate) SetPickupStatus(v *TicketStatus) *WorkflowUpdate {
 	return _u.SetPickupStatusID(v.ID)
@@ -329,6 +355,12 @@ func (_u *WorkflowUpdate) Mutation() *WorkflowMutation {
 // ClearProject clears the "project" edge to the Project entity.
 func (_u *WorkflowUpdate) ClearProject() *WorkflowUpdate {
 	_u.mutation.ClearProject()
+	return _u
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (_u *WorkflowUpdate) ClearAgent() *WorkflowUpdate {
+	_u.mutation.ClearAgent()
 	return _u
 }
 
@@ -545,6 +577,35 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(project.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   workflow.AgentTable,
+			Columns: []string{workflow.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   workflow.AgentTable,
+			Columns: []string{workflow.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -779,6 +840,26 @@ func (_u *WorkflowUpdateOne) SetNillableProjectID(v *uuid.UUID) *WorkflowUpdateO
 	return _u
 }
 
+// SetAgentID sets the "agent_id" field.
+func (_u *WorkflowUpdateOne) SetAgentID(v uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.SetAgentID(v)
+	return _u
+}
+
+// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
+func (_u *WorkflowUpdateOne) SetNillableAgentID(v *uuid.UUID) *WorkflowUpdateOne {
+	if v != nil {
+		_u.SetAgentID(*v)
+	}
+	return _u
+}
+
+// ClearAgentID clears the value of the "agent_id" field.
+func (_u *WorkflowUpdateOne) ClearAgentID() *WorkflowUpdateOne {
+	_u.mutation.ClearAgentID()
+	return _u
+}
+
 // SetName sets the "name" field.
 func (_u *WorkflowUpdateOne) SetName(v string) *WorkflowUpdateOne {
 	_u.mutation.SetName(v)
@@ -997,6 +1078,11 @@ func (_u *WorkflowUpdateOne) SetProject(v *Project) *WorkflowUpdateOne {
 	return _u.SetProjectID(v.ID)
 }
 
+// SetAgent sets the "agent" edge to the Agent entity.
+func (_u *WorkflowUpdateOne) SetAgent(v *Agent) *WorkflowUpdateOne {
+	return _u.SetAgentID(v.ID)
+}
+
 // SetPickupStatus sets the "pickup_status" edge to the TicketStatus entity.
 func (_u *WorkflowUpdateOne) SetPickupStatus(v *TicketStatus) *WorkflowUpdateOne {
 	return _u.SetPickupStatusID(v.ID)
@@ -1060,6 +1146,12 @@ func (_u *WorkflowUpdateOne) Mutation() *WorkflowMutation {
 // ClearProject clears the "project" edge to the Project entity.
 func (_u *WorkflowUpdateOne) ClearProject() *WorkflowUpdateOne {
 	_u.mutation.ClearProject()
+	return _u
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (_u *WorkflowUpdateOne) ClearAgent() *WorkflowUpdateOne {
+	_u.mutation.ClearAgent()
 	return _u
 }
 
@@ -1306,6 +1398,35 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(project.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   workflow.AgentTable,
+			Columns: []string{workflow.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   workflow.AgentTable,
+			Columns: []string{workflow.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

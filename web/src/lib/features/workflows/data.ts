@@ -1,15 +1,22 @@
 import {
   createWorkflow,
   getWorkflowHarness,
+  listAgents,
   listHarnessVariables,
   listBuiltinRoles,
+  listProviders,
   listSkills,
   listStatuses,
   listWorkflows,
 } from '$lib/api/openase'
 import { defaultHarnessTemplate, normalizeWorkflowType, toHarnessContent } from './model'
 import type { SkillState } from './model'
-import type { HarnessVariableGroup, WorkflowStatusOption, WorkflowSummary } from './types'
+import type {
+  HarnessVariableGroup,
+  WorkflowAgentOption,
+  WorkflowStatusOption,
+  WorkflowSummary,
+} from './types'
 
 export function mapWorkflowSummary(
   workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
@@ -19,7 +26,9 @@ export function mapWorkflowSummary(
     id: workflow.id,
     name: workflow.name,
     type: normalizeWorkflowType(workflow.type),
+    agentId: workflow.agent_id ?? null,
     harnessPath: workflow.harness_path ?? '',
+    requiredMachineLabels: workflow.required_machine_labels ?? [],
     pickupStatusId: workflow.pickup_status_id,
     pickupStatus: statusNamesById.get(workflow.pickup_status_id) ?? workflow.pickup_status_id,
     finishStatusId: workflow.finish_status_id,
@@ -37,6 +46,30 @@ export function mapWorkflowSummary(
   }
 }
 
+function mapWorkflowAgentOptions(
+  agents: Awaited<ReturnType<typeof listAgents>>['agents'],
+  providers: Awaited<ReturnType<typeof listProviders>>['providers'],
+): WorkflowAgentOption[] {
+  const providersById = new Map(providers.map((provider) => [provider.id, provider]))
+
+  return agents
+    .map((agent) => {
+      const provider = providersById.get(agent.provider_id)
+      const providerName = provider?.name ?? 'Unknown provider'
+      const modelName = provider?.model_name ?? 'Unknown model'
+
+      return {
+        id: agent.id,
+        label: `${agent.name} · ${providerName} · ${modelName}`,
+        agentName: agent.name,
+        providerName,
+        modelName,
+        workspacePath: agent.workspace_path ?? '',
+      }
+    })
+    .sort((left, right) => left.label.localeCompare(right.label))
+}
+
 function mapStatusOptions(
   statuses: Awaited<ReturnType<typeof listStatuses>>['statuses'],
 ): WorkflowStatusOption[] {
@@ -46,15 +79,19 @@ function mapStatusOptions(
     .map((status) => ({ id: status.id, name: status.name }))
 }
 
-export async function loadWorkflowCatalog(projectId: string) {
-  const [workflowPayload, statusPayload] = await Promise.all([
+export async function loadWorkflowCatalog(projectId: string, orgId: string) {
+  const [workflowPayload, statusPayload, agentPayload, providerPayload] = await Promise.all([
     listWorkflows(projectId),
     listStatuses(projectId),
+    listAgents(projectId),
+    listProviders(orgId),
   ])
   const statuses = mapStatusOptions(statusPayload.statuses)
   const statusNamesById = new Map(statuses.map((status) => [status.id, status.name]))
+  const agentOptions = mapWorkflowAgentOptions(agentPayload.agents, providerPayload.providers)
 
   return {
+    agentOptions,
     statuses,
     workflows: workflowPayload.workflows.map((workflow) =>
       mapWorkflowSummary(workflow, statusNamesById),
@@ -62,9 +99,9 @@ export async function loadWorkflowCatalog(projectId: string) {
   }
 }
 
-export async function loadWorkflowIndex(projectId: string, selectedId: string) {
+export async function loadWorkflowIndex(projectId: string, orgId: string, selectedId: string) {
   const [catalog, skillPayload, builtinRolePayload, variablePayload] = await Promise.all([
-    loadWorkflowCatalog(projectId),
+    loadWorkflowCatalog(projectId, orgId),
     listSkills(projectId),
     listBuiltinRoles(),
     listHarnessVariables(),
@@ -72,6 +109,7 @@ export async function loadWorkflowIndex(projectId: string, selectedId: string) {
   const currentWorkflowId = selectedId || catalog.workflows[0]?.id
 
   return {
+    agentOptions: catalog.agentOptions,
     workflows: catalog.workflows,
     builtinRoleContent:
       builtinRolePayload.roles.find((role) => role.workflow_type === 'coding')?.content ??
@@ -94,18 +132,23 @@ export async function loadWorkflowHarness(projectId: string, workflowId: string)
   }
 }
 
-export async function createDefaultWorkflow(
+export async function createWorkflowWithBinding(
   projectId: string,
-  existingCount: number,
+  input: {
+    agentId: string
+    name: string
+    pickupStatusId: string
+    finishStatusId: string
+  },
   statuses: WorkflowStatusOption[],
   builtinRoleContent: string,
 ) {
-  const index = existingCount + 1
-  const payload = await createWorkflow(projectId, {
-    name: `Workflow ${index}`,
+  const response = await createWorkflow(projectId, {
+    agent_id: input.agentId,
+    name: input.name,
     type: 'coding',
-    pickup_status_id: statuses[0].id,
-    finish_status_id: statuses.at(-1)?.id ?? statuses[0].id,
+    pickup_status_id: input.pickupStatusId,
+    finish_status_id: input.finishStatusId,
     harness_content: builtinRoleContent || defaultHarnessTemplate(),
     is_active: true,
     max_concurrent: 1,
@@ -113,17 +156,19 @@ export async function createDefaultWorkflow(
     timeout_minutes: 30,
   })
 
-  if (!payload.workflow) {
+  if (!response.workflow) {
     throw new Error('Failed to create workflow: no workflow data returned from API.')
   }
 
-  const createdWorkflow = payload.workflow
+  const createdWorkflow = response.workflow
 
   const workflow: WorkflowSummary = {
     id: createdWorkflow.id,
     name: createdWorkflow.name,
     type: normalizeWorkflowType(createdWorkflow.type),
+    agentId: createdWorkflow.agent_id ?? null,
     harnessPath: createdWorkflow.harness_path ?? '',
+    requiredMachineLabels: createdWorkflow.required_machine_labels ?? [],
     pickupStatusId: createdWorkflow.pickup_status_id,
     pickupStatus:
       statuses.find((status) => status.id === createdWorkflow.pickup_status_id)?.name ??

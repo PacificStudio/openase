@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -23,6 +24,8 @@ type Workflow struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// ProjectID holds the value of the "project_id" field.
 	ProjectID uuid.UUID `json:"project_id,omitempty"`
+	// AgentID holds the value of the "agent_id" field.
+	AgentID *uuid.UUID `json:"agent_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Type holds the value of the "type" field.
@@ -59,6 +62,8 @@ type Workflow struct {
 type WorkflowEdges struct {
 	// Project holds the value of the project edge.
 	Project *Project `json:"project,omitempty"`
+	// Agent holds the value of the agent edge.
+	Agent *Agent `json:"agent,omitempty"`
 	// PickupStatus holds the value of the pickup_status edge.
 	PickupStatus *TicketStatus `json:"pickup_status,omitempty"`
 	// FinishStatus holds the value of the finish_status edge.
@@ -71,7 +76,7 @@ type WorkflowEdges struct {
 	ScheduledJobs []*ScheduledJob `json:"scheduled_jobs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -85,12 +90,23 @@ func (e WorkflowEdges) ProjectOrErr() (*Project, error) {
 	return nil, &NotLoadedError{edge: "project"}
 }
 
+// AgentOrErr returns the Agent value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e WorkflowEdges) AgentOrErr() (*Agent, error) {
+	if e.Agent != nil {
+		return e.Agent, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: agent.Label}
+	}
+	return nil, &NotLoadedError{edge: "agent"}
+}
+
 // PickupStatusOrErr returns the PickupStatus value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e WorkflowEdges) PickupStatusOrErr() (*TicketStatus, error) {
 	if e.PickupStatus != nil {
 		return e.PickupStatus, nil
-	} else if e.loadedTypes[1] {
+	} else if e.loadedTypes[2] {
 		return nil, &NotFoundError{label: ticketstatus.Label}
 	}
 	return nil, &NotLoadedError{edge: "pickup_status"}
@@ -101,7 +117,7 @@ func (e WorkflowEdges) PickupStatusOrErr() (*TicketStatus, error) {
 func (e WorkflowEdges) FinishStatusOrErr() (*TicketStatus, error) {
 	if e.FinishStatus != nil {
 		return e.FinishStatus, nil
-	} else if e.loadedTypes[2] {
+	} else if e.loadedTypes[3] {
 		return nil, &NotFoundError{label: ticketstatus.Label}
 	}
 	return nil, &NotLoadedError{edge: "finish_status"}
@@ -110,7 +126,7 @@ func (e WorkflowEdges) FinishStatusOrErr() (*TicketStatus, error) {
 // TicketsOrErr returns the Tickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) TicketsOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.Tickets, nil
 	}
 	return nil, &NotLoadedError{edge: "tickets"}
@@ -119,7 +135,7 @@ func (e WorkflowEdges) TicketsOrErr() ([]*Ticket, error) {
 // AgentRunsOrErr returns the AgentRuns value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) AgentRunsOrErr() ([]*AgentRun, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.AgentRuns, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_runs"}
@@ -128,7 +144,7 @@ func (e WorkflowEdges) AgentRunsOrErr() ([]*AgentRun, error) {
 // ScheduledJobsOrErr returns the ScheduledJobs value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.ScheduledJobs, nil
 	}
 	return nil, &NotLoadedError{edge: "scheduled_jobs"}
@@ -139,7 +155,7 @@ func (*Workflow) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case workflow.FieldFinishStatusID:
+		case workflow.FieldAgentID, workflow.FieldFinishStatusID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case workflow.FieldHooks:
 			values[i] = new([]byte)
@@ -179,6 +195,13 @@ func (_m *Workflow) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field project_id", values[i])
 			} else if value != nil {
 				_m.ProjectID = *value
+			}
+		case workflow.FieldAgentID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field agent_id", values[i])
+			} else if value.Valid {
+				_m.AgentID = new(uuid.UUID)
+				*_m.AgentID = *value.S.(*uuid.UUID)
 			}
 		case workflow.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -279,6 +302,11 @@ func (_m *Workflow) QueryProject() *ProjectQuery {
 	return NewWorkflowClient(_m.config).QueryProject(_m)
 }
 
+// QueryAgent queries the "agent" edge of the Workflow entity.
+func (_m *Workflow) QueryAgent() *AgentQuery {
+	return NewWorkflowClient(_m.config).QueryAgent(_m)
+}
+
 // QueryPickupStatus queries the "pickup_status" edge of the Workflow entity.
 func (_m *Workflow) QueryPickupStatus() *TicketStatusQuery {
 	return NewWorkflowClient(_m.config).QueryPickupStatus(_m)
@@ -329,6 +357,11 @@ func (_m *Workflow) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("project_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProjectID))
+	builder.WriteString(", ")
+	if v := _m.AgentID; v != nil {
+		builder.WriteString("agent_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

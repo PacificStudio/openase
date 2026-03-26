@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
 )
 
@@ -31,6 +32,7 @@ type AgentQuery struct {
 	predicates         []predicate.Agent
 	withProvider       *AgentProviderQuery
 	withProject        *ProjectQuery
+	withWorkflows      *WorkflowQuery
 	withRuns           *AgentRunQuery
 	withTokens         *AgentTokenQuery
 	withActivityEvents *ActivityEventQuery
@@ -107,6 +109,28 @@ func (_q *AgentQuery) QueryProject() *ProjectQuery {
 			sqlgraph.From(agent.Table, agent.FieldID, selector),
 			sqlgraph.To(project.Table, project.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, agent.ProjectTable, agent.ProjectColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryWorkflows chains the current query on the "workflows" edge.
+func (_q *AgentQuery) QueryWorkflows() *WorkflowQuery {
+	query := (&WorkflowClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, selector),
+			sqlgraph.To(workflow.Table, workflow.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agent.WorkflowsTable, agent.WorkflowsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -374,6 +398,7 @@ func (_q *AgentQuery) Clone() *AgentQuery {
 		predicates:         append([]predicate.Agent{}, _q.predicates...),
 		withProvider:       _q.withProvider.Clone(),
 		withProject:        _q.withProject.Clone(),
+		withWorkflows:      _q.withWorkflows.Clone(),
 		withRuns:           _q.withRuns.Clone(),
 		withTokens:         _q.withTokens.Clone(),
 		withActivityEvents: _q.withActivityEvents.Clone(),
@@ -402,6 +427,17 @@ func (_q *AgentQuery) WithProject(opts ...func(*ProjectQuery)) *AgentQuery {
 		opt(query)
 	}
 	_q.withProject = query
+	return _q
+}
+
+// WithWorkflows tells the query-builder to eager-load the nodes that are connected to
+// the "workflows" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AgentQuery) WithWorkflows(opts ...func(*WorkflowQuery)) *AgentQuery {
+	query := (&WorkflowClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withWorkflows = query
 	return _q
 }
 
@@ -516,9 +552,10 @@ func (_q *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 	var (
 		nodes       = []*Agent{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withProvider != nil,
 			_q.withProject != nil,
+			_q.withWorkflows != nil,
 			_q.withRuns != nil,
 			_q.withTokens != nil,
 			_q.withActivityEvents != nil,
@@ -551,6 +588,13 @@ func (_q *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 	if query := _q.withProject; query != nil {
 		if err := _q.loadProject(ctx, query, nodes, nil,
 			func(n *Agent, e *Project) { n.Edges.Project = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withWorkflows; query != nil {
+		if err := _q.loadWorkflows(ctx, query, nodes,
+			func(n *Agent) { n.Edges.Workflows = []*Workflow{} },
+			func(n *Agent, e *Workflow) { n.Edges.Workflows = append(n.Edges.Workflows, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -633,6 +677,39 @@ func (_q *AgentQuery) loadProject(ctx context.Context, query *ProjectQuery, node
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *AgentQuery) loadWorkflows(ctx context.Context, query *WorkflowQuery, nodes []*Agent, init func(*Agent), assign func(*Agent, *Workflow)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Agent)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(workflow.FieldAgentID)
+	}
+	query.Where(predicate.Workflow(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(agent.WorkflowsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AgentID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "agent_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "agent_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

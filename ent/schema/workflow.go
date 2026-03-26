@@ -15,6 +15,9 @@ func (Workflow) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
 		field.UUID("project_id", uuidZero()),
+		field.UUID("agent_id", uuidZero()).
+			Optional().
+			Nillable(),
 		field.String("name").NotEmpty(),
 		field.Enum("type").
 			Values("coding", "test", "doc", "security", "deploy", "refine-harness", "custom"),
@@ -42,6 +45,10 @@ func (Workflow) Edges() []ent.Edge {
 			Field("project_id").
 			Unique().
 			Required(),
+		edge.From("agent", Agent.Type).
+			Ref("workflows").
+			Field("agent_id").
+			Unique(),
 		edge.From("pickup_status", TicketStatus.Type).
 			Ref("pickup_workflows").
 			Field("pickup_status_id").

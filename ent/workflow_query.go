@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -30,6 +31,7 @@ type WorkflowQuery struct {
 	inters            []Interceptor
 	predicates        []predicate.Workflow
 	withProject       *ProjectQuery
+	withAgent         *AgentQuery
 	withPickupStatus  *TicketStatusQuery
 	withFinishStatus  *TicketStatusQuery
 	withTickets       *TicketQuery
@@ -86,6 +88,28 @@ func (_q *WorkflowQuery) QueryProject() *ProjectQuery {
 			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
 			sqlgraph.To(project.Table, project.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, workflow.ProjectTable, workflow.ProjectColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgent chains the current query on the "agent" edge.
+func (_q *WorkflowQuery) QueryAgent() *AgentQuery {
+	query := (&AgentClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, workflow.AgentTable, workflow.AgentColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -396,6 +420,7 @@ func (_q *WorkflowQuery) Clone() *WorkflowQuery {
 		inters:            append([]Interceptor{}, _q.inters...),
 		predicates:        append([]predicate.Workflow{}, _q.predicates...),
 		withProject:       _q.withProject.Clone(),
+		withAgent:         _q.withAgent.Clone(),
 		withPickupStatus:  _q.withPickupStatus.Clone(),
 		withFinishStatus:  _q.withFinishStatus.Clone(),
 		withTickets:       _q.withTickets.Clone(),
@@ -415,6 +440,17 @@ func (_q *WorkflowQuery) WithProject(opts ...func(*ProjectQuery)) *WorkflowQuery
 		opt(query)
 	}
 	_q.withProject = query
+	return _q
+}
+
+// WithAgent tells the query-builder to eager-load the nodes that are connected to
+// the "agent" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkflowQuery) WithAgent(opts ...func(*AgentQuery)) *WorkflowQuery {
+	query := (&AgentClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgent = query
 	return _q
 }
 
@@ -551,8 +587,9 @@ func (_q *WorkflowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wor
 	var (
 		nodes       = []*Workflow{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [7]bool{
 			_q.withProject != nil,
+			_q.withAgent != nil,
 			_q.withPickupStatus != nil,
 			_q.withFinishStatus != nil,
 			_q.withTickets != nil,
@@ -581,6 +618,12 @@ func (_q *WorkflowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wor
 	if query := _q.withProject; query != nil {
 		if err := _q.loadProject(ctx, query, nodes, nil,
 			func(n *Workflow, e *Project) { n.Edges.Project = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgent; query != nil {
+		if err := _q.loadAgent(ctx, query, nodes, nil,
+			func(n *Workflow, e *Agent) { n.Edges.Agent = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -642,6 +685,38 @@ func (_q *WorkflowQuery) loadProject(ctx context.Context, query *ProjectQuery, n
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "project_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *WorkflowQuery) loadAgent(ctx context.Context, query *AgentQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *Agent)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Workflow)
+	for i := range nodes {
+		if nodes[i].AgentID == nil {
+			continue
+		}
+		fk := *nodes[i].AgentID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(agent.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "agent_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -831,6 +906,9 @@ func (_q *WorkflowQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withProject != nil {
 			_spec.Node.AddColumnOnce(workflow.FieldProjectID)
+		}
+		if _q.withAgent != nil {
+			_spec.Node.AddColumnOnce(workflow.FieldAgentID)
 		}
 		if _q.withPickupStatus != nil {
 			_spec.Node.AddColumnOnce(workflow.FieldPickupStatusID)

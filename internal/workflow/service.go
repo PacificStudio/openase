@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
@@ -25,6 +26,7 @@ var (
 	ErrProjectNotFound              = errors.New("project not found")
 	ErrWorkflowNotFound             = errors.New("workflow not found")
 	ErrStatusNotFound               = errors.New("workflow status not found in project")
+	ErrAgentNotFound                = errors.New("workflow agent not found in project")
 	ErrWorkflowConflict             = errors.New("workflow conflict")
 	ErrWorkflowInUse                = errors.New("workflow is still referenced by project or tickets")
 	ErrHarnessInvalid               = errors.New("workflow harness is invalid")
@@ -47,6 +49,7 @@ func Some[T any](value T) Optional[T] {
 type Workflow struct {
 	ID                    uuid.UUID        `json:"id"`
 	ProjectID             uuid.UUID        `json:"project_id"`
+	AgentID               *uuid.UUID       `json:"agent_id"`
 	Name                  string           `json:"name"`
 	Type                  entworkflow.Type `json:"type"`
 	HarnessPath           string           `json:"harness_path"`
@@ -76,6 +79,7 @@ type HarnessDocument struct {
 
 type CreateInput struct {
 	ProjectID             uuid.UUID
+	AgentID               uuid.UUID
 	Name                  string
 	Type                  entworkflow.Type
 	HarnessPath           *string
@@ -93,6 +97,7 @@ type CreateInput struct {
 
 type UpdateInput struct {
 	WorkflowID            uuid.UUID
+	AgentID               Optional[uuid.UUID]
 	Name                  Optional[string]
 	Type                  Optional[entworkflow.Type]
 	HarnessPath           Optional[string]
@@ -253,6 +258,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return WorkflowDetail{}, err
 	}
+	if err := s.ensureAgentBelongsToProject(ctx, input.ProjectID, input.AgentID); err != nil {
+		return WorkflowDetail{}, err
+	}
 	if err := s.ensureStatusBelongsToProject(ctx, input.ProjectID, input.PickupStatusID); err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -302,6 +310,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	builder := s.client.Workflow.Create().
 		SetID(workflowID).
 		SetProjectID(input.ProjectID).
+		SetAgentID(input.AgentID).
 		SetName(input.Name).
 		SetType(input.Type).
 		SetHarnessPath(harnessPath).
@@ -339,6 +348,16 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	}
 
 	projectID := current.ProjectID
+	nextAgentID := current.AgentID
+	if input.AgentID.Set {
+		nextAgentID = &input.AgentID.Value
+	}
+	if nextAgentID == nil {
+		return WorkflowDetail{}, ErrAgentNotFound
+	}
+	if err := s.ensureAgentBelongsToProject(ctx, projectID, *nextAgentID); err != nil {
+		return WorkflowDetail{}, err
+	}
 	nextName := current.Name
 	if input.Name.Set {
 		nextName = input.Name.Value
@@ -417,6 +436,9 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	}
 
 	builder := s.client.Workflow.UpdateOneID(current.ID)
+	if input.AgentID.Set {
+		builder.SetAgentID(input.AgentID.Value)
+	}
 	if input.Name.Set {
 		builder.SetName(input.Name.Value)
 	}
@@ -636,6 +658,23 @@ func (s *Service) ensureStatusBelongsToProject(ctx context.Context, projectID uu
 	return nil
 }
 
+func (s *Service) ensureAgentBelongsToProject(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) error {
+	exists, err := s.client.Agent.Query().
+		Where(
+			entagent.ProjectIDEQ(projectID),
+			entagent.IDEQ(agentID),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check workflow agent existence: %w", err)
+	}
+	if !exists {
+		return ErrAgentNotFound
+	}
+
+	return nil
+}
+
 func (s *Service) resolveCreateHarnessPath(_ context.Context, projectID uuid.UUID, name string, rawPath *string) (string, error) {
 	if rawPath != nil {
 		return normalizeHarnessPath(*rawPath)
@@ -814,6 +853,7 @@ func mapWorkflow(item *ent.Workflow) Workflow {
 	return Workflow{
 		ID:                    item.ID,
 		ProjectID:             item.ProjectID,
+		AgentID:               item.AgentID,
 		Name:                  item.Name,
 		Type:                  item.Type,
 		HarnessPath:           item.HarnessPath,

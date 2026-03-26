@@ -11,7 +11,9 @@ export type WorkflowSummary = {
   id: string
   name: string
   type: WorkflowType
+  agentId: string | null
   harnessPath: string
+  requiredMachineLabels: string[]
   pickupStatusId: string
   pickupStatus: string
   finishStatusId: string | null
@@ -29,6 +31,15 @@ export type WorkflowSummary = {
 export type WorkflowStatusOption = {
   id: string
   name: string
+}
+
+export type WorkflowAgentOption = {
+  id: string
+  label: string
+  agentName: string
+  providerName: string
+  modelName: string
+  workspacePath: string
 }
 
 export type HarnessContent = {

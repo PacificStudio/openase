@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
@@ -29,6 +30,20 @@ type WorkflowCreate struct {
 // SetProjectID sets the "project_id" field.
 func (_c *WorkflowCreate) SetProjectID(v uuid.UUID) *WorkflowCreate {
 	_c.mutation.SetProjectID(v)
+	return _c
+}
+
+// SetAgentID sets the "agent_id" field.
+func (_c *WorkflowCreate) SetAgentID(v uuid.UUID) *WorkflowCreate {
+	_c.mutation.SetAgentID(v)
+	return _c
+}
+
+// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
+func (_c *WorkflowCreate) SetNillableAgentID(v *uuid.UUID) *WorkflowCreate {
+	if v != nil {
+		_c.SetAgentID(*v)
+	}
 	return _c
 }
 
@@ -183,6 +198,11 @@ func (_c *WorkflowCreate) SetNillableID(v *uuid.UUID) *WorkflowCreate {
 // SetProject sets the "project" edge to the Project entity.
 func (_c *WorkflowCreate) SetProject(v *Project) *WorkflowCreate {
 	return _c.SetProjectID(v.ID)
+}
+
+// SetAgent sets the "agent" edge to the Agent entity.
+func (_c *WorkflowCreate) SetAgent(v *Agent) *WorkflowCreate {
+	return _c.SetAgentID(v.ID)
 }
 
 // SetPickupStatus sets the "pickup_status" edge to the TicketStatus entity.
@@ -462,6 +482,23 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.ProjectID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   workflow.AgentTable,
+			Columns: []string{workflow.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.AgentID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.PickupStatusIDs(); len(nodes) > 0 {

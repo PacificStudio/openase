@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
 )
 
@@ -121,6 +122,21 @@ func (_c *AgentCreate) SetProvider(v *AgentProvider) *AgentCreate {
 // SetProject sets the "project" edge to the Project entity.
 func (_c *AgentCreate) SetProject(v *Project) *AgentCreate {
 	return _c.SetProjectID(v.ID)
+}
+
+// AddWorkflowIDs adds the "workflows" edge to the Workflow entity by IDs.
+func (_c *AgentCreate) AddWorkflowIDs(ids ...uuid.UUID) *AgentCreate {
+	_c.mutation.AddWorkflowIDs(ids...)
+	return _c
+}
+
+// AddWorkflows adds the "workflows" edges to the Workflow entity.
+func (_c *AgentCreate) AddWorkflows(v ...*Workflow) *AgentCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddWorkflowIDs(ids...)
 }
 
 // AddRunIDs adds the "runs" edge to the AgentRun entity by IDs.
@@ -344,6 +360,22 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.ProjectID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.WorkflowsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.WorkflowsTable,
+			Columns: []string{agent.WorkflowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.RunsIDs(); len(nodes) > 0 {

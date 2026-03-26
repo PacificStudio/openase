@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -68,12 +69,31 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
 
 	writeSkillFixture(t, repoRoot, "commit", "# Commit\n\nWrite a conventional commit message.\n")
 	writeSkillFixture(t, repoRoot, "review-code", "# Review Code\n\nReview the patch before shipping.\n")
 
 	createdWorkflow, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
 		ProjectID:           project.ID,
+		AgentID:             agent.ID,
 		Name:                "Coding Workflow",
 		Type:                "coding",
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
@@ -340,9 +360,28 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
 
 	createdWorkflow, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
 		ProjectID:           project.ID,
+		AgentID:             agent.ID,
 		Name:                "Coding Workflow",
 		Type:                "coding",
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",

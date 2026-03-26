@@ -60,6 +60,7 @@ const ticketFixture: Ticket = {
 const workflowFixture: Workflow = {
   id: 'workflow-1',
   project_id: 'project-1',
+  agent_id: 'agent-1',
   name: 'Coding',
   type: 'coding',
   harness_path: '.openase/harnesses/coding.md',

@@ -103,7 +103,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   workflowsSettings: {
     state: 'available',
     summary:
-      'Workflow settings now expose lifecycle management for renaming, scheduling policy, activation, and deletion from the shipped Settings surface.',
+      'Workflow settings now expose lifecycle management for explicit agent binding, renaming, scheduling policy, activation, and deletion from the shipped Settings surface.',
   },
   agentsSettings: {
     state: 'available',
