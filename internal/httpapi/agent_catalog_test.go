@@ -435,7 +435,8 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 }
 
 func (f *fakeCatalogService) ListAgentProviders(_ context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error) {
-	if _, ok := f.organizations[organizationID]; !ok {
+	item, ok := f.organizations[organizationID]
+	if !ok || item.Status == "archived" {
 		return nil, catalogservice.ErrNotFound
 	}
 
@@ -453,7 +454,8 @@ func (f *fakeCatalogService) ListAgentProviders(_ context.Context, organizationI
 }
 
 func (f *fakeCatalogService) CreateAgentProvider(_ context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error) {
-	if _, ok := f.organizations[input.OrganizationID]; !ok {
+	org, ok := f.organizations[input.OrganizationID]
+	if !ok || org.Status == "archived" {
 		return domain.AgentProvider{}, catalogservice.ErrNotFound
 	}
 
@@ -461,7 +463,7 @@ func (f *fakeCatalogService) CreateAgentProvider(_ context.Context, input domain
 		return domain.AgentProvider{}, fmt.Errorf("%w: cli_command must not be empty", catalogservice.ErrInvalidInput)
 	}
 
-	item := domain.AgentProvider{
+	provider := domain.AgentProvider{
 		ID:                 uuid.New(),
 		OrganizationID:     input.OrganizationID,
 		Name:               input.Name,
@@ -475,9 +477,9 @@ func (f *fakeCatalogService) CreateAgentProvider(_ context.Context, input domain
 		CostPerInputToken:  input.CostPerInputToken,
 		CostPerOutputToken: input.CostPerOutputToken,
 	}
-	f.providers[item.ID] = item
+	f.providers[provider.ID] = provider
 
-	return item, nil
+	return provider, nil
 }
 
 func (f *fakeCatalogService) GetAgentProvider(_ context.Context, id uuid.UUID) (domain.AgentProvider, error) {

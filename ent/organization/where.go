@@ -199,6 +199,26 @@ func SlugContainsFold(v string) predicate.Organization {
 	return predicate.Organization(sql.FieldContainsFold(FieldSlug, v))
 }
 
+// StatusEQ applies the EQ predicate on the "status" field.
+func StatusEQ(v Status) predicate.Organization {
+	return predicate.Organization(sql.FieldEQ(FieldStatus, v))
+}
+
+// StatusNEQ applies the NEQ predicate on the "status" field.
+func StatusNEQ(v Status) predicate.Organization {
+	return predicate.Organization(sql.FieldNEQ(FieldStatus, v))
+}
+
+// StatusIn applies the In predicate on the "status" field.
+func StatusIn(vs ...Status) predicate.Organization {
+	return predicate.Organization(sql.FieldIn(FieldStatus, vs...))
+}
+
+// StatusNotIn applies the NotIn predicate on the "status" field.
+func StatusNotIn(vs ...Status) predicate.Organization {
+	return predicate.Organization(sql.FieldNotIn(FieldStatus, vs...))
+}
+
 // DefaultAgentProviderIDEQ applies the EQ predicate on the "default_agent_provider_id" field.
 func DefaultAgentProviderIDEQ(v uuid.UUID) predicate.Organization {
 	return predicate.Organization(sql.FieldEQ(FieldDefaultAgentProviderID, v))

@@ -7620,6 +7620,7 @@ type OrganizationMutation struct {
 	id                            *uuid.UUID
 	name                          *string
 	slug                          *string
+	status                        *organization.Status
 	clearedFields                 map[string]struct{}
 	projects                      map[uuid.UUID]struct{}
 	removedprojects               map[uuid.UUID]struct{}
@@ -7814,6 +7815,42 @@ func (m *OrganizationMutation) OldSlug(ctx context.Context) (v string, err error
 // ResetSlug resets all changes to the "slug" field.
 func (m *OrganizationMutation) ResetSlug() {
 	m.slug = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *OrganizationMutation) SetStatus(o organization.Status) {
+	m.status = &o
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *OrganizationMutation) Status() (r organization.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the Organization entity.
+// If the Organization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMutation) OldStatus(ctx context.Context) (v organization.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *OrganizationMutation) ResetStatus() {
+	m.status = nil
 }
 
 // SetDefaultAgentProviderID sets the "default_agent_provider_id" field.
@@ -8142,12 +8179,15 @@ func (m *OrganizationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *OrganizationMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 4)
 	if m.name != nil {
 		fields = append(fields, organization.FieldName)
 	}
 	if m.slug != nil {
 		fields = append(fields, organization.FieldSlug)
+	}
+	if m.status != nil {
+		fields = append(fields, organization.FieldStatus)
 	}
 	if m.default_agent_provider != nil {
 		fields = append(fields, organization.FieldDefaultAgentProviderID)
@@ -8164,6 +8204,8 @@ func (m *OrganizationMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case organization.FieldSlug:
 		return m.Slug()
+	case organization.FieldStatus:
+		return m.Status()
 	case organization.FieldDefaultAgentProviderID:
 		return m.DefaultAgentProviderID()
 	}
@@ -8179,6 +8221,8 @@ func (m *OrganizationMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldName(ctx)
 	case organization.FieldSlug:
 		return m.OldSlug(ctx)
+	case organization.FieldStatus:
+		return m.OldStatus(ctx)
 	case organization.FieldDefaultAgentProviderID:
 		return m.OldDefaultAgentProviderID(ctx)
 	}
@@ -8203,6 +8247,13 @@ func (m *OrganizationMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSlug(v)
+		return nil
+	case organization.FieldStatus:
+		v, ok := value.(organization.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
 		return nil
 	case organization.FieldDefaultAgentProviderID:
 		v, ok := value.(uuid.UUID)
@@ -8274,6 +8325,9 @@ func (m *OrganizationMutation) ResetField(name string) error {
 		return nil
 	case organization.FieldSlug:
 		m.ResetSlug()
+		return nil
+	case organization.FieldStatus:
+		m.ResetStatus()
 		return nil
 	case organization.FieldDefaultAgentProviderID:
 		m.ResetDefaultAgentProviderID()
