@@ -127,11 +127,29 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
+      - name: Reset pnpm Store
+        run: |
+          store_dir="$(pnpm store path --silent)"
+          rm -rf "${store_dir}"
+
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Run Web CI
-        run: pnpm run ci
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if pnpm run ci; then
+            exit 0
+          fi
+
+          echo "Frontend CI diagnostics:"
+          pnpm exec prettier --version || true
+          sha256sum src/routes/\(app\)/orgs/+page.svelte || true
+          pnpm exec prettier --check src/routes/\(app\)/orgs/+page.svelte || true
+          pnpm exec prettier --debug-check src/routes/\(app\)/orgs/+page.svelte || true
+          exit 1
 
       - name: Upload Embedded Web Assets
         uses: actions/upload-artifact@v6
