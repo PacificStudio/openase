@@ -8234,6 +8234,7 @@ export interface operations {
         content: {
           'application/json': {
             workflow?: {
+              agent_id?: string | null
               finish_status_id?: string | null
               harness_content?: string | null
               harness_path?: string
