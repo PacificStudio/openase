@@ -17,6 +17,8 @@ func TestParseSetupRequestRejectsNonCanonicalBranchName(t *testing.T) {
 	rawBranch := "feature/custom"
 	_, err := ParseSetupRequest(SetupInput{
 		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
 		AgentName:        "codex-01",
 		TicketIdentifier: "ASE-33",
 		Repos: []RepoInput{
@@ -35,6 +37,25 @@ func TestParseSetupRequestRejectsNonCanonicalBranchName(t *testing.T) {
 	}
 }
 
+func TestParseSetupRequestAllowsEmptyRepos(t *testing.T) {
+	request, err := ParseSetupRequest(SetupInput{
+		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		AgentName:        "codex-01",
+		TicketIdentifier: "ASE-33",
+	})
+	if err != nil {
+		t.Fatalf("expected parse to allow empty repos: %v", err)
+	}
+	if len(request.Repos) != 0 {
+		t.Fatalf("expected no repos, got %+v", request.Repos)
+	}
+	if request.BranchName != "agent/codex-01/ASE-33" {
+		t.Fatalf("unexpected branch name %q", request.BranchName)
+	}
+}
+
 func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 	backendRepoPath, _ := createRemoteRepo(t, "main", map[string]string{
 		"README.md": "backend",
@@ -46,6 +67,8 @@ func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 	clonePath := "services/frontend"
 	request, err := ParseSetupRequest(SetupInput{
 		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
 		AgentName:        "codex-01",
 		TicketIdentifier: "ASE-33",
 		Repos: []RepoInput{
@@ -72,7 +95,7 @@ func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 		t.Fatalf("prepare workspace: %v", err)
 	}
 
-	expectedWorkspacePath := filepath.Join(request.WorkspaceRoot, "ASE-33")
+	expectedWorkspacePath := filepath.Join(request.WorkspaceRoot, "acme", "payments", "ASE-33")
 	if workspace.Path != expectedWorkspacePath {
 		t.Fatalf("expected workspace path %s, got %s", expectedWorkspacePath, workspace.Path)
 	}
@@ -96,6 +119,8 @@ func TestManagerPrepareFetchesExistingClone(t *testing.T) {
 
 	request, err := ParseSetupRequest(SetupInput{
 		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
 		AgentName:        "codex-01",
 		TicketIdentifier: "ASE-33",
 		Repos: []RepoInput{
@@ -127,6 +152,24 @@ func TestManagerPrepareFetchesExistingClone(t *testing.T) {
 
 	assertHeadBranch(t, backendClonePath, "agent/codex-01/ASE-33")
 	assertRemoteBranchHash(t, backendClonePath, "main", updatedHash)
+}
+
+func TestTicketWorkspacePathAndPattern(t *testing.T) {
+	workspacePath, err := TicketWorkspacePath("/srv/openase/workspace", "acme", "payments", "ASE-42")
+	if err != nil {
+		t.Fatalf("derive workspace path: %v", err)
+	}
+	if workspacePath != filepath.Join("/srv/openase/workspace", "acme", "payments", "ASE-42") {
+		t.Fatalf("unexpected workspace path %q", workspacePath)
+	}
+
+	pattern, err := TicketWorkspacePattern(LocalWorkspacePatternRoot, "acme", "payments")
+	if err != nil {
+		t.Fatalf("derive workspace pattern: %v", err)
+	}
+	if pattern != filepath.Join(LocalWorkspacePatternRoot, "acme", "payments", ticketPlaceholder) {
+		t.Fatalf("unexpected workspace pattern %q", pattern)
+	}
 }
 
 func createRemoteRepo(t *testing.T, defaultBranch string, files map[string]string) (string, plumbing.Hash) {

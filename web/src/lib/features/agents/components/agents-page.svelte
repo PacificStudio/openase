@@ -14,11 +14,10 @@
     runRuntimeAction,
     runtimeActionError,
   } from '../runtime-actions'
+  import AgentsPageContent from './agents-page-content.svelte'
   import { createAgentOutputState } from './agent-output-state.svelte'
   import { wireAgentOutputStream } from './agent-output-stream.svelte'
   import { createProviderEditorState } from './provider-editor-state.svelte'
-  import AgentsPageDrawers from './agents-page-drawers.svelte'
-  import AgentsPagePanel from './agents-page-panel.svelte'
 
   let activeTab = $state('instances')
   let agents = $state<AgentInstance[]>([])
@@ -168,7 +167,6 @@
         defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
         providerId: parsed.value.providerId,
         name: parsed.value.name,
-        workspacePath: parsed.value.workspacePath,
       })
       applyPageData(result.data)
       registerFeedback = 'Agent created.'
@@ -242,8 +240,12 @@
   }
 </script>
 
-<AgentsPagePanel
+<AgentsPageContent
   bind:activeTab
+  bind:registerSheetOpen
+  bind:providerConfigOpen
+  bind:outputSheetOpen
+  canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
   {agents}
   {providers}
   {loading}
@@ -251,16 +253,13 @@
   {pageFeedback}
   {pageError}
   {runtimeActionAgentId}
-  canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
   registerButtonTitle={providerItems.length === 0
     ? 'Register a provider before creating agents.'
     : appStore.currentProject?.id
       ? undefined
       : 'Project context is unavailable.'}
   onOpenRegister={() => handleRegisterOpenChange(true)}
-  onSelectTicket={(ticketId) => {
-    appStore.openRightPanel({ type: 'ticket', id: ticketId })
-  }}
+  onSelectTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
   onViewOutput={(agentId) => {
     outputState.open(agentId)
     outputSheetOpen = true
@@ -268,15 +267,11 @@
   onConfigureProvider={handleConfigureProvider}
   onPauseAgent={(agentId) => handleRuntimeAction('pause', agentId)}
   onResumeAgent={(agentId) => handleRuntimeAction('resume', agentId)}
-/>
-
-<AgentsPageDrawers
-  bind:registerSheetOpen
-  bind:providerConfigOpen
-  bind:outputSheetOpen
   {providerItems}
   {machineItems}
   {registrationDraft}
+  currentOrgSlug={appStore.currentOrg?.slug}
+  currentProjectSlug={appStore.currentProject?.slug}
   {registerSaving}
   {registerError}
   {registerFeedback}

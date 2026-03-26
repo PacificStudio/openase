@@ -31,12 +31,10 @@ export async function registerAgentAndReload(input: {
   defaultProviderId: string | null
   providerId: string
   name: string
-  workspacePath: string
 }): Promise<{ data: AgentsPageData; feedback: string }> {
   await createAgent(input.projectId, {
     provider_id: input.providerId,
     name: input.name,
-    workspace_path: input.workspacePath,
   })
 
   return {

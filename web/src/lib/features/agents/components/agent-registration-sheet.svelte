@@ -3,6 +3,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
+  import { deriveWorkspaceConvention } from '../registration'
   import {
     Sheet,
     SheetContent,
@@ -18,6 +19,8 @@
     open = $bindable(false),
     providers,
     draft,
+    currentOrgSlug,
+    currentProjectSlug,
     saving = false,
     error = '',
     feedback = '',
@@ -28,6 +31,8 @@
     open?: boolean
     providers: AgentProvider[]
     draft: AgentRegistrationDraft
+    currentOrgSlug?: string
+    currentProjectSlug?: string
     saving?: boolean
     error?: string
     feedback?: string
@@ -60,6 +65,14 @@
     const provider = providers.find((item) => item.id === draft.providerId)
     return provider ? providerLabel(provider) : 'Select provider'
   }
+
+  const workspaceConvention = $derived(
+    deriveWorkspaceConvention(
+      providers.find((item) => item.id === draft.providerId),
+      currentOrgSlug,
+      currentProjectSlug,
+    ),
+  )
 </script>
 
 <Sheet bind:open>
@@ -124,13 +137,13 @@
         </div>
 
         <div class="space-y-2">
-          <Label for="agent-workspace-path">Workspace path</Label>
-          <Input
-            id="agent-workspace-path"
-            value={draft.workspacePath}
-            placeholder="/srv/openase/workspaces/coding-01"
-            oninput={(event) => updateField('workspacePath', event)}
-          />
+          <Label>Workspace convention</Label>
+          <div class="border-border text-muted-foreground rounded-md border px-3 py-2 text-sm">
+            <div class="font-mono break-all">{workspaceConvention}</div>
+            <div class="mt-2 text-xs">
+              Ticket workspaces are derived by OpenASE from org, project, and ticket identity.
+            </div>
+          </div>
         </div>
       </div>
 

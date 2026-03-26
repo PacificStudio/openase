@@ -479,21 +479,28 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 		}
 	}
 
-	workingDirectoryValue := strings.TrimSpace(launchContext.agent.WorkspacePath)
+	workspaceRequest, err := buildWorkspaceRequest(launchContext, machine, remote)
+	if err != nil {
+		return nil, err
+	}
+
+	var workspaceItem workspaceinfra.Workspace
 	if remote {
 		if l.sshPool == nil {
 			return nil, fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
 		}
-		workspaceRequest, err := buildRemoteWorkspaceRequest(launchContext, machine)
+		workspaceItem, err = workspaceinfra.NewRemoteManager(l.sshPool).Prepare(ctx, machine, workspaceRequest)
 		if err != nil {
 			return nil, err
 		}
-		workspaceItem, err := workspaceinfra.NewRemoteManager(l.sshPool).Prepare(ctx, machine, workspaceRequest)
+	} else {
+		workspaceItem, err = workspaceinfra.NewManager().Prepare(ctx, workspaceRequest)
 		if err != nil {
 			return nil, err
 		}
-		workingDirectoryValue = workspaceItem.Path
 	}
+
+	workingDirectoryValue := workspaceItem.Path
 	workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
 	if err != nil {
 		return nil, fmt.Errorf("parse agent workspace path: %w", err)
@@ -620,6 +627,7 @@ func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UU
 		Where(entagent.IDEQ(agentID)).
 		WithProvider().
 		WithProject(func(query *ent.ProjectQuery) {
+			query.WithOrganization()
 			query.WithRepos(func(repoQuery *ent.ProjectRepoQuery) {
 				repoQuery.Order(entprojectrepo.ByName())
 			})
@@ -633,6 +641,9 @@ func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UU
 	}
 	if loadedAgent.Edges.Project == nil {
 		return runtimeLaunchContext{}, fmt.Errorf("agent project must be loaded")
+	}
+	if loadedAgent.Edges.Project.Edges.Organization == nil {
+		return runtimeLaunchContext{}, fmt.Errorf("agent project organization must be loaded")
 	}
 
 	ticketItem, err := l.client.Ticket.Query().
@@ -721,33 +732,64 @@ func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContex
 	return catalogdomain.Machine{}, false, fmt.Errorf("provider %s bound machine %s not found", providerItem.ID, providerItem.MachineID)
 }
 
-func buildRemoteWorkspaceRequest(launchContext runtimeLaunchContext, machine catalogdomain.Machine) (workspaceinfra.SetupRequest, error) {
-	if machine.WorkspaceRoot == nil {
-		return workspaceinfra.SetupRequest{}, fmt.Errorf("machine %s is missing workspace_root", machine.Name)
+func buildWorkspaceRequest(launchContext runtimeLaunchContext, machine catalogdomain.Machine, remote bool) (workspaceinfra.SetupRequest, error) {
+	if launchContext.project == nil || launchContext.project.Edges.Organization == nil {
+		return workspaceinfra.SetupRequest{}, fmt.Errorf("project organization must be loaded for ticket workspace derivation")
 	}
-	if len(launchContext.projectRepos) == 0 {
-		return workspaceinfra.SetupRequest{}, fmt.Errorf("project %s has no repos configured for remote workspace", launchContext.project.ID)
+
+	workspaceRoot, err := resolveWorkspaceRoot(machine, remote)
+	if err != nil {
+		return workspaceinfra.SetupRequest{}, err
 	}
 
 	repoInputs := buildWorkspaceRepoInputs(launchContext.projectRepos, launchContext.ticketScopes)
 	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
-		WorkspaceRoot:    *machine.WorkspaceRoot,
+		WorkspaceRoot:    workspaceRoot,
+		OrganizationSlug: launchContext.project.Edges.Organization.Slug,
+		ProjectSlug:      launchContext.project.Slug,
 		AgentName:        launchContext.agent.Name,
 		TicketIdentifier: launchContext.ticket.Identifier,
 		Repos:            repoInputs,
 	})
 	if err != nil {
-		return workspaceinfra.SetupRequest{}, fmt.Errorf("build remote workspace request: %w", err)
-	}
-
-	if current := strings.TrimSpace(launchContext.agent.WorkspacePath); current != "" {
-		expected := filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)
-		if filepath.Clean(current) != expected {
-			return workspaceinfra.SetupRequest{}, fmt.Errorf("agent workspace path %q does not match remote workspace %q", current, expected)
-		}
+		return workspaceinfra.SetupRequest{}, fmt.Errorf("build ticket workspace request: %w", err)
 	}
 
 	return request, nil
+}
+
+func resolveWorkspaceRoot(machine catalogdomain.Machine, remote bool) (string, error) {
+	if remote {
+		if machine.WorkspaceRoot == nil {
+			return "", fmt.Errorf("machine %s is missing workspace_root", machine.Name)
+		}
+		return strings.TrimSpace(*machine.WorkspaceRoot), nil
+	}
+
+	root, err := workspaceinfra.LocalWorkspaceRoot()
+	if err != nil {
+		return "", fmt.Errorf("resolve local workspace root: %w", err)
+	}
+	return root, nil
+}
+
+func buildWorkspacePath(launchContext runtimeLaunchContext, machine catalogdomain.Machine, remote bool) (string, error) {
+	request, err := buildWorkspaceRequest(launchContext, machine, remote)
+	if err != nil {
+		return "", err
+	}
+
+	workspacePath, err := workspaceinfra.TicketWorkspacePath(
+		request.WorkspaceRoot,
+		request.OrganizationSlug,
+		request.ProjectSlug,
+		request.TicketIdentifier,
+	)
+	if err != nil {
+		return "", fmt.Errorf("derive ticket workspace path: %w", err)
+	}
+
+	return workspacePath, nil
 }
 
 func buildWorkspaceRepoInputs(projectRepos []*ent.ProjectRepo, ticketScopes []*ent.TicketRepoScope) []workspaceinfra.RepoInput {
@@ -935,10 +977,7 @@ func (l *RuntimeLauncher) loadMachineAccess(
 }
 
 func mapHarnessMachine(machine catalogdomain.Machine, workspace string) workflowservice.HarnessMachineData {
-	root := workspaceRoot("", workspace)
-	if machine.WorkspaceRoot != nil {
-		root = workspaceRoot(*machine.WorkspaceRoot, workspace)
-	}
+	root := workspaceRoot(machine, workspace)
 
 	return workflowservice.HarnessMachineData{
 		Name:          machine.Name,
@@ -1005,15 +1044,21 @@ func (l *RuntimeLauncher) resolveAccessibleMachines(
 	return accessible, nil
 }
 
-func workspaceRoot(configured string, workspace string) string {
-	if strings.TrimSpace(configured) != "" {
-		return strings.TrimSpace(configured)
+func workspaceRoot(machine catalogdomain.Machine, workspace string) string {
+	if strings.TrimSpace(machine.Host) == "" || machine.Host == catalogdomain.LocalMachineHost {
+		if root, err := workspaceinfra.LocalWorkspaceRoot(); err == nil {
+			return root
+		}
+	}
+	if machine.WorkspaceRoot != nil && strings.TrimSpace(*machine.WorkspaceRoot) != "" {
+		return strings.TrimSpace(*machine.WorkspaceRoot)
 	}
 	trimmed := strings.TrimSpace(workspace)
 	if trimmed == "" {
 		return ""
 	}
-	return filepath.Clean(filepath.Dir(trimmed))
+	parent := filepath.Clean(filepath.Dir(trimmed))
+	return filepath.Clean(filepath.Dir(filepath.Dir(parent)))
 }
 
 func (l *RuntimeLauncher) storeSession(agentID uuid.UUID, session *codex.Session) {

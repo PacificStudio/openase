@@ -245,7 +245,6 @@ export function createAgent(
   body: {
     provider_id: string
     name: string
-    workspace_path: string
   },
 ) {
   return api.post<AgentResponse>(`/api/v1/projects/${projectId}/agents`, { body })

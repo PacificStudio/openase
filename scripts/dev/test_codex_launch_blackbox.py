@@ -244,7 +244,6 @@ def main() -> int:
         {
             "provider_id": provider["id"],
             "name": f"runtime-agent-{stamp}",
-            "workspace_path": str(workspace_path),
             "capabilities": ["coding", "runtime-check"],
         },
     )["agent"]

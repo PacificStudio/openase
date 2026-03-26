@@ -84,9 +84,8 @@ type AgentProviderInput struct {
 }
 
 type AgentInput struct {
-	ProviderID    string `json:"provider_id"`
-	Name          string `json:"name"`
-	WorkspacePath string `json:"workspace_path"`
+	ProviderID string `json:"provider_id"`
+	Name       string `json:"name"`
 }
 
 type CreateAgentProvider struct {
@@ -125,7 +124,6 @@ type CreateAgent struct {
 	ProviderID            uuid.UUID
 	Name                  string
 	RuntimeControlState   AgentRuntimeControlState
-	WorkspacePath         string
 	TotalTokensUsed       int64
 	TotalTicketsCompleted int
 }
@@ -231,7 +229,6 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		ProviderID:            providerID,
 		Name:                  name,
 		RuntimeControlState:   DefaultAgentRuntimeControlState,
-		WorkspacePath:         strings.TrimSpace(raw.WorkspacePath),
 		TotalTokensUsed:       DefaultAgentTotalTokensUsed,
 		TotalTicketsCompleted: DefaultAgentTotalTicketsCompleted,
 	}, nil

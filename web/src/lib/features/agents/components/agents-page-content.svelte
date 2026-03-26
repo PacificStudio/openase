@@ -29,6 +29,8 @@
     providerItems,
     machineItems,
     registrationDraft,
+    currentOrgSlug,
+    currentProjectSlug,
     registerSaving = false,
     registerError = '',
     registerFeedback = '',
@@ -71,6 +73,8 @@
     providerItems: AgentProvider[]
     machineItems: Machine[]
     registrationDraft: AgentRegistrationDraft
+    currentOrgSlug?: string
+    currentProjectSlug?: string
     registerSaving?: boolean
     registerError?: string
     registerFeedback?: string
@@ -121,6 +125,8 @@
   {providerItems}
   {machineItems}
   {registrationDraft}
+  {currentOrgSlug}
+  {currentProjectSlug}
   {registerSaving}
   {registerError}
   {registerFeedback}

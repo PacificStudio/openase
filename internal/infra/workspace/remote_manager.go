@@ -48,10 +48,18 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 		return Workspace{}, fmt.Errorf("prepare remote workspace: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 
-	workspacePath := filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)
+	workspacePath, err := TicketWorkspacePath(
+		request.WorkspaceRoot,
+		request.OrganizationSlug,
+		request.ProjectSlug,
+		request.TicketIdentifier,
+	)
+	if err != nil {
+		return Workspace{}, fmt.Errorf("derive remote workspace path: %w", err)
+	}
 	preparedRepos := make([]PreparedRepo, 0, len(request.Repos))
 	for _, repo := range request.Repos {
-		repoPath := filepath.Join(workspacePath, filepath.FromSlash(repo.ClonePath))
+		repoPath := RepoPath(workspacePath, repo.ClonePath, repo.Name)
 		preparedRepos = append(preparedRepos, PreparedRepo{
 			Name:          repo.Name,
 			RepositoryURL: repo.RepositoryURL,
@@ -71,14 +79,19 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 
 func buildPrepareWorkspaceCommand(request SetupRequest) string {
 	lines := make([]string, 0, 2+8*len(request.Repos))
+	workspacePath, _ := TicketWorkspacePath(
+		request.WorkspaceRoot,
+		request.OrganizationSlug,
+		request.ProjectSlug,
+		request.TicketIdentifier,
+	)
 	lines = append(lines,
 		"set -eu",
-		"mkdir -p "+sshinfra.ShellQuote(filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)),
+		"mkdir -p "+sshinfra.ShellQuote(workspacePath),
 	)
 
-	workspacePath := filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)
 	for _, repo := range request.Repos {
-		repoPath := filepath.Join(workspacePath, filepath.FromSlash(repo.ClonePath))
+		repoPath := RepoPath(workspacePath, repo.ClonePath, repo.Name)
 		lines = append(lines,
 			"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(repoPath)),
 			"if [ -e "+sshinfra.ShellQuote(repoPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(repoPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+repoPath+" is not a git clone")+" >&2; exit 1; fi",

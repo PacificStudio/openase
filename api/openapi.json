@@ -5375,9 +5375,6 @@
                   },
                   "provider_id": {
                     "type": "string"
-                  },
-                  "workspace_path": {
-                    "type": "string"
                   }
                 },
                 "type": "object"

@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
@@ -12,6 +13,7 @@ import (
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -130,6 +132,12 @@ func (r *EntRepository) ListAgents(ctx context.Context, projectID uuid.UUID) ([]
 
 	items, err := r.client.Agent.Query().
 		Where(entagent.ProjectID(projectID)).
+		WithProvider(func(query *ent.AgentProviderQuery) {
+			query.WithMachine()
+		}).
+		WithProject(func(query *ent.ProjectQuery) {
+			query.WithOrganization()
+		}).
 		Order(entagent.ByName()).
 		All(ctx)
 	if err != nil {
@@ -185,7 +193,6 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		SetProviderID(input.ProviderID).
 		SetName(input.Name).
 		SetRuntimeControlState(toEntAgentRuntimeControlState(input.RuntimeControlState)).
-		SetWorkspacePath(input.WorkspacePath).
 		SetTotalTokensUsed(input.TotalTokensUsed).
 		SetTotalTicketsCompleted(input.TotalTicketsCompleted)
 
@@ -198,7 +205,15 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 }
 
 func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
-	item, err := r.client.Agent.Get(ctx, id)
+	item, err := r.client.Agent.Query().
+		Where(entagent.ID(id)).
+		WithProvider(func(query *ent.AgentProviderQuery) {
+			query.WithMachine()
+		}).
+		WithProject(func(query *ent.ProjectQuery) {
+			query.WithOrganization()
+		}).
+		Only(ctx)
 	if err != nil {
 		return domain.Agent{}, mapReadError("get agent", err)
 	}
@@ -356,11 +371,40 @@ func mapAgent(item *ent.Agent, currentRun agentCurrentRunSnapshot) domain.Agent 
 		ProjectID:             item.ProjectID,
 		Name:                  item.Name,
 		RuntimeControlState:   toDomainAgentRuntimeControlState(item.RuntimeControlState),
-		WorkspacePath:         item.WorkspacePath,
+		WorkspacePath:         deriveAgentWorkspacePattern(item),
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
 		Runtime:               domain.BuildAgentRuntime(mapAgentRunPointer(currentRun.run), toDomainAgentRuntimeControlState(item.RuntimeControlState)),
 	}
+}
+
+func deriveAgentWorkspacePattern(item *ent.Agent) string {
+	if item == nil || item.Edges.Project == nil || item.Edges.Provider == nil {
+		return item.WorkspacePath
+	}
+	if item.Edges.Project.Edges.Organization == nil {
+		return item.WorkspacePath
+	}
+
+	projectItem := item.Edges.Project
+	providerItem := item.Edges.Provider
+	organizationItem := projectItem.Edges.Organization
+
+	root := workspaceinfra.LocalWorkspacePatternRoot
+	if machineItem := providerItem.Edges.Machine; machineItem != nil {
+		if machineItem.Host != "" && machineItem.Host != domain.LocalMachineHost {
+			root = strings.TrimSpace(machineItem.WorkspaceRoot)
+		}
+	}
+	if strings.TrimSpace(root) == "" {
+		return item.WorkspacePath
+	}
+
+	pattern, err := workspaceinfra.TicketWorkspacePattern(root, organizationItem.Slug, projectItem.Slug)
+	if err != nil {
+		return item.WorkspacePath
+	}
+	return pattern
 }
 
 func mapAgentRuns(items []*ent.AgentRun) []domain.AgentRun {
