@@ -575,7 +575,10 @@ func TestCreateProjectSeedsDefaultTicketStatuses(t *testing.T) {
 			catalogrepo.NewEntRepository(client),
 			executable.NewPathResolver(),
 			nil,
-			catalogservice.WithProjectStatusResetter(statusService),
+			catalogservice.WithProjectStatusBootstrapper(catalogservice.ProjectStatusBootstrapperFunc(func(ctx context.Context, projectID uuid.UUID) error {
+				_, err := statusService.ResetToDefaultTemplate(ctx, projectID)
+				return err
+			})),
 		),
 		nil,
 	)

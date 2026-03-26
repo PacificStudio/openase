@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	"github.com/google/uuid"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -430,7 +431,10 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 		repo,
 		executable.NewPathResolver(),
 		nil,
-		catalogservice.WithProjectStatusResetter(statusService),
+		catalogservice.WithProjectStatusBootstrapper(catalogservice.ProjectStatusBootstrapperFunc(func(ctx context.Context, projectID uuid.UUID) error {
+			_, err := statusService.ResetToDefaultTemplate(ctx, projectID)
+			return err
+		})),
 	)
 
 	orgSlug := safeSlug(string(input.Mode) + "-" + input.Project.Name)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
 )
@@ -109,7 +108,7 @@ func (s *service) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, 
 	return s.repo.DeleteAgent(ctx, id)
 }
 
-func (s *service) resolveAgentProviderCLICommand(adapterType entagentprovider.AdapterType, cliCommand string) (string, error) {
+func (s *service) resolveAgentProviderCLICommand(adapterType domain.AgentProviderAdapterType, cliCommand string) (string, error) {
 	if cliCommand != "" {
 		return cliCommand, nil
 	}
@@ -130,26 +129,26 @@ func (s *service) resolveAgentProviderCLICommand(adapterType entagentprovider.Ad
 	return resolved, nil
 }
 
-func defaultAgentProviderCommand(adapterType entagentprovider.AdapterType) (string, bool) {
+func defaultAgentProviderCommand(adapterType domain.AgentProviderAdapterType) (string, bool) {
 	switch adapterType {
-	case entagentprovider.AdapterTypeClaudeCodeCli:
+	case domain.AgentProviderAdapterTypeClaudeCodeCLI:
 		return "claude", true
-	case entagentprovider.AdapterTypeCodexAppServer:
+	case domain.AgentProviderAdapterTypeCodexAppServer:
 		return "codex", true
-	case entagentprovider.AdapterTypeGeminiCli:
+	case domain.AgentProviderAdapterTypeGeminiCLI:
 		return "gemini", true
 	default:
 		return "", false
 	}
 }
 
-func defaultAgentProviderCLIArgs(adapterType entagentprovider.AdapterType, cliArgs []string) []string {
+func defaultAgentProviderCLIArgs(adapterType domain.AgentProviderAdapterType, cliArgs []string) []string {
 	if len(cliArgs) > 0 {
 		return append([]string(nil), cliArgs...)
 	}
 
 	switch adapterType {
-	case entagentprovider.AdapterTypeCodexAppServer:
+	case domain.AgentProviderAdapterTypeCodexAppServer:
 		return []string{"app-server", "--listen", "stdio://"}
 	default:
 		return nil
@@ -199,11 +198,11 @@ func isAgentProviderAvailable(
 func preferredAvailableProviderID(items []domain.AgentProvider) *uuid.UUID {
 	preferred := []struct {
 		name        string
-		adapterType entagentprovider.AdapterType
+		adapterType domain.AgentProviderAdapterType
 	}{
-		{name: "OpenAI Codex", adapterType: entagentprovider.AdapterTypeCodexAppServer},
-		{name: "Claude Code", adapterType: entagentprovider.AdapterTypeClaudeCodeCli},
-		{name: "Gemini CLI", adapterType: entagentprovider.AdapterTypeGeminiCli},
+		{name: "OpenAI Codex", adapterType: domain.AgentProviderAdapterTypeCodexAppServer},
+		{name: "Claude Code", adapterType: domain.AgentProviderAdapterTypeClaudeCodeCLI},
+		{name: "Gemini CLI", adapterType: domain.AgentProviderAdapterTypeGeminiCLI},
 	}
 	for _, candidate := range preferred {
 		for _, item := range items {

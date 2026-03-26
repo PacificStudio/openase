@@ -29,6 +29,7 @@ import (
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -112,7 +113,10 @@ func (a *App) RunServe(ctx context.Context) error {
 		catalogRepo,
 		executable.NewPathResolver(),
 		sshinfra.NewTester(sshPool),
-		catalogservice.WithProjectStatusResetter(ticketStatusSvc),
+		catalogservice.WithProjectStatusBootstrapper(catalogservice.ProjectStatusBootstrapperFunc(func(ctx context.Context, projectID uuid.UUID) error {
+			_, err := ticketStatusSvc.ResetToDefaultTemplate(ctx, projectID)
+			return err
+		})),
 	)
 	notificationSvc := notificationservice.NewService(client, a.logger, http.DefaultClient)
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {

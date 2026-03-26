@@ -2,7 +2,6 @@ package catalog
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	entsql "entgo.io/ent/dialect/sql"
@@ -19,50 +18,10 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("catalog resource not found")
-	ErrConflict     = errors.New("catalog resource conflict")
-	ErrInvalidInput = errors.New("catalog invalid input")
+	ErrNotFound     = domain.ErrNotFound
+	ErrConflict     = domain.ErrConflict
+	ErrInvalidInput = domain.ErrInvalidInput
 )
-
-type Repository interface {
-	ListOrganizations(ctx context.Context) ([]domain.Organization, error)
-	CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error)
-	GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
-	UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error)
-	ArchiveOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
-	ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error)
-	CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error)
-	GetMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
-	UpdateMachine(ctx context.Context, input domain.UpdateMachine) (domain.Machine, error)
-	DeleteMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
-	RecordMachineProbe(ctx context.Context, input domain.RecordMachineProbe) error
-	ListProjects(ctx context.Context, organizationID uuid.UUID) ([]domain.Project, error)
-	CreateProject(ctx context.Context, input domain.CreateProject) (domain.Project, error)
-	GetProject(ctx context.Context, id uuid.UUID) (domain.Project, error)
-	UpdateProject(ctx context.Context, input domain.UpdateProject) (domain.Project, error)
-	ArchiveProject(ctx context.Context, id uuid.UUID) (domain.Project, error)
-	ListProjectRepos(ctx context.Context, projectID uuid.UUID) ([]domain.ProjectRepo, error)
-	CreateProjectRepo(ctx context.Context, input domain.CreateProjectRepo) (domain.ProjectRepo, error)
-	GetProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
-	UpdateProjectRepo(ctx context.Context, input domain.UpdateProjectRepo) (domain.ProjectRepo, error)
-	DeleteProjectRepo(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (domain.ProjectRepo, error)
-	ListTicketRepoScopes(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.TicketRepoScope, error)
-	CreateTicketRepoScope(ctx context.Context, input domain.CreateTicketRepoScope) (domain.TicketRepoScope, error)
-	GetTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error)
-	UpdateTicketRepoScope(ctx context.Context, input domain.UpdateTicketRepoScope) (domain.TicketRepoScope, error)
-	DeleteTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error)
-	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error)
-	CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error)
-	GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
-	UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error)
-	ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error)
-	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error)
-	ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error)
-	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
-	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
-	UpdateAgentRuntimeControlState(ctx context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error)
-	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
-}
 
 type EntRepository struct {
 	client *ent.Client
@@ -94,7 +53,7 @@ func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.Cre
 	builder := tx.Organization.Create().
 		SetName(input.Name).
 		SetSlug(input.Slug).
-		SetStatus(entorganization.StatusActive)
+		SetStatus(toEntOrganizationStatus(domain.OrganizationStatusActive))
 
 	item, err := builder.Save(ctx)
 	if err != nil {
@@ -170,13 +129,13 @@ func (r *EntRepository) ArchiveOrganization(ctx context.Context, id uuid.UUID) (
 			entproject.OrganizationID(id),
 			entproject.StatusNEQ(entproject.StatusArchived),
 		).
-		SetStatus(entproject.StatusArchived).
+		SetStatus(toEntProjectStatus(domain.ProjectStatusArchived)).
 		Save(ctx); err != nil {
 		return domain.Organization{}, mapWriteError("archive organization projects", err)
 	}
 
 	item, err := tx.Organization.UpdateOneID(id).
-		SetStatus(entorganization.StatusArchived).
+		SetStatus(toEntOrganizationStatus(domain.OrganizationStatusArchived)).
 		Save(ctx)
 	if err != nil {
 		return domain.Organization{}, mapWriteError("archive organization", err)
@@ -223,7 +182,7 @@ func (r *EntRepository) CreateProject(ctx context.Context, input domain.CreatePr
 		SetName(input.Name).
 		SetSlug(input.Slug).
 		SetDescription(input.Description).
-		SetStatus(input.Status).
+		SetStatus(toEntProjectStatus(input.Status)).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
 		SetMaxConcurrentAgents(input.MaxConcurrentAgents)
 	if input.DefaultWorkflowID != nil {
@@ -256,7 +215,7 @@ func (r *EntRepository) UpdateProject(ctx context.Context, input domain.UpdatePr
 		SetName(input.Name).
 		SetSlug(input.Slug).
 		SetDescription(input.Description).
-		SetStatus(input.Status).
+		SetStatus(toEntProjectStatus(input.Status)).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
 		SetMaxConcurrentAgents(input.MaxConcurrentAgents)
 	if input.DefaultWorkflowID != nil {
@@ -279,7 +238,7 @@ func (r *EntRepository) UpdateProject(ctx context.Context, input domain.UpdatePr
 }
 
 func (r *EntRepository) ArchiveProject(ctx context.Context, id uuid.UUID) (domain.Project, error) {
-	item, err := r.client.Project.UpdateOneID(id).SetStatus(entproject.StatusArchived).Save(ctx)
+	item, err := r.client.Project.UpdateOneID(id).SetStatus(toEntProjectStatus(domain.ProjectStatusArchived)).Save(ctx)
 	if err != nil {
 		return domain.Project{}, mapWriteError("archive project", err)
 	}
@@ -543,8 +502,8 @@ func (r *EntRepository) CreateTicketRepoScope(ctx context.Context, input domain.
 		SetTicketID(input.TicketID).
 		SetRepoID(input.RepoID).
 		SetBranchName(branchName).
-		SetPrStatus(input.PrStatus).
-		SetCiStatus(input.CiStatus).
+		SetPrStatus(toEntTicketRepoScopePRStatus(input.PrStatus)).
+		SetCiStatus(toEntTicketRepoScopeCIStatus(input.CiStatus)).
 		SetIsPrimaryScope(makePrimary)
 	if input.PullRequestURL != nil {
 		builder.SetPullRequestURL(*input.PullRequestURL)
@@ -609,8 +568,8 @@ func (r *EntRepository) UpdateTicketRepoScope(ctx context.Context, input domain.
 
 	builder := tx.TicketRepoScope.UpdateOneID(input.ID).
 		SetBranchName(branchName).
-		SetPrStatus(input.PrStatus).
-		SetCiStatus(input.CiStatus).
+		SetPrStatus(toEntTicketRepoScopePRStatus(input.PrStatus)).
+		SetCiStatus(toEntTicketRepoScopeCIStatus(input.CiStatus)).
 		SetIsPrimaryScope(makePrimary)
 	if input.PullRequestURL != nil {
 		builder.SetPullRequestURL(*input.PullRequestURL)
@@ -710,7 +669,7 @@ func mapOrganization(item *ent.Organization) domain.Organization {
 		ID:                     item.ID,
 		Name:                   item.Name,
 		Slug:                   item.Slug,
-		Status:                 item.Status,
+		Status:                 toDomainOrganizationStatus(item.Status),
 		DefaultAgentProviderID: item.DefaultAgentProviderID,
 	}
 }
@@ -751,7 +710,7 @@ func mapProject(item *ent.Project) domain.Project {
 		Name:                   item.Name,
 		Slug:                   item.Slug,
 		Description:            item.Description,
-		Status:                 item.Status,
+		Status:                 toDomainProjectStatus(item.Status),
 		DefaultWorkflowID:      item.DefaultWorkflowID,
 		DefaultAgentProviderID: item.DefaultAgentProviderID,
 		AccessibleMachineIDs:   append([]uuid.UUID(nil), item.AccessibleMachineIds...),
@@ -791,7 +750,7 @@ func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID
 		builder := tx.AgentProvider.Create().
 			SetOrganizationID(organizationID).
 			SetName(template.Name).
-			SetAdapterType(template.AdapterType).
+			SetAdapterType(toEntAgentProviderAdapterType(template.AdapterType)).
 			SetCliCommand(template.Command).
 			SetCliArgs(append([]string(nil), template.CliArgs...)).
 			SetAuthConfig(map[string]any{}).
@@ -962,8 +921,8 @@ func mapTicketRepoScope(item *ent.TicketRepoScope) domain.TicketRepoScope {
 		RepoID:         item.RepoID,
 		BranchName:     item.BranchName,
 		PullRequestURL: optionalString(item.PullRequestURL),
-		PrStatus:       item.PrStatus,
-		CiStatus:       item.CiStatus,
+		PrStatus:       toDomainTicketRepoScopePRStatus(item.PrStatus),
+		CiStatus:       toDomainTicketRepoScopeCIStatus(item.CiStatus),
 		IsPrimaryScope: item.IsPrimaryScope,
 	}
 }

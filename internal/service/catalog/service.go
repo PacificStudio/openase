@@ -6,18 +6,15 @@ import (
 	"fmt"
 	"time"
 
-	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	repository "github.com/BetterAndBetterII/openase/internal/repo/catalog"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
 
 var (
-	ErrNotFound                  = repository.ErrNotFound
-	ErrConflict                  = repository.ErrConflict
-	ErrInvalidInput              = repository.ErrInvalidInput
+	ErrNotFound                  = domain.ErrNotFound
+	ErrConflict                  = domain.ErrConflict
+	ErrInvalidInput              = domain.ErrInvalidInput
 	ErrMachineTestingUnavailable = errors.New("machine testing unavailable")
 	ErrMachineProbeFailed        = errors.New("machine probe failed")
 )
@@ -28,29 +25,22 @@ type MachineTester interface {
 
 type Option func(*service)
 
-type projectStatusBootstrapper interface {
+type ProjectStatusBootstrapper interface {
 	BootstrapProjectStatuses(ctx context.Context, projectID uuid.UUID) error
 }
 
-type projectStatusBootstrapperFunc func(ctx context.Context, projectID uuid.UUID) error
+type ProjectStatusBootstrapperFunc func(ctx context.Context, projectID uuid.UUID) error
 
-func (fn projectStatusBootstrapperFunc) BootstrapProjectStatuses(ctx context.Context, projectID uuid.UUID) error {
+func (fn ProjectStatusBootstrapperFunc) BootstrapProjectStatuses(ctx context.Context, projectID uuid.UUID) error {
 	return fn(ctx, projectID)
 }
 
-type projectStatusResetter interface {
-	ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUID) ([]ticketstatus.Status, error)
-}
-
-func WithProjectStatusResetter(resetter projectStatusResetter) Option {
+func WithProjectStatusBootstrapper(bootstrapper ProjectStatusBootstrapper) Option {
 	return func(s *service) {
-		if resetter == nil {
+		if bootstrapper == nil {
 			return
 		}
-		s.projectStatusBootstrapper = projectStatusBootstrapperFunc(func(ctx context.Context, projectID uuid.UUID) error {
-			_, err := resetter.ResetToDefaultTemplate(ctx, projectID)
-			return err
-		})
+		s.projectStatusBootstrapper = bootstrapper
 	}
 }
 
@@ -96,13 +86,13 @@ type Service interface {
 }
 
 type service struct {
-	repo                      repository.Repository
+	repo                      Repository
 	resolver                  provider.ExecutableResolver
 	machineTester             MachineTester
-	projectStatusBootstrapper projectStatusBootstrapper
+	projectStatusBootstrapper ProjectStatusBootstrapper
 }
 
-func New(repo repository.Repository, resolver provider.ExecutableResolver, machineTester MachineTester, opts ...Option) Service {
+func New(repo Repository, resolver provider.ExecutableResolver, machineTester MachineTester, opts ...Option) Service {
 	svc := &service{repo: repo, resolver: resolver, machineTester: machineTester}
 	for _, opt := range opts {
 		if opt != nil {
@@ -296,16 +286,16 @@ func (s *service) DeleteTicketRepoScope(ctx context.Context, projectID uuid.UUID
 	return s.repo.DeleteTicketRepoScope(ctx, projectID, ticketID, id)
 }
 
-func domainMachineFailureStatus(machine domain.Machine) entmachine.Status {
+func domainMachineFailureStatus(machine domain.Machine) domain.MachineStatus {
 	if machine.Host == domain.LocalMachineHost {
-		return entmachine.StatusDegraded
+		return domain.MachineStatusDegraded
 	}
-	return entmachine.StatusOffline
+	return domain.MachineStatusOffline
 }
 
-func domainMachineSuccessStatus(machine domain.Machine) entmachine.Status {
-	if machine.Status == entmachine.StatusMaintenance {
-		return entmachine.StatusOnline
+func domainMachineSuccessStatus(machine domain.Machine) domain.MachineStatus {
+	if machine.Status == domain.MachineStatusMaintenance {
+		return domain.MachineStatusOnline
 	}
 	return machine.Status
 }

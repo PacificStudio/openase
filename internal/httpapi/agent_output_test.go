@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -40,8 +39,8 @@ func TestListAgentOutputRoute(t *testing.T) {
 	ticketTwoID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
-	service.agents[agentOneID] = domain.Agent{ID: agentOneID, ProjectID: projectID, Name: "Worker 1", Status: entagent.StatusIdle}
-	service.agents[agentTwoID] = domain.Agent{ID: agentTwoID, ProjectID: projectID, Name: "Worker 2", Status: entagent.StatusIdle}
+	service.agents[agentOneID] = domain.Agent{ID: agentOneID, ProjectID: projectID, Name: "Worker 1", Status: domain.AgentStatusIdle}
+	service.agents[agentTwoID] = domain.Agent{ID: agentTwoID, ProjectID: projectID, Name: "Worker 2", Status: domain.AgentStatusIdle}
 	service.activityEvents = []domain.ActivityEvent{
 		{
 			ID:        uuid.New(),
@@ -133,7 +132,7 @@ func TestAgentOutputStreamFiltersActivityEvents(t *testing.T) {
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
 	service.projects[otherProjectID] = domain.Project{ID: otherProjectID, OrganizationID: orgID, Name: "Other", Slug: "other"}
-	service.agents[agentID] = domain.Agent{ID: agentID, ProjectID: projectID, Name: "Worker 1", Status: entagent.StatusRunning}
+	service.agents[agentID] = domain.Agent{ID: agentID, ProjectID: projectID, Name: "Worker 1", Status: domain.AgentStatusRunning}
 
 	server := NewServer(
 		config.ServerConfig{Port: 40023},

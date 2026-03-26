@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/google/uuid"
 )
 
@@ -14,7 +12,7 @@ type AgentProvider struct {
 	ID                 uuid.UUID
 	OrganizationID     uuid.UUID
 	Name               string
-	AdapterType        entagentprovider.AdapterType
+	AdapterType        AgentProviderAdapterType
 	Available          bool
 	CliCommand         string
 	CliArgs            []string
@@ -31,11 +29,11 @@ type Agent struct {
 	ProviderID            uuid.UUID
 	ProjectID             uuid.UUID
 	Name                  string
-	Status                entagent.Status
+	Status                AgentStatus
 	CurrentTicketID       *uuid.UUID
 	SessionID             string
-	RuntimePhase          entagent.RuntimePhase
-	RuntimeControlState   entagent.RuntimeControlState
+	RuntimePhase          AgentRuntimePhase
+	RuntimeControlState   AgentRuntimeControlState
 	RuntimeStartedAt      *time.Time
 	LastError             string
 	WorkspacePath         string
@@ -66,7 +64,7 @@ type AgentInput struct {
 type CreateAgentProvider struct {
 	OrganizationID     uuid.UUID
 	Name               string
-	AdapterType        entagentprovider.AdapterType
+	AdapterType        AgentProviderAdapterType
 	CliCommand         string
 	CliArgs            []string
 	AuthConfig         map[string]any
@@ -81,7 +79,7 @@ type UpdateAgentProvider struct {
 	ID                 uuid.UUID
 	OrganizationID     uuid.UUID
 	Name               string
-	AdapterType        entagentprovider.AdapterType
+	AdapterType        AgentProviderAdapterType
 	CliCommand         string
 	CliArgs            []string
 	AuthConfig         map[string]any
@@ -96,11 +94,11 @@ type CreateAgent struct {
 	ProjectID             uuid.UUID
 	ProviderID            uuid.UUID
 	Name                  string
-	Status                entagent.Status
+	Status                AgentStatus
 	CurrentTicketID       *uuid.UUID
 	SessionID             string
-	RuntimePhase          entagent.RuntimePhase
-	RuntimeControlState   entagent.RuntimeControlState
+	RuntimePhase          AgentRuntimePhase
+	RuntimeControlState   AgentRuntimeControlState
 	RuntimeStartedAt      *time.Time
 	LastError             string
 	WorkspacePath         string
@@ -130,22 +128,22 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		return CreateAgentProvider{}, err
 	}
 
-	modelTemperature, err := parseNonNegativeFloat("model_temperature", raw.ModelTemperature, entagentprovider.DefaultModelTemperature)
+	modelTemperature, err := parseNonNegativeFloat("model_temperature", raw.ModelTemperature, DefaultAgentProviderModelTemperature)
 	if err != nil {
 		return CreateAgentProvider{}, err
 	}
 
-	modelMaxTokens, err := parsePositiveInt("model_max_tokens", raw.ModelMaxTokens, entagentprovider.DefaultModelMaxTokens)
+	modelMaxTokens, err := parsePositiveInt("model_max_tokens", raw.ModelMaxTokens, DefaultAgentProviderModelMaxTokens)
 	if err != nil {
 		return CreateAgentProvider{}, err
 	}
 
-	costPerInputToken, err := parseNonNegativeFloat("cost_per_input_token", raw.CostPerInputToken, entagentprovider.DefaultCostPerInputToken)
+	costPerInputToken, err := parseNonNegativeFloat("cost_per_input_token", raw.CostPerInputToken, DefaultAgentProviderCostPerInputToken)
 	if err != nil {
 		return CreateAgentProvider{}, err
 	}
 
-	costPerOutputToken, err := parseNonNegativeFloat("cost_per_output_token", raw.CostPerOutputToken, entagentprovider.DefaultCostPerOutputToken)
+	costPerOutputToken, err := parseNonNegativeFloat("cost_per_output_token", raw.CostPerOutputToken, DefaultAgentProviderCostPerOutputToken)
 	if err != nil {
 		return CreateAgentProvider{}, err
 	}
@@ -202,12 +200,12 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		ProjectID:             projectID,
 		ProviderID:            providerID,
 		Name:                  name,
-		Status:                entagent.DefaultStatus,
-		RuntimePhase:          entagent.DefaultRuntimePhase,
-		RuntimeControlState:   entagent.DefaultRuntimeControlState,
+		Status:                DefaultAgentStatus,
+		RuntimePhase:          DefaultAgentRuntimePhase,
+		RuntimeControlState:   DefaultAgentRuntimeControlState,
 		WorkspacePath:         strings.TrimSpace(raw.WorkspacePath),
-		TotalTokensUsed:       entagent.DefaultTotalTokensUsed,
-		TotalTicketsCompleted: entagent.DefaultTotalTicketsCompleted,
+		TotalTokensUsed:       DefaultAgentTotalTokensUsed,
+		TotalTicketsCompleted: DefaultAgentTotalTicketsCompleted,
 	}, nil
 }
 
@@ -225,9 +223,9 @@ func parseRequiredUUID(fieldName string, raw string) (uuid.UUID, error) {
 	return parsed, nil
 }
 
-func parseAgentProviderAdapterType(raw string) (entagentprovider.AdapterType, error) {
-	adapterType := entagentprovider.AdapterType(strings.TrimSpace(strings.ToLower(raw)))
-	if err := entagentprovider.AdapterTypeValidator(adapterType); err != nil {
+func parseAgentProviderAdapterType(raw string) (AgentProviderAdapterType, error) {
+	adapterType := AgentProviderAdapterType(strings.TrimSpace(strings.ToLower(raw)))
+	if !adapterType.IsValid() {
 		return "", fmt.Errorf("adapter_type must be one of claude-code-cli, codex-app-server, gemini-cli, custom")
 	}
 

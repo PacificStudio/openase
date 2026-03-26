@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/google/uuid"
 )
 
@@ -13,7 +12,7 @@ func TestPlanMachineEnvironmentProvisioningBuildsRunnablePlan(t *testing.T) {
 		ID:     uuid.New(),
 		Name:   "builder-01",
 		Host:   "10.0.1.13",
-		Status: entmachine.StatusDegraded,
+		Status: MachineStatusDegraded,
 		Resources: map[string]any{
 			"last_success": true,
 			"monitor": map[string]any{
@@ -90,7 +89,7 @@ func TestPlanMachineEnvironmentProvisioningMarksOfflineMachineUnrunnable(t *test
 		ID:     uuid.New(),
 		Name:   "builder-02",
 		Host:   "10.0.1.14",
-		Status: entmachine.StatusOffline,
+		Status: MachineStatusOffline,
 		Resources: map[string]any{
 			"last_success": false,
 			"agent_environment": map[string]any{
@@ -124,7 +123,7 @@ func TestPlanMachineEnvironmentProvisioningHandlesMissingSnapshots(t *testing.T)
 		ID:        uuid.New(),
 		Name:      "builder-03",
 		Host:      "10.0.1.15",
-		Status:    entmachine.StatusOnline,
+		Status:    MachineStatusOnline,
 		Resources: map[string]any{},
 	})
 

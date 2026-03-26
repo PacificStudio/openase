@@ -745,7 +745,7 @@ func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {
 		SSHKeyPath:     optionalRuntimeString(item.SSHKeyPath),
 		Description:    item.Description,
 		Labels:         append([]string(nil), item.Labels...),
-		Status:         item.Status,
+		Status:         catalogdomain.MachineStatus(item.Status),
 		WorkspaceRoot:  optionalRuntimeString(item.WorkspaceRoot),
 		AgentCLIPath:   optionalRuntimeString(item.AgentCliPath),
 		EnvVars:        append([]string(nil), item.EnvVars...),

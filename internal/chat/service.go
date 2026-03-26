@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -400,7 +399,7 @@ func (s *Service) resolveClaudeProvider(
 ) (catalogdomain.AgentProvider, error) {
 	if project.DefaultAgentProviderID != nil {
 		item, err := s.catalog.GetAgentProvider(ctx, *project.DefaultAgentProviderID)
-		if err == nil && item.AdapterType == entagentprovider.AdapterTypeClaudeCodeCli {
+		if err == nil && item.AdapterType == catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI {
 			return item, nil
 		}
 	}
@@ -410,7 +409,7 @@ func (s *Service) resolveClaudeProvider(
 		return catalogdomain.AgentProvider{}, fmt.Errorf("list project agent providers for chat: %w", err)
 	}
 	for _, item := range items {
-		if item.AdapterType == entagentprovider.AdapterTypeClaudeCodeCli {
+		if item.AdapterType == catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI {
 			return item, nil
 		}
 	}
