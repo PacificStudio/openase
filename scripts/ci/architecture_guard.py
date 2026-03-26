@@ -70,13 +70,6 @@ RULES = (
         name="domain-core-no-ent",
         file_prefixes=DOMAIN_OR_TYPES,
         forbidden_import_prefixes=(go_import_prefix("ent"),),
-        exceptions=(
-            ExceptionEntry("internal/domain/catalog/agent_catalog.go", go_import_prefix("ent"), "TODO(openase-228): replace ent enums with domain-owned types"),
-            ExceptionEntry("internal/domain/catalog/agent_runtime_control.go", go_import_prefix("ent"), "TODO(openase-228): replace ent enums with domain-owned runtime control types"),
-            ExceptionEntry("internal/domain/catalog/builtin_agent_providers.go", go_import_prefix("ent"), "TODO(openase-228): replace ent adapter enums with domain-owned adapter types"),
-            ExceptionEntry("internal/domain/catalog/catalog.go", go_import_prefix("ent"), "TODO(openase-228): remove ent status enums from catalog domain structs"),
-            ExceptionEntry("internal/domain/catalog/machine_catalog.go", go_import_prefix("ent"), "TODO(openase-228): remove ent machine enums from domain layer"),
-        ),
     ),
     Rule(
         name="domain-core-no-upper-layers",
@@ -150,8 +143,6 @@ RULES = (
         file_prefixes=SERVICE_USECASE,
         forbidden_import_prefixes=(go_import_prefix("ent"),),
         exceptions=(
-            ExceptionEntry("internal/service/catalog/agent_catalog.go", go_import_prefix("ent"), "TODO(openase-228): remove ent adapter enums from service layer"),
-            ExceptionEntry("internal/service/catalog/service.go", go_import_prefix("ent"), "TODO(openase-228): remove ent machine enums from service layer"),
             ExceptionEntry("internal/ticket/cost_tracker.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed ticket persistence behind repo boundary"),
             ExceptionEntry("internal/ticket/repo_scope_sync.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed repo scope sync behind repo boundary"),
             ExceptionEntry("internal/ticket/service.go", go_import_prefix("ent"), "TODO(openase-228): split ticket persistence and orchestration from service layer"),
@@ -159,7 +150,6 @@ RULES = (
             ExceptionEntry("internal/workflow/harness_template.go", go_import_prefix("ent"), "TODO(openase-228): stop reading ent models directly in workflow services"),
             ExceptionEntry("internal/workflow/service.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed workflow persistence behind repo boundary"),
             ExceptionEntry("internal/workflow/skills.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed skill persistence behind repo boundary"),
-            ExceptionEntry("internal/chat/service.go", go_import_prefix("ent"), "TODO(openase-228): remove ent adapter enums from chat service"),
             ExceptionEntry("internal/notification/service.go", go_import_prefix("ent"), "TODO(openase-228): move notification persistence behind repo boundary"),
             ExceptionEntry("internal/scheduledjob/service.go", go_import_prefix("ent"), "TODO(openase-228): move scheduled job persistence behind repo boundary"),
             ExceptionEntry("internal/agentplatform/service.go", go_import_prefix("ent"), "TODO(openase-228): move agent platform persistence behind repo boundary"),
@@ -174,9 +164,6 @@ RULES = (
         name="internal-service-no-lateral-usecase",
         file_prefixes=("internal/service/",),
         forbidden_import_prefixes=SERVICE_LATERAL,
-        exceptions=(
-            ExceptionEntry("internal/service/catalog/service.go", go_import_prefix("internal/ticketstatus"), "TODO(openase-228): remove lateral service dependency and use a port"),
-        ),
     ),
     Rule(
         name="interface-entry-no-ent",
