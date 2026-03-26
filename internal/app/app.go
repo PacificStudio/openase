@@ -29,6 +29,7 @@ import (
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 )
 
