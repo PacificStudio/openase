@@ -7,7 +7,6 @@ import (
 
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent"
-	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
