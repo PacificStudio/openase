@@ -3438,6 +3438,12 @@ export interface operations {
               /** Format: double */
               cost_per_output_token?: number
               id?: string
+              machine_host?: string
+              machine_id?: string
+              machine_name?: string
+              machine_ssh_user?: string | null
+              machine_status?: string
+              machine_workspace_root?: string | null
               model_max_tokens?: number
               model_name?: string
               /** Format: double */
@@ -3510,6 +3516,7 @@ export interface operations {
           cost_per_input_token?: number | null
           /** Format: double */
           cost_per_output_token?: number | null
+          machine_id?: string
           model_max_tokens?: number | null
           model_name?: string
           /** Format: double */
@@ -3539,6 +3546,12 @@ export interface operations {
               /** Format: double */
               cost_per_output_token?: number
               id?: string
+              machine_host?: string
+              machine_id?: string
+              machine_name?: string
+              machine_ssh_user?: string | null
+              machine_status?: string
+              machine_workspace_root?: string | null
               model_max_tokens?: number
               model_name?: string
               /** Format: double */
@@ -6652,6 +6665,7 @@ export interface operations {
           cost_per_input_token?: number | null
           /** Format: double */
           cost_per_output_token?: number | null
+          machine_id?: string | null
           model_max_tokens?: number | null
           model_name?: string | null
           /** Format: double */
@@ -6681,6 +6695,12 @@ export interface operations {
               /** Format: double */
               cost_per_output_token?: number
               id?: string
+              machine_host?: string
+              machine_id?: string
+              machine_name?: string
+              machine_ssh_user?: string | null
+              machine_status?: string
+              machine_workspace_root?: string | null
               model_max_tokens?: number
               model_name?: string
               /** Format: double */

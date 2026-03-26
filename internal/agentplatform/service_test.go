@@ -239,6 +239,16 @@ func seedAgentPlatformFixture(ctx context.Context, t *testing.T, client *ent.Cli
 	if err != nil {
 		t.Fatalf("create organization: %v", err)
 	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
 	project, err := client.Project.Create().
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
@@ -249,6 +259,7 @@ func seedAgentPlatformFixture(ctx context.Context, t *testing.T, client *ent.Cli
 	}
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
 		SetName("Codex").
 		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
 		SetCliCommand("codex").

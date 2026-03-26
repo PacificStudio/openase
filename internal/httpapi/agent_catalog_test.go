@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/ent"
+	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -49,7 +51,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
+		`{"machine_id":"`+findLocalMachineID(t, server.catalog.(*fakeCatalogService), orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
 	)
 	if providerRec.Code != http.StatusCreated {
 		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
@@ -61,6 +63,9 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	decodeResponse(t, providerRec, &providerPayload)
 	if providerPayload.Provider.CliCommand != "codex" {
 		t.Fatalf("expected provider cli_command to round-trip, got %+v", providerPayload.Provider)
+	}
+	if providerPayload.Provider.MachineName != domain.LocalMachineName {
+		t.Fatalf("expected provider machine metadata to round-trip, got %+v", providerPayload.Provider)
 	}
 
 	listProviderRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs/"+orgPayload.Organization.ID+"/providers", "")
@@ -159,7 +164,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.4"}`,
+		`{"machine_id":"`+loadEntLocalMachineID(t, client, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.4"}`,
 	)
 	if providerRec.Code != http.StatusCreated {
 		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
@@ -256,7 +261,7 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"name":"Custom","adapter_type":"custom","model_name":"manual"}`,
+		`{"machine_id":"`+findLocalMachineID(t, server.catalog.(*fakeCatalogService), orgPayload.Organization.ID)+`","name":"Custom","adapter_type":"custom","model_name":"manual"}`,
 	)
 	if providerRec.Code != http.StatusBadRequest {
 		t.Fatalf("expected provider create 400, got %d: %s", providerRec.Code, providerRec.Body.String())
@@ -326,7 +331,7 @@ func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 	agentID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
-	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, Name: "Codex"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex"}
 	service.agents[agentID] = domain.Agent{
 		ID:                  agentID,
 		ProviderID:          providerID,
@@ -377,7 +382,7 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 	ticketID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
-	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, Name: "Codex"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex"}
 	service.agents[agentID] = domain.Agent{
 		ID:                  agentID,
 		ProviderID:          providerID,
@@ -461,20 +466,33 @@ func (f *fakeCatalogService) CreateAgentProvider(_ context.Context, input domain
 	if input.CliCommand == "" {
 		return domain.AgentProvider{}, fmt.Errorf("%w: cli_command must not be empty", catalogservice.ErrInvalidInput)
 	}
+	if _, ok := f.machines[input.MachineID]; !ok {
+		return domain.AgentProvider{}, fmt.Errorf("%w: machine_id must reference an existing machine", catalogservice.ErrInvalidInput)
+	}
+
+	machine := f.machines[input.MachineID]
 
 	provider := domain.AgentProvider{
-		ID:                 uuid.New(),
-		OrganizationID:     input.OrganizationID,
-		Name:               input.Name,
-		AdapterType:        input.AdapterType,
-		CliCommand:         input.CliCommand,
-		CliArgs:            append([]string(nil), input.CliArgs...),
-		AuthConfig:         cloneMap(input.AuthConfig),
-		ModelName:          input.ModelName,
-		ModelTemperature:   input.ModelTemperature,
-		ModelMaxTokens:     input.ModelMaxTokens,
-		CostPerInputToken:  input.CostPerInputToken,
-		CostPerOutputToken: input.CostPerOutputToken,
+		ID:                   uuid.New(),
+		OrganizationID:       input.OrganizationID,
+		MachineID:            input.MachineID,
+		MachineName:          machine.Name,
+		MachineHost:          machine.Host,
+		MachineStatus:        machine.Status,
+		MachineSSHUser:       cloneStringPointer(machine.SSHUser),
+		MachineWorkspaceRoot: cloneStringPointer(machine.WorkspaceRoot),
+		MachineAgentCLIPath:  cloneStringPointer(machine.AgentCLIPath),
+		MachineResources:     cloneMap(machine.Resources),
+		Name:                 input.Name,
+		AdapterType:          input.AdapterType,
+		CliCommand:           input.CliCommand,
+		CliArgs:              append([]string(nil), input.CliArgs...),
+		AuthConfig:           cloneMap(input.AuthConfig),
+		ModelName:            input.ModelName,
+		ModelTemperature:     input.ModelTemperature,
+		ModelMaxTokens:       input.ModelMaxTokens,
+		CostPerInputToken:    input.CostPerInputToken,
+		CostPerOutputToken:   input.CostPerOutputToken,
 	}
 	f.providers[provider.ID] = provider
 
@@ -497,20 +515,33 @@ func (f *fakeCatalogService) UpdateAgentProvider(_ context.Context, input domain
 	if input.CliCommand == "" {
 		return domain.AgentProvider{}, fmt.Errorf("%w: cli_command must not be empty", catalogservice.ErrInvalidInput)
 	}
+	if _, ok := f.machines[input.MachineID]; !ok {
+		return domain.AgentProvider{}, fmt.Errorf("%w: machine_id must reference an existing machine", catalogservice.ErrInvalidInput)
+	}
+
+	machine := f.machines[input.MachineID]
 
 	item := domain.AgentProvider{
-		ID:                 input.ID,
-		OrganizationID:     input.OrganizationID,
-		Name:               input.Name,
-		AdapterType:        input.AdapterType,
-		CliCommand:         input.CliCommand,
-		CliArgs:            append([]string(nil), input.CliArgs...),
-		AuthConfig:         cloneMap(input.AuthConfig),
-		ModelName:          input.ModelName,
-		ModelTemperature:   input.ModelTemperature,
-		ModelMaxTokens:     input.ModelMaxTokens,
-		CostPerInputToken:  input.CostPerInputToken,
-		CostPerOutputToken: input.CostPerOutputToken,
+		ID:                   input.ID,
+		OrganizationID:       input.OrganizationID,
+		MachineID:            input.MachineID,
+		MachineName:          machine.Name,
+		MachineHost:          machine.Host,
+		MachineStatus:        machine.Status,
+		MachineSSHUser:       cloneStringPointer(machine.SSHUser),
+		MachineWorkspaceRoot: cloneStringPointer(machine.WorkspaceRoot),
+		MachineAgentCLIPath:  cloneStringPointer(machine.AgentCLIPath),
+		MachineResources:     cloneMap(machine.Resources),
+		Name:                 input.Name,
+		AdapterType:          input.AdapterType,
+		CliCommand:           input.CliCommand,
+		CliArgs:              append([]string(nil), input.CliArgs...),
+		AuthConfig:           cloneMap(input.AuthConfig),
+		ModelName:            input.ModelName,
+		ModelTemperature:     input.ModelTemperature,
+		ModelMaxTokens:       input.ModelMaxTokens,
+		CostPerInputToken:    input.CostPerInputToken,
+		CostPerOutputToken:   input.CostPerOutputToken,
 	}
 	f.providers[input.ID] = item
 
@@ -724,4 +755,45 @@ func cloneTimePointer(value *time.Time) *time.Time {
 
 	cloned := value.UTC()
 	return &cloned
+}
+
+func cloneStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
+}
+
+func findLocalMachineID(t *testing.T, service *fakeCatalogService, organizationID string) string {
+	t.Helper()
+	orgID, err := uuid.Parse(organizationID)
+	if err != nil {
+		t.Fatalf("parse organization id: %v", err)
+	}
+	for _, machine := range service.machines {
+		if machine.OrganizationID == orgID && machine.Name == domain.LocalMachineName {
+			return machine.ID.String()
+		}
+	}
+	t.Fatalf("local machine not found for organization %s", organizationID)
+	return ""
+}
+
+func loadEntLocalMachineID(t *testing.T, client *ent.Client, organizationID string) string {
+	t.Helper()
+	orgID, err := uuid.Parse(organizationID)
+	if err != nil {
+		t.Fatalf("parse organization id: %v", err)
+	}
+	machine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(orgID),
+			entmachine.NameEQ(domain.LocalMachineName),
+		).
+		Only(context.Background())
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	return machine.ID.String()
 }

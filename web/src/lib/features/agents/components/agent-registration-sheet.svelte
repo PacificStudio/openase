@@ -52,8 +52,8 @@
 
   function providerLabel(provider: AgentProvider) {
     return provider.available
-      ? `${provider.name} · ${provider.adapter_type} · ${provider.model_name}`
-      : `${provider.name} · unavailable · ${provider.adapter_type} · ${provider.model_name}`
+      ? `${provider.name} · ${provider.machine_name} · ${provider.adapter_type} · ${provider.model_name}`
+      : `${provider.name} · ${provider.machine_name} · unavailable · ${provider.adapter_type} · ${provider.model_name}`
   }
 
   function selectedProviderLabel() {

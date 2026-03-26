@@ -771,6 +771,20 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		Save(ctx); err != nil {
 		t.Fatalf("create machine: %v", err)
 	}
+	remoteMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("gpu-01"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load remote machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider machine: %v", err)
+	}
 
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
@@ -878,6 +892,20 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 		}).
 		Save(ctx); err != nil {
 		t.Fatalf("create machine: %v", err)
+	}
+	remoteMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("gpu-02"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load remote machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider machine: %v", err)
 	}
 
 	agentItem, err := client.Agent.Create().

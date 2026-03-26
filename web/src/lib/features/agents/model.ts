@@ -17,6 +17,7 @@ export const providerAdapterOptions: Array<{ value: ProviderAdapterType; label: 
 
 export function createEmptyProviderDraft(): ProviderDraft {
   return {
+    machineId: '',
     name: '',
     adapterType: 'custom',
     cliCommand: '',
@@ -32,6 +33,7 @@ export function createEmptyProviderDraft(): ProviderDraft {
 
 export function providerToDraft(provider: ProviderConfig): ProviderDraft {
   return {
+    machineId: provider.machineId,
     name: provider.name,
     adapterType: provider.adapterType,
     cliCommand: provider.cliCommand,
@@ -49,6 +51,11 @@ export function providerToDraft(provider: ProviderConfig): ProviderDraft {
 }
 
 export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResult {
+  const machineId = draft.machineId.trim()
+  if (!machineId) {
+    return { ok: false, error: 'Execution machine is required.' }
+  }
+
   const name = draft.name.trim()
   if (!name) {
     return { ok: false, error: 'Provider name is required.' }
@@ -95,6 +102,7 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
   return {
     ok: true,
     value: {
+      machine_id: machineId,
       name,
       adapter_type: adapterType,
       cli_command: draft.cliCommand.trim(),
@@ -116,6 +124,11 @@ export function buildProviderCards(
 ): ProviderConfig[] {
   return providerItems.map((provider) => ({
     id: provider.id,
+    machineId: provider.machine_id,
+    machineName: provider.machine_name,
+    machineHost: provider.machine_host,
+    machineStatus: provider.machine_status,
+    machineWorkspaceRoot: provider.machine_workspace_root ?? null,
     name: provider.name,
     adapterType: provider.adapter_type,
     available: provider.available,
@@ -182,6 +195,11 @@ export function applyUpdatedProviderState(
     provider.id === updatedProvider.id
       ? {
           ...provider,
+          machineId: updatedProvider.machine_id,
+          machineName: updatedProvider.machine_name,
+          machineHost: updatedProvider.machine_host,
+          machineStatus: updatedProvider.machine_status,
+          machineWorkspaceRoot: updatedProvider.machine_workspace_root ?? null,
           name: updatedProvider.name,
           adapterType: updatedProvider.adapter_type,
           available: updatedProvider.available,

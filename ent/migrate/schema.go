@@ -114,6 +114,7 @@ var (
 		{Name: "model_max_tokens", Type: field.TypeInt, Default: 16384},
 		{Name: "cost_per_input_token", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(18,8)"}},
 		{Name: "cost_per_output_token", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(18,8)"}},
+		{Name: "machine_id", Type: field.TypeUUID},
 		{Name: "organization_id", Type: field.TypeUUID},
 	}
 	// AgentProvidersTable holds the schema information for the "agent_providers" table.
@@ -123,8 +124,14 @@ var (
 		PrimaryKey: []*schema.Column{AgentProvidersColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "agent_providers_organizations_providers",
+				Symbol:     "agent_providers_machines_providers",
 				Columns:    []*schema.Column{AgentProvidersColumns[11]},
+				RefColumns: []*schema.Column{MachinesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_providers_organizations_providers",
+				Columns:    []*schema.Column{AgentProvidersColumns[12]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -133,7 +140,7 @@ var (
 			{
 				Name:    "agentprovider_organization_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{AgentProvidersColumns[11], AgentProvidersColumns[1]},
+				Columns: []*schema.Column{AgentProvidersColumns[12], AgentProvidersColumns[1]},
 			},
 		},
 	}
@@ -943,7 +950,8 @@ func init() {
 	ActivityEventsTable.ForeignKeys[2].RefTable = TicketsTable
 	AgentsTable.ForeignKeys[0].RefTable = AgentProvidersTable
 	AgentsTable.ForeignKeys[1].RefTable = ProjectsTable
-	AgentProvidersTable.ForeignKeys[0].RefTable = OrganizationsTable
+	AgentProvidersTable.ForeignKeys[0].RefTable = MachinesTable
+	AgentProvidersTable.ForeignKeys[1].RefTable = OrganizationsTable
 	AgentRunsTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentRunsTable.ForeignKeys[1].RefTable = AgentProvidersTable
 	AgentRunsTable.ForeignKeys[2].RefTable = TicketsTable

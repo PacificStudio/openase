@@ -105,8 +105,8 @@ func (r *EntRepository) RecordMachineProbe(ctx context.Context, input domain.Rec
 	return nil
 }
 
-func createLocalMachine(ctx context.Context, tx *ent.Tx, organizationID uuid.UUID) error {
-	_, err := tx.Machine.Create().
+func createLocalMachine(ctx context.Context, tx *ent.Tx, organizationID uuid.UUID) (*ent.Machine, error) {
+	item, err := tx.Machine.Create().
 		SetOrganizationID(organizationID).
 		SetName(domain.LocalMachineName).
 		SetHost(domain.LocalMachineHost).
@@ -119,10 +119,10 @@ func createLocalMachine(ctx context.Context, tx *ent.Tx, organizationID uuid.UUI
 		}).
 		Save(ctx)
 	if err != nil {
-		return mapWriteError("create local machine", err)
+		return nil, mapWriteError("create local machine", err)
 	}
 
-	return nil
+	return item, nil
 }
 
 func machineCreateBuilder(builder *ent.MachineCreate, input domain.CreateMachine) *ent.MachineCreate {

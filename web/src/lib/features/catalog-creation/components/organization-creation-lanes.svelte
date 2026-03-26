@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation'
-  import type { AgentProvider, Project } from '$lib/api/contracts'
+  import type { AgentProvider, Machine, Project } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { createProject, createProvider } from '$lib/api/openase'
   import { createEmptyProviderDraft, parseProviderDraft } from '$lib/features/agents/public'
@@ -21,11 +21,13 @@
     defaultProviderId = null,
     projects,
     providers,
+    machines = [],
   }: {
     orgId: string | null
     defaultProviderId?: string | null
     projects: Project[]
     providers: AgentProvider[]
+    machines?: Machine[]
   } = $props()
 
   const machineConsoleHref = $derived(
@@ -166,6 +168,7 @@
     <div class="space-y-4">
       <ProviderCreationPanel
         draft={providerDraft}
+        {machines}
         creating={creatingProvider}
         feedback={providerFeedback}
         error={providerError}

@@ -202,6 +202,7 @@
                   {#each providers as provider (provider.id)}
                     <Select.Item value={provider.id}>
                       {provider.name}
+                      {' '}· {provider.machineName}
                       {#if !provider.available}
                         {' '}· unavailable
                       {/if}

@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
@@ -183,8 +184,69 @@ func annotateAgentProviderAvailability(
 		LookPath(name string) (string, error)
 	},
 ) domain.AgentProvider {
-	item.Available = isAgentProviderAvailable(item.CliCommand, resolver)
+	command := item.CliCommand
+	if item.MachineAgentCLIPath != nil && strings.TrimSpace(*item.MachineAgentCLIPath) != "" {
+		command = *item.MachineAgentCLIPath
+	}
+
+	switch {
+	case item.MachineID == uuid.Nil:
+		item.Available = isAgentProviderAvailable(command, resolver)
+	case strings.TrimSpace(item.MachineHost) == "" || item.MachineHost == domain.LocalMachineHost:
+		item.Available = isAgentProviderAvailable(command, resolver)
+	case item.MachineStatus != "" && item.MachineStatus != domain.MachineStatusOnline:
+		item.Available = false
+	default:
+		item.Available = remoteAgentProviderAvailable(item)
+	}
 	return item
+}
+
+func remoteAgentProviderAvailable(item domain.AgentProvider) bool {
+	if installed, ok := providerMachineCLIInstalled(item.AdapterType, item.MachineResources); ok {
+		return installed
+	}
+	if item.MachineAgentCLIPath != nil && strings.TrimSpace(*item.MachineAgentCLIPath) != "" {
+		return true
+	}
+	return strings.TrimSpace(item.CliCommand) != ""
+}
+
+func providerMachineCLIInstalled(adapterType domain.AgentProviderAdapterType, resources map[string]any) (bool, bool) {
+	monitor, ok := nestedResourceMap(resources, "monitor")
+	if !ok {
+		return false, false
+	}
+	level4, ok := nestedResourceMap(monitor, "l4")
+	if !ok {
+		return false, false
+	}
+	entryName := ""
+	switch adapterType {
+	case domain.AgentProviderAdapterTypeClaudeCodeCLI:
+		entryName = "claude_code"
+	case domain.AgentProviderAdapterTypeCodexAppServer:
+		entryName = "codex"
+	case domain.AgentProviderAdapterTypeGeminiCLI:
+		entryName = "gemini"
+	default:
+		return false, false
+	}
+	entry, ok := nestedResourceMap(level4, entryName)
+	if !ok {
+		return false, false
+	}
+	installed, ok := entry["installed"].(bool)
+	return installed, ok
+}
+
+func nestedResourceMap(raw map[string]any, key string) (map[string]any, bool) {
+	value, ok := raw[key]
+	if !ok {
+		return nil, false
+	}
+	item, ok := value.(map[string]any)
+	return item, ok
 }
 
 func isAgentProviderAvailable(

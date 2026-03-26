@@ -27,6 +27,7 @@ func (r *EntRepository) ListAgentProviders(ctx context.Context, organizationID u
 
 	items, err := r.client.AgentProvider.Query().
 		Where(entagentprovider.OrganizationID(organizationID)).
+		WithMachine().
 		Order(entagentprovider.ByName()).
 		All(ctx)
 	if err != nil {
@@ -45,8 +46,17 @@ func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.Cr
 		return domain.AgentProvider{}, ErrNotFound
 	}
 
+	machine, err := r.client.Machine.Get(ctx, input.MachineID)
+	if err != nil {
+		return domain.AgentProvider{}, mapReadError("get machine for agent provider", err)
+	}
+	if machine.OrganizationID != input.OrganizationID {
+		return domain.AgentProvider{}, fmt.Errorf("%w: machine organization must match provider organization", ErrInvalidInput)
+	}
+
 	item, err := r.client.AgentProvider.Create().
 		SetOrganizationID(input.OrganizationID).
+		SetMachineID(input.MachineID).
 		SetName(input.Name).
 		SetAdapterType(toEntAgentProviderAdapterType(input.AdapterType)).
 		SetCliCommand(input.CliCommand).
@@ -62,11 +72,14 @@ func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.Cr
 		return domain.AgentProvider{}, mapWriteError("create agent provider", err)
 	}
 
-	return mapAgentProvider(item), nil
+	return r.GetAgentProvider(ctx, item.ID)
 }
 
 func (r *EntRepository) GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error) {
-	item, err := r.client.AgentProvider.Get(ctx, id)
+	item, err := r.client.AgentProvider.Query().
+		Where(entagentprovider.ID(id)).
+		WithMachine().
+		Only(ctx)
 	if err != nil {
 		return domain.AgentProvider{}, mapReadError("get agent provider", err)
 	}
@@ -75,8 +88,17 @@ func (r *EntRepository) GetAgentProvider(ctx context.Context, id uuid.UUID) (dom
 }
 
 func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error) {
+	machine, err := r.client.Machine.Get(ctx, input.MachineID)
+	if err != nil {
+		return domain.AgentProvider{}, mapReadError("get machine for agent provider update", err)
+	}
+	if machine.OrganizationID != input.OrganizationID {
+		return domain.AgentProvider{}, fmt.Errorf("%w: machine organization must match provider organization", ErrInvalidInput)
+	}
+
 	item, err := r.client.AgentProvider.UpdateOneID(input.ID).
 		SetOrganizationID(input.OrganizationID).
+		SetMachineID(input.MachineID).
 		SetName(input.Name).
 		SetAdapterType(toEntAgentProviderAdapterType(input.AdapterType)).
 		SetCliCommand(input.CliCommand).
@@ -92,7 +114,7 @@ func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.Up
 		return domain.AgentProvider{}, mapWriteError("update agent provider", err)
 	}
 
-	return mapAgentProvider(item), nil
+	return r.GetAgentProvider(ctx, item.ID)
 }
 
 func (r *EntRepository) ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error) {
@@ -237,19 +259,44 @@ func mapAgentProviders(items []*ent.AgentProvider) []domain.AgentProvider {
 }
 
 func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
+	machineName := ""
+	machineHost := ""
+	machineStatus := domain.MachineStatus("")
+	var machineSSHUser *string
+	var machineWorkspaceRoot *string
+	var machineAgentCLIPath *string
+	machineResources := map[string]any{}
+	if item.Edges.Machine != nil {
+		machineName = item.Edges.Machine.Name
+		machineHost = item.Edges.Machine.Host
+		machineStatus = toDomainMachineStatus(item.Edges.Machine.Status)
+		machineSSHUser = optionalString(item.Edges.Machine.SSHUser)
+		machineWorkspaceRoot = optionalString(item.Edges.Machine.WorkspaceRoot)
+		machineAgentCLIPath = optionalString(item.Edges.Machine.AgentCliPath)
+		machineResources = cloneAnyMap(item.Edges.Machine.Resources)
+	}
+
 	return domain.AgentProvider{
-		ID:                 item.ID,
-		OrganizationID:     item.OrganizationID,
-		Name:               item.Name,
-		AdapterType:        toDomainAgentProviderAdapterType(item.AdapterType),
-		CliCommand:         item.CliCommand,
-		CliArgs:            append([]string(nil), item.CliArgs...),
-		AuthConfig:         cloneAnyMap(item.AuthConfig),
-		ModelName:          item.ModelName,
-		ModelTemperature:   item.ModelTemperature,
-		ModelMaxTokens:     item.ModelMaxTokens,
-		CostPerInputToken:  item.CostPerInputToken,
-		CostPerOutputToken: item.CostPerOutputToken,
+		ID:                   item.ID,
+		OrganizationID:       item.OrganizationID,
+		MachineID:            item.MachineID,
+		MachineName:          machineName,
+		MachineHost:          machineHost,
+		MachineStatus:        machineStatus,
+		MachineSSHUser:       machineSSHUser,
+		MachineWorkspaceRoot: machineWorkspaceRoot,
+		MachineAgentCLIPath:  machineAgentCLIPath,
+		MachineResources:     machineResources,
+		Name:                 item.Name,
+		AdapterType:          toDomainAgentProviderAdapterType(item.AdapterType),
+		CliCommand:           item.CliCommand,
+		CliArgs:              append([]string(nil), item.CliArgs...),
+		AuthConfig:           cloneAnyMap(item.AuthConfig),
+		ModelName:            item.ModelName,
+		ModelTemperature:     item.ModelTemperature,
+		ModelMaxTokens:       item.ModelMaxTokens,
+		CostPerInputToken:    item.CostPerInputToken,
+		CostPerOutputToken:   item.CostPerOutputToken,
 	}
 }
 

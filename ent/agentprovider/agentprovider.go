@@ -17,6 +17,8 @@ const (
 	FieldID = "id"
 	// FieldOrganizationID holds the string denoting the organization_id field in the database.
 	FieldOrganizationID = "organization_id"
+	// FieldMachineID holds the string denoting the machine_id field in the database.
+	FieldMachineID = "machine_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldAdapterType holds the string denoting the adapter_type field in the database.
@@ -39,6 +41,8 @@ const (
 	FieldCostPerOutputToken = "cost_per_output_token"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
+	// EdgeMachine holds the string denoting the machine edge name in mutations.
+	EdgeMachine = "machine"
 	// EdgeAgents holds the string denoting the agents edge name in mutations.
 	EdgeAgents = "agents"
 	// EdgeAgentRuns holds the string denoting the agent_runs edge name in mutations.
@@ -52,6 +56,13 @@ const (
 	OrganizationInverseTable = "organizations"
 	// OrganizationColumn is the table column denoting the organization relation/edge.
 	OrganizationColumn = "organization_id"
+	// MachineTable is the table that holds the machine relation/edge.
+	MachineTable = "agent_providers"
+	// MachineInverseTable is the table name for the Machine entity.
+	// It exists in this package in order to avoid circular dependency with the "machine" package.
+	MachineInverseTable = "machines"
+	// MachineColumn is the table column denoting the machine relation/edge.
+	MachineColumn = "machine_id"
 	// AgentsTable is the table that holds the agents relation/edge.
 	AgentsTable = "agents"
 	// AgentsInverseTable is the table name for the Agent entity.
@@ -72,6 +83,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldOrganizationID,
+	FieldMachineID,
 	FieldName,
 	FieldAdapterType,
 	FieldCliCommand,
@@ -153,6 +165,11 @@ func ByOrganizationID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOrganizationID, opts...).ToFunc()
 }
 
+// ByMachineID orders the results by the machine_id field.
+func ByMachineID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMachineID, opts...).ToFunc()
+}
+
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
@@ -205,6 +222,13 @@ func ByOrganizationField(field string, opts ...sql.OrderTermOption) OrderOption 
 	}
 }
 
+// ByMachineField orders the results by machine field.
+func ByMachineField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMachineStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByAgentsCount orders the results by agents count.
 func ByAgentsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -237,6 +261,13 @@ func newOrganizationStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OrganizationInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, OrganizationTable, OrganizationColumn),
+	)
+}
+func newMachineStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MachineInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, MachineTable, MachineColumn),
 	)
 }
 func newAgentsStep() *sqlgraph.Step {

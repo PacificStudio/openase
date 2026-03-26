@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Machine } from '$lib/api/contracts'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
@@ -19,6 +20,7 @@
   let {
     open = $bindable(false),
     provider,
+    machines,
     draft,
     saving = false,
     feedback = '',
@@ -28,6 +30,7 @@
   }: {
     open?: boolean
     provider: ProviderConfig | null
+    machines: Machine[]
     draft: ProviderDraft
     saving?: boolean
     feedback?: string
@@ -60,6 +63,27 @@
       <div class="flex-1 overflow-y-auto px-6 py-5">
         <div class="space-y-5">
           <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-2">
+              <Label>Execution machine</Label>
+              <Select.Root
+                type="single"
+                value={draft.machineId}
+                onValueChange={(value) => onDraftChange?.('machineId', value || '')}
+              >
+                <Select.Trigger class="w-full">
+                  {machines.find((machine) => machine.id === draft.machineId)?.name ??
+                    'Select machine'}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each machines as machine (machine.id)}
+                    <Select.Item value={machine.id}>
+                      {machine.name} · {machine.status} · {machine.host}
+                    </Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+
             <div class="space-y-2">
               <Label for="provider-name">Name</Label>
               <Input

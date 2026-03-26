@@ -1,7 +1,8 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation'
+  import type { Machine } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
-  import { createProvider } from '$lib/api/openase'
+  import { createProvider, listMachines } from '$lib/api/openase'
   import {
     createEmptyProviderDraft,
     parseProviderDraft,
@@ -26,12 +27,38 @@
   let draft = $state<ProviderDraft>(createEmptyProviderDraft())
   let creating = $state(false)
   let error = $state('')
+  let machines = $state<Machine[]>([])
 
   function reset() {
     draft = createEmptyProviderDraft()
     creating = false
     error = ''
   }
+
+  $effect(() => {
+    if (!open) {
+      return
+    }
+
+    let cancelled = false
+    void listMachines(orgId)
+      .then((payload) => {
+        if (cancelled) return
+        machines = payload.machines
+        if (!draft.machineId) {
+          draft = { ...draft, machineId: payload.machines[0]?.id ?? '' }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          machines = []
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  })
 
   function updateField(field: keyof ProviderDraft, value: string) {
     draft = { ...draft, [field]: value }
@@ -93,6 +120,26 @@
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">
+        <div class="space-y-2">
+          <Label>Execution machine</Label>
+          <Select.Root
+            type="single"
+            value={draft.machineId}
+            onValueChange={(value) => updateField('machineId', value || '')}
+          >
+            <Select.Trigger class="w-full">
+              {machines.find((machine) => machine.id === draft.machineId)?.name ?? 'Select machine'}
+            </Select.Trigger>
+            <Select.Content>
+              {#each machines as machine (machine.id)}
+                <Select.Item value={machine.id}
+                  >{machine.name} · {machine.status} · {machine.host}</Select.Item
+                >
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+
         <div class="space-y-2">
           <Label>Adapter</Label>
           <Select.Root

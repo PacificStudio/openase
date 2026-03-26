@@ -11,19 +11,25 @@ import (
 )
 
 type agentProviderResponse struct {
-	ID                 string         `json:"id"`
-	OrganizationID     string         `json:"organization_id"`
-	Name               string         `json:"name"`
-	AdapterType        string         `json:"adapter_type"`
-	Available          bool           `json:"available"`
-	CliCommand         string         `json:"cli_command"`
-	CliArgs            []string       `json:"cli_args"`
-	AuthConfig         map[string]any `json:"auth_config"`
-	ModelName          string         `json:"model_name"`
-	ModelTemperature   float64        `json:"model_temperature"`
-	ModelMaxTokens     int            `json:"model_max_tokens"`
-	CostPerInputToken  float64        `json:"cost_per_input_token"`
-	CostPerOutputToken float64        `json:"cost_per_output_token"`
+	ID                   string         `json:"id"`
+	OrganizationID       string         `json:"organization_id"`
+	MachineID            string         `json:"machine_id"`
+	MachineName          string         `json:"machine_name"`
+	MachineHost          string         `json:"machine_host"`
+	MachineStatus        string         `json:"machine_status"`
+	MachineSSHUser       *string        `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot *string        `json:"machine_workspace_root,omitempty"`
+	Name                 string         `json:"name"`
+	AdapterType          string         `json:"adapter_type"`
+	Available            bool           `json:"available"`
+	CliCommand           string         `json:"cli_command"`
+	CliArgs              []string       `json:"cli_args"`
+	AuthConfig           map[string]any `json:"auth_config"`
+	ModelName            string         `json:"model_name"`
+	ModelTemperature     float64        `json:"model_temperature"`
+	ModelMaxTokens       int            `json:"model_max_tokens"`
+	CostPerInputToken    float64        `json:"cost_per_input_token"`
+	CostPerOutputToken   float64        `json:"cost_per_output_token"`
 }
 
 type agentResponse struct {
@@ -50,6 +56,7 @@ type agentRuntimeResponse struct {
 }
 
 type agentProviderPatchRequest struct {
+	MachineID          *string         `json:"machine_id"`
 	Name               *string         `json:"name"`
 	AdapterType        *string         `json:"adapter_type"`
 	CliCommand         *string         `json:"cli_command"`
@@ -121,6 +128,7 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 	}
 
 	request := domain.AgentProviderInput{
+		MachineID:          current.MachineID.String(),
 		Name:               current.Name,
 		AdapterType:        current.AdapterType.String(),
 		CliCommand:         current.CliCommand,
@@ -131,6 +139,9 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 		ModelMaxTokens:     intPointer(current.ModelMaxTokens),
 		CostPerInputToken:  floatPointer(current.CostPerInputToken),
 		CostPerOutputToken: floatPointer(current.CostPerOutputToken),
+	}
+	if patch.MachineID != nil {
+		request.MachineID = *patch.MachineID
 	}
 	if patch.Name != nil {
 		request.Name = *patch.Name
@@ -317,20 +328,34 @@ func mapAgentProviderResponses(items []domain.AgentProvider) []agentProviderResp
 
 func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 	return agentProviderResponse{
-		ID:                 item.ID.String(),
-		OrganizationID:     item.OrganizationID.String(),
-		Name:               item.Name,
-		AdapterType:        item.AdapterType.String(),
-		Available:          item.Available,
-		CliCommand:         item.CliCommand,
-		CliArgs:            cloneStringSlice(item.CliArgs),
-		AuthConfig:         cloneMap(item.AuthConfig),
-		ModelName:          item.ModelName,
-		ModelTemperature:   item.ModelTemperature,
-		ModelMaxTokens:     item.ModelMaxTokens,
-		CostPerInputToken:  item.CostPerInputToken,
-		CostPerOutputToken: item.CostPerOutputToken,
+		ID:                   item.ID.String(),
+		OrganizationID:       item.OrganizationID.String(),
+		MachineID:            item.MachineID.String(),
+		MachineName:          item.MachineName,
+		MachineHost:          item.MachineHost,
+		MachineStatus:        item.MachineStatus.String(),
+		MachineSSHUser:       stringPointerValue(item.MachineSSHUser),
+		MachineWorkspaceRoot: stringPointerValue(item.MachineWorkspaceRoot),
+		Name:                 item.Name,
+		AdapterType:          item.AdapterType.String(),
+		Available:            item.Available,
+		CliCommand:           item.CliCommand,
+		CliArgs:              cloneStringSlice(item.CliArgs),
+		AuthConfig:           cloneMap(item.AuthConfig),
+		ModelName:            item.ModelName,
+		ModelTemperature:     item.ModelTemperature,
+		ModelMaxTokens:       item.ModelMaxTokens,
+		CostPerInputToken:    item.CostPerInputToken,
+		CostPerOutputToken:   item.CostPerOutputToken,
 	}
+}
+
+func stringPointerValue(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }
 
 func mapAgentResponses(items []domain.Agent) []agentResponse {

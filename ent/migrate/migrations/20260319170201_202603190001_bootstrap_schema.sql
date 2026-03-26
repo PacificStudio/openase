@@ -27,6 +27,7 @@ CREATE TABLE "agent_providers" (
   "model_max_tokens" bigint NOT NULL DEFAULT 16384,
   "cost_per_input_token" numeric(18,8) NOT NULL DEFAULT 0,
   "cost_per_output_token" numeric(18,8) NOT NULL DEFAULT 0,
+  "machine_id" uuid NOT NULL,
   "organization_id" uuid NOT NULL,
   PRIMARY KEY ("id")
 );
@@ -243,7 +244,7 @@ CREATE UNIQUE INDEX "workflow_project_id_name" ON "workflows" ("project_id", "na
 -- Modify "activity_events" table
 ALTER TABLE "activity_events" ADD CONSTRAINT "activity_events_agents_activity_events" FOREIGN KEY ("agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE SET NULL, ADD CONSTRAINT "activity_events_projects_activity_events" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "activity_events_tickets_activity_events" FOREIGN KEY ("ticket_id") REFERENCES "tickets" ("id") ON UPDATE NO ACTION ON DELETE SET NULL;
 -- Modify "agent_providers" table
-ALTER TABLE "agent_providers" ADD CONSTRAINT "agent_providers_organizations_providers" FOREIGN KEY ("organization_id") REFERENCES "organizations" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "agent_providers" ADD CONSTRAINT "agent_providers_machines_providers" FOREIGN KEY ("machine_id") REFERENCES "machines" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "agent_providers_organizations_providers" FOREIGN KEY ("organization_id") REFERENCES "organizations" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
 -- Modify "agents" table
 ALTER TABLE "agents" ADD CONSTRAINT "agents_agent_providers_agents" FOREIGN KEY ("provider_id") REFERENCES "agent_providers" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "agents_projects_agents" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "agents_tickets_current_ticket" FOREIGN KEY ("current_ticket_id") REFERENCES "tickets" ("id") ON UPDATE NO ACTION ON DELETE SET NULL;
 -- Modify "organizations" table

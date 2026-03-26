@@ -706,33 +706,19 @@ func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContex
 		return catalogdomain.Machine{}, false, fmt.Errorf("list machines for runtime launch: %w", err)
 	}
 
-	workspacePath := strings.TrimSpace(launchContext.agent.WorkspacePath)
-	var matched *ent.Machine
-	for _, machineItem := range machines {
-		if machineItem.Host == catalogdomain.LocalMachineHost || strings.TrimSpace(machineItem.WorkspaceRoot) == "" {
-			continue
-		}
-		if pathWithinRoot(workspacePath, machineItem.WorkspaceRoot) {
-			if matched != nil {
-				return catalogdomain.Machine{}, false, fmt.Errorf("workspace path %q matches multiple remote machines", workspacePath)
-			}
-			matched = machineItem
-		}
-	}
-	if matched != nil {
-		return mapRuntimeMachine(matched), true, nil
+	providerItem := launchContext.agent.Edges.Provider
+	if providerItem == nil {
+		return catalogdomain.Machine{}, false, fmt.Errorf("agent provider must be loaded")
 	}
 
 	for _, machineItem := range machines {
-		if machineItem.Host == catalogdomain.LocalMachineHost {
-			return mapRuntimeMachine(machineItem), false, nil
+		if machineItem.ID == providerItem.MachineID {
+			mapped := mapRuntimeMachine(machineItem)
+			return mapped, mapped.Host != catalogdomain.LocalMachineHost, nil
 		}
 	}
 
-	return catalogdomain.Machine{
-		Name: catalogdomain.LocalMachineName,
-		Host: catalogdomain.LocalMachineHost,
-	}, false, nil
+	return catalogdomain.Machine{}, false, fmt.Errorf("provider %s bound machine %s not found", providerItem.ID, providerItem.MachineID)
 }
 
 func buildRemoteWorkspaceRequest(launchContext runtimeLaunchContext, machine catalogdomain.Machine) (workspaceinfra.SetupRequest, error) {
@@ -798,23 +784,6 @@ func buildWorkspaceRepoInputs(projectRepos []*ent.ProjectRepo, ticketScopes []*e
 	}
 
 	return inputs
-}
-
-func pathWithinRoot(path string, root string) bool {
-	trimmedPath := strings.TrimSpace(path)
-	trimmedRoot := strings.TrimSpace(root)
-	if trimmedPath == "" || trimmedRoot == "" {
-		return false
-	}
-
-	cleanPath := filepath.Clean(trimmedPath)
-	cleanRoot := filepath.Clean(trimmedRoot)
-	if cleanPath == cleanRoot {
-		return true
-	}
-
-	relative, err := filepath.Rel(cleanRoot, cleanPath)
-	return err == nil && relative != "." && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {

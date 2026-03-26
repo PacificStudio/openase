@@ -37,6 +37,18 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create organization: %v", err)
 	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName(catalogdomain.LocalMachineName).
+		SetHost(catalogdomain.LocalMachineHost).
+		SetPort(22).
+		SetDescription("Control-plane local execution host.").
+		SetStatus("online").
+		SetResources(map[string]any{"transport": "local", "last_success": true}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
 	project, err := client.Project.Create().
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
@@ -98,6 +110,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 
 	catalogSvc := catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil)
 	providerInput, err := catalogdomain.ParseCreateAgentProvider(org.ID, catalogdomain.AgentProviderInput{
+		MachineID:   localMachine.ID.String(),
 		Name:        "Claude Code",
 		AdapterType: "claude-code-cli",
 		CliCommand:  "claude",

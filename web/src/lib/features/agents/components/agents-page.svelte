@@ -1,7 +1,7 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
-  import type { AgentProvider } from '$lib/api/contracts'
+  import type { AgentProvider, Machine } from '$lib/api/contracts'
   import type { AgentsPageData } from '../data'
   import { loadAgentsPageResult } from '../page-data'
   import { applyUpdatedProviderState } from '../model'
@@ -24,6 +24,7 @@
   let agents = $state<AgentInstance[]>([])
   let providers = $state<ProviderConfig[]>([])
   let providerItems = $state<AgentProvider[]>([])
+  let machineItems = $state<Machine[]>([])
   let loading = $state(false),
     error = $state('')
   let registerSheetOpen = $state(false)
@@ -56,6 +57,7 @@
       agents = []
       providers = []
       providerItems = []
+      machineItems = []
       resetRegistrationDraft()
       providerEditor.reset()
       outputState.reset()
@@ -113,6 +115,7 @@
 
   function applyPageData(data: AgentsPageData) {
     providerItems = data.providerItems
+    machineItems = data.machineItems
     providers = data.providers
     agents = data.agents
   }
@@ -272,6 +275,7 @@
   bind:providerConfigOpen
   bind:outputSheetOpen
   {providerItems}
+  {machineItems}
   {registrationDraft}
   {registerSaving}
   {registerError}

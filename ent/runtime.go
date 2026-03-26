@@ -71,35 +71,35 @@ func init() {
 	agentproviderFields := schema.AgentProvider{}.Fields()
 	_ = agentproviderFields
 	// agentproviderDescName is the schema descriptor for name field.
-	agentproviderDescName := agentproviderFields[2].Descriptor()
+	agentproviderDescName := agentproviderFields[3].Descriptor()
 	// agentprovider.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	agentprovider.NameValidator = agentproviderDescName.Validators[0].(func(string) error)
 	// agentproviderDescCliCommand is the schema descriptor for cli_command field.
-	agentproviderDescCliCommand := agentproviderFields[4].Descriptor()
+	agentproviderDescCliCommand := agentproviderFields[5].Descriptor()
 	// agentprovider.CliCommandValidator is a validator for the "cli_command" field. It is called by the builders before save.
 	agentprovider.CliCommandValidator = agentproviderDescCliCommand.Validators[0].(func(string) error)
 	// agentproviderDescAuthConfig is the schema descriptor for auth_config field.
-	agentproviderDescAuthConfig := agentproviderFields[6].Descriptor()
+	agentproviderDescAuthConfig := agentproviderFields[7].Descriptor()
 	// agentprovider.DefaultAuthConfig holds the default value on creation for the auth_config field.
 	agentprovider.DefaultAuthConfig = agentproviderDescAuthConfig.Default.(func() map[string]interface{})
 	// agentproviderDescModelName is the schema descriptor for model_name field.
-	agentproviderDescModelName := agentproviderFields[7].Descriptor()
+	agentproviderDescModelName := agentproviderFields[8].Descriptor()
 	// agentprovider.ModelNameValidator is a validator for the "model_name" field. It is called by the builders before save.
 	agentprovider.ModelNameValidator = agentproviderDescModelName.Validators[0].(func(string) error)
 	// agentproviderDescModelTemperature is the schema descriptor for model_temperature field.
-	agentproviderDescModelTemperature := agentproviderFields[8].Descriptor()
+	agentproviderDescModelTemperature := agentproviderFields[9].Descriptor()
 	// agentprovider.DefaultModelTemperature holds the default value on creation for the model_temperature field.
 	agentprovider.DefaultModelTemperature = agentproviderDescModelTemperature.Default.(float64)
 	// agentproviderDescModelMaxTokens is the schema descriptor for model_max_tokens field.
-	agentproviderDescModelMaxTokens := agentproviderFields[9].Descriptor()
+	agentproviderDescModelMaxTokens := agentproviderFields[10].Descriptor()
 	// agentprovider.DefaultModelMaxTokens holds the default value on creation for the model_max_tokens field.
 	agentprovider.DefaultModelMaxTokens = agentproviderDescModelMaxTokens.Default.(int)
 	// agentproviderDescCostPerInputToken is the schema descriptor for cost_per_input_token field.
-	agentproviderDescCostPerInputToken := agentproviderFields[10].Descriptor()
+	agentproviderDescCostPerInputToken := agentproviderFields[11].Descriptor()
 	// agentprovider.DefaultCostPerInputToken holds the default value on creation for the cost_per_input_token field.
 	agentprovider.DefaultCostPerInputToken = agentproviderDescCostPerInputToken.Default.(float64)
 	// agentproviderDescCostPerOutputToken is the schema descriptor for cost_per_output_token field.
-	agentproviderDescCostPerOutputToken := agentproviderFields[11].Descriptor()
+	agentproviderDescCostPerOutputToken := agentproviderFields[12].Descriptor()
 	// agentprovider.DefaultCostPerOutputToken holds the default value on creation for the cost_per_output_token field.
 	agentprovider.DefaultCostPerOutputToken = agentproviderDescCostPerOutputToken.Default.(float64)
 	// agentproviderDescID is the schema descriptor for id field.

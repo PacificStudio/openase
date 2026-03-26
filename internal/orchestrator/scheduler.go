@@ -16,7 +16,6 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	domaincatalog "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -174,9 +173,9 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 	if agent == nil {
 		return false, skipReasonNoAgent, nil
 	}
-	machine, err := s.selectMachine(ctx, project.OrganizationID, workflow, ticket)
+	machine, err := s.resolveExecutionMachine(ctx, project.OrganizationID, agent)
 	if err != nil {
-		return false, "", fmt.Errorf("select machine: %w", err)
+		return false, "", fmt.Errorf("resolve execution machine: %w", err)
 	}
 	if machine == nil {
 		return false, skipReasonNoMachine, nil
@@ -221,76 +220,41 @@ func (s *Scheduler) resolveWorkflowAgent(ctx context.Context, workflow *ent.Work
 	return agentItem, nil
 }
 
-func (s *Scheduler) selectMachine(
+func (s *Scheduler) resolveExecutionMachine(
 	ctx context.Context,
 	organizationID uuid.UUID,
-	workflow *ent.Workflow,
-	ticket *ent.Ticket,
+	agent *ent.Agent,
 ) (*ent.Machine, error) {
-	if ticket != nil && ticket.TargetMachineID != nil {
-		machine, err := s.client.Machine.Query().
-			Where(
-				entmachine.IDEQ(*ticket.TargetMachineID),
-				entmachine.OrganizationIDEQ(organizationID),
-			).
-			Only(ctx)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		if machine.Status != entmachine.StatusOnline {
+	providerItem, err := s.client.AgentProvider.Get(ctx, agent.ProviderID)
+	if err != nil {
+		if ent.IsNotFound(err) {
 			return nil, nil
 		}
-		return machine, nil
-	}
-
-	if len(workflow.RequiredMachineLabels) == 0 {
-		machine, err := s.client.Machine.Query().
-			Where(
-				entmachine.OrganizationIDEQ(organizationID),
-				entmachine.NameEQ(domaincatalog.LocalMachineName),
-				entmachine.StatusEQ(entmachine.StatusOnline),
-			).
-			Only(ctx)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return machine, nil
-	}
-
-	machines, err := s.client.Machine.Query().
-		Where(
-			entmachine.OrganizationIDEQ(organizationID),
-			entmachine.StatusEQ(entmachine.StatusOnline),
-		).
-		Order(ent.Asc(entmachine.FieldName)).
-		All(ctx)
-	if err != nil {
 		return nil, err
 	}
-	for _, machine := range machines {
-		if machineHasAllLabels(machine.Labels, workflow.RequiredMachineLabels) {
-			return machine, nil
-		}
+	if providerItem.OrganizationID != organizationID {
+		return nil, nil
 	}
 
-	return nil, nil
+	machine, err := s.client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(organizationID),
+			entmachine.IDEQ(providerItem.MachineID),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if machine.Status != entmachine.StatusOnline {
+		return nil, nil
+	}
+	return machine, nil
 }
 
-func (s *Scheduler) claimTicketWithAgent(
-	ctx context.Context,
-	workflow *ent.Workflow,
-	ticket *ent.Ticket,
-	machine *ent.Machine,
-	agent *ent.Agent,
-	projectMaxConcurrent int,
-	now time.Time,
-) (string, error) {
+func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Workflow, ticket *ent.Ticket, machine *ent.Machine, agent *ent.Agent, projectMaxConcurrent int, now time.Time) (string, error) {
 	tx, err := s.client.Tx(ctx)
 	if err != nil {
 		return "", fmt.Errorf("start dispatch tx: %w", err)

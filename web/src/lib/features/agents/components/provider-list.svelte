@@ -52,6 +52,14 @@
           <span class="text-foreground font-mono">{provider.modelName}</span>
         </div>
         <div class="flex items-center justify-between text-xs">
+          <span class="text-muted-foreground">Machine</span>
+          <span class="text-foreground">{provider.machineName}</span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-muted-foreground">Status</span>
+          <span class="text-foreground">{provider.machineStatus}</span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
           <span class="text-muted-foreground">Agents</span>
           <span class="text-foreground tabular-nums">{provider.agentCount}</span>
         </div>

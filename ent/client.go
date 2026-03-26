@@ -890,6 +890,22 @@ func (c *AgentProviderClient) QueryOrganization(_m *AgentProvider) *Organization
 	return query
 }
 
+// QueryMachine queries the machine edge of a AgentProvider.
+func (c *AgentProviderClient) QueryMachine(_m *AgentProvider) *MachineQuery {
+	query := (&MachineClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentprovider.Table, agentprovider.FieldID, id),
+			sqlgraph.To(machine.Table, machine.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentprovider.MachineTable, agentprovider.MachineColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAgents queries the agents edge of a AgentProvider.
 func (c *AgentProviderClient) QueryAgents(_m *AgentProvider) *AgentQuery {
 	query := (&AgentClient{config: c.config}).Query()
@@ -1458,6 +1474,22 @@ func (c *MachineClient) QueryOrganization(_m *Machine) *OrganizationQuery {
 			sqlgraph.From(machine.Table, machine.FieldID, id),
 			sqlgraph.To(organization.Table, organization.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, machine.OrganizationTable, machine.OrganizationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryProviders queries the providers edge of a Machine.
+func (c *MachineClient) QueryProviders(_m *Machine) *AgentProviderQuery {
+	query := (&AgentProviderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machine.Table, machine.FieldID, id),
+			sqlgraph.To(agentprovider.Table, agentprovider.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, machine.ProvidersTable, machine.ProvidersColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil

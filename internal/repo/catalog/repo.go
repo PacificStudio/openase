@@ -60,10 +60,11 @@ func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.Cre
 		return domain.Organization{}, mapWriteError("create organization", err)
 	}
 
-	if err := createLocalMachine(ctx, tx, item.ID); err != nil {
+	localMachine, err := createLocalMachine(ctx, tx, item.ID)
+	if err != nil {
 		return domain.Organization{}, err
 	}
-	if err := createBuiltinAgentProviders(ctx, tx, item.ID); err != nil {
+	if err := createBuiltinAgentProviders(ctx, tx, item.ID, localMachine.ID); err != nil {
 		return domain.Organization{}, err
 	}
 	if input.DefaultAgentProviderID != nil {
@@ -745,10 +746,11 @@ func clearPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, excl
 	return nil
 }
 
-func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID uuid.UUID) error {
+func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID uuid.UUID, machineID uuid.UUID) error {
 	for _, template := range domain.BuiltinAgentProviderTemplates() {
 		builder := tx.AgentProvider.Create().
 			SetOrganizationID(organizationID).
+			SetMachineID(machineID).
 			SetName(template.Name).
 			SetAdapterType(toEntAgentProviderAdapterType(template.AdapterType)).
 			SetCliCommand(template.Command).

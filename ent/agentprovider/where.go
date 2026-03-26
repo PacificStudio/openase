@@ -60,6 +60,11 @@ func OrganizationID(v uuid.UUID) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldOrganizationID, v))
 }
 
+// MachineID applies equality check predicate on the "machine_id" field. It's identical to MachineIDEQ.
+func MachineID(v uuid.UUID) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldMachineID, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldName, v))
@@ -118,6 +123,26 @@ func OrganizationIDIn(vs ...uuid.UUID) predicate.AgentProvider {
 // OrganizationIDNotIn applies the NotIn predicate on the "organization_id" field.
 func OrganizationIDNotIn(vs ...uuid.UUID) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldNotIn(FieldOrganizationID, vs...))
+}
+
+// MachineIDEQ applies the EQ predicate on the "machine_id" field.
+func MachineIDEQ(v uuid.UUID) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldMachineID, v))
+}
+
+// MachineIDNEQ applies the NEQ predicate on the "machine_id" field.
+func MachineIDNEQ(v uuid.UUID) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNEQ(FieldMachineID, v))
+}
+
+// MachineIDIn applies the In predicate on the "machine_id" field.
+func MachineIDIn(vs ...uuid.UUID) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldIn(FieldMachineID, vs...))
+}
+
+// MachineIDNotIn applies the NotIn predicate on the "machine_id" field.
+func MachineIDNotIn(vs ...uuid.UUID) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNotIn(FieldMachineID, vs...))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -560,6 +585,29 @@ func HasOrganization() predicate.AgentProvider {
 func HasOrganizationWith(preds ...predicate.Organization) predicate.AgentProvider {
 	return predicate.AgentProvider(func(s *sql.Selector) {
 		step := newOrganizationStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasMachine applies the HasEdge predicate on the "machine" edge.
+func HasMachine() predicate.AgentProvider {
+	return predicate.AgentProvider(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, MachineTable, MachineColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMachineWith applies the HasEdge predicate on the "machine" edge with a given conditions (other predicates).
+func HasMachineWith(preds ...predicate.Machine) predicate.AgentProvider {
+	return predicate.AgentProvider(func(s *sql.Selector) {
+		step := newMachineStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
