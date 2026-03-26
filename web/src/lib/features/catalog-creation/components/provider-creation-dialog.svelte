@@ -54,15 +54,19 @@
       reset()
       await invalidateAll()
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.'
+      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.'
     } finally {
       creating = false
     }
   }
 </script>
 
-<Dialog.Root bind:open onOpenChange={(next) => { if (!next) reset() }}>
+<Dialog.Root
+  bind:open
+  onOpenChange={(next) => {
+    if (!next) reset()
+  }}
+>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
       <Dialog.Title>Create provider</Dialog.Title>
@@ -84,8 +88,7 @@
           id="provider-name"
           value={draft.name}
           placeholder="Codex primary"
-          oninput={(event) =>
-            updateField('name', (event.currentTarget as HTMLInputElement).value)}
+          oninput={(event) => updateField('name', (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 

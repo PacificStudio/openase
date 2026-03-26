@@ -81,9 +81,7 @@
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
       <Dialog.Title>Create organization</Dialog.Title>
-      <Dialog.Description>
-        Set up a new workspace with a stable URL slug.
-      </Dialog.Description>
+      <Dialog.Description>Set up a new workspace with a stable URL slug.</Dialog.Description>
     </Dialog.Header>
 
     <form

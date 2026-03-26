@@ -46,7 +46,7 @@
           <div class="min-w-0">
             <a
               href={organizationPath(org.id)}
-              class="text-foreground hover:underline truncate text-sm font-medium"
+              class="text-foreground truncate text-sm font-medium hover:underline"
             >
               {org.name}
             </a>
@@ -56,9 +56,7 @@
           </div>
 
           <div class="flex shrink-0 items-center gap-2">
-            <Button variant="ghost" size="sm" href={organizationPath(org.id)}>
-              Open
-            </Button>
+            <Button variant="ghost" size="sm" href={organizationPath(org.id)}>Open</Button>
             <Button
               variant="ghost"
               size="sm"
@@ -89,8 +87,5 @@
 <OrganizationCreationDialog bind:open={showCreateDialog} />
 
 {#if deleteTarget}
-  <OrganizationDeleteDialog
-    organization={deleteTarget}
-    bind:open={showDeleteDialog}
-  />
+  <OrganizationDeleteDialog organization={deleteTarget} bind:open={showDeleteDialog} />
 {/if}

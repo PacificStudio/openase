@@ -58,8 +58,8 @@
     <Dialog.Header>
       <Dialog.Title>Delete organization</Dialog.Title>
       <Dialog.Description>
-        This will permanently delete <strong>{organization.name}</strong> and all its providers and
-        machines. Active projects must be archived or deleted first.
+        This will permanently delete <strong>{organization.name}</strong> and all its providers and machines.
+        Active projects must be archived or deleted first.
       </Dialog.Description>
     </Dialog.Header>
 
