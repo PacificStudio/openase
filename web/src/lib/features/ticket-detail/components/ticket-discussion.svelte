@@ -5,9 +5,9 @@
   import { Button } from '$ui/button'
   import { Textarea } from '$ui/textarea'
   import { formatRelativeTime } from '$lib/utils'
-  import TicketActivityList from './ticket-activity.svelte'
-  import TicketMarkdown from './ticket-markdown.svelte'
   import type { TicketActivity, TicketComment } from '../types'
+  import TicketActivityList from './ticket-activity.svelte'
+  import TicketMarkdownContent from './ticket-markdown-content.svelte'
 
   let {
     comments,
@@ -24,20 +24,14 @@
     creatingComment?: boolean
     updatingCommentId?: string | null
     deletingCommentId?: string | null
-    onCreateComment?: (draft: { body: string }) => void | Promise<void>
-    onUpdateComment?: (commentId: string, draft: { body: string }) => void | Promise<void>
-    onDeleteComment?: (commentId: string) => void | Promise<void>
+    onCreateComment?: (body: string) => Promise<boolean> | boolean
+    onUpdateComment?: (commentId: string, body: string) => Promise<boolean> | boolean
+    onDeleteComment?: (commentId: string) => Promise<boolean> | boolean
   } = $props()
 
-  let newCommentBody = $state('')
+  let composerBody = $state('')
   let editingCommentId = $state<string | null>(null)
   let editingBody = $state('')
-
-  async function submitNewComment() {
-    if (newCommentBody.trim() === '') return
-    await onCreateComment?.({ body: newCommentBody })
-    newCommentBody = ''
-  }
 
   function beginEdit(comment: TicketComment) {
     editingCommentId = comment.id
@@ -49,109 +43,163 @@
     editingBody = ''
   }
 
-  async function saveEdit(commentId: string) {
-    if (editingBody.trim() === '') return
-    await onUpdateComment?.(commentId, { body: editingBody })
-    cancelEdit()
+  async function handleCreateComment() {
+    const body = composerBody.trim()
+    if (!body || creatingComment) return
+
+    const success = (await onCreateComment?.(body)) ?? false
+    if (success) {
+      composerBody = ''
+    }
   }
 
-  function wasEdited(comment: TicketComment) {
-    return comment.updatedAt !== comment.createdAt
+  async function handleSaveEdit(commentId: string) {
+    const body = editingBody.trim()
+    if (!body || updatingCommentId === commentId) return
+
+    const success = (await onUpdateComment?.(commentId, body)) ?? false
+    if (success) {
+      cancelEdit()
+    }
   }
+
+  async function handleDeleteComment(commentId: string) {
+    if (deletingCommentId === commentId) return
+    if (!window.confirm('Delete this comment?')) return
+
+    const success = (await onDeleteComment?.(commentId)) ?? false
+    if (success && editingCommentId === commentId) {
+      cancelEdit()
+    }
+  }
+
+  function formatAuthor(value: string) {
+    const normalized = value.trim()
+    if (!normalized) return 'Unknown'
+    return normalized.includes(':') ? (normalized.split(':').at(-1) ?? normalized) : normalized
+  }
+
+  $effect(() => {
+    if (!editingCommentId) return
+    if (comments.some((comment) => comment.id === editingCommentId)) return
+    cancelEdit()
+  })
 </script>
 
-<section class="space-y-6 px-5 py-4">
-  <div class="space-y-3">
-    <div class="flex items-center gap-2">
-      <MessageSquare class="text-muted-foreground size-4" />
-      <h3 class="text-sm font-medium">Discussion</h3>
-    </div>
-
-    {#if comments.length === 0}
-      <div class="border-border bg-muted/20 rounded-lg border border-dashed px-4 py-6 text-center">
-        <p class="text-sm font-medium">No comments yet</p>
+<div class="flex flex-col gap-6 px-6 py-5">
+  <section class="border-border bg-muted/20 rounded-lg border p-4">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h3 class="text-sm font-medium">Discussion</h3>
         <p class="text-muted-foreground mt-1 text-xs">
-          Leave review notes, handoff context, or human decisions here.
+          Add context, decisions, and handoff notes. Markdown is supported.
         </p>
       </div>
-    {:else}
-      <div class="space-y-3">
-        {#each comments as comment (comment.id)}
-          <article class="border-border bg-background rounded-xl border p-4">
-            <div class="mb-3 flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <div class="text-sm font-medium">{comment.createdBy}</div>
-                <div class="text-muted-foreground flex items-center gap-2 text-xs">
-                  <span>{formatRelativeTime(comment.createdAt)}</span>
-                  {#if wasEdited(comment)}
-                    <span>· edited</span>
-                  {/if}
-                </div>
-              </div>
-              <div class="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  disabled={updatingCommentId === comment.id || deletingCommentId === comment.id}
-                  onclick={() => beginEdit(comment)}
-                >
-                  <Pencil class="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  disabled={updatingCommentId === comment.id || deletingCommentId === comment.id}
-                  onclick={() => onDeleteComment?.(comment.id)}
-                >
-                  <Trash2 class="size-3.5" />
-                </Button>
-              </div>
-            </div>
+      <MessageSquare class="text-muted-foreground size-4 shrink-0" />
+    </div>
 
-            {#if editingCommentId === comment.id}
-              <div class="space-y-3">
-                <Textarea
-                  rows={6}
-                  bind:value={editingBody}
-                  disabled={updatingCommentId === comment.id}
-                />
-                <div class="flex items-center justify-end gap-2">
-                  <Button variant="ghost" size="sm" onclick={cancelEdit}>Cancel</Button>
-                  <Button
-                    size="sm"
-                    disabled={editingBody.trim() === '' || updatingCommentId === comment.id}
-                    onclick={() => saveEdit(comment.id)}
-                  >
-                    {updatingCommentId === comment.id ? 'Saving…' : 'Save'}
-                  </Button>
-                </div>
-              </div>
-            {:else}
-              <TicketMarkdown body={comment.body} />
-            {/if}
-          </article>
-        {/each}
-      </div>
-    {/if}
-
-    <div class="border-border bg-muted/20 rounded-xl border p-4">
-      <div class="mb-2 text-sm font-medium">Add comment</div>
+    <div class="mt-4 space-y-3">
       <Textarea
-        rows={6}
-        bind:value={newCommentBody}
+        rows={5}
+        bind:value={composerBody}
+        placeholder="Add a comment with Markdown..."
         disabled={creatingComment}
-        placeholder="Share review notes, decisions, or handoff context using Markdown."
       />
-      <div class="mt-3 flex justify-end">
+      <div class="flex justify-end">
         <Button
-          disabled={newCommentBody.trim() === '' || creatingComment}
-          onclick={submitNewComment}
+          size="sm"
+          onclick={handleCreateComment}
+          disabled={!composerBody.trim() || creatingComment}
         >
           {creatingComment ? 'Posting…' : 'Comment'}
         </Button>
       </div>
     </div>
-  </div>
+  </section>
 
-  <TicketActivityList {activities} title="System activity" emptyLabel="No system activity yet" />
-</section>
+  <section class="space-y-3">
+    <div class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+      Comments
+    </div>
+
+    {#if comments.length === 0}
+      <div
+        class="border-border bg-muted/10 text-muted-foreground rounded-lg border px-4 py-6 text-center text-xs"
+      >
+        No comments yet
+      </div>
+    {/if}
+
+    {#each comments as comment}
+      <article class="border-border bg-background rounded-lg border">
+        <div class="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
+          <div class="min-w-0">
+            <div class="truncate text-sm font-medium">{formatAuthor(comment.createdBy)}</div>
+            <div class="text-muted-foreground mt-1 flex items-center gap-2 text-[11px]">
+              <span>{formatRelativeTime(comment.createdAt)}</span>
+              {#if comment.updatedAt}
+                <span>edited</span>
+              {/if}
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1">
+            {#if editingCommentId !== comment.id}
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                aria-label="Edit comment"
+                onclick={() => beginEdit(comment)}
+                disabled={Boolean(updatingCommentId || deletingCommentId)}
+              >
+                <Pencil class="size-3.5" />
+              </Button>
+            {/if}
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              aria-label="Delete comment"
+              onclick={() => handleDeleteComment(comment.id)}
+              disabled={deletingCommentId === comment.id || updatingCommentId === comment.id}
+            >
+              <Trash2 class="size-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        <div class="px-4 py-4">
+          {#if editingCommentId === comment.id}
+            <div class="space-y-3">
+              <Textarea
+                rows={6}
+                bind:value={editingBody}
+                disabled={updatingCommentId === comment.id}
+              />
+              <div class="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onclick={cancelEdit}
+                  disabled={updatingCommentId === comment.id}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onclick={() => handleSaveEdit(comment.id)}
+                  disabled={!editingBody.trim() || updatingCommentId === comment.id}
+                >
+                  {updatingCommentId === comment.id ? 'Saving…' : 'Save'}
+                </Button>
+              </div>
+            </div>
+          {:else}
+            <TicketMarkdownContent source={comment.body} />
+          {/if}
+        </div>
+      </article>
+    {/each}
+  </section>
+
+  <TicketActivityList {activities} label="System Activity" emptyText="No system activity yet" />
+</div>

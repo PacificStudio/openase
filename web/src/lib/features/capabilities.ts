@@ -3,6 +3,10 @@ import type { SettingsSection } from '$lib/features/settings/types'
 export type CapabilityState = 'available' | 'unwired' | 'backend_missing'
 
 export type CapabilityKey =
+  | 'organizationCreation'
+  | 'projectCreation'
+  | 'machineCreation'
+  | 'providerCreation'
   | 'generalSettings'
   | 'search'
   | 'newTicket'
@@ -27,9 +31,30 @@ export type CapabilityDescriptor = {
 // Keep this inventory aligned with the shipped UI/API boundary. Source-backed audit tests catch
 // drift when product surface changes.
 export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
+  organizationCreation: {
+    state: 'available',
+    summary:
+      'Organization creation is available from the workspace empty state and submits to POST /api/v1/orgs.',
+  },
+  projectCreation: {
+    state: 'available',
+    summary:
+      'Project creation is available from the organization dashboard and submits to POST /api/v1/orgs/{orgId}/projects.',
+  },
+  machineCreation: {
+    state: 'available',
+    summary:
+      'Machine creation is available from the Machines page and submits to POST /api/v1/orgs/{orgId}/machines.',
+  },
+  providerCreation: {
+    state: 'available',
+    summary:
+      'Provider creation is available from the organization dashboard and submits to POST /api/v1/orgs/{orgId}/providers.',
+  },
   generalSettings: {
     state: 'available',
-    summary: 'General project settings are already wired to PATCH /api/v1/projects/{projectId}.',
+    summary:
+      'General project settings are wired to PATCH /api/v1/projects/{projectId}, and project archive is available via DELETE /api/v1/projects/{projectId}.',
   },
   search: {
     state: 'available',
@@ -96,9 +121,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Notifications settings are wired to org-level channel CRUD, project rule CRUD, test send, and enable/disable controls.',
   },
   securitySettings: {
-    state: 'backend_missing',
+    state: 'available',
     summary:
-      'Security settings stay placeholder because no dedicated security settings API is exported yet.',
+      'Security settings are available via GET /api/v1/projects/{projectId}/security-settings, documenting shipped runtime boundaries while broader security control plane changes stay explicitly deferred.',
   },
 }
 

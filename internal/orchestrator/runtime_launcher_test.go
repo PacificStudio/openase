@@ -334,6 +334,315 @@ Runtime reconcile test
 	}
 }
 
+func TestRuntimeLauncherRunTickExecutesTurnsRecordsUsageAndSchedulesContinuation(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 23, 10, 0, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Implement the ticket using the current workspace.
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-410").
+		SetTitle("Execute Codex turns").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-runner-01").
+		SetStatus(entagent.StatusClaimed).
+		SetCurrentTicketID(ticketItem.ID).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetAssignedAgentID(agentItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("assign ticket to claimed agent: %v", err)
+	}
+
+	manager := &runtimeFakeProcessManager{
+		turnInputDelta:  5,
+		turnOutputDelta: 2,
+		executionDone:   make(chan struct{}),
+	}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	launcher.now = func() time.Time {
+		return now
+	}
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("launch runtime session: %v", err)
+	}
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("start ready execution: %v", err)
+	}
+
+	select {
+	case <-manager.executionDone:
+	case <-time.After(5 * time.Second):
+		agentSnapshot, _ := client.Agent.Get(ctx, agentItem.ID)
+		ticketSnapshot, _ := client.Ticket.Get(ctx, ticketItem.ID)
+		t.Fatalf(
+			"timed out waiting for execution continuation scheduling: turns=%d agent=%+v ticket=%+v",
+			manager.capturedTurnCount(),
+			agentSnapshot,
+			ticketSnapshot,
+		)
+	}
+	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
+		if err != nil {
+			return false
+		}
+		agentSnapshot, err := client.Agent.Get(ctx, agentItem.ID)
+		if err != nil {
+			return false
+		}
+		return ticketSnapshot.AssignedAgentID == nil &&
+			ticketSnapshot.NextRetryAt != nil &&
+			agentSnapshot.Status == entagent.StatusIdle &&
+			agentSnapshot.CurrentTicketID == nil
+	})
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.AssignedAgentID != nil {
+		t.Fatalf("expected continuation scheduling to release assigned agent, got %+v", ticketAfter.AssignedAgentID)
+	}
+	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.UTC().Equal(now.Add(continuationRetryDelay)) {
+		t.Fatalf("expected next retry at %s, got %+v", now.Add(continuationRetryDelay), ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.CostTokensInput != int64(defaultRuntimeMaxTurns)*manager.turnInputDelta {
+		t.Fatalf("expected input tokens %d, got %d", int64(defaultRuntimeMaxTurns)*manager.turnInputDelta, ticketAfter.CostTokensInput)
+	}
+	if ticketAfter.CostTokensOutput != int64(defaultRuntimeMaxTurns)*manager.turnOutputDelta {
+		t.Fatalf("expected output tokens %d, got %d", int64(defaultRuntimeMaxTurns)*manager.turnOutputDelta, ticketAfter.CostTokensOutput)
+	}
+	if ticketAfter.StartedAt == nil || !ticketAfter.StartedAt.UTC().Equal(now) {
+		t.Fatalf("expected started_at %s, got %+v", now.Format(time.RFC3339), ticketAfter.StartedAt)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
+		t.Fatalf("expected idle agent after continuation scheduling, got %+v", agentAfter)
+	}
+	if agentAfter.TotalTokensUsed != int64(defaultRuntimeMaxTurns)*(manager.turnInputDelta+manager.turnOutputDelta) {
+		t.Fatalf("expected total tokens %d, got %d", int64(defaultRuntimeMaxTurns)*(manager.turnInputDelta+manager.turnOutputDelta), agentAfter.TotalTokensUsed)
+	}
+	if manager.capturedTurnCount() != defaultRuntimeMaxTurns {
+		t.Fatalf("expected %d turns, got %d", defaultRuntimeMaxTurns, manager.capturedTurnCount())
+	}
+}
+
+func TestRuntimeLauncherRunTickMarksRetryOnTurnFailure(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 23, 11, 0, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Handle a failing runtime turn.
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-411").
+		SetTitle("Retry failed turn").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-runner-fail-01").
+		SetStatus(entagent.StatusClaimed).
+		SetCurrentTicketID(ticketItem.ID).
+		SetRuntimePhase(entagent.RuntimePhaseNone).
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetAssignedAgentID(agentItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("assign ticket to claimed agent: %v", err)
+	}
+
+	manager := &runtimeFakeProcessManager{
+		turnInputDelta:  5,
+		turnOutputDelta: 2,
+		failTurn:        1,
+	}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	launcher.now = func() time.Time {
+		return now
+	}
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("launch runtime session: %v", err)
+	}
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("start ready execution: %v", err)
+	}
+
+	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
+		if err != nil {
+			return false
+		}
+		agentSnapshot, err := client.Agent.Get(ctx, agentItem.ID)
+		if err != nil {
+			return false
+		}
+		return ticketSnapshot.AssignedAgentID == nil &&
+			ticketSnapshot.NextRetryAt != nil &&
+			ticketSnapshot.AttemptCount == 1 &&
+			ticketSnapshot.ConsecutiveErrors == 1 &&
+			agentSnapshot.Status == entagent.StatusIdle &&
+			agentSnapshot.CurrentTicketID == nil
+	})
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.AssignedAgentID != nil {
+		t.Fatalf("expected retry path to clear assignment, got %+v", ticketAfter.AssignedAgentID)
+	}
+	if ticketAfter.AttemptCount != 1 || ticketAfter.ConsecutiveErrors != 1 {
+		t.Fatalf("expected retry counters to increment once, got %+v", ticketAfter)
+	}
+	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.UTC().Equal(now.Add(10*time.Second)) {
+		t.Fatalf("expected next retry at %s, got %+v", now.Add(10*time.Second), ticketAfter.NextRetryAt)
+	}
+
+	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if agentAfter.Status != entagent.StatusIdle || agentAfter.CurrentTicketID != nil {
+		t.Fatalf("expected idle agent after failed turn retry, got %+v", agentAfter)
+	}
+	if agentAfter.RuntimePhase != entagent.RuntimePhaseNone {
+		t.Fatalf("expected runtime phase none after failed turn retry, got %+v", agentAfter.RuntimePhase)
+	}
+	if agentAfter.LastError != "" {
+		t.Fatalf("expected retry release to clear last error, got %q", agentAfter.LastError)
+	}
+	if manager.capturedTurnCount() != 1 {
+		t.Fatalf("expected one failed turn, got %d", manager.capturedTurnCount())
+	}
+}
+
 func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -857,6 +1166,20 @@ func waitForAgentLifecycleEvent(t *testing.T, stream <-chan provider.Event, want
 	}
 }
 
+func waitForRuntimeCondition(t *testing.T, timeout time.Duration, predicate func() bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if predicate() {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	t.Fatal("timed out waiting for runtime condition")
+}
+
 func decodeLifecycleEnvelope(t *testing.T, payload json.RawMessage) agentLifecycleEnvelope {
 	t.Helper()
 
@@ -872,6 +1195,12 @@ type runtimeFakeProcessManager struct {
 	capturedThreadData runtimeThreadStartParams
 	capturedSpec       provider.AgentCLIProcessSpec
 	lastProcess        *runtimeFakeProcess
+	capturedTurns      []runtimeTurnStartParams
+	turnCount          int
+	turnInputDelta     int64
+	turnOutputDelta    int64
+	failTurn           int
+	executionDone      chan struct{}
 }
 
 func (m *runtimeFakeProcessManager) Start(_ context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
@@ -909,6 +1238,20 @@ func (m *runtimeFakeProcessManager) capturedProcessSpec() provider.AgentCLIProce
 		WorkingDirectory: m.capturedSpec.WorkingDirectory,
 		Environment:      append([]string(nil), m.capturedSpec.Environment...),
 	}
+}
+
+func (m *runtimeFakeProcessManager) appendTurn(params runtimeTurnStartParams) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.capturedTurns = append(m.capturedTurns, params)
+	m.turnCount++
+	return m.turnCount
+}
+
+func (m *runtimeFakeProcessManager) capturedTurnCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.turnCount
 }
 
 type runtimeFakeProcess struct {
@@ -1023,6 +1366,101 @@ func runRuntimeFakeHandshake(process *runtimeFakeProcess, manager *runtimeFakePr
 		return err
 	}
 
+	if manager != nil && (manager.turnInputDelta > 0 || manager.turnOutputDelta > 0 || manager.failTurn > 0 || manager.executionDone != nil) {
+		for {
+			turnStart, err := readRuntimeMessage(decoder)
+			if err != nil {
+				select {
+				case <-process.stopCh:
+					return nil
+				default:
+					return err
+				}
+			}
+			if turnStart.Method != "turn/start" {
+				return fmt.Errorf("expected turn/start, got %s", turnStart.Method)
+			}
+
+			var turnParams runtimeTurnStartParams
+			if err := json.Unmarshal(turnStart.Params, &turnParams); err != nil {
+				return fmt.Errorf("decode turn/start params: %w", err)
+			}
+			turnNumber := manager.appendTurn(turnParams)
+			turnID := fmt.Sprintf("turn-runtime-%d", turnNumber)
+
+			if err := encoder.Encode(runtimeJSONRPCMessage{
+				JSONRPC: "2.0",
+				ID:      turnStart.ID,
+				Result: mustMarshalRuntimeJSON(map[string]any{
+					"turn": map[string]any{"id": turnID},
+				}),
+			}); err != nil {
+				return err
+			}
+
+			if manager.turnInputDelta > 0 || manager.turnOutputDelta > 0 {
+				if err := encoder.Encode(runtimeJSONRPCMessage{
+					JSONRPC: "2.0",
+					Method:  "thread/tokenUsage/updated",
+					Params: mustMarshalRuntimeJSON(map[string]any{
+						"threadId": "thread-runtime-1",
+						"turnId":   turnID,
+						"tokenUsage": map[string]any{
+							"total": map[string]any{
+								"inputTokens":  int64(turnNumber) * manager.turnInputDelta,
+								"outputTokens": int64(turnNumber) * manager.turnOutputDelta,
+								"totalTokens":  int64(turnNumber) * (manager.turnInputDelta + manager.turnOutputDelta),
+							},
+							"last": map[string]any{
+								"inputTokens":  manager.turnInputDelta,
+								"outputTokens": manager.turnOutputDelta,
+								"totalTokens":  manager.turnInputDelta + manager.turnOutputDelta,
+							},
+						},
+					}),
+				}); err != nil {
+					return err
+				}
+			}
+
+			if manager.failTurn > 0 && turnNumber == manager.failTurn {
+				if err := encoder.Encode(runtimeJSONRPCMessage{
+					JSONRPC: "2.0",
+					Method:  "error",
+					Params: mustMarshalRuntimeJSON(map[string]any{
+						"threadId": "thread-runtime-1",
+						"turnId":   turnID,
+						"error": map[string]any{
+							"message": "simulated turn failure",
+						},
+					}),
+				}); err != nil {
+					return err
+				}
+			} else {
+				if err := encoder.Encode(runtimeJSONRPCMessage{
+					JSONRPC: "2.0",
+					Method:  "turn/completed",
+					Params: mustMarshalRuntimeJSON(map[string]any{
+						"threadId": "thread-runtime-1",
+						"turn": map[string]any{
+							"id":     turnID,
+							"status": "completed",
+						},
+					}),
+				}); err != nil {
+					return err
+				}
+			}
+
+			if manager.executionDone != nil && turnNumber >= defaultRuntimeMaxTurns {
+				close(manager.executionDone)
+				<-process.stopCh
+				return nil
+			}
+		}
+	}
+
 	<-process.stopCh
 	return nil
 }
@@ -1038,6 +1476,16 @@ type runtimeJSONRPCMessage struct {
 type runtimeThreadStartParams struct {
 	CWD                   string `json:"cwd,omitempty"`
 	DeveloperInstructions string `json:"developerInstructions,omitempty"`
+}
+
+type runtimeTurnStartParams struct {
+	ThreadID string `json:"threadId,omitempty"`
+	CWD      string `json:"cwd,omitempty"`
+	Title    string `json:"title,omitempty"`
+	Input    []struct {
+		Type string `json:"type"`
+		Text string `json:"text,omitempty"`
+	} `json:"input,omitempty"`
 }
 
 func readRuntimeMessage(decoder *json.Decoder) (runtimeJSONRPCMessage, error) {

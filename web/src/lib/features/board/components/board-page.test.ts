@@ -97,6 +97,8 @@ const ticketsFixture: TicketPayload = {
       cost_amount: 0,
       attempt_count: 0,
       consecutive_errors: 0,
+      started_at: null,
+      completed_at: null,
       next_retry_at: null,
       retry_paused: false,
       pause_reason: '',

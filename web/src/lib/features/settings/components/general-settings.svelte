@@ -1,12 +1,14 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
   import {
     getSettingsSectionCapability,
     capabilityStateClasses,
     capabilityStateLabel,
   } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
-  import { listWorkflows, updateProject } from '$lib/api/openase'
+  import { archiveProject, listWorkflows, updateProject } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
+  import { organizationPath } from '$lib/stores/app-context'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Button } from '$ui/button'
@@ -21,6 +23,7 @@
   let maxConcurrentAgents = $state('1')
   let workflows = $state<Array<{ value: string; label: string }>>([])
   let saving = $state(false)
+  let archiving = $state(false)
   let feedback = $state('')
   let error = $state('')
 
@@ -95,6 +98,31 @@
       saving = false
     }
   }
+
+  async function handleArchive() {
+    const projectId = appStore.currentProject?.id
+    const orgId = appStore.currentOrg?.id
+    if (!projectId) return
+
+    const confirmed = window.confirm(
+      'Archive this project? The project will remain in the system but leave the active workspace surface.',
+    )
+    if (!confirmed) return
+
+    archiving = true
+    feedback = ''
+    error = ''
+
+    try {
+      await archiveProject(projectId)
+      appStore.currentProject = null
+      await goto(orgId ? organizationPath(orgId) : '/')
+    } catch (caughtError) {
+      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive project.'
+    } finally {
+      archiving = false
+    }
+  }
 </script>
 
 <div class="max-w-lg space-y-6">
@@ -155,6 +183,23 @@
     <Button onclick={handleSave} disabled={saving}>
       {saving ? 'Saving…' : 'Save changes'}
     </Button>
+  </div>
+
+  <Separator />
+
+  <div class="border-destructive/30 bg-destructive/5 rounded-lg border p-4">
+    <div class="space-y-2">
+      <h3 class="text-foreground text-sm font-medium">Archive project</h3>
+      <p class="text-muted-foreground text-sm">
+        Move this project out of the active workspace surface after a confirmation step.
+      </p>
+    </div>
+
+    <div class="mt-4 flex justify-start">
+      <Button variant="destructive" onclick={handleArchive} disabled={archiving}>
+        {archiving ? 'Archiving…' : 'Archive project'}
+      </Button>
+    </div>
   </div>
 
   {#if feedback}

@@ -50,18 +50,29 @@
     event.preventDefault()
     onSubmit?.()
   }
+
+  function providerLabel(provider: AgentProvider) {
+    return provider.available
+      ? `${provider.name} · ${provider.adapter_type} · ${provider.model_name}`
+      : `${provider.name} · unavailable · ${provider.adapter_type} · ${provider.model_name}`
+  }
+
+  function selectedProviderLabel() {
+    const provider = providers.find((item) => item.id === draft.providerId)
+    return provider ? providerLabel(provider) : 'Select provider'
+  }
 </script>
 
 <Sheet bind:open>
   <SheetContent side="right" class="w-full sm:max-w-xl">
-    <SheetHeader class="space-y-1">
+    <SheetHeader class="space-y-1 px-6 py-6">
       <SheetTitle>Register agent</SheetTitle>
       <SheetDescription>
         Create a runnable agent instance for the current project using an existing provider.
       </SheetDescription>
     </SheetHeader>
 
-    <form class="flex h-full flex-col gap-5 py-6" onsubmit={handleSubmit}>
+    <form class="flex h-full flex-col gap-5 px-6 pb-6" onsubmit={handleSubmit}>
       {#if error}
         <div
           class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
@@ -94,15 +105,10 @@
             value={draft.providerId}
             onValueChange={(value) => onDraftChange?.('providerId', value || '')}
           >
-            <Select.Trigger class="w-full">
-              {providers.find((provider) => provider.id === draft.providerId)?.name ??
-                'Select provider'}
-            </Select.Trigger>
+            <Select.Trigger class="w-full">{selectedProviderLabel()}</Select.Trigger>
             <Select.Content>
               {#each providers as provider (provider.id)}
-                <Select.Item value={provider.id}>
-                  {provider.name} · {provider.adapter_type} · {provider.model_name}
-                </Select.Item>
+                <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
               {/each}
             </Select.Content>
           </Select.Root>
@@ -143,7 +149,7 @@
         </div>
       </div>
 
-      <SheetFooter class="mt-auto gap-2 sm:justify-end">
+      <SheetFooter class="mt-auto gap-2 px-0 pb-0 sm:justify-end">
         <Button
           type="button"
           variant="outline"

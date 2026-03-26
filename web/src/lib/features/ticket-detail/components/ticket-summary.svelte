@@ -4,35 +4,41 @@
   import Bot from '@lucide/svelte/icons/bot'
   import Calendar from '@lucide/svelte/icons/calendar'
   import DollarSign from '@lucide/svelte/icons/dollar-sign'
-  import Link2 from '@lucide/svelte/icons/link-2'
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
   import User from '@lucide/svelte/icons/user'
   import Workflow from '@lucide/svelte/icons/workflow'
   import { cn, formatCurrency, formatRelativeTime } from '$lib/utils'
   import TicketDependencies from './ticket-dependencies.svelte'
+  import TicketExternalLinks from './ticket-external-links.svelte'
   import TicketFieldEditor from './ticket-field-editor.svelte'
-  import type { TicketDetail, TicketReferenceOption, TicketStatusOption } from '../types'
+  import type { TicketDetail, TicketExternalLinkDraft, TicketReferenceOption } from '../types'
 
   let {
     ticket,
-    statuses,
     availableTickets,
     savingFields = false,
     creatingDependency = false,
     deletingDependencyId = null,
+    creatingExternalLink = false,
+    deletingExternalLinkId = null,
     onSaveFields,
     onAddDependency,
     onDeleteDependency,
+    onCreateExternalLink,
+    onDeleteExternalLink,
   }: {
     ticket: TicketDetail
-    statuses: TicketStatusOption[]
     availableTickets: TicketReferenceOption[]
     savingFields?: boolean
     creatingDependency?: boolean
     deletingDependencyId?: string | null
+    creatingExternalLink?: boolean
+    deletingExternalLinkId?: string | null
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onAddDependency?: (draft: { targetTicketId: string; relation: string }) => void
     onDeleteDependency?: (dependencyId: string) => void
+    onCreateExternalLink?: (draft: TicketExternalLinkDraft) => Promise<boolean> | boolean
+    onDeleteExternalLink?: (linkId: string) => void
   } = $props()
 
   const costPercent = $derived.by(() =>
@@ -41,8 +47,8 @@
   const costOverBudget = $derived(costPercent > 80)
 </script>
 
-<div class="flex flex-col gap-4 px-5 py-4">
-  <TicketFieldEditor {ticket} {statuses} saving={savingFields} onSave={onSaveFields} />
+<div class="flex flex-col gap-4 px-6 py-5">
+  <TicketFieldEditor {ticket} saving={savingFields} onSave={onSaveFields} />
 
   <div class="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2.5 text-xs">
     {#if ticket.workflow}
@@ -119,37 +125,12 @@
     {onDeleteDependency}
   />
 
-  {#if ticket.externalLinks.length > 0}
-    <Separator />
-    <div class="flex flex-col gap-2">
-      <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-        External Links
-      </span>
-      {#each ticket.externalLinks as link (link.id)}
-        <a
-          class="border-border/60 bg-muted/30 hover:bg-muted/60 flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors"
-          href={link.url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <Link2 class="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <span class="text-foreground truncate">{link.title || link.externalId}</span>
-              <Badge variant="outline" class="h-4 shrink-0 py-0 text-[10px]">
-                {link.type}
-              </Badge>
-            </div>
-            <div class="text-muted-foreground mt-1 flex items-center gap-2 text-[10px]">
-              <span class="font-mono">{link.externalId}</span>
-              <span>{link.relation}</span>
-              {#if link.status}
-                <span>{link.status}</span>
-              {/if}
-            </div>
-          </div>
-        </a>
-      {/each}
-    </div>
-  {/if}
+  <Separator />
+  <TicketExternalLinks
+    links={ticket.externalLinks}
+    creating={creatingExternalLink}
+    deletingId={deletingExternalLinkId}
+    onCreate={onCreateExternalLink}
+    onDelete={onDeleteExternalLink}
+  />
 </div>

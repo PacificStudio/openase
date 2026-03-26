@@ -31,11 +31,13 @@ export async function runOptimisticTicketMutation({
     await mutate()
     setNotice(successMessage)
     await reload()
+    return true
   } catch (caughtError) {
     applyTicket(previousTicket)
     setError(
       caughtError instanceof ApiError ? caughtError.detail : 'Failed to update ticket detail.',
     )
     void reload()
+    return false
   }
 }

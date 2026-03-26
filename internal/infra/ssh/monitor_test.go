@@ -93,3 +93,13 @@ func TestMonitorCollectorCollectAgentEnvironmentInjectsMachineEnvVars(t *testing
 		t.Fatalf("expected codex api-key snapshot to be ready, got %+v", environment.CLIs[1])
 	}
 }
+
+func TestBuildAgentEnvironmentScriptUsesRelaxedCodexLoginMatch(t *testing.T) {
+	script := buildAgentEnvironmentScript(domain.Machine{})
+	if !strings.Contains(script, `login status 2>&1 | grep -q 'Logged in'`) {
+		t.Fatalf("expected relaxed codex login match in script, got %q", script)
+	}
+	if strings.Contains(script, `login status 2>/dev/null`) {
+		t.Fatalf("expected codex login match to inspect stderr output, got %q", script)
+	}
+}

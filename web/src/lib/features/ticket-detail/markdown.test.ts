@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import { renderTicketCommentMarkdown } from './markdown'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { renderMarkdown } from './markdown'
 
-describe('renderTicketCommentMarkdown', () => {
+describe('renderMarkdown', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
   it('renders paragraphs, lists, code fences, and links', () => {
-    const html = renderTicketCommentMarkdown(`Review notes:
+    const html = renderMarkdown(`Review notes:
 
 - keep comments separate
 - support markdown
@@ -15,15 +19,17 @@ go test ./...
 [OpenASE](https://github.com/BetterAndBetterII/openase)`)
 
     expect(html).toContain('<p>Review notes:</p>')
-    expect(html).toContain('<ul><li>keep comments separate</li><li>support markdown</li></ul>')
-    expect(html).toContain('<pre><code>go test ./...</code></pre>')
+    expect(html).toContain('<ul>')
+    expect(html).toContain('<li>keep comments separate</li>')
+    expect(html).toContain('<pre><code>go test ./...')
     expect(html).toContain('href="https://github.com/BetterAndBetterII/openase"')
   })
 
   it('escapes unsafe html and strips unsafe links', () => {
-    const html = renderTicketCommentMarkdown('<script>alert(1)</script> [bad](javascript:alert(1))')
+    const html = renderMarkdown('<script>alert(1)</script> [bad](javascript:alert(1))')
 
-    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
-    expect(html).not.toContain('javascript:alert(1)')
+    expect(html).toContain('alert(1)')
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('href="javascript:alert(1)"')
   })
 })

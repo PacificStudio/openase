@@ -120,6 +120,8 @@ type Ticket struct {
 	CostAmount        float64            `json:"cost_amount"`
 	AttemptCount      int                `json:"attempt_count"`
 	ConsecutiveErrors int                `json:"consecutive_errors"`
+	StartedAt         *time.Time         `json:"started_at,omitempty"`
+	CompletedAt       *time.Time         `json:"completed_at,omitempty"`
 	NextRetryAt       *time.Time         `json:"next_retry_at,omitempty"`
 	RetryPaused       bool               `json:"retry_paused"`
 	PauseReason       string             `json:"pause_reason,omitempty"`
@@ -184,8 +186,18 @@ type AddExternalLinkInput struct {
 	Relation   entticketexternallink.Relation
 }
 
-// CreateCommentInput creates a ticket discussion comment.
-type CreateCommentInput struct {
+// DeleteDependencyResult reports which dependency edge was removed.
+type DeleteDependencyResult struct {
+	DeletedDependencyID uuid.UUID `json:"deleted_dependency_id"`
+}
+
+// DeleteExternalLinkResult reports which external link was removed.
+type DeleteExternalLinkResult struct {
+	DeletedExternalLinkID uuid.UUID `json:"deleted_external_link_id"`
+}
+
+// AddCommentInput creates a new ticket comment.
+type AddCommentInput struct {
 	TicketID  uuid.UUID
 	Body      string
 	CreatedBy string
@@ -198,19 +210,9 @@ type UpdateCommentInput struct {
 	Body      string
 }
 
-// DeleteDependencyResult reports which dependency edge was removed.
-type DeleteDependencyResult struct {
-	DeletedDependencyID uuid.UUID `json:"deleted_dependency_id"`
-}
-
 // DeleteCommentResult reports which comment was removed.
 type DeleteCommentResult struct {
 	DeletedCommentID uuid.UUID `json:"deleted_comment_id"`
-}
-
-// DeleteExternalLinkResult reports which external link was removed.
-type DeleteExternalLinkResult struct {
-	DeletedExternalLinkID uuid.UUID `json:"deleted_external_link_id"`
 }
 
 // Service provides ticket CRUD and dependency orchestration.
@@ -685,7 +687,7 @@ func (s *Service) ListComments(ctx context.Context, ticketID uuid.UUID) ([]Comme
 }
 
 // AddComment creates a new user discussion comment on a ticket.
-func (s *Service) AddComment(ctx context.Context, input CreateCommentInput) (Comment, error) {
+func (s *Service) AddComment(ctx context.Context, input AddCommentInput) (Comment, error) {
 	if s.client == nil {
 		return Comment{}, ErrUnavailable
 	}
@@ -1177,6 +1179,8 @@ func mapTicket(item *ent.Ticket) Ticket {
 		CostAmount:        item.CostAmount,
 		AttemptCount:      item.AttemptCount,
 		ConsecutiveErrors: item.ConsecutiveErrors,
+		StartedAt:         item.StartedAt,
+		CompletedAt:       item.CompletedAt,
 		NextRetryAt:       item.NextRetryAt,
 		RetryPaused:       item.RetryPaused,
 		PauseReason:       item.PauseReason,

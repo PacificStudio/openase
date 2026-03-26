@@ -5,6 +5,7 @@ export type ProviderOption = {
   name: string
   adapterType: string
   modelName: string
+  available: boolean
   agentCount: number
 }
 
@@ -48,6 +49,7 @@ export function buildProviderOptions(
     name: provider.name,
     adapterType: provider.adapter_type,
     modelName: provider.model_name,
+    available: provider.available,
     agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,
   }))
 }

@@ -43,8 +43,8 @@
   } = $props()
 </script>
 
-<div class="space-y-4">
-  <div class="flex items-center justify-between">
+<div class="border-border/60 bg-card/60 space-y-4 rounded-xl border p-4 sm:p-5">
+  <div class="flex items-center justify-between gap-3">
     <h1 class="text-foreground text-lg font-semibold">Agents</h1>
     <Button
       size="sm"
@@ -86,7 +86,7 @@
     {/if}
 
     <Tabs.Root bind:value={activeTab}>
-      <Tabs.List variant="line">
+      <Tabs.List variant="line" class="px-1">
         <Tabs.Trigger value="instances">Instances</Tabs.Trigger>
         <Tabs.Trigger value="providers">Providers</Tabs.Trigger>
       </Tabs.List>

@@ -292,7 +292,8 @@ export interface paths {
     get?: never
     put?: never
     post?: never
-    delete?: never
+    /** Delete an organization */
+    delete: operations['deleteOrganization']
     options?: never
     head?: never
     /** Update an organization */
@@ -2729,6 +2730,84 @@ export interface operations {
       }
     }
   }
+  deleteOrganization: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete an organization response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            organization?: {
+              default_agent_provider_id?: string | null
+              id?: string
+              name?: string
+              slug?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   updateOrganization: {
     parameters: {
       query?: never
@@ -3339,6 +3418,7 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              available?: boolean
               cli_args?: string[]
               cli_command?: string
               /** Format: double */
@@ -3439,6 +3519,7 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              available?: boolean
               cli_args?: string[]
               cli_command?: string
               /** Format: double */
@@ -5503,6 +5584,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -5549,6 +5631,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -5645,6 +5728,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -5691,6 +5775,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -5837,7 +5922,7 @@ export interface operations {
               created_by?: string
               id?: string
               ticket_id?: string
-              updated_at?: string
+              updated_at?: string | null
             }[]
             hook_history?: {
               agent_id?: string | null
@@ -5882,6 +5967,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -5928,6 +6014,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -6565,6 +6652,7 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              available?: boolean
               cli_args?: string[]
               cli_command?: string
               /** Format: double */
@@ -6889,6 +6977,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -6935,6 +7024,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -7228,6 +7318,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -7274,6 +7365,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -7370,6 +7462,7 @@ export interface operations {
                 status_name?: string
                 title?: string
               }[]
+              completed_at?: string | null
               consecutive_errors?: number
               /** Format: double */
               cost_amount?: number
@@ -7416,6 +7509,7 @@ export interface operations {
               priority?: string
               project_id?: string
               retry_paused?: boolean
+              started_at?: string | null
               status_id?: string
               status_name?: string
               target_machine_id?: string | null
@@ -7509,7 +7603,7 @@ export interface operations {
               created_by?: string
               id?: string
               ticket_id?: string
-              updated_at?: string
+              updated_at?: string | null
             }
           }
         }
@@ -7649,7 +7743,7 @@ export interface operations {
               created_by?: string
               id?: string
               ticket_id?: string
-              updated_at?: string
+              updated_at?: string | null
             }
           }
         }

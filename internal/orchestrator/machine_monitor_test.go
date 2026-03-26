@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestMachineMonitorRunTickSkipsSingleLocalMachine(t *testing.T) {
+func TestMachineMonitorRunTickCollectsSingleLocalMachine(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	orgID := createMachineMonitorOrg(ctx, t, client)
@@ -39,11 +39,11 @@ func TestMachineMonitorRunTickSkipsSingleLocalMachine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run tick: %v", err)
 	}
-	if report != (MachineMonitorReport{}) {
-		t.Fatalf("expected empty report, got %+v", report)
+	if report.MachinesScanned != 1 || report.L1Checks != 1 || report.L2Checks != 1 || report.L4Checks != 1 || report.L5Checks != 1 {
+		t.Fatalf("expected local machine checks to run, got %+v", report)
 	}
-	if collector.reachabilityCalls != 0 || collector.systemCalls != 0 || collector.gpuCalls != 0 {
-		t.Fatalf("expected collector to be skipped, got %+v", collector)
+	if collector.reachabilityCalls != 1 || collector.systemCalls != 1 || collector.agentEnvCalls != 1 || collector.fullAuditCalls != 1 {
+		t.Fatalf("expected collector to run for local machine, got %+v", collector)
 	}
 }
 

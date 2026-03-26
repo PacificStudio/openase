@@ -2892,6 +2892,129 @@
       }
     },
     "/api/v1/orgs/{orgId}": {
+      "delete": {
+        "operationId": "deleteOrganization",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "organization": {
+                      "properties": {
+                        "default_agent_provider_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete an organization response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Delete an organization",
+        "tags": [
+          "catalog"
+        ]
+      },
       "patch": {
         "operationId": "updateOrganization",
         "parameters": [
@@ -4012,6 +4135,9 @@
                             "additionalProperties": {},
                             "type": "object"
                           },
+                          "available": {
+                            "type": "boolean"
+                          },
                           "cli_args": {
                             "items": {
                               "type": "string"
@@ -4202,6 +4328,9 @@
                         "auth_config": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "available": {
+                          "type": "boolean"
                         },
                         "cli_args": {
                           "items": {
@@ -7986,6 +8115,10 @@
                             },
                             "type": "array"
                           },
+                          "completed_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "consecutive_errors": {
                             "type": "integer"
                           },
@@ -8121,6 +8254,10 @@
                           },
                           "retry_paused": {
                             "type": "boolean"
+                          },
+                          "started_at": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "status_id": {
                             "type": "string"
@@ -8322,6 +8459,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -8457,6 +8598,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -8721,6 +8866,7 @@
                             "type": "string"
                           },
                           "updated_at": {
+                            "nullable": true,
                             "type": "string"
                           }
                         },
@@ -8862,6 +9008,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -8997,6 +9147,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -10213,6 +10367,9 @@
                           "additionalProperties": {},
                           "type": "object"
                         },
+                        "available": {
+                          "type": "boolean"
+                        },
                         "cli_args": {
                           "items": {
                             "type": "string"
@@ -10803,6 +10960,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -10938,6 +11099,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -11465,6 +11630,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -11600,6 +11769,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -11801,6 +11974,10 @@
                           },
                           "type": "array"
                         },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "consecutive_errors": {
                           "type": "integer"
                         },
@@ -11936,6 +12113,10 @@
                         },
                         "retry_paused": {
                           "type": "boolean"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "status_id": {
                           "type": "string"
@@ -12105,6 +12286,7 @@
                           "type": "string"
                         },
                         "updated_at": {
+                          "nullable": true,
                           "type": "string"
                         }
                       },
@@ -12343,6 +12525,7 @@
                           "type": "string"
                         },
                         "updated_at": {
+                          "nullable": true,
                           "type": "string"
                         }
                       },

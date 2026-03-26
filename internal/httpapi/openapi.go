@@ -81,6 +81,7 @@ type OpenAPIAgentProvider struct {
 	OrganizationID     string         `json:"organization_id"`
 	Name               string         `json:"name"`
 	AdapterType        string         `json:"adapter_type"`
+	Available          bool           `json:"available"`
 	CliCommand         string         `json:"cli_command"`
 	CliArgs            []string       `json:"cli_args"`
 	AuthConfig         map[string]any `json:"auth_config"`
@@ -163,12 +164,12 @@ type OpenAPITicketExternalLink struct {
 }
 
 type OpenAPITicketComment struct {
-	ID        string `json:"id"`
-	TicketID  string `json:"ticket_id"`
-	Body      string `json:"body"`
-	CreatedBy string `json:"created_by"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID        string  `json:"id"`
+	TicketID  string  `json:"ticket_id"`
+	Body      string  `json:"body"`
+	CreatedBy string  `json:"created_by"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt *string `json:"updated_at,omitempty"`
 }
 
 type OpenAPITicket struct {
@@ -195,6 +196,8 @@ type OpenAPITicket struct {
 	CostAmount        float64                     `json:"cost_amount"`
 	AttemptCount      int                         `json:"attempt_count"`
 	ConsecutiveErrors int                         `json:"consecutive_errors"`
+	StartedAt         *string                     `json:"started_at,omitempty"`
+	CompletedAt       *string                     `json:"completed_at,omitempty"`
 	NextRetryAt       *string                     `json:"next_retry_at,omitempty"`
 	RetryPaused       bool                        `json:"retry_paused"`
 	PauseReason       string                      `json:"pause_reason,omitempty"`
@@ -690,9 +693,9 @@ type OpenAPIUpdateScheduledJobRequest rawUpdateScheduledJobRequest
 type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
 type OpenAPICreateTicketRequest rawCreateTicketRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
+type OpenAPICreateTicketCommentRequest rawCreateTicketCommentRequest
+type OpenAPIUpdateTicketCommentRequest rawUpdateTicketCommentRequest
 type OpenAPIAddTicketDependencyRequest rawAddDependencyRequest
-type OpenAPICreateTicketCommentRequest rawCreateCommentRequest
-type OpenAPIUpdateTicketCommentRequest rawUpdateCommentRequest
 type OpenAPICreateTicketExternalLinkRequest rawAddExternalLinkRequest
 type OpenAPICreateTicketStatusRequest rawCreateTicketStatusRequest
 type OpenAPIUpdateTicketStatusRequest rawUpdateTicketStatusRequest
@@ -1048,6 +1051,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	orgPatch.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}", http.MethodPatch, orgPatch)
+
+	orgDelete, err := b.jsonOperation(
+		"deleteOrganization",
+		"Delete an organization",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIOrganizationResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgDelete.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}", http.MethodDelete, orgDelete)
 
 	projectGet, err := b.jsonOperation(
 		"getProject",
@@ -1918,47 +1939,6 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketPatch.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}", http.MethodPatch, ticketPatch)
 
-	dependencyPost, err := b.jsonOperation(
-		"addTicketDependency",
-		"Add a ticket dependency",
-		[]string{"tickets"},
-		http.StatusCreated,
-		OpenAPITicketDependencyResponse{},
-		OpenAPIAddTicketDependencyRequest{},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	dependencyPost.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
-	b.doc.AddOperation("/api/v1/tickets/{ticketId}/dependencies", http.MethodPost, dependencyPost)
-
-	dependencyDelete, err := b.jsonOperation(
-		"deleteTicketDependency",
-		"Delete a ticket dependency",
-		[]string{"tickets"},
-		http.StatusOK,
-		OpenAPITicketDependencyDeleteResponse{},
-		nil,
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	dependencyDelete.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
-	dependencyDelete.AddParameter(uuidPathParameter("dependencyId", "Dependency ID."))
-	b.doc.AddOperation(
-		"/api/v1/tickets/{ticketId}/dependencies/{dependencyId}",
-		http.MethodDelete,
-		dependencyDelete,
-	)
-
 	commentPost, err := b.jsonOperation(
 		"createTicketComment",
 		"Create a ticket comment",
@@ -2011,6 +1991,47 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	commentDelete.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	commentDelete.AddParameter(uuidPathParameter("commentId", "Comment ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}/comments/{commentId}", http.MethodDelete, commentDelete)
+
+	dependencyPost, err := b.jsonOperation(
+		"addTicketDependency",
+		"Add a ticket dependency",
+		[]string{"tickets"},
+		http.StatusCreated,
+		OpenAPITicketDependencyResponse{},
+		OpenAPIAddTicketDependencyRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	dependencyPost.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/dependencies", http.MethodPost, dependencyPost)
+
+	dependencyDelete, err := b.jsonOperation(
+		"deleteTicketDependency",
+		"Delete a ticket dependency",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketDependencyDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	dependencyDelete.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	dependencyDelete.AddParameter(uuidPathParameter("dependencyId", "Dependency ID."))
+	b.doc.AddOperation(
+		"/api/v1/tickets/{ticketId}/dependencies/{dependencyId}",
+		http.MethodDelete,
+		dependencyDelete,
+	)
 
 	externalLinkPost, err := b.jsonOperation(
 		"addTicketExternalLink",

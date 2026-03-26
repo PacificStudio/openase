@@ -9,6 +9,7 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
 
@@ -103,6 +104,127 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 	}
 }
 
+func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
+	orgID := uuid.New()
+	repo := &stubRepository{
+		listedProviders: []domain.AgentProvider{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				Name:           "Claude Code",
+				AdapterType:    entagentprovider.AdapterTypeClaudeCodeCli,
+				CliCommand:     "claude",
+				ModelName:      "claude-sonnet-4-5",
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				Name:           "OpenAI Codex",
+				AdapterType:    entagentprovider.AdapterTypeCodexAppServer,
+				CliCommand:     "codex",
+				ModelName:      "gpt-5.3-codex",
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{
+		paths: map[string]string{"codex": "/usr/local/bin/codex"},
+	}, nil)
+
+	items, err := svc.ListAgentProviders(context.Background(), orgID)
+	if err != nil {
+		t.Fatalf("ListAgentProviders returned error: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 providers, got %+v", items)
+	}
+	if items[0].Available {
+		t.Fatalf("expected claude provider to be unavailable, got %+v", items[0])
+	}
+	if !items[1].Available {
+		t.Fatalf("expected codex provider to be available, got %+v", items[1])
+	}
+}
+
+func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *testing.T) {
+	orgID := uuid.New()
+	repo := &stubRepository{
+		createdOrganization: domain.Organization{
+			ID:   orgID,
+			Name: "Acme",
+			Slug: "acme",
+		},
+		listedProviders: []domain.AgentProvider{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				Name:           "Claude Code",
+				AdapterType:    entagentprovider.AdapterTypeClaudeCodeCli,
+				CliCommand:     "claude",
+				ModelName:      "claude-sonnet-4-5",
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				Name:           "OpenAI Codex",
+				AdapterType:    entagentprovider.AdapterTypeCodexAppServer,
+				CliCommand:     "codex",
+				ModelName:      "gpt-5.3-codex",
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{
+		paths: map[string]string{"codex": "/usr/local/bin/codex"},
+	}, nil)
+
+	item, err := svc.CreateOrganization(context.Background(), domain.CreateOrganization{
+		Name: "Acme",
+		Slug: "acme",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrganization returned error: %v", err)
+	}
+	if item.DefaultAgentProviderID == nil {
+		t.Fatalf("expected default provider to be set, got %+v", item)
+	}
+	if repo.updatedOrganization == nil || repo.updatedOrganization.DefaultAgentProviderID == nil {
+		t.Fatalf("expected organization update with default provider, got %+v", repo.updatedOrganization)
+	}
+	if *item.DefaultAgentProviderID != *repo.updatedOrganization.DefaultAgentProviderID {
+		t.Fatalf("expected returned org default %s to match repo update %s", item.DefaultAgentProviderID, repo.updatedOrganization.DefaultAgentProviderID)
+	}
+}
+
+func TestCreateProjectSeedsDefaultStatuses(t *testing.T) {
+	projectID := uuid.New()
+	repo := &stubRepository{
+		createdProject: domain.Project{
+			ID:             projectID,
+			OrganizationID: uuid.New(),
+			Name:           "OpenASE",
+			Slug:           "openase",
+			Status:         "active",
+		},
+	}
+	resetter := &stubProjectStatusResetter{}
+	svc := New(repo, stubExecutableResolver{}, nil, WithProjectStatusResetter(resetter))
+
+	item, err := svc.CreateProject(context.Background(), domain.CreateProject{
+		OrganizationID: repo.createdProject.OrganizationID,
+		Name:           "OpenASE",
+		Slug:           "openase",
+		Status:         "active",
+	})
+	if err != nil {
+		t.Fatalf("CreateProject returned error: %v", err)
+	}
+	if item.ID != projectID {
+		t.Fatalf("expected created project %s, got %+v", projectID, item)
+	}
+	if resetter.projectID != projectID {
+		t.Fatalf("expected default status bootstrap for project %s, got %s", projectID, resetter.projectID)
+	}
+}
+
 func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 	agentID := uuid.New()
 	ticketID := uuid.New()
@@ -167,6 +289,10 @@ type stubRepository struct {
 	createdProvider       *domain.CreateAgentProvider
 	updatedProvider       *domain.UpdateAgentProvider
 	updatedRuntimeControl *domain.UpdateAgentRuntimeControlState
+	updatedOrganization   *domain.UpdateOrganization
+	createdOrganization   domain.Organization
+	createdProject        domain.Project
+	listedProviders       []domain.AgentProvider
 	provider              domain.AgentProvider
 	agent                 domain.Agent
 }
@@ -176,15 +302,25 @@ func (r *stubRepository) ListOrganizations(context.Context) ([]domain.Organizati
 }
 
 func (r *stubRepository) CreateOrganization(context.Context, domain.CreateOrganization) (domain.Organization, error) {
-	return domain.Organization{}, nil
+	return r.createdOrganization, nil
 }
 
 func (r *stubRepository) GetOrganization(context.Context, uuid.UUID) (domain.Organization, error) {
 	return domain.Organization{}, nil
 }
 
-func (r *stubRepository) UpdateOrganization(context.Context, domain.UpdateOrganization) (domain.Organization, error) {
-	return domain.Organization{}, nil
+func (r *stubRepository) UpdateOrganization(_ context.Context, input domain.UpdateOrganization) (domain.Organization, error) {
+	r.updatedOrganization = &input
+	r.createdOrganization = domain.Organization(input)
+	return r.createdOrganization, nil
+}
+
+func (r *stubRepository) CountActiveProjects(context.Context, uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (r *stubRepository) DeleteOrganization(context.Context, uuid.UUID) (domain.Organization, error) {
+	return r.createdOrganization, nil
 }
 
 func (r *stubRepository) ListProjects(context.Context, uuid.UUID) ([]domain.Project, error) {
@@ -216,7 +352,7 @@ func (r *stubRepository) RecordMachineProbe(context.Context, domain.RecordMachin
 }
 
 func (r *stubRepository) CreateProject(context.Context, domain.CreateProject) (domain.Project, error) {
-	return domain.Project{}, nil
+	return r.createdProject, nil
 }
 
 func (r *stubRepository) GetProject(context.Context, uuid.UUID) (domain.Project, error) {
@@ -232,7 +368,7 @@ func (r *stubRepository) ArchiveProject(context.Context, uuid.UUID) (domain.Proj
 }
 
 func (r *stubRepository) ListAgentProviders(context.Context, uuid.UUID) ([]domain.AgentProvider, error) {
-	return nil, nil
+	return append([]domain.AgentProvider(nil), r.listedProviders...), nil
 }
 
 func (r *stubRepository) CreateAgentProvider(_ context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error) {
@@ -352,4 +488,13 @@ func equalStrings(left []string, right []string) bool {
 	}
 
 	return true
+}
+
+type stubProjectStatusResetter struct {
+	projectID uuid.UUID
+}
+
+func (s *stubProjectStatusResetter) ResetToDefaultTemplate(_ context.Context, projectID uuid.UUID) ([]ticketstatus.Status, error) {
+	s.projectID = projectID
+	return nil, nil
 }

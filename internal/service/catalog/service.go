@@ -10,6 +10,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	repository "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
 
@@ -25,11 +26,40 @@ type MachineTester interface {
 	TestConnection(ctx context.Context, machine domain.Machine) (domain.MachineProbe, error)
 }
 
+type Option func(*service)
+
+type projectStatusBootstrapper interface {
+	BootstrapProjectStatuses(ctx context.Context, projectID uuid.UUID) error
+}
+
+type projectStatusBootstrapperFunc func(ctx context.Context, projectID uuid.UUID) error
+
+func (fn projectStatusBootstrapperFunc) BootstrapProjectStatuses(ctx context.Context, projectID uuid.UUID) error {
+	return fn(ctx, projectID)
+}
+
+type projectStatusResetter interface {
+	ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUID) ([]ticketstatus.Status, error)
+}
+
+func WithProjectStatusResetter(resetter projectStatusResetter) Option {
+	return func(s *service) {
+		if resetter == nil {
+			return
+		}
+		s.projectStatusBootstrapper = projectStatusBootstrapperFunc(func(ctx context.Context, projectID uuid.UUID) error {
+			_, err := resetter.ResetToDefaultTemplate(ctx, projectID)
+			return err
+		})
+	}
+}
+
 type Service interface {
 	ListOrganizations(ctx context.Context) ([]domain.Organization, error)
 	CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error)
+	DeleteOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error)
 	CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error)
 	GetMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
@@ -66,13 +96,20 @@ type Service interface {
 }
 
 type service struct {
-	repo          repository.Repository
-	resolver      provider.ExecutableResolver
-	machineTester MachineTester
+	repo                      repository.Repository
+	resolver                  provider.ExecutableResolver
+	machineTester             MachineTester
+	projectStatusBootstrapper projectStatusBootstrapper
 }
 
-func New(repo repository.Repository, resolver provider.ExecutableResolver, machineTester MachineTester) Service {
-	return &service{repo: repo, resolver: resolver, machineTester: machineTester}
+func New(repo repository.Repository, resolver provider.ExecutableResolver, machineTester MachineTester, opts ...Option) Service {
+	svc := &service{repo: repo, resolver: resolver, machineTester: machineTester}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *service) ListOrganizations(ctx context.Context) ([]domain.Organization, error) {
@@ -80,7 +117,31 @@ func (s *service) ListOrganizations(ctx context.Context) ([]domain.Organization,
 }
 
 func (s *service) CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error) {
-	return s.repo.CreateOrganization(ctx, input)
+	item, err := s.repo.CreateOrganization(ctx, input)
+	if err != nil {
+		return domain.Organization{}, err
+	}
+
+	if item.DefaultAgentProviderID != nil {
+		return item, nil
+	}
+
+	providers, err := s.ListAgentProviders(ctx, item.ID)
+	if err != nil {
+		return domain.Organization{}, err
+	}
+
+	defaultProviderID := preferredAvailableProviderID(providers)
+	if defaultProviderID == nil {
+		return item, nil
+	}
+
+	return s.repo.UpdateOrganization(ctx, domain.UpdateOrganization{
+		ID:                     item.ID,
+		Name:                   item.Name,
+		Slug:                   item.Slug,
+		DefaultAgentProviderID: defaultProviderID,
+	})
 }
 
 func (s *service) GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error) {
@@ -89,6 +150,18 @@ func (s *service) GetOrganization(ctx context.Context, id uuid.UUID) (domain.Org
 
 func (s *service) UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error) {
 	return s.repo.UpdateOrganization(ctx, input)
+}
+
+func (s *service) DeleteOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error) {
+	activeCount, err := s.repo.CountActiveProjects(ctx, id)
+	if err != nil {
+		return domain.Organization{}, err
+	}
+	if activeCount > 0 {
+		return domain.Organization{}, fmt.Errorf("cannot delete organization with %d active project(s); archive or delete them first: %w", activeCount, ErrConflict)
+	}
+
+	return s.repo.DeleteOrganization(ctx, id)
 }
 
 func (s *service) ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error) {
@@ -166,7 +239,17 @@ func (s *service) ListProjects(ctx context.Context, organizationID uuid.UUID) ([
 }
 
 func (s *service) CreateProject(ctx context.Context, input domain.CreateProject) (domain.Project, error) {
-	return s.repo.CreateProject(ctx, input)
+	item, err := s.repo.CreateProject(ctx, input)
+	if err != nil {
+		return domain.Project{}, err
+	}
+	if s.projectStatusBootstrapper == nil {
+		return item, nil
+	}
+	if err := s.projectStatusBootstrapper.BootstrapProjectStatuses(ctx, item.ID); err != nil {
+		return domain.Project{}, fmt.Errorf("seed default project statuses: %w", err)
+	}
+	return item, nil
 }
 
 func (s *service) GetProject(ctx context.Context, id uuid.UUID) (domain.Project, error) {

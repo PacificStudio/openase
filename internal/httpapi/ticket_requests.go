@@ -55,12 +55,12 @@ type rawAddExternalLinkRequest struct {
 	Relation   *string `json:"relation"`
 }
 
-type rawCreateCommentRequest struct {
+type rawCreateTicketCommentRequest struct {
 	Body      string  `json:"body"`
 	CreatedBy *string `json:"created_by"`
 }
 
-type rawUpdateCommentRequest struct {
+type rawUpdateTicketCommentRequest struct {
 	Body string `json:"body"`
 }
 
@@ -261,13 +261,13 @@ func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkReque
 	return input, nil
 }
 
-func parseCreateCommentRequest(ticketID uuid.UUID, raw rawCreateCommentRequest) (ticketservice.CreateCommentInput, error) {
+func parseCreateTicketCommentRequest(ticketID uuid.UUID, raw rawCreateTicketCommentRequest) (ticketservice.AddCommentInput, error) {
 	body := strings.TrimSpace(raw.Body)
 	if body == "" {
-		return ticketservice.CreateCommentInput{}, fmt.Errorf("body must not be empty")
+		return ticketservice.AddCommentInput{}, fmt.Errorf("body must not be empty")
 	}
 
-	input := ticketservice.CreateCommentInput{
+	input := ticketservice.AddCommentInput{
 		TicketID: ticketID,
 		Body:     body,
 	}
@@ -278,7 +278,7 @@ func parseCreateCommentRequest(ticketID uuid.UUID, raw rawCreateCommentRequest) 
 	return input, nil
 }
 
-func parseUpdateCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, raw rawUpdateCommentRequest) (ticketservice.UpdateCommentInput, error) {
+func parseUpdateTicketCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, raw rawUpdateTicketCommentRequest) (ticketservice.UpdateCommentInput, error) {
 	body := strings.TrimSpace(raw.Body)
 	if body == "" {
 		return ticketservice.UpdateCommentInput{}, fmt.Errorf("body must not be empty")
@@ -295,12 +295,12 @@ func parseTicketID(c echo.Context) (uuid.UUID, error) {
 	return parseUUIDPathParamValue(c, "ticketId")
 }
 
-func parseCommentID(c echo.Context) (uuid.UUID, error) {
-	return parseUUIDPathParamValue(c, "commentId")
-}
-
 func parseDependencyID(c echo.Context) (uuid.UUID, error) {
 	return parseUUIDPathParamValue(c, "dependencyId")
+}
+
+func parseCommentID(c echo.Context) (uuid.UUID, error) {
+	return parseUUIDPathParamValue(c, "commentId")
 }
 
 func parseExternalLinkID(c echo.Context) (uuid.UUID, error) {

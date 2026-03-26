@@ -21,21 +21,23 @@ export function createTicketDrawerState() {
   let mutationError = $state('')
   let mutationNotice = $state('')
   let ticket = $state<TicketDetail | null>(null)
+  let comments = $state<TicketComment[]>([])
   let hooks = $state<HookExecution[]>([])
   let activities = $state<TicketActivity[]>([])
-  let comments = $state<TicketComment[]>([])
   let statuses = $state<TicketStatusOption[]>([])
   let dependencyCandidates = $state<TicketReferenceOption[]>([])
   let repoOptions = $state<TicketRepoOption[]>([])
   let savingFields = $state(false)
   let creatingDependency = $state(false)
   let deletingDependencyId = $state<string | null>(null)
-  let creatingComment = $state(false)
-  let updatingCommentId = $state<string | null>(null)
-  let deletingCommentId = $state<string | null>(null)
+  let creatingExternalLink = $state(false)
+  let deletingExternalLinkId = $state<string | null>(null)
   let creatingRepoScope = $state(false)
   let updatingRepoScopeId = $state<string | null>(null)
   let deletingRepoScopeId = $state<string | null>(null)
+  let creatingComment = $state(false)
+  let updatingCommentId = $state<string | null>(null)
+  let deletingCommentId = $state<string | null>(null)
   let loadRequestId = 0
 
   return {
@@ -60,11 +62,14 @@ export function createTicketDrawerState() {
     get hooks() {
       return hooks
     },
-    get activities() {
-      return activities
-    },
     get comments() {
       return comments
+    },
+    set comments(value) {
+      comments = value
+    },
+    get activities() {
+      return activities
     },
     get statuses() {
       return statuses
@@ -93,23 +98,17 @@ export function createTicketDrawerState() {
     set deletingDependencyId(value) {
       deletingDependencyId = value
     },
-    get creatingComment() {
-      return creatingComment
+    get creatingExternalLink() {
+      return creatingExternalLink
     },
-    set creatingComment(value) {
-      creatingComment = value
+    set creatingExternalLink(value) {
+      creatingExternalLink = value
     },
-    get updatingCommentId() {
-      return updatingCommentId
+    get deletingExternalLinkId() {
+      return deletingExternalLinkId
     },
-    set updatingCommentId(value) {
-      updatingCommentId = value
-    },
-    get deletingCommentId() {
-      return deletingCommentId
-    },
-    set deletingCommentId(value) {
-      deletingCommentId = value
+    set deletingExternalLinkId(value) {
+      deletingExternalLinkId = value
     },
     get creatingRepoScope() {
       return creatingRepoScope
@@ -128,6 +127,24 @@ export function createTicketDrawerState() {
     },
     set deletingRepoScopeId(value) {
       deletingRepoScopeId = value
+    },
+    get creatingComment() {
+      return creatingComment
+    },
+    set creatingComment(value) {
+      creatingComment = value
+    },
+    get updatingCommentId() {
+      return updatingCommentId
+    },
+    set updatingCommentId(value) {
+      updatingCommentId = value
+    },
+    get deletingCommentId() {
+      return deletingCommentId
+    },
+    set deletingCommentId(value) {
+      deletingCommentId = value
     },
     clearMutationMessages() {
       mutationError = ''
@@ -157,9 +174,9 @@ export function createTicketDrawerState() {
         if (requestId !== loadRequestId) return
 
         ticket = detailContext.ticket
+        comments = detailContext.comments
         hooks = detailContext.hooks
         activities = detailContext.activities
-        comments = detailContext.comments
         statuses = detailContext.statuses
         dependencyCandidates = detailContext.dependencyCandidates
         repoOptions = detailContext.repoOptions
@@ -185,21 +202,23 @@ export function createTicketDrawerState() {
       mutationError = ''
       mutationNotice = ''
       ticket = null
+      comments = []
       hooks = []
       activities = []
-      comments = []
       statuses = []
       dependencyCandidates = []
       repoOptions = []
       savingFields = false
       creatingDependency = false
       deletingDependencyId = null
-      creatingComment = false
-      updatingCommentId = null
-      deletingCommentId = null
+      creatingExternalLink = false
+      deletingExternalLinkId = null
       creatingRepoScope = false
       updatingRepoScopeId = null
       deletingRepoScopeId = null
+      creatingComment = false
+      updatingCommentId = null
+      deletingCommentId = null
     },
   }
 }

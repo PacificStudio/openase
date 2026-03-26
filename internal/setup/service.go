@@ -19,6 +19,7 @@ import (
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -355,28 +356,16 @@ func (s *Service) existingConfigPath() (string, bool) {
 }
 
 func detectAgentOptions(resolver provider.ExecutableResolver) []AgentOption {
-	options := []AgentOption{
-		{
-			ID:          "claude-code",
-			Name:        "Claude Code",
-			Command:     "claude",
-			AdapterType: "claude-code-cli",
-			ModelName:   "claude-sonnet-4-5",
-		},
-		{
-			ID:          "codex",
-			Name:        "OpenAI Codex",
-			Command:     "codex",
-			AdapterType: "codex-app-server",
-			ModelName:   "gpt-5.3-codex",
-		},
-		{
-			ID:          "gemini",
-			Name:        "Gemini CLI",
-			Command:     "gemini",
-			AdapterType: "gemini-cli",
-			ModelName:   "gemini-2.5-pro",
-		},
+	templates := catalogdomain.BuiltinAgentProviderTemplates()
+	options := make([]AgentOption, 0, len(templates))
+	for _, template := range templates {
+		options = append(options, AgentOption{
+			ID:          template.ID,
+			Name:        template.Name,
+			Command:     template.Command,
+			AdapterType: template.AdapterType,
+			ModelName:   template.ModelName,
+		})
 	}
 
 	for index, option := range options {
@@ -436,7 +425,13 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	}()
 
 	repo := catalogrepo.NewEntRepository(client)
-	service := catalogservice.New(repo, executable.NewPathResolver(), nil)
+	statusService := ticketstatus.NewService(client)
+	service := catalogservice.New(
+		repo,
+		executable.NewPathResolver(),
+		nil,
+		catalogservice.WithProjectStatusResetter(statusService),
+	)
 
 	orgSlug := safeSlug(string(input.Mode) + "-" + input.Project.Name)
 	orgCreate, err := catalogdomain.ParseCreateOrganization(catalogdomain.OrganizationInput{
@@ -451,25 +446,11 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 		return fmt.Errorf("create organization: %w", err)
 	}
 
-	var defaultProviderID *string
-	for _, option := range input.Agents {
-		createProvider, parseErr := catalogdomain.ParseCreateAgentProvider(org.ID, catalogdomain.AgentProviderInput{
-			Name:        option.Name,
-			AdapterType: string(option.AdapterType),
-			ModelName:   option.ModelName,
-		})
-		if parseErr != nil {
-			return parseErr
-		}
-		providerItem, createErr := service.CreateAgentProvider(ctx, createProvider)
-		if createErr != nil {
-			return fmt.Errorf("create agent provider %s: %w", option.Name, createErr)
-		}
-		if defaultProviderID == nil {
-			id := providerItem.ID.String()
-			defaultProviderID = &id
-		}
+	providers, err := service.ListAgentProviders(ctx, org.ID)
+	if err != nil {
+		return fmt.Errorf("list seeded agent providers: %w", err)
 	}
+	defaultProviderID := selectSetupDefaultProviderID(input.Agents, providers)
 
 	projectCreate, err := catalogdomain.ParseCreateProject(org.ID, catalogdomain.ProjectInput{
 		Name:                   input.Project.Name,
@@ -534,4 +515,27 @@ func safeSlug(raw string) string {
 
 func intPtr(value int) *int {
 	return &value
+}
+
+func selectSetupDefaultProviderID(
+	selectedOptions []AgentOption,
+	providers []catalogdomain.AgentProvider,
+) *string {
+	for _, option := range selectedOptions {
+		for _, providerItem := range providers {
+			if providerItem.Name == option.Name && providerItem.AdapterType == option.AdapterType {
+				id := providerItem.ID.String()
+				return &id
+			}
+		}
+	}
+
+	for _, providerItem := range providers {
+		if providerItem.Available {
+			id := providerItem.ID.String()
+			return &id
+		}
+	}
+
+	return nil
 }

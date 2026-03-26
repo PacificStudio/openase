@@ -203,7 +203,11 @@
                   </Select.Item>
                   {#each providers as provider (provider.id)}
                     <Select.Item value={provider.id}>
-                      {provider.name} · {provider.adapterType} · {provider.modelName}
+                      {provider.name}
+                      {#if !provider.available}
+                        {' '}· unavailable
+                      {/if}
+                      {' '}· {provider.adapterType} · {provider.modelName}
                     </Select.Item>
                   {/each}
                 </Select.Content>
@@ -241,6 +245,12 @@
                             <span class="text-foreground truncate text-sm font-medium">
                               {provider.name}
                             </span>
+                            <Badge
+                              variant={provider.available ? 'secondary' : 'outline'}
+                              class="text-[10px]"
+                            >
+                              {provider.available ? 'Available' : 'Unavailable'}
+                            </Badge>
                             {#if selectedDefaultProviderId === provider.id}
                               <Badge variant="outline" class="text-[10px]">Project default</Badge>
                             {:else if appStore.currentOrg?.default_agent_provider_id === provider.id}

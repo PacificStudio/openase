@@ -133,6 +133,7 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.POST("/orgs", s.createOrganization)
 	api.GET("/orgs/:orgId", s.getOrganization)
 	api.PATCH("/orgs/:orgId", s.patchOrganization)
+	api.DELETE("/orgs/:orgId", s.deleteOrganization)
 	api.GET("/orgs/:orgId/projects", s.listProjects)
 	api.POST("/orgs/:orgId/projects", s.createProject)
 	api.GET("/orgs/:orgId/machines", s.listMachines)
@@ -251,6 +252,22 @@ func (s *Server) patchOrganization(c echo.Context) error {
 	}
 
 	item, err := s.catalog.UpdateOrganization(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"organization": mapOrganizationResponse(item),
+	})
+}
+
+func (s *Server) deleteOrganization(c echo.Context) error {
+	orgID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.DeleteOrganization(c.Request().Context(), orgID)
 	if err != nil {
 		return writeCatalogError(c, err)
 	}

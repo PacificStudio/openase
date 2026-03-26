@@ -15,6 +15,7 @@ type agentProviderResponse struct {
 	OrganizationID     string         `json:"organization_id"`
 	Name               string         `json:"name"`
 	AdapterType        string         `json:"adapter_type"`
+	Available          bool           `json:"available"`
 	CliCommand         string         `json:"cli_command"`
 	CliArgs            []string       `json:"cli_args"`
 	AuthConfig         map[string]any `json:"auth_config"`
@@ -316,6 +317,7 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		OrganizationID:     item.OrganizationID.String(),
 		Name:               item.Name,
 		AdapterType:        item.AdapterType.String(),
+		Available:          item.Available,
 		CliCommand:         item.CliCommand,
 		CliArgs:            cloneStringSlice(item.CliArgs),
 		AuthConfig:         cloneMap(item.AuthConfig),

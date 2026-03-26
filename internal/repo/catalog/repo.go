@@ -29,6 +29,8 @@ type Repository interface {
 	CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error)
+	DeleteOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
+	CountActiveProjects(ctx context.Context, organizationID uuid.UUID) (int, error)
 	ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error)
 	CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error)
 	GetMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
@@ -90,9 +92,6 @@ func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.Cre
 	builder := tx.Organization.Create().
 		SetName(input.Name).
 		SetSlug(input.Slug)
-	if input.DefaultAgentProviderID != nil {
-		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
-	}
 
 	item, err := builder.Save(ctx)
 	if err != nil {
@@ -101,6 +100,17 @@ func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.Cre
 
 	if err := createLocalMachine(ctx, tx, item.ID); err != nil {
 		return domain.Organization{}, err
+	}
+	if err := createBuiltinAgentProviders(ctx, tx, item.ID); err != nil {
+		return domain.Organization{}, err
+	}
+	if input.DefaultAgentProviderID != nil {
+		if _, err := tx.Organization.UpdateOneID(item.ID).
+			SetDefaultAgentProviderID(*input.DefaultAgentProviderID).
+			Save(ctx); err != nil {
+			return domain.Organization{}, mapWriteError("set organization default provider", err)
+		}
+		item.DefaultAgentProviderID = input.DefaultAgentProviderID
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -135,6 +145,33 @@ func (r *EntRepository) UpdateOrganization(ctx context.Context, input domain.Upd
 	}
 
 	return mapOrganization(item), nil
+}
+
+func (r *EntRepository) DeleteOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error) {
+	item, err := r.client.Organization.Get(ctx, id)
+	if err != nil {
+		return domain.Organization{}, mapReadError("get organization for delete", err)
+	}
+
+	if err := r.client.Organization.DeleteOneID(id).Exec(ctx); err != nil {
+		return domain.Organization{}, mapWriteError("delete organization", err)
+	}
+
+	return mapOrganization(item), nil
+}
+
+func (r *EntRepository) CountActiveProjects(ctx context.Context, organizationID uuid.UUID) (int, error) {
+	count, err := r.client.Project.Query().
+		Where(
+			entproject.OrganizationID(organizationID),
+			entproject.StatusNEQ(entproject.StatusArchived),
+		).
+		Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("count active projects: %w", err)
+	}
+
+	return count, nil
 }
 
 func (r *EntRepository) ListProjects(ctx context.Context, organizationID uuid.UUID) ([]domain.Project, error) {
@@ -712,6 +749,24 @@ func clearPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, excl
 		SetIsPrimary(false).
 		Save(ctx); err != nil {
 		return fmt.Errorf("clear primary project repo: %w", err)
+	}
+
+	return nil
+}
+
+func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID uuid.UUID) error {
+	for _, template := range domain.BuiltinAgentProviderTemplates() {
+		builder := tx.AgentProvider.Create().
+			SetOrganizationID(organizationID).
+			SetName(template.Name).
+			SetAdapterType(template.AdapterType).
+			SetCliCommand(template.Command).
+			SetCliArgs(append([]string(nil), template.CliArgs...)).
+			SetAuthConfig(map[string]any{}).
+			SetModelName(template.ModelName)
+		if _, err := builder.Save(ctx); err != nil {
+			return mapWriteError("create builtin agent provider", err)
+		}
 	}
 
 	return nil

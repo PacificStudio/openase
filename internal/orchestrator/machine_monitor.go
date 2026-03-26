@@ -81,9 +81,6 @@ func (m *MachineMonitor) RunTick(ctx context.Context) (MachineMonitorReport, err
 	if err != nil {
 		return report, fmt.Errorf("list machines: %w", err)
 	}
-	if shouldSkipMachineMonitor(items) {
-		return report, nil
-	}
 
 	now := m.now().UTC()
 	for _, item := range items {
@@ -253,10 +250,6 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		LastHeartbeatAt: lastHeartbeatAt,
 		Resources:       resources,
 	}, true
-}
-
-func shouldSkipMachineMonitor(items []*ent.Machine) bool {
-	return len(items) == 1 && items[0].Name == domain.LocalMachineName && items[0].Host == domain.LocalMachineHost
 }
 
 func mapMachineEntity(item *ent.Machine) monitoredMachine {

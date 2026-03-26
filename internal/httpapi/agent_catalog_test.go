@@ -270,6 +270,46 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 	}
 }
 
+func TestListAgentProvidersIncludesBuiltinCatalogAvailability(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	orgRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme Platform","slug":"acme-platform"}`)
+	if orgRec.Code != http.StatusCreated {
+		t.Fatalf("expected organization create 201, got %d: %s", orgRec.Code, orgRec.Body.String())
+	}
+
+	var orgPayload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	decodeResponse(t, orgRec, &orgPayload)
+
+	listProviderRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs/"+orgPayload.Organization.ID+"/providers", "")
+	if listProviderRec.Code != http.StatusOK {
+		t.Fatalf("expected provider list 200, got %d: %s", listProviderRec.Code, listProviderRec.Body.String())
+	}
+
+	var payload struct {
+		Providers []agentProviderResponse `json:"providers"`
+	}
+	decodeResponse(t, listProviderRec, &payload)
+	if len(payload.Providers) != len(domain.BuiltinAgentProviderTemplates()) {
+		t.Fatalf("expected builtin provider count %d, got %+v", len(domain.BuiltinAgentProviderTemplates()), payload.Providers)
+	}
+	if payload.Providers[0].CliCommand == "" {
+		t.Fatalf("expected seeded provider cli command, got %+v", payload.Providers[0])
+	}
+}
+
 func TestListAgentsRouteReturnsEmptyCapabilitiesArray(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},

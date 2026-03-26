@@ -16,13 +16,23 @@ export type TicketRepoOption = {
   defaultBranch: string
 }
 
-export type TicketComment = {
+export type TicketExternalLink = {
   id: string
-  ticketId: string
-  body: string
-  createdBy: string
-  createdAt: string
-  updatedAt: string
+  type: string
+  url: string
+  externalId: string
+  title?: string
+  status?: string
+  relation: string
+}
+
+export type TicketExternalLinkDraft = {
+  type: string
+  url: string
+  externalId: string
+  title: string
+  status: string
+  relation: string
 }
 
 export type TicketDetail = {
@@ -55,21 +65,22 @@ export type TicketDetail = {
     title: string
     relation: string
   }>
-  externalLinks: Array<{
-    id: string
-    type: string
-    url: string
-    externalId: string
-    title?: string
-    status?: string
-    relation: string
-  }>
+  externalLinks: TicketExternalLink[]
   children: Array<{ id: string; identifier: string; title: string; status: string }>
   createdBy: string
   createdAt: string
   updatedAt: string
   startedAt?: string
   completedAt?: string
+}
+
+export type TicketComment = {
+  id: string
+  ticketId: string
+  body: string
+  createdBy: string
+  createdAt: string
+  updatedAt?: string
 }
 
 export type HookExecution = {

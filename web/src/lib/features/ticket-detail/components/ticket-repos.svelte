@@ -40,7 +40,7 @@
   } = $props()
 </script>
 
-<div class="flex flex-col gap-4 px-5 py-4">
+<div class="flex flex-col gap-4 px-6 py-5">
   <TicketRepoCreateForm {repos} creating={creatingRepoScope} onCreate={onCreateScope} />
 
   <section class="space-y-3">

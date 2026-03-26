@@ -14,6 +14,7 @@
   } from '$lib/features/workflows'
   import { appStore } from '$lib/stores/app.svelte'
   import { Separator } from '$ui/separator'
+  import WorkflowScheduledJobsPanel from './workflow-scheduled-jobs-panel.svelte'
 
   const workflowCapability = getSettingsSectionCapability('workflows')
 
@@ -91,21 +92,27 @@
   {:else if workflows.length === 0}
     <div class="text-muted-foreground text-sm">No workflows found in the current project.</div>
   {:else}
-    <div class="border-border flex min-h-[34rem] overflow-hidden rounded-lg border">
-      <div class="w-64 shrink-0">
-        <WorkflowList {workflows} {selectedId} onselect={(id) => (selectedId = id)} />
-      </div>
-      {#if selectedWorkflow}
-        <div class="min-w-0 flex-1">
-          <WorkflowLifecycleSidebar
-            workflow={selectedWorkflow}
-            {workflows}
-            {statuses}
-            onWorkflowsChange={(nextWorkflows) => (workflows = nextWorkflows)}
-            onSelectedIdChange={(nextSelectedId) => (selectedId = nextSelectedId)}
-            class="border-l-0"
-          />
+    <div class="space-y-6">
+      <div class="border-border flex min-h-[34rem] overflow-hidden rounded-lg border">
+        <div class="w-64 shrink-0">
+          <WorkflowList {workflows} {selectedId} onselect={(id) => (selectedId = id)} />
         </div>
+        {#if selectedWorkflow}
+          <div class="min-w-0 flex-1">
+            <WorkflowLifecycleSidebar
+              workflow={selectedWorkflow}
+              {workflows}
+              {statuses}
+              onWorkflowsChange={(nextWorkflows) => (workflows = nextWorkflows)}
+              onSelectedIdChange={(nextSelectedId) => (selectedId = nextSelectedId)}
+              class="border-l-0"
+            />
+          </div>
+        {/if}
+      </div>
+
+      {#if appStore.currentProject?.id}
+        <WorkflowScheduledJobsPanel projectId={appStore.currentProject.id} {workflows} />
       {/if}
     </div>
   {/if}

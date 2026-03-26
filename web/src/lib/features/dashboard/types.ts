@@ -1,4 +1,9 @@
-import type { SystemMemorySnapshot } from '$lib/api/contracts'
+import type {
+  HRAdvisorRecommendation,
+  HRAdvisorStaffing,
+  HRAdvisorSummary,
+  SystemMemorySnapshot,
+} from '$lib/api/contracts'
 
 export type ProjectHealth = 'healthy' | 'warning' | 'blocked'
 
@@ -40,4 +45,10 @@ export type ActivityItem = {
   timestamp: string
   ticketIdentifier?: string
   agentName?: string
+}
+
+export type HRAdvisorSnapshot = {
+  summary: HRAdvisorSummary
+  staffing: HRAdvisorStaffing
+  recommendations: HRAdvisorRecommendation[]
 }

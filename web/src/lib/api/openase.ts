@@ -2,6 +2,7 @@ import { api } from './client'
 import type {
   ActivityPayload,
   AgentPayload,
+  AgentProviderResponse,
   AgentOutputPayload,
   AgentResponse,
   AgentProvider,
@@ -24,9 +25,16 @@ import type {
   NotificationRulePayload,
   NotificationRuleResponse,
   ProjectRepoPayload,
+  ProjectArchiveResponse,
   ProjectRepoResponse,
+  ProjectCreateResponse,
   ProjectPayload,
   ProjectResponse,
+  ScheduledJobDeleteResponse,
+  ScheduledJobListPayload,
+  ScheduledJobResponse,
+  ScheduledJobTriggerResponse,
+  ScheduledJobUpdateResponse,
   SecuritySettingsResponse,
   SkillListPayload,
   StatusDeleteResponse,
@@ -38,8 +46,17 @@ import type {
   TicketDependencyDeleteResponse,
   TicketDependencyResponse,
   TicketCreateResponse,
+  TicketCommentCreateResponse,
+  TicketCommentDeleteResponse,
+  TicketCommentUpdateResponse,
+  TicketExternalLinkDeleteResponse,
+  TicketExternalLinkResponse,
   TicketPayload,
+  HRAdvisorResponse,
   Organization,
+  OrganizationDeleteResponse,
+  OrganizationResponse,
+  OrganizationUpdateResponse,
   TicketRepoScopePayload,
   TicketRepoScopeResponse,
   WorkflowDetailPayload,
@@ -70,8 +87,47 @@ export function listOrganizations() {
   return api.get<{ organizations?: Organization[] }>('/api/v1/orgs')
 }
 
+export function createOrganization(body: {
+  name: string
+  slug: string
+  default_agent_provider_id?: string | null
+}) {
+  return api.post<OrganizationResponse>('/api/v1/orgs', { body })
+}
+
+export function updateOrganization(
+  orgId: string,
+  body: {
+    name?: string | null
+    slug?: string | null
+    default_agent_provider_id?: string | null
+  },
+) {
+  return api.patch<OrganizationUpdateResponse>(`/api/v1/orgs/${orgId}`, { body })
+}
+
+export function deleteOrganization(orgId: string) {
+  return api.delete<OrganizationDeleteResponse>(`/api/v1/orgs/${orgId}`)
+}
+
 export function listProjects(orgId: string) {
   return api.get<ProjectPayload>(`/api/v1/orgs/${orgId}/projects`)
+}
+
+export function createProject(
+  orgId: string,
+  body: {
+    name: string
+    slug: string
+    description?: string
+    status?: string
+    default_workflow_id?: string | null
+    default_agent_provider_id?: string | null
+    accessible_machine_ids?: string[]
+    max_concurrent_agents?: number
+  },
+) {
+  return api.post<ProjectCreateResponse>(`/api/v1/orgs/${orgId}/projects`, { body })
 }
 
 export function listMachines(orgId: string) {
@@ -106,12 +162,34 @@ export function listProviders(orgId: string) {
   return api.get<AgentProviderListPayload>(`/api/v1/orgs/${orgId}/providers`)
 }
 
+export function createProvider(
+  orgId: string,
+  body: {
+    name: string
+    adapter_type: string
+    cli_command?: string
+    cli_args?: string[]
+    auth_config?: Record<string, unknown>
+    model_name: string
+    model_temperature?: number
+    model_max_tokens?: number
+    cost_per_input_token?: number
+    cost_per_output_token?: number
+  },
+) {
+  return api.post<AgentProviderResponse>(`/api/v1/orgs/${orgId}/providers`, { body })
+}
+
 export function getProject(projectId: string) {
   return api.get<ProjectResponse>(`/api/v1/projects/${projectId}`)
 }
 
 export function getSecuritySettings(projectId: string) {
-  return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security`)
+  return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+}
+
+export function getHRAdvisor(projectId: string) {
+  return api.get<HRAdvisorResponse>(`/api/v1/projects/${projectId}/hr-advisor`)
 }
 
 export function updateProject(
@@ -127,6 +205,10 @@ export function updateProject(
   },
 ) {
   return api.patch<ProjectResponse>(`/api/v1/projects/${projectId}`, { body })
+}
+
+export function archiveProject(projectId: string) {
+  return api.delete<ProjectArchiveResponse>(`/api/v1/projects/${projectId}`)
 }
 
 export function listActivity(
@@ -271,6 +353,35 @@ export function updateTicket(
   return api.patch(`/api/v1/tickets/${ticketId}`, { body })
 }
 
+export function createTicketComment(
+  ticketId: string,
+  body: {
+    body: string
+    created_by?: string | null
+  },
+) {
+  return api.post<TicketCommentCreateResponse>(`/api/v1/tickets/${ticketId}/comments`, { body })
+}
+
+export function updateTicketComment(
+  ticketId: string,
+  commentId: string,
+  body: {
+    body: string
+  },
+) {
+  return api.patch<TicketCommentUpdateResponse>(
+    `/api/v1/tickets/${ticketId}/comments/${commentId}`,
+    { body },
+  )
+}
+
+export function deleteTicketComment(ticketId: string, commentId: string) {
+  return api.delete<TicketCommentDeleteResponse>(
+    `/api/v1/tickets/${ticketId}/comments/${commentId}`,
+  )
+}
+
 export function addTicketDependency(
   ticketId: string,
   body: {
@@ -287,28 +398,26 @@ export function deleteTicketDependency(ticketId: string, dependencyId: string) {
   )
 }
 
-export function createTicketComment(
+export function addTicketExternalLink(
   ticketId: string,
   body: {
-    body: string
-    created_by?: string | null
+    type: string
+    url: string
+    external_id: string
+    title?: string | null
+    status?: string | null
+    relation?: string | null
   },
 ) {
-  return api.post(`/api/v1/tickets/${ticketId}/comments`, { body })
+  return api.post<TicketExternalLinkResponse>(`/api/v1/tickets/${ticketId}/external-links`, {
+    body,
+  })
 }
 
-export function updateTicketComment(
-  ticketId: string,
-  commentId: string,
-  body: {
-    body: string
-  },
-) {
-  return api.patch(`/api/v1/tickets/${ticketId}/comments/${commentId}`, { body })
-}
-
-export function deleteTicketComment(ticketId: string, commentId: string) {
-  return api.delete(`/api/v1/tickets/${ticketId}/comments/${commentId}`)
+export function deleteTicketExternalLink(ticketId: string, externalLinkId: string) {
+  return api.delete<TicketExternalLinkDeleteResponse>(
+    `/api/v1/tickets/${ticketId}/external-links/${externalLinkId}`,
+  )
 }
 
 export function getTicketDetail(projectId: string, ticketId: string) {
@@ -453,6 +562,60 @@ export function updateWorkflow(
 
 export function deleteWorkflow(workflowId: string) {
   return api.delete<WorkflowDeleteResponse>(`/api/v1/workflows/${workflowId}`)
+}
+
+export function listScheduledJobs(projectId: string) {
+  return api.get<ScheduledJobListPayload>(`/api/v1/projects/${projectId}/scheduled-jobs`)
+}
+
+export function createScheduledJob(
+  projectId: string,
+  body: {
+    cron_expression: string
+    is_enabled?: boolean | null
+    name: string
+    ticket_template?: {
+      budget_usd?: number
+      created_by?: string
+      description?: string
+      priority?: string
+      status?: string
+      title?: string
+      type?: string
+    }
+    workflow_id: string
+  },
+) {
+  return api.post<ScheduledJobResponse>(`/api/v1/projects/${projectId}/scheduled-jobs`, { body })
+}
+
+export function updateScheduledJob(
+  jobId: string,
+  body: {
+    cron_expression?: string | null
+    is_enabled?: boolean | null
+    name?: string | null
+    ticket_template?: {
+      budget_usd?: number
+      created_by?: string
+      description?: string
+      priority?: string
+      status?: string
+      title?: string
+      type?: string
+    } | null
+    workflow_id?: string | null
+  },
+) {
+  return api.patch<ScheduledJobUpdateResponse>(`/api/v1/scheduled-jobs/${jobId}`, { body })
+}
+
+export function deleteScheduledJob(jobId: string) {
+  return api.delete<ScheduledJobDeleteResponse>(`/api/v1/scheduled-jobs/${jobId}`)
+}
+
+export function triggerScheduledJob(jobId: string) {
+  return api.post<ScheduledJobTriggerResponse>(`/api/v1/scheduled-jobs/${jobId}/trigger`)
 }
 
 export function getWorkflowHarness(workflowId: string) {

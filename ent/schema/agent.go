@@ -28,7 +28,7 @@ func (Agent) Fields() []ent.Field {
 			Nillable(),
 		field.String("session_id").Optional(),
 		field.Enum("runtime_phase").
-			Values("none", "launching", "ready", "failed").
+			Values("none", "launching", "ready", "executing", "failed").
 			Default("none"),
 		field.Enum("runtime_control_state").
 			Values("active", "pause_requested", "paused").

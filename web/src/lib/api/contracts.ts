@@ -31,15 +31,26 @@ export type SystemMemorySnapshot = SystemDashboardResponse['memory']
 
 export type OrganizationPayload = DeepRequired<ResponseFor<'/api/v1/orgs', 'get'>>
 export type OrganizationResponse = DeepRequired<ResponseFor<'/api/v1/orgs', 'post'>>
+export type OrganizationUpdateResponse = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}', 'patch'>>
+export type OrganizationDeleteResponse = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}', 'delete'>>
 export type Organization = ItemOf<OrganizationPayload['organizations']>
 
 export type AgentProviderListPayload = DeepRequired<
   ResponseFor<'/api/v1/orgs/{orgId}/providers', 'get'>
 >
+export type AgentProviderResponse = DeepRequired<
+  ResponseFor<'/api/v1/orgs/{orgId}/providers', 'post'>
+>
 export type AgentProvider = ItemOf<AgentProviderListPayload['providers']>
 
 export type ProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'get'>>
+export type ProjectCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/orgs/{orgId}/projects', 'post'>
+>
 export type ProjectResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}', 'get'>>
+export type ProjectArchiveResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}', 'delete'>
+>
 export type Project = ItemOf<ProjectPayload['projects']>
 
 export type MachinePayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/machines', 'get'>>
@@ -92,11 +103,26 @@ export type Ticket = ItemOf<TicketPayload['tickets']>
 export type TicketPriority = Ticket['priority']
 export type TicketReference = ItemOf<Ticket['children']>
 export type TicketDependency = ItemOf<Ticket['dependencies']>
+export type TicketCommentCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/comments', 'post'>
+>
+export type TicketCommentUpdateResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/comments/{commentId}', 'patch'>
+>
+export type TicketCommentDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/comments/{commentId}', 'delete'>
+>
 export type TicketDependencyResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/dependencies', 'post'>
 >
 export type TicketDependencyDeleteResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/dependencies/{dependencyId}', 'delete'>
+>
+export type TicketExternalLinkResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/external-links', 'post'>
+>
+export type TicketExternalLinkDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/external-links/{externalLinkId}', 'delete'>
 >
 
 export type ProjectRepoPayload = DeepRequired<
@@ -129,6 +155,22 @@ export type Workflow = ItemOf<WorkflowListPayload['workflows']>
 export type WorkflowDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/workflows/{workflowId}', 'get'>
 >
+export type ScheduledJobListPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/scheduled-jobs', 'get'>
+>
+export type ScheduledJobResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/scheduled-jobs', 'post'>
+>
+export type ScheduledJobUpdateResponse = DeepRequired<
+  ResponseFor<'/api/v1/scheduled-jobs/{jobId}', 'patch'>
+>
+export type ScheduledJobDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/scheduled-jobs/{jobId}', 'delete'>
+>
+export type ScheduledJobTriggerResponse = DeepRequired<
+  ResponseFor<'/api/v1/scheduled-jobs/{jobId}/trigger', 'post'>
+>
+export type ScheduledJob = ItemOf<ScheduledJobListPayload['scheduled_jobs']>
 
 export type HarnessPayload = DeepRequired<
   ResponseFor<'/api/v1/workflows/{workflowId}/harness', 'get'>
@@ -170,6 +212,7 @@ export type HRAdvisorRecommendation = ItemOf<HRAdvisorResponse['recommendations'
 export type TicketDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/detail', 'get'>
 >
+export type TicketCommentRecord = ItemOf<TicketDetailPayload['comments']>
 export type TicketRepoScope = ItemOf<TicketDetailPayload['repo_scopes']>
 export type ProjectRepo = NonNullable<TicketRepoScope['repo']>
 

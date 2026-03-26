@@ -11,12 +11,12 @@
 
   let {
     activities,
-    title = 'Activity',
-    emptyLabel = 'No activity yet',
+    label = 'Activity',
+    emptyText = 'No activity yet',
   }: {
     activities: TicketActivity[]
-    title?: string
-    emptyLabel?: string
+    label?: string
+    emptyText?: string
   } = $props()
 
   const typeIcons: Record<string, { icon: typeof Bot; class: string }> = {
@@ -32,13 +32,13 @@
   const fallbackIcon = { icon: Settings, class: 'text-muted-foreground' }
 </script>
 
-<div class="flex flex-col gap-0 px-5 py-3">
+<div class="flex flex-col gap-0 px-6 py-4">
   <span class="text-muted-foreground mb-2 text-[10px] font-medium tracking-wider uppercase">
-    {title}
+    {label}
   </span>
 
   {#if activities.length === 0}
-    <p class="text-muted-foreground py-4 text-center text-xs">{emptyLabel}</p>
+    <p class="text-muted-foreground py-4 text-center text-xs">{emptyText}</p>
   {/if}
 
   <div class="relative">
