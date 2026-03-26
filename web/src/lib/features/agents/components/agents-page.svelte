@@ -5,7 +5,11 @@
   import type { AgentsPageData } from '../data'
   import { loadAgentsPageResult } from '../page-data'
   import { applyUpdatedProviderState } from '../model'
-  import { createAgentRegistrationDraft, parseAgentRegistrationDraft } from '../registration'
+  import {
+    createAgentRegistrationDraft,
+    deriveWorkspaceConvention,
+    parseAgentRegistrationDraft,
+  } from '../registration'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import type { AgentInstance, ProviderConfig, ProviderDraftField } from '../types'
   import {
@@ -48,6 +52,16 @@
   )
   const selectedOutputAgent = $derived(
     agents.find((agent) => agent.id === outputState.selectedAgentId) ?? null,
+  )
+  const registrationProvider = $derived(
+    providerItems.find((provider) => provider.id === registrationDraft.providerId),
+  )
+  const registrationWorkspaceConvention = $derived(
+    deriveWorkspaceConvention(
+      registrationProvider,
+      appStore.currentOrg?.slug,
+      appStore.currentProject?.slug,
+    ),
   )
 
   $effect(() => {
@@ -168,7 +182,6 @@
         defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
         providerId: parsed.value.providerId,
         name: parsed.value.name,
-        workspacePath: parsed.value.workspacePath,
       })
       applyPageData(result.data)
       registerFeedback = 'Agent created.'
@@ -277,6 +290,7 @@
   {providerItems}
   {machineItems}
   {registrationDraft}
+  workspaceConvention={registrationWorkspaceConvention}
   {registerSaving}
   {registerError}
   {registerFeedback}

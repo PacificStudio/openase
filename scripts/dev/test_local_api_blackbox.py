@@ -248,7 +248,6 @@ def main() -> int:
             {
                 "provider_id": provider["id"],
                 "name": f"smoke-agent-{stamp}",
-                "workspace_path": str(Path.cwd()),
                 "capabilities": ["smoke", "coding"],
             },
         )["agent"]

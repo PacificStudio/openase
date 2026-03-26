@@ -4077,7 +4077,6 @@ export interface operations {
         'application/json': {
           name?: string
           provider_id?: string
-          workspace_path?: string
         }
       }
     }

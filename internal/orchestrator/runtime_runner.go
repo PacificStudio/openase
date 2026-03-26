@@ -151,12 +151,15 @@ func (l *RuntimeLauncher) loadExecutionState(ctx context.Context, agentID uuid.U
 		return runtimeExecutionState{}, "", err
 	}
 
-	machine, _, err := l.resolveLaunchMachine(ctx, launchContext)
+	machine, remote, err := l.resolveLaunchMachine(ctx, launchContext)
 	if err != nil {
 		return runtimeExecutionState{}, "", err
 	}
 
-	workspace := strings.TrimSpace(launchContext.agent.WorkspacePath)
+	workspace, err := buildWorkspacePath(launchContext, machine, remote)
+	if err != nil {
+		return runtimeExecutionState{}, "", err
+	}
 	if workspace == "" {
 		return runtimeExecutionState{}, "", fmt.Errorf("agent %s workspace path must not be empty", agentID)
 	}

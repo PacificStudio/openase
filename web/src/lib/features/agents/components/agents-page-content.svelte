@@ -29,6 +29,7 @@
     providerItems,
     machineItems,
     registrationDraft,
+    workspaceConvention = '~/.openase/workspace/{org}/{project}/{ticket}',
     registerSaving = false,
     registerError = '',
     registerFeedback = '',
@@ -71,6 +72,7 @@
     providerItems: AgentProvider[]
     machineItems: Machine[]
     registrationDraft: AgentRegistrationDraft
+    workspaceConvention?: string
     registerSaving?: boolean
     registerError?: string
     registerFeedback?: string
@@ -121,6 +123,7 @@
   {providerItems}
   {machineItems}
   {registrationDraft}
+  {workspaceConvention}
   {registerSaving}
   {registerError}
   {registerFeedback}

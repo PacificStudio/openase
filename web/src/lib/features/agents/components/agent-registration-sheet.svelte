@@ -18,6 +18,7 @@
     open = $bindable(false),
     providers,
     draft,
+    workspaceConvention = '~/.openase/workspace/{org}/{project}/{ticket}',
     saving = false,
     error = '',
     feedback = '',
@@ -28,6 +29,7 @@
     open?: boolean
     providers: AgentProvider[]
     draft: AgentRegistrationDraft
+    workspaceConvention?: string
     saving?: boolean
     error?: string
     feedback?: string
@@ -124,13 +126,13 @@
         </div>
 
         <div class="space-y-2">
-          <Label for="agent-workspace-path">Workspace path</Label>
-          <Input
-            id="agent-workspace-path"
-            value={draft.workspacePath}
-            placeholder="/srv/openase/workspaces/coding-01"
-            oninput={(event) => updateField('workspacePath', event)}
-          />
+          <Label>Workspace convention</Label>
+          <div class="border-border text-muted-foreground rounded-md border px-3 py-2 text-sm">
+            <div class="font-mono break-all">{workspaceConvention}</div>
+            <div class="mt-2 text-xs">
+              Ticket workspaces are derived by OpenASE from org, project, and ticket identity.
+            </div>
+          </div>
         </div>
       </div>
 

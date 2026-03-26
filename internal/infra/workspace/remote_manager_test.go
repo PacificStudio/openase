@@ -21,6 +21,8 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 	manager := NewRemoteManager(pool)
 	request := SetupRequest{
 		WorkspaceRoot:    "/srv/openase/workspaces",
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
 		TicketIdentifier: "ASE-104",
 		BranchName:       "agent/codex-01/ASE-104",
 		Repos: []RepoRequest{
@@ -39,13 +41,13 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 		t.Fatalf("prepare remote workspace: %v", err)
 	}
 
-	if workspaceItem.Path != "/srv/openase/workspaces/ASE-104" {
+	if workspaceItem.Path != "/srv/openase/workspaces/acme/payments/ASE-104" {
 		t.Fatalf("expected workspace path, got %q", workspaceItem.Path)
 	}
-	if !strings.Contains(session.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/ASE-104/backend'") {
+	if !strings.Contains(session.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/acme/payments/ASE-104/backend'") {
 		t.Fatalf("expected clone command, got %q", session.command)
 	}
-	if !strings.Contains(session.command, "git -C '/srv/openase/workspaces/ASE-104/backend' checkout -B 'agent/codex-01/ASE-104' 'origin/main'") {
+	if !strings.Contains(session.command, "git -C '/srv/openase/workspaces/acme/payments/ASE-104/backend' checkout -B 'agent/codex-01/ASE-104' 'origin/main'") {
 		t.Fatalf("expected checkout command, got %q", session.command)
 	}
 }

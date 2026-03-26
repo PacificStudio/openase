@@ -3,7 +3,6 @@ import type { AgentProvider } from '$lib/api/contracts'
 export type AgentRegistrationDraft = {
   providerId: string
   name: string
-  workspacePath: string
 }
 
 export type AgentRegistrationDraftField = keyof AgentRegistrationDraft
@@ -11,7 +10,6 @@ export type AgentRegistrationDraftField = keyof AgentRegistrationDraft
 export type AgentRegistrationInput = {
   providerId: string
   name: string
-  workspacePath: string
 }
 
 type AgentRegistrationParseResult =
@@ -25,7 +23,6 @@ export function createAgentRegistrationDraft(
   return {
     providerId: resolveProviderId(providers, defaultProviderId),
     name: '',
-    workspacePath: '',
   }
 }
 
@@ -47,19 +44,27 @@ export function parseAgentRegistrationDraft(
     return { ok: false, error: 'Agent name must not be empty.' }
   }
 
-  const workspacePath = draft.workspacePath.trim()
-  if (workspacePath === '') {
-    return { ok: false, error: 'Workspace path must not be empty.' }
-  }
-
   return {
     ok: true,
     value: {
       providerId,
       name,
-      workspacePath,
     },
   }
+}
+
+export function deriveWorkspaceConvention(
+  provider: AgentProvider | undefined,
+  orgSlug?: string | null,
+  projectSlug?: string | null,
+) {
+  const root =
+    provider && provider.machine_host && provider.machine_host !== 'local'
+      ? (provider.machine_workspace_root ?? '{machine.workspace_root}')
+      : '~/.openase/workspace'
+  const orgSegment = orgSlug?.trim() || '{org}'
+  const projectSegment = projectSlug?.trim() || '{project}'
+  return `${root}/${orgSegment}/${projectSegment}/{ticket}`
 }
 
 function resolveProviderId(providers: AgentProvider[], defaultProviderId?: string | null) {

@@ -14,6 +14,7 @@
     providerItems,
     machineItems,
     registrationDraft,
+    workspaceConvention,
     registerSaving = false,
     registerError = '',
     registerFeedback = '',
@@ -40,6 +41,7 @@
     providerItems: AgentProvider[]
     machineItems: Machine[]
     registrationDraft: AgentRegistrationDraft
+    workspaceConvention: string
     registerSaving?: boolean
     registerError?: string
     registerFeedback?: string
@@ -66,6 +68,7 @@
   bind:open={registerSheetOpen}
   providers={providerItems}
   draft={registrationDraft}
+  {workspaceConvention}
   saving={registerSaving}
   error={registerError}
   feedback={registerFeedback}

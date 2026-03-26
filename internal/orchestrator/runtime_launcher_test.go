@@ -22,6 +22,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
@@ -195,7 +196,11 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if len(activityItems) == 0 {
 		t.Fatal("expected runtime lifecycle activity events to be persisted")
 	}
-	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "Current local root=/srv/openase/workspaces") {
+	expectedLocalWorkspaceRoot, err := workspaceinfra.LocalWorkspaceRoot()
+	if err != nil {
+		t.Fatalf("resolve local workspace root: %v", err)
+	}
+	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "Current local root="+expectedLocalWorkspaceRoot) {
 		t.Fatalf("expected rendered current machine in developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
 	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "storage=openase@10.0.1.20|") {
@@ -825,10 +830,10 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if runAfter.SessionID != "thread-runtime-1" {
 		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/ASE-401/backend'") {
+	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
-	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/ASE-401'") {
+	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401'") {
 		t.Fatalf("expected remote process to cd into workspace, got %q", processSession.startedCommand)
 	}
 	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {

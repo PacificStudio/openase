@@ -19,6 +19,8 @@ var safeSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // SetupInput is the raw boundary input for workspace preparation.
 type SetupInput struct {
 	WorkspaceRoot    string
+	OrganizationSlug string
+	ProjectSlug      string
 	AgentName        string
 	TicketIdentifier string
 	Repos            []RepoInput
@@ -36,6 +38,8 @@ type RepoInput struct {
 // SetupRequest is the parsed workspace preparation request.
 type SetupRequest struct {
 	WorkspaceRoot    string
+	OrganizationSlug string
+	ProjectSlug      string
 	TicketIdentifier string
 	BranchName       string
 	Repos            []RepoRequest
@@ -77,7 +81,17 @@ func NewManager() *Manager {
 
 // ParseSetupRequest validates raw workspace setup input into a parsed request.
 func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
-	workspaceRoot, err := parseWorkspaceRoot(input.WorkspaceRoot)
+	workspaceRoot, err := parseTicketWorkspaceRoot(input.WorkspaceRoot, true)
+	if err != nil {
+		return SetupRequest{}, err
+	}
+
+	organizationSlug, err := parsePathSegment("organization_slug", input.OrganizationSlug)
+	if err != nil {
+		return SetupRequest{}, err
+	}
+
+	projectSlug, err := parsePathSegment("project_slug", input.ProjectSlug)
 	if err != nil {
 		return SetupRequest{}, err
 	}
@@ -90,10 +104,6 @@ func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
 	ticketIdentifier, err := parseBranchSegment("ticket_identifier", input.TicketIdentifier)
 	if err != nil {
 		return SetupRequest{}, err
-	}
-
-	if len(input.Repos) == 0 {
-		return SetupRequest{}, errors.New("repos must not be empty")
 	}
 
 	branchName := fmt.Sprintf("agent/%s/%s", agentName, ticketIdentifier)
@@ -113,6 +123,8 @@ func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
 
 	return SetupRequest{
 		WorkspaceRoot:    workspaceRoot,
+		OrganizationSlug: organizationSlug,
+		ProjectSlug:      projectSlug,
 		TicketIdentifier: ticketIdentifier,
 		BranchName:       branchName,
 		Repos:            repos,
@@ -125,14 +137,22 @@ func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace,
 		ctx = context.Background()
 	}
 
-	workspacePath := filepath.Join(request.WorkspaceRoot, request.TicketIdentifier)
+	workspacePath, err := TicketWorkspacePath(
+		request.WorkspaceRoot,
+		request.OrganizationSlug,
+		request.ProjectSlug,
+		request.TicketIdentifier,
+	)
+	if err != nil {
+		return Workspace{}, fmt.Errorf("derive workspace path: %w", err)
+	}
 	if err := os.MkdirAll(workspacePath, 0o750); err != nil {
 		return Workspace{}, fmt.Errorf("create workspace root %s: %w", workspacePath, err)
 	}
 
 	preparedRepos := make([]PreparedRepo, 0, len(request.Repos))
 	for _, repo := range request.Repos {
-		repoPath := filepath.Join(workspacePath, filepath.FromSlash(repo.ClonePath))
+		repoPath := RepoPath(workspacePath, repo.ClonePath, repo.Name)
 		if err := os.MkdirAll(filepath.Dir(repoPath), 0o750); err != nil {
 			return Workspace{}, fmt.Errorf("create parent directory for repo %s: %w", repo.Name, err)
 		}
@@ -156,20 +176,6 @@ func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace,
 		BranchName: request.BranchName,
 		Repos:      preparedRepos,
 	}, nil
-}
-
-func parseWorkspaceRoot(raw string) (string, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return "", errors.New("workspace_root must not be empty")
-	}
-
-	absolutePath, err := filepath.Abs(trimmed)
-	if err != nil {
-		return "", fmt.Errorf("resolve workspace_root: %w", err)
-	}
-
-	return absolutePath, nil
 }
 
 func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest, error) {

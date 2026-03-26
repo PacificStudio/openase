@@ -18,6 +18,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
@@ -105,7 +106,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+projectPayload.Project.ID+"/agents",
-		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","workspace_path":"/tmp/openase"}`,
+		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1"}`,
 	)
 	if agentRec.Code != http.StatusCreated {
 		t.Fatalf("expected agent create 201, got %d: %s", agentRec.Code, agentRec.Body.String())
@@ -218,7 +219,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+projectPayload.Project.ID+"/agents",
-		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1","workspace_path":"/tmp/openase"}`,
+		`{"provider_id":"`+providerPayload.Provider.ID+`","name":"worker-1"}`,
 	)
 	if agentRec.Code != http.StatusCreated {
 		t.Fatalf("expected agent create 201, got %d: %s", agentRec.Code, agentRec.Body.String())
@@ -679,7 +680,7 @@ func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateA
 		ProjectID:             input.ProjectID,
 		Name:                  input.Name,
 		RuntimeControlState:   input.RuntimeControlState,
-		WorkspacePath:         input.WorkspacePath,
+		WorkspacePath:         deriveFakeAgentWorkspacePattern(project, provider, f.organizations, f.machines),
 		TotalTokensUsed:       input.TotalTokensUsed,
 		TotalTicketsCompleted: input.TotalTicketsCompleted,
 	}
@@ -796,4 +797,33 @@ func loadEntLocalMachineID(t *testing.T, client *ent.Client, organizationID stri
 		t.Fatalf("load local machine: %v", err)
 	}
 	return machine.ID.String()
+}
+
+func deriveFakeAgentWorkspacePattern(
+	project domain.Project,
+	provider domain.AgentProvider,
+	organizations map[uuid.UUID]domain.Organization,
+	machines map[uuid.UUID]domain.Machine,
+) string {
+	organization, ok := organizations[project.OrganizationID]
+	if !ok {
+		return ""
+	}
+
+	root := workspaceinfra.LocalWorkspacePatternRoot
+	if machine, ok := machines[provider.MachineID]; ok {
+		if machine.Host != "" && machine.Host != domain.LocalMachineHost {
+			if machine.WorkspaceRoot != nil {
+				root = *machine.WorkspaceRoot
+			} else {
+				return ""
+			}
+		}
+	}
+
+	pattern, err := workspaceinfra.TicketWorkspacePattern(root, organization.Slug, project.Slug)
+	if err != nil {
+		return ""
+	}
+	return pattern
 }
