@@ -107,7 +107,13 @@ func (a *App) RunServe(ctx context.Context) error {
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
 	ticketSvc := ticketservice.NewService(client)
-	catalogSvc := catalogservice.New(catalogRepo, executable.NewPathResolver(), sshinfra.NewTester(sshPool))
+	ticketStatusSvc := ticketstatus.NewService(client)
+	catalogSvc := catalogservice.New(
+		catalogRepo,
+		executable.NewPathResolver(),
+		sshinfra.NewTester(sshPool),
+		catalogservice.WithProjectStatusResetter(ticketStatusSvc),
+	)
 	notificationSvc := notificationservice.NewService(client, a.logger, http.DefaultClient)
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
 		return err
@@ -140,7 +146,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		a.logger,
 		a.events,
 		ticketSvc,
-		ticketstatus.NewService(client),
+		ticketStatusSvc,
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,

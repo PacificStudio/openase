@@ -3039,6 +3039,87 @@
         "tags": [
           "catalog"
         ]
+      },
+      "delete": {
+        "operationId": "deleteOrganization",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "organization": {
+                      "properties": {
+                        "default_agent_provider_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete an organization response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Organization has active projects."
+          }
+        },
+        "summary": "Delete an organization",
+        "tags": [
+          "catalog"
+        ]
       }
     },
     "/api/v1/orgs/{orgId}/channels": {
@@ -4012,6 +4093,9 @@
                             "additionalProperties": {},
                             "type": "object"
                           },
+                          "available": {
+                            "type": "boolean"
+                          },
                           "cli_args": {
                             "items": {
                               "type": "string"
@@ -4202,6 +4286,9 @@
                         "auth_config": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "available": {
+                          "type": "boolean"
                         },
                         "cli_args": {
                           "items": {
@@ -10240,6 +10327,9 @@
                         "auth_config": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "available": {
+                          "type": "boolean"
                         },
                         "cli_args": {
                           "items": {

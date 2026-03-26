@@ -15,6 +15,7 @@ type AgentProvider struct {
 	OrganizationID     uuid.UUID
 	Name               string
 	AdapterType        entagentprovider.AdapterType
+	Available          bool
 	CliCommand         string
 	CliArgs            []string
 	AuthConfig         map[string]any

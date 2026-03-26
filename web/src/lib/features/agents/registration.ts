@@ -71,7 +71,7 @@ function resolveProviderId(providers: AgentProvider[], defaultProviderId?: strin
     return defaultProviderId
   }
 
-  return providers[0]?.id ?? ''
+  return providers.find((provider) => provider.available)?.id ?? providers[0]?.id ?? ''
 }
 
 function parseCapabilities(raw: string) {

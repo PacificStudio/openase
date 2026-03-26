@@ -32,6 +32,9 @@ export type SystemMemorySnapshot = SystemDashboardResponse['memory']
 export type OrganizationPayload = DeepRequired<ResponseFor<'/api/v1/orgs', 'get'>>
 export type OrganizationResponse = DeepRequired<ResponseFor<'/api/v1/orgs', 'post'>>
 export type OrganizationUpdateResponse = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}', 'patch'>>
+export type OrganizationDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/orgs/{orgId}', 'delete'>
+>
 export type Organization = ItemOf<OrganizationPayload['organizations']>
 
 export type AgentProviderListPayload = DeepRequired<

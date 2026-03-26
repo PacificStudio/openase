@@ -28,13 +28,22 @@
     onFieldChange?: (field: keyof ProjectCreationDraft, value: string) => void
     onSubmit?: () => void
   } = $props()
+
+  function providerLabel(provider: AgentProvider) {
+    return provider.available ? provider.name : `${provider.name} (Unavailable)`
+  }
+
+  function selectedProviderLabel() {
+    const provider = providers.find((item) => item.id === draft.defaultAgentProviderId)
+    return provider ? providerLabel(provider) : 'No default provider'
+  }
 </script>
 
 <Card.Root class="rounded-2xl">
   <Card.Header>
     <Card.Title>Create project</Card.Title>
     <Card.Description>
-      Set the initial route slug, lifecycle status, and concurrency envelope for a new project.
+      Set the initial route slug, lifecycle, and concurrency envelope for a new project.
     </Card.Description>
   </Card.Header>
 
@@ -82,7 +91,7 @@
 
       <div class="grid gap-4 md:grid-cols-3">
         <div class="space-y-2">
-          <Label>Status</Label>
+          <Label>Lifecycle</Label>
           <Select.Root
             type="single"
             value={draft.status}
@@ -95,6 +104,10 @@
               {/each}
             </Select.Content>
           </Select.Root>
+          <p class="text-muted-foreground text-xs">
+            Default board statuses are seeded automatically: Backlog, Todo, In Progress, In Review,
+            Done, and Cancelled.
+          </p>
         </div>
 
         <div class="space-y-2">
@@ -121,14 +134,11 @@
             value={draft.defaultAgentProviderId}
             onValueChange={(value) => onFieldChange?.('defaultAgentProviderId', value || '')}
           >
-            <Select.Trigger class="w-full">
-              {providers.find((provider) => provider.id === draft.defaultAgentProviderId)?.name ??
-                'No default provider'}
-            </Select.Trigger>
+            <Select.Trigger class="w-full">{selectedProviderLabel()}</Select.Trigger>
             <Select.Content>
               <Select.Item value="">No default provider</Select.Item>
               {#each providers as provider (provider.id)}
-                <Select.Item value={provider.id}>{provider.name}</Select.Item>
+                <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
               {/each}
             </Select.Content>
           </Select.Root>

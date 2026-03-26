@@ -25,6 +25,15 @@
   let feedback = $state('')
   let error = $state('')
 
+  function providerLabel(provider: AgentProvider) {
+    return provider.available ? provider.name : `${provider.name} (Unavailable)`
+  }
+
+  function selectedProviderLabel() {
+    const provider = providers.find((item) => item.id === defaultProviderId)
+    return provider ? providerLabel(provider) : 'No default provider'
+  }
+
   $effect(() => {
     name = organization.name
     slug = organization.slug
@@ -97,14 +106,11 @@
           defaultProviderId = value || ''
         }}
       >
-        <Select.Trigger class="w-full">
-          {providers.find((provider) => provider.id === defaultProviderId)?.name ??
-            'No default provider'}
-        </Select.Trigger>
+        <Select.Trigger class="w-full">{selectedProviderLabel()}</Select.Trigger>
         <Select.Content>
           <Select.Item value="">No default provider</Select.Item>
           {#each providers as provider (provider.id)}
-            <Select.Item value={provider.id}>{provider.name}</Select.Item>
+            <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
           {/each}
         </Select.Content>
       </Select.Root>

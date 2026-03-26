@@ -54,6 +54,7 @@ import type {
   TicketPayload,
   HRAdvisorResponse,
   Organization,
+  OrganizationDeleteResponse,
   OrganizationResponse,
   OrganizationUpdateResponse,
   TicketRepoScopePayload,
@@ -103,6 +104,10 @@ export function updateOrganization(
   },
 ) {
   return api.patch<OrganizationUpdateResponse>(`/api/v1/orgs/${orgId}`, { body })
+}
+
+export function deleteOrganization(orgId: string) {
+  return api.delete<OrganizationDeleteResponse>(`/api/v1/orgs/${orgId}`)
 }
 
 export function listProjects(orgId: string) {

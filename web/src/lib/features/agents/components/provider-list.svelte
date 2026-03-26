@@ -38,6 +38,9 @@
               {#if provider.isDefault}
                 <Badge variant="outline" class="text-[10px]">Default</Badge>
               {/if}
+              <Badge variant={provider.available ? 'secondary' : 'outline'} class="text-[10px]">
+                {provider.available ? 'Available' : 'Unavailable'}
+              </Badge>
             </div>
             <Card.Description class="text-xs">{provider.adapterType}</Card.Description>
           </div>

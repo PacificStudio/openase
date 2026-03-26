@@ -10,7 +10,12 @@ import (
 )
 
 func (s *service) ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error) {
-	return s.repo.ListAgentProviders(ctx, organizationID)
+	items, err := s.repo.ListAgentProviders(ctx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	return annotateAgentProvidersAvailability(items, s.resolver), nil
 }
 
 func (s *service) CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error) {
@@ -21,11 +26,21 @@ func (s *service) CreateAgentProvider(ctx context.Context, input domain.CreateAg
 	input.CliCommand = resolved
 	input.CliArgs = defaultAgentProviderCLIArgs(input.AdapterType, input.CliArgs)
 
-	return s.repo.CreateAgentProvider(ctx, input)
+	item, err := s.repo.CreateAgentProvider(ctx, input)
+	if err != nil {
+		return domain.AgentProvider{}, err
+	}
+
+	return annotateAgentProviderAvailability(item, s.resolver), nil
 }
 
 func (s *service) GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error) {
-	return s.repo.GetAgentProvider(ctx, id)
+	item, err := s.repo.GetAgentProvider(ctx, id)
+	if err != nil {
+		return domain.AgentProvider{}, err
+	}
+
+	return annotateAgentProviderAvailability(item, s.resolver), nil
 }
 
 func (s *service) UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error) {
@@ -36,7 +51,12 @@ func (s *service) UpdateAgentProvider(ctx context.Context, input domain.UpdateAg
 	input.CliCommand = resolved
 	input.CliArgs = defaultAgentProviderCLIArgs(input.AdapterType, input.CliArgs)
 
-	return s.repo.UpdateAgentProvider(ctx, input)
+	item, err := s.repo.UpdateAgentProvider(ctx, input)
+	if err != nil {
+		return domain.AgentProvider{}, err
+	}
+
+	return annotateAgentProviderAvailability(item, s.resolver), nil
 }
 
 func (s *service) ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error) {
@@ -134,4 +154,72 @@ func defaultAgentProviderCLIArgs(adapterType entagentprovider.AdapterType, cliAr
 	default:
 		return nil
 	}
+}
+
+func annotateAgentProvidersAvailability(
+	items []domain.AgentProvider,
+	resolver interface {
+		LookPath(name string) (string, error)
+	},
+) []domain.AgentProvider {
+	annotated := make([]domain.AgentProvider, 0, len(items))
+	for _, item := range items {
+		annotated = append(annotated, annotateAgentProviderAvailability(item, resolver))
+	}
+
+	return annotated
+}
+
+func annotateAgentProviderAvailability(
+	item domain.AgentProvider,
+	resolver interface {
+		LookPath(name string) (string, error)
+	},
+) domain.AgentProvider {
+	item.Available = isAgentProviderAvailable(item.CliCommand, resolver)
+	return item
+}
+
+func isAgentProviderAvailable(
+	command string,
+	resolver interface {
+		LookPath(name string) (string, error)
+	},
+) bool {
+	if resolver == nil {
+		return false
+	}
+	if command == "" {
+		return false
+	}
+	_, err := resolver.LookPath(command)
+	return err == nil
+}
+
+func preferredAvailableProviderID(items []domain.AgentProvider) *uuid.UUID {
+	preferred := []struct {
+		name        string
+		adapterType entagentprovider.AdapterType
+	}{
+		{name: "OpenAI Codex", adapterType: entagentprovider.AdapterTypeCodexAppServer},
+		{name: "Claude Code", adapterType: entagentprovider.AdapterTypeClaudeCodeCli},
+		{name: "Gemini CLI", adapterType: entagentprovider.AdapterTypeGeminiCli},
+	}
+	for _, candidate := range preferred {
+		for _, item := range items {
+			if item.Available && item.Name == candidate.name && item.AdapterType == candidate.adapterType {
+				id := item.ID
+				return &id
+			}
+		}
+	}
+
+	for _, item := range items {
+		if item.Available {
+			id := item.ID
+			return &id
+		}
+	}
+
+	return nil
 }

@@ -50,6 +50,17 @@
     event.preventDefault()
     onSubmit?.()
   }
+
+  function providerLabel(provider: AgentProvider) {
+    return provider.available
+      ? `${provider.name} · ${provider.adapter_type} · ${provider.model_name}`
+      : `${provider.name} · unavailable · ${provider.adapter_type} · ${provider.model_name}`
+  }
+
+  function selectedProviderLabel() {
+    const provider = providers.find((item) => item.id === draft.providerId)
+    return provider ? providerLabel(provider) : 'Select provider'
+  }
 </script>
 
 <Sheet bind:open>
@@ -94,15 +105,10 @@
             value={draft.providerId}
             onValueChange={(value) => onDraftChange?.('providerId', value || '')}
           >
-            <Select.Trigger class="w-full">
-              {providers.find((provider) => provider.id === draft.providerId)?.name ??
-                'Select provider'}
-            </Select.Trigger>
+            <Select.Trigger class="w-full">{selectedProviderLabel()}</Select.Trigger>
             <Select.Content>
               {#each providers as provider (provider.id)}
-                <Select.Item value={provider.id}>
-                  {provider.name} · {provider.adapter_type} · {provider.model_name}
-                </Select.Item>
+                <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
               {/each}
             </Select.Content>
           </Select.Root>

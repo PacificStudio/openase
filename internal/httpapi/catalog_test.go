@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -496,6 +497,86 @@ func TestMachineResourcesExposeEnvironmentProvisioningPlan(t *testing.T) {
 	}
 }
 
+func TestCreateProjectSeedsDefaultTicketStatuses(t *testing.T) {
+	client := openTestEntClient(t)
+	statusService := ticketstatus.NewService(client)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		statusService,
+		nil,
+		catalogservice.New(
+			catalogrepo.NewEntRepository(client),
+			executable.NewPathResolver(),
+			nil,
+			catalogservice.WithProjectStatusResetter(statusService),
+		),
+		nil,
+	)
+
+	var orgPayload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs",
+		map[string]any{
+			"name": "Acme Platform",
+			"slug": "acme-platform",
+		},
+		http.StatusCreated,
+		&orgPayload,
+	)
+
+	var projectPayload struct {
+		Project projectResponse `json:"project"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/orgs/%s/projects", orgPayload.Organization.ID),
+		map[string]any{
+			"name":                  "OpenASE",
+			"slug":                  "openase",
+			"description":           "Main control plane",
+			"status":                "active",
+			"max_concurrent_agents": 4,
+		},
+		http.StatusCreated,
+		&projectPayload,
+	)
+
+	var statusesPayload struct {
+		Statuses []ticketstatus.Status `json:"statuses"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/statuses", projectPayload.Project.ID),
+		nil,
+		http.StatusOK,
+		&statusesPayload,
+	)
+
+	names := make([]string, 0, len(statusesPayload.Statuses))
+	for _, status := range statusesPayload.Statuses {
+		names = append(names, status.Name)
+	}
+	if strings.Join(names, ",") != "Backlog,Todo,In Progress,In Review,Done,Cancelled" {
+		t.Fatalf("unexpected default status order for new project: %v", names)
+	}
+	if len(statusesPayload.Statuses) == 0 || statusesPayload.Statuses[0].Name != "Backlog" || !statusesPayload.Statuses[0].IsDefault {
+		t.Fatalf("expected Backlog to be the default seeded status, got %+v", statusesPayload.Statuses)
+	}
+}
+
 func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
@@ -763,6 +844,19 @@ func (f *fakeCatalogService) CreateOrganization(_ context.Context, input domain.
 			"last_success": true,
 		},
 	}
+	for _, template := range domain.BuiltinAgentProviderTemplates() {
+		providerID := uuid.New()
+		f.providers[providerID] = domain.AgentProvider{
+			ID:             providerID,
+			OrganizationID: item.ID,
+			Name:           template.Name,
+			AdapterType:    template.AdapterType,
+			CliCommand:     template.Command,
+			CliArgs:        append([]string(nil), template.CliArgs...),
+			AuthConfig:     map[string]any{},
+			ModelName:      template.ModelName,
+		}
+	}
 
 	return item, nil
 }
@@ -784,6 +878,15 @@ func (f *fakeCatalogService) UpdateOrganization(_ context.Context, input domain.
 	item := domain.Organization(input)
 	f.organizations[input.ID] = item
 
+	return item, nil
+}
+
+func (f *fakeCatalogService) DeleteOrganization(_ context.Context, id uuid.UUID) (domain.Organization, error) {
+	item, ok := f.organizations[id]
+	if !ok {
+		return domain.Organization{}, catalogservice.ErrNotFound
+	}
+	delete(f.organizations, id)
 	return item, nil
 }
 

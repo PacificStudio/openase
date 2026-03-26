@@ -21,6 +21,7 @@ export type ProviderConfig = {
   id: string
   name: string
   adapterType: string
+  available: boolean
   cliCommand: string
   cliArgs: string[]
   authConfig: Record<string, unknown>
