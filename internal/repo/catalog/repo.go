@@ -161,8 +161,7 @@ func (r *EntRepository) ArchiveOrganization(ctx context.Context, id uuid.UUID) (
 	}
 	defer rollbackOnError(ctx, tx, &err)
 
-	item, err := tx.Organization.Query().Where(activeOrganizationPredicates(id)...).Only(ctx)
-	if err != nil {
+	if _, err := tx.Organization.Query().Where(activeOrganizationPredicates(id)...).Only(ctx); err != nil {
 		return domain.Organization{}, mapReadError("get organization for archive", err)
 	}
 
@@ -176,7 +175,7 @@ func (r *EntRepository) ArchiveOrganization(ctx context.Context, id uuid.UUID) (
 		return domain.Organization{}, mapWriteError("archive organization projects", err)
 	}
 
-	item, err = tx.Organization.UpdateOneID(id).
+	item, err := tx.Organization.UpdateOneID(id).
 		SetStatus(entorganization.StatusArchived).
 		Save(ctx)
 	if err != nil {
