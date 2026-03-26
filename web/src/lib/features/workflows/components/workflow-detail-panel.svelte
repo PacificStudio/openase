@@ -1,22 +1,10 @@
 <script lang="ts">
-  import { cn, formatRelativeTime } from '$lib/utils'
-  import { Button } from '$ui/button'
+  import { cn } from '$lib/utils'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
   import * as Select from '$ui/select'
-  import {
-    AlertCircle,
-    CheckCircle2,
-    Clock3,
-    Layers3,
-    Bot,
-    Cpu,
-    HardDrive,
-    Power,
-    RotateCcw,
-    Trash2,
-  } from '@lucide/svelte'
+  import { Clock3, Layers3, RotateCcw } from '@lucide/svelte'
   import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
   import {
     createWorkflowLifecycleDraft,
@@ -24,6 +12,9 @@
     type WorkflowLifecycleDraft,
     type WorkflowLifecyclePayload,
   } from '../workflow-lifecycle'
+  import WorkflowDetailActions from './workflow-detail-actions.svelte'
+  import WorkflowDetailHeader from './workflow-detail-header.svelte'
+  import WorkflowBindingSummary from './workflow-binding-summary.svelte'
   import WorkflowNumberField from './workflow-number-field.svelte'
 
   const unchangedFinishStatusValue = '__unchanged__'
@@ -154,36 +145,12 @@
 </script>
 
 <div class={cn('border-border flex h-full flex-col overflow-y-auto border-l', className)}>
-  <div class="px-4 py-3">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <h3 class="text-foreground text-sm font-medium">{workflow.name}</h3>
-        <div class="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
-          <span class="capitalize">{workflow.type}</span>
-          <span>v{workflow.version}</span>
-          <span
-            class={cn(
-              'size-1.5 rounded-full',
-              draft.isActive ? 'bg-emerald-500' : 'bg-neutral-500',
-            )}
-          ></span>
-          <span>{draft.isActive ? 'Active' : 'Inactive'}</span>
-        </div>
-      </div>
-      <Button
-        type="button"
-        variant={draft.isActive ? 'outline' : 'default'}
-        size="sm"
-        onclick={() => updateDraftField('isActive', !draft.isActive)}
-      >
-        <Power class="size-4" />
-        {draft.isActive ? 'Deactivate' : 'Activate'}
-      </Button>
-    </div>
-    <div class="text-muted-foreground mt-2 text-xs">
-      Last modified {formatRelativeTime(workflow.lastModified)}
-    </div>
-  </div>
+  <WorkflowDetailHeader
+    {workflow}
+    isActive={draft.isActive}
+    disabled={saving || deleting}
+    onToggle={() => updateDraftField('isActive', !draft.isActive)}
+  />
 
   <Separator />
 
@@ -252,46 +219,12 @@
         />
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div class="space-y-2">
-          <Label>Provider</Label>
-          <div
-            class="border-border text-foreground flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm"
-          >
-            <Bot class="text-muted-foreground size-4" />
-            <span>{selectedAgent?.providerName ?? 'Select an agent first'}</span>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <Label>Model</Label>
-          <div
-            class="border-border text-foreground flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm"
-          >
-            <Cpu class="text-muted-foreground size-4" />
-            <span>{selectedAgent?.modelName ?? 'Select an agent first'}</span>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <Label>Machine</Label>
-          <div
-            class="border-border text-foreground flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm"
-          >
-            <HardDrive class="text-muted-foreground size-4" />
-            <span>{machineSummary}</span>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <Label>Workspace</Label>
-          <div
-            class="border-border text-foreground min-h-10 rounded-md border px-3 py-2 text-sm break-all"
-          >
-            {selectedAgent?.workspacePath || 'Platform-derived ticket workspace'}
-          </div>
-        </div>
-      </div>
+      <WorkflowBindingSummary
+        providerName={selectedAgent?.providerName}
+        modelName={selectedAgent?.modelName}
+        {machineSummary}
+        workspacePath={selectedAgent?.workspacePath}
+      />
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-2">
@@ -333,39 +266,15 @@
           </Select.Root>
         </div>
       </div>
-
-      {#if statusMessage}
-        <div class="flex items-center gap-2 text-xs text-emerald-400">
-          <CheckCircle2 class="size-3.5" />
-          {statusMessage}
-        </div>
-      {/if}
-
-      {#if error || formError}
-        <div class="text-destructive flex items-center gap-2 text-xs">
-          <AlertCircle class="size-3.5" />
-          {formError || error}
-        </div>
-      {/if}
     </div>
 
-    <Separator />
-
-    <div class="flex items-center justify-between gap-3 px-4 py-3">
-      <Button
-        type="button"
-        variant="ghost"
-        class="text-destructive hover:text-destructive"
-        disabled={saving || deleting}
-        onclick={() => void handleDelete()}
-      >
-        <Trash2 class="size-4" />
-        {deleting ? 'Deleting…' : 'Delete Workflow'}
-      </Button>
-
-      <Button type="submit" size="sm" disabled={!isDirty || saving || deleting}>
-        {saving ? 'Saving…' : 'Save Changes'}
-      </Button>
-    </div>
+    <WorkflowDetailActions
+      {statusMessage}
+      errorMessage={formError || error}
+      {saving}
+      {deleting}
+      {isDirty}
+      onDelete={handleDelete}
+    />
   </form>
 </div>

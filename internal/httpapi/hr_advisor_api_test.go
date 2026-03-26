@@ -85,26 +85,6 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 		t.Fatal("expected builtin fullstack-developer role")
 	}
 
-	workflowResp := struct {
-		Workflow workflowResponse `json:"workflow"`
-	}{}
-	executeJSON(
-		t,
-		server,
-		http.MethodPost,
-		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
-		map[string]any{
-			"name":             "Fullstack Developer",
-			"type":             "coding",
-			"harness_path":     fullstackRole.HarnessPath,
-			"harness_content":  fullstackRole.Content,
-			"pickup_status_id": todoID.String(),
-			"finish_status_id": doneID.String(),
-		},
-		http.StatusCreated,
-		&workflowResp,
-	)
-
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
 		SetName("Codex").
@@ -123,6 +103,27 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
+
+	workflowResp := struct {
+		Workflow workflowResponse `json:"workflow"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		map[string]any{
+			"name":             "Fullstack Developer",
+			"type":             "coding",
+			"harness_path":     fullstackRole.HarnessPath,
+			"harness_content":  fullstackRole.Content,
+			"agent_id":         agentItem.ID.String(),
+			"pickup_status_id": todoID.String(),
+			"finish_status_id": doneID.String(),
+		},
+		http.StatusCreated,
+		&workflowResp,
+	)
 
 	var activeTicketID uuid.UUID
 	for index := 0; index < 4; index++ {

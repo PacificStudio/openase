@@ -178,7 +178,7 @@ func TestSchedulerRunTickSkipsRetryPausedTickets(t *testing.T) {
 	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 14, 0, 0, 0, time.UTC)
 
-	if _, err := client.Workflow.Create().
+	workflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
 		SetName("Coding").
 		SetType(entworkflow.TypeCoding).
@@ -186,10 +186,14 @@ func TestSchedulerRunTickSkipsRetryPausedTickets(t *testing.T) {
 		SetMaxConcurrent(2).
 		SetPickupStatusID(fixture.statusIDs["Todo"]).
 		SetFinishStatusID(fixture.statusIDs["Done"]).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
-	fixture.createAgent(ctx, t, "coding-03", 0)
+	agentItem := fixture.createAgent(ctx, t, "coding-03", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
 
 	if _, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
