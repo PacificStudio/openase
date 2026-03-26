@@ -142,7 +142,6 @@ export function buildTicketDetailContext(
     },
     comments: detailPayload.comments.map((comment) => ({
       id: comment.id,
-      projectId: comment.project_id,
       ticketId: comment.ticket_id,
       body: comment.body,
       createdBy: comment.created_by,

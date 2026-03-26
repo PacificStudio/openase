@@ -1,11 +1,8 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation'
   import type { Organization } from '$lib/api/contracts'
-  import { ApiError } from '$lib/api/client'
-  import { deleteOrganization } from '$lib/api/openase'
   import { organizationPath } from '$lib/stores/app-context'
   import { Button } from '$ui/button'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import OrganizationBulkArchiveBar from './organization-bulk-archive-bar.svelte'
   import OrganizationCreationDialog from './organization-creation-dialog.svelte'
   import OrganizationDeleteDialog from './organization-delete-dialog.svelte'
 
@@ -15,10 +12,8 @@
   let deleteTarget = $state<Organization | null>(null)
   let showDeleteDialog = $state(false)
   let selectedIds = $state(new Set<string>())
-  let bulkDeleting = $state(false)
   let bulkError = $state('')
 
-  const selectedCount = $derived(selectedIds.size)
   const allSelected = $derived(
     organizations.length > 0 && selectedIds.size === organizations.length,
   )
@@ -47,31 +42,6 @@
     deleteTarget = organization
     showDeleteDialog = true
   }
-
-  async function bulkDelete() {
-    if (selectedCount === 0) return
-
-    bulkDeleting = true
-    bulkError = ''
-
-    try {
-      const results = await Promise.allSettled([...selectedIds].map((id) => deleteOrganization(id)))
-      const failures = results.filter((result) => result.status === 'rejected')
-      if (failures.length > 0) {
-        const first = failures[0] as PromiseRejectedResult
-        bulkError =
-          first.reason instanceof ApiError
-            ? `${failures.length} failed: ${first.reason.detail}`
-            : `${failures.length} deletion(s) failed.`
-      }
-      selectedIds = new Set()
-      await invalidateAll()
-    } catch {
-      bulkError = 'Bulk delete failed.'
-    } finally {
-      bulkDeleting = false
-    }
-  }
 </script>
 
 <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-6">
@@ -80,32 +50,18 @@
       <h1 class="text-foreground text-2xl font-semibold">Organizations</h1>
       <p class="text-muted-foreground mt-1 text-sm">
         Manage workspace organizations. Each organization scopes projects, providers, and machines.
+        Archived organizations are removed from the active workspace.
       </p>
     </div>
 
     <Button onclick={() => (showCreateDialog = true)}>New organization</Button>
   </div>
 
-  {#if selectedCount > 0}
-    <div
-      class="bg-muted/60 border-border flex items-center justify-between rounded-lg border px-4 py-3"
-    >
-      <span class="text-foreground text-sm font-medium">
-        {selectedCount} selected
-      </span>
-      <div class="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onclick={clearSelection}>Cancel</Button>
-        <Button variant="destructive" size="sm" disabled={bulkDeleting} onclick={bulkDelete}>
-          <Trash2 class="mr-1.5 size-4" />
-          {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount}`}
-        </Button>
-      </div>
-    </div>
-  {/if}
-
-  {#if bulkError}
-    <p class="text-destructive text-sm">{bulkError}</p>
-  {/if}
+  <OrganizationBulkArchiveBar
+    selectedIds={[...selectedIds]}
+    bind:error={bulkError}
+    onClear={clearSelection}
+  />
 
   {#if organizations.length > 0}
     <div class="border-border divide-border divide-y rounded-lg border">
@@ -158,7 +114,7 @@
               class="text-destructive hover:text-destructive"
               onclick={() => openDelete(organization)}
             >
-              Delete
+              Archive
             </Button>
           </div>
         </div>

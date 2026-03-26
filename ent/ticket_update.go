@@ -18,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
@@ -619,6 +620,21 @@ func (_u *TicketUpdate) AddRepoScopes(v ...*TicketRepoScope) *TicketUpdate {
 	return _u.AddRepoScopeIDs(ids...)
 }
 
+// AddCommentIDs adds the "comments" edge to the TicketComment entity by IDs.
+func (_u *TicketUpdate) AddCommentIDs(ids ...uuid.UUID) *TicketUpdate {
+	_u.mutation.AddCommentIDs(ids...)
+	return _u
+}
+
+// AddComments adds the "comments" edges to the TicketComment entity.
+func (_u *TicketUpdate) AddComments(v ...*TicketComment) *TicketUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCommentIDs(ids...)
+}
+
 // AddExternalLinkIDs adds the "external_links" edge to the TicketExternalLink entity by IDs.
 func (_u *TicketUpdate) AddExternalLinkIDs(ids ...uuid.UUID) *TicketUpdate {
 	_u.mutation.AddExternalLinkIDs(ids...)
@@ -775,6 +791,27 @@ func (_u *TicketUpdate) RemoveRepoScopes(v ...*TicketRepoScope) *TicketUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveRepoScopeIDs(ids...)
+}
+
+// ClearComments clears all "comments" edges to the TicketComment entity.
+func (_u *TicketUpdate) ClearComments() *TicketUpdate {
+	_u.mutation.ClearComments()
+	return _u
+}
+
+// RemoveCommentIDs removes the "comments" edge to TicketComment entities by IDs.
+func (_u *TicketUpdate) RemoveCommentIDs(ids ...uuid.UUID) *TicketUpdate {
+	_u.mutation.RemoveCommentIDs(ids...)
+	return _u
+}
+
+// RemoveComments removes "comments" edges to TicketComment entities.
+func (_u *TicketUpdate) RemoveComments(v ...*TicketComment) *TicketUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCommentIDs(ids...)
 }
 
 // ClearExternalLinks clears all "external_links" edges to the TicketExternalLink entity.
@@ -1325,6 +1362,51 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketreposcope.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CommentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.CommentsTable,
+			Columns: []string{ticket.CommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcomment.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCommentsIDs(); len(nodes) > 0 && !_u.mutation.CommentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.CommentsTable,
+			Columns: []string{ticket.CommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcomment.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CommentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.CommentsTable,
+			Columns: []string{ticket.CommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcomment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -2157,6 +2239,21 @@ func (_u *TicketUpdateOne) AddRepoScopes(v ...*TicketRepoScope) *TicketUpdateOne
 	return _u.AddRepoScopeIDs(ids...)
 }
 
+// AddCommentIDs adds the "comments" edge to the TicketComment entity by IDs.
+func (_u *TicketUpdateOne) AddCommentIDs(ids ...uuid.UUID) *TicketUpdateOne {
+	_u.mutation.AddCommentIDs(ids...)
+	return _u
+}
+
+// AddComments adds the "comments" edges to the TicketComment entity.
+func (_u *TicketUpdateOne) AddComments(v ...*TicketComment) *TicketUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCommentIDs(ids...)
+}
+
 // AddExternalLinkIDs adds the "external_links" edge to the TicketExternalLink entity by IDs.
 func (_u *TicketUpdateOne) AddExternalLinkIDs(ids ...uuid.UUID) *TicketUpdateOne {
 	_u.mutation.AddExternalLinkIDs(ids...)
@@ -2313,6 +2410,27 @@ func (_u *TicketUpdateOne) RemoveRepoScopes(v ...*TicketRepoScope) *TicketUpdate
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveRepoScopeIDs(ids...)
+}
+
+// ClearComments clears all "comments" edges to the TicketComment entity.
+func (_u *TicketUpdateOne) ClearComments() *TicketUpdateOne {
+	_u.mutation.ClearComments()
+	return _u
+}
+
+// RemoveCommentIDs removes the "comments" edge to TicketComment entities by IDs.
+func (_u *TicketUpdateOne) RemoveCommentIDs(ids ...uuid.UUID) *TicketUpdateOne {
+	_u.mutation.RemoveCommentIDs(ids...)
+	return _u
+}
+
+// RemoveComments removes "comments" edges to TicketComment entities.
+func (_u *TicketUpdateOne) RemoveComments(v ...*TicketComment) *TicketUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCommentIDs(ids...)
 }
 
 // ClearExternalLinks clears all "external_links" edges to the TicketExternalLink entity.
@@ -2893,6 +3011,51 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketreposcope.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CommentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.CommentsTable,
+			Columns: []string{ticket.CommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcomment.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCommentsIDs(); len(nodes) > 0 && !_u.mutation.CommentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.CommentsTable,
+			Columns: []string{ticket.CommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcomment.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CommentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.CommentsTable,
+			Columns: []string{ticket.CommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcomment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

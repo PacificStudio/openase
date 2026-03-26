@@ -2,7 +2,7 @@
   import { invalidateAll } from '$app/navigation'
   import type { Organization } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
-  import { deleteOrganization } from '$lib/api/openase'
+  import { archiveOrganization } from '$lib/api/openase'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
@@ -17,33 +17,33 @@
   } = $props()
 
   let confirmation = $state('')
-  let deleting = $state(false)
+  let archiving = $state(false)
   let error = $state('')
 
   const confirmed = $derived(confirmation === organization.name)
 
   function reset() {
     confirmation = ''
-    deleting = false
+    archiving = false
     error = ''
   }
 
-  async function handleDelete() {
+  async function handleArchive() {
     if (!confirmed) return
 
-    deleting = true
+    archiving = true
     error = ''
 
     try {
-      await deleteOrganization(organization.id)
+      await archiveOrganization(organization.id)
       open = false
       reset()
       await invalidateAll()
     } catch (caughtError) {
       error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete organization.'
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive organization.'
     } finally {
-      deleting = false
+      archiving = false
     }
   }
 </script>
@@ -56,10 +56,10 @@
 >
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Delete organization</Dialog.Title>
+      <Dialog.Title>Archive organization</Dialog.Title>
       <Dialog.Description>
-        This will permanently delete <strong>{organization.name}</strong> and all its providers and machines.
-        Active projects must be archived or deleted first.
+        This will archive <strong>{organization.name}</strong>, automatically archive every project
+        in it, and remove the organization from active navigation.
       </Dialog.Description>
     </Dialog.Header>
 
@@ -67,7 +67,7 @@
       class="space-y-4"
       onsubmit={(event) => {
         event.preventDefault()
-        void handleDelete()
+        void handleArchive()
       }}
     >
       <div class="space-y-2">
@@ -95,8 +95,8 @@
             <Button variant="outline" {...props}>Cancel</Button>
           {/snippet}
         </Dialog.Close>
-        <Button variant="destructive" type="submit" disabled={!confirmed || deleting}>
-          {deleting ? 'Deleting...' : 'Delete organization'}
+        <Button variant="destructive" type="submit" disabled={!confirmed || archiving}>
+          {archiving ? 'Archiving...' : 'Archive organization'}
         </Button>
       </Dialog.Footer>
     </form>

@@ -7,6 +7,7 @@ const organizationFixture: Organization = {
   id: 'org-1',
   name: 'Acme',
   slug: 'acme',
+  status: 'active',
   default_agent_provider_id: null,
 }
 

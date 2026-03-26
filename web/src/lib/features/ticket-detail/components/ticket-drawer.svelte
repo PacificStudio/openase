@@ -38,6 +38,7 @@
   import { connectTicketDetailStreams } from '../streams'
   import TicketDrawerContent from './ticket-drawer-content.svelte'
   import type { TicketDetail, TicketExternalLinkDraft } from '../types'
+
   let {
     open = $bindable(false),
     projectId,

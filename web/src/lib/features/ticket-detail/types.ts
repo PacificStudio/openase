@@ -76,7 +76,6 @@ export type TicketDetail = {
 
 export type TicketComment = {
   id: string
-  projectId: string
   ticketId: string
   body: string
   createdBy: string

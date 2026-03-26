@@ -59,7 +59,7 @@ type Service interface {
 	CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	UpdateOrganization(ctx context.Context, input domain.UpdateOrganization) (domain.Organization, error)
-	DeleteOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
+	ArchiveOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error)
 	ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error)
 	CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error)
 	GetMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error)
@@ -152,16 +152,8 @@ func (s *service) UpdateOrganization(ctx context.Context, input domain.UpdateOrg
 	return s.repo.UpdateOrganization(ctx, input)
 }
 
-func (s *service) DeleteOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error) {
-	activeCount, err := s.repo.CountActiveProjects(ctx, id)
-	if err != nil {
-		return domain.Organization{}, err
-	}
-	if activeCount > 0 {
-		return domain.Organization{}, fmt.Errorf("cannot delete organization with %d active project(s); archive or delete them first: %w", activeCount, ErrConflict)
-	}
-
-	return s.repo.DeleteOrganization(ctx, id)
+func (s *service) ArchiveOrganization(ctx context.Context, id uuid.UUID) (domain.Organization, error) {
+	return s.repo.ArchiveOrganization(ctx, id)
 }
 
 func (s *service) ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error) {

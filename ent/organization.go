@@ -22,6 +22,8 @@ type Organization struct {
 	Name string `json:"name,omitempty"`
 	// Slug holds the value of the "slug" field.
 	Slug string `json:"slug,omitempty"`
+	// Status holds the value of the "status" field.
+	Status organization.Status `json:"status,omitempty"`
 	// DefaultAgentProviderID holds the value of the "default_agent_provider_id" field.
 	DefaultAgentProviderID *uuid.UUID `json:"default_agent_provider_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -101,7 +103,7 @@ func (*Organization) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case organization.FieldDefaultAgentProviderID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case organization.FieldName, organization.FieldSlug:
+		case organization.FieldName, organization.FieldSlug, organization.FieldStatus:
 			values[i] = new(sql.NullString)
 		case organization.FieldID:
 			values[i] = new(uuid.UUID)
@@ -137,6 +139,12 @@ func (_m *Organization) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field slug", values[i])
 			} else if value.Valid {
 				_m.Slug = value.String
+			}
+		case organization.FieldStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field status", values[i])
+			} else if value.Valid {
+				_m.Status = organization.Status(value.String)
 			}
 		case organization.FieldDefaultAgentProviderID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -211,6 +219,9 @@ func (_m *Organization) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("slug=")
 	builder.WriteString(_m.Slug)
+	builder.WriteString(", ")
+	builder.WriteString("status=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Status))
 	builder.WriteString(", ")
 	if v := _m.DefaultAgentProviderID; v != nil {
 		builder.WriteString("default_agent_provider_id=")

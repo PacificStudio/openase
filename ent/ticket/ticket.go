@@ -90,6 +90,8 @@ const (
 	EdgeChildren = "children"
 	// EdgeRepoScopes holds the string denoting the repo_scopes edge name in mutations.
 	EdgeRepoScopes = "repo_scopes"
+	// EdgeComments holds the string denoting the comments edge name in mutations.
+	EdgeComments = "comments"
 	// EdgeExternalLinks holds the string denoting the external_links edge name in mutations.
 	EdgeExternalLinks = "external_links"
 	// EdgeAgentTokens holds the string denoting the agent_tokens edge name in mutations.
@@ -152,6 +154,13 @@ const (
 	RepoScopesInverseTable = "ticket_repo_scopes"
 	// RepoScopesColumn is the table column denoting the repo_scopes relation/edge.
 	RepoScopesColumn = "ticket_id"
+	// CommentsTable is the table that holds the comments relation/edge.
+	CommentsTable = "ticket_comments"
+	// CommentsInverseTable is the table name for the TicketComment entity.
+	// It exists in this package in order to avoid circular dependency with the "ticketcomment" package.
+	CommentsInverseTable = "ticket_comments"
+	// CommentsColumn is the table column denoting the comments relation/edge.
+	CommentsColumn = "ticket_id"
 	// ExternalLinksTable is the table that holds the external_links relation/edge.
 	ExternalLinksTable = "ticket_external_links"
 	// ExternalLinksInverseTable is the table name for the TicketExternalLink entity.
@@ -541,6 +550,20 @@ func ByRepoScopes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByCommentsCount orders the results by comments count.
+func ByCommentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCommentsStep(), opts...)
+	}
+}
+
+// ByComments orders the results by comments terms.
+func ByComments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCommentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByExternalLinksCount orders the results by external_links count.
 func ByExternalLinksCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -664,6 +687,13 @@ func newRepoScopesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(RepoScopesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, RepoScopesTable, RepoScopesColumn),
+	)
+}
+func newCommentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CommentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CommentsTable, CommentsColumn),
 	)
 }
 func newExternalLinksStep() *sqlgraph.Step {
