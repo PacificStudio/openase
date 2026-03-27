@@ -1,4 +1,5 @@
 import { ApiError } from '$lib/api/client'
+import { toastStore } from '$lib/stores/toast.svelte'
 import { fetchTicketDetailContext } from './context'
 import type {
   HookExecution,
@@ -18,8 +19,6 @@ type LoadOptions = {
 export function createTicketDrawerState() {
   let loading = $state(false)
   let error = $state('')
-  let mutationError = $state('')
-  let mutationNotice = $state('')
   let ticket = $state<TicketDetail | null>(null)
   let comments = $state<TicketComment[]>([])
   let hooks = $state<HookExecution[]>([])
@@ -46,12 +45,6 @@ export function createTicketDrawerState() {
     },
     get error() {
       return error
-    },
-    get mutationError() {
-      return mutationError
-    },
-    get mutationNotice() {
-      return mutationNotice
     },
     get ticket() {
       return ticket
@@ -147,16 +140,13 @@ export function createTicketDrawerState() {
       deletingCommentId = value
     },
     clearMutationMessages() {
-      mutationError = ''
-      mutationNotice = ''
+      // no-op: toasts auto-dismiss
     },
     setMutationError(message: string) {
-      mutationNotice = ''
-      mutationError = message
+      toastStore.error(message)
     },
     setMutationNotice(message: string) {
-      mutationError = ''
-      mutationNotice = message
+      toastStore.success(message)
     },
     async load(projectId: string, ticketId: string, options: LoadOptions = {}) {
       const requestId = ++loadRequestId
@@ -164,11 +154,6 @@ export function createTicketDrawerState() {
         loading = true
         error = ''
       }
-      if (!options.preserveMessages) {
-        mutationError = ''
-        mutationNotice = ''
-      }
-
       try {
         const detailContext = await fetchTicketDetailContext(projectId, ticketId)
         if (requestId !== loadRequestId) return
@@ -185,7 +170,7 @@ export function createTicketDrawerState() {
         const message =
           caughtError instanceof ApiError ? caughtError.detail : 'Failed to load ticket detail.'
         if (options.background) {
-          mutationError = message
+          toastStore.error(message)
         } else {
           error = message
         }
@@ -199,8 +184,6 @@ export function createTicketDrawerState() {
       loadRequestId += 1
       loading = false
       error = ''
-      mutationError = ''
-      mutationNotice = ''
       ticket = null
       comments = []
       hooks = []

@@ -8,6 +8,7 @@
     capabilityStateLabel,
   } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
@@ -40,8 +41,6 @@
   let loading = $state(false)
   let loadError = $state('')
   let saving = $state(false)
-  let saveError = $state('')
-  let feedback = $state('')
   let selectedDefaultProviderId = $state('')
 
   const selectedDefaultProvider = $derived(
@@ -107,31 +106,32 @@
   async function handleSaveDefaultProvider() {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      saveError = 'Project context is unavailable.'
+      toastStore.error('Project context is unavailable.')
       return
     }
 
     const parsed = parseDefaultProviderSelection(selectedDefaultProviderId, providers)
     if (!parsed.ok) {
-      saveError = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
     saving = true
-    saveError = ''
-    feedback = ''
 
     try {
       const payload = await updateProject(projectId, {
         default_agent_provider_id: parsed.value,
       })
       appStore.currentProject = payload.project
-      feedback = parsed.value
-        ? `Default agent provider set to ${selectedDefaultProvider?.name ?? 'the selected provider'}.`
-        : 'Project now inherits the organization default provider.'
+      toastStore.success(
+        parsed.value
+          ? `Default agent provider set to ${selectedDefaultProvider?.name ?? 'the selected provider'}.`
+          : 'Project now inherits the organization default provider.',
+      )
     } catch (caughtError) {
-      saveError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save default provider.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save default provider.',
+      )
     } finally {
       saving = false
     }
@@ -182,8 +182,6 @@
                 value={selectedDefaultProviderId || inheritProviderValue}
                 onValueChange={(value) => {
                   selectedDefaultProviderId = value === inheritProviderValue ? '' : value || ''
-                  feedback = ''
-                  saveError = ''
                 }}
               >
                 <Select.Trigger class="w-full">
@@ -270,16 +268,10 @@
               {/if}
             </div>
           </Card.Content>
-          <Card.Footer class="flex flex-col items-start gap-3">
+          <Card.Footer>
             <Button onclick={handleSaveDefaultProvider} disabled={saving || providers.length === 0}>
               {saving ? 'Saving…' : 'Save default provider'}
             </Button>
-            {#if feedback}
-              <div class="text-sm text-emerald-400">{feedback}</div>
-            {/if}
-            {#if saveError}
-              <div class="text-destructive text-sm">{saveError}</div>
-            {/if}
           </Card.Footer>
         </Card.Root>
 

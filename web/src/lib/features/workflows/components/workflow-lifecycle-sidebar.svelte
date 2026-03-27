@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
   import type { WorkflowLifecyclePayload } from '../workflow-lifecycle'
   import {
@@ -29,20 +30,18 @@
 
   let saving = $state(false)
   let deleting = $state(false)
-  let error = $state('')
-  let statusMessage = $state('')
 
   async function handleSave(payload: WorkflowLifecyclePayload) {
     saving = true
-    error = ''
-    statusMessage = ''
 
     try {
       const updated = await saveWorkflowLifecycle(workflow.id, payload, statuses)
       onWorkflowsChange?.(workflows.map((item) => (item.id === updated.id ? updated : item)))
-      statusMessage = 'Workflow updated.'
+      toastStore.success('Workflow updated.')
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow.',
+      )
     } finally {
       saving = false
     }
@@ -50,17 +49,17 @@
 
   async function handleDelete() {
     deleting = true
-    error = ''
-    statusMessage = ''
 
     try {
       await destroyWorkflow(workflow.id)
       const nextState = removeWorkflowFromList(workflows, workflow.id)
       onWorkflowsChange?.(nextState.remaining)
       onSelectedIdChange?.(nextState.nextSelectedId)
-      statusMessage = 'Workflow deleted.'
+      toastStore.success('Workflow deleted.')
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete workflow.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete workflow.',
+      )
     } finally {
       deleting = false
     }
@@ -73,8 +72,6 @@
   {agentOptions}
   {saving}
   {deleting}
-  {statusMessage}
-  {error}
   class={className}
   onSave={(payload) => void handleSave(payload)}
   onDelete={() => void handleDelete()}

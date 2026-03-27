@@ -26,8 +26,6 @@
     saving = false,
     testing = false,
     deleting = false,
-    feedback = '',
-    error = '',
     onDraftChange,
     onSave,
     onTest,
@@ -43,8 +41,6 @@
     saving?: boolean
     testing?: boolean
     deleting?: boolean
-    feedback?: string
-    error?: string
     onDraftChange?: (field: MachineDraftField, value: string) => void
     onSave?: () => void
     onTest?: () => void
@@ -233,14 +229,6 @@
           <p class="text-muted-foreground text-xs">One `KEY=VALUE` pair per line.</p>
         </div>
       </div>
-
-      {#if feedback}
-        <p class="text-sm text-emerald-400">{feedback}</p>
-      {/if}
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
     </div>
   </div>
 

@@ -23,8 +23,6 @@
     machines,
     draft,
     saving = false,
-    feedback = '',
-    error = '',
     onDraftChange,
     onSave,
   }: {
@@ -33,8 +31,6 @@
     machines: Machine[]
     draft: ProviderDraft
     saving?: boolean
-    feedback?: string
-    error?: string
     onDraftChange?: (field: ProviderDraftField, value: string) => void
     onSave?: () => void
   } = $props()
@@ -214,14 +210,6 @@
               />
             </div>
           </div>
-
-          {#if feedback}
-            <p class="text-sm text-emerald-400">{feedback}</p>
-          {/if}
-
-          {#if error}
-            <p class="text-destructive text-sm">{error}</p>
-          {/if}
         </div>
       </div>
 

@@ -12,6 +12,7 @@
     type ChannelUpdateInput,
   } from '../notification-channels'
   import { actionErrorMessage } from '../notification-support'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import NotificationChannelEditor from './notification-channel-editor.svelte'
 
   let {
@@ -36,8 +37,6 @@
   let deleting = $state(false)
   let testing = $state(false)
   let toggling = $state(false)
-  let feedback = $state('')
-  let error = $state('')
 
   const selectedChannel = $derived(channels.find((channel) => channel.id === selectedId) ?? null)
 
@@ -51,28 +50,21 @@
 
   function selectChannel(channelId: string) {
     selectedId = channelId
-    feedback = ''
-    error = ''
   }
 
   function selectNewChannel() {
     selectedId = 'new'
-    feedback = ''
-    error = ''
   }
 
   async function handleSave() {
-    feedback = ''
-    error = ''
-
     if (selectedChannel) {
       const parsed = buildUpdateChannelInput(draft, selectedChannel)
       if (!parsed.ok) {
-        error = parsed.error
+        toastStore.error(parsed.error)
         return
       }
       if (!parsed.value.changed) {
-        feedback = 'No channel changes to save.'
+        toastStore.info('No channel changes to save.')
         return
       }
 
@@ -80,9 +72,9 @@
       try {
         const channel = await onUpdate(selectedChannel.id, parsed.value.value)
         selectedId = channel.id
-        feedback = 'Channel updated.'
+        toastStore.success('Channel updated.')
       } catch (caughtError) {
-        error = actionErrorMessage(caughtError, 'Failed to update channel.')
+        toastStore.error(actionErrorMessage(caughtError, 'Failed to update channel.'))
       } finally {
         saving = false
       }
@@ -91,7 +83,7 @@
 
     const parsed = buildCreateChannelInput(draft)
     if (!parsed.ok) {
-      error = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
@@ -99,9 +91,9 @@
     try {
       const channel = await onCreate(parsed.value)
       selectedId = channel.id
-      feedback = 'Channel created.'
+      toastStore.success('Channel created.')
     } catch (caughtError) {
-      error = actionErrorMessage(caughtError, 'Failed to create channel.')
+      toastStore.error(actionErrorMessage(caughtError, 'Failed to create channel.'))
     } finally {
       saving = false
     }
@@ -111,15 +103,13 @@
     if (!selectedChannel) return
     if (!window.confirm(`Delete channel "${selectedChannel.name}"?`)) return
 
-    feedback = ''
-    error = ''
     deleting = true
     try {
       await onDelete(selectedChannel.id)
       selectedId = 'new'
-      feedback = 'Channel deleted.'
+      toastStore.success('Channel deleted.')
     } catch (caughtError) {
-      error = actionErrorMessage(caughtError, 'Failed to delete channel.')
+      toastStore.error(actionErrorMessage(caughtError, 'Failed to delete channel.'))
     } finally {
       deleting = false
     }
@@ -128,15 +118,13 @@
   async function handleToggle() {
     if (!selectedChannel) return
 
-    feedback = ''
-    error = ''
     toggling = true
     try {
       const channel = await onToggle(selectedChannel.id, !selectedChannel.is_enabled)
       selectedId = channel.id
-      feedback = channel.is_enabled ? 'Channel enabled.' : 'Channel disabled.'
+      toastStore.success(channel.is_enabled ? 'Channel enabled.' : 'Channel disabled.')
     } catch (caughtError) {
-      error = actionErrorMessage(caughtError, 'Failed to update channel state.')
+      toastStore.error(actionErrorMessage(caughtError, 'Failed to update channel state.'))
     } finally {
       toggling = false
     }
@@ -145,14 +133,12 @@
   async function handleTest() {
     if (!selectedChannel) return
 
-    feedback = ''
-    error = ''
     testing = true
     try {
       await onTest(selectedChannel.id)
-      feedback = 'Test notification sent.'
+      toastStore.success('Test notification sent.')
     } catch (caughtError) {
-      error = actionErrorMessage(caughtError, 'Failed to send test notification.')
+      toastStore.error(actionErrorMessage(caughtError, 'Failed to send test notification.'))
     } finally {
       testing = false
     }
@@ -200,8 +186,6 @@
       {deleting}
       {testing}
       {toggling}
-      {feedback}
-      {error}
       onDraftChange={(nextDraft) => {
         draft = nextDraft
       }}

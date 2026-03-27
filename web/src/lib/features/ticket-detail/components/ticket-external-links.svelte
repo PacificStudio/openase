@@ -5,6 +5,7 @@
   import { Label } from '$ui/label'
   import Link2 from '@lucide/svelte/icons/link-2'
   import Trash2 from '@lucide/svelte/icons/trash-2'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import type { TicketExternalLink, TicketExternalLinkDraft } from '../types'
 
   let {
@@ -29,8 +30,6 @@
     status: '',
     relation: 'references',
   })
-  let error = $state('')
-
   async function handleSubmit() {
     const normalized: TicketExternalLinkDraft = {
       type: draft.type.trim().toLowerCase(),
@@ -42,19 +41,18 @@
     }
 
     if (!normalized.type) {
-      error = 'Link type is required.'
+      toastStore.error('Link type is required.')
       return
     }
     if (!normalized.url) {
-      error = 'Link URL is required.'
+      toastStore.error('Link URL is required.')
       return
     }
     if (!normalized.externalId) {
-      error = 'External ID is required.'
+      toastStore.error('External ID is required.')
       return
     }
 
-    error = ''
     const accepted = await onCreate?.(normalized)
     if (accepted) {
       draft = {
@@ -154,10 +152,6 @@
         <Input id="external-link-relation" bind:value={draft.relation} placeholder="references" />
       </div>
     </div>
-
-    {#if error}
-      <p class="text-destructive mt-3 text-xs">{error}</p>
-    {/if}
 
     <div class="mt-3 flex justify-end">
       <Button onclick={handleSubmit} disabled={creating}>
