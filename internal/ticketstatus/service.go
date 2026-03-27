@@ -1063,11 +1063,16 @@ func sortStatusesForBoard(stages []Stage, statuses []Status) {
 }
 
 func buildStatusGroups(stages []Stage, statuses []Status) []StatusGroup {
+	stageSet := make(map[uuid.UUID]struct{}, len(stages))
+	for _, stage := range stages {
+		stageSet[stage.ID] = struct{}{}
+	}
+
 	grouped := make(map[uuid.UUID][]Status, len(stages))
 	ungrouped := make([]Status, 0)
 	for _, status := range statuses {
 		if status.StageID != nil {
-			if _, ok := grouped[*status.StageID]; ok || hasStage(stages, *status.StageID) {
+			if _, ok := stageSet[*status.StageID]; ok {
 				grouped[*status.StageID] = append(grouped[*status.StageID], status)
 				continue
 			}
@@ -1093,15 +1098,6 @@ func buildStatusGroups(stages []Stage, statuses []Status) []StatusGroup {
 		})
 	}
 	return groups
-}
-
-func hasStage(stages []Stage, stageID uuid.UUID) bool {
-	for _, stage := range stages {
-		if stage.ID == stageID {
-			return true
-		}
-	}
-	return false
 }
 
 func mapStages(stages []*ent.TicketStage) []Stage {
