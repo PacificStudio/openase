@@ -28,6 +28,7 @@ const sectionLabels: Record<ProjectSection, string> = {
   machines: 'Machines',
   activity: 'Activity',
   workflows: 'Workflows',
+  'scheduled-jobs': 'Scheduled Jobs',
   settings: 'Settings',
 }
 

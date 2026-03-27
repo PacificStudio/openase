@@ -26,7 +26,7 @@
   import type { StatusPayload } from '$lib/api/contracts'
   import { connectEventStream } from '$lib/api/sse'
   import StatusSettingsCreate from './status-settings-create.svelte'
-  import StatusSettingsRow from './status-settings-row.svelte'
+  import StatusSettingsList from './status-settings-list.svelte'
   import StatusStageConcurrency from './status-stage-concurrency.svelte'
   import { startStatusSettingsStageRuntimeSync } from './status-settings-stage-runtime'
   let statuses = $state<EditableStatus[]>([])
@@ -69,25 +69,18 @@
       loadStatuses: listStatuses,
       connectEventStream,
       applySnapshot: assignStatuses,
-      setLoading: (nextLoading) => {
-        loading = nextLoading
-      },
-      onInitialError: (message) => {
-        toastStore.error(message)
-      },
+      setLoading: (nextLoading) => (loading = nextLoading),
+      onInitialError: toastStore.error,
       onRefreshError: (error) => {
         console.error('Failed to refresh status settings:', error)
       },
     })
 
-    return () => {
-      stopSync()
-    }
+    return stopSync
   })
 
   async function reloadStatuses(projectId: string) {
-    const payload = await listStatuses(projectId)
-    assignStatuses(payload)
+    assignStatuses(await listStatuses(projectId))
   }
 
   async function handleCreate() {
@@ -99,10 +92,7 @@
       color: createColor,
       isDefault: createDefault,
     })
-    if (!parsed.ok) {
-      toastStore.error(parsed.error)
-      return
-    }
+    if (!parsed.ok) return void toastStore.error(parsed.error)
 
     creating = true
 
@@ -151,6 +141,27 @@
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to update status.',
+      )
+    } finally {
+      busyStatusId = ''
+    }
+  }
+
+  async function handleSetDefault(statusId: string) {
+    const projectId = appStore.currentProject?.id
+    const current = statuses.find((status) => status.id === statusId)
+    if (!projectId || !current || current.isDefault) return
+
+    busyStatusId = statusId
+
+    try {
+      await updateStatus(statusId, { is_default: true })
+      await reloadStatuses(projectId)
+      statusSync.touch()
+      toastStore.success(`"${current.name}" is now the default status.`)
+    } catch (caughtError) {
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to set default status.',
       )
     } finally {
       busyStatusId = ''
@@ -271,29 +282,14 @@
     onReset={handleReset}
   />
 
-  {#if loading}
-    <div class="text-muted-foreground text-sm">Loading statuses…</div>
-  {:else}
-    <div class="space-y-2">
-      {#if statuses.length === 0}
-        <div class="text-muted-foreground rounded-md border border-dashed px-4 py-6 text-sm">
-          No statuses yet. Add one above or use reset to seed the default workflow template.
-        </div>
-      {:else}
-        {#each statuses as status, index (status.id)}
-          <StatusSettingsRow
-            {status}
-            order={index}
-            busy={busyStatusId === status.id || resetting || loading}
-            canMoveUp={index > 0}
-            canMoveDown={index < statuses.length - 1}
-            onSave={handleSave}
-            onDelete={handleDelete}
-            onMoveUp={(statusId) => handleMove(statusId, 'up')}
-            onMoveDown={(statusId) => handleMove(statusId, 'down')}
-          />
-        {/each}
-      {/if}
-    </div>
-  {/if}
+  <StatusSettingsList
+    {statuses}
+    {loading}
+    {resetting}
+    {busyStatusId}
+    onSave={handleSave}
+    onDelete={handleDelete}
+    onMove={handleMove}
+    onSetDefault={handleSetDefault}
+  />
 </div>

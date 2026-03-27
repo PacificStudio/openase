@@ -2,6 +2,7 @@
   import type { AgentProvider } from '$lib/api/contracts'
   import type { ProjectCreationDraft } from '$lib/features/catalog-creation/model'
   import { projectStatusOptions } from '$lib/features/catalog-creation/model'
+  import { providerAvailabilityLabel } from '$lib/features/providers'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
   import { Input } from '$ui/input'
@@ -28,7 +29,8 @@
   } = $props()
 
   function providerLabel(provider: AgentProvider) {
-    return provider.available ? provider.name : `${provider.name} (Unavailable)`
+    const availabilityLabel = providerAvailabilityLabel(provider.availability_state)
+    return `${provider.name} (${availabilityLabel})`
   }
 
   function selectedProviderLabel() {
