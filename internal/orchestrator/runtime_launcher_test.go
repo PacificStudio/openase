@@ -1459,8 +1459,8 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
-	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401'") {
-		t.Fatalf("expected remote process to cd into workspace, got %q", processSession.startedCommand)
+	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
+		t.Fatalf("expected remote process to cd into primary repo workspace, got %q", processSession.startedCommand)
 	}
 	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
 		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
