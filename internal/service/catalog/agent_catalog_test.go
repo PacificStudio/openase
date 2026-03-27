@@ -274,6 +274,78 @@ func TestArchiveOrganizationDelegatesToRepository(t *testing.T) {
 	}
 }
 
+func TestTestMachineConnectionPreservesExistingResourceSnapshot(t *testing.T) {
+	machineID := uuid.New()
+	orgID := uuid.New()
+	checkedAt := time.Now().UTC()
+	repo := &stubRepository{
+		machine: domain.Machine{
+			ID:             machineID,
+			OrganizationID: orgID,
+			Name:           "gpu-01",
+			Host:           "10.0.0.8",
+			Port:           22,
+			Status:         domain.MachineStatusOnline,
+			Resources: map[string]any{
+				"transport":           "ssh",
+				"cpu_usage_percent":   61.2,
+				"memory_total_gb":     64.0,
+				"memory_used_gb":      18.5,
+				"disk_available_gb":   220.0,
+				"gpu_dispatchable":    true,
+				"checked_at":          checkedAt.Add(-10 * time.Minute).Format(time.RFC3339),
+				"last_success":        true,
+				"monitor":             map[string]any{"l1": map[string]any{"reachable": true}},
+			},
+		},
+	}
+	tester := stubMachineTester{
+		probe: domain.MachineProbe{
+			CheckedAt: checkedAt,
+			Transport: "ssh",
+			Output:    "probe-ok",
+			Resources: map[string]any{
+				"transport":    "ssh",
+				"host":         "10.0.0.8",
+				"port":         22,
+				"checked_at":   checkedAt.Format(time.RFC3339),
+				"last_success": true,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, tester)
+
+	updated, probe, err := svc.TestMachineConnection(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("TestMachineConnection returned error: %v", err)
+	}
+	if probe.Transport != "ssh" {
+		t.Fatalf("expected ssh probe transport, got %+v", probe)
+	}
+	if repo.recordedMachineProbe == nil {
+		t.Fatal("expected machine probe to be recorded")
+	}
+	if got := repo.recordedMachineProbe.Resources["cpu_usage_percent"]; got != 61.2 {
+		t.Fatalf("expected cpu usage snapshot to survive probe, got %+v", repo.recordedMachineProbe.Resources)
+	}
+	if got := repo.recordedMachineProbe.Resources["memory_used_gb"]; got != 18.5 {
+		t.Fatalf("expected memory snapshot to survive probe, got %+v", repo.recordedMachineProbe.Resources)
+	}
+	connectionTest, ok := repo.recordedMachineProbe.Resources["connection_test"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected connection_test payload, got %+v", repo.recordedMachineProbe.Resources)
+	}
+	if connectionTest["last_success"] != true {
+		t.Fatalf("expected successful connection_test payload, got %+v", connectionTest)
+	}
+	if updated.Resources["cpu_usage_percent"] != 61.2 {
+		t.Fatalf("expected returned machine to retain cpu snapshot, got %+v", updated.Resources)
+	}
+	if updated.Resources["connection_test"] == nil {
+		t.Fatalf("expected returned machine to expose connection_test, got %+v", updated.Resources)
+	}
+}
+
 func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 	agentID := uuid.New()
 	runID := uuid.New()
@@ -342,6 +414,15 @@ func (r stubExecutableResolver) LookPath(name string) (string, error) {
 	return "", errors.New("not found")
 }
 
+type stubMachineTester struct {
+	probe domain.MachineProbe
+	err   error
+}
+
+func (s stubMachineTester) TestConnection(context.Context, domain.Machine) (domain.MachineProbe, error) {
+	return s.probe, s.err
+}
+
 type stubRepository struct {
 	createdProvider        *domain.CreateAgentProvider
 	updatedProvider        *domain.UpdateAgentProvider
@@ -353,6 +434,8 @@ type stubRepository struct {
 	listedProviders        []domain.AgentProvider
 	provider               domain.AgentProvider
 	agent                  domain.Agent
+	machine                domain.Machine
+	recordedMachineProbe   *domain.RecordMachineProbe
 }
 
 func (r *stubRepository) ListOrganizations(context.Context) ([]domain.Organization, error) {
@@ -397,7 +480,7 @@ func (r *stubRepository) CreateMachine(context.Context, domain.CreateMachine) (d
 }
 
 func (r *stubRepository) GetMachine(context.Context, uuid.UUID) (domain.Machine, error) {
-	return domain.Machine{}, nil
+	return r.machine, nil
 }
 
 func (r *stubRepository) UpdateMachine(context.Context, domain.UpdateMachine) (domain.Machine, error) {
@@ -408,7 +491,15 @@ func (r *stubRepository) DeleteMachine(context.Context, uuid.UUID) (domain.Machi
 	return domain.Machine{}, nil
 }
 
-func (r *stubRepository) RecordMachineProbe(context.Context, domain.RecordMachineProbe) error {
+func (r *stubRepository) RecordMachineProbe(_ context.Context, input domain.RecordMachineProbe) error {
+	return r.recordMachineProbe(input)
+}
+
+func (r *stubRepository) recordMachineProbe(input domain.RecordMachineProbe) error {
+	r.recordedMachineProbe = &input
+	r.machine.Status = input.Status
+	r.machine.LastHeartbeatAt = &input.LastHeartbeatAt
+	r.machine.Resources = cloneTestResources(input.Resources)
 	return nil
 }
 
@@ -563,6 +654,19 @@ func equalStrings(left []string, right []string) bool {
 	}
 
 	return true
+}
+
+func cloneTestResources(raw map[string]any) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(raw))
+	for key, value := range raw {
+		cloned[key] = value
+	}
+
+	return cloned
 }
 
 func providerAvailabilityResources(

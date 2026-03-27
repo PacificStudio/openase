@@ -189,12 +189,7 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 			ID:              id,
 			Status:          domainMachineFailureStatus(machine),
 			LastHeartbeatAt: checkedAt,
-			Resources: map[string]any{
-				"transport":    probe.Transport,
-				"error":        err.Error(),
-				"checked_at":   checkedAt.Format(time.RFC3339),
-				"last_success": false,
-			},
+			Resources: mergeMachineProbeResources(machine.Resources, probe, checkedAt, err),
 		})
 		if updateErr != nil {
 			return domain.Machine{}, domain.MachineProbe{}, fmt.Errorf("%w: %v (status update failed: %v)", ErrMachineProbeFailed, err, updateErr)
@@ -206,7 +201,7 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 		ID:              id,
 		Status:          domainMachineSuccessStatus(machine),
 		LastHeartbeatAt: probe.CheckedAt,
-		Resources:       cloneResources(probe.Resources),
+		Resources:       mergeMachineProbeResources(machine.Resources, probe, probe.CheckedAt, nil),
 	}); err != nil {
 		return domain.Machine{}, domain.MachineProbe{}, err
 	}
@@ -314,4 +309,34 @@ func cloneResources(raw map[string]any) map[string]any {
 	}
 
 	return cloned
+}
+
+func mergeMachineProbeResources(
+	base map[string]any,
+	probe domain.MachineProbe,
+	checkedAt time.Time,
+	probeErr error,
+) map[string]any {
+	merged := cloneResources(base)
+	if probe.Transport != "" {
+		merged["transport"] = probe.Transport
+	}
+
+	connectionTest := map[string]any{
+		"checked_at":   checkedAt.UTC().Format(time.RFC3339),
+		"transport":    probe.Transport,
+		"last_success": probeErr == nil,
+	}
+	if probeErr != nil {
+		connectionTest["error"] = probeErr.Error()
+	}
+	if probe.Output != "" {
+		connectionTest["output"] = probe.Output
+	}
+	if len(probe.Resources) > 0 {
+		connectionTest["resources"] = cloneResources(probe.Resources)
+	}
+	merged["connection_test"] = connectionTest
+
+	return merged
 }
