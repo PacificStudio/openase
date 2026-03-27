@@ -6,6 +6,9 @@
 :root {
   --font-sans: 'Inter', 'Noto Sans SC', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --scrollbar-thumb: color-mix(in oklab, var(--foreground) 18%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 28%, transparent);
+  --scrollbar-track: color-mix(in oklab, var(--foreground) 5%, transparent);
 
   /* Neutral base */
   --background: oklch(0.985 0 0);
@@ -132,5 +135,38 @@
       'calt' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }
