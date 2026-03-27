@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -20,6 +21,7 @@ import (
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
@@ -37,6 +39,8 @@ type RuntimeLauncher struct {
 	processManager provider.AgentCLIProcessManager
 	sshPool        *sshinfra.Pool
 	workflow       *workflowservice.Service
+	agentPlatform  runtimeAgentPlatform
+	platformAPIURL string
 	now            func() time.Time
 
 	sessionsMu sync.Mutex
@@ -46,6 +50,10 @@ type RuntimeLauncher struct {
 	executions   map[uuid.UUID]struct{}
 
 	tickets *ticketservice.Service
+}
+
+type runtimeAgentPlatform interface {
+	IssueToken(ctx context.Context, input agentplatform.IssueInput) (agentplatform.IssuedToken, error)
 }
 
 type runtimeAssignment struct {
@@ -78,6 +86,15 @@ func NewRuntimeLauncher(
 		executions:     map[uuid.UUID]struct{}{},
 		tickets:        ticketservice.NewService(client),
 	}
+}
+
+func (l *RuntimeLauncher) ConfigurePlatformEnvironment(apiURL string, agentPlatform runtimeAgentPlatform) {
+	if l == nil {
+		return
+	}
+
+	l.platformAPIURL = strings.TrimSpace(apiURL)
+	l.agentPlatform = agentPlatform
 }
 
 func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
@@ -476,6 +493,18 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 		return nil, fmt.Errorf("parse agent cli command: %w", err)
 	}
 	environment := buildAgentCLIEnvironment(machine.EnvVars, launchContext.agent.Edges.Provider.AuthConfig)
+	platformEnvironment, err := l.buildAgentPlatformEnvironment(ctx, launchContext)
+	if err != nil {
+		return nil, err
+	}
+	environment = append(environment, platformEnvironment...)
+	if !remote {
+		launcherEnvironment, err := buildLocalOpenASEEnvironment()
+		if err != nil {
+			return nil, err
+		}
+		environment = append(environment, launcherEnvironment...)
+	}
 	if requiresMachineCodexReady(command, environment) {
 		if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {
 			return nil, fmt.Errorf("machine %s codex environment not ready: %s", machine.Name, reason)
@@ -503,7 +532,16 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 		}
 	}
 
-	workingDirectoryValue := workspaceItem.Path
+	workingDirectoryValue := resolveAgentWorkingDirectory(launchContext, workspaceItem)
+	if !remote && l.workflow != nil {
+		if _, err := l.workflow.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
+			ProjectID:     launchContext.project.ID,
+			WorkspaceRoot: workingDirectoryValue,
+			AdapterType:   string(launchContext.agent.Edges.Provider.AdapterType),
+		}); err != nil {
+			return nil, fmt.Errorf("prepare local codex workspace skills: %w", err)
+		}
+	}
 	workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
 	if err != nil {
 		return nil, fmt.Errorf("parse agent workspace path: %w", err)
@@ -564,6 +602,43 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 			},
 		},
 	})
+}
+
+func (l *RuntimeLauncher) buildAgentPlatformEnvironment(ctx context.Context, launchContext runtimeLaunchContext) ([]string, error) {
+	if l == nil || l.agentPlatform == nil {
+		return nil, nil
+	}
+	if launchContext.agent == nil || launchContext.project == nil || launchContext.ticket == nil {
+		return nil, fmt.Errorf("runtime launch context is incomplete for platform environment")
+	}
+
+	issued, err := l.agentPlatform.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   launchContext.agent.ID,
+		ProjectID: launchContext.project.ID,
+		TicketID:  launchContext.ticket.ID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("issue agent platform token: %w", err)
+	}
+
+	return agentplatform.BuildEnvironment(
+		l.platformAPIURL,
+		issued.Token,
+		launchContext.project.ID,
+		launchContext.ticket.ID,
+	), nil
+}
+
+func buildLocalOpenASEEnvironment() ([]string, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("resolve local openase executable: %w", err)
+	}
+	if strings.TrimSpace(executable) == "" {
+		return nil, fmt.Errorf("resolve local openase executable: empty path")
+	}
+
+	return []string{"OPENASE_REAL_BIN=" + executable}, nil
 }
 
 func (l *RuntimeLauncher) buildDeveloperInstructions(
@@ -828,6 +903,75 @@ func buildWorkspaceRepoInputs(projectRepos []*ent.ProjectRepo, ticketScopes []*e
 	}
 
 	return inputs
+}
+
+func resolveAgentWorkingDirectory(launchContext runtimeLaunchContext, workspaceItem workspaceinfra.Workspace) string {
+	if len(workspaceItem.Repos) == 0 {
+		return workspaceItem.Path
+	}
+
+	if primaryPath, ok := primaryPreparedRepoPath(launchContext, workspaceItem.Repos); ok {
+		return primaryPath
+	}
+
+	if len(workspaceItem.Repos) == 1 {
+		return workspaceItem.Repos[0].Path
+	}
+
+	return workspaceItem.Path
+}
+
+func primaryPreparedRepoPath(
+	launchContext runtimeLaunchContext,
+	repos []workspaceinfra.PreparedRepo,
+) (string, bool) {
+	primaryClonePath := primaryWorkspaceClonePath(launchContext)
+	if primaryClonePath == "" {
+		return "", false
+	}
+
+	for _, repo := range repos {
+		if repo.ClonePath == primaryClonePath {
+			return repo.Path, true
+		}
+	}
+
+	return "", false
+}
+
+func primaryWorkspaceClonePath(launchContext runtimeLaunchContext) string {
+	projectReposByID := make(map[uuid.UUID]*ent.ProjectRepo, len(launchContext.projectRepos))
+	for _, repo := range launchContext.projectRepos {
+		projectReposByID[repo.ID] = repo
+	}
+
+	for _, scope := range launchContext.ticketScopes {
+		if !scope.IsPrimaryScope {
+			continue
+		}
+		if repo := projectReposByID[scope.RepoID]; repo != nil {
+			return projectRepoClonePath(repo)
+		}
+	}
+
+	for _, repo := range launchContext.projectRepos {
+		if repo.IsPrimary {
+			return projectRepoClonePath(repo)
+		}
+	}
+
+	return ""
+}
+
+func projectRepoClonePath(repo *ent.ProjectRepo) string {
+	if repo == nil {
+		return ""
+	}
+	if clonePath := strings.TrimSpace(repo.ClonePath); clonePath != "" {
+		return clonePath
+	}
+
+	return repo.Name
 }
 
 func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {

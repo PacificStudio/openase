@@ -9,6 +9,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/labstack/echo/v4"
 )
 
@@ -31,6 +32,7 @@ type rawAgentUpdateTicketRequest struct {
 	Description *string `json:"description"`
 	ExternalRef *string `json:"external_ref"`
 	StatusID    *string `json:"status_id"`
+	StatusName  *string `json:"status_name"`
 }
 
 type rawAgentReportUsageRequest struct {
@@ -176,6 +178,9 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	if raw.StatusID != nil && raw.StatusName != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "status_id and status_name cannot be provided together")
+	}
 
 	input := ticketservice.UpdateInput{TicketID: ticketID}
 	if raw.Title != nil {
@@ -195,6 +200,17 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 		statusID, err := parseUUIDString("status_id", *raw.StatusID)
 		if err != nil {
 			return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+		}
+		input.StatusID = ticketservice.Some(statusID)
+		input.RestrictStatusToWorkflowFinishSet = true
+	}
+	if raw.StatusName != nil {
+		if s.ticketStatusService == nil {
+			return writeTicketStatusError(c, ticketstatus.ErrUnavailable)
+		}
+		statusID, err := s.ticketStatusService.ResolveStatusIDByName(c.Request().Context(), current.ProjectID, *raw.StatusName)
+		if err != nil {
+			return writeTicketStatusError(c, err)
 		}
 		input.StatusID = ticketservice.Some(statusID)
 		input.RestrictStatusToWorkflowFinishSet = true

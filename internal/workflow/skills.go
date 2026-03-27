@@ -233,6 +233,9 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 			return RefreshSkillsResult{}, fmt.Errorf("refresh skill %s: %w", name, err)
 		}
 	}
+	if err := syncProjectWrapperToWorkspace(storage.repoRoot, target.workspace.String()); err != nil {
+		return RefreshSkillsResult{}, fmt.Errorf("sync openase wrapper: %w", err)
+	}
 
 	return RefreshSkillsResult{
 		SkillsDir:      target.skillsDir.String(),
