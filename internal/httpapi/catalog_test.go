@@ -219,6 +219,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	if !secondRepoPayload.Repo.IsPrimary {
 		t.Fatalf("expected second repo to become primary, got %+v", secondRepoPayload.Repo)
 	}
+	if !strings.Contains(secondRepoRec.Body.String(), `"labels":[]`) {
+		t.Fatalf("expected second repo response to include empty labels array, got %s", secondRepoRec.Body.String())
+	}
 
 	listRepoRec := performJSONRequest(
 		t,
@@ -237,6 +240,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, listRepoRec, &listRepoPayload)
 	if len(listRepoPayload.Repos) != 2 || !listRepoPayload.Repos[0].IsPrimary {
 		t.Fatalf("unexpected repo list payload: %+v", listRepoPayload.Repos)
+	}
+	if !strings.Contains(listRepoRec.Body.String(), `"labels":[]`) {
+		t.Fatalf("expected repo list response to include empty labels array for unlabeled repos, got %s", listRepoRec.Body.String())
 	}
 
 	patchRepoRec := performJSONRequest(

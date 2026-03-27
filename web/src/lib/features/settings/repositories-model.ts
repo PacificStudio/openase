@@ -36,12 +36,14 @@ export function createEmptyRepositoryDraft(options: { isPrimary?: boolean } = {}
 }
 
 export function projectRepoToDraft(repo: ProjectRepoRecord): RepositoryDraft {
+  const labels = Array.isArray((repo as { labels?: unknown }).labels) ? repo.labels : []
+
   return {
     name: repo.name,
     repositoryURL: repo.repository_url,
     defaultBranch: repo.default_branch || 'main',
     clonePath: repo.clone_path ?? '',
-    labels: repo.labels.join(', '),
+    labels: labels.join(', '),
     isPrimary: repo.is_primary,
   }
 }

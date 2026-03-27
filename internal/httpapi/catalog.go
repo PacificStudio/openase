@@ -69,7 +69,7 @@ type projectRepoResponse struct {
 	DefaultBranch string   `json:"default_branch"`
 	ClonePath     *string  `json:"clone_path,omitempty"`
 	IsPrimary     bool     `json:"is_primary"`
-	Labels        []string `json:"labels,omitempty"`
+	Labels        []string `json:"labels"`
 }
 
 type ticketRepoScopeResponse struct {
