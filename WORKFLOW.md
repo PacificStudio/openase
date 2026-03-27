@@ -38,7 +38,7 @@ codex:
     networkAccess: true
 ---
 
-你正在处理一个由 GitHub Projects 跟踪的 GitHub 工单 `{{ issue.identifier }}`
+你正在处理一个由 GitHub Projects https://github.com/users/BetterAndBetterII/projects/2 跟踪的 GitHub 工单 `{{ issue.identifier }}`
 
 {% if attempt %}
 续跑上下文：
