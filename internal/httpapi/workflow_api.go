@@ -23,8 +23,8 @@ type workflowResponse struct {
 	StallTimeoutMinutes int            `json:"stall_timeout_minutes"`
 	Version             int            `json:"version"`
 	IsActive            bool           `json:"is_active"`
-	PickupStatusID      string         `json:"pickup_status_id"`
-	FinishStatusID      *string        `json:"finish_status_id,omitempty"`
+	PickupStatusIDs     []string       `json:"pickup_status_ids"`
+	FinishStatusIDs     []string       `json:"finish_status_ids"`
 }
 
 type harnessResponse struct {
@@ -305,8 +305,8 @@ func mapWorkflowResponse(item workflowservice.Workflow) workflowResponse {
 		StallTimeoutMinutes: item.StallTimeoutMinutes,
 		Version:             item.Version,
 		IsActive:            item.IsActive,
-		PickupStatusID:      item.PickupStatusID.String(),
-		FinishStatusID:      uuidToStringPointer(item.FinishStatusID),
+		PickupStatusIDs:     uuidSliceToStrings(item.PickupStatusIDs),
+		FinishStatusIDs:     uuidSliceToStrings(item.FinishStatusIDs),
 	}
 }
 

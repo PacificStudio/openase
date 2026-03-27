@@ -383,6 +383,90 @@ func TestAgentPlatformRejectsMissingOrCrossProjectToken(t *testing.T) {
 	}
 }
 
+func TestAgentPlatformTicketUpdateRejectsStatusOutsideWorkflowFinishSet(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
+	platformService := agentplatform.NewService(client)
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	reviewID := findStatusIDByName(t, statuses, "In Review")
+	cancelledID := findStatusIDByName(t, statuses, "Cancelled")
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(projectID).
+		SetAgentID(agentID).
+		SetName("Coding").
+		SetType("coding").
+		SetHarnessPath(".openase/harnesses/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID, reviewID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(currentTicketID).
+		SetWorkflowID(workflowItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind current ticket workflow: %v", err)
+	}
+
+	issued, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+
+	forbiddenRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		fmt.Sprintf(`{"status_id":"%s"}`, cancelledID),
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
+	)
+	if forbiddenRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected disallowed finish status to return 400, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
+	}
+
+	updateResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		map[string]any{"status_id": reviewID.String()},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&updateResp,
+	)
+	if updateResp.Ticket.StatusID != reviewID.String() {
+		t.Fatalf("expected allowed finish status %s, got %+v", reviewID, updateResp.Ticket)
+	}
+}
+
 func seedAgentPlatformHTTPFixture(ctx context.Context, t *testing.T, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 

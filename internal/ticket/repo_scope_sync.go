@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
@@ -182,19 +184,23 @@ func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.T
 		return fmt.Errorf("ticket %s has no workflow to finish", current.ID)
 	}
 
-	workflowItem, err := tx.Workflow.Get(ctx, *current.WorkflowID)
+	workflowItem, err := tx.Workflow.Query().
+		Where(entworkflow.IDEQ(*current.WorkflowID)).
+		WithFinishStatuses().
+		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return ErrWorkflowNotFound
 		}
 		return fmt.Errorf("get workflow for repo scope finish: %w", err)
 	}
-	if workflowItem.FinishStatusID == nil {
-		return fmt.Errorf("workflow %s has no finish status configured", workflowItem.ID)
+	finishStatusID, err := resolveRepoScopeFinishStatus(current.StatusID, workflowItem)
+	if err != nil {
+		return err
 	}
 
 	update := tx.Ticket.UpdateOneID(current.ID).
-		SetStatusID(*workflowItem.FinishStatusID).
+		SetStatusID(finishStatusID).
 		SetCompletedAt(timeNowUTC()).
 		ClearCurrentRunID()
 	if current.NextRetryAt != nil {
@@ -216,6 +222,31 @@ func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.T
 
 func timeNowUTC() time.Time {
 	return time.Now().UTC()
+}
+
+func resolveRepoScopeFinishStatus(currentStatusID uuid.UUID, workflowItem *ent.Workflow) (uuid.UUID, error) {
+	if workflowItem == nil {
+		return uuid.UUID{}, fmt.Errorf("workflow missing finish statuses")
+	}
+
+	finishStatusIDs := make([]uuid.UUID, 0, len(workflowItem.Edges.FinishStatuses))
+	for _, status := range workflowItem.Edges.FinishStatuses {
+		finishStatusIDs = append(finishStatusIDs, status.ID)
+	}
+	switch len(finishStatusIDs) {
+	case 0:
+		return uuid.UUID{}, fmt.Errorf("workflow %s has no finish statuses configured", workflowItem.ID)
+	case 1:
+		return finishStatusIDs[0], nil
+	default:
+		if slices.Contains(finishStatusIDs, currentStatusID) {
+			return currentStatusID, nil
+		}
+		return uuid.UUID{}, fmt.Errorf(
+			"workflow %s requires an explicit finish status selection from the configured finish set",
+			workflowItem.ID,
+		)
+	}
 }
 
 func normalizeGitHubRepositoryKey(rawURL string, rawFullName string) (string, error) {

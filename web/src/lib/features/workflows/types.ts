@@ -13,10 +13,10 @@ export type WorkflowSummary = {
   type: WorkflowType
   agentId: string | null
   harnessPath: string
-  pickupStatusId: string
-  pickupStatus: string
-  finishStatusId: string | null
-  finishStatus: string
+  pickupStatusIds: string[]
+  pickupStatusLabel: string
+  finishStatusIds: string[]
+  finishStatusLabel: string
   maxConcurrent: number
   maxRetry: number
   timeoutMinutes: number

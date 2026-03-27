@@ -919,8 +919,6 @@ var (
 		{Name: "is_active", Type: field.TypeBool, Default: true},
 		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
-		{Name: "pickup_status_id", Type: field.TypeUUID},
-		{Name: "finish_status_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// WorkflowsTable holds the schema information for the "workflows" table.
 	WorkflowsTable = &schema.Table{
@@ -940,18 +938,6 @@ var (
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
-			{
-				Symbol:     "workflows_ticket_status_pickup_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[13]},
-				RefColumns: []*schema.Column{TicketStatusColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-			{
-				Symbol:     "workflows_ticket_status_finish_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[14]},
-				RefColumns: []*schema.Column{TicketStatusColumns[0]},
-				OnDelete:   schema.SetNull,
-			},
 		},
 		Indexes: []*schema.Index{
 			{
@@ -963,6 +949,56 @@ var (
 				Name:    "workflow_project_id_is_active",
 				Unique:  false,
 				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[10]},
+			},
+		},
+	}
+	// WorkflowPickupStatusesColumns holds the columns for the "workflow_pickup_statuses" table.
+	WorkflowPickupStatusesColumns = []*schema.Column{
+		{Name: "workflow_id", Type: field.TypeUUID},
+		{Name: "ticket_status_id", Type: field.TypeUUID},
+	}
+	// WorkflowPickupStatusesTable holds the schema information for the "workflow_pickup_statuses" table.
+	WorkflowPickupStatusesTable = &schema.Table{
+		Name:       "workflow_pickup_statuses",
+		Columns:    WorkflowPickupStatusesColumns,
+		PrimaryKey: []*schema.Column{WorkflowPickupStatusesColumns[0], WorkflowPickupStatusesColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "workflow_pickup_statuses_workflow_id",
+				Columns:    []*schema.Column{WorkflowPickupStatusesColumns[0]},
+				RefColumns: []*schema.Column{WorkflowsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "workflow_pickup_statuses_ticket_status_id",
+				Columns:    []*schema.Column{WorkflowPickupStatusesColumns[1]},
+				RefColumns: []*schema.Column{TicketStatusColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// WorkflowFinishStatusesColumns holds the columns for the "workflow_finish_statuses" table.
+	WorkflowFinishStatusesColumns = []*schema.Column{
+		{Name: "workflow_id", Type: field.TypeUUID},
+		{Name: "ticket_status_id", Type: field.TypeUUID},
+	}
+	// WorkflowFinishStatusesTable holds the schema information for the "workflow_finish_statuses" table.
+	WorkflowFinishStatusesTable = &schema.Table{
+		Name:       "workflow_finish_statuses",
+		Columns:    WorkflowFinishStatusesColumns,
+		PrimaryKey: []*schema.Column{WorkflowFinishStatusesColumns[0], WorkflowFinishStatusesColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "workflow_finish_statuses_workflow_id",
+				Columns:    []*schema.Column{WorkflowFinishStatusesColumns[0]},
+				RefColumns: []*schema.Column{WorkflowsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "workflow_finish_statuses_ticket_status_id",
+				Columns:    []*schema.Column{WorkflowFinishStatusesColumns[1]},
+				RefColumns: []*schema.Column{TicketStatusColumns[0]},
+				OnDelete:   schema.Cascade,
 			},
 		},
 	}
@@ -988,6 +1024,8 @@ var (
 		TicketStagesTable,
 		TicketStatusTable,
 		WorkflowsTable,
+		WorkflowPickupStatusesTable,
+		WorkflowFinishStatusesTable,
 	}
 )
 
@@ -1034,6 +1072,8 @@ func init() {
 	TicketStatusTable.ForeignKeys[1].RefTable = TicketStagesTable
 	WorkflowsTable.ForeignKeys[0].RefTable = AgentsTable
 	WorkflowsTable.ForeignKeys[1].RefTable = ProjectsTable
-	WorkflowsTable.ForeignKeys[2].RefTable = TicketStatusTable
-	WorkflowsTable.ForeignKeys[3].RefTable = TicketStatusTable
+	WorkflowPickupStatusesTable.ForeignKeys[0].RefTable = WorkflowsTable
+	WorkflowPickupStatusesTable.ForeignKeys[1].RefTable = TicketStatusTable
+	WorkflowFinishStatusesTable.ForeignKeys[0].RefTable = WorkflowsTable
+	WorkflowFinishStatusesTable.ForeignKeys[1].RefTable = TicketStatusTable
 }

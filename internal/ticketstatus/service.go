@@ -882,19 +882,66 @@ func rebindStatusReferences(ctx context.Context, tx *ent.Tx, currentID uuid.UUID
 		Save(ctx); err != nil {
 		return fmt.Errorf("move tickets off deleted ticket status: %w", err)
 	}
-	if _, err := tx.Workflow.Update().
-		Where(entworkflow.PickupStatusIDEQ(currentID)).
-		SetPickupStatusID(workflowPickupReplacement).
-		Save(ctx); err != nil {
-		return fmt.Errorf("move workflow pickup status references: %w", err)
+
+	workflows, err := tx.Workflow.Query().
+		Where(
+			entworkflow.Or(
+				entworkflow.HasPickupStatusesWith(entticketstatus.IDEQ(currentID)),
+				entworkflow.HasFinishStatusesWith(entticketstatus.IDEQ(currentID)),
+			),
+		).
+		WithPickupStatuses().
+		WithFinishStatuses().
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("load workflow status references: %w", err)
 	}
-	if _, err := tx.Workflow.Update().
-		Where(entworkflow.FinishStatusIDEQ(currentID)).
-		SetFinishStatusID(workflowFinishReplacement).
-		Save(ctx); err != nil {
-		return fmt.Errorf("move workflow finish status references: %w", err)
+	for _, workflow := range workflows {
+		builder := tx.Workflow.UpdateOneID(workflow.ID)
+		pickupIDs, pickupChanged := replaceWorkflowStatusBinding(
+			workflow.Edges.PickupStatuses,
+			currentID,
+			workflowPickupReplacement,
+		)
+		if pickupChanged {
+			builder.ClearPickupStatuses()
+			builder.AddPickupStatusIDs(pickupIDs...)
+		}
+		finishIDs, finishChanged := replaceWorkflowStatusBinding(
+			workflow.Edges.FinishStatuses,
+			currentID,
+			workflowFinishReplacement,
+		)
+		if finishChanged {
+			builder.ClearFinishStatuses()
+			builder.AddFinishStatusIDs(finishIDs...)
+		}
+		if pickupChanged || finishChanged {
+			if _, err := builder.Save(ctx); err != nil {
+				return fmt.Errorf("move workflow status references for workflow %s: %w", workflow.ID, err)
+			}
+		}
 	}
 	return nil
+}
+
+func replaceWorkflowStatusBinding(statuses []*ent.TicketStatus, currentID uuid.UUID, replacementID uuid.UUID) ([]uuid.UUID, bool) {
+	ids := make([]uuid.UUID, 0, len(statuses))
+	changed := false
+	seen := make(map[uuid.UUID]struct{}, len(statuses))
+	for _, status := range statuses {
+		nextID := status.ID
+		if status.ID == currentID {
+			nextID = replacementID
+			changed = true
+		}
+		if _, ok := seen[nextID]; ok {
+			continue
+		}
+		seen[nextID] = struct{}{}
+		ids = append(ids, nextID)
+	}
+	return ids, changed
 }
 
 func upsertDefaultStages(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, existing []*ent.TicketStage) (map[string]uuid.UUID, error) {

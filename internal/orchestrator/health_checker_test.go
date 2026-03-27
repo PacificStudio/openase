@@ -25,8 +25,8 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(2).
 		SetStallTimeoutMinutes(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -103,8 +103,8 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(2).
 		SetStallTimeoutMinutes(5).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -175,8 +175,8 @@ func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(2).
 		SetStallTimeoutMinutes(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)

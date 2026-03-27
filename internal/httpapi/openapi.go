@@ -294,8 +294,8 @@ type OpenAPIWorkflow struct {
 	StallTimeoutMinutes int            `json:"stall_timeout_minutes"`
 	Version             int            `json:"version"`
 	IsActive            bool           `json:"is_active"`
-	PickupStatusID      string         `json:"pickup_status_id"`
-	FinishStatusID      *string        `json:"finish_status_id,omitempty"`
+	PickupStatusIDs     []string       `json:"pickup_status_ids"`
+	FinishStatusIDs     []string       `json:"finish_status_ids"`
 }
 
 type OpenAPIHarnessDocument struct {

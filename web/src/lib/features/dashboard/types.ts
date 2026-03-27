@@ -20,12 +20,20 @@ export type DashboardStats = {
   runningAgents: number
   activeTickets: number
   pendingApprovals: number
-  todayCost: number
-  weekCost: number
+  newTicketsTodayCost: number
+  projectCost: number
   ticketsCreatedToday: number
   ticketsCompletedToday: number
+  ticketInputTokens: number
+  ticketOutputTokens: number
+  totalAgentTokens: number
   avgCycleMinutes: number
   prMergeRate: number
+}
+
+export type DashboardUsageLeader = {
+  name: string
+  value: number
 }
 
 export type MemorySnapshot = SystemMemorySnapshot

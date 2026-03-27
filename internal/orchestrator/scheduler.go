@@ -91,6 +91,12 @@ func (s *Scheduler) RunTick(ctx context.Context) (TickReport, error) {
 			entworkflow.HasProjectWith(entproject.StatusEQ(entproject.StatusActive)),
 		).
 		WithProject().
+		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
+		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
 		Order(ent.Asc(entworkflow.FieldName)).
 		All(ctx)
 	if err != nil {
@@ -119,7 +125,7 @@ func (s *Scheduler) runWorkflowTick(ctx context.Context, workflow *ent.Workflow,
 	candidates, err := s.client.Ticket.Query().
 		Where(
 			entticket.ProjectIDEQ(workflow.ProjectID),
-			entticket.StatusIDEQ(workflow.PickupStatusID),
+			entticket.StatusIDIn(ticketStatusIDs(workflow.Edges.PickupStatuses)...),
 			entticket.CurrentRunIDIsNil(),
 			entticket.RetryPaused(false),
 			entticket.Or(
@@ -290,7 +296,7 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 	}
 
 	pickupStatus, err := tx.TicketStatus.Query().
-		Where(entticketstatus.IDEQ(workflow.PickupStatusID)).
+		Where(entticketstatus.IDEQ(ticket.StatusID)).
 		WithStage().
 		Only(ctx)
 	if err != nil {
@@ -340,7 +346,7 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 	claimedTickets, err := tx.Ticket.Update().
 		Where(
 			entticket.IDEQ(ticket.ID),
-			entticket.StatusIDEQ(workflow.PickupStatusID),
+			entticket.StatusIDIn(ticketStatusIDs(workflow.Edges.PickupStatuses)...),
 			entticket.CurrentRunIDIsNil(),
 			entticket.RetryPaused(false),
 			entticket.Or(
@@ -390,7 +396,9 @@ func (s *Scheduler) isTicketBlocked(ctx context.Context, ticketID uuid.UUID) (bo
 			entticketdependency.TypeEQ(entticketdependency.TypeBlocks),
 		).
 		WithSourceTicket(func(query *ent.TicketQuery) {
-			query.WithWorkflow()
+			query.WithWorkflow(func(workflowQuery *ent.WorkflowQuery) {
+				workflowQuery.WithFinishStatuses()
+			})
 			query.WithStatus()
 		}).
 		All(ctx)
@@ -416,7 +424,7 @@ func isDependencyResolved(ticket *ent.Ticket) bool {
 		return true
 	}
 
-	if workflow := ticket.Edges.Workflow; workflow != nil && workflow.FinishStatusID != nil && ticket.StatusID == *workflow.FinishStatusID {
+	if workflow := ticket.Edges.Workflow; workflow != nil && slices.Contains(ticketStatusIDs(workflow.Edges.FinishStatuses), ticket.StatusID) {
 		return true
 	}
 
@@ -470,6 +478,14 @@ func sortTicketsByPriorityAndAge(tickets []*ent.Ticket) {
 		}
 		return strings.Compare(left.Identifier, right.Identifier)
 	})
+}
+
+func ticketStatusIDs(statuses []*ent.TicketStatus) []uuid.UUID {
+	ids := make([]uuid.UUID, 0, len(statuses))
+	for _, status := range statuses {
+		ids = append(ids, status.ID)
+	}
+	return ids
 }
 
 func priorityRank(priority entticket.Priority) int {

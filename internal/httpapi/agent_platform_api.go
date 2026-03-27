@@ -30,6 +30,7 @@ type rawAgentUpdateTicketRequest struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	ExternalRef *string `json:"external_ref"`
+	StatusID    *string `json:"status_id"`
 }
 
 type rawAgentReportUsageRequest struct {
@@ -189,6 +190,14 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 	}
 	if raw.ExternalRef != nil {
 		input.ExternalRef = ticketservice.Some(strings.TrimSpace(*raw.ExternalRef))
+	}
+	if raw.StatusID != nil {
+		statusID, err := parseUUIDString("status_id", *raw.StatusID)
+		if err != nil {
+			return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+		}
+		input.StatusID = ticketservice.Some(statusID)
+		input.RestrictStatusToWorkflowFinishSet = true
 	}
 	input.CreatedBy = ticketservice.Some(claims.CreatedBy())
 

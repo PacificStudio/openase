@@ -72,8 +72,8 @@ const workflowFixture: Workflow = {
   stall_timeout_minutes: 10,
   version: 1,
   is_active: true,
-  pickup_status_id: 'status-1',
-  finish_status_id: null,
+  pickup_status_ids: ['status-1'],
+  finish_status_ids: ['status-2'],
 }
 
 const agentFixture: Agent = {

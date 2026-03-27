@@ -117,12 +117,12 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
 		map[string]any{
-			"agent_id":         agent.ID.String(),
-			"name":             "Coding Workflow",
-			"type":             "coding",
-			"pickup_status_id": todoID.String(),
-			"finish_status_id": doneID.String(),
-			"harness_content":  "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"agent_id":          agent.ID.String(),
+			"name":              "Coding Workflow",
+			"type":              "coding",
+			"pickup_status_ids": []string{todoID.String()},
+			"finish_status_ids": []string{doneID.String()},
+			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 			"hooks": map[string]any{
 				"workflow_hooks": map[string]any{
 					"on_activate": []map[string]any{{
@@ -221,7 +221,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
-		fmt.Sprintf(`{"agent_id":"%s","name":"Legacy Workflow","type":"coding","pickup_status_id":"%s","required_machine_labels":["gpu"]}`, agent.ID, todoID),
+		fmt.Sprintf(`{"agent_id":"%s","name":"Legacy Workflow","type":"coding","pickup_status_ids":["%s"],"required_machine_labels":["gpu"]}`, agent.ID, todoID),
 	)
 	if legacyCreateRec.Code != http.StatusBadRequest ||
 		!strings.Contains(legacyCreateRec.Body.String(), "invalid JSON body") ||
@@ -590,8 +590,8 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		TimeoutMinutes:      60,
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
-		PickupStatusID:      todoID,
-		FinishStatusID:      &doneID,
+		PickupStatusIDs:     workflowservice.MustStatusBindingSet(todoID),
+		FinishStatusIDs:     workflowservice.MustStatusBindingSet(doneID),
 	})
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -608,8 +608,8 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		TimeoutMinutes:      5,
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
-		PickupStatusID:      backlogID,
-		FinishStatusID:      &backlogID,
+		PickupStatusIDs:     workflowservice.MustStatusBindingSet(backlogID),
+		FinishStatusIDs:     workflowservice.MustStatusBindingSet(backlogID),
 	}); err != nil {
 		t.Fatalf("create dispatcher workflow: %v", err)
 	}

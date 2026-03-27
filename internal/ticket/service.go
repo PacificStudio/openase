@@ -37,6 +37,7 @@ var (
 	ErrTicketConflict        = errors.New("ticket identifier already exists in project")
 	ErrStatusNotFound        = errors.New("ticket status not found")
 	ErrWorkflowNotFound      = errors.New("workflow not found")
+	ErrStatusNotAllowed      = errors.New("ticket status is not allowed by the workflow finish set")
 	ErrParentTicketNotFound  = errors.New("parent ticket not found")
 	ErrTargetMachineNotFound = errors.New("target machine not found in project organization")
 	ErrDependencyNotFound    = errors.New("ticket dependency not found")
@@ -156,18 +157,19 @@ type CreateInput struct {
 
 // UpdateInput carries a partial ticket update request.
 type UpdateInput struct {
-	TicketID        uuid.UUID
-	Title           Optional[string]
-	Description     Optional[string]
-	StatusID        Optional[uuid.UUID]
-	Priority        Optional[entticket.Priority]
-	Type            Optional[entticket.Type]
-	WorkflowID      Optional[*uuid.UUID]
-	TargetMachineID Optional[*uuid.UUID]
-	CreatedBy       Optional[string]
-	ParentTicketID  Optional[*uuid.UUID]
-	ExternalRef     Optional[string]
-	BudgetUSD       Optional[float64]
+	TicketID                          uuid.UUID
+	Title                             Optional[string]
+	Description                       Optional[string]
+	StatusID                          Optional[uuid.UUID]
+	Priority                          Optional[entticket.Priority]
+	Type                              Optional[entticket.Type]
+	WorkflowID                        Optional[*uuid.UUID]
+	TargetMachineID                   Optional[*uuid.UUID]
+	CreatedBy                         Optional[string]
+	ParentTicketID                    Optional[*uuid.UUID]
+	ExternalRef                       Optional[string]
+	BudgetUSD                         Optional[float64]
+	RestrictStatusToWorkflowFinishSet bool
 }
 
 // AddDependencyInput adds a dependency edge to a ticket.
@@ -415,6 +417,11 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	if input.StatusID.Set {
 		if err := ensureStatusBelongsToProject(ctx, tx, current.ProjectID, input.StatusID.Value); err != nil {
 			return Ticket{}, err
+		}
+		if input.RestrictStatusToWorkflowFinishSet && current.WorkflowID != nil {
+			if err := ensureStatusAllowedByWorkflowFinishSet(ctx, tx, *current.WorkflowID, input.StatusID.Value); err != nil {
+				return Ticket{}, err
+			}
 		}
 		statusChanged = input.StatusID.Value != current.StatusID
 		builder.SetStatusID(input.StatusID.Value)
@@ -941,6 +948,26 @@ func ensureWorkflowBelongsToProject(ctx context.Context, tx *ent.Tx, projectID u
 	}
 
 	return nil
+}
+
+func ensureStatusAllowedByWorkflowFinishSet(ctx context.Context, tx *ent.Tx, workflowID uuid.UUID, statusID uuid.UUID) error {
+	workflowItem, err := tx.Workflow.Query().
+		Where(entworkflow.IDEQ(workflowID)).
+		WithFinishStatuses().
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return ErrWorkflowNotFound
+		}
+		return fmt.Errorf("load workflow finish statuses: %w", err)
+	}
+
+	for _, finishStatus := range workflowItem.Edges.FinishStatuses {
+		if finishStatus.ID == statusID {
+			return nil
+		}
+	}
+	return ErrStatusNotAllowed
 }
 
 func ensureTicketBelongsToProject(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, ticketID uuid.UUID, notFound error) error {

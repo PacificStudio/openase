@@ -548,7 +548,7 @@ func HasPickupWorkflows() predicate.TicketStatus {
 	return predicate.TicketStatus(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, PickupWorkflowsTable, PickupWorkflowsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, true, PickupWorkflowsTable, PickupWorkflowsPrimaryKey...),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
@@ -571,7 +571,7 @@ func HasFinishWorkflows() predicate.TicketStatus {
 	return predicate.TicketStatus(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, FinishWorkflowsTable, FinishWorkflowsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, true, FinishWorkflowsTable, FinishWorkflowsPrimaryKey...),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})

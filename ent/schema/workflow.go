@@ -30,10 +30,6 @@ func (Workflow) Fields() []ent.Field {
 		field.Int("stall_timeout_minutes").Default(5),
 		field.Int("version").Default(1),
 		field.Bool("is_active").Default(true),
-		field.UUID("pickup_status_id", uuidZero()),
-		field.UUID("finish_status_id", uuidZero()).
-			Optional().
-			Nillable(),
 	}
 }
 
@@ -48,15 +44,10 @@ func (Workflow) Edges() []ent.Edge {
 			Ref("workflows").
 			Field("agent_id").
 			Unique(),
-		edge.From("pickup_status", TicketStatus.Type).
-			Ref("pickup_workflows").
-			Field("pickup_status_id").
-			Unique().
+		edge.To("pickup_statuses", TicketStatus.Type).
 			Required(),
-		edge.From("finish_status", TicketStatus.Type).
-			Ref("finish_workflows").
-			Field("finish_status_id").
-			Unique(),
+		edge.To("finish_statuses", TicketStatus.Type).
+			Required(),
 		edge.To("tickets", Ticket.Type),
 		edge.To("agent_runs", AgentRun.Type),
 		edge.To("scheduled_jobs", ScheduledJob.Type),

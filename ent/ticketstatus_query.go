@@ -149,7 +149,7 @@ func (_q *TicketStatusQuery) QueryPickupWorkflows() *WorkflowQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(ticketstatus.Table, ticketstatus.FieldID, selector),
 			sqlgraph.To(workflow.Table, workflow.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ticketstatus.PickupWorkflowsTable, ticketstatus.PickupWorkflowsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, true, ticketstatus.PickupWorkflowsTable, ticketstatus.PickupWorkflowsPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -171,7 +171,7 @@ func (_q *TicketStatusQuery) QueryFinishWorkflows() *WorkflowQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(ticketstatus.Table, ticketstatus.FieldID, selector),
 			sqlgraph.To(workflow.Table, workflow.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ticketstatus.FinishWorkflowsTable, ticketstatus.FinishWorkflowsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, true, ticketstatus.FinishWorkflowsTable, ticketstatus.FinishWorkflowsPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -669,65 +669,124 @@ func (_q *TicketStatusQuery) loadTickets(ctx context.Context, query *TicketQuery
 	return nil
 }
 func (_q *TicketStatusQuery) loadPickupWorkflows(ctx context.Context, query *WorkflowQuery, nodes []*TicketStatus, init func(*TicketStatus), assign func(*TicketStatus, *Workflow)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[uuid.UUID]*TicketStatus)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[uuid.UUID]*TicketStatus)
+	nids := make(map[uuid.UUID]map[*TicketStatus]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
 		if init != nil {
-			init(nodes[i])
+			init(node)
 		}
 	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(workflow.FieldPickupStatusID)
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(ticketstatus.PickupWorkflowsTable)
+		s.Join(joinT).On(s.C(workflow.FieldID), joinT.C(ticketstatus.PickupWorkflowsPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(ticketstatus.PickupWorkflowsPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(ticketstatus.PickupWorkflowsPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
 	}
-	query.Where(predicate.Workflow(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(ticketstatus.PickupWorkflowsColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(uuid.UUID)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := *values[0].(*uuid.UUID)
+				inValue := *values[1].(*uuid.UUID)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*TicketStatus]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*Workflow](ctx, query, qr, query.inters)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.PickupStatusID
-		node, ok := nodeids[fk]
+		nodes, ok := nids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "pickup_status_id" returned %v for node %v`, fk, n.ID)
+			return fmt.Errorf(`unexpected "pickup_workflows" node returned %v`, n.ID)
 		}
-		assign(node, n)
+		for kn := range nodes {
+			assign(kn, n)
+		}
 	}
 	return nil
 }
 func (_q *TicketStatusQuery) loadFinishWorkflows(ctx context.Context, query *WorkflowQuery, nodes []*TicketStatus, init func(*TicketStatus), assign func(*TicketStatus, *Workflow)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[uuid.UUID]*TicketStatus)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[uuid.UUID]*TicketStatus)
+	nids := make(map[uuid.UUID]map[*TicketStatus]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
 		if init != nil {
-			init(nodes[i])
+			init(node)
 		}
 	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(workflow.FieldFinishStatusID)
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(ticketstatus.FinishWorkflowsTable)
+		s.Join(joinT).On(s.C(workflow.FieldID), joinT.C(ticketstatus.FinishWorkflowsPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(ticketstatus.FinishWorkflowsPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(ticketstatus.FinishWorkflowsPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
 	}
-	query.Where(predicate.Workflow(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(ticketstatus.FinishWorkflowsColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(uuid.UUID)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := *values[0].(*uuid.UUID)
+				inValue := *values[1].(*uuid.UUID)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*TicketStatus]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*Workflow](ctx, query, qr, query.inters)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.FinishStatusID
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "finish_status_id" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
+		nodes, ok := nids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "finish_status_id" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected "finish_workflows" node returned %v`, n.ID)
 		}
-		assign(node, n)
+		for kn := range nodes {
+			assign(kn, n)
+		}
 	}
 	return nil
 }
