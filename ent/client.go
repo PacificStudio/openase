@@ -20,7 +20,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
@@ -51,8 +53,12 @@ type Client struct {
 	AgentProvider *AgentProviderClient
 	// AgentRun is the client for interacting with the AgentRun builders.
 	AgentRun *AgentRunClient
+	// AgentStepEvent is the client for interacting with the AgentStepEvent builders.
+	AgentStepEvent *AgentStepEventClient
 	// AgentToken is the client for interacting with the AgentToken builders.
 	AgentToken *AgentTokenClient
+	// AgentTraceEvent is the client for interacting with the AgentTraceEvent builders.
+	AgentTraceEvent *AgentTraceEventClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
 	// NotificationChannel is the client for interacting with the NotificationChannel builders.
@@ -98,7 +104,9 @@ func (c *Client) init() {
 	c.Agent = NewAgentClient(c.config)
 	c.AgentProvider = NewAgentProviderClient(c.config)
 	c.AgentRun = NewAgentRunClient(c.config)
+	c.AgentStepEvent = NewAgentStepEventClient(c.config)
 	c.AgentToken = NewAgentTokenClient(c.config)
+	c.AgentTraceEvent = NewAgentTraceEventClient(c.config)
 	c.Machine = NewMachineClient(c.config)
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
 	c.NotificationRule = NewNotificationRuleClient(c.config)
@@ -210,7 +218,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Agent:               NewAgentClient(cfg),
 		AgentProvider:       NewAgentProviderClient(cfg),
 		AgentRun:            NewAgentRunClient(cfg),
+		AgentStepEvent:      NewAgentStepEventClient(cfg),
 		AgentToken:          NewAgentTokenClient(cfg),
+		AgentTraceEvent:     NewAgentTraceEventClient(cfg),
 		Machine:             NewMachineClient(cfg),
 		NotificationChannel: NewNotificationChannelClient(cfg),
 		NotificationRule:    NewNotificationRuleClient(cfg),
@@ -249,7 +259,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Agent:               NewAgentClient(cfg),
 		AgentProvider:       NewAgentProviderClient(cfg),
 		AgentRun:            NewAgentRunClient(cfg),
+		AgentStepEvent:      NewAgentStepEventClient(cfg),
 		AgentToken:          NewAgentTokenClient(cfg),
+		AgentTraceEvent:     NewAgentTraceEventClient(cfg),
 		Machine:             NewMachineClient(cfg),
 		NotificationChannel: NewNotificationChannelClient(cfg),
 		NotificationRule:    NewNotificationRuleClient(cfg),
@@ -294,11 +306,11 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentToken, c.Machine,
-		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketComment, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketStage, c.TicketStatus,
-		c.Workflow,
+		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
+		c.AgentToken, c.AgentTraceEvent, c.Machine, c.NotificationChannel,
+		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
+		c.Ticket, c.TicketComment, c.TicketDependency, c.TicketExternalLink,
+		c.TicketRepoScope, c.TicketStage, c.TicketStatus, c.Workflow,
 	} {
 		n.Use(hooks...)
 	}
@@ -308,11 +320,11 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentToken, c.Machine,
-		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketComment, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketStage, c.TicketStatus,
-		c.Workflow,
+		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
+		c.AgentToken, c.AgentTraceEvent, c.Machine, c.NotificationChannel,
+		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
+		c.Ticket, c.TicketComment, c.TicketDependency, c.TicketExternalLink,
+		c.TicketRepoScope, c.TicketStage, c.TicketStatus, c.Workflow,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -329,8 +341,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AgentProvider.mutate(ctx, m)
 	case *AgentRunMutation:
 		return c.AgentRun.mutate(ctx, m)
+	case *AgentStepEventMutation:
+		return c.AgentStepEvent.mutate(ctx, m)
 	case *AgentTokenMutation:
 		return c.AgentToken.mutate(ctx, m)
+	case *AgentTraceEventMutation:
+		return c.AgentTraceEvent.mutate(ctx, m)
 	case *MachineMutation:
 		return c.Machine.mutate(ctx, m)
 	case *NotificationChannelMutation:
@@ -728,6 +744,38 @@ func (c *AgentClient) QueryTokens(_m *Agent) *AgentTokenQuery {
 			sqlgraph.From(agent.Table, agent.FieldID, id),
 			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, agent.TokensTable, agent.TokensColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentTraceEvents queries the agent_trace_events edge of a Agent.
+func (c *AgentClient) QueryAgentTraceEvents(_m *Agent) *AgentTraceEventQuery {
+	query := (&AgentTraceEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, id),
+			sqlgraph.To(agenttraceevent.Table, agenttraceevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agent.AgentTraceEventsTable, agent.AgentTraceEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentStepEvents queries the agent_step_events edge of a Agent.
+func (c *AgentClient) QueryAgentStepEvents(_m *Agent) *AgentStepEventQuery {
+	query := (&AgentStepEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, id),
+			sqlgraph.To(agentstepevent.Table, agentstepevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agent.AgentStepEventsTable, agent.AgentStepEventsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -1161,6 +1209,38 @@ func (c *AgentRunClient) QueryCurrentForTicket(_m *AgentRun) *TicketQuery {
 	return query
 }
 
+// QueryAgentTraceEvents queries the agent_trace_events edge of a AgentRun.
+func (c *AgentRunClient) QueryAgentTraceEvents(_m *AgentRun) *AgentTraceEventQuery {
+	query := (&AgentTraceEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentrun.Table, agentrun.FieldID, id),
+			sqlgraph.To(agenttraceevent.Table, agenttraceevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agentrun.AgentTraceEventsTable, agentrun.AgentTraceEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentStepEvents queries the agent_step_events edge of a AgentRun.
+func (c *AgentRunClient) QueryAgentStepEvents(_m *AgentRun) *AgentStepEventQuery {
+	query := (&AgentStepEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentrun.Table, agentrun.FieldID, id),
+			sqlgraph.To(agentstepevent.Table, agentstepevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agentrun.AgentStepEventsTable, agentrun.AgentStepEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *AgentRunClient) Hooks() []Hook {
 	return c.hooks.AgentRun
@@ -1183,6 +1263,219 @@ func (c *AgentRunClient) mutate(ctx context.Context, m *AgentRunMutation) (Value
 		return (&AgentRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AgentRun mutation op: %q", m.Op())
+	}
+}
+
+// AgentStepEventClient is a client for the AgentStepEvent schema.
+type AgentStepEventClient struct {
+	config
+}
+
+// NewAgentStepEventClient returns a client for the AgentStepEvent from the given config.
+func NewAgentStepEventClient(c config) *AgentStepEventClient {
+	return &AgentStepEventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `agentstepevent.Hooks(f(g(h())))`.
+func (c *AgentStepEventClient) Use(hooks ...Hook) {
+	c.hooks.AgentStepEvent = append(c.hooks.AgentStepEvent, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `agentstepevent.Intercept(f(g(h())))`.
+func (c *AgentStepEventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AgentStepEvent = append(c.inters.AgentStepEvent, interceptors...)
+}
+
+// Create returns a builder for creating a AgentStepEvent entity.
+func (c *AgentStepEventClient) Create() *AgentStepEventCreate {
+	mutation := newAgentStepEventMutation(c.config, OpCreate)
+	return &AgentStepEventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AgentStepEvent entities.
+func (c *AgentStepEventClient) CreateBulk(builders ...*AgentStepEventCreate) *AgentStepEventCreateBulk {
+	return &AgentStepEventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AgentStepEventClient) MapCreateBulk(slice any, setFunc func(*AgentStepEventCreate, int)) *AgentStepEventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AgentStepEventCreateBulk{err: fmt.Errorf("calling to AgentStepEventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AgentStepEventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AgentStepEventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AgentStepEvent.
+func (c *AgentStepEventClient) Update() *AgentStepEventUpdate {
+	mutation := newAgentStepEventMutation(c.config, OpUpdate)
+	return &AgentStepEventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AgentStepEventClient) UpdateOne(_m *AgentStepEvent) *AgentStepEventUpdateOne {
+	mutation := newAgentStepEventMutation(c.config, OpUpdateOne, withAgentStepEvent(_m))
+	return &AgentStepEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AgentStepEventClient) UpdateOneID(id uuid.UUID) *AgentStepEventUpdateOne {
+	mutation := newAgentStepEventMutation(c.config, OpUpdateOne, withAgentStepEventID(id))
+	return &AgentStepEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AgentStepEvent.
+func (c *AgentStepEventClient) Delete() *AgentStepEventDelete {
+	mutation := newAgentStepEventMutation(c.config, OpDelete)
+	return &AgentStepEventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AgentStepEventClient) DeleteOne(_m *AgentStepEvent) *AgentStepEventDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AgentStepEventClient) DeleteOneID(id uuid.UUID) *AgentStepEventDeleteOne {
+	builder := c.Delete().Where(agentstepevent.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AgentStepEventDeleteOne{builder}
+}
+
+// Query returns a query builder for AgentStepEvent.
+func (c *AgentStepEventClient) Query() *AgentStepEventQuery {
+	return &AgentStepEventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAgentStepEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AgentStepEvent entity by its id.
+func (c *AgentStepEventClient) Get(ctx context.Context, id uuid.UUID) (*AgentStepEvent, error) {
+	return c.Query().Where(agentstepevent.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AgentStepEventClient) GetX(ctx context.Context, id uuid.UUID) *AgentStepEvent {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a AgentStepEvent.
+func (c *AgentStepEventClient) QueryProject(_m *AgentStepEvent) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentstepevent.Table, agentstepevent.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentstepevent.ProjectTable, agentstepevent.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTicket queries the ticket edge of a AgentStepEvent.
+func (c *AgentStepEventClient) QueryTicket(_m *AgentStepEvent) *TicketQuery {
+	query := (&TicketClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentstepevent.Table, agentstepevent.FieldID, id),
+			sqlgraph.To(ticket.Table, ticket.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentstepevent.TicketTable, agentstepevent.TicketColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgent queries the agent edge of a AgentStepEvent.
+func (c *AgentStepEventClient) QueryAgent(_m *AgentStepEvent) *AgentQuery {
+	query := (&AgentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentstepevent.Table, agentstepevent.FieldID, id),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentstepevent.AgentTable, agentstepevent.AgentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentRun queries the agent_run edge of a AgentStepEvent.
+func (c *AgentStepEventClient) QueryAgentRun(_m *AgentStepEvent) *AgentRunQuery {
+	query := (&AgentRunClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentstepevent.Table, agentstepevent.FieldID, id),
+			sqlgraph.To(agentrun.Table, agentrun.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentstepevent.AgentRunTable, agentstepevent.AgentRunColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySourceTraceEvent queries the source_trace_event edge of a AgentStepEvent.
+func (c *AgentStepEventClient) QuerySourceTraceEvent(_m *AgentStepEvent) *AgentTraceEventQuery {
+	query := (&AgentTraceEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentstepevent.Table, agentstepevent.FieldID, id),
+			sqlgraph.To(agenttraceevent.Table, agenttraceevent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentstepevent.SourceTraceEventTable, agentstepevent.SourceTraceEventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AgentStepEventClient) Hooks() []Hook {
+	return c.hooks.AgentStepEvent
+}
+
+// Interceptors returns the client interceptors.
+func (c *AgentStepEventClient) Interceptors() []Interceptor {
+	return c.inters.AgentStepEvent
+}
+
+func (c *AgentStepEventClient) mutate(ctx context.Context, m *AgentStepEventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AgentStepEventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AgentStepEventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AgentStepEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AgentStepEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AgentStepEvent mutation op: %q", m.Op())
 	}
 }
 
@@ -1364,6 +1657,219 @@ func (c *AgentTokenClient) mutate(ctx context.Context, m *AgentTokenMutation) (V
 		return (&AgentTokenDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AgentToken mutation op: %q", m.Op())
+	}
+}
+
+// AgentTraceEventClient is a client for the AgentTraceEvent schema.
+type AgentTraceEventClient struct {
+	config
+}
+
+// NewAgentTraceEventClient returns a client for the AgentTraceEvent from the given config.
+func NewAgentTraceEventClient(c config) *AgentTraceEventClient {
+	return &AgentTraceEventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `agenttraceevent.Hooks(f(g(h())))`.
+func (c *AgentTraceEventClient) Use(hooks ...Hook) {
+	c.hooks.AgentTraceEvent = append(c.hooks.AgentTraceEvent, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `agenttraceevent.Intercept(f(g(h())))`.
+func (c *AgentTraceEventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AgentTraceEvent = append(c.inters.AgentTraceEvent, interceptors...)
+}
+
+// Create returns a builder for creating a AgentTraceEvent entity.
+func (c *AgentTraceEventClient) Create() *AgentTraceEventCreate {
+	mutation := newAgentTraceEventMutation(c.config, OpCreate)
+	return &AgentTraceEventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AgentTraceEvent entities.
+func (c *AgentTraceEventClient) CreateBulk(builders ...*AgentTraceEventCreate) *AgentTraceEventCreateBulk {
+	return &AgentTraceEventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AgentTraceEventClient) MapCreateBulk(slice any, setFunc func(*AgentTraceEventCreate, int)) *AgentTraceEventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AgentTraceEventCreateBulk{err: fmt.Errorf("calling to AgentTraceEventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AgentTraceEventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AgentTraceEventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AgentTraceEvent.
+func (c *AgentTraceEventClient) Update() *AgentTraceEventUpdate {
+	mutation := newAgentTraceEventMutation(c.config, OpUpdate)
+	return &AgentTraceEventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AgentTraceEventClient) UpdateOne(_m *AgentTraceEvent) *AgentTraceEventUpdateOne {
+	mutation := newAgentTraceEventMutation(c.config, OpUpdateOne, withAgentTraceEvent(_m))
+	return &AgentTraceEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AgentTraceEventClient) UpdateOneID(id uuid.UUID) *AgentTraceEventUpdateOne {
+	mutation := newAgentTraceEventMutation(c.config, OpUpdateOne, withAgentTraceEventID(id))
+	return &AgentTraceEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AgentTraceEvent.
+func (c *AgentTraceEventClient) Delete() *AgentTraceEventDelete {
+	mutation := newAgentTraceEventMutation(c.config, OpDelete)
+	return &AgentTraceEventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AgentTraceEventClient) DeleteOne(_m *AgentTraceEvent) *AgentTraceEventDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AgentTraceEventClient) DeleteOneID(id uuid.UUID) *AgentTraceEventDeleteOne {
+	builder := c.Delete().Where(agenttraceevent.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AgentTraceEventDeleteOne{builder}
+}
+
+// Query returns a query builder for AgentTraceEvent.
+func (c *AgentTraceEventClient) Query() *AgentTraceEventQuery {
+	return &AgentTraceEventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAgentTraceEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AgentTraceEvent entity by its id.
+func (c *AgentTraceEventClient) Get(ctx context.Context, id uuid.UUID) (*AgentTraceEvent, error) {
+	return c.Query().Where(agenttraceevent.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AgentTraceEventClient) GetX(ctx context.Context, id uuid.UUID) *AgentTraceEvent {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a AgentTraceEvent.
+func (c *AgentTraceEventClient) QueryProject(_m *AgentTraceEvent) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttraceevent.Table, agenttraceevent.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttraceevent.ProjectTable, agenttraceevent.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTicket queries the ticket edge of a AgentTraceEvent.
+func (c *AgentTraceEventClient) QueryTicket(_m *AgentTraceEvent) *TicketQuery {
+	query := (&TicketClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttraceevent.Table, agenttraceevent.FieldID, id),
+			sqlgraph.To(ticket.Table, ticket.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttraceevent.TicketTable, agenttraceevent.TicketColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgent queries the agent edge of a AgentTraceEvent.
+func (c *AgentTraceEventClient) QueryAgent(_m *AgentTraceEvent) *AgentQuery {
+	query := (&AgentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttraceevent.Table, agenttraceevent.FieldID, id),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttraceevent.AgentTable, agenttraceevent.AgentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentRun queries the agent_run edge of a AgentTraceEvent.
+func (c *AgentTraceEventClient) QueryAgentRun(_m *AgentTraceEvent) *AgentRunQuery {
+	query := (&AgentRunClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttraceevent.Table, agenttraceevent.FieldID, id),
+			sqlgraph.To(agentrun.Table, agentrun.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttraceevent.AgentRunTable, agenttraceevent.AgentRunColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryStepEvents queries the step_events edge of a AgentTraceEvent.
+func (c *AgentTraceEventClient) QueryStepEvents(_m *AgentTraceEvent) *AgentStepEventQuery {
+	query := (&AgentStepEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttraceevent.Table, agenttraceevent.FieldID, id),
+			sqlgraph.To(agentstepevent.Table, agentstepevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agenttraceevent.StepEventsTable, agenttraceevent.StepEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AgentTraceEventClient) Hooks() []Hook {
+	return c.hooks.AgentTraceEvent
+}
+
+// Interceptors returns the client interceptors.
+func (c *AgentTraceEventClient) Interceptors() []Interceptor {
+	return c.inters.AgentTraceEvent
+}
+
+func (c *AgentTraceEventClient) mutate(ctx context.Context, m *AgentTraceEventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AgentTraceEventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AgentTraceEventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AgentTraceEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AgentTraceEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AgentTraceEvent mutation op: %q", m.Op())
 	}
 }
 
@@ -2327,6 +2833,38 @@ func (c *ProjectClient) QueryAgentTokens(_m *Project) *AgentTokenQuery {
 	return query
 }
 
+// QueryAgentTraceEvents queries the agent_trace_events edge of a Project.
+func (c *ProjectClient) QueryAgentTraceEvents(_m *Project) *AgentTraceEventQuery {
+	query := (&AgentTraceEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(agenttraceevent.Table, agenttraceevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.AgentTraceEventsTable, project.AgentTraceEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentStepEvents queries the agent_step_events edge of a Project.
+func (c *ProjectClient) QueryAgentStepEvents(_m *Project) *AgentStepEventQuery {
+	query := (&AgentStepEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(agentstepevent.Table, agentstepevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.AgentStepEventsTable, project.AgentStepEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryScheduledJobs queries the scheduled_jobs edge of a Project.
 func (c *ProjectClient) QueryScheduledJobs(_m *Project) *ScheduledJobQuery {
 	query := (&ScheduledJobClient{config: c.config}).Query()
@@ -3039,6 +3577,38 @@ func (c *TicketClient) QueryAgentTokens(_m *Ticket) *AgentTokenQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, id),
 			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentTokensTable, ticket.AgentTokensColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentTraceEvents queries the agent_trace_events edge of a Ticket.
+func (c *TicketClient) QueryAgentTraceEvents(_m *Ticket) *AgentTraceEventQuery {
+	query := (&AgentTraceEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, id),
+			sqlgraph.To(agenttraceevent.Table, agenttraceevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentTraceEventsTable, ticket.AgentTraceEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentStepEvents queries the agent_step_events edge of a Ticket.
+func (c *TicketClient) QueryAgentStepEvents(_m *Ticket) *AgentStepEventQuery {
+	query := (&AgentStepEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, id),
+			sqlgraph.To(agentstepevent.Table, agentstepevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentStepEventsTable, ticket.AgentStepEventsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4389,15 +4959,17 @@ func (c *WorkflowClient) mutate(ctx context.Context, m *WorkflowMutation) (Value
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		ActivityEvent, Agent, AgentProvider, AgentRun, AgentToken, Machine,
-		NotificationChannel, NotificationRule, Organization, Project, ProjectRepo,
-		ScheduledJob, Ticket, TicketComment, TicketDependency, TicketExternalLink,
-		TicketRepoScope, TicketStage, TicketStatus, Workflow []ent.Hook
+		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
+		AgentTraceEvent, Machine, NotificationChannel, NotificationRule, Organization,
+		Project, ProjectRepo, ScheduledJob, Ticket, TicketComment, TicketDependency,
+		TicketExternalLink, TicketRepoScope, TicketStage, TicketStatus,
+		Workflow []ent.Hook
 	}
 	inters struct {
-		ActivityEvent, Agent, AgentProvider, AgentRun, AgentToken, Machine,
-		NotificationChannel, NotificationRule, Organization, Project, ProjectRepo,
-		ScheduledJob, Ticket, TicketComment, TicketDependency, TicketExternalLink,
-		TicketRepoScope, TicketStage, TicketStatus, Workflow []ent.Interceptor
+		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
+		AgentTraceEvent, Machine, NotificationChannel, NotificationRule, Organization,
+		Project, ProjectRepo, ScheduledJob, Ticket, TicketComment, TicketDependency,
+		TicketExternalLink, TicketRepoScope, TicketStage, TicketStatus,
+		Workflow []ent.Interceptor
 	}
 )

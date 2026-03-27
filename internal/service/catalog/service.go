@@ -79,6 +79,7 @@ type Service interface {
 	ListAgentRuns(ctx context.Context, projectID uuid.UUID) ([]domain.AgentRun, error)
 	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error)
 	ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error)
+	ListAgentSteps(ctx context.Context, input domain.ListAgentSteps) ([]domain.AgentStepEntry, error)
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRun, error)

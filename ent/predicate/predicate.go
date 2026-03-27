@@ -18,8 +18,14 @@ type AgentProvider func(*sql.Selector)
 // AgentRun is the predicate function for agentrun builders.
 type AgentRun func(*sql.Selector)
 
+// AgentStepEvent is the predicate function for agentstepevent builders.
+type AgentStepEvent func(*sql.Selector)
+
 // AgentToken is the predicate function for agenttoken builders.
 type AgentToken func(*sql.Selector)
+
+// AgentTraceEvent is the predicate function for agenttraceevent builders.
+type AgentTraceEvent func(*sql.Selector)
 
 // Machine is the predicate function for machine builders.
 type Machine func(*sql.Selector)

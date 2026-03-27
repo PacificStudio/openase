@@ -19,22 +19,35 @@ export function wireAgentOutputStream(input: {
 
     void input.outputState.load(projectId, agentId, true)
 
-    const disconnect = connectEventStream(
+    const disconnectOutput = connectEventStream(
       `/api/v1/projects/${projectId}/agents/${agentId}/output/stream`,
       {
         onEvent: (frame) => input.outputState.handleFrame(agentId, frame),
         onStateChange: (state) => {
-          input.outputState.streamState = state
+          input.outputState.setTraceStreamState(state)
         },
         onError: (streamError) => {
           console.error('Agent output stream error:', streamError)
         },
       },
     )
+    const disconnectSteps = connectEventStream(
+      `/api/v1/projects/${projectId}/agents/${agentId}/steps/stream`,
+      {
+        onEvent: (frame) => input.outputState.handleFrame(agentId, frame),
+        onStateChange: (state) => {
+          input.outputState.setStepStreamState(state)
+        },
+        onError: (streamError) => {
+          console.error('Agent step stream error:', streamError)
+        },
+      },
+    )
 
     return () => {
       input.outputState.invalidate()
-      disconnect()
+      disconnectOutput()
+      disconnectSteps()
     }
   })
 }

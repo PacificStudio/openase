@@ -16,15 +16,17 @@ import (
 )
 
 var agentOutputStreamTopic = provider.MustParseTopic("agent.output.events")
+var agentTraceStreamTopic = provider.MustParseTopic("agent.trace.events")
 
 type agentOutputEntryResponse struct {
-	ID        string  `json:"id"`
-	ProjectID string  `json:"project_id"`
-	AgentID   string  `json:"agent_id"`
-	TicketID  *string `json:"ticket_id,omitempty"`
-	Stream    string  `json:"stream"`
-	Output    string  `json:"output"`
-	CreatedAt string  `json:"created_at"`
+	ID         string  `json:"id"`
+	ProjectID  string  `json:"project_id"`
+	AgentID    string  `json:"agent_id"`
+	TicketID   *string `json:"ticket_id,omitempty"`
+	AgentRunID string  `json:"agent_run_id"`
+	Stream     string  `json:"stream"`
+	Output     string  `json:"output"`
+	CreatedAt  string  `json:"created_at"`
 }
 
 func (s *Server) listAgentOutput(c echo.Context) error {
@@ -82,7 +84,7 @@ func (s *Server) streamAgentOutput(c echo.Context) error {
 		return fmt.Errorf("disable sse write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), activityStreamTopic)
+	stream, err := s.sseHub.Register(c.Request().Context(), agentTraceStreamTopic)
 	if err != nil {
 		return fmt.Errorf("register agent output stream: %w", err)
 	}
@@ -141,13 +143,14 @@ func mapAgentOutputResponses(items []domain.AgentOutputEntry) []agentOutputEntry
 
 func mapAgentOutputResponse(item domain.AgentOutputEntry) agentOutputEntryResponse {
 	return agentOutputEntryResponse{
-		ID:        item.ID.String(),
-		ProjectID: item.ProjectID.String(),
-		AgentID:   item.AgentID.String(),
-		TicketID:  uuidToStringPointer(item.TicketID),
-		Stream:    item.Stream,
-		Output:    item.Output,
-		CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
+		ID:         item.ID.String(),
+		ProjectID:  item.ProjectID.String(),
+		AgentID:    item.AgentID.String(),
+		TicketID:   uuidToStringPointer(item.TicketID),
+		AgentRunID: item.AgentRunID.String(),
+		Stream:     item.Stream,
+		Output:     item.Output,
+		CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 
@@ -162,19 +165,28 @@ func buildAgentOutputStreamEvent(
 	}
 
 	var payload struct {
-		Event activityEventResponse `json:"event"`
+		Entry struct {
+			ID         string `json:"id"`
+			ProjectID  string `json:"project_id"`
+			TicketID   string `json:"ticket_id"`
+			AgentID    string `json:"agent_id"`
+			AgentRunID string `json:"agent_run_id"`
+			Stream     string `json:"stream"`
+			Output     string `json:"output"`
+			CreatedAt  string `json:"created_at"`
+		} `json:"entry"`
 	}
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
-		return provider.Event{}, false, fmt.Errorf("decode activity stream payload: %w", err)
+		return provider.Event{}, false, fmt.Errorf("decode trace stream payload: %w", err)
 	}
-	if payload.Event.ProjectID != projectID.String() {
+	if payload.Entry.ProjectID != projectID.String() {
 		return provider.Event{}, false, nil
 	}
-	if payload.Event.AgentID == nil || *payload.Event.AgentID != agentID.String() {
+	if payload.Entry.AgentID != agentID.String() {
 		return provider.Event{}, false, nil
 	}
 	if ticketID != nil {
-		if payload.Event.TicketID == nil || *payload.Event.TicketID != ticketID.String() {
+		if payload.Entry.TicketID != ticketID.String() {
 			return provider.Event{}, false, nil
 		}
 	}
@@ -184,13 +196,14 @@ func buildAgentOutputStreamEvent(
 		event.Type,
 		map[string]any{
 			"entry": agentOutputEntryResponse{
-				ID:        payload.Event.ID,
-				ProjectID: payload.Event.ProjectID,
-				AgentID:   *payload.Event.AgentID,
-				TicketID:  payload.Event.TicketID,
-				Stream:    domain.AgentOutputMetadataStream(payload.Event.Metadata),
-				Output:    payload.Event.Message,
-				CreatedAt: payload.Event.CreatedAt,
+				ID:         payload.Entry.ID,
+				ProjectID:  payload.Entry.ProjectID,
+				AgentID:    payload.Entry.AgentID,
+				TicketID:   stringToPointer(payload.Entry.TicketID),
+				AgentRunID: payload.Entry.AgentRunID,
+				Stream:     payload.Entry.Stream,
+				Output:     payload.Entry.Output,
+				CreatedAt:  payload.Entry.CreatedAt,
 			},
 		},
 		event.PublishedAt,
@@ -200,6 +213,15 @@ func buildAgentOutputStreamEvent(
 	}
 
 	return outputEvent, true, nil
+}
+
+func stringToPointer(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+
+	copied := value
+	return &copied
 }
 
 func parseOptionalUUIDQueryParam(fieldName string, raw string) (*uuid.UUID, error) {

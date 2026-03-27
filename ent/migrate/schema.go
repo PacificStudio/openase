@@ -151,6 +151,9 @@ var (
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
+		{Name: "current_step_status", Type: field.TypeString, Nullable: true},
+		{Name: "current_step_summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "current_step_changed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "agent_id", Type: field.TypeUUID},
 		{Name: "provider_id", Type: field.TypeUUID},
@@ -165,25 +168,25 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_runs_agents_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[7]},
+				Columns:    []*schema.Column{AgentRunsColumns[10]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_agent_providers_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[8]},
+				Columns:    []*schema.Column{AgentRunsColumns[11]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_tickets_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[9]},
+				Columns:    []*schema.Column{AgentRunsColumns[12]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_workflows_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[10]},
+				Columns:    []*schema.Column{AgentRunsColumns[13]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -192,17 +195,84 @@ var (
 			{
 				Name:    "agentrun_agent_id_status_last_heartbeat_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[7], AgentRunsColumns[1], AgentRunsColumns[5]},
+				Columns: []*schema.Column{AgentRunsColumns[10], AgentRunsColumns[1], AgentRunsColumns[5]},
 			},
 			{
 				Name:    "agentrun_provider_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[8], AgentRunsColumns[1]},
+				Columns: []*schema.Column{AgentRunsColumns[11], AgentRunsColumns[1]},
 			},
 			{
 				Name:    "agentrun_ticket_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[9], AgentRunsColumns[6]},
+				Columns: []*schema.Column{AgentRunsColumns[12], AgentRunsColumns[9]},
+			},
+		},
+	}
+	// AgentStepEventsColumns holds the columns for the "agent_step_events" table.
+	AgentStepEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "step_status", Type: field.TypeString},
+		{Name: "summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "agent_id", Type: field.TypeUUID},
+		{Name: "agent_run_id", Type: field.TypeUUID},
+		{Name: "source_trace_event_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "ticket_id", Type: field.TypeUUID},
+	}
+	// AgentStepEventsTable holds the schema information for the "agent_step_events" table.
+	AgentStepEventsTable = &schema.Table{
+		Name:       "agent_step_events",
+		Columns:    AgentStepEventsColumns,
+		PrimaryKey: []*schema.Column{AgentStepEventsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_step_events_agents_agent_step_events",
+				Columns:    []*schema.Column{AgentStepEventsColumns[4]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_step_events_agent_runs_agent_step_events",
+				Columns:    []*schema.Column{AgentStepEventsColumns[5]},
+				RefColumns: []*schema.Column{AgentRunsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_step_events_agent_trace_events_step_events",
+				Columns:    []*schema.Column{AgentStepEventsColumns[6]},
+				RefColumns: []*schema.Column{AgentTraceEventsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "agent_step_events_projects_agent_step_events",
+				Columns:    []*schema.Column{AgentStepEventsColumns[7]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_step_events_tickets_agent_step_events",
+				Columns:    []*schema.Column{AgentStepEventsColumns[8]},
+				RefColumns: []*schema.Column{TicketsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agentstepevent_agent_run_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentStepEventsColumns[5], AgentStepEventsColumns[3]},
+			},
+			{
+				Name:    "agentstepevent_ticket_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentStepEventsColumns[8], AgentStepEventsColumns[3]},
+			},
+			{
+				Name:    "agentstepevent_project_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentStepEventsColumns[7], AgentStepEventsColumns[3]},
 			},
 		},
 	}
@@ -258,6 +328,75 @@ var (
 				Name:    "agenttoken_expires_at",
 				Unique:  false,
 				Columns: []*schema.Column{AgentTokensColumns[3]},
+			},
+		},
+	}
+	// AgentTraceEventsColumns holds the columns for the "agent_trace_events" table.
+	AgentTraceEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "sequence", Type: field.TypeInt64},
+		{Name: "provider", Type: field.TypeString},
+		{Name: "kind", Type: field.TypeString},
+		{Name: "stream", Type: field.TypeString},
+		{Name: "text", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "payload", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "agent_id", Type: field.TypeUUID},
+		{Name: "agent_run_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "ticket_id", Type: field.TypeUUID},
+	}
+	// AgentTraceEventsTable holds the schema information for the "agent_trace_events" table.
+	AgentTraceEventsTable = &schema.Table{
+		Name:       "agent_trace_events",
+		Columns:    AgentTraceEventsColumns,
+		PrimaryKey: []*schema.Column{AgentTraceEventsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_trace_events_agents_agent_trace_events",
+				Columns:    []*schema.Column{AgentTraceEventsColumns[8]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_trace_events_agent_runs_agent_trace_events",
+				Columns:    []*schema.Column{AgentTraceEventsColumns[9]},
+				RefColumns: []*schema.Column{AgentRunsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_trace_events_projects_agent_trace_events",
+				Columns:    []*schema.Column{AgentTraceEventsColumns[10]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_trace_events_tickets_agent_trace_events",
+				Columns:    []*schema.Column{AgentTraceEventsColumns[11]},
+				RefColumns: []*schema.Column{TicketsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agenttraceevent_agent_run_id_sequence",
+				Unique:  true,
+				Columns: []*schema.Column{AgentTraceEventsColumns[9], AgentTraceEventsColumns[1]},
+			},
+			{
+				Name:    "agenttraceevent_ticket_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentTraceEventsColumns[11], AgentTraceEventsColumns[7]},
+			},
+			{
+				Name:    "agenttraceevent_agent_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentTraceEventsColumns[8], AgentTraceEventsColumns[7]},
+			},
+			{
+				Name:    "agenttraceevent_project_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentTraceEventsColumns[10], AgentTraceEventsColumns[7]},
 			},
 		},
 	}
@@ -1008,7 +1147,9 @@ var (
 		AgentsTable,
 		AgentProvidersTable,
 		AgentRunsTable,
+		AgentStepEventsTable,
 		AgentTokensTable,
+		AgentTraceEventsTable,
 		MachinesTable,
 		NotificationChannelsTable,
 		NotificationRulesTable,
@@ -1041,9 +1182,18 @@ func init() {
 	AgentRunsTable.ForeignKeys[1].RefTable = AgentProvidersTable
 	AgentRunsTable.ForeignKeys[2].RefTable = TicketsTable
 	AgentRunsTable.ForeignKeys[3].RefTable = WorkflowsTable
+	AgentStepEventsTable.ForeignKeys[0].RefTable = AgentsTable
+	AgentStepEventsTable.ForeignKeys[1].RefTable = AgentRunsTable
+	AgentStepEventsTable.ForeignKeys[2].RefTable = AgentTraceEventsTable
+	AgentStepEventsTable.ForeignKeys[3].RefTable = ProjectsTable
+	AgentStepEventsTable.ForeignKeys[4].RefTable = TicketsTable
 	AgentTokensTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentTokensTable.ForeignKeys[1].RefTable = ProjectsTable
 	AgentTokensTable.ForeignKeys[2].RefTable = TicketsTable
+	AgentTraceEventsTable.ForeignKeys[0].RefTable = AgentsTable
+	AgentTraceEventsTable.ForeignKeys[1].RefTable = AgentRunsTable
+	AgentTraceEventsTable.ForeignKeys[2].RefTable = ProjectsTable
+	AgentTraceEventsTable.ForeignKeys[3].RefTable = TicketsTable
 	MachinesTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable

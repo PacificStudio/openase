@@ -51,6 +51,8 @@ func (Project) Edges() []ent.Edge {
 		edge.To("tickets", Ticket.Type),
 		edge.To("agents", Agent.Type),
 		edge.To("agent_tokens", AgentToken.Type),
+		edge.To("agent_trace_events", AgentTraceEvent.Type),
+		edge.To("agent_step_events", AgentStepEvent.Type),
 		edge.To("scheduled_jobs", ScheduledJob.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 		edge.To("notification_rules", NotificationRule.Type),

@@ -34,6 +34,12 @@ const (
 	FieldLastError = "last_error"
 	// FieldLastHeartbeatAt holds the string denoting the last_heartbeat_at field in the database.
 	FieldLastHeartbeatAt = "last_heartbeat_at"
+	// FieldCurrentStepStatus holds the string denoting the current_step_status field in the database.
+	FieldCurrentStepStatus = "current_step_status"
+	// FieldCurrentStepSummary holds the string denoting the current_step_summary field in the database.
+	FieldCurrentStepSummary = "current_step_summary"
+	// FieldCurrentStepChangedAt holds the string denoting the current_step_changed_at field in the database.
+	FieldCurrentStepChangedAt = "current_step_changed_at"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeAgent holds the string denoting the agent edge name in mutations.
@@ -46,6 +52,10 @@ const (
 	EdgeProvider = "provider"
 	// EdgeCurrentForTicket holds the string denoting the current_for_ticket edge name in mutations.
 	EdgeCurrentForTicket = "current_for_ticket"
+	// EdgeAgentTraceEvents holds the string denoting the agent_trace_events edge name in mutations.
+	EdgeAgentTraceEvents = "agent_trace_events"
+	// EdgeAgentStepEvents holds the string denoting the agent_step_events edge name in mutations.
+	EdgeAgentStepEvents = "agent_step_events"
 	// Table holds the table name of the agentrun in the database.
 	Table = "agent_runs"
 	// AgentTable is the table that holds the agent relation/edge.
@@ -83,6 +93,20 @@ const (
 	CurrentForTicketInverseTable = "tickets"
 	// CurrentForTicketColumn is the table column denoting the current_for_ticket relation/edge.
 	CurrentForTicketColumn = "current_run_id"
+	// AgentTraceEventsTable is the table that holds the agent_trace_events relation/edge.
+	AgentTraceEventsTable = "agent_trace_events"
+	// AgentTraceEventsInverseTable is the table name for the AgentTraceEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "agenttraceevent" package.
+	AgentTraceEventsInverseTable = "agent_trace_events"
+	// AgentTraceEventsColumn is the table column denoting the agent_trace_events relation/edge.
+	AgentTraceEventsColumn = "agent_run_id"
+	// AgentStepEventsTable is the table that holds the agent_step_events relation/edge.
+	AgentStepEventsTable = "agent_step_events"
+	// AgentStepEventsInverseTable is the table name for the AgentStepEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "agentstepevent" package.
+	AgentStepEventsInverseTable = "agent_step_events"
+	// AgentStepEventsColumn is the table column denoting the agent_step_events relation/edge.
+	AgentStepEventsColumn = "agent_run_id"
 )
 
 // Columns holds all SQL columns for agentrun fields.
@@ -97,6 +121,9 @@ var Columns = []string{
 	FieldRuntimeStartedAt,
 	FieldLastError,
 	FieldLastHeartbeatAt,
+	FieldCurrentStepStatus,
+	FieldCurrentStepSummary,
+	FieldCurrentStepChangedAt,
 	FieldCreatedAt,
 }
 
@@ -197,6 +224,21 @@ func ByLastHeartbeatAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLastHeartbeatAt, opts...).ToFunc()
 }
 
+// ByCurrentStepStatus orders the results by the current_step_status field.
+func ByCurrentStepStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCurrentStepStatus, opts...).ToFunc()
+}
+
+// ByCurrentStepSummary orders the results by the current_step_summary field.
+func ByCurrentStepSummary(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCurrentStepSummary, opts...).ToFunc()
+}
+
+// ByCurrentStepChangedAt orders the results by the current_step_changed_at field.
+func ByCurrentStepChangedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCurrentStepChangedAt, opts...).ToFunc()
+}
+
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
@@ -243,6 +285,34 @@ func ByCurrentForTicket(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption 
 		sqlgraph.OrderByNeighborTerms(s, newCurrentForTicketStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByAgentTraceEventsCount orders the results by agent_trace_events count.
+func ByAgentTraceEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentTraceEventsStep(), opts...)
+	}
+}
+
+// ByAgentTraceEvents orders the results by agent_trace_events terms.
+func ByAgentTraceEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentTraceEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAgentStepEventsCount orders the results by agent_step_events count.
+func ByAgentStepEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentStepEventsStep(), opts...)
+	}
+}
+
+// ByAgentStepEvents orders the results by agent_step_events terms.
+func ByAgentStepEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentStepEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newAgentStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -276,5 +346,19 @@ func newCurrentForTicketStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CurrentForTicketInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CurrentForTicketTable, CurrentForTicketColumn),
+	)
+}
+func newAgentTraceEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentTraceEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentTraceEventsTable, AgentTraceEventsColumn),
+	)
+}
+func newAgentStepEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentStepEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentStepEventsTable, AgentStepEventsColumn),
 	)
 }

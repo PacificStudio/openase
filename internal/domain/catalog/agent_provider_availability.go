@@ -163,11 +163,3 @@ func availabilityReasonPointer(value string) *string {
 	copied := value
 	return &copied
 }
-
-func cloneStringPointer(value *string) *string {
-	if value == nil {
-		return nil
-	}
-	copied := *value
-	return &copied
-}

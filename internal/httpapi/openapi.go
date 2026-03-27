@@ -113,14 +113,17 @@ type OpenAPIAgent struct {
 }
 
 type OpenAPIAgentRuntime struct {
-	CurrentRunID     *string `json:"current_run_id,omitempty"`
-	Status           string  `json:"status"`
-	CurrentTicketID  *string `json:"current_ticket_id,omitempty"`
-	SessionID        string  `json:"session_id"`
-	RuntimePhase     string  `json:"runtime_phase"`
-	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
-	LastError        string  `json:"last_error"`
-	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
+	CurrentRunID         *string `json:"current_run_id,omitempty"`
+	Status               string  `json:"status"`
+	CurrentTicketID      *string `json:"current_ticket_id,omitempty"`
+	SessionID            string  `json:"session_id"`
+	RuntimePhase         string  `json:"runtime_phase"`
+	RuntimeStartedAt     *string `json:"runtime_started_at,omitempty"`
+	LastError            string  `json:"last_error"`
+	LastHeartbeatAt      *string `json:"last_heartbeat_at,omitempty"`
+	CurrentStepStatus    *string `json:"current_step_status,omitempty"`
+	CurrentStepSummary   *string `json:"current_step_summary,omitempty"`
+	CurrentStepChangedAt *string `json:"current_step_changed_at,omitempty"`
 }
 
 type OpenAPIAgentRuntimeControlResponse struct {
@@ -141,13 +144,26 @@ type OpenAPIActivityEvent struct {
 }
 
 type OpenAPIAgentOutputEntry struct {
-	ID        string  `json:"id"`
-	ProjectID string  `json:"project_id"`
-	AgentID   string  `json:"agent_id"`
-	TicketID  *string `json:"ticket_id,omitempty"`
-	Stream    string  `json:"stream"`
-	Output    string  `json:"output"`
-	CreatedAt string  `json:"created_at"`
+	ID         string  `json:"id"`
+	ProjectID  string  `json:"project_id"`
+	AgentID    string  `json:"agent_id"`
+	TicketID   *string `json:"ticket_id,omitempty"`
+	AgentRunID string  `json:"agent_run_id"`
+	Stream     string  `json:"stream"`
+	Output     string  `json:"output"`
+	CreatedAt  string  `json:"created_at"`
+}
+
+type OpenAPIAgentStepEntry struct {
+	ID                 string  `json:"id"`
+	ProjectID          string  `json:"project_id"`
+	AgentID            string  `json:"agent_id"`
+	TicketID           *string `json:"ticket_id,omitempty"`
+	AgentRunID         string  `json:"agent_run_id"`
+	StepStatus         string  `json:"step_status"`
+	Summary            string  `json:"summary"`
+	SourceTraceEventID *string `json:"source_trace_event_id,omitempty"`
+	CreatedAt          string  `json:"created_at"`
 }
 
 type OpenAPITicketReference struct {
@@ -522,6 +538,10 @@ type OpenAPIAgentResponse struct {
 
 type OpenAPIAgentOutputEntriesResponse struct {
 	Entries []OpenAPIAgentOutputEntry `json:"entries"`
+}
+
+type OpenAPIAgentStepEntriesResponse struct {
+	Entries []OpenAPIAgentStepEntry `json:"entries"`
 }
 
 type OpenAPIActivityEventsResponse struct {
@@ -1685,6 +1705,26 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	agentOutputGet.AddParameter(intQueryParameter("limit", "Limit the number of returned output entries."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/output", http.MethodGet, agentOutputGet)
 
+	agentStepsGet, err := b.jsonOperation(
+		"listAgentSteps",
+		"List agent step entries",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentStepEntriesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentStepsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	agentStepsGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	agentStepsGet.AddParameter(uuidQueryParameter("ticket_id", "Filter steps by ticket ID."))
+	agentStepsGet.AddParameter(intQueryParameter("limit", "Limit the number of returned step entries."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/steps", http.MethodGet, agentStepsGet)
+
 	rolesGet, err := b.jsonOperation(
 		"listBuiltinRoles",
 		"List builtin workflow role templates",
@@ -2533,6 +2573,22 @@ func (b openAPISpecBuilder) addStreamOperations() error {
 	agentOutputStream.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	agentOutputStream.AddParameter(uuidQueryParameter("ticket_id", "Filter streamed output by ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/output/stream", http.MethodGet, agentOutputStream)
+
+	agentStepStream, err := b.streamOperation(
+		"streamAgentSteps",
+		"Stream agent step entries",
+		[]string{"streams"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentStepStream.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	agentStepStream.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	agentStepStream.AddParameter(uuidQueryParameter("ticket_id", "Filter streamed steps by ticket ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/steps/stream", http.MethodGet, agentStepStream)
 
 	return nil
 }

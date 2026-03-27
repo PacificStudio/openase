@@ -399,6 +399,52 @@ func HasTokensWith(preds ...predicate.AgentToken) predicate.Agent {
 	})
 }
 
+// HasAgentTraceEvents applies the HasEdge predicate on the "agent_trace_events" edge.
+func HasAgentTraceEvents() predicate.Agent {
+	return predicate.Agent(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentTraceEventsTable, AgentTraceEventsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentTraceEventsWith applies the HasEdge predicate on the "agent_trace_events" edge with a given conditions (other predicates).
+func HasAgentTraceEventsWith(preds ...predicate.AgentTraceEvent) predicate.Agent {
+	return predicate.Agent(func(s *sql.Selector) {
+		step := newAgentTraceEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgentStepEvents applies the HasEdge predicate on the "agent_step_events" edge.
+func HasAgentStepEvents() predicate.Agent {
+	return predicate.Agent(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentStepEventsTable, AgentStepEventsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentStepEventsWith applies the HasEdge predicate on the "agent_step_events" edge with a given conditions (other predicates).
+func HasAgentStepEventsWith(preds ...predicate.AgentStepEvent) predicate.Agent {
+	return predicate.Agent(func(s *sql.Selector) {
+		step := newAgentStepEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasActivityEvents applies the HasEdge predicate on the "activity_events" edge.
 func HasActivityEvents() predicate.Agent {
 	return predicate.Agent(func(s *sql.Selector) {

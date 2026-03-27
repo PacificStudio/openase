@@ -10,13 +10,14 @@ import (
 const AgentOutputEventType = "agent.output"
 
 type AgentOutputEntry struct {
-	ID        uuid.UUID
-	ProjectID uuid.UUID
-	AgentID   uuid.UUID
-	TicketID  *uuid.UUID
-	Stream    string
-	Output    string
-	CreatedAt time.Time
+	ID         uuid.UUID
+	ProjectID  uuid.UUID
+	AgentID    uuid.UUID
+	TicketID   *uuid.UUID
+	AgentRunID uuid.UUID
+	Stream     string
+	Output     string
+	CreatedAt  time.Time
 }
 
 type AgentOutputListInput struct {

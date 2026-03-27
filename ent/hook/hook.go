@@ -57,6 +57,18 @@ func (f AgentRunFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentRunMutation", m)
 }
 
+// The AgentStepEventFunc type is an adapter to allow the use of ordinary
+// function as AgentStepEvent mutator.
+type AgentStepEventFunc func(context.Context, *ent.AgentStepEventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AgentStepEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AgentStepEventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentStepEventMutation", m)
+}
+
 // The AgentTokenFunc type is an adapter to allow the use of ordinary
 // function as AgentToken mutator.
 type AgentTokenFunc func(context.Context, *ent.AgentTokenMutation) (ent.Value, error)
@@ -67,6 +79,18 @@ func (f AgentTokenFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTokenMutation", m)
+}
+
+// The AgentTraceEventFunc type is an adapter to allow the use of ordinary
+// function as AgentTraceEvent mutator.
+type AgentTraceEventFunc func(context.Context, *ent.AgentTraceEventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AgentTraceEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AgentTraceEventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTraceEventMutation", m)
 }
 
 // The MachineFunc type is an adapter to allow the use of ordinary

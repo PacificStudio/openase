@@ -231,11 +231,11 @@ const capabilityAuditCases: CapabilityAuditCase[] = [
       },
       {
         file: './agents/components/agent-output-state.svelte.ts',
-        snippets: ['await listAgentOutput(projectId, agentId, { limit: agentOutputLimit })'],
+        snippets: ['listAgentSteps(projectId, agentId, { limit: agentOutputLimit })'],
       },
       {
         file: './agents/components/agent-output-stream.svelte.ts',
-        snippets: ['`/api/v1/projects/${projectId}/agents/${agentId}/output/stream`'],
+        snippets: ['`/api/v1/projects/${projectId}/agents/${agentId}/steps/stream`'],
       },
     ],
   },

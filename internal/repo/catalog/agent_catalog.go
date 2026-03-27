@@ -395,17 +395,20 @@ func mapAgentRunPointer(item *ent.AgentRun) *domain.AgentRun {
 
 func mapAgentRun(item *ent.AgentRun) domain.AgentRun {
 	return domain.AgentRun{
-		ID:               item.ID,
-		AgentID:          item.AgentID,
-		WorkflowID:       item.WorkflowID,
-		TicketID:         item.TicketID,
-		ProviderID:       item.ProviderID,
-		Status:           toDomainAgentRunStatus(item.Status),
-		SessionID:        item.SessionID,
-		RuntimeStartedAt: cloneTimePointer(item.RuntimeStartedAt),
-		LastError:        item.LastError,
-		LastHeartbeatAt:  cloneTimePointer(item.LastHeartbeatAt),
-		CreatedAt:        item.CreatedAt.UTC(),
+		ID:                   item.ID,
+		AgentID:              item.AgentID,
+		WorkflowID:           item.WorkflowID,
+		TicketID:             item.TicketID,
+		ProviderID:           item.ProviderID,
+		Status:               toDomainAgentRunStatus(item.Status),
+		SessionID:            item.SessionID,
+		RuntimeStartedAt:     cloneTimePointer(item.RuntimeStartedAt),
+		LastError:            item.LastError,
+		LastHeartbeatAt:      cloneTimePointer(item.LastHeartbeatAt),
+		CurrentStepStatus:    cloneStringPointer(item.CurrentStepStatus),
+		CurrentStepSummary:   cloneStringPointer(item.CurrentStepSummary),
+		CurrentStepChangedAt: cloneTimePointer(item.CurrentStepChangedAt),
+		CreatedAt:            item.CreatedAt.UTC(),
 	}
 }
 
