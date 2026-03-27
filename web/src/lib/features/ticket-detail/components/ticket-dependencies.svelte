@@ -1,10 +1,10 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
-  import { Button } from '$ui/button'
-  import { Label } from '$ui/label'
-  import * as Select from '$ui/select'
+  import { buttonVariants, Button } from '$ui/button'
+  import * as Popover from '$ui/popover'
+  import Plus from '@lucide/svelte/icons/plus'
   import Trash2 from '@lucide/svelte/icons/trash-2'
-  import { dependencyRelationOptions } from '../mutation-shared'
+  import TicketDependencyForm from './ticket-dependency-form.svelte'
   import type { TicketDetail, TicketReferenceOption } from '../types'
 
   let {
@@ -19,12 +19,14 @@
     availableTickets: TicketReferenceOption[]
     creatingDependency?: boolean
     deletingDependencyId?: string | null
-    onAddDependency?: (draft: { targetTicketId: string; relation: string }) => void
+    onAddDependency?: (draft: {
+      targetTicketId: string
+      relation: string
+    }) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
   } = $props()
 
-  let dependencyTargetId = $state('')
-  let dependencyRelation = $state<string>(dependencyRelationOptions[0]?.value ?? 'blocks')
+  let createOpen = $state(false)
 
   const dependencyOptions = $derived.by(() =>
     availableTickets.filter(
@@ -32,34 +34,52 @@
         !ticket.dependencies.some((dependency) => dependency.targetId === candidate.id),
     ),
   )
-  const selectedDependencyOption = $derived(
-    dependencyOptions.find((option) => option.id === dependencyTargetId) ?? null,
-  )
 
-  $effect(() => {
-    if (!dependencyOptions.length) {
-      dependencyTargetId = ''
-      return
+  async function handleCreate(draft: { targetTicketId: string; relation: string }) {
+    const accepted = (await onAddDependency?.(draft)) ?? false
+    if (accepted) {
+      createOpen = false
     }
-    if (!dependencyOptions.some((option) => option.id === dependencyTargetId)) {
-      dependencyTargetId = dependencyOptions[0]?.id ?? ''
-    }
-  })
-
-  function handleAddDependency() {
-    onAddDependency?.({
-      targetTicketId: dependencyTargetId,
-      relation: dependencyRelation,
-    })
+    return accepted
   }
 </script>
 
 <section class="space-y-3">
-  <div>
-    <h3 class="text-sm font-medium">Dependencies</h3>
-    <p class="text-muted-foreground mt-1 text-xs">
-      Add blockers or parent links directly from the current working context.
-    </p>
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <h3 class="text-sm font-medium">Dependencies</h3>
+      <p class="text-muted-foreground mt-1 text-xs">
+        Add blockers or parent links directly from the current working context.
+      </p>
+    </div>
+
+    <Popover.Root bind:open={createOpen}>
+      <Popover.Trigger
+        class={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
+        aria-label="Add dependency"
+        disabled={!dependencyOptions.length}
+      >
+        <Plus class="size-3.5" />
+      </Popover.Trigger>
+      <Popover.Content align="end" class="w-80">
+        <div class="space-y-3">
+          <div>
+            <h4 class="text-sm font-medium">Add dependency</h4>
+            <p class="text-muted-foreground mt-1 text-xs">
+              Select a related ticket and the dependency type.
+            </p>
+          </div>
+          <TicketDependencyForm
+            availableTickets={dependencyOptions}
+            creating={creatingDependency}
+            onCreate={handleCreate}
+            onCancel={() => {
+              createOpen = false
+            }}
+          />
+        </div>
+      </Popover.Content>
+    </Popover.Root>
   </div>
 
   {#if ticket.dependencies.length === 0}
@@ -93,60 +113,4 @@
       {/each}
     </div>
   {/if}
-
-  <div class="border-border bg-muted/20 rounded-lg border p-4">
-    <div class="grid gap-3">
-      <div class="space-y-2">
-        <Label>Target ticket</Label>
-        <Select.Root
-          type="single"
-          value={dependencyTargetId}
-          onValueChange={(value) => {
-            dependencyTargetId = value || ''
-          }}
-        >
-          <Select.Trigger class="w-full">
-            {selectedDependencyOption
-              ? `${selectedDependencyOption.identifier} · ${selectedDependencyOption.title}`
-              : 'Select a ticket'}
-          </Select.Trigger>
-          <Select.Content>
-            {#each dependencyOptions as option (option.id)}
-              <Select.Item value={option.id}>{option.identifier} · {option.title}</Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      <div class="space-y-2">
-        <Label>Relation</Label>
-        <Select.Root
-          type="single"
-          value={dependencyRelation}
-          onValueChange={(value) => {
-            dependencyRelation = value || dependencyRelationOptions[0]?.value || 'blocks'
-          }}
-        >
-          <Select.Trigger class="w-full">
-            {dependencyRelationOptions.find((option) => option.value === dependencyRelation)?.label}
-          </Select.Trigger>
-          <Select.Content>
-            {#each dependencyRelationOptions as option (option.value)}
-              <Select.Item value={option.value}>{option.label}</Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      <div class="flex justify-end">
-        <Button
-          size="sm"
-          onclick={handleAddDependency}
-          disabled={!dependencyOptions.length || !dependencyTargetId || creatingDependency}
-        >
-          {creatingDependency ? 'Adding…' : 'Add dependency'}
-        </Button>
-      </div>
-    </div>
-  </div>
 </section>
