@@ -10,6 +10,7 @@
     slugFromName,
     type ProjectCreationDraft,
   } from '$lib/features/catalog-creation/model'
+  import { providerAvailabilityLabel, providerIsDispatchReady } from '$lib/features/providers'
   import { projectPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
@@ -42,7 +43,8 @@
   })
 
   function providerLabel(provider: AgentProvider) {
-    return provider.available ? provider.name : `${provider.name} (Unavailable)`
+    const availabilityLabel = providerAvailabilityLabel(provider.availability_state)
+    return `${provider.name} (${availabilityLabel})`
   }
 
   function selectedProviderLabel() {
@@ -205,10 +207,11 @@
         </div>
       </div>
 
-      {#if providers.some((provider) => !provider.available)}
+      {#if providers.some((provider) => !providerIsDispatchReady(provider.availability_state))}
         <p class="text-muted-foreground text-xs">
-          Unavailable providers are built into the organization, but their CLI is not currently on
-          this machine's `PATH`.
+          Only `Ready` providers can accept new work. `Unknown`, `Unavailable`, and `Stale`
+          providers remain selectable for defaults, but the scheduler will not dispatch to them
+          until a fresh L4 check marks them ready.
         </p>
       {/if}
 
