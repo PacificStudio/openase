@@ -59,6 +59,11 @@ func ProjectID(v uuid.UUID) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldEQ(FieldProjectID, v))
 }
 
+// StageID applies equality check predicate on the "stage_id" field. It's identical to StageIDEQ.
+func StageID(v uuid.UUID) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldEQ(FieldStageID, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldEQ(FieldName, v))
@@ -107,6 +112,36 @@ func ProjectIDIn(vs ...uuid.UUID) predicate.TicketStatus {
 // ProjectIDNotIn applies the NotIn predicate on the "project_id" field.
 func ProjectIDNotIn(vs ...uuid.UUID) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldNotIn(FieldProjectID, vs...))
+}
+
+// StageIDEQ applies the EQ predicate on the "stage_id" field.
+func StageIDEQ(v uuid.UUID) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldEQ(FieldStageID, v))
+}
+
+// StageIDNEQ applies the NEQ predicate on the "stage_id" field.
+func StageIDNEQ(v uuid.UUID) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldNEQ(FieldStageID, v))
+}
+
+// StageIDIn applies the In predicate on the "stage_id" field.
+func StageIDIn(vs ...uuid.UUID) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldIn(FieldStageID, vs...))
+}
+
+// StageIDNotIn applies the NotIn predicate on the "stage_id" field.
+func StageIDNotIn(vs ...uuid.UUID) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldNotIn(FieldStageID, vs...))
+}
+
+// StageIDIsNil applies the IsNil predicate on the "stage_id" field.
+func StageIDIsNil() predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldIsNull(FieldStageID))
+}
+
+// StageIDNotNil applies the NotNil predicate on the "stage_id" field.
+func StageIDNotNil() predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldNotNull(FieldStageID))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -454,6 +489,29 @@ func HasProject() predicate.TicketStatus {
 func HasProjectWith(preds ...predicate.Project) predicate.TicketStatus {
 	return predicate.TicketStatus(func(s *sql.Selector) {
 		step := newProjectStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasStage applies the HasEdge predicate on the "stage" edge.
+func HasStage() predicate.TicketStatus {
+	return predicate.TicketStatus(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, StageTable, StageColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasStageWith applies the HasEdge predicate on the "stage" edge with a given conditions (other predicates).
+func HasStageWith(preds ...predicate.TicketStage) predicate.TicketStatus {
+	return predicate.TicketStatus(func(s *sql.Selector) {
+		step := newStageStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

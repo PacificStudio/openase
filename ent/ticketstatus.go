@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/google/uuid"
 )
@@ -20,6 +21,8 @@ type TicketStatus struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// ProjectID holds the value of the "project_id" field.
 	ProjectID uuid.UUID `json:"project_id,omitempty"`
+	// StageID holds the value of the "stage_id" field.
+	StageID *uuid.UUID `json:"stage_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Color holds the value of the "color" field.
@@ -42,6 +45,8 @@ type TicketStatus struct {
 type TicketStatusEdges struct {
 	// Project holds the value of the project edge.
 	Project *Project `json:"project,omitempty"`
+	// Stage holds the value of the stage edge.
+	Stage *TicketStage `json:"stage,omitempty"`
 	// Tickets holds the value of the tickets edge.
 	Tickets []*Ticket `json:"tickets,omitempty"`
 	// PickupWorkflows holds the value of the pickup_workflows edge.
@@ -50,7 +55,7 @@ type TicketStatusEdges struct {
 	FinishWorkflows []*Workflow `json:"finish_workflows,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -64,10 +69,21 @@ func (e TicketStatusEdges) ProjectOrErr() (*Project, error) {
 	return nil, &NotLoadedError{edge: "project"}
 }
 
+// StageOrErr returns the Stage value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e TicketStatusEdges) StageOrErr() (*TicketStage, error) {
+	if e.Stage != nil {
+		return e.Stage, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: ticketstage.Label}
+	}
+	return nil, &NotLoadedError{edge: "stage"}
+}
+
 // TicketsOrErr returns the Tickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketStatusEdges) TicketsOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		return e.Tickets, nil
 	}
 	return nil, &NotLoadedError{edge: "tickets"}
@@ -76,7 +92,7 @@ func (e TicketStatusEdges) TicketsOrErr() ([]*Ticket, error) {
 // PickupWorkflowsOrErr returns the PickupWorkflows value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketStatusEdges) PickupWorkflowsOrErr() ([]*Workflow, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.PickupWorkflows, nil
 	}
 	return nil, &NotLoadedError{edge: "pickup_workflows"}
@@ -85,7 +101,7 @@ func (e TicketStatusEdges) PickupWorkflowsOrErr() ([]*Workflow, error) {
 // FinishWorkflowsOrErr returns the FinishWorkflows value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketStatusEdges) FinishWorkflowsOrErr() ([]*Workflow, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.FinishWorkflows, nil
 	}
 	return nil, &NotLoadedError{edge: "finish_workflows"}
@@ -96,6 +112,8 @@ func (*TicketStatus) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case ticketstatus.FieldStageID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case ticketstatus.FieldIsDefault:
 			values[i] = new(sql.NullBool)
 		case ticketstatus.FieldPosition:
@@ -130,6 +148,13 @@ func (_m *TicketStatus) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field project_id", values[i])
 			} else if value != nil {
 				_m.ProjectID = *value
+			}
+		case ticketstatus.FieldStageID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field stage_id", values[i])
+			} else if value.Valid {
+				_m.StageID = new(uuid.UUID)
+				*_m.StageID = *value.S.(*uuid.UUID)
 			}
 		case ticketstatus.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -185,6 +210,11 @@ func (_m *TicketStatus) QueryProject() *ProjectQuery {
 	return NewTicketStatusClient(_m.config).QueryProject(_m)
 }
 
+// QueryStage queries the "stage" edge of the TicketStatus entity.
+func (_m *TicketStatus) QueryStage() *TicketStageQuery {
+	return NewTicketStatusClient(_m.config).QueryStage(_m)
+}
+
 // QueryTickets queries the "tickets" edge of the TicketStatus entity.
 func (_m *TicketStatus) QueryTickets() *TicketQuery {
 	return NewTicketStatusClient(_m.config).QueryTickets(_m)
@@ -225,6 +255,11 @@ func (_m *TicketStatus) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("project_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProjectID))
+	builder.WriteString(", ")
+	if v := _m.StageID; v != nil {
+		builder.WriteString("stage_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

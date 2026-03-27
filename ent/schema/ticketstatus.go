@@ -15,6 +15,9 @@ func (TicketStatus) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
 		field.UUID("project_id", uuidZero()),
+		field.UUID("stage_id", uuidZero()).
+			Optional().
+			Nillable(),
 		field.String("name").NotEmpty(),
 		field.String("color").NotEmpty(),
 		field.String("icon").Optional(),
@@ -31,6 +34,10 @@ func (TicketStatus) Edges() []ent.Edge {
 			Field("project_id").
 			Unique().
 			Required(),
+		edge.From("stage", TicketStage.Type).
+			Ref("statuses").
+			Field("stage_id").
+			Unique(),
 		edge.To("tickets", Ticket.Type),
 		edge.To("pickup_workflows", Workflow.Type),
 		edge.To("finish_workflows", Workflow.Type),
@@ -40,6 +47,7 @@ func (TicketStatus) Edges() []ent.Edge {
 func (TicketStatus) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("project_id", "name").Unique(),
+		index.Fields("project_id", "stage_id", "position"),
 		index.Fields("project_id", "position"),
 	}
 }

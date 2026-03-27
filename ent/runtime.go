@@ -23,6 +23,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -412,22 +413,40 @@ func init() {
 	ticketreposcopeDescID := ticketreposcopeFields[0].Descriptor()
 	// ticketreposcope.DefaultID holds the default value on creation for the id field.
 	ticketreposcope.DefaultID = ticketreposcopeDescID.Default.(func() uuid.UUID)
+	ticketstageFields := schema.TicketStage{}.Fields()
+	_ = ticketstageFields
+	// ticketstageDescKey is the schema descriptor for key field.
+	ticketstageDescKey := ticketstageFields[2].Descriptor()
+	// ticketstage.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	ticketstage.KeyValidator = ticketstageDescKey.Validators[0].(func(string) error)
+	// ticketstageDescName is the schema descriptor for name field.
+	ticketstageDescName := ticketstageFields[3].Descriptor()
+	// ticketstage.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	ticketstage.NameValidator = ticketstageDescName.Validators[0].(func(string) error)
+	// ticketstageDescPosition is the schema descriptor for position field.
+	ticketstageDescPosition := ticketstageFields[4].Descriptor()
+	// ticketstage.DefaultPosition holds the default value on creation for the position field.
+	ticketstage.DefaultPosition = ticketstageDescPosition.Default.(int)
+	// ticketstageDescID is the schema descriptor for id field.
+	ticketstageDescID := ticketstageFields[0].Descriptor()
+	// ticketstage.DefaultID holds the default value on creation for the id field.
+	ticketstage.DefaultID = ticketstageDescID.Default.(func() uuid.UUID)
 	ticketstatusFields := schema.TicketStatus{}.Fields()
 	_ = ticketstatusFields
 	// ticketstatusDescName is the schema descriptor for name field.
-	ticketstatusDescName := ticketstatusFields[2].Descriptor()
+	ticketstatusDescName := ticketstatusFields[3].Descriptor()
 	// ticketstatus.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	ticketstatus.NameValidator = ticketstatusDescName.Validators[0].(func(string) error)
 	// ticketstatusDescColor is the schema descriptor for color field.
-	ticketstatusDescColor := ticketstatusFields[3].Descriptor()
+	ticketstatusDescColor := ticketstatusFields[4].Descriptor()
 	// ticketstatus.ColorValidator is a validator for the "color" field. It is called by the builders before save.
 	ticketstatus.ColorValidator = ticketstatusDescColor.Validators[0].(func(string) error)
 	// ticketstatusDescPosition is the schema descriptor for position field.
-	ticketstatusDescPosition := ticketstatusFields[5].Descriptor()
+	ticketstatusDescPosition := ticketstatusFields[6].Descriptor()
 	// ticketstatus.DefaultPosition holds the default value on creation for the position field.
 	ticketstatus.DefaultPosition = ticketstatusDescPosition.Default.(int)
 	// ticketstatusDescIsDefault is the schema descriptor for is_default field.
-	ticketstatusDescIsDefault := ticketstatusFields[6].Descriptor()
+	ticketstatusDescIsDefault := ticketstatusFields[7].Descriptor()
 	// ticketstatus.DefaultIsDefault holds the default value on creation for the is_default field.
 	ticketstatus.DefaultIsDefault = ticketstatusDescIsDefault.Default.(bool)
 	// ticketstatusDescID is the schema descriptor for id field.

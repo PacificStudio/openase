@@ -15,6 +15,8 @@ const (
 	FieldID = "id"
 	// FieldProjectID holds the string denoting the project_id field in the database.
 	FieldProjectID = "project_id"
+	// FieldStageID holds the string denoting the stage_id field in the database.
+	FieldStageID = "stage_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldColor holds the string denoting the color field in the database.
@@ -29,6 +31,8 @@ const (
 	FieldDescription = "description"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
+	// EdgeStage holds the string denoting the stage edge name in mutations.
+	EdgeStage = "stage"
 	// EdgeTickets holds the string denoting the tickets edge name in mutations.
 	EdgeTickets = "tickets"
 	// EdgePickupWorkflows holds the string denoting the pickup_workflows edge name in mutations.
@@ -44,6 +48,13 @@ const (
 	ProjectInverseTable = "projects"
 	// ProjectColumn is the table column denoting the project relation/edge.
 	ProjectColumn = "project_id"
+	// StageTable is the table that holds the stage relation/edge.
+	StageTable = "ticket_status"
+	// StageInverseTable is the table name for the TicketStage entity.
+	// It exists in this package in order to avoid circular dependency with the "ticketstage" package.
+	StageInverseTable = "ticket_stages"
+	// StageColumn is the table column denoting the stage relation/edge.
+	StageColumn = "stage_id"
 	// TicketsTable is the table that holds the tickets relation/edge.
 	TicketsTable = "tickets"
 	// TicketsInverseTable is the table name for the Ticket entity.
@@ -71,6 +82,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldProjectID,
+	FieldStageID,
 	FieldName,
 	FieldColor,
 	FieldIcon,
@@ -115,6 +127,11 @@ func ByProjectID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProjectID, opts...).ToFunc()
 }
 
+// ByStageID orders the results by the stage_id field.
+func ByStageID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStageID, opts...).ToFunc()
+}
+
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
@@ -149,6 +166,13 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 func ByProjectField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newProjectStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByStageField orders the results by stage field.
+func ByStageField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newStageStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -198,6 +222,13 @@ func newProjectStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProjectInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, ProjectTable, ProjectColumn),
+	)
+}
+func newStageStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(StageInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, StageTable, StageColumn),
 	)
 }
 func newTicketsStep() *sqlgraph.Step {

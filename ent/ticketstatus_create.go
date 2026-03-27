@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -26,6 +27,20 @@ type TicketStatusCreate struct {
 // SetProjectID sets the "project_id" field.
 func (_c *TicketStatusCreate) SetProjectID(v uuid.UUID) *TicketStatusCreate {
 	_c.mutation.SetProjectID(v)
+	return _c
+}
+
+// SetStageID sets the "stage_id" field.
+func (_c *TicketStatusCreate) SetStageID(v uuid.UUID) *TicketStatusCreate {
+	_c.mutation.SetStageID(v)
+	return _c
+}
+
+// SetNillableStageID sets the "stage_id" field if the given value is not nil.
+func (_c *TicketStatusCreate) SetNillableStageID(v *uuid.UUID) *TicketStatusCreate {
+	if v != nil {
+		_c.SetStageID(*v)
+	}
 	return _c
 }
 
@@ -114,6 +129,11 @@ func (_c *TicketStatusCreate) SetNillableID(v *uuid.UUID) *TicketStatusCreate {
 // SetProject sets the "project" edge to the Project entity.
 func (_c *TicketStatusCreate) SetProject(v *Project) *TicketStatusCreate {
 	return _c.SetProjectID(v.ID)
+}
+
+// SetStage sets the "stage" edge to the TicketStage entity.
+func (_c *TicketStatusCreate) SetStage(v *TicketStage) *TicketStatusCreate {
+	return _c.SetStageID(v.ID)
 }
 
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by IDs.
@@ -314,6 +334,23 @@ func (_c *TicketStatusCreate) createSpec() (*TicketStatus, *sqlgraph.CreateSpec)
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.ProjectID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.StageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticketstatus.StageTable,
+			Columns: []string{ticketstatus.StageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.StageID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.TicketsIDs(); len(nodes) > 0 {

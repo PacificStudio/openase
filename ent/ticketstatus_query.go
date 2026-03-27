@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -28,6 +29,7 @@ type TicketStatusQuery struct {
 	inters              []Interceptor
 	predicates          []predicate.TicketStatus
 	withProject         *ProjectQuery
+	withStage           *TicketStageQuery
 	withTickets         *TicketQuery
 	withPickupWorkflows *WorkflowQuery
 	withFinishWorkflows *WorkflowQuery
@@ -82,6 +84,28 @@ func (_q *TicketStatusQuery) QueryProject() *ProjectQuery {
 			sqlgraph.From(ticketstatus.Table, ticketstatus.FieldID, selector),
 			sqlgraph.To(project.Table, project.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, ticketstatus.ProjectTable, ticketstatus.ProjectColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryStage chains the current query on the "stage" edge.
+func (_q *TicketStatusQuery) QueryStage() *TicketStageQuery {
+	query := (&TicketStageClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketstatus.Table, ticketstatus.FieldID, selector),
+			sqlgraph.To(ticketstage.Table, ticketstage.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticketstatus.StageTable, ticketstatus.StageColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -348,6 +372,7 @@ func (_q *TicketStatusQuery) Clone() *TicketStatusQuery {
 		inters:              append([]Interceptor{}, _q.inters...),
 		predicates:          append([]predicate.TicketStatus{}, _q.predicates...),
 		withProject:         _q.withProject.Clone(),
+		withStage:           _q.withStage.Clone(),
 		withTickets:         _q.withTickets.Clone(),
 		withPickupWorkflows: _q.withPickupWorkflows.Clone(),
 		withFinishWorkflows: _q.withFinishWorkflows.Clone(),
@@ -365,6 +390,17 @@ func (_q *TicketStatusQuery) WithProject(opts ...func(*ProjectQuery)) *TicketSta
 		opt(query)
 	}
 	_q.withProject = query
+	return _q
+}
+
+// WithStage tells the query-builder to eager-load the nodes that are connected to
+// the "stage" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TicketStatusQuery) WithStage(opts ...func(*TicketStageQuery)) *TicketStatusQuery {
+	query := (&TicketStageClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withStage = query
 	return _q
 }
 
@@ -479,8 +515,9 @@ func (_q *TicketStatusQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*TicketStatus{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			_q.withProject != nil,
+			_q.withStage != nil,
 			_q.withTickets != nil,
 			_q.withPickupWorkflows != nil,
 			_q.withFinishWorkflows != nil,
@@ -507,6 +544,12 @@ func (_q *TicketStatusQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if query := _q.withProject; query != nil {
 		if err := _q.loadProject(ctx, query, nodes, nil,
 			func(n *TicketStatus, e *Project) { n.Edges.Project = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withStage; query != nil {
+		if err := _q.loadStage(ctx, query, nodes, nil,
+			func(n *TicketStatus, e *TicketStage) { n.Edges.Stage = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -556,6 +599,38 @@ func (_q *TicketStatusQuery) loadProject(ctx context.Context, query *ProjectQuer
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "project_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *TicketStatusQuery) loadStage(ctx context.Context, query *TicketStageQuery, nodes []*TicketStatus, init func(*TicketStatus), assign func(*TicketStatus, *TicketStage)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*TicketStatus)
+	for i := range nodes {
+		if nodes[i].StageID == nil {
+			continue
+		}
+		fk := *nodes[i].StageID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(ticketstage.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "stage_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -684,6 +759,9 @@ func (_q *TicketStatusQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withProject != nil {
 			_spec.Node.AddColumnOnce(ticketstatus.FieldProjectID)
+		}
+		if _q.withStage != nil {
+			_spec.Node.AddColumnOnce(ticketstatus.FieldStageID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

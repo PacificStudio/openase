@@ -46,6 +46,8 @@ type Tx struct {
 	TicketExternalLink *TicketExternalLinkClient
 	// TicketRepoScope is the client for interacting with the TicketRepoScope builders.
 	TicketRepoScope *TicketRepoScopeClient
+	// TicketStage is the client for interacting with the TicketStage builders.
+	TicketStage *TicketStageClient
 	// TicketStatus is the client for interacting with the TicketStatus builders.
 	TicketStatus *TicketStatusClient
 	// Workflow is the client for interacting with the Workflow builders.
@@ -198,6 +200,7 @@ func (tx *Tx) init() {
 	tx.TicketDependency = NewTicketDependencyClient(tx.config)
 	tx.TicketExternalLink = NewTicketExternalLinkClient(tx.config)
 	tx.TicketRepoScope = NewTicketRepoScopeClient(tx.config)
+	tx.TicketStage = NewTicketStageClient(tx.config)
 	tx.TicketStatus = NewTicketStatusClient(tx.config)
 	tx.Workflow = NewWorkflowClient(tx.config)
 }
