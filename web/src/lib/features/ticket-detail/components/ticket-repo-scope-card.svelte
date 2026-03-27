@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
@@ -204,14 +205,14 @@
       </div>
     </div>
 
-    <label class="flex items-center gap-2 text-xs">
-      <input
-        type="checkbox"
+    <div class="flex items-center gap-2 text-xs">
+      <Checkbox
+        id={`scope-primary-${scope.id}`}
         checked={draft.isPrimaryScope}
-        onchange={(event) => updateDraft('isPrimaryScope', event.currentTarget.checked)}
+        onCheckedChange={(checked) => updateDraft('isPrimaryScope', checked)}
       />
-      <span>Primary scope</span>
-    </label>
+      <Label for={`scope-primary-${scope.id}`} class="text-xs font-medium">Primary scope</Label>
+    </div>
 
     <div class="flex justify-end">
       <Button size="sm" disabled={saving} onclick={handleSave}>

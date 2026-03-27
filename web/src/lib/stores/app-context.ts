@@ -6,6 +6,7 @@ export const projectSections = [
   'machines',
   'activity',
   'workflows',
+  'scheduled-jobs',
   'settings',
 ] as const
 

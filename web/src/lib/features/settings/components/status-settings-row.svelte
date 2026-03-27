@@ -4,6 +4,7 @@
     type EditableStatus,
     type StatusDraft,
   } from '$lib/features/statuses/public'
+  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import ArrowDown from '@lucide/svelte/icons/arrow-down'
@@ -21,6 +22,7 @@
     onDelete,
     onMoveUp,
     onMoveDown,
+    onSetDefault,
   }: {
     status: EditableStatus
     order: number
@@ -31,6 +33,7 @@
     onDelete: (status: EditableStatus) => Promise<void> | void
     onMoveUp: (statusId: string) => Promise<void> | void
     onMoveDown: (statusId: string) => Promise<void> | void
+    onSetDefault: (statusId: string) => Promise<void> | void
   } = $props()
 
   let draft = $state<StatusDraft>({
@@ -41,9 +44,7 @@
   let validationError = $state('')
 
   const dirty = $derived(
-    draft.name.trim() !== status.name ||
-      draft.color.toLowerCase() !== status.color.toLowerCase() ||
-      draft.isDefault !== status.isDefault,
+    draft.name.trim() !== status.name || draft.color.toLowerCase() !== status.color.toLowerCase(),
   )
 
   $effect(() => {
@@ -88,10 +89,13 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <label class="text-muted-foreground flex items-center gap-2 text-xs font-medium">
-        <input type="checkbox" bind:checked={draft.isDefault} disabled={busy} />
-        Default
-      </label>
+      {#if status.isDefault}
+        <Badge variant="outline" class="h-8 px-2 text-xs">Default</Badge>
+      {:else}
+        <Button variant="outline" size="sm" disabled={busy} onclick={() => onSetDefault(status.id)}>
+          Set default
+        </Button>
+      {/if}
 
       <Button
         variant="outline"

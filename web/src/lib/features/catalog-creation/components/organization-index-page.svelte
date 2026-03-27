@@ -2,6 +2,8 @@
   import type { Organization } from '$lib/api/contracts'
   import { organizationPath } from '$lib/stores/app-context'
   import { Button } from '$ui/button'
+  import { Checkbox } from '$ui/checkbox'
+  import { Label } from '$ui/label'
   import OrganizationBulkArchiveBar from './organization-bulk-archive-bar.svelte'
   import OrganizationCreationDialog from './organization-creation-dialog.svelte'
   import OrganizationDeleteDialog from './organization-delete-dialog.svelte'
@@ -61,17 +63,15 @@
   {#if organizations.length > 0}
     <div class="border-border divide-border divide-y rounded-lg border">
       <div class="flex items-center gap-4 px-5 py-3">
-        <input
+        <Checkbox
           id="orgs-select-all"
-          type="checkbox"
-          class="size-4 accent-current"
           checked={allSelected}
           indeterminate={someSelected}
-          onchange={toggleAll}
+          onCheckedChange={toggleAll}
         />
-        <label for="orgs-select-all" class="text-muted-foreground text-xs font-medium">
+        <Label for="orgs-select-all" class="text-muted-foreground text-xs font-medium">
           {allSelected ? 'Deselect all' : 'Select all'}
-        </label>
+        </Label>
       </div>
 
       {#each organizations as organization (organization.id)}
@@ -83,17 +83,16 @@
             : ''}"
         >
           <div class="flex min-w-0 items-center gap-4">
-            <input
+            <Checkbox
               id={`org-select-${organization.id}`}
-              type="checkbox"
-              class="size-4 shrink-0 accent-current"
+              class="shrink-0"
               checked={selectedIds.has(organization.id)}
               aria-label={`Select organization ${organization.name}`}
-              onchange={() => toggleSelect(organization.id)}
+              onCheckedChange={() => toggleSelect(organization.id)}
             />
-            <label class="sr-only" for={`org-select-${organization.id}`}>
+            <Label class="sr-only" for={`org-select-${organization.id}`}>
               Select organization {organization.name}
-            </label>
+            </Label>
             <div class="min-w-0">
               <a
                 href={organizationPath(organization.id)}

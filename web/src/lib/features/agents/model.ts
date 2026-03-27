@@ -1,4 +1,5 @@
 import type { AgentPayload, AgentProvider, AgentRun, Ticket, Workflow } from '$lib/api/contracts'
+import { normalizeProviderAvailabilityState } from '$lib/features/providers'
 import type { AgentInstance, AgentRunInstance, ProviderConfig } from './types'
 import { normalizeAgentStatus, normalizeRuntimeControlState, normalizeRuntimePhase } from './state'
 
@@ -16,7 +17,10 @@ export function buildProviderCards(
     machineWorkspaceRoot: provider.machine_workspace_root ?? null,
     name: provider.name,
     adapterType: provider.adapter_type,
+    availabilityState: normalizeProviderAvailabilityState(provider.availability_state),
     available: provider.available,
+    availabilityCheckedAt: provider.availability_checked_at ?? null,
+    availabilityReason: provider.availability_reason ?? null,
     cliCommand: provider.cli_command,
     cliArgs: [...provider.cli_args],
     authConfig: { ...provider.auth_config },
@@ -158,7 +162,10 @@ export function applyUpdatedProviderState(
           machineWorkspaceRoot: updatedProvider.machine_workspace_root ?? null,
           name: updatedProvider.name,
           adapterType: updatedProvider.adapter_type,
+          availabilityState: normalizeProviderAvailabilityState(updatedProvider.availability_state),
           available: updatedProvider.available,
+          availabilityCheckedAt: updatedProvider.availability_checked_at ?? null,
+          availabilityReason: updatedProvider.availability_reason ?? null,
           cliCommand: updatedProvider.cli_command,
           cliArgs: [...updatedProvider.cli_args],
           authConfig: { ...updatedProvider.auth_config },

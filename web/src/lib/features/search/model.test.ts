@@ -118,6 +118,7 @@ describe('global search index', () => {
     expect(items.some((item) => item.id === 'command-new-ticket')).toBe(true)
     expect(items.some((item) => item.id === 'command-toggle-theme')).toBe(true)
     expect(items.some((item) => item.id === 'page-tickets' && item.badge === 'Current')).toBe(true)
+    expect(items.some((item) => item.id === 'page-scheduled-jobs')).toBe(true)
     expect(items.some((item) => item.id === 'project-project-1')).toBe(true)
     expect(items.some((item) => item.id === 'organization-org-1')).toBe(true)
   })

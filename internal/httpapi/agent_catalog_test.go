@@ -67,6 +67,9 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	if providerPayload.Provider.MachineName != domain.LocalMachineName {
 		t.Fatalf("expected provider machine metadata to round-trip, got %+v", providerPayload.Provider)
 	}
+	if providerPayload.Provider.AvailabilityState == "" {
+		t.Fatalf("expected provider availability_state to be populated, got %+v", providerPayload.Provider)
+	}
 
 	listProviderRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs/"+orgPayload.Organization.ID+"/providers", "")
 	if listProviderRec.Code != http.StatusOK {
@@ -308,6 +311,9 @@ func TestListAgentProvidersIncludesBuiltinCatalogAvailability(t *testing.T) {
 	}
 	if payload.Providers[0].CliCommand == "" {
 		t.Fatalf("expected seeded provider cli command, got %+v", payload.Providers[0])
+	}
+	if payload.Providers[0].AvailabilityState != domain.AgentProviderAvailabilityStateUnknown.String() {
+		t.Fatalf("expected seeded provider availability_state=unknown, got %+v", payload.Providers[0])
 	}
 }
 

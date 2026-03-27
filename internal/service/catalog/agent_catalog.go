@@ -3,7 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
-	"strings"
+	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
@@ -15,7 +15,7 @@ func (s *service) ListAgentProviders(ctx context.Context, organizationID uuid.UU
 		return nil, err
 	}
 
-	return annotateAgentProvidersAvailability(items, s.resolver), nil
+	return annotateAgentProvidersAvailability(items), nil
 }
 
 func (s *service) CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error) {
@@ -31,7 +31,7 @@ func (s *service) CreateAgentProvider(ctx context.Context, input domain.CreateAg
 		return domain.AgentProvider{}, err
 	}
 
-	return annotateAgentProviderAvailability(item, s.resolver), nil
+	return annotateAgentProviderAvailability(item), nil
 }
 
 func (s *service) GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error) {
@@ -40,7 +40,7 @@ func (s *service) GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.Ag
 		return domain.AgentProvider{}, err
 	}
 
-	return annotateAgentProviderAvailability(item, s.resolver), nil
+	return annotateAgentProviderAvailability(item), nil
 }
 
 func (s *service) UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error) {
@@ -56,7 +56,7 @@ func (s *service) UpdateAgentProvider(ctx context.Context, input domain.UpdateAg
 		return domain.AgentProvider{}, err
 	}
 
-	return annotateAgentProviderAvailability(item, s.resolver), nil
+	return annotateAgentProviderAvailability(item), nil
 }
 
 func (s *service) ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error) {
@@ -166,103 +166,17 @@ func defaultAgentProviderCLIArgs(adapterType domain.AgentProviderAdapterType, cl
 
 func annotateAgentProvidersAvailability(
 	items []domain.AgentProvider,
-	resolver interface {
-		LookPath(name string) (string, error)
-	},
 ) []domain.AgentProvider {
 	annotated := make([]domain.AgentProvider, 0, len(items))
 	for _, item := range items {
-		annotated = append(annotated, annotateAgentProviderAvailability(item, resolver))
+		annotated = append(annotated, annotateAgentProviderAvailability(item))
 	}
 
 	return annotated
 }
 
-func annotateAgentProviderAvailability(
-	item domain.AgentProvider,
-	resolver interface {
-		LookPath(name string) (string, error)
-	},
-) domain.AgentProvider {
-	command := item.CliCommand
-	if item.MachineAgentCLIPath != nil && strings.TrimSpace(*item.MachineAgentCLIPath) != "" {
-		command = *item.MachineAgentCLIPath
-	}
-
-	switch {
-	case item.MachineID == uuid.Nil:
-		item.Available = isAgentProviderAvailable(command, resolver)
-	case strings.TrimSpace(item.MachineHost) == "" || item.MachineHost == domain.LocalMachineHost:
-		item.Available = isAgentProviderAvailable(command, resolver)
-	case item.MachineStatus != "" && item.MachineStatus != domain.MachineStatusOnline:
-		item.Available = false
-	default:
-		item.Available = remoteAgentProviderAvailable(item)
-	}
-	return item
-}
-
-func remoteAgentProviderAvailable(item domain.AgentProvider) bool {
-	if installed, ok := providerMachineCLIInstalled(item.AdapterType, item.MachineResources); ok {
-		return installed
-	}
-	if item.MachineAgentCLIPath != nil && strings.TrimSpace(*item.MachineAgentCLIPath) != "" {
-		return true
-	}
-	return strings.TrimSpace(item.CliCommand) != ""
-}
-
-func providerMachineCLIInstalled(adapterType domain.AgentProviderAdapterType, resources map[string]any) (bool, bool) {
-	monitor, ok := nestedResourceMap(resources, "monitor")
-	if !ok {
-		return false, false
-	}
-	level4, ok := nestedResourceMap(monitor, "l4")
-	if !ok {
-		return false, false
-	}
-	entryName := ""
-	switch adapterType {
-	case domain.AgentProviderAdapterTypeClaudeCodeCLI:
-		entryName = "claude_code"
-	case domain.AgentProviderAdapterTypeCodexAppServer:
-		entryName = "codex"
-	case domain.AgentProviderAdapterTypeGeminiCLI:
-		entryName = "gemini"
-	default:
-		return false, false
-	}
-	entry, ok := nestedResourceMap(level4, entryName)
-	if !ok {
-		return false, false
-	}
-	installed, ok := entry["installed"].(bool)
-	return installed, ok
-}
-
-func nestedResourceMap(raw map[string]any, key string) (map[string]any, bool) {
-	value, ok := raw[key]
-	if !ok {
-		return nil, false
-	}
-	item, ok := value.(map[string]any)
-	return item, ok
-}
-
-func isAgentProviderAvailable(
-	command string,
-	resolver interface {
-		LookPath(name string) (string, error)
-	},
-) bool {
-	if resolver == nil {
-		return false
-	}
-	if command == "" {
-		return false
-	}
-	_, err := resolver.LookPath(command)
-	return err == nil
+func annotateAgentProviderAvailability(item domain.AgentProvider) domain.AgentProvider {
+	return domain.DeriveAgentProviderAvailability(item, time.Now().UTC())
 }
 
 func preferredAvailableProviderID(items []domain.AgentProvider) *uuid.UUID {
