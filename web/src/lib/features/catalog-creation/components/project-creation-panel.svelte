@@ -13,7 +13,6 @@
     draft,
     providers,
     creating = false,
-    error = '',
     onNameInput,
     onSlugInput,
     onFieldChange,
@@ -22,7 +21,6 @@
     draft: ProjectCreationDraft
     providers: AgentProvider[]
     creating?: boolean
-    error?: string
     onNameInput?: (value: string) => void
     onSlugInput?: (value: string) => void
     onFieldChange?: (field: keyof ProjectCreationDraft, value: string) => void
@@ -144,10 +142,6 @@
           </Select.Root>
         </div>
       </div>
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
 
       <div class="flex items-center justify-between gap-3">
         <p class="text-muted-foreground text-xs">

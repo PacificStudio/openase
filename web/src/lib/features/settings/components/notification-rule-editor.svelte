@@ -20,8 +20,6 @@
     saving = false,
     deleting = false,
     toggling = false,
-    feedback = '',
-    error = '',
     onDraftChange,
     onSave,
     onDelete,
@@ -35,8 +33,6 @@
     saving?: boolean
     deleting?: boolean
     toggling?: boolean
-    feedback?: string
-    error?: string
     onDraftChange: (draft: RuleDraft) => void
     onSave: () => void
     onDelete: () => void
@@ -194,12 +190,4 @@
       Example: <code>{'{"priority":"high"}'}</code> or <code>{'{"new_status":"Done"}'}</code>.
     </p>
   </div>
-
-  {#if feedback}
-    <p class="text-sm text-emerald-400">{feedback}</p>
-  {/if}
-
-  {#if error}
-    <p class="text-destructive text-sm">{error}</p>
-  {/if}
 </div>

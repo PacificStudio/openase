@@ -9,6 +9,7 @@
     updateScheduledJob,
   } from '$lib/api/openase'
   import type { WorkflowSummary } from '$lib/features/workflows'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import WorkflowScheduledJobEditor from './workflow-scheduled-job-editor.svelte'
   import WorkflowScheduledJobList from './workflow-scheduled-job-list.svelte'
@@ -33,8 +34,6 @@
   let deleting = $state(false)
   let triggering = $state(false)
   let selectedJobId = $state('')
-  let error = $state('')
-  let feedback = $state('')
   let draft = $state<ScheduledJobDraft>(emptyScheduledJobDraft(''))
 
   const selectedJob = $derived(jobs.find((job) => job.id === selectedJobId) ?? null)
@@ -77,7 +76,6 @@
 
     const load = async () => {
       loading = true
-      error = ''
 
       try {
         const payload = await listScheduledJobs(projectId)
@@ -96,8 +94,9 @@
       } catch (caughtError) {
         if (cancelled) return
         jobs = []
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load scheduled jobs.'
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load scheduled jobs.',
+        )
       } finally {
         if (!cancelled) {
           loading = false
@@ -115,15 +114,11 @@
   function selectJob(job: ScheduledJob) {
     selectedJobId = job.id
     draft = scheduledJobDraftFromRecord(job, workflowOptions[0]?.value ?? '')
-    feedback = ''
-    error = ''
   }
 
   function selectNewJob() {
     selectedJobId = ''
     draft = emptyScheduledJobDraft(workflowOptions[0]?.value ?? '')
-    feedback = ''
-    error = ''
   }
 
   async function refreshJobs(nextSelectedId = selectedJobId) {
@@ -145,27 +140,26 @@
   async function handleSubmit() {
     const parsed = parseScheduledJobDraft(draft)
     if (!parsed.ok) {
-      error = parsed.error
-      feedback = ''
+      toastStore.error(parsed.error)
       return
     }
 
     saving = true
-    error = ''
-    feedback = ''
 
     try {
       if (selectedJob) {
         await updateScheduledJob(selectedJob.id, parsed.value)
         await refreshJobs(selectedJob.id)
-        feedback = 'Scheduled job updated.'
+        toastStore.success('Scheduled job updated.')
       } else {
         const payload = await createScheduledJob(projectId, parsed.value)
         await refreshJobs(payload.scheduled_job.id)
-        feedback = 'Scheduled job created.'
+        toastStore.success('Scheduled job created.')
       }
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save scheduled job.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save scheduled job.',
+      )
     } finally {
       saving = false
     }
@@ -175,16 +169,15 @@
     if (!selectedJob) return
 
     deleting = true
-    error = ''
-    feedback = ''
 
     try {
       await deleteScheduledJob(selectedJob.id)
       await refreshJobs('')
-      feedback = 'Scheduled job deleted.'
+      toastStore.success('Scheduled job deleted.')
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete scheduled job.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete scheduled job.',
+      )
     } finally {
       deleting = false
     }
@@ -194,16 +187,15 @@
     if (!selectedJob) return
 
     triggering = true
-    error = ''
-    feedback = ''
 
     try {
       await triggerScheduledJob(selectedJob.id)
       await refreshJobs(selectedJob.id)
-      feedback = 'Scheduled job triggered.'
+      toastStore.success('Scheduled job triggered.')
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to trigger scheduled job.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to trigger scheduled job.',
+      )
     } finally {
       triggering = false
     }
@@ -238,8 +230,6 @@
         {draft}
         {selectedJob}
         {workflowOptions}
-        {feedback}
-        {error}
         {saving}
         {deleting}
         {triggering}

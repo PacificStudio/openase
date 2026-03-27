@@ -15,8 +15,6 @@
     providers,
     loading = false,
     error = '',
-    pageFeedback = '',
-    pageError = '',
     runtimeActionAgentId = null,
     canRegister = false,
     registerButtonTitle,
@@ -32,16 +30,12 @@
     currentOrgSlug,
     currentProjectSlug,
     registerSaving = false,
-    registerError = '',
-    registerFeedback = '',
     onRegistrationDraftChange,
     onRegisterAgent,
     onRegisterOpenChange,
     selectedProvider,
     providerDraft,
     providerSaving = false,
-    providerFeedback = '',
-    providerError = '',
     selectedOutputAgent,
     outputEntries,
     outputLoading = false,
@@ -59,8 +53,6 @@
     providers: ProviderConfig[]
     loading?: boolean
     error?: string
-    pageFeedback?: string
-    pageError?: string
     runtimeActionAgentId?: string | null
     canRegister?: boolean
     registerButtonTitle?: string
@@ -76,16 +68,12 @@
     currentOrgSlug?: string
     currentProjectSlug?: string
     registerSaving?: boolean
-    registerError?: string
-    registerFeedback?: string
     onRegistrationDraftChange?: (field: AgentRegistrationDraftField, value: string) => void
     onRegisterAgent?: () => void
     onRegisterOpenChange?: (open: boolean) => void
     selectedProvider: ProviderConfig | null
     providerDraft: ProviderDraft
     providerSaving?: boolean
-    providerFeedback?: string
-    providerError?: string
     selectedOutputAgent: AgentInstance | null
     outputEntries: AgentOutputEntry[]
     outputLoading?: boolean
@@ -104,8 +92,6 @@
     {providers}
     {loading}
     {error}
-    {pageFeedback}
-    {pageError}
     {runtimeActionAgentId}
     {canRegister}
     {registerButtonTitle}
@@ -128,16 +114,12 @@
   {currentOrgSlug}
   {currentProjectSlug}
   {registerSaving}
-  {registerError}
-  {registerFeedback}
   {onRegistrationDraftChange}
   {onRegisterAgent}
   {onRegisterOpenChange}
   {selectedProvider}
   {providerDraft}
   {providerSaving}
-  {providerFeedback}
-  {providerError}
   {selectedOutputAgent}
   {outputEntries}
   {outputLoading}

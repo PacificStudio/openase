@@ -12,6 +12,7 @@
     type ProjectCreationDraft,
   } from '$lib/features/catalog-creation/model'
   import { projectPath } from '$lib/stores/app-context'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import MachineCreationPanel from './machine-creation-panel.svelte'
   import ProjectCreationPanel from './project-creation-panel.svelte'
   import ProviderCreationPanel from './provider-creation-panel.svelte'
@@ -38,10 +39,7 @@
     providerDraft = $state<ProviderDraft>(createEmptyProviderDraft()),
     projectSlugDirty = $state(false),
     creatingProject = $state(false),
-    projectError = $state(''),
-    creatingProvider = $state(false),
-    providerError = $state(''),
-    providerFeedback = $state('')
+    creatingProvider = $state(false)
 
   $effect(() => {
     if (
@@ -62,53 +60,46 @@
       name: value,
       slug: projectSlugDirty ? projectDraft.slug : slugFromName(value),
     }
-    projectError = ''
   }
 
   function updateProjectSlug(value: string) {
     projectSlugDirty = true
     projectDraft = { ...projectDraft, slug: value }
-    projectError = ''
   }
 
   function updateProjectField(field: keyof ProjectCreationDraft, value: string) {
     projectDraft = { ...projectDraft, [field]: value }
-    projectError = ''
   }
 
   function updateProviderField(field: keyof ProviderDraft, value: string) {
     providerDraft = { ...providerDraft, [field]: value }
-    providerError = ''
-    providerFeedback = ''
   }
 
   function updateProviderAdapter(value: string) {
     providerDraft = { ...providerDraft, adapterType: value }
-    providerError = ''
-    providerFeedback = ''
   }
 
   async function handleCreateProject() {
     if (!orgId) {
-      projectError = 'Organization context is unavailable.'
+      toastStore.error('Organization context is unavailable.')
       return
     }
 
     const parsed = parseProjectDraft(projectDraft)
     if (!parsed.ok) {
-      projectError = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
     creatingProject = true
-    projectError = ''
 
     try {
       const payload = await createProject(orgId, parsed.value)
       await goto(projectPath(orgId, payload.project.id))
     } catch (caughtError) {
-      projectError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create project.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create project.',
+      )
     } finally {
       creatingProject = false
     }
@@ -116,28 +107,27 @@
 
   async function handleCreateProvider() {
     if (!orgId) {
-      providerError = 'Organization context is unavailable.'
+      toastStore.error('Organization context is unavailable.')
       return
     }
 
     const parsed = parseProviderDraft(providerDraft)
     if (!parsed.ok) {
-      providerError = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
     creatingProvider = true
-    providerError = ''
-    providerFeedback = ''
 
     try {
       const payload = await createProvider(orgId, parsed.value)
       providerDraft = createEmptyProviderDraft()
-      providerFeedback = `Created provider ${payload.provider.name}.`
+      toastStore.success(`Created provider ${payload.provider.name}.`)
       await invalidateAll()
     } catch (caughtError) {
-      providerError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.',
+      )
     } finally {
       creatingProvider = false
     }
@@ -158,7 +148,6 @@
       draft={projectDraft}
       {providers}
       creating={creatingProject}
-      error={projectError}
       onNameInput={updateProjectName}
       onSlugInput={updateProjectSlug}
       onFieldChange={updateProjectField}
@@ -170,8 +159,6 @@
         draft={providerDraft}
         {machines}
         creating={creatingProvider}
-        feedback={providerFeedback}
-        error={providerError}
         onFieldChange={updateProviderField}
         onAdapterChange={updateProviderAdapter}
         onSubmit={() => void handleCreateProvider()}

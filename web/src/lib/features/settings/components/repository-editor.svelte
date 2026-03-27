@@ -14,8 +14,6 @@
     loading = false,
     saving = false,
     deleting = false,
-    feedback = '',
-    error = '',
     onDraftChange,
     onSave,
     onDelete,
@@ -28,8 +26,6 @@
     loading?: boolean
     saving?: boolean
     deleting?: boolean
-    feedback?: string
-    error?: string
     onDraftChange?: (field: keyof RepositoryDraft, value: string | boolean) => void
     onSave?: () => void
     onDelete?: () => void
@@ -161,17 +157,5 @@
         </span>
       </label>
     </div>
-
-    {#if feedback}
-      <p class="text-sm text-emerald-400">{feedback}</p>
-    {/if}
-
-    {#if error}
-      <div
-        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-      >
-        {error}
-      </div>
-    {/if}
   </div>
 </div>

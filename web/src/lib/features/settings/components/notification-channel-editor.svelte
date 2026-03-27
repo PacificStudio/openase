@@ -14,8 +14,6 @@
     deleting = false,
     testing = false,
     toggling = false,
-    feedback = '',
-    error = '',
     onDraftChange,
     onSave,
     onDelete,
@@ -28,8 +26,6 @@
     deleting?: boolean
     testing?: boolean
     toggling?: boolean
-    feedback?: string
-    error?: string
     onDraftChange: (draft: ChannelDraft) => void
     onSave: () => void
     onDelete: () => void
@@ -133,12 +129,4 @@
       Telegram expects `bot_token` and `chat_id`. WeCom expects `webhook_key`.
     </p>
   </div>
-
-  {#if feedback}
-    <p class="text-sm text-emerald-400">{feedback}</p>
-  {/if}
-
-  {#if error}
-    <p class="text-destructive text-sm">{error}</p>
-  {/if}
 </div>

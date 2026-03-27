@@ -21,8 +21,6 @@
     draft,
     selectedJob = null,
     workflowOptions,
-    feedback = '',
-    error = '',
     saving = false,
     deleting = false,
     triggering = false,
@@ -34,8 +32,6 @@
     draft: ScheduledJobDraft
     selectedJob?: ScheduledJob | null
     workflowOptions: WorkflowOption[]
-    feedback?: string
-    error?: string
     saving?: boolean
     deleting?: boolean
     triggering?: boolean
@@ -215,14 +211,6 @@
             : 'not scheduled'}</span
         >
       </div>
-    {/if}
-
-    {#if feedback}
-      <p class="text-sm text-emerald-400">{feedback}</p>
-    {/if}
-
-    {#if error}
-      <p class="text-destructive text-sm">{error}</p>
     {/if}
 
     <div class="flex flex-wrap items-center gap-3">

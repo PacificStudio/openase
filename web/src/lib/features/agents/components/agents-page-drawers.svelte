@@ -17,16 +17,12 @@
     currentOrgSlug,
     currentProjectSlug,
     registerSaving = false,
-    registerError = '',
-    registerFeedback = '',
     onRegistrationDraftChange,
     onRegisterAgent,
     onRegisterOpenChange,
     selectedProvider,
     providerDraft,
     providerSaving = false,
-    providerFeedback = '',
-    providerError = '',
     selectedOutputAgent,
     outputEntries,
     outputLoading = false,
@@ -45,16 +41,12 @@
     currentOrgSlug?: string
     currentProjectSlug?: string
     registerSaving?: boolean
-    registerError?: string
-    registerFeedback?: string
     onRegistrationDraftChange?: (field: AgentRegistrationDraftField, value: string) => void
     onRegisterAgent?: () => void
     onRegisterOpenChange?: (open: boolean) => void
     selectedProvider: ProviderConfig | null
     providerDraft: ProviderDraft
     providerSaving?: boolean
-    providerFeedback?: string
-    providerError?: string
     selectedOutputAgent: AgentInstance | null
     outputEntries: AgentOutputEntry[]
     outputLoading?: boolean
@@ -73,8 +65,6 @@
   {currentOrgSlug}
   {currentProjectSlug}
   saving={registerSaving}
-  error={registerError}
-  feedback={registerFeedback}
   onDraftChange={onRegistrationDraftChange}
   onSubmit={onRegisterAgent}
   onOpenChange={onRegisterOpenChange}
@@ -86,8 +76,6 @@
   machines={machineItems}
   draft={providerDraft}
   saving={providerSaving}
-  feedback={providerFeedback}
-  error={providerError}
   onDraftChange={onProviderDraftChange}
   onSave={onProviderSave}
 />

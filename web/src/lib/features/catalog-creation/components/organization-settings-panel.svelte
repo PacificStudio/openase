@@ -4,6 +4,7 @@
   import { ApiError } from '$lib/api/client'
   import { updateOrganization } from '$lib/api/openase'
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
   import { Input } from '$ui/input'
@@ -22,8 +23,6 @@
   let slug = $state('')
   let defaultProviderId = $state('')
   let saving = $state(false)
-  let feedback = $state('')
-  let error = $state('')
 
   function providerLabel(provider: AgentProvider) {
     return provider.available ? provider.name : `${provider.name} (Unavailable)`
@@ -45,19 +44,15 @@
     const nextSlug = slug.trim()
 
     if (!nextName) {
-      error = 'Organization name is required.'
-      feedback = ''
+      toastStore.error('Organization name is required.')
       return
     }
     if (!nextSlug) {
-      error = 'Organization slug is required.'
-      feedback = ''
+      toastStore.error('Organization slug is required.')
       return
     }
 
     saving = true
-    feedback = ''
-    error = ''
 
     try {
       const payload = await updateOrganization(organization.id, {
@@ -66,10 +61,12 @@
         default_agent_provider_id: defaultProviderId || null,
       })
       appStore.currentOrg = payload.organization
-      feedback = 'Organization settings saved.'
+      toastStore.success('Organization settings saved.')
       await invalidateAll()
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save organization.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save organization.',
+      )
     } finally {
       saving = false
     }
@@ -118,14 +115,6 @@
         New projects can still override this, but this keeps the org-level default explicit.
       </p>
     </div>
-
-    {#if feedback}
-      <p class="text-sm text-emerald-400">{feedback}</p>
-    {/if}
-
-    {#if error}
-      <p class="text-destructive text-sm">{error}</p>
-    {/if}
 
     <div class="flex justify-end">
       <Button onclick={handleSave} disabled={saving}>

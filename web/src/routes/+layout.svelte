@@ -1,5 +1,6 @@
 <script lang="ts">
   import ThemeRoot from '$lib/components/layout/theme-root.svelte'
+  import { ToastContainer } from '$ui/toast'
   import './layout.css'
 
   let { children } = $props()
@@ -16,4 +17,5 @@
 
 <ThemeRoot>
   {@render children()}
+  <ToastContainer />
 </ThemeRoot>

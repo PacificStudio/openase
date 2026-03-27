@@ -11,6 +11,7 @@
     type ProjectCreationDraft,
   } from '$lib/features/catalog-creation/model'
   import { projectPath } from '$lib/stores/app-context'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
@@ -33,7 +34,6 @@
   let draft = $state<ProjectCreationDraft>(createProjectDraft())
   let slugDirty = $state(false)
   let creating = $state(false)
-  let error = $state('')
 
   $effect(() => {
     if (!open) {
@@ -54,7 +54,6 @@
     draft = createProjectDraft(defaultProviderId)
     slugDirty = false
     creating = false
-    error = ''
   }
 
   function updateName(value: string) {
@@ -63,29 +62,25 @@
       name: value,
       slug: slugDirty ? draft.slug : slugFromName(value),
     }
-    error = ''
   }
 
   function updateSlug(value: string) {
     slugDirty = true
     draft = { ...draft, slug: value }
-    error = ''
   }
 
   function updateField(field: keyof ProjectCreationDraft, value: string) {
     draft = { ...draft, [field]: value }
-    error = ''
   }
 
   async function handleSubmit() {
     const parsed = parseProjectDraft(draft)
     if (!parsed.ok) {
-      error = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
     creating = true
-    error = ''
 
     try {
       const payload = await createProject(orgId, parsed.value)
@@ -93,7 +88,9 @@
       reset()
       await goto(projectPath(orgId, payload.project.id))
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create project.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create project.',
+      )
     } finally {
       creating = false
     }
@@ -213,10 +210,6 @@
           Unavailable providers are built into the organization, but their CLI is not currently on
           this machine's `PATH`.
         </p>
-      {/if}
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
       {/if}
 
       <Dialog.Footer>

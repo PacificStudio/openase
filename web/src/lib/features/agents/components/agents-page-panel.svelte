@@ -12,8 +12,6 @@
     providers,
     loading = false,
     error = '',
-    pageFeedback = '',
-    pageError = '',
     runtimeActionAgentId = null,
     canRegister = false,
     registerButtonTitle,
@@ -29,8 +27,6 @@
     providers: ProviderConfig[]
     loading?: boolean
     error?: string
-    pageFeedback?: string
-    pageError?: string
     runtimeActionAgentId?: string | null
     canRegister?: boolean
     registerButtonTitle?: string
@@ -70,21 +66,6 @@
       {error}
     </div>
   {:else}
-    {#if pageFeedback}
-      <div
-        class="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300"
-      >
-        {pageFeedback}
-      </div>
-    {/if}
-    {#if pageError}
-      <div
-        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-      >
-        {pageError}
-      </div>
-    {/if}
-
     <Tabs.Root bind:value={activeTab}>
       <Tabs.List variant="line" class="px-1">
         <Tabs.Trigger value="instances">Instances</Tabs.Trigger>

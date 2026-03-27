@@ -10,6 +10,7 @@
     updateTicket,
   } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { statusSync } from '$lib/features/statuses/public'
   import type { BoardColumn, BoardFilter, BoardTicket } from '../types'
   import {
@@ -28,7 +29,6 @@
   let view = $state<'board' | 'list'>('board')
   let loading = $state(false)
   let error = $state('')
-  let mutationError = $state('')
   let allColumns = $state<BoardColumn[]>([])
   let workflows = $state<string[]>([])
   let agentOptions = $state<string[]>([])
@@ -99,8 +99,6 @@
       workflows = nextBoard.workflowTypes
       agentOptions = nextBoard.agentOptions
       allColumns = nextBoard.columns
-
-      mutationError = ''
     } catch (caughtError) {
       if (isStaleLoad(projectId, requestVersion)) return
       error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load board data.'
@@ -145,8 +143,6 @@
     reloadInFlight = false
     draggingTicketId = null
     dropColumnId = null
-    mutationError = ''
-
     if (!projectId) {
       allColumns = []
       workflows = []
@@ -184,7 +180,6 @@
     if (ticket.isMoving) return
     draggingTicketId = ticket.id
     dropColumnId = ticket.statusId
-    mutationError = ''
   }
 
   function handleTicketDragEnd() {
@@ -218,7 +213,6 @@
       isMoving: true,
       updatedAt: new Date().toISOString(),
     })
-    mutationError = ''
 
     try {
       await updateTicket(ticketId, { status_id: targetColumnId })
@@ -235,10 +229,11 @@
           isMoving: false,
         })
       }
-      mutationError =
+      toastStore.error(
         caughtError instanceof ApiError
           ? caughtError.detail
-          : 'Failed to move ticket to the new status.'
+          : 'Failed to move ticket to the new status.',
+      )
     } finally {
       pendingMoveByTicket.delete(ticketId)
       requestReload(projectId)
@@ -253,13 +248,6 @@
       class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
     >
       {error}
-    </div>
-  {/if}
-  {#if mutationError}
-    <div
-      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-    >
-      {mutationError}
     </div>
   {/if}
   {#if loading && allColumns.length === 0}
