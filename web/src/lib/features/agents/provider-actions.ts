@@ -1,7 +1,8 @@
 import { ApiError } from '$lib/api/client'
 import { updateProvider } from '$lib/api/openase'
 import type { AgentProvider } from '$lib/api/contracts'
-import { applyUpdatedProviderState, parseProviderDraft, providerToDraft } from './model'
+import { applyUpdatedProviderState } from './model'
+import { parseProviderDraft, providerToDraft } from './provider-draft'
 import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderMutation } from './types'
 
 export async function saveProviderAndApply(input: {
