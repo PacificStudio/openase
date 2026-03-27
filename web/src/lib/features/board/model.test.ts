@@ -7,6 +7,8 @@ const statusesFixture: TicketStatus[] = [
   {
     id: 'status-1',
     project_id: 'project-1',
+    stage_id: null,
+    stage: null,
     name: 'Todo',
     color: '#2563eb',
     icon: '',
