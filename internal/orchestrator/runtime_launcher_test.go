@@ -7,12 +7,14 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/ent"
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
@@ -53,9 +55,8 @@ func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
 		t.Fatalf("create workflow: %v", err)
 	}
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(t, ctx, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -70,6 +71,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 `), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
+	commitRuntimeLauncherRepo(t, repoRoot)
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
@@ -403,9 +405,8 @@ func TestRuntimeLauncherRunTickDropsCachedSessionWhenAgentLeavesRunningState(t *
 	}
 
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(t, ctx, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -419,6 +420,7 @@ Runtime reconcile test
 `), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
+	commitRuntimeLauncherRepo(t, repoRoot)
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
@@ -520,9 +522,8 @@ func TestRuntimeLauncherRunTickExecutesTurnsRecordsUsageAndSchedulesContinuation
 	}
 
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(t, ctx, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -536,6 +537,7 @@ Implement the ticket using the current workspace.
 `), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
+	commitRuntimeLauncherRepo(t, repoRoot)
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
@@ -676,9 +678,8 @@ func TestRuntimeLauncherRunTickMarksRetryOnTurnFailure(t *testing.T) {
 	}
 
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(t, ctx, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -692,6 +693,7 @@ Handle a failing runtime turn.
 `), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
+	commitRuntimeLauncherRepo(t, repoRoot)
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
@@ -1382,6 +1384,52 @@ func waitForRuntimeCondition(t *testing.T, timeout time.Duration, predicate func
 	}
 
 	t.Fatal("timed out waiting for runtime condition")
+}
+
+func createRuntimeLauncherPrimaryRepo(
+	t *testing.T,
+	ctx context.Context,
+	client *ent.Client,
+	projectID uuid.UUID,
+	repoRoot string,
+) {
+	t.Helper()
+
+	if _, err := client.ProjectRepo.Create().
+		SetProjectID(projectID).
+		SetName(filepath.Base(repoRoot)).
+		SetRepositoryURL(repoRoot).
+		SetDefaultBranch("main").
+		SetIsPrimary(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create primary project repo: %v", err)
+	}
+}
+
+func initRuntimeLauncherRepo(t *testing.T, repoRoot string) {
+	t.Helper()
+
+	runRuntimeLauncherGit(t, repoRoot, "init", "-b", "main")
+	runRuntimeLauncherGit(t, repoRoot, "config", "user.name", "Codex")
+	runRuntimeLauncherGit(t, repoRoot, "config", "user.email", "codex@openai.com")
+}
+
+func commitRuntimeLauncherRepo(t *testing.T, repoRoot string) {
+	t.Helper()
+
+	runRuntimeLauncherGit(t, repoRoot, "add", ".")
+	runRuntimeLauncherGit(t, repoRoot, "commit", "-m", "Seed harness")
+}
+
+func runRuntimeLauncherGit(t *testing.T, repoRoot string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run git %v in %s: %v\n%s", args, repoRoot, err, string(output))
+	}
 }
 
 func decodeLifecycleEnvelope(t *testing.T, payload json.RawMessage) agentLifecycleEnvelope {
