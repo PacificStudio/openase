@@ -7,8 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -722,10 +720,7 @@ func TestListTicketsRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 
 func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T) {
 	client := openTestEntClient(t)
-	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	repoRoot := createTestGitRepo(t)
 
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
@@ -767,6 +762,7 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 		if err != nil {
 			t.Fatalf("create project %d: %v", index+1, err)
 		}
+		createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
 		localMachine, err := client.Machine.Create().
 			SetOrganizationID(org.ID).
 			SetName(fmt.Sprintf("local-%d", index+1)).

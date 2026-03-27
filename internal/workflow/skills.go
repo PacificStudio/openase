@@ -85,8 +85,12 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
 		return nil, err
 	}
+	storage, err := s.storageForProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 
-	projectSkillNames, err := listSkillNames(s.skillRoot)
+	projectSkillNames, err := listSkillNames(storage.skillRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +105,7 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 
 	byName := make(map[string]*Skill, len(projectSkillNames))
 	for _, name := range projectSkillNames {
-		description, err := s.readSkillDescription(name)
+		description, err := s.readSkillDescription(storage, name)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +118,7 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 	}
 
 	for _, workflowItem := range workflows {
-		content, err := s.registry.Read(workflowItem.HarnessPath)
+		content, err := storage.registry.Read(workflowItem.HarnessPath)
 		if err != nil {
 			return nil, fmt.Errorf("read workflow harness for skills: %w", err)
 		}
@@ -127,7 +131,7 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 		for _, name := range skillNames {
 			skillItem, ok := byName[name]
 			if !ok {
-				description, descErr := s.readSkillDescription(name)
+				description, descErr := s.readSkillDescription(storage, name)
 				if descErr != nil && !errors.Is(descErr, fs.ErrNotExist) {
 					return nil, descErr
 				}
@@ -165,12 +169,12 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 	return items, nil
 }
 
-func (s *Service) readSkillDescription(name string) (string, error) {
+func (s *Service) readSkillDescription(storage *projectStorage, name string) (string, error) {
 	if skill, ok := builtin.SkillByName(name); ok && strings.TrimSpace(skill.Description) != "" {
 		return skill.Description, nil
 	}
 
-	contentPath := filepath.Join(s.skillDirectoryPath(name), "SKILL.md")
+	contentPath := filepath.Join(s.skillDirectoryPath(storage, name), "SKILL.md")
 	//nolint:gosec // contentPath comes from validated skill metadata rooted in trusted directories
 	data, err := os.ReadFile(contentPath)
 	if err != nil {
@@ -204,6 +208,10 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return RefreshSkillsResult{}, err
 	}
+	storage, err := s.storageForProject(ctx, input.ProjectID)
+	if err != nil {
+		return RefreshSkillsResult{}, err
+	}
 
 	target, err := resolveSkillTarget(input.WorkspaceRoot, input.AdapterType)
 	if err != nil {
@@ -213,13 +221,13 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 		return RefreshSkillsResult{}, fmt.Errorf("create agent skill directory: %w", err)
 	}
 
-	skillNames, err := listSkillNames(s.skillRoot)
+	skillNames, err := listSkillNames(storage.skillRoot)
 	if err != nil {
 		return RefreshSkillsResult{}, err
 	}
 
 	for _, name := range skillNames {
-		src := s.skillDirectoryPath(name)
+		src := s.skillDirectoryPath(storage, name)
 		dst := filepath.Join(target.skillsDir.String(), name)
 		if err := replaceDirectory(src, dst); err != nil {
 			return RefreshSkillsResult{}, fmt.Errorf("refresh skill %s: %w", name, err)
@@ -239,6 +247,10 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return HarvestSkillsResult{}, err
 	}
+	storage, err := s.storageForProject(ctx, input.ProjectID)
+	if err != nil {
+		return HarvestSkillsResult{}, err
+	}
 
 	target, err := resolveSkillTarget(input.WorkspaceRoot, input.AdapterType)
 	if err != nil {
@@ -256,7 +268,7 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 	result := HarvestSkillsResult{SkillsDir: target.skillsDir.String()}
 	for _, name := range workspaceSkillNames {
 		src := filepath.Join(target.skillsDir.String(), name)
-		dst := s.skillDirectoryPath(name)
+		dst := s.skillDirectoryPath(storage, name)
 
 		srcFingerprint, err := directoryFingerprint(src)
 		if err != nil {
@@ -342,16 +354,20 @@ func (s *Service) updateWorkflowSkills(
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for skills update", err)
 	}
+	storage, err := s.storageForProject(ctx, workflowItem.ProjectID)
+	if err != nil {
+		return HarnessDocument{}, err
+	}
 
 	if requireExisting {
 		for _, name := range skillNames {
-			if err := s.ensureSkillExists(name); err != nil {
+			if err := s.ensureSkillExists(storage, name); err != nil {
 				return HarnessDocument{}, err
 			}
 		}
 	}
 
-	current, err := s.registry.Read(workflowItem.HarnessPath)
+	current, err := storage.registry.Read(workflowItem.HarnessPath)
 	if err != nil {
 		return HarnessDocument{}, fmt.Errorf("read workflow harness for skills update: %w", err)
 	}
@@ -569,15 +585,15 @@ func validateSkillDirectory(dir string) error {
 	return nil
 }
 
-func (s *Service) ensureSkillExists(name string) error {
-	if err := validateSkillDirectory(s.skillDirectoryPath(name)); err != nil {
+func (s *Service) ensureSkillExists(storage *projectStorage, name string) error {
+	if err := validateSkillDirectory(s.skillDirectoryPath(storage, name)); err != nil {
 		return fmt.Errorf("%w: %s", ErrSkillNotFound, name)
 	}
 	return nil
 }
 
-func (s *Service) skillDirectoryPath(name string) string {
-	return filepath.Join(s.skillRoot, name)
+func (s *Service) skillDirectoryPath(storage *projectStorage, name string) string {
+	return filepath.Join(storage.skillRoot, name)
 }
 
 func skillContentRelativePath(name string) string {

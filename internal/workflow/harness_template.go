@@ -281,6 +281,10 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		}
 		return HarnessTemplateData{}, fmt.Errorf("get project for harness render: %w", err)
 	}
+	storage, err := s.storageForProject(ctx, workflowItem.ProjectID)
+	if err != nil {
+		return HarnessTemplateData{}, err
+	}
 
 	agentData := HarnessAgentData{}
 	if input.AgentID != nil {
@@ -300,7 +304,7 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		agentData = mapHarnessAgent(agentItem)
 	}
 
-	harnessContent, err := s.registry.Read(workflowItem.HarnessPath)
+	harnessContent, err := storage.registry.Read(workflowItem.HarnessPath)
 	if err != nil {
 		return HarnessTemplateData{}, fmt.Errorf("read workflow harness for role extraction: %w", err)
 	}
@@ -316,7 +320,7 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 	scopedRepos, repoBranchByID := mapHarnessScopedRepos(ticketItem.Edges.RepoScopes, workspace)
 	allRepos := mapHarnessAllRepos(projectItem.Edges.Repos, repoBranchByID, workspace)
 	defaultBranch := deriveDefaultBranch(projectItem.Edges.Repos)
-	projectWorkflows, err := s.mapHarnessProjectWorkflows(ctx, projectItem.Edges.Workflows)
+	projectWorkflows, err := s.mapHarnessProjectWorkflows(ctx, storage, projectItem.Edges.Workflows)
 	if err != nil {
 		return HarnessTemplateData{}, err
 	}
@@ -666,7 +670,11 @@ func mapHarnessAllRepos(repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]s
 	return items
 }
 
-func (s *Service) mapHarnessProjectWorkflows(ctx context.Context, workflows []*ent.Workflow) ([]HarnessProjectWorkflowData, error) {
+func (s *Service) mapHarnessProjectWorkflows(
+	ctx context.Context,
+	storage *projectStorage,
+	workflows []*ent.Workflow,
+) ([]HarnessProjectWorkflowData, error) {
 	items := make([]HarnessProjectWorkflowData, 0, len(workflows))
 	workflowIDs := make([]uuid.UUID, 0, len(workflows))
 	for _, workflowItem := range workflows {
@@ -699,7 +707,7 @@ func (s *Service) mapHarnessProjectWorkflows(ctx context.Context, workflows []*e
 		if workflowItem == nil || !workflowItem.IsActive {
 			continue
 		}
-		harnessContent, err := s.registry.Read(workflowItem.HarnessPath)
+		harnessContent, err := storage.registry.Read(workflowItem.HarnessPath)
 		if err != nil {
 			return nil, fmt.Errorf("read workflow harness for project context: %w", err)
 		}

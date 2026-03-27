@@ -536,6 +536,18 @@ def main() -> int:
             "name": f"{slugify(project_name)}-coding-01",
         },
     )["agent"]
+    project_repo = request_json(
+        base_url,
+        "POST",
+        f"/api/v1/projects/{project['id']}/repos",
+        {
+            "name": slugify(project_name),
+            "repository_url": workspace_path.as_uri(),
+            "default_branch": "main",
+            "is_primary": True,
+            "labels": ["todo-app", "validation"],
+        },
+    )["repo"]
     workflow = request_json(
         base_url,
         "POST",
@@ -559,7 +571,7 @@ def main() -> int:
         },
     )["workflow"]
 
-    print("[6/11] set project defaults and register the workspace repo for the workflow")
+    print("[6/11] set project defaults after creating the primary workspace repo")
     request_json(
         base_url,
         "PATCH",
@@ -569,19 +581,6 @@ def main() -> int:
             "default_workflow_id": workflow["id"],
         },
     )
-    project_repo = request_json(
-        base_url,
-        "POST",
-        f"/api/v1/projects/{project['id']}/repos",
-        {
-            "name": slugify(project_name),
-            "repository_url": workspace_path.as_uri(),
-            "default_branch": "main",
-            "is_primary": True,
-            "labels": ["todo-app", "validation"],
-        },
-    )["repo"]
-
     print("[7/11] create linked OpenASE tickets")
     tickets = []
     for index, spec in enumerate(todo_issue_specs):

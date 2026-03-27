@@ -25,12 +25,10 @@ import (
 
 func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	client := openTestEntClient(t)
-	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	serviceRepoRoot := createTestGitRepo(t)
+	primaryRepoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -78,6 +76,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
 
 	statusSvc := ticketstatus.NewService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
@@ -86,8 +85,8 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
-	activateMarkerPath := filepath.Join(repoRoot, "activate.marker")
-	reloadMarkerPath := filepath.Join(repoRoot, "reload.marker")
+	activateMarkerPath := filepath.Join(primaryRepoRoot, "activate.marker")
+	reloadMarkerPath := filepath.Join(primaryRepoRoot, "reload.marker")
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
 		SetMachineID(localMachine.ID).
@@ -146,6 +145,9 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if createResp.Workflow.HarnessContent == nil || *createResp.Workflow.HarnessContent == "" {
 		t.Fatalf("expected harness content in create response, got %+v", createResp.Workflow)
 	}
+	if createResp.Workflow.HarnessPath != ".openase/harnesses/coding-workflow.md" {
+		t.Fatalf("expected default harness path under primary repo root, got %q", createResp.Workflow.HarnessPath)
+	}
 	//nolint:gosec // test reads files from a controlled temp repository
 	activateMarker, err := os.ReadFile(activateMarkerPath)
 	if err != nil {
@@ -155,7 +157,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		t.Fatalf("expected activate marker to capture workflow context, got %q", string(activateMarker))
 	}
 
-	harnessAbsPath := filepath.Join(repoRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))
+	harnessAbsPath := filepath.Join(primaryRepoRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))
 	//nolint:gosec // test reads files from a controlled temp repository
 	fileContent, err := os.ReadFile(harnessAbsPath)
 	if err != nil {
@@ -163,6 +165,9 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 	if string(fileContent) != *createResp.Workflow.HarnessContent {
 		t.Fatalf("expected harness file content to match response, got %q", string(fileContent))
+	}
+	if _, err := os.Stat(filepath.Join(serviceRepoRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))); !os.IsNotExist(err) {
+		t.Fatalf("expected service checkout to stay clean, stat err=%v", err)
 	}
 
 	listResp := struct {
@@ -476,10 +481,7 @@ func TestHarnessVariablesRoute(t *testing.T) {
 func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	repoRoot := createTestGitRepo(t)
 
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
@@ -516,6 +518,15 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project: %v", err)
+	}
+	if _, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL(repoRoot).
+		SetDefaultBranch("main").
+		SetIsPrimary(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create backend repo: %v", err)
 	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
@@ -614,15 +625,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		t.Fatalf("create dispatcher workflow: %v", err)
 	}
 
-	if _, err := client.ProjectRepo.Create().
-		SetProjectID(project.ID).
-		SetName("backend").
-		SetRepositoryURL("https://github.com/acme/backend").
-		SetDefaultBranch("main").
-		SetIsPrimary(true).
-		Save(ctx); err != nil {
-		t.Fatalf("create backend repo: %v", err)
-	}
 	frontendRepo, err := client.ProjectRepo.Create().
 		SetProjectID(project.ID).
 		SetName("frontend").
@@ -793,7 +795,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Machine gpu-01 openase",
 		"Workflow Coding Workflow coding fullstack-developer Todo Done",
 		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
-		fmt.Sprintf("WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/%s/coding-workflow.md:openase-platform,commit|dispatcher=Backlog:.openase/harnesses/%s/dispatcher-workflow.md:|", project.ID, project.ID),
+		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:openase-platform,commit|dispatcher=Backlog:.openase/harnesses/dispatcher-workflow.md:|",
 		"WorkflowHistory fullstack-developer=ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
 		"ProjectStatuses Backlog,Todo,In Progress,In Review,Done,Cancelled first=#6B7280",
 		"ProjectMachines gpu-01:current:gpu,a100|storage:accessible:storage,nfs|",
