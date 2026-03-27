@@ -26,7 +26,6 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
 )
@@ -454,7 +453,6 @@ func TestSchedulerRunTickResolvesExecutionMachineFromBoundProvider(t *testing.T)
 		SetName("Training").
 		SetType(entworkflow.TypeCustom).
 		SetHarnessPath(".openase/harnesses/training.md").
-		SetRequiredMachineLabels(pgarray.StringArray{"cpu-only", "legacy-dispatch"}).
 		SetMaxConcurrent(1).
 		SetPickupStatusID(fixture.statusIDs["Todo"]).
 		SetFinishStatusID(fixture.statusIDs["Done"]).

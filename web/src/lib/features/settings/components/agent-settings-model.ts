@@ -17,7 +17,6 @@ export type GovernanceAgent = {
   machineName: string
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
-  workspacePath: string
   lastHeartbeat?: string | null
 }
 
@@ -73,7 +72,6 @@ export function buildGovernanceAgents(
         machineName: provider?.machine_name ?? 'Unknown machine',
         status: normalizeAgentStatus(agent.runtime?.status ?? 'idle'),
         runtimePhase: normalizeRuntimePhase(agent.runtime?.runtime_phase ?? 'none'),
-        workspacePath: agent.workspace_path ?? '',
         lastHeartbeat: agent.runtime?.last_heartbeat_at ?? null,
       }
     })

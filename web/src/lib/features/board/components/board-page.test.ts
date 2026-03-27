@@ -153,7 +153,6 @@ const agentsFixture: AgentPayload = {
         last_error: '',
         last_heartbeat_at: null,
       },
-      workspace_path: '/tmp/agent-1',
       total_tokens_used: 0,
       total_tickets_completed: 0,
     },

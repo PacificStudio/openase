@@ -104,7 +104,6 @@ type OpenAPIAgent struct {
 	ProjectID             string               `json:"project_id"`
 	Name                  string               `json:"name"`
 	RuntimeControlState   string               `json:"runtime_control_state"`
-	WorkspacePath         string               `json:"workspace_path"`
 	TotalTokensUsed       int64                `json:"total_tokens_used"`
 	TotalTicketsCompleted int                  `json:"total_tickets_completed"`
 	Runtime               *OpenAPIAgentRuntime `json:"runtime,omitempty"`

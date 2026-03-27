@@ -69,11 +69,6 @@ func Name(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldName, v))
 }
 
-// WorkspacePath applies equality check predicate on the "workspace_path" field. It's identical to WorkspacePathEQ.
-func WorkspacePath(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldWorkspacePath, v))
-}
-
 // TotalTokensUsed applies equality check predicate on the "total_tokens_used" field. It's identical to TotalTokensUsedEQ.
 func TotalTokensUsed(v int64) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldTotalTokensUsed, v))
@@ -207,81 +202,6 @@ func RuntimeControlStateIn(vs ...RuntimeControlState) predicate.Agent {
 // RuntimeControlStateNotIn applies the NotIn predicate on the "runtime_control_state" field.
 func RuntimeControlStateNotIn(vs ...RuntimeControlState) predicate.Agent {
 	return predicate.Agent(sql.FieldNotIn(FieldRuntimeControlState, vs...))
-}
-
-// WorkspacePathEQ applies the EQ predicate on the "workspace_path" field.
-func WorkspacePathEQ(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldWorkspacePath, v))
-}
-
-// WorkspacePathNEQ applies the NEQ predicate on the "workspace_path" field.
-func WorkspacePathNEQ(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldWorkspacePath, v))
-}
-
-// WorkspacePathIn applies the In predicate on the "workspace_path" field.
-func WorkspacePathIn(vs ...string) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldWorkspacePath, vs...))
-}
-
-// WorkspacePathNotIn applies the NotIn predicate on the "workspace_path" field.
-func WorkspacePathNotIn(vs ...string) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldWorkspacePath, vs...))
-}
-
-// WorkspacePathGT applies the GT predicate on the "workspace_path" field.
-func WorkspacePathGT(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldGT(FieldWorkspacePath, v))
-}
-
-// WorkspacePathGTE applies the GTE predicate on the "workspace_path" field.
-func WorkspacePathGTE(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldGTE(FieldWorkspacePath, v))
-}
-
-// WorkspacePathLT applies the LT predicate on the "workspace_path" field.
-func WorkspacePathLT(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldLT(FieldWorkspacePath, v))
-}
-
-// WorkspacePathLTE applies the LTE predicate on the "workspace_path" field.
-func WorkspacePathLTE(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldLTE(FieldWorkspacePath, v))
-}
-
-// WorkspacePathContains applies the Contains predicate on the "workspace_path" field.
-func WorkspacePathContains(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldContains(FieldWorkspacePath, v))
-}
-
-// WorkspacePathHasPrefix applies the HasPrefix predicate on the "workspace_path" field.
-func WorkspacePathHasPrefix(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldHasPrefix(FieldWorkspacePath, v))
-}
-
-// WorkspacePathHasSuffix applies the HasSuffix predicate on the "workspace_path" field.
-func WorkspacePathHasSuffix(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldHasSuffix(FieldWorkspacePath, v))
-}
-
-// WorkspacePathIsNil applies the IsNil predicate on the "workspace_path" field.
-func WorkspacePathIsNil() predicate.Agent {
-	return predicate.Agent(sql.FieldIsNull(FieldWorkspacePath))
-}
-
-// WorkspacePathNotNil applies the NotNil predicate on the "workspace_path" field.
-func WorkspacePathNotNil() predicate.Agent {
-	return predicate.Agent(sql.FieldNotNull(FieldWorkspacePath))
-}
-
-// WorkspacePathEqualFold applies the EqualFold predicate on the "workspace_path" field.
-func WorkspacePathEqualFold(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldEqualFold(FieldWorkspacePath, v))
-}
-
-// WorkspacePathContainsFold applies the ContainsFold predicate on the "workspace_path" field.
-func WorkspacePathContainsFold(v string) predicate.Agent {
-	return predicate.Agent(sql.FieldContainsFold(FieldWorkspacePath, v))
 }
 
 // TotalTokensUsedEQ applies the EQ predicate on the "total_tokens_used" field.

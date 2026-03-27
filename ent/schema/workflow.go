@@ -24,7 +24,6 @@ func (Workflow) Fields() []ent.Field {
 		field.String("harness_path").NotEmpty(),
 		field.JSON("hooks", map[string]any{}).
 			Default(emptyMap),
-		textArrayField("required_machine_labels"),
 		field.Int("max_concurrent").Default(3),
 		field.Int("max_retry_attempts").Default(3),
 		field.Int("timeout_minutes").Default(60),

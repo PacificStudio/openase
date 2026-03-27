@@ -38,7 +38,6 @@ type agentResponse struct {
 	ProjectID             string                `json:"project_id"`
 	Name                  string                `json:"name"`
 	RuntimeControlState   string                `json:"runtime_control_state"`
-	WorkspacePath         string                `json:"workspace_path"`
 	TotalTokensUsed       int64                 `json:"total_tokens_used"`
 	TotalTicketsCompleted int                   `json:"total_tickets_completed"`
 	Runtime               *agentRuntimeResponse `json:"runtime,omitempty"`
@@ -374,7 +373,6 @@ func mapAgentResponse(item domain.Agent) agentResponse {
 		ProjectID:             item.ProjectID.String(),
 		Name:                  item.Name,
 		RuntimeControlState:   item.RuntimeControlState.String(),
-		WorkspacePath:         item.WorkspacePath,
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
 		Runtime:               mapAgentRuntimeResponse(item.Runtime),

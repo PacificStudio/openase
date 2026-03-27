@@ -937,7 +937,6 @@ type AgentMutation struct {
 	id                         *uuid.UUID
 	name                       *string
 	runtime_control_state      *agent.RuntimeControlState
-	workspace_path             *string
 	total_tokens_used          *int64
 	addtotal_tokens_used       *int64
 	total_tickets_completed    *int
@@ -1210,55 +1209,6 @@ func (m *AgentMutation) OldRuntimeControlState(ctx context.Context) (v agent.Run
 // ResetRuntimeControlState resets all changes to the "runtime_control_state" field.
 func (m *AgentMutation) ResetRuntimeControlState() {
 	m.runtime_control_state = nil
-}
-
-// SetWorkspacePath sets the "workspace_path" field.
-func (m *AgentMutation) SetWorkspacePath(s string) {
-	m.workspace_path = &s
-}
-
-// WorkspacePath returns the value of the "workspace_path" field in the mutation.
-func (m *AgentMutation) WorkspacePath() (r string, exists bool) {
-	v := m.workspace_path
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldWorkspacePath returns the old "workspace_path" field's value of the Agent entity.
-// If the Agent object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AgentMutation) OldWorkspacePath(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldWorkspacePath is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldWorkspacePath requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldWorkspacePath: %w", err)
-	}
-	return oldValue.WorkspacePath, nil
-}
-
-// ClearWorkspacePath clears the value of the "workspace_path" field.
-func (m *AgentMutation) ClearWorkspacePath() {
-	m.workspace_path = nil
-	m.clearedFields[agent.FieldWorkspacePath] = struct{}{}
-}
-
-// WorkspacePathCleared returns if the "workspace_path" field was cleared in this mutation.
-func (m *AgentMutation) WorkspacePathCleared() bool {
-	_, ok := m.clearedFields[agent.FieldWorkspacePath]
-	return ok
-}
-
-// ResetWorkspacePath resets all changes to the "workspace_path" field.
-func (m *AgentMutation) ResetWorkspacePath() {
-	m.workspace_path = nil
-	delete(m.clearedFields, agent.FieldWorkspacePath)
 }
 
 // SetTotalTokensUsed sets the "total_tokens_used" field.
@@ -1677,7 +1627,7 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 6)
 	if m.provider != nil {
 		fields = append(fields, agent.FieldProviderID)
 	}
@@ -1689,9 +1639,6 @@ func (m *AgentMutation) Fields() []string {
 	}
 	if m.runtime_control_state != nil {
 		fields = append(fields, agent.FieldRuntimeControlState)
-	}
-	if m.workspace_path != nil {
-		fields = append(fields, agent.FieldWorkspacePath)
 	}
 	if m.total_tokens_used != nil {
 		fields = append(fields, agent.FieldTotalTokensUsed)
@@ -1715,8 +1662,6 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case agent.FieldRuntimeControlState:
 		return m.RuntimeControlState()
-	case agent.FieldWorkspacePath:
-		return m.WorkspacePath()
 	case agent.FieldTotalTokensUsed:
 		return m.TotalTokensUsed()
 	case agent.FieldTotalTicketsCompleted:
@@ -1738,8 +1683,6 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldName(ctx)
 	case agent.FieldRuntimeControlState:
 		return m.OldRuntimeControlState(ctx)
-	case agent.FieldWorkspacePath:
-		return m.OldWorkspacePath(ctx)
 	case agent.FieldTotalTokensUsed:
 		return m.OldTotalTokensUsed(ctx)
 	case agent.FieldTotalTicketsCompleted:
@@ -1780,13 +1723,6 @@ func (m *AgentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRuntimeControlState(v)
-		return nil
-	case agent.FieldWorkspacePath:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetWorkspacePath(v)
 		return nil
 	case agent.FieldTotalTokensUsed:
 		v, ok := value.(int64)
@@ -1858,11 +1794,7 @@ func (m *AgentMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *AgentMutation) ClearedFields() []string {
-	var fields []string
-	if m.FieldCleared(agent.FieldWorkspacePath) {
-		fields = append(fields, agent.FieldWorkspacePath)
-	}
-	return fields
+	return nil
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -1875,11 +1807,6 @@ func (m *AgentMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *AgentMutation) ClearField(name string) error {
-	switch name {
-	case agent.FieldWorkspacePath:
-		m.ClearWorkspacePath()
-		return nil
-	}
 	return fmt.Errorf("unknown Agent nullable field %s", name)
 }
 
@@ -1898,9 +1825,6 @@ func (m *AgentMutation) ResetField(name string) error {
 		return nil
 	case agent.FieldRuntimeControlState:
 		m.ResetRuntimeControlState()
-		return nil
-	case agent.FieldWorkspacePath:
-		m.ResetWorkspacePath()
 		return nil
 	case agent.FieldTotalTokensUsed:
 		m.ResetTotalTokensUsed()
@@ -21107,7 +21031,6 @@ type WorkflowMutation struct {
 	_type                    *workflow.Type
 	harness_path             *string
 	_hooks                   *map[string]interface{}
-	required_machine_labels  *pgarray.StringArray
 	max_concurrent           *int
 	addmax_concurrent        *int
 	max_retry_attempts       *int
@@ -21473,55 +21396,6 @@ func (m *WorkflowMutation) OldHooks(ctx context.Context) (v map[string]interface
 // ResetHooks resets all changes to the "hooks" field.
 func (m *WorkflowMutation) ResetHooks() {
 	m._hooks = nil
-}
-
-// SetRequiredMachineLabels sets the "required_machine_labels" field.
-func (m *WorkflowMutation) SetRequiredMachineLabels(pa pgarray.StringArray) {
-	m.required_machine_labels = &pa
-}
-
-// RequiredMachineLabels returns the value of the "required_machine_labels" field in the mutation.
-func (m *WorkflowMutation) RequiredMachineLabels() (r pgarray.StringArray, exists bool) {
-	v := m.required_machine_labels
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRequiredMachineLabels returns the old "required_machine_labels" field's value of the Workflow entity.
-// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *WorkflowMutation) OldRequiredMachineLabels(ctx context.Context) (v pgarray.StringArray, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRequiredMachineLabels is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRequiredMachineLabels requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRequiredMachineLabels: %w", err)
-	}
-	return oldValue.RequiredMachineLabels, nil
-}
-
-// ClearRequiredMachineLabels clears the value of the "required_machine_labels" field.
-func (m *WorkflowMutation) ClearRequiredMachineLabels() {
-	m.required_machine_labels = nil
-	m.clearedFields[workflow.FieldRequiredMachineLabels] = struct{}{}
-}
-
-// RequiredMachineLabelsCleared returns if the "required_machine_labels" field was cleared in this mutation.
-func (m *WorkflowMutation) RequiredMachineLabelsCleared() bool {
-	_, ok := m.clearedFields[workflow.FieldRequiredMachineLabels]
-	return ok
-}
-
-// ResetRequiredMachineLabels resets all changes to the "required_machine_labels" field.
-func (m *WorkflowMutation) ResetRequiredMachineLabels() {
-	m.required_machine_labels = nil
-	delete(m.clearedFields, workflow.FieldRequiredMachineLabels)
 }
 
 // SetMaxConcurrent sets the "max_concurrent" field.
@@ -22229,7 +22103,7 @@ func (m *WorkflowMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *WorkflowMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 14)
 	if m.project != nil {
 		fields = append(fields, workflow.FieldProjectID)
 	}
@@ -22247,9 +22121,6 @@ func (m *WorkflowMutation) Fields() []string {
 	}
 	if m._hooks != nil {
 		fields = append(fields, workflow.FieldHooks)
-	}
-	if m.required_machine_labels != nil {
-		fields = append(fields, workflow.FieldRequiredMachineLabels)
 	}
 	if m.max_concurrent != nil {
 		fields = append(fields, workflow.FieldMaxConcurrent)
@@ -22295,8 +22166,6 @@ func (m *WorkflowMutation) Field(name string) (ent.Value, bool) {
 		return m.HarnessPath()
 	case workflow.FieldHooks:
 		return m.Hooks()
-	case workflow.FieldRequiredMachineLabels:
-		return m.RequiredMachineLabels()
 	case workflow.FieldMaxConcurrent:
 		return m.MaxConcurrent()
 	case workflow.FieldMaxRetryAttempts:
@@ -22334,8 +22203,6 @@ func (m *WorkflowMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldHarnessPath(ctx)
 	case workflow.FieldHooks:
 		return m.OldHooks(ctx)
-	case workflow.FieldRequiredMachineLabels:
-		return m.OldRequiredMachineLabels(ctx)
 	case workflow.FieldMaxConcurrent:
 		return m.OldMaxConcurrent(ctx)
 	case workflow.FieldMaxRetryAttempts:
@@ -22402,13 +22269,6 @@ func (m *WorkflowMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetHooks(v)
-		return nil
-	case workflow.FieldRequiredMachineLabels:
-		v, ok := value.(pgarray.StringArray)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRequiredMachineLabels(v)
 		return nil
 	case workflow.FieldMaxConcurrent:
 		v, ok := value.(int)
@@ -22562,9 +22422,6 @@ func (m *WorkflowMutation) ClearedFields() []string {
 	if m.FieldCleared(workflow.FieldAgentID) {
 		fields = append(fields, workflow.FieldAgentID)
 	}
-	if m.FieldCleared(workflow.FieldRequiredMachineLabels) {
-		fields = append(fields, workflow.FieldRequiredMachineLabels)
-	}
 	if m.FieldCleared(workflow.FieldFinishStatusID) {
 		fields = append(fields, workflow.FieldFinishStatusID)
 	}
@@ -22584,9 +22441,6 @@ func (m *WorkflowMutation) ClearField(name string) error {
 	switch name {
 	case workflow.FieldAgentID:
 		m.ClearAgentID()
-		return nil
-	case workflow.FieldRequiredMachineLabels:
-		m.ClearRequiredMachineLabels()
 		return nil
 	case workflow.FieldFinishStatusID:
 		m.ClearFinishStatusID()
@@ -22616,9 +22470,6 @@ func (m *WorkflowMutation) ResetField(name string) error {
 		return nil
 	case workflow.FieldHooks:
 		m.ResetHooks()
-		return nil
-	case workflow.FieldRequiredMachineLabels:
-		m.ResetRequiredMachineLabels()
 		return nil
 	case workflow.FieldMaxConcurrent:
 		m.ResetMaxConcurrent()

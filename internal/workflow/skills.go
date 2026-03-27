@@ -46,7 +46,7 @@ type SkillWorkflowBinding struct {
 
 type RefreshSkillsInput struct {
 	ProjectID     uuid.UUID
-	WorkspacePath string
+	WorkspaceRoot string
 	AdapterType   string
 }
 
@@ -57,7 +57,7 @@ type RefreshSkillsResult struct {
 
 type HarvestSkillsInput struct {
 	ProjectID     uuid.UUID
-	WorkspacePath string
+	WorkspaceRoot string
 	AdapterType   string
 }
 
@@ -205,7 +205,7 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 		return RefreshSkillsResult{}, err
 	}
 
-	target, err := resolveSkillTarget(input.WorkspacePath, input.AdapterType)
+	target, err := resolveSkillTarget(input.WorkspaceRoot, input.AdapterType)
 	if err != nil {
 		return RefreshSkillsResult{}, err
 	}
@@ -240,7 +240,7 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 		return HarvestSkillsResult{}, err
 	}
 
-	target, err := resolveSkillTarget(input.WorkspacePath, input.AdapterType)
+	target, err := resolveSkillTarget(input.WorkspaceRoot, input.AdapterType)
 	if err != nil {
 		return HarvestSkillsResult{}, err
 	}
@@ -475,21 +475,21 @@ func buildHarnessContent(frontmatter string, body string) string {
 	return builder.String()
 }
 
-func resolveSkillTarget(workspacePath string, rawAdapterType string) (resolvedSkillTarget, error) {
-	trimmedWorkspace := strings.TrimSpace(workspacePath)
-	if trimmedWorkspace == "" {
-		return resolvedSkillTarget{}, fmt.Errorf("%w: workspace_path must not be empty", ErrSkillInvalid)
+func resolveSkillTarget(workspaceRoot string, rawAdapterType string) (resolvedSkillTarget, error) {
+	trimmedWorkspaceRoot := strings.TrimSpace(workspaceRoot)
+	if trimmedWorkspaceRoot == "" {
+		return resolvedSkillTarget{}, fmt.Errorf("%w: workspace_root must not be empty", ErrSkillInvalid)
 	}
-	absoluteWorkspace, err := filepath.Abs(trimmedWorkspace)
+	absoluteWorkspaceRoot, err := filepath.Abs(trimmedWorkspaceRoot)
 	if err != nil {
-		return resolvedSkillTarget{}, fmt.Errorf("%w: resolve workspace path: %s", ErrSkillInvalid, err)
+		return resolvedSkillTarget{}, fmt.Errorf("%w: resolve workspace root: %s", ErrSkillInvalid, err)
 	}
-	workspace, err := provider.ParseAbsolutePath(absoluteWorkspace)
+	workspace, err := provider.ParseAbsolutePath(absoluteWorkspaceRoot)
 	if err != nil {
 		return resolvedSkillTarget{}, fmt.Errorf("%w: %s", ErrSkillInvalid, err)
 	}
 	if err := os.MkdirAll(workspace.String(), 0o750); err != nil {
-		return resolvedSkillTarget{}, fmt.Errorf("%w: create workspace path: %s", ErrSkillInvalid, err)
+		return resolvedSkillTarget{}, fmt.Errorf("%w: create workspace root: %s", ErrSkillInvalid, err)
 	}
 
 	adapterType := entagentprovider.AdapterType(strings.ToLower(strings.TrimSpace(rawAdapterType)))

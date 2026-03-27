@@ -27,8 +27,6 @@ type Agent struct {
 	Name string `json:"name,omitempty"`
 	// RuntimeControlState holds the value of the "runtime_control_state" field.
 	RuntimeControlState agent.RuntimeControlState `json:"runtime_control_state,omitempty"`
-	// WorkspacePath holds the value of the "workspace_path" field.
-	WorkspacePath string `json:"workspace_path,omitempty"`
 	// TotalTokensUsed holds the value of the "total_tokens_used" field.
 	TotalTokensUsed int64 `json:"total_tokens_used,omitempty"`
 	// TotalTicketsCompleted holds the value of the "total_tickets_completed" field.
@@ -123,7 +121,7 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agent.FieldTotalTokensUsed, agent.FieldTotalTicketsCompleted:
 			values[i] = new(sql.NullInt64)
-		case agent.FieldName, agent.FieldRuntimeControlState, agent.FieldWorkspacePath:
+		case agent.FieldName, agent.FieldRuntimeControlState:
 			values[i] = new(sql.NullString)
 		case agent.FieldID, agent.FieldProviderID, agent.FieldProjectID:
 			values[i] = new(uuid.UUID)
@@ -171,12 +169,6 @@ func (_m *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field runtime_control_state", values[i])
 			} else if value.Valid {
 				_m.RuntimeControlState = agent.RuntimeControlState(value.String)
-			}
-		case agent.FieldWorkspacePath:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field workspace_path", values[i])
-			} else if value.Valid {
-				_m.WorkspacePath = value.String
 			}
 		case agent.FieldTotalTokensUsed:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -267,9 +259,6 @@ func (_m *Agent) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("runtime_control_state=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RuntimeControlState))
-	builder.WriteString(", ")
-	builder.WriteString("workspace_path=")
-	builder.WriteString(_m.WorkspacePath)
 	builder.WriteString(", ")
 	builder.WriteString("total_tokens_used=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TotalTokensUsed))

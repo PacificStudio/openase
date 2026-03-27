@@ -47,7 +47,6 @@ type agentLifecycleSnapshot struct {
 	RuntimeControlState   string  `json:"runtime_control_state"`
 	RuntimeStartedAt      *string `json:"runtime_started_at,omitempty"`
 	LastError             string  `json:"last_error"`
-	WorkspacePath         string  `json:"workspace_path"`
 	TotalTokensUsed       int64   `json:"total_tokens_used"`
 	TotalTicketsCompleted int     `json:"total_tickets_completed"`
 	LastHeartbeatAt       *string `json:"last_heartbeat_at,omitempty"`
@@ -153,7 +152,6 @@ func mapAgentLifecycleSnapshot(state agentLifecycleState) agentLifecycleSnapshot
 		RuntimeControlState:   state.agent.RuntimeControlState.String(),
 		RuntimeStartedAt:      lifecycleRuntimeStartedAt(state),
 		LastError:             lifecycleLastError(state),
-		WorkspacePath:         state.agent.WorkspacePath,
 		TotalTokensUsed:       state.agent.TotalTokensUsed,
 		TotalTicketsCompleted: state.agent.TotalTicketsCompleted,
 		LastHeartbeatAt:       lifecycleLastHeartbeatAt(state),

@@ -9,7 +9,7 @@ import (
 )
 
 type rawSkillSyncRequest struct {
-	WorkspacePath string `json:"workspace_path"`
+	WorkspaceRoot string `json:"workspace_root"`
 	AdapterType   string `json:"adapter_type"`
 }
 
@@ -18,9 +18,9 @@ type rawUpdateWorkflowSkillsRequest struct {
 }
 
 func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (workflowservice.RefreshSkillsInput, error) {
-	workspacePath := strings.TrimSpace(raw.WorkspacePath)
-	if workspacePath == "" {
-		return workflowservice.RefreshSkillsInput{}, fmt.Errorf("workspace_path must not be empty")
+	workspaceRoot := strings.TrimSpace(raw.WorkspaceRoot)
+	if workspaceRoot == "" {
+		return workflowservice.RefreshSkillsInput{}, fmt.Errorf("workspace_root must not be empty")
 	}
 	adapterType := strings.TrimSpace(raw.AdapterType)
 	if adapterType == "" {
@@ -29,15 +29,15 @@ func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (wo
 
 	return workflowservice.RefreshSkillsInput{
 		ProjectID:     projectID,
-		WorkspacePath: workspacePath,
+		WorkspaceRoot: workspaceRoot,
 		AdapterType:   adapterType,
 	}, nil
 }
 
 func parseHarvestSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (workflowservice.HarvestSkillsInput, error) {
-	workspacePath := strings.TrimSpace(raw.WorkspacePath)
-	if workspacePath == "" {
-		return workflowservice.HarvestSkillsInput{}, fmt.Errorf("workspace_path must not be empty")
+	workspaceRoot := strings.TrimSpace(raw.WorkspaceRoot)
+	if workspaceRoot == "" {
+		return workflowservice.HarvestSkillsInput{}, fmt.Errorf("workspace_root must not be empty")
 	}
 	adapterType := strings.TrimSpace(raw.AdapterType)
 	if adapterType == "" {
@@ -46,7 +46,7 @@ func parseHarvestSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (wo
 
 	return workflowservice.HarvestSkillsInput{
 		ProjectID:     projectID,
-		WorkspacePath: workspacePath,
+		WorkspaceRoot: workspaceRoot,
 		AdapterType:   adapterType,
 	}, nil
 }

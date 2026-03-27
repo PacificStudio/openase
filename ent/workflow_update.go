@@ -18,7 +18,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -114,18 +113,6 @@ func (_u *WorkflowUpdate) SetNillableHarnessPath(v *string) *WorkflowUpdate {
 // SetHooks sets the "hooks" field.
 func (_u *WorkflowUpdate) SetHooks(v map[string]interface{}) *WorkflowUpdate {
 	_u.mutation.SetHooks(v)
-	return _u
-}
-
-// SetRequiredMachineLabels sets the "required_machine_labels" field.
-func (_u *WorkflowUpdate) SetRequiredMachineLabels(v pgarray.StringArray) *WorkflowUpdate {
-	_u.mutation.SetRequiredMachineLabels(v)
-	return _u
-}
-
-// ClearRequiredMachineLabels clears the value of the "required_machine_labels" field.
-func (_u *WorkflowUpdate) ClearRequiredMachineLabels() *WorkflowUpdate {
-	_u.mutation.ClearRequiredMachineLabels()
 	return _u
 }
 
@@ -516,12 +503,6 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Hooks(); ok {
 		_spec.SetField(workflow.FieldHooks, field.TypeJSON, value)
 	}
-	if value, ok := _u.mutation.RequiredMachineLabels(); ok {
-		_spec.SetField(workflow.FieldRequiredMachineLabels, field.TypeOther, value)
-	}
-	if _u.mutation.RequiredMachineLabelsCleared() {
-		_spec.ClearField(workflow.FieldRequiredMachineLabels, field.TypeOther)
-	}
 	if value, ok := _u.mutation.MaxConcurrent(); ok {
 		_spec.SetField(workflow.FieldMaxConcurrent, field.TypeInt, value)
 	}
@@ -905,18 +886,6 @@ func (_u *WorkflowUpdateOne) SetNillableHarnessPath(v *string) *WorkflowUpdateOn
 // SetHooks sets the "hooks" field.
 func (_u *WorkflowUpdateOne) SetHooks(v map[string]interface{}) *WorkflowUpdateOne {
 	_u.mutation.SetHooks(v)
-	return _u
-}
-
-// SetRequiredMachineLabels sets the "required_machine_labels" field.
-func (_u *WorkflowUpdateOne) SetRequiredMachineLabels(v pgarray.StringArray) *WorkflowUpdateOne {
-	_u.mutation.SetRequiredMachineLabels(v)
-	return _u
-}
-
-// ClearRequiredMachineLabels clears the value of the "required_machine_labels" field.
-func (_u *WorkflowUpdateOne) ClearRequiredMachineLabels() *WorkflowUpdateOne {
-	_u.mutation.ClearRequiredMachineLabels()
 	return _u
 }
 
@@ -1336,12 +1305,6 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 	}
 	if value, ok := _u.mutation.Hooks(); ok {
 		_spec.SetField(workflow.FieldHooks, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.RequiredMachineLabels(); ok {
-		_spec.SetField(workflow.FieldRequiredMachineLabels, field.TypeOther, value)
-	}
-	if _u.mutation.RequiredMachineLabelsCleared() {
-		_spec.ClearField(workflow.FieldRequiredMachineLabels, field.TypeOther)
 	}
 	if value, ok := _u.mutation.MaxConcurrent(); ok {
 		_spec.SetField(workflow.FieldMaxConcurrent, field.TypeInt, value)
