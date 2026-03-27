@@ -52,6 +52,7 @@ func TestAdapterStartBuildsStreamJSONCommandAndResume(t *testing.T) {
 
 	expectedArgs := []string{
 		"--model", "claude-sonnet-4-6",
+		"--verbose",
 		"-p",
 		"--output-format", "stream-json",
 		"--input-format", "stream-json",
@@ -67,6 +68,49 @@ func TestAdapterStartBuildsStreamJSONCommandAndResume(t *testing.T) {
 	}
 	if len(manager.lastSpec.Environment) != 1 || manager.lastSpec.Environment[0] != "ANTHROPIC_API_KEY=test" {
 		t.Fatalf("unexpected environment: %#v", manager.lastSpec.Environment)
+	}
+}
+
+func TestAdapterStartDoesNotDuplicateVerboseFlag(t *testing.T) {
+	manager := &fakeProcessManager{
+		process: newFakeProcess("", ""),
+	}
+	adapter := NewAdapter(manager)
+
+	spec, err := provider.NewClaudeCodeSessionSpec(
+		provider.MustParseAgentCLICommand("claude"),
+		[]string{"--verbose", "--model", "claude-sonnet-4-6"},
+		nil,
+		nil,
+		nil,
+		"",
+		nil,
+		nil,
+		nil,
+		false,
+	)
+	if err != nil {
+		t.Fatalf("NewClaudeCodeSessionSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), spec)
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	t.Cleanup(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = session.Close(closeCtx)
+	})
+
+	verboseCount := 0
+	for _, arg := range manager.lastSpec.Args {
+		if arg == "--verbose" {
+			verboseCount += 1
+		}
+	}
+	if verboseCount != 1 {
+		t.Fatalf("expected exactly one --verbose flag, got %d in %#v", verboseCount, manager.lastSpec.Args)
 	}
 }
 
