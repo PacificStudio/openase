@@ -532,10 +532,7 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 		}
 	}
 
-	workingDirectoryValue, err := resolveAgentWorkingDirectory(launchContext, workspaceItem)
-	if err != nil {
-		return nil, fmt.Errorf("resolve agent working directory: %w", err)
-	}
+	workingDirectoryValue := resolveAgentWorkingDirectory(launchContext, workspaceItem)
 	if !remote && l.workflow != nil {
 		if _, err := l.workflow.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
 			ProjectID:     launchContext.project.ID,
@@ -908,20 +905,20 @@ func buildWorkspaceRepoInputs(projectRepos []*ent.ProjectRepo, ticketScopes []*e
 	return inputs
 }
 
-func resolveAgentWorkingDirectory(launchContext runtimeLaunchContext, workspaceItem workspaceinfra.Workspace) (string, error) {
+func resolveAgentWorkingDirectory(launchContext runtimeLaunchContext, workspaceItem workspaceinfra.Workspace) string {
 	if len(workspaceItem.Repos) == 0 {
-		return workspaceItem.Path, nil
+		return workspaceItem.Path
 	}
 
 	if primaryPath, ok := primaryPreparedRepoPath(launchContext, workspaceItem.Repos); ok {
-		return primaryPath, nil
+		return primaryPath
 	}
 
 	if len(workspaceItem.Repos) == 1 {
-		return workspaceItem.Repos[0].Path, nil
+		return workspaceItem.Repos[0].Path
 	}
 
-	return workspaceItem.Path, nil
+	return workspaceItem.Path
 }
 
 func primaryPreparedRepoPath(
