@@ -1,7 +1,10 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import MachineBrowser from './machine-browser.svelte'
-  import MachineEditor from './machine-editor.svelte'
+  import { Input } from '$ui/input'
+  import { Search } from '@lucide/svelte'
+  import MachineEditorSheet from './machine-editor-sheet.svelte'
+  import MachineRowCard from './machine-row-card.svelte'
+  import { machineToDraft } from '../model'
   import type {
     MachineDraft,
     MachineDraftField,
@@ -25,8 +28,9 @@
     probe,
     loadingHealth = false,
     saving = false,
-    testing = false,
-    deleting = false,
+    testingMachineId = '',
+    deletingMachineId = '',
+    editorOpen = $bindable(false),
     stateMessage = '',
     onSearchChange,
     onSelectMachine,
@@ -50,8 +54,9 @@
     probe: MachineProbeResult | null
     loadingHealth?: boolean
     saving?: boolean
-    testing?: boolean
-    deleting?: boolean
+    testingMachineId?: string
+    deletingMachineId?: string
+    editorOpen?: boolean
     stateMessage?: string
     onSearchChange?: (value: string) => void
     onSelectMachine?: (machineId: string) => void
@@ -59,17 +64,23 @@
     onCreate?: () => void
     onRetry?: () => void
     onSave?: () => void
-    onTest?: () => void
-    onDelete?: () => void
-    onReset?: () => void
+    onTest?: (machineId: string) => void
+    onDelete?: (machineId: string) => void
+    onReset?: (machineId: string) => void
   } = $props()
 
   const emptyMessage = $derived(
     searchQuery.trim() ? 'No machines match the current filter.' : 'No machines registered yet.',
   )
+  const selectedDraft = $derived(
+    selectedMachine && mode === 'edit' ? machineToDraft(selectedMachine) : null,
+  )
+  const hasSelectedDraftChanges = $derived(
+    selectedDraft ? JSON.stringify(selectedDraft) !== JSON.stringify(draft) : false,
+  )
 </script>
 
-<div class="px-6 pb-6">
+<div class="flex min-h-0 flex-1 flex-col px-6 pb-6">
   {#if state === 'no-org'}
     <div
       class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
@@ -102,32 +113,68 @@
       </div>
     </div>
   {:else}
-    <div class="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-      <MachineBrowser
-        {machines}
-        {selectedId}
-        {searchQuery}
-        {emptyMessage}
-        {onSearchChange}
-        onSelect={onSelectMachine}
-      />
+    <div class="space-y-4">
+      <div
+        class="flex flex-col gap-3 rounded-2xl border border-dashed px-4 py-4 md:flex-row md:items-center md:justify-between"
+      >
+        <div class="max-w-2xl">
+          <h2 class="text-foreground text-sm font-semibold">Fleet overview</h2>
+          <p class="text-muted-foreground mt-1 text-sm">
+            Click any machine card to open the editor drawer. Runtime health stays read-only in the
+            list; edits happen in the drawer only.
+          </p>
+        </div>
 
-      <MachineEditor
-        {mode}
-        machine={selectedMachine}
-        {draft}
-        {snapshot}
-        {probe}
-        {loadingHealth}
-        {saving}
-        {testing}
-        {deleting}
-        {onDraftChange}
-        {onSave}
-        {onTest}
-        {onDelete}
-        {onReset}
-      />
+        <div class="relative w-full md:max-w-xs">
+          <Search class="text-muted-foreground absolute top-2.5 left-2.5 size-3.5" />
+          <Input
+            value={searchQuery}
+            class="h-9 pl-8 text-sm"
+            placeholder="Search machines..."
+            oninput={(event) => onSearchChange?.((event.currentTarget as HTMLInputElement).value)}
+          />
+        </div>
+      </div>
+
+      {#if machines.length === 0}
+        <div
+          class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-center text-sm"
+        >
+          {emptyMessage}
+        </div>
+      {:else}
+        <div class="space-y-3">
+          {#each machines as machine (machine.id)}
+            <MachineRowCard
+              {machine}
+              selected={machine.id === selectedId && editorOpen}
+              resetEnabled={machine.id === selectedId &&
+                editorOpen &&
+                mode === 'edit' &&
+                hasSelectedDraftChanges}
+              testing={testingMachineId === machine.id}
+              deleting={deletingMachineId === machine.id}
+              onOpen={() => onSelectMachine?.(machine.id)}
+              onTest={() => onTest?.(machine.id)}
+              onReset={() => onReset?.(machine.id)}
+              onDelete={() => onDelete?.(machine.id)}
+            />
+          {/each}
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
+
+<MachineEditorSheet
+  bind:open={editorOpen}
+  {mode}
+  machine={selectedMachine}
+  {draft}
+  {snapshot}
+  {probe}
+  {loadingHealth}
+  {saving}
+  {onDraftChange}
+  {onSave}
+/>

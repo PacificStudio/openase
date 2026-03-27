@@ -8,13 +8,12 @@
     testMachineConnection,
     updateMachine,
   } from '$lib/api/openase'
-  import PageHeader from '$lib/components/layout/page-header.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import MachinePageActions from './machine-page-actions.svelte'
-  import MachineWorkspace from './machine-workspace.svelte'
+  import MachinesPageBody from './machines-page-body.svelte'
   import {
     createEmptyMachineDraft,
     filterMachines,
+    machineToDraft,
     parseMachineDraft,
     parseMachineSnapshot,
   } from '../model'
@@ -28,7 +27,6 @@
   } from '../page-state'
   import type {
     MachineDraft,
-    MachineDraftField,
     MachineItem,
     MachineProbeResult,
     MachinesPageData,
@@ -42,8 +40,9 @@
   let refreshing = $state(false)
   let loadingHealth = $state(false)
   let saving = $state(false)
-  let testing = $state(false)
-  let deleting = $state(false)
+  let testingMachineId = $state('')
+  let deletingMachineId = $state('')
+  let editorOpen = $state(false)
   let workspaceState = $state<MachineWorkspaceState>('loading')
   let routeOrgId = $state('')
   let listMessage = $state('')
@@ -66,23 +65,32 @@
     loading = false
     refreshing = false
 
-    if (nextData.orgContext.kind === 'no-org') return applyViewState(createNoOrgState())
+    if (nextData.orgContext.kind === 'no-org') {
+      editorOpen = false
+      return applyViewState(createNoOrgState())
+    }
     if (nextData.orgContext.kind === 'error') {
+      editorOpen = false
       return applyViewState(createListErrorState(nextData.orgContext.message))
     }
 
     const nextOrgId = nextData.orgContext.org.id
     if (nextData.initialListError) {
+      editorOpen = false
       return applyViewState(createListErrorState(nextData.initialListError))
     }
     if (nextData.initialMachines.length === 0) {
+      editorOpen = false
       return applyViewState(createEmptyState(nextOrgId))
     }
 
     const nextMachine =
       nextData.initialMachines.find((machine) => machine.id === selectedId) ??
       nextData.initialMachines[0]
-    applyViewState(createEditorSelectionState(nextOrgId, nextData.initialMachines, nextMachine))
+    applyViewState({
+      ...createEditorSelectionState(nextOrgId, nextData.initialMachines, nextMachine),
+      searchQuery,
+    })
     await loadMachineResources(nextMachine.id)
   }
 
@@ -99,8 +107,12 @@
     probe = nextState.probe
   }
 
-  async function openMachine(machine: MachineItem) {
-    applyViewState(createEditorSelectionState(routeOrgId, machines, machine))
+  async function openMachine(machine: MachineItem, openEditor = true) {
+    applyViewState({
+      ...createEditorSelectionState(routeOrgId, machines, machine),
+      searchQuery,
+    })
+    editorOpen = openEditor
     await loadMachineResources(machine.id)
   }
 
@@ -121,17 +133,20 @@
 
   function startCreate() {
     if (!routeOrgId) return applyViewState(createNoOrgState())
-    applyViewState(createStartCreateState(routeOrgId, machines))
+    applyViewState({ ...createStartCreateState(routeOrgId, machines), searchQuery })
+    editorOpen = true
   }
 
-  function resetDraft() {
+  function resetDraft(machineId?: string) {
+    if (machineId && machineId !== selectedId) return
+
     if (mode === 'create') {
       draft = createEmptyMachineDraft()
       return
     }
 
     if (selectedMachine) {
-      draft = createEditorSelectionState(routeOrgId, machines, selectedMachine).draft
+      draft = machineToDraft(selectedMachine)
     }
   }
 
@@ -161,14 +176,14 @@
       if (mode === 'create') {
         const payload = await createMachine(routeOrgId, parsed.value)
         machines = [payload.machine, ...machines]
-        await openMachine(payload.machine)
+        await openMachine(payload.machine, true)
         toastStore.success('Machine created.')
       } else if (selectedMachine) {
         const payload = await updateMachine(selectedMachine.id, parsed.value)
         machines = machines.map((machine) =>
           machine.id === payload.machine.id ? payload.machine : machine,
         )
-        await openMachine(payload.machine)
+        await openMachine(payload.machine, true)
         toastStore.success('Machine updated.')
       }
     } catch (caughtError) {
@@ -180,73 +195,72 @@
     }
   }
 
-  async function handleTest() {
-    if (!selectedMachine) return
-    testing = true
+  async function handleTest(machineId: string) {
+    const machine = machines.find((item) => item.id === machineId)
+    if (!machine) return
+    testingMachineId = machineId
 
     try {
-      const payload = await testMachineConnection(selectedMachine.id)
+      const payload = await testMachineConnection(machineId)
       machines = machines.map((machine) =>
         machine.id === payload.machine.id ? payload.machine : machine,
       )
-      await openMachine(payload.machine)
-      probe = payload.probe
+      if (selectedId === machineId) {
+        snapshot = parseMachineSnapshot(payload.machine.resources)
+        probe = payload.probe
+      }
       toastStore.success('Connection test completed.')
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to run connection test.',
       )
     } finally {
-      testing = false
+      testingMachineId = ''
     }
   }
 
-  async function handleDelete() {
-    if (!selectedMachine) return
-    deleting = true
+  async function handleDelete(machineId: string) {
+    const machine = machines.find((item) => item.id === machineId)
+    if (!machine) return
+    deletingMachineId = machineId
 
     try {
-      await deleteMachine(selectedMachine.id)
-      machines = machines.filter((machine) => machine.id !== selectedMachine.id)
-      probe = null
-      snapshot = null
+      await deleteMachine(machineId)
+      const nextMachines = machines.filter((item) => item.id !== machineId)
+      machines = nextMachines
       toastStore.success('Machine deleted.')
 
-      const nextMachine = machines[0] ?? null
-      if (nextMachine) {
-        await openMachine(nextMachine)
-      } else {
-        applyViewState(createEmptyState(routeOrgId))
+      if (selectedId === machineId) {
+        probe = null
+        snapshot = null
+        editorOpen = false
+
+        const nextMachine = nextMachines[0] ?? null
+        if (nextMachine) {
+          applyViewState({
+            ...createEditorSelectionState(routeOrgId, nextMachines, nextMachine),
+            searchQuery,
+          })
+        } else {
+          applyViewState(createEmptyState(routeOrgId))
+        }
       }
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete machine.',
       )
     } finally {
-      deleting = false
+      deletingMachineId = ''
     }
   }
 </script>
 
-{#snippet actions()}
-  <MachinePageActions
-    {refreshing}
-    refreshDisabled={loading}
-    createDisabled={!routeOrgId}
-    onRefresh={() => void handleRefresh()}
-    onCreate={startCreate}
-  />
-{/snippet}
-
-<PageHeader
-  title="Machines"
-  description="Manage SSH-backed worker machines and inspect live monitor snapshots."
-  {actions}
-/>
-
-<MachineWorkspace
-  state={workspaceState}
+<MachinesPageBody
+  {routeOrgId}
   {loading}
+  {refreshing}
+  {workspaceState}
+  {listMessage}
   machines={filteredMachines}
   {selectedId}
   {searchQuery}
@@ -257,9 +271,11 @@
   {probe}
   {loadingHealth}
   {saving}
-  {testing}
-  {deleting}
-  stateMessage={listMessage}
+  {testingMachineId}
+  {deletingMachineId}
+  bind:editorOpen
+  onRefresh={() => void handleRefresh()}
+  onCreate={startCreate}
   onSearchChange={(value) => {
     searchQuery = value
   }}
@@ -267,13 +283,12 @@
     const nextMachine = machines.find((machine) => machine.id === machineId)
     if (nextMachine) void openMachine(nextMachine)
   }}
-  onDraftChange={(field: MachineDraftField, value: string) => {
+  onDraftChange={(field, value) => {
     draft = { ...draft, [field]: value }
   }}
-  onCreate={startCreate}
   onRetry={() => void handleRefresh()}
   onSave={() => void handleSave()}
-  onTest={() => void handleTest()}
-  onDelete={() => void handleDelete()}
+  onTest={(machineId) => void handleTest(machineId)}
+  onDelete={(machineId) => void handleDelete(machineId)}
   onReset={resetDraft}
 />

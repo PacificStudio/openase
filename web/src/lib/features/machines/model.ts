@@ -9,13 +9,6 @@ import type {
   ResourceMap,
 } from './types'
 
-export const machineStatusOptions: MachineStatus[] = [
-  'online',
-  'offline',
-  'degraded',
-  'maintenance',
-]
-
 export function createEmptyMachineDraft(): MachineDraft {
   return {
     name: '',

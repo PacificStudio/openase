@@ -30,9 +30,9 @@
     {
       label: 'Agent deletion',
       location: 'Settings / Agents',
-      state: 'unwired',
+      state: 'available',
       summary:
-        'DELETE /api/v1/agents/{agentId} exists, but this settings slice does not expose an inline delete flow yet.',
+        'Registered agent rows now expose inline delete actions backed by DELETE /api/v1/agents/{agentId}, while runtime intervention remains on /agents.',
     },
     {
       label: 'Runtime output',

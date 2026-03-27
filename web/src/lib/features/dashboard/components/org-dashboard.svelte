@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PageScaffold } from '$lib/components/layout'
   import { formatBytes, formatCount } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
   import {
@@ -153,55 +154,52 @@
   })
 </script>
 
-<div class="space-y-6">
-  <div>
-    <h1 class="text-foreground text-lg font-semibold">Dashboard</h1>
-    <p class="text-muted-foreground text-sm">Project overview</p>
-  </div>
+<PageScaffold title="Dashboard" description="Project overview">
+  <div class="space-y-6">
+    {#if loading}
+      <div
+        class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
+      >
+        Loading dashboard…
+      </div>
+    {:else if error}
+      <div
+        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+      >
+        {error}
+      </div>
+    {:else}
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
+        <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
+        <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
+        <StatCard label="Heap In Use" value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'} />
+      </div>
 
-  {#if loading}
-    <div
-      class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
-    >
-      Loading dashboard…
-    </div>
-  {:else if error}
-    <div
-      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-    >
-      {error}
-    </div>
-  {:else}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
-      <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
-      <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
-      <StatCard label="Heap In Use" value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'} />
-    </div>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <ProjectHealthList {projects} />
+        <CostSnapshotPanel
+          newTicketsTodayCost={stats.newTicketsTodayCost}
+          projectCost={stats.projectCost}
+          ticketInputTokens={stats.ticketInputTokens}
+          ticketOutputTokens={stats.ticketOutputTokens}
+          totalAgentTokens={stats.totalAgentTokens}
+          ticketsCreatedToday={stats.ticketsCreatedToday}
+          ticketsCompletedToday={stats.ticketsCompletedToday}
+          {topCostTicket}
+          {topTokenAgent}
+        />
+        <ExceptionPanel {exceptions} />
+      </div>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <ProjectHealthList {projects} />
-      <CostSnapshotPanel
-        newTicketsTodayCost={stats.newTicketsTodayCost}
-        projectCost={stats.projectCost}
-        ticketInputTokens={stats.ticketInputTokens}
-        ticketOutputTokens={stats.ticketOutputTokens}
-        totalAgentTokens={stats.totalAgentTokens}
-        ticketsCreatedToday={stats.ticketsCreatedToday}
-        ticketsCompletedToday={stats.ticketsCompletedToday}
-        {topCostTicket}
-        {topTokenAgent}
-      />
-      <ExceptionPanel {exceptions} />
-    </div>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <ActivityFeedPanel {activities} class="lg:col-span-2" />
+        <MemorySnapshotPanel {memory} />
+      </div>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <ActivityFeedPanel {activities} class="lg:col-span-2" />
-      <MemorySnapshotPanel {memory} />
-    </div>
-
-    {#if hrAdvisor}
-      <HRAdvisorPanel advisor={hrAdvisor} />
+      {#if hrAdvisor}
+        <HRAdvisorPanel advisor={hrAdvisor} />
+      {/if}
     {/if}
-  {/if}
-</div>
+  </div>
+</PageScaffold>

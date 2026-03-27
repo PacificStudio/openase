@@ -1,7 +1,5 @@
 <script lang="ts">
-  import { Button } from '$ui/button'
   import * as Tabs from '$ui/tabs'
-  import { Plus } from '@lucide/svelte'
   import type { AgentInstance, AgentRunInstance, ProviderConfig } from '../types'
   import AgentRunList from './agent-run-list.svelte'
   import AgentList from './agent-list.svelte'
@@ -15,9 +13,6 @@
     loading = false,
     error = '',
     runtimeActionAgentId = null,
-    canRegister = false,
-    registerButtonTitle,
-    onOpenRegister,
     onSelectTicket,
     onViewOutput,
     onConfigureProvider,
@@ -31,9 +26,6 @@
     loading?: boolean
     error?: string
     runtimeActionAgentId?: string | null
-    canRegister?: boolean
-    registerButtonTitle?: string
-    onOpenRegister?: () => void
     onSelectTicket?: (ticketId: string) => void
     onViewOutput?: (agentId: string) => void
     onConfigureProvider?: (provider: ProviderConfig) => void
@@ -43,19 +35,6 @@
 </script>
 
 <div class="border-border/60 bg-card/60 space-y-4 rounded-xl border p-4 sm:p-5">
-  <div class="flex items-center justify-between gap-3">
-    <h1 class="text-foreground text-lg font-semibold">Agents</h1>
-    <Button
-      size="sm"
-      onclick={() => onOpenRegister?.()}
-      disabled={!canRegister}
-      title={registerButtonTitle}
-    >
-      <Plus class="size-3.5" />
-      Register Agent
-    </Button>
-  </div>
-
   {#if loading}
     <div
       class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"

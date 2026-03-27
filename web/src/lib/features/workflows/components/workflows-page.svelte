@@ -1,6 +1,7 @@
 <script lang="ts">
   import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
+  import { PageScaffold } from '$lib/components/layout'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { ApiError } from '$lib/api/client'
   import {
@@ -23,12 +24,8 @@
     loadWorkflowRepositoryPrerequisite,
     type WorkflowRepositoryPrerequisite,
   } from '../data'
-  import WorkflowList from './workflow-list.svelte'
-  import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
-  import WorkflowEditorPanel from './workflow-editor-panel.svelte'
-  import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
-  import WorkflowsPageState from './workflows-page-state.svelte'
-  import WorkflowsPageToolbar from './workflows-page-toolbar.svelte'
+  import WorkflowsPageBody from './workflows-page-body.svelte'
+  import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
   let showDetail = $state(true)
   let showCreateDialog = $state(false)
   let loading = $state(false),
@@ -54,20 +51,25 @@
       ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'settings')
       : null,
   )
+
+  function resetWorkflowContent() {
+    workflows = []
+    selectedId = ''
+    harness = null
+    draftHarness = ''
+    skillStates = []
+    statuses = []
+    agentOptions = []
+    providers = []
+    variableGroups = []
+    validationIssues = []
+  }
+
   $effect(() => {
     const projectId = appStore.currentProject?.id
     const orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
-      workflows = []
-      selectedId = ''
-      harness = null
-      draftHarness = ''
-      skillStates = []
-      statuses = []
-      agentOptions = []
-      providers = []
-      variableGroups = []
-      validationIssues = []
+      resetWorkflowContent()
       prerequisite = null
       loadError = ''
       loading = false
@@ -82,16 +84,7 @@
         if (cancelled) return
         prerequisite = nextPrerequisite
         if (nextPrerequisite.kind !== 'ready') {
-          workflows = []
-          selectedId = ''
-          harness = null
-          draftHarness = ''
-          skillStates = []
-          statuses = []
-          agentOptions = []
-          providers = []
-          variableGroups = []
-          validationIssues = []
+          resetWorkflowContent()
           return
         }
         const payload = await loadWorkflowIndex(projectId, orgId, selectedId)
@@ -232,68 +225,55 @@
   }
 </script>
 
-<div class="flex h-full flex-col">
-  <WorkflowsPageToolbar
+{#snippet actions()}
+  <WorkflowsPageHeaderActions
     {showDetail}
     canCreate={statuses.length > 0 && agentOptions.length > 0}
     onToggleDetail={() => (showDetail = !showDetail)}
     onCreate={handleCreateWorkflow}
   />
-  {#if loading || prerequisite?.kind === 'missing_primary_repo' || (loadError && workflows.length === 0)}
-    <WorkflowsPageState
-      {loading}
-      missingPrimaryRepo={prerequisite?.kind === 'missing_primary_repo'}
-      repoCount={prerequisite?.kind === 'missing_primary_repo' ? prerequisite.repoCount : 0}
-      {settingsHref}
-      loadError={workflows.length === 0 ? loadError : ''}
-    />
-  {:else}
-    <div class="flex flex-1 overflow-hidden">
-      <div class="w-60 shrink-0">
-        <WorkflowList {workflows} {selectedId} onselect={(id) => (selectedId = id)} />
-      </div>
-      <WorkflowEditorPanel
-        projectId={appStore.currentProject?.id}
-        {providers}
-        selectedWorkflow={selectedWorkflow ?? undefined}
-        harness={harness ? toHarnessContent(draftHarness) : null}
-        {variableGroups}
-        {skillStates}
-        {validationIssues}
-        {saving}
-        {validating}
-        {isDirty}
-        onDraftChange={(raw) => (draftHarness = raw)}
-        onApplyAssistantDraft={handleApplyAssistantDraft}
-        onSave={() => void handleSave()}
-        onValidate={() => void handleValidate()}
-        onToggleSkill={(skill) => void handleToggleSkill(skill)}
-      />
-      {#if showDetail && selectedWorkflow}
-        <div class="w-70 shrink-0">
-          <WorkflowLifecycleSidebar
-            workflow={selectedWorkflow}
-            {workflows}
-            {statuses}
-            {agentOptions}
-            onWorkflowsChange={(nextWorkflows) => (workflows = nextWorkflows)}
-            onSelectedIdChange={(nextSelectedId) => (selectedId = nextSelectedId)}
-          />
-        </div>
-      {/if}
-    </div>
-  {/if}
-</div>
-<WorkflowCreationDialog
-  bind:open={showCreateDialog}
-  projectId={appStore.currentProject?.id ?? ''}
-  {statuses}
-  {agentOptions}
-  existingCount={workflows.length}
-  {builtinRoleContent}
-  onCreated={({ workflow, selectedId: nextSelectedId }) => {
-    workflows = [...workflows, workflow]
-    selectedId = nextSelectedId
-    toastStore.success('Workflow created.')
-  }}
-/>
+{/snippet}
+
+<PageScaffold
+  title="Workflows"
+  description="Edit harnesses and manage workflow lifecycle settings."
+  variant="workspace"
+  {actions}
+>
+  <WorkflowsPageBody
+    {loading}
+    {prerequisite}
+    {settingsHref}
+    {loadError}
+    {workflows}
+    {selectedId}
+    projectId={appStore.currentProject?.id ?? ''}
+    {providers}
+    {selectedWorkflow}
+    {harness}
+    {draftHarness}
+    {variableGroups}
+    {skillStates}
+    {validationIssues}
+    {saving}
+    {validating}
+    {isDirty}
+    {showDetail}
+    bind:showCreateDialog
+    {statuses}
+    {agentOptions}
+    {builtinRoleContent}
+    onSelectedIdChange={(id) => (selectedId = id)}
+    onDraftChange={(raw) => (draftHarness = raw)}
+    onApplyAssistantDraft={handleApplyAssistantDraft}
+    onSave={() => void handleSave()}
+    onValidate={() => void handleValidate()}
+    onToggleSkill={(skill) => void handleToggleSkill(skill)}
+    onWorkflowsChange={(nextWorkflows) => (workflows = nextWorkflows)}
+    onCreated={({ workflow, selectedId: nextSelectedId }) => {
+      workflows = [...workflows, workflow]
+      selectedId = nextSelectedId
+      toastStore.success('Workflow created.')
+    }}
+  />
+</PageScaffold>

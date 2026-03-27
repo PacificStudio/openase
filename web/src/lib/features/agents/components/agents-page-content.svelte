@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { PageScaffold } from '$lib/components/layout'
+  import { Button } from '$ui/button'
   import type { AgentOutputEntry, AgentProvider, AgentStepEntry, Machine } from '$lib/api/contracts'
   import type { StreamConnectionState } from '$lib/api/sse'
+  import { Plus } from '@lucide/svelte'
   import type {
     AgentInstance,
     AgentRunInstance,
@@ -95,25 +98,40 @@
   } = $props()
 </script>
 
-<div class="space-y-4">
-  <AgentsPagePanel
-    bind:activeTab
-    {agents}
-    {agentRuns}
-    {providers}
-    {loading}
-    {error}
-    {runtimeActionAgentId}
-    {canRegister}
-    {registerButtonTitle}
-    {onOpenRegister}
-    {onSelectTicket}
-    {onViewOutput}
-    {onConfigureProvider}
-    {onPauseAgent}
-    {onResumeAgent}
-  />
-</div>
+{#snippet actions()}
+  <Button
+    size="sm"
+    onclick={() => onOpenRegister?.()}
+    disabled={!canRegister}
+    title={registerButtonTitle}
+  >
+    <Plus class="size-3.5" />
+    Register Agent
+  </Button>
+{/snippet}
+
+<PageScaffold
+  title="Agents"
+  description="Manage runtime sessions, definitions, and provider bindings."
+  {actions}
+>
+  <div class="space-y-4">
+    <AgentsPagePanel
+      bind:activeTab
+      {agents}
+      {agentRuns}
+      {providers}
+      {loading}
+      {error}
+      {runtimeActionAgentId}
+      {onSelectTicket}
+      {onViewOutput}
+      {onConfigureProvider}
+      {onPauseAgent}
+      {onResumeAgent}
+    />
+  </div>
+</PageScaffold>
 
 <AgentsPageDrawers
   bind:registerSheetOpen
