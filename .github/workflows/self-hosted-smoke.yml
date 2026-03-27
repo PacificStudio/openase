@@ -1,0 +1,31 @@
+name: Self-Hosted Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+
+      - name: Print Runner Host
+        run: echo "runner=$(hostname)"
+
+      - name: Print System Info
+        run: uname -a
+
+      - name: Print Node Version
+        run: node -v || true
+
+      - name: Print Go Version
+        run: go version || true
