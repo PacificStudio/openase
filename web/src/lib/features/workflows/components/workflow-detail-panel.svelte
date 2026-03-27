@@ -9,6 +9,7 @@
   import {
     createWorkflowLifecycleDraft,
     parseWorkflowLifecycleDraft,
+    toggleWorkflowStatusSelection,
     type WorkflowLifecycleDraft,
     type WorkflowLifecyclePayload,
   } from '../workflow-lifecycle'
@@ -16,9 +17,6 @@
   import WorkflowDetailHeader from './workflow-detail-header.svelte'
   import WorkflowBindingSummary from './workflow-binding-summary.svelte'
   import WorkflowNumberField from './workflow-number-field.svelte'
-
-  const unchangedFinishStatusValue = '__unchanged__'
-
   let {
     workflow,
     statuses = [],
@@ -46,8 +44,8 @@
   let draft = $state<WorkflowLifecycleDraft>({
     agentId: '',
     name: '',
-    pickupStatusId: '',
-    finishStatusId: '',
+    pickupStatusIds: [],
+    finishStatusIds: [],
     maxConcurrent: '',
     maxRetryAttempts: '',
     timeoutMinutes: '',
@@ -61,26 +59,17 @@
   const isDirty = $derived(
     draft.agentId !== baseDraft.agentId ||
       draft.name !== baseDraft.name ||
-      draft.pickupStatusId !== baseDraft.pickupStatusId ||
-      draft.finishStatusId !== baseDraft.finishStatusId ||
+      draft.pickupStatusIds.join(':') !== baseDraft.pickupStatusIds.join(':') ||
+      draft.finishStatusIds.join(':') !== baseDraft.finishStatusIds.join(':') ||
       draft.maxConcurrent !== baseDraft.maxConcurrent ||
       draft.maxRetryAttempts !== baseDraft.maxRetryAttempts ||
       draft.timeoutMinutes !== baseDraft.timeoutMinutes ||
       draft.stallTimeoutMinutes !== baseDraft.stallTimeoutMinutes ||
       draft.isActive !== baseDraft.isActive,
   )
-  const selectedPickupStatusLabel = $derived(
-    statuses.find((status) => status.id === draft.pickupStatusId)?.name ?? 'Select status',
-  )
   const selectedAgentLabel = $derived(
     agentOptions.find((option) => option.id === draft.agentId)?.label ?? 'Select bound agent',
   )
-  const selectedFinishStatusLabel = $derived(
-    draft.finishStatusId
-      ? (statuses.find((status) => status.id === draft.finishStatusId)?.name ?? 'Unknown status')
-      : 'Leave unchanged',
-  )
-  const finishStatusValue = $derived(draft.finishStatusId || unchangedFinishStatusValue)
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
   const machineSummary = $derived(
     selectedAgent?.machineName
@@ -95,8 +84,8 @@
       workflow.agentId ?? '',
       workflow.name,
       workflow.isActive,
-      workflow.pickupStatusId,
-      workflow.finishStatusId ?? '',
+      workflow.pickupStatusIds.join(','),
+      workflow.finishStatusIds.join(','),
       workflow.maxConcurrent,
       workflow.maxRetry,
       workflow.timeoutMinutes,
@@ -119,6 +108,14 @@
       [field]: value,
     }
     formError = ''
+  }
+
+  function togglePickupStatus(statusId: string) {
+    updateDraftField('pickupStatusIds', toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId))
+  }
+
+  function toggleFinishStatus(statusId: string) {
+    updateDraftField('finishStatusIds', toggleWorkflowStatusSelection(draft.finishStatusIds, statusId))
   }
 
   async function handleSubmit(event: SubmitEvent) {
@@ -227,42 +224,45 @@
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-2">
-          <Label>Pickup Status</Label>
-          <Select.Root
-            type="single"
-            value={draft.pickupStatusId}
-            disabled={saving || deleting || statuses.length === 0}
-            onValueChange={(value) => updateDraftField('pickupStatusId', value || '')}
-          >
-            <Select.Trigger class="w-full">{selectedPickupStatusLabel}</Select.Trigger>
-            <Select.Content>
-              {#each statuses as status (status.id)}
-                <Select.Item value={status.id}>{status.name}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <Label>Pickup Statuses</Label>
+          <div class="flex flex-wrap gap-2">
+            {#each statuses as status (status.id)}
+              <button
+                type="button"
+                class={cn(
+                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
+                  draft.pickupStatusIds.includes(status.id)
+                    ? 'border-primary/40 bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-muted',
+                )}
+                disabled={saving || deleting}
+                onclick={() => togglePickupStatus(status.id)}
+              >
+                {status.name}
+              </button>
+            {/each}
+          </div>
         </div>
 
         <div class="space-y-2">
-          <Label>Finish Status</Label>
-          <Select.Root
-            type="single"
-            value={finishStatusValue}
-            disabled={saving || deleting}
-            onValueChange={(value) =>
-              updateDraftField(
-                'finishStatusId',
-                value === unchangedFinishStatusValue ? '' : (value ?? ''),
-              )}
-          >
-            <Select.Trigger class="w-full">{selectedFinishStatusLabel}</Select.Trigger>
-            <Select.Content>
-              <Select.Item value={unchangedFinishStatusValue}>Leave unchanged</Select.Item>
-              {#each statuses as status (status.id)}
-                <Select.Item value={status.id}>{status.name}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <Label>Finish Statuses</Label>
+          <div class="flex flex-wrap gap-2">
+            {#each statuses as status (status.id)}
+              <button
+                type="button"
+                class={cn(
+                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
+                  draft.finishStatusIds.includes(status.id)
+                    ? 'border-primary/40 bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-muted',
+                )}
+                disabled={saving || deleting}
+                onclick={() => toggleFinishStatus(status.id)}
+              >
+                {status.name}
+              </button>
+            {/each}
+          </div>
         </div>
       </div>
     </div>

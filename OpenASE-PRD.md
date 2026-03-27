@@ -965,11 +965,10 @@ Agent 完成后：
 t.CurrentRunID = ""                        // 释放当前 AgentRun 占位
 t.AttemptCount = 0                         // 重置计数
 t.ConsecutiveErrors = 0                    // 重置错误计数
-if wf.FinishStatusID != "" {
-    t.StatusID = wf.FinishStatusID         // 移到 finish 状态
+if len(wf.FinishStatusIDs) == 1 {
+    t.StatusID = wf.FinishStatusIDs[0]     // 单 finish 时自动落到唯一目标状态
 }
-// finish 为空时：Agent 自己通过 Platform API 决定目标状态
-// 适用于需要动态选择结果的场景（如实验成功→"Success" / 失败→"Fail"）
+// 多 finish 时：Agent 必须自己通过 Platform API 选择 workflow.finish_status_ids 内的某一个目标状态
 s.ticketRepo.Save(ctx, t)
 ```
 
@@ -4169,7 +4168,12 @@ func (s *Service) SyncPullRequestStatus(ctx context.Context, input PullRequestSt
         workflow, _ := s.workflowRepo.Get(ctx, t.WorkflowID)
         s.hookExec.RunAll(ctx, workflow.Hooks.OnDone, hook.Env{TicketID: t.ID})
 
-        t.StatusID = workflow.FinishStatusID
+        if len(workflow.FinishStatusIDs) == 1 {
+            t.StatusID = workflow.FinishStatusIDs[0]
+        } else {
+            // 多 finish 配置时，不允许 repo-scope 完成路径擅自猜测目标状态
+            return ErrExplicitFinishStatusRequired
+        }
         t.CompletedAt = time.Now()
         s.repo.Save(ctx, t)
 

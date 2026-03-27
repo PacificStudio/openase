@@ -6777,7 +6777,7 @@ export interface operations {
           'application/json': {
             workflows?: {
               agent_id?: string | null
-              finish_status_id?: string | null
+              finish_status_ids?: string[]
               harness_content?: string | null
               harness_path?: string
               hooks?: {
@@ -6788,7 +6788,7 @@ export interface operations {
               max_concurrent?: number
               max_retry_attempts?: number
               name?: string
-              pickup_status_id?: string
+              pickup_status_ids?: string[]
               project_id?: string
               stall_timeout_minutes?: number
               timeout_minutes?: number
@@ -6851,7 +6851,7 @@ export interface operations {
       content: {
         'application/json': {
           agent_id?: string
-          finish_status_id?: string | null
+          finish_status_ids?: string[]
           harness_content?: string
           harness_path?: string | null
           hooks?: {
@@ -6861,7 +6861,7 @@ export interface operations {
           max_concurrent?: number | null
           max_retry_attempts?: number | null
           name?: string
-          pickup_status_id?: string
+          pickup_status_ids?: string[]
           stall_timeout_minutes?: number | null
           timeout_minutes?: number | null
           type?: string
@@ -6878,7 +6878,7 @@ export interface operations {
           'application/json': {
             workflow?: {
               agent_id?: string | null
-              finish_status_id?: string | null
+              finish_status_ids?: string[]
               harness_content?: string | null
               harness_path?: string
               hooks?: {
@@ -6889,7 +6889,7 @@ export interface operations {
               max_concurrent?: number
               max_retry_attempts?: number
               name?: string
-              pickup_status_id?: string
+              pickup_status_ids?: string[]
               project_id?: string
               stall_timeout_minutes?: number
               timeout_minutes?: number
@@ -8659,7 +8659,7 @@ export interface operations {
           'application/json': {
             workflow?: {
               agent_id?: string | null
-              finish_status_id?: string | null
+              finish_status_ids?: string[]
               harness_content?: string | null
               harness_path?: string
               hooks?: {
@@ -8670,7 +8670,7 @@ export interface operations {
               max_concurrent?: number
               max_retry_attempts?: number
               name?: string
-              pickup_status_id?: string
+              pickup_status_ids?: string[]
               project_id?: string
               stall_timeout_minutes?: number
               timeout_minutes?: number
@@ -8739,7 +8739,7 @@ export interface operations {
           'application/json': {
             workflow?: {
               agent_id?: string | null
-              finish_status_id?: string | null
+              finish_status_ids?: string[]
               harness_content?: string | null
               harness_path?: string
               hooks?: {
@@ -8750,7 +8750,7 @@ export interface operations {
               max_concurrent?: number
               max_retry_attempts?: number
               name?: string
-              pickup_status_id?: string
+              pickup_status_ids?: string[]
               project_id?: string
               stall_timeout_minutes?: number
               timeout_minutes?: number
@@ -8825,7 +8825,7 @@ export interface operations {
       content: {
         'application/json': {
           agent_id?: string | null
-          finish_status_id?: string | null
+          finish_status_ids?: string[] | null
           harness_path?: string | null
           hooks?: {
             [key: string]: unknown
@@ -8834,7 +8834,7 @@ export interface operations {
           max_concurrent?: number | null
           max_retry_attempts?: number | null
           name?: string | null
-          pickup_status_id?: string | null
+          pickup_status_ids?: string[] | null
           stall_timeout_minutes?: number | null
           timeout_minutes?: number | null
           type?: string | null
@@ -8851,7 +8851,7 @@ export interface operations {
           'application/json': {
             workflow?: {
               agent_id?: string | null
-              finish_status_id?: string | null
+              finish_status_ids?: string[]
               harness_content?: string | null
               harness_path?: string
               hooks?: {
@@ -8862,7 +8862,7 @@ export interface operations {
               max_concurrent?: number
               max_retry_attempts?: number
               name?: string
-              pickup_status_id?: string
+              pickup_status_ids?: string[]
               project_id?: string
               stall_timeout_minutes?: number
               timeout_minutes?: number

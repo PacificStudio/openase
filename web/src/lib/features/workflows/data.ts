@@ -22,18 +22,23 @@ export function mapWorkflowSummary(
   workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
   statusNamesById: Map<string, string>,
 ): WorkflowSummary {
+  const pickupStatusIds = workflow.pickup_status_ids ?? []
+  const finishStatusIds = workflow.finish_status_ids ?? []
+
   return {
     id: workflow.id,
     name: workflow.name,
     type: normalizeWorkflowType(workflow.type),
     agentId: workflow.agent_id ?? null,
     harnessPath: workflow.harness_path ?? '',
-    pickupStatusId: workflow.pickup_status_id,
-    pickupStatus: statusNamesById.get(workflow.pickup_status_id) ?? workflow.pickup_status_id,
-    finishStatusId: workflow.finish_status_id,
-    finishStatus: workflow.finish_status_id
-      ? (statusNamesById.get(workflow.finish_status_id) ?? workflow.finish_status_id)
-      : 'unchanged',
+    pickupStatusIds,
+    pickupStatusLabel: pickupStatusIds
+      .map((statusId) => statusNamesById.get(statusId) ?? statusId)
+      .join(', '),
+    finishStatusIds,
+    finishStatusLabel: finishStatusIds
+      .map((statusId) => statusNamesById.get(statusId) ?? statusId)
+      .join(', '),
     maxConcurrent: workflow.max_concurrent,
     maxRetry: workflow.max_retry_attempts,
     timeoutMinutes: workflow.timeout_minutes,
@@ -137,8 +142,8 @@ export async function createWorkflowWithBinding(
   input: {
     agentId: string
     name: string
-    pickupStatusId: string
-    finishStatusId: string
+    pickupStatusIds: string[]
+    finishStatusIds: string[]
   },
   statuses: WorkflowStatusOption[],
   builtinRoleContent: string,
@@ -147,8 +152,8 @@ export async function createWorkflowWithBinding(
     agent_id: input.agentId,
     name: input.name,
     type: 'coding',
-    pickup_status_id: input.pickupStatusId,
-    finish_status_id: input.finishStatusId,
+    pickup_status_ids: input.pickupStatusIds,
+    finish_status_ids: input.finishStatusIds,
     harness_content: builtinRoleContent || defaultHarnessTemplate(),
     is_active: true,
     max_concurrent: 1,
@@ -168,16 +173,20 @@ export async function createWorkflowWithBinding(
     type: normalizeWorkflowType(createdWorkflow.type),
     agentId: createdWorkflow.agent_id ?? null,
     harnessPath: createdWorkflow.harness_path ?? '',
-    pickupStatusId: createdWorkflow.pickup_status_id,
-    pickupStatus:
-      statuses.find((status) => status.id === createdWorkflow.pickup_status_id)?.name ??
-      createdWorkflow.pickup_status_id,
-    finishStatusId: createdWorkflow.finish_status_id,
-    finishStatus:
-      statuses.find((status) => status.id === createdWorkflow.finish_status_id)?.name ??
-      createdWorkflow.finish_status_id ??
-      statuses.at(-1)?.name ??
-      statuses[0].name,
+    pickupStatusIds: createdWorkflow.pickup_status_ids,
+    pickupStatusLabel: createdWorkflow.pickup_status_ids
+      .map(
+        (statusId) =>
+          statuses.find((status) => status.id === statusId)?.name ?? statusId,
+      )
+      .join(', '),
+    finishStatusIds: createdWorkflow.finish_status_ids,
+    finishStatusLabel: createdWorkflow.finish_status_ids
+      .map(
+        (statusId) =>
+          statuses.find((status) => status.id === statusId)?.name ?? statusId,
+      )
+      .join(', '),
     maxConcurrent: createdWorkflow.max_concurrent,
     maxRetry: createdWorkflow.max_retry_attempts,
     timeoutMinutes: createdWorkflow.timeout_minutes,

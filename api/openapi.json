@@ -10661,9 +10661,11 @@
                             "nullable": true,
                             "type": "string"
                           },
-                          "finish_status_id": {
-                            "nullable": true,
-                            "type": "string"
+                          "finish_status_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "harness_content": {
                             "nullable": true,
@@ -10691,8 +10693,11 @@
                           "name": {
                             "type": "string"
                           },
-                          "pickup_status_id": {
-                            "type": "string"
+                          "pickup_status_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "project_id": {
                             "type": "string"
@@ -10803,9 +10808,11 @@
                   "agent_id": {
                     "type": "string"
                   },
-                  "finish_status_id": {
-                    "nullable": true,
-                    "type": "string"
+                  "finish_status_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "harness_content": {
                     "type": "string"
@@ -10833,8 +10840,11 @@
                   "name": {
                     "type": "string"
                   },
-                  "pickup_status_id": {
-                    "type": "string"
+                  "pickup_status_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "stall_timeout_minutes": {
                     "nullable": true,
@@ -10867,9 +10877,11 @@
                           "nullable": true,
                           "type": "string"
                         },
-                        "finish_status_id": {
-                          "nullable": true,
-                          "type": "string"
+                        "finish_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "harness_content": {
                           "nullable": true,
@@ -10897,8 +10909,11 @@
                         "name": {
                           "type": "string"
                         },
-                        "pickup_status_id": {
-                          "type": "string"
+                        "pickup_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "project_id": {
                           "type": "string"
@@ -14254,9 +14269,11 @@
                           "nullable": true,
                           "type": "string"
                         },
-                        "finish_status_id": {
-                          "nullable": true,
-                          "type": "string"
+                        "finish_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "harness_content": {
                           "nullable": true,
@@ -14284,8 +14301,11 @@
                         "name": {
                           "type": "string"
                         },
-                        "pickup_status_id": {
-                          "type": "string"
+                        "pickup_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "project_id": {
                           "type": "string"
@@ -14416,9 +14436,11 @@
                           "nullable": true,
                           "type": "string"
                         },
-                        "finish_status_id": {
-                          "nullable": true,
-                          "type": "string"
+                        "finish_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "harness_content": {
                           "nullable": true,
@@ -14446,8 +14468,11 @@
                         "name": {
                           "type": "string"
                         },
-                        "pickup_status_id": {
-                          "type": "string"
+                        "pickup_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "project_id": {
                           "type": "string"
@@ -14557,9 +14582,12 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "finish_status_id": {
+                  "finish_status_ids": {
+                    "items": {
+                      "type": "string"
+                    },
                     "nullable": true,
-                    "type": "string"
+                    "type": "array"
                   },
                   "harness_path": {
                     "nullable": true,
@@ -14586,9 +14614,12 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "pickup_status_id": {
+                  "pickup_status_ids": {
+                    "items": {
+                      "type": "string"
+                    },
                     "nullable": true,
-                    "type": "string"
+                    "type": "array"
                   },
                   "stall_timeout_minutes": {
                     "nullable": true,
@@ -14622,9 +14653,11 @@
                           "nullable": true,
                           "type": "string"
                         },
-                        "finish_status_id": {
-                          "nullable": true,
-                          "type": "string"
+                        "finish_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "harness_content": {
                           "nullable": true,
@@ -14652,8 +14685,11 @@
                         "name": {
                           "type": "string"
                         },
-                        "pickup_status_id": {
-                          "type": "string"
+                        "pickup_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "project_id": {
                           "type": "string"

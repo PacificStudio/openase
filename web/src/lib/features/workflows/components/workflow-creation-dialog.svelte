@@ -1,11 +1,13 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
+  import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { createWorkflowWithBinding } from '../data'
+  import { toggleWorkflowStatusSelection } from '../workflow-lifecycle'
   import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
 
   let {
@@ -30,26 +32,19 @@
   let error = $state('')
   let name = $state('')
   let agentId = $state('')
-  let pickupStatusId = $state('')
-  let finishStatusId = $state('')
+  let pickupStatusIds = $state<string[]>([])
+  let finishStatusIds = $state<string[]>([])
 
   const selectedAgentLabel = $derived(
     agentOptions.find((option) => option.id === agentId)?.label ?? 'Select bound agent',
   )
-  const selectedPickupStatusLabel = $derived(
-    statuses.find((status) => status.id === pickupStatusId)?.name ?? 'Select pickup status',
-  )
-  const selectedFinishStatusLabel = $derived(
-    statuses.find((status) => status.id === finishStatusId)?.name ?? 'Select finish status',
-  )
-
   $effect(() => {
     if (!open) return
 
     name = `Workflow ${existingCount + 1}`
     agentId = agentOptions[0]?.id ?? ''
-    pickupStatusId = statuses[0]?.id ?? ''
-    finishStatusId = statuses.at(-1)?.id ?? statuses[0]?.id ?? ''
+    pickupStatusIds = statuses[0] ? [statuses[0].id] : []
+    finishStatusIds = statuses.at(-1) ? [statuses.at(-1)!.id] : statuses[0] ? [statuses[0].id] : []
     error = ''
   })
 
@@ -67,8 +62,8 @@
       error = 'Bound agent is required.'
       return
     }
-    if (!pickupStatusId || !finishStatusId) {
-      error = 'Pickup and finish status are required.'
+    if (pickupStatusIds.length === 0 || finishStatusIds.length === 0) {
+      error = 'At least one pickup status and one finish status are required.'
       return
     }
 
@@ -81,8 +76,8 @@
         {
           agentId,
           name: name.trim(),
-          pickupStatusId,
-          finishStatusId,
+          pickupStatusIds,
+          finishStatusIds,
         },
         statuses,
         builtinRoleContent,
@@ -136,37 +131,45 @@
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-2">
-          <Label>Pickup Status</Label>
-          <Select.Root
-            type="single"
-            value={pickupStatusId}
-            disabled={saving || statuses.length === 0}
-            onValueChange={(value) => (pickupStatusId = value || '')}
-          >
-            <Select.Trigger class="w-full">{selectedPickupStatusLabel}</Select.Trigger>
-            <Select.Content>
-              {#each statuses as status (status.id)}
-                <Select.Item value={status.id}>{status.name}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <Label>Pickup Statuses</Label>
+          <div class="flex flex-wrap gap-2">
+            {#each statuses as status (status.id)}
+              <button
+                type="button"
+                class={cn(
+                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
+                  pickupStatusIds.includes(status.id)
+                    ? 'border-primary/40 bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-muted',
+                )}
+                disabled={saving}
+                onclick={() => (pickupStatusIds = toggleWorkflowStatusSelection(pickupStatusIds, status.id))}
+              >
+                {status.name}
+              </button>
+            {/each}
+          </div>
         </div>
 
         <div class="space-y-2">
-          <Label>Finish Status</Label>
-          <Select.Root
-            type="single"
-            value={finishStatusId}
-            disabled={saving || statuses.length === 0}
-            onValueChange={(value) => (finishStatusId = value || '')}
-          >
-            <Select.Trigger class="w-full">{selectedFinishStatusLabel}</Select.Trigger>
-            <Select.Content>
-              {#each statuses as status (status.id)}
-                <Select.Item value={status.id}>{status.name}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <Label>Finish Statuses</Label>
+          <div class="flex flex-wrap gap-2">
+            {#each statuses as status (status.id)}
+              <button
+                type="button"
+                class={cn(
+                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
+                  finishStatusIds.includes(status.id)
+                    ? 'border-primary/40 bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-muted',
+                )}
+                disabled={saving}
+                onclick={() => (finishStatusIds = toggleWorkflowStatusSelection(finishStatusIds, status.id))}
+              >
+                {status.name}
+              </button>
+            {/each}
+          </div>
         </div>
       </div>
 

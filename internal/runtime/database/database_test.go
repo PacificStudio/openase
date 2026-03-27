@@ -100,8 +100,8 @@ func TestOpenReconcilesLegacyGlobalTicketIdentifierIndex(t *testing.T) {
 			SetName(fmt.Sprintf("workflow-%d", index+1)).
 			SetType(entworkflow.TypeCoding).
 			SetHarnessPath(fmt.Sprintf(".openase/harnesses/%d.md", index+1)).
-			SetPickupStatusID(todoID).
-			SetFinishStatusID(doneID).
+			AddPickupStatusIDs(todoID).
+			AddFinishStatusIDs(doneID).
 			Save(ctx)
 		if err != nil {
 			t.Fatalf("create workflow for project %d: %v", index+1, err)

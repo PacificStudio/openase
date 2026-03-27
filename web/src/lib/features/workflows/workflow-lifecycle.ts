@@ -3,8 +3,8 @@ import type { WorkflowSummary } from './types'
 export type WorkflowLifecycleDraft = {
   agentId: string
   name: string
-  pickupStatusId: string
-  finishStatusId: string
+  pickupStatusIds: string[]
+  finishStatusIds: string[]
   maxConcurrent: string
   maxRetryAttempts: string
   timeoutMinutes: string
@@ -14,12 +14,12 @@ export type WorkflowLifecycleDraft = {
 
 export type WorkflowLifecyclePayload = {
   agent_id: string
-  finish_status_id: string | null
+  finish_status_ids: string[]
   is_active: boolean
   max_concurrent: number
   max_retry_attempts: number
   name: string
-  pickup_status_id: string
+  pickup_status_ids: string[]
   stall_timeout_minutes: number
   timeout_minutes: number
 }
@@ -30,8 +30,8 @@ export function createWorkflowLifecycleDraft(workflow: WorkflowSummary): Workflo
   return {
     agentId: workflow.agentId ?? '',
     name: workflow.name,
-    pickupStatusId: workflow.pickupStatusId,
-    finishStatusId: workflow.finishStatusId ?? '',
+    pickupStatusIds: [...workflow.pickupStatusIds],
+    finishStatusIds: [...workflow.finishStatusIds],
     maxConcurrent: String(workflow.maxConcurrent),
     maxRetryAttempts: String(workflow.maxRetry),
     timeoutMinutes: String(workflow.timeoutMinutes),
@@ -50,8 +50,11 @@ export function parseWorkflowLifecycleDraft(
   if (!draft.agentId) {
     return { ok: false, error: 'Bound agent is required.' }
   }
-  if (!draft.pickupStatusId) {
-    return { ok: false, error: 'Pickup status is required.' }
+  if (draft.pickupStatusIds.length === 0) {
+    return { ok: false, error: 'At least one pickup status is required.' }
+  }
+  if (draft.finishStatusIds.length === 0) {
+    return { ok: false, error: 'At least one finish status is required.' }
   }
 
   const maxConcurrent = parseIntegerField(draft.maxConcurrent, 'Max concurrent', 1)
@@ -70,16 +73,22 @@ export function parseWorkflowLifecycleDraft(
     ok: true,
     value: {
       agent_id: draft.agentId,
-      finish_status_id: draft.finishStatusId || null,
+      finish_status_ids: [...draft.finishStatusIds],
       is_active: draft.isActive,
       max_concurrent: maxConcurrent.value,
       max_retry_attempts: maxRetryAttempts.value,
       name,
-      pickup_status_id: draft.pickupStatusId,
+      pickup_status_ids: [...draft.pickupStatusIds],
       stall_timeout_minutes: stallTimeoutMinutes.value,
       timeout_minutes: timeoutMinutes.value,
     },
   }
+}
+
+export function toggleWorkflowStatusSelection(selected: string[], statusId: string) {
+  return selected.includes(statusId)
+    ? selected.filter((value) => value !== statusId)
+    : [...selected, statusId]
 }
 
 function parseIntegerField(value: string, label: string, minimum: number): ParseResult<number> {

@@ -70,7 +70,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		SetName("coding-workflow").
 		SetType("coding").
 		SetHarnessPath("roles/coding.md").
-		SetPickupStatusID(backlogID).
+		AddPickupStatusIDs(backlogID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)

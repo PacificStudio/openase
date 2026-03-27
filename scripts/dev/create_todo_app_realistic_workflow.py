@@ -537,8 +537,8 @@ def main() -> int:
             "agent_id": agent["id"],
             "name": workflow_name,
             "type": "coding",
-            "pickup_status_id": todo["id"],
-            "finish_status_id": done["id"],
+            "pickup_status_ids": [todo["id"]],
+            "finish_status_ids": [done["id"]],
             "harness_content": (
                 "---\n"
                 "workflow:\n"

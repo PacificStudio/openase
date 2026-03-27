@@ -11,7 +11,6 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/project"
-	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
 )
@@ -45,10 +44,6 @@ type Workflow struct {
 	Version int `json:"version,omitempty"`
 	// IsActive holds the value of the "is_active" field.
 	IsActive bool `json:"is_active,omitempty"`
-	// PickupStatusID holds the value of the "pickup_status_id" field.
-	PickupStatusID uuid.UUID `json:"pickup_status_id,omitempty"`
-	// FinishStatusID holds the value of the "finish_status_id" field.
-	FinishStatusID *uuid.UUID `json:"finish_status_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the WorkflowQuery when eager-loading is set.
 	Edges        WorkflowEdges `json:"edges"`
@@ -61,10 +56,10 @@ type WorkflowEdges struct {
 	Project *Project `json:"project,omitempty"`
 	// Agent holds the value of the agent edge.
 	Agent *Agent `json:"agent,omitempty"`
-	// PickupStatus holds the value of the pickup_status edge.
-	PickupStatus *TicketStatus `json:"pickup_status,omitempty"`
-	// FinishStatus holds the value of the finish_status edge.
-	FinishStatus *TicketStatus `json:"finish_status,omitempty"`
+	// PickupStatuses holds the value of the pickup_statuses edge.
+	PickupStatuses []*TicketStatus `json:"pickup_statuses,omitempty"`
+	// FinishStatuses holds the value of the finish_statuses edge.
+	FinishStatuses []*TicketStatus `json:"finish_statuses,omitempty"`
 	// Tickets holds the value of the tickets edge.
 	Tickets []*Ticket `json:"tickets,omitempty"`
 	// AgentRuns holds the value of the agent_runs edge.
@@ -98,26 +93,22 @@ func (e WorkflowEdges) AgentOrErr() (*Agent, error) {
 	return nil, &NotLoadedError{edge: "agent"}
 }
 
-// PickupStatusOrErr returns the PickupStatus value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e WorkflowEdges) PickupStatusOrErr() (*TicketStatus, error) {
-	if e.PickupStatus != nil {
-		return e.PickupStatus, nil
-	} else if e.loadedTypes[2] {
-		return nil, &NotFoundError{label: ticketstatus.Label}
+// PickupStatusesOrErr returns the PickupStatuses value or an error if the edge
+// was not loaded in eager-loading.
+func (e WorkflowEdges) PickupStatusesOrErr() ([]*TicketStatus, error) {
+	if e.loadedTypes[2] {
+		return e.PickupStatuses, nil
 	}
-	return nil, &NotLoadedError{edge: "pickup_status"}
+	return nil, &NotLoadedError{edge: "pickup_statuses"}
 }
 
-// FinishStatusOrErr returns the FinishStatus value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e WorkflowEdges) FinishStatusOrErr() (*TicketStatus, error) {
-	if e.FinishStatus != nil {
-		return e.FinishStatus, nil
-	} else if e.loadedTypes[3] {
-		return nil, &NotFoundError{label: ticketstatus.Label}
+// FinishStatusesOrErr returns the FinishStatuses value or an error if the edge
+// was not loaded in eager-loading.
+func (e WorkflowEdges) FinishStatusesOrErr() ([]*TicketStatus, error) {
+	if e.loadedTypes[3] {
+		return e.FinishStatuses, nil
 	}
-	return nil, &NotLoadedError{edge: "finish_status"}
+	return nil, &NotLoadedError{edge: "finish_statuses"}
 }
 
 // TicketsOrErr returns the Tickets value or an error if the edge
@@ -152,7 +143,7 @@ func (*Workflow) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case workflow.FieldAgentID, workflow.FieldFinishStatusID:
+		case workflow.FieldAgentID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case workflow.FieldHooks:
 			values[i] = new([]byte)
@@ -162,7 +153,7 @@ func (*Workflow) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case workflow.FieldName, workflow.FieldType, workflow.FieldHarnessPath:
 			values[i] = new(sql.NullString)
-		case workflow.FieldID, workflow.FieldProjectID, workflow.FieldPickupStatusID:
+		case workflow.FieldID, workflow.FieldProjectID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -260,19 +251,6 @@ func (_m *Workflow) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.IsActive = value.Bool
 			}
-		case workflow.FieldPickupStatusID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
-				return fmt.Errorf("unexpected type %T for field pickup_status_id", values[i])
-			} else if value != nil {
-				_m.PickupStatusID = *value
-			}
-		case workflow.FieldFinishStatusID:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field finish_status_id", values[i])
-			} else if value.Valid {
-				_m.FinishStatusID = new(uuid.UUID)
-				*_m.FinishStatusID = *value.S.(*uuid.UUID)
-			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -296,14 +274,14 @@ func (_m *Workflow) QueryAgent() *AgentQuery {
 	return NewWorkflowClient(_m.config).QueryAgent(_m)
 }
 
-// QueryPickupStatus queries the "pickup_status" edge of the Workflow entity.
-func (_m *Workflow) QueryPickupStatus() *TicketStatusQuery {
-	return NewWorkflowClient(_m.config).QueryPickupStatus(_m)
+// QueryPickupStatuses queries the "pickup_statuses" edge of the Workflow entity.
+func (_m *Workflow) QueryPickupStatuses() *TicketStatusQuery {
+	return NewWorkflowClient(_m.config).QueryPickupStatuses(_m)
 }
 
-// QueryFinishStatus queries the "finish_status" edge of the Workflow entity.
-func (_m *Workflow) QueryFinishStatus() *TicketStatusQuery {
-	return NewWorkflowClient(_m.config).QueryFinishStatus(_m)
+// QueryFinishStatuses queries the "finish_statuses" edge of the Workflow entity.
+func (_m *Workflow) QueryFinishStatuses() *TicketStatusQuery {
+	return NewWorkflowClient(_m.config).QueryFinishStatuses(_m)
 }
 
 // QueryTickets queries the "tickets" edge of the Workflow entity.
@@ -381,14 +359,6 @@ func (_m *Workflow) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("is_active=")
 	builder.WriteString(fmt.Sprintf("%v", _m.IsActive))
-	builder.WriteString(", ")
-	builder.WriteString("pickup_status_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.PickupStatusID))
-	builder.WriteString(", ")
-	if v := _m.FinishStatusID; v != nil {
-		builder.WriteString("finish_status_id=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
 	builder.WriteByte(')')
 	return builder.String()
 }

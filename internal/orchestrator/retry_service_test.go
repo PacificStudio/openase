@@ -25,8 +25,8 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(2).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -116,8 +116,8 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(2).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -190,8 +190,8 @@ func TestSchedulerRunTickSkipsRetryPausedTickets(t *testing.T) {
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(2).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
