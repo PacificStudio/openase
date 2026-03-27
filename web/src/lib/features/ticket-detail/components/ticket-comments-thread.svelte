@@ -38,6 +38,7 @@
 
   let editingDescription = $state(false)
   let descriptionDraft = $state('')
+  let composerOpen = $state(false)
   let composerBody = $state('')
   let editingCommentId = $state<string | null>(null)
   let editingBody = $state('')
@@ -80,7 +81,10 @@
     const body = composerBody.trim()
     if (!body || creatingComment) return
     const success = (await onCreateComment?.(body)) ?? false
-    if (success) composerBody = ''
+    if (success) {
+      composerBody = ''
+      composerOpen = false
+    }
   }
 
   async function handleSaveCommentEdit(commentId: string) {
@@ -230,25 +234,54 @@
     {/each}
 
     <div class="border-border bg-muted/10 rounded-lg border p-4">
-      <div class="mb-3 flex items-center gap-2">
-        <MessageSquare class="text-muted-foreground size-4" />
-        <span class="text-sm font-medium">Add a comment</span>
-      </div>
-      <Textarea
-        rows={4}
-        bind:value={composerBody}
-        placeholder="Leave a comment (Markdown supported)…"
-        disabled={creatingComment}
-      />
-      <div class="mt-3 flex justify-end">
-        <Button
-          size="sm"
-          onclick={handleCreateComment}
-          disabled={!composerBody.trim() || creatingComment}
-        >
-          {creatingComment ? 'Posting…' : 'Comment'}
-        </Button>
-      </div>
+      {#if composerOpen}
+        <div class="mb-3 flex items-center gap-2">
+          <MessageSquare class="text-muted-foreground size-4" />
+          <span class="text-sm font-medium">Add a comment</span>
+        </div>
+        <Textarea
+          rows={4}
+          bind:value={composerBody}
+          placeholder="Leave a comment (Markdown supported)…"
+          disabled={creatingComment}
+        />
+        <div class="mt-3 flex justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onclick={() => {
+              composerOpen = false
+              composerBody = ''
+            }}
+            disabled={creatingComment}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onclick={handleCreateComment}
+            disabled={!composerBody.trim() || creatingComment}
+          >
+            {creatingComment ? 'Posting…' : 'Comment'}
+          </Button>
+        </div>
+      {:else}
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <MessageSquare class="text-muted-foreground size-4" />
+            <span class="text-sm font-medium">Comment on this ticket</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onclick={() => {
+              composerOpen = true
+            }}
+          >
+            Add comment
+          </Button>
+        </div>
+      {/if}
     </div>
 
     {#if activities.length > 0}

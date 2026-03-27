@@ -94,6 +94,70 @@ export function buildAddDependencyMutation(
   }
 }
 
+export function buildAddExternalLinkMutation(draft: {
+  type: string
+  url: string
+  externalId: string
+  title: string
+  status: string
+  relation: string
+}): ParseResult<{
+  body: {
+    type: string
+    url: string
+    external_id: string
+    title: string | null
+    status: string | null
+    relation: string | null
+  }
+  optimisticUpdate: (ticket: TicketDetail) => TicketDetail
+  successMessage: string
+}> {
+  const type = parseRequiredText(draft.type, 'Link type is required.', (value) =>
+    value.toLowerCase(),
+  )
+  if (!type.ok) return type
+
+  const url = parseRequiredText(draft.url, 'Link URL is required.')
+  if (!url.ok) return url
+
+  const externalId = parseRequiredText(draft.externalId, 'External ID is required.')
+  if (!externalId.ok) return externalId
+
+  const title = normalizeOptionalText(draft.title)
+  const status = normalizeOptionalText(draft.status)
+  const relation = normalizeOptionalText(draft.relation) ?? 'references'
+
+  return {
+    ok: true,
+    value: {
+      body: {
+        type: type.value,
+        url: url.value,
+        external_id: externalId.value,
+        title,
+        status,
+        relation,
+      },
+      optimisticUpdate: (ticket) => ({
+        ...ticket,
+        externalLinks: [
+          ...ticket.externalLinks,
+          buildOptimisticExternalLink({
+            type: type.value,
+            url: url.value,
+            externalId: externalId.value,
+            title,
+            status,
+            relation,
+          }),
+        ],
+      }),
+      successMessage: `External link added for ${externalId.value}.`,
+    },
+  }
+}
+
 export function buildDeleteDependencyMutation(
   currentTicket: TicketDetail,
   dependencyId: string,
@@ -115,5 +179,49 @@ export function buildDeleteDependencyMutation(
       }),
       successMessage: `Removed dependency ${dependency.identifier}.`,
     },
+  }
+}
+
+function normalizeOptionalText(value: string) {
+  const normalized = value.trim()
+  return normalized ? normalized : null
+}
+
+function parseRequiredText(
+  value: string,
+  error: string,
+  transform: (normalized: string) => string = (normalized) => normalized,
+): ParseResult<string> {
+  const normalized = value.trim()
+  if (!normalized) {
+    return { ok: false, error }
+  }
+
+  return { ok: true, value: transform(normalized) }
+}
+
+function buildOptimisticExternalLink({
+  type,
+  url,
+  externalId,
+  title,
+  status,
+  relation,
+}: {
+  type: string
+  url: string
+  externalId: string
+  title: string | null
+  status: string | null
+  relation: string
+}) {
+  return {
+    id: `pending-${Date.now()}`,
+    type,
+    url,
+    externalId,
+    title: title ?? undefined,
+    status: status ?? undefined,
+    relation,
   }
 }

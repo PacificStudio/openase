@@ -70,12 +70,15 @@ export async function handleAddDependencyAction({
   buildDrawerMutation: (ticket: TicketDetail) => DrawerMutationBase
 }) {
   const ticket = drawerState.ticket
-  if (!ticket || !ticketId) return
+  if (!ticket || !ticketId) return false
 
   const mutation = buildAddDependencyMutation(ticket, drawerState.dependencyCandidates, draft)
-  if (!mutation.ok) return drawerState.setMutationError(mutation.error)
+  if (!mutation.ok) {
+    drawerState.setMutationError(mutation.error)
+    return false
+  }
 
-  await runTicketDrawerMutation({
+  return await runTicketDrawerMutation({
     ...buildDrawerMutation(ticket),
     start: () => {
       drawerState.creatingDependency = true
