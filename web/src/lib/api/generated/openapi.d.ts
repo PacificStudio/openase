@@ -11,7 +11,7 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get an agent */
+    /** Get an agent definition */
     get: operations['getAgent']
     put?: never
     post?: never
@@ -425,6 +425,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/agent-runs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List project agent runs */
+    get: operations['listAgentRuns']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/agents': {
     parameters: {
       query?: never
@@ -432,10 +449,10 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** List agents */
+    /** List agent definitions with aggregate runtime summaries */
     get: operations['listAgents']
     put?: never
-    /** Create an agent */
+    /** Create an agent definition */
     post: operations['createAgent']
     delete?: never
     options?: never
@@ -1131,7 +1148,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Get an agent response. */
+      /** @description Get an agent definition response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -1144,6 +1161,7 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
@@ -1224,6 +1242,7 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
@@ -1316,6 +1335,7 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
@@ -1408,6 +1428,7 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
@@ -4012,6 +4033,79 @@ export interface operations {
       }
     }
   }
+  listAgentRuns: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List project agent runs response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent_runs?: {
+              agent_id?: string
+              created_at?: string
+              id?: string
+              last_error?: string
+              last_heartbeat_at?: string | null
+              provider_id?: string
+              runtime_started_at?: string | null
+              session_id?: string
+              status?: string
+              ticket_id?: string
+              workflow_id?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listAgents: {
     parameters: {
       query?: never
@@ -4024,7 +4118,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description List agents response. */
+      /** @description List agent definitions with aggregate runtime summaries response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -4037,6 +4131,7 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
@@ -4102,7 +4197,7 @@ export interface operations {
       }
       cookie?: never
     }
-    /** @description Create an agent request body. */
+    /** @description Create an agent definition request body. */
     requestBody: {
       content: {
         'application/json': {
@@ -4112,7 +4207,7 @@ export interface operations {
       }
     }
     responses: {
-      /** @description Create an agent response. */
+      /** @description Create an agent definition response. */
       201: {
         headers: {
           [name: string]: unknown
@@ -4125,6 +4220,7 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
                 current_ticket_id?: string | null
                 last_error?: string

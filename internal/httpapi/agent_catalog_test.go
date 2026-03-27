@@ -338,6 +338,11 @@ func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 		ProjectID:           projectID,
 		Name:                "worker-1",
 		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+		Runtime: &domain.AgentRuntime{
+			ActiveRunCount: 2,
+			Status:         domain.AgentStatusRunning,
+			RuntimePhase:   domain.AgentRuntimePhaseExecuting,
+		},
 	}
 
 	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/projects/"+projectID.String()+"/agents", "")
@@ -357,6 +362,84 @@ func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 	}
 	if payload.Agents[0].RuntimeControlState != "active" {
 		t.Fatalf("expected runtime control state active, got %+v", payload.Agents[0])
+	}
+	if payload.Agents[0].Runtime == nil || payload.Agents[0].Runtime.ActiveRunCount != 2 {
+		t.Fatalf("expected aggregate active_run_count in payload, got %+v", payload.Agents[0])
+	}
+}
+
+func TestListAgentRunsRouteExposesConcurrentRuns(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	service := server.catalog.(*fakeCatalogService)
+	orgID := uuid.New()
+	projectID := uuid.New()
+	providerID := uuid.New()
+	agentID := uuid.New()
+	workflowID := uuid.New()
+	ticketOneID := uuid.New()
+	ticketTwoID := uuid.New()
+	runOneID := uuid.New()
+	runTwoID := uuid.New()
+	runOneCreatedAt := time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC)
+	runTwoCreatedAt := runOneCreatedAt.Add(2 * time.Minute)
+
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex"}
+	service.agents[agentID] = domain.Agent{
+		ID:                  agentID,
+		ProviderID:          providerID,
+		ProjectID:           projectID,
+		Name:                "worker-1",
+		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+	}
+	service.agentRuns[runOneID] = domain.AgentRun{
+		ID:         runOneID,
+		AgentID:    agentID,
+		WorkflowID: workflowID,
+		TicketID:   ticketOneID,
+		ProviderID: providerID,
+		Status:     domain.AgentRunStatusExecuting,
+		CreatedAt:  runOneCreatedAt,
+	}
+	service.agentRuns[runTwoID] = domain.AgentRun{
+		ID:         runTwoID,
+		AgentID:    agentID,
+		WorkflowID: workflowID,
+		TicketID:   ticketTwoID,
+		ProviderID: providerID,
+		Status:     domain.AgentRunStatusReady,
+		CreatedAt:  runTwoCreatedAt,
+	}
+
+	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/projects/"+projectID.String()+"/agent-runs", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected agent run list 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		AgentRuns []agentRunResponse `json:"agent_runs"`
+	}
+	decodeResponse(t, rec, &payload)
+	if len(payload.AgentRuns) != 2 {
+		t.Fatalf("expected two agent runs, got %+v", payload.AgentRuns)
+	}
+	if payload.AgentRuns[0].ID != runTwoID.String() || payload.AgentRuns[1].ID != runOneID.String() {
+		t.Fatalf("expected newest run first, got %+v", payload.AgentRuns)
+	}
+	if payload.AgentRuns[0].TicketID != ticketTwoID.String() || payload.AgentRuns[1].TicketID != ticketOneID.String() {
+		t.Fatalf("expected run ticket IDs to round-trip, got %+v", payload.AgentRuns)
 	}
 }
 
@@ -578,6 +661,12 @@ func (f *fakeCatalogService) ListAgentRuns(_ context.Context, projectID uuid.UUI
 			items = append(items, item)
 		}
 	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID.String() > items[j].ID.String()
+		}
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
 
 	return items, nil
 }

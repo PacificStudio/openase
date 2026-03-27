@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -31,5 +32,48 @@ func TestParseCreateAgentProviderParsesMachineID(t *testing.T) {
 	}
 	if input.MachineID != machineID {
 		t.Fatalf("expected machine_id %s, got %s", machineID, input.MachineID)
+	}
+}
+
+func TestBuildAgentRuntimeSummaryAggregatesConcurrentRuns(t *testing.T) {
+	startedAt := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
+	heartbeatAt := startedAt.Add(2 * time.Minute)
+	runtime := BuildAgentRuntimeSummary(
+		[]AgentRun{
+			{
+				ID:               uuid.New(),
+				TicketID:         uuid.New(),
+				Status:           AgentRunStatusReady,
+				SessionID:        "session-ready",
+				RuntimeStartedAt: &startedAt,
+				LastHeartbeatAt:  &heartbeatAt,
+				CreatedAt:        startedAt,
+			},
+			{
+				ID:               uuid.New(),
+				TicketID:         uuid.New(),
+				Status:           AgentRunStatusExecuting,
+				SessionID:        "session-executing",
+				RuntimeStartedAt: &startedAt,
+				LastHeartbeatAt:  &heartbeatAt,
+				CreatedAt:        startedAt.Add(time.Minute),
+			},
+		},
+		AgentRuntimeControlStateActive,
+	)
+	if runtime == nil {
+		t.Fatalf("expected runtime summary, got nil")
+	}
+	if runtime.ActiveRunCount != 2 {
+		t.Fatalf("expected active run count 2, got %+v", runtime)
+	}
+	if runtime.CurrentRunID != nil || runtime.CurrentTicketID != nil {
+		t.Fatalf("expected aggregate summary to clear singular run/ticket ids, got %+v", runtime)
+	}
+	if runtime.SessionID != "" {
+		t.Fatalf("expected aggregate summary to clear singular session, got %+v", runtime)
+	}
+	if runtime.Status != AgentStatusRunning || runtime.RuntimePhase != AgentRuntimePhaseExecuting {
+		t.Fatalf("expected executing aggregate summary, got %+v", runtime)
 	}
 }

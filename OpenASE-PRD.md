@@ -785,6 +785,12 @@ Workflow 绑定 Agent，表示“这个 Workflow 执行时采用哪个 Agent 定
 - 但同一个 Agent 定义在任一时刻可以同时对应多个 Ticket 的多个 `AgentRun`
 - 是否允许这些 `AgentRun` 并行，取决于 global / provider / stage / workflow 并发约束，而不是“Agent 只能单线程”
 
+为便于目录页和 API 快速概览，Agent 定义可以额外暴露只读的 `runtime` 聚合摘要，例如活跃运行数、汇总状态、最近心跳。但这只是 convenience summary，不是运行时真相视图：
+
+- 当同一个 Agent 定义存在多个并发 `AgentRun` 时，不得把该摘要伪装成单一 `current_run_id` / `current_ticket_id`
+- 完整的运行时可观测面必须以 `AgentRun` 列表或详情为准
+- 任何 Agent 级 `runtime` 字段都必须明确表达“summary / aggregate”语义
+
 **Agent 不再保存用户手填的 `workspace_path`。** 工作目录统一由平台按 Ticket 维度推导：
 
 - 本机 Provider：`~/.openase/workspace/{org-slug}/{project-slug}/{ticket-identifier}`

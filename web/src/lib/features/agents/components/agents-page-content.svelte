@@ -1,17 +1,24 @@
 <script lang="ts">
   import type { AgentOutputEntry, AgentProvider, Machine } from '$lib/api/contracts'
   import type { StreamConnectionState } from '$lib/api/sse'
-  import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
+  import type {
+    AgentInstance,
+    AgentRunInstance,
+    ProviderConfig,
+    ProviderDraft,
+    ProviderDraftField,
+  } from '../types'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import AgentsPageDrawers from './agents-page-drawers.svelte'
   import AgentsPagePanel from './agents-page-panel.svelte'
 
   let {
-    activeTab = $bindable('instances'),
+    activeTab = $bindable('runtime'),
     registerSheetOpen = $bindable(false),
     providerConfigOpen = $bindable(false),
     outputSheetOpen = $bindable(false),
     agents,
+    agentRuns,
     providers,
     loading = false,
     error = '',
@@ -50,6 +57,7 @@
     providerConfigOpen?: boolean
     outputSheetOpen?: boolean
     agents: AgentInstance[]
+    agentRuns: AgentRunInstance[]
     providers: ProviderConfig[]
     loading?: boolean
     error?: string
@@ -89,6 +97,7 @@
   <AgentsPagePanel
     bind:activeTab
     {agents}
+    {agentRuns}
     {providers}
     {loading}
     {error}

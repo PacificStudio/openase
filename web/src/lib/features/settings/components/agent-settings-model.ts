@@ -16,7 +16,7 @@ export type GovernanceAgent = {
   providerName: string
   machineName: string
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
-  runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
+  runtimePhase: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
   lastHeartbeat?: string | null
 }
 
@@ -113,6 +113,7 @@ function normalizeRuntimePhase(runtimePhase: string): GovernanceAgent['runtimePh
     runtimePhase === 'none' ||
     runtimePhase === 'launching' ||
     runtimePhase === 'ready' ||
+    runtimePhase === 'executing' ||
     runtimePhase === 'failed'
   ) {
     return runtimePhase
