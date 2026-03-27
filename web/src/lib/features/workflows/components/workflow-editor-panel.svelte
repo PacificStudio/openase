@@ -2,7 +2,7 @@
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import Button from '$ui/button/button.svelte'
-  import { AlertCircle, CheckCircle2, Bot, PanelRightClose, PanelRightOpen } from '@lucide/svelte'
+  import { Bot, PanelRightClose, PanelRightOpen } from '@lucide/svelte'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
   import type { HarnessContent, HarnessVariableGroup, WorkflowSummary } from '../types'
   import type { SkillState } from '../model'
@@ -16,8 +16,6 @@
     variableGroups = [],
     skillStates,
     validationIssues,
-    statusMessage,
-    error,
     saving = false,
     validating = false,
     isDirty = false,
@@ -33,8 +31,6 @@
     variableGroups?: HarnessVariableGroup[]
     skillStates: SkillState[]
     validationIssues: HarnessValidationIssue[]
-    statusMessage: string
-    error: string
     saving?: boolean
     validating?: boolean
     isDirty?: boolean
@@ -137,20 +133,6 @@
         </button>
       {/each}
     </div>
-
-    {#if statusMessage}
-      <div class="mt-3 flex items-center gap-2 text-xs text-emerald-400">
-        <CheckCircle2 class="size-3.5" />
-        {statusMessage}
-      </div>
-    {/if}
-
-    {#if error}
-      <div class="text-destructive mt-3 flex items-center gap-2 text-xs">
-        <AlertCircle class="size-3.5" />
-        {error}
-      </div>
-    {/if}
 
     {#if validationIssues.length > 0}
       <div

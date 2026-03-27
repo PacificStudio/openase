@@ -22,8 +22,6 @@
     currentOrgSlug,
     currentProjectSlug,
     saving = false,
-    error = '',
-    feedback = '',
     onDraftChange,
     onSubmit,
     onOpenChange,
@@ -34,8 +32,6 @@
     currentOrgSlug?: string
     currentProjectSlug?: string
     saving?: boolean
-    error?: string
-    feedback?: string
     onDraftChange?: (field: AgentRegistrationDraftField, value: string) => void
     onSubmit?: () => void
     onOpenChange?: (open: boolean) => void
@@ -85,22 +81,6 @@
     </SheetHeader>
 
     <form class="flex h-full flex-col gap-5 px-6 pb-6" onsubmit={handleSubmit}>
-      {#if error}
-        <div
-          class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-        >
-          {error}
-        </div>
-      {/if}
-
-      {#if feedback}
-        <div
-          class="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300"
-        >
-          {feedback}
-        </div>
-      {/if}
-
       {#if providers.length === 0}
         <div
           class="border-border bg-muted/40 text-muted-foreground rounded-md border px-4 py-3 text-sm"

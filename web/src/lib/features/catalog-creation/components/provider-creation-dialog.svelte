@@ -9,6 +9,7 @@
     providerAdapterOptions,
   } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
@@ -26,13 +27,11 @@
 
   let draft = $state<ProviderDraft>(createEmptyProviderDraft())
   let creating = $state(false)
-  let error = $state('')
   let machines = $state<Machine[]>([])
 
   function reset() {
     draft = createEmptyProviderDraft()
     creating = false
-    error = ''
   }
 
   $effect(() => {
@@ -62,18 +61,16 @@
 
   function updateField(field: keyof ProviderDraft, value: string) {
     draft = { ...draft, [field]: value }
-    error = ''
   }
 
   async function handleSubmit() {
     const parsed = parseProviderDraft(draft)
     if (!parsed.ok) {
-      error = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
     creating = true
-    error = ''
 
     try {
       await createProvider(orgId, parsed.value)
@@ -81,7 +78,9 @@
       reset()
       await invalidateAll()
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.',
+      )
     } finally {
       creating = false
     }
@@ -147,7 +146,6 @@
             value={draft.adapterType}
             onValueChange={(value) => {
               draft = { ...draft, adapterType: value || 'custom' }
-              error = ''
             }}
           >
             <Select.Trigger class="w-full">
@@ -238,10 +236,6 @@
           />
         </div>
       </div>
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
 
       <Dialog.Footer>
         <Dialog.Close>

@@ -108,7 +108,7 @@
   }
 
   async function handleAddDependency(draft: DependencyDraft) {
-    await handleAddDependencyAction({
+    return await handleAddDependencyAction({
       ticketId,
       drawerState,
       draft,
@@ -145,12 +145,15 @@
 
   async function handleCreateRepoScope(draft: RepoScopeDraft) {
     const ticket = drawerState.ticket
-    if (!ticket || !projectId || !ticketId) return
+    if (!ticket || !projectId || !ticketId) return false
 
     const mutation = buildCreateRepoScopeMutation(drawerState.repoOptions, draft)
-    if (!mutation.ok) return drawerState.setMutationError(mutation.error)
+    if (!mutation.ok) {
+      drawerState.setMutationError(mutation.error)
+      return false
+    }
 
-    await runTicketDrawerMutation({
+    return await runTicketDrawerMutation({
       ...buildDrawerMutation(ticket),
       start: () => {
         drawerState.creatingRepoScope = true
@@ -226,7 +229,11 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="flex w-full flex-col p-0 sm:max-w-xl" showCloseButton={false}>
+  <SheetContent
+    side="right"
+    class="flex w-full flex-col p-0 sm:max-w-[60vw]"
+    showCloseButton={false}
+  >
     <SheetHeader class="sr-only">
       <SheetTitle>{drawerState.ticket?.identifier ?? 'Ticket detail'}</SheetTitle>
       <SheetDescription>Ticket detail drawer</SheetDescription>
@@ -251,8 +258,6 @@
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
         repoOptions={drawerState.repoOptions}
-        mutationError={drawerState.mutationError}
-        mutationNotice={drawerState.mutationNotice}
         savingFields={drawerState.savingFields}
         creatingDependency={drawerState.creatingDependency}
         deletingDependencyId={drawerState.deletingDependencyId}

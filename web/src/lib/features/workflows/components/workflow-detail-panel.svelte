@@ -23,8 +23,6 @@
     agentOptions = [],
     saving = false,
     deleting = false,
-    statusMessage = '',
-    error = '',
     onSave,
     onDelete,
     class: className = '',
@@ -34,8 +32,6 @@
     agentOptions?: WorkflowAgentOption[]
     saving?: boolean
     deleting?: boolean
-    statusMessage?: string
-    error?: string
     onSave?: (payload: WorkflowLifecyclePayload) => void | Promise<void>
     onDelete?: () => void | Promise<void>
     class?: string
@@ -274,8 +270,7 @@
     </div>
 
     <WorkflowDetailActions
-      {statusMessage}
-      errorMessage={formError || error}
+      errorMessage={formError}
       {saving}
       {deleting}
       {isDirty}

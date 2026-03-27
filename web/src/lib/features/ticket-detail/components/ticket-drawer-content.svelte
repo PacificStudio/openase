@@ -1,10 +1,19 @@
 <script lang="ts">
-  import { Tabs, TabsContent, TabsList, TabsTrigger } from '$ui/tabs'
-  import TicketDiscussion from './ticket-discussion.svelte'
+  import { Badge } from '$ui/badge'
+  import { Separator } from '$ui/separator'
+  import Bot from '@lucide/svelte/icons/bot'
+  import Calendar from '@lucide/svelte/icons/calendar'
+  import DollarSign from '@lucide/svelte/icons/dollar-sign'
+  import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
+  import User from '@lucide/svelte/icons/user'
+  import Workflow from '@lucide/svelte/icons/workflow'
+  import { cn, formatCurrency, formatRelativeTime } from '$lib/utils'
+  import TicketCommentsThread from './ticket-comments-thread.svelte'
+  import TicketDependencies from './ticket-dependencies.svelte'
+  import TicketExternalLinks from './ticket-external-links.svelte'
   import TicketHeader from './ticket-header.svelte'
   import TicketHooks from './ticket-hooks.svelte'
   import TicketRepos from './ticket-repos.svelte'
-  import TicketSummary from './ticket-summary.svelte'
   import type {
     HookExecution,
     TicketActivity,
@@ -23,8 +32,6 @@
     statuses,
     dependencyCandidates,
     repoOptions,
-    mutationError = '',
-    mutationNotice = '',
     savingFields = false,
     creatingDependency = false,
     deletingDependencyId = null,
@@ -56,8 +63,6 @@
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
-    mutationError?: string
-    mutationNotice?: string
     savingFields?: boolean
     creatingDependency?: boolean
     deletingDependencyId?: string | null
@@ -71,7 +76,10 @@
     deletingCommentId?: string | null
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
-    onAddDependency?: (draft: { targetTicketId: string; relation: string }) => void
+    onAddDependency?: (draft: {
+      targetTicketId: string
+      relation: string
+    }) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
     onCreateExternalLink?: (draft: {
       type: string
@@ -89,7 +97,7 @@
       prStatus: string
       ciStatus: string
       isPrimaryScope: boolean
-    }) => void
+    }) => Promise<boolean> | boolean
     onUpdateScope?: (
       scopeId: string,
       draft: {
@@ -105,78 +113,141 @@
     onUpdateComment?: (commentId: string, body: string) => Promise<boolean> | boolean
     onDeleteComment?: (commentId: string) => Promise<boolean> | boolean
   } = $props()
+
+  const costPercent = $derived.by(() =>
+    ticket.budgetUsd > 0 ? Math.round((ticket.costAmount / ticket.budgetUsd) * 100) : 0,
+  )
+  const costOverBudget = $derived(costPercent > 80)
 </script>
 
 <TicketHeader {ticket} {statuses} {savingFields} {onClose} {onSaveFields} />
 
-{#if mutationNotice}
-  <div class="border-border bg-muted/40 mx-6 mt-4 rounded-md border px-3 py-2 text-xs">
-    {mutationNotice}
-  </div>
-{/if}
+<div class="flex flex-1 gap-0 overflow-hidden">
+  <TicketCommentsThread
+    {ticket}
+    {comments}
+    {activities}
+    {savingFields}
+    {creatingComment}
+    {updatingCommentId}
+    {deletingCommentId}
+    {onSaveFields}
+    {onCreateComment}
+    {onUpdateComment}
+    {onDeleteComment}
+  />
 
-{#if mutationError}
-  <div
-    class="border-destructive/30 bg-destructive/10 text-destructive mx-6 mt-4 rounded-md border px-3 py-2 text-xs"
-  >
-    {mutationError}
-  </div>
-{/if}
+  <!-- Right sidebar: metadata -->
+  <div class="w-72 shrink-0 overflow-y-auto">
+    <div class="flex flex-col gap-5 px-5 py-5">
+      <!-- Metadata grid -->
+      <section class="space-y-3">
+        <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+          Details
+        </span>
+        <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2.5 text-xs">
+          {#if ticket.workflow}
+            <div class="text-muted-foreground flex items-center gap-1.5">
+              <Workflow class="size-3.5" />
+              <span>Workflow</span>
+            </div>
+            <div class="text-foreground truncate">{ticket.workflow.name}</div>
+          {/if}
 
-<Tabs value="summary" class="flex flex-1 flex-col overflow-hidden">
-  <TabsList class="mx-6 mt-4 shrink-0">
-    <TabsTrigger value="summary">Summary</TabsTrigger>
-    <TabsTrigger value="code">Code</TabsTrigger>
-    <TabsTrigger value="hooks">Hooks</TabsTrigger>
-    <TabsTrigger value="activity">Activity</TabsTrigger>
-  </TabsList>
+          <div class="text-muted-foreground flex items-center gap-1.5">
+            <Bot class="size-3.5" />
+            <span>Agent</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            {#if ticket.assignedAgent}
+              <span class="inline-block size-1.5 rounded-full bg-green-400" title="Online"></span>
+              <span class="text-foreground truncate">{ticket.assignedAgent.name}</span>
+              <Badge variant="outline" class="h-4 shrink-0 py-0 text-[10px]">
+                {ticket.assignedAgent.provider}
+              </Badge>
+            {:else}
+              <span class="text-muted-foreground italic">Unassigned</span>
+            {/if}
+          </div>
 
-  <div class="flex-1 overflow-y-auto">
-    <TabsContent value="summary" class="mt-0">
-      <TicketSummary
+          <div class="text-muted-foreground flex items-center gap-1.5">
+            <DollarSign class="size-3.5" />
+            <span>Cost</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class={cn('text-foreground', costOverBudget && 'text-red-400')}>
+              {formatCurrency(ticket.costAmount)}
+            </span>
+            <span class="text-muted-foreground">/ {formatCurrency(ticket.budgetUsd)}</span>
+          </div>
+
+          <div class="text-muted-foreground flex items-center gap-1.5">
+            <RotateCcw class="size-3.5" />
+            <span>Attempts</span>
+          </div>
+          <div class="text-foreground">{ticket.attemptCount}</div>
+
+          <div class="text-muted-foreground flex items-center gap-1.5">
+            <User class="size-3.5" />
+            <span>Created by</span>
+          </div>
+          <div class="text-foreground truncate">{ticket.createdBy}</div>
+
+          <div class="text-muted-foreground flex items-center gap-1.5">
+            <Calendar class="size-3.5" />
+            <span>Created</span>
+          </div>
+          <div class="text-foreground">{formatRelativeTime(ticket.createdAt)}</div>
+        </div>
+      </section>
+
+      <Separator />
+
+      <!-- External Links -->
+      <TicketExternalLinks
+        links={ticket.externalLinks}
+        creating={creatingExternalLink}
+        deletingId={deletingExternalLinkId}
+        onCreate={onCreateExternalLink}
+        onDelete={onDeleteExternalLink}
+      />
+
+      <Separator />
+
+      <!-- Dependencies -->
+      <TicketDependencies
         {ticket}
         availableTickets={dependencyCandidates}
-        {savingFields}
         {creatingDependency}
         {deletingDependencyId}
-        {creatingExternalLink}
-        {deletingExternalLinkId}
-        {onSaveFields}
         {onAddDependency}
         {onDeleteDependency}
-        {onCreateExternalLink}
-        {onDeleteExternalLink}
       />
-    </TabsContent>
 
-    <TabsContent value="code" class="mt-0">
-      <TicketRepos
-        {ticket}
-        repos={repoOptions}
-        {creatingRepoScope}
-        {updatingRepoScopeId}
-        {deletingRepoScopeId}
-        {onCreateScope}
-        {onUpdateScope}
-        {onDeleteScope}
-      />
-    </TabsContent>
+      <Separator />
 
-    <TabsContent value="hooks" class="mt-0">
-      <TicketHooks {hooks} />
-    </TabsContent>
+      <!-- Repositories -->
+      <section class="space-y-3">
+        <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+          Repositories
+        </span>
+        <TicketRepos
+          {ticket}
+          repos={repoOptions}
+          {creatingRepoScope}
+          {updatingRepoScopeId}
+          {deletingRepoScopeId}
+          {onCreateScope}
+          {onUpdateScope}
+          {onDeleteScope}
+        />
+      </section>
 
-    <TabsContent value="activity" class="mt-0">
-      <TicketDiscussion
-        {comments}
-        {activities}
-        {creatingComment}
-        {updatingCommentId}
-        {deletingCommentId}
-        {onCreateComment}
-        {onUpdateComment}
-        {onDeleteComment}
-      />
-    </TabsContent>
+      <!-- Hooks -->
+      {#if hooks.length > 0}
+        <Separator />
+        <TicketHooks {hooks} />
+      {/if}
+    </div>
   </div>
-</Tabs>
+</div>

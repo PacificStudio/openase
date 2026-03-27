@@ -19,8 +19,6 @@ export type MachinesPageViewState = {
   draft: MachineDraft
   snapshot: MachineSnapshot | null
   probe: MachineProbeResult | null
-  editorError: string
-  feedback: string
 }
 
 export function createNoOrgState(): MachinesPageViewState {
@@ -34,13 +32,9 @@ export function createNoOrgState(): MachinesPageViewState {
   }
 }
 
-export function createListErrorState(
-  message: string,
-  feedback = '',
-  preserveFeedback = false,
-): MachinesPageViewState {
+export function createListErrorState(message: string): MachinesPageViewState {
   return {
-    ...resetEditorState(feedback, preserveFeedback),
+    ...resetEditorState(),
     routeOrgId: '',
     machines: [],
     searchQuery: '',
@@ -49,13 +43,9 @@ export function createListErrorState(
   }
 }
 
-export function createEmptyState(
-  routeOrgId: string,
-  feedback = '',
-  preserveFeedback = false,
-): MachinesPageViewState {
+export function createEmptyState(routeOrgId: string): MachinesPageViewState {
   return {
-    ...resetEditorState(feedback, preserveFeedback),
+    ...resetEditorState(),
     routeOrgId,
     machines: [],
     searchQuery: '',
@@ -68,8 +58,6 @@ export function createEditorSelectionState(
   routeOrgId: string,
   machines: MachineItem[],
   machine: MachineItem,
-  feedback = '',
-  preserveFeedback = false,
 ): MachinesPageViewState {
   return {
     routeOrgId,
@@ -82,16 +70,12 @@ export function createEditorSelectionState(
     draft: machineToDraft(machine),
     snapshot: parseMachineSnapshot(machine.resources),
     probe: null,
-    editorError: '',
-    feedback: preserveFeedback ? feedback : '',
   }
 }
 
 export function createStartCreateState(
   routeOrgId: string,
   machines: MachineItem[],
-  feedback = '',
-  preserveFeedback = false,
 ): MachinesPageViewState {
   return {
     routeOrgId,
@@ -104,19 +88,15 @@ export function createStartCreateState(
     draft: createEmptyMachineDraft(),
     snapshot: null,
     probe: null,
-    editorError: '',
-    feedback: preserveFeedback ? feedback : '',
   }
 }
 
-function resetEditorState(feedback = '', preserveFeedback = false) {
+function resetEditorState() {
   return {
     selectedId: '',
     mode: 'edit' as const,
     draft: createEmptyMachineDraft(),
     snapshot: null,
     probe: null,
-    editorError: '',
-    feedback: preserveFeedback ? feedback : '',
   }
 }

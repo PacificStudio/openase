@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
   import { streamChatTurn, type ChatStreamEvent } from '$lib/api/chat'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -33,7 +34,6 @@
 
   let prompt = $state('')
   let pending = $state(false)
-  let error = $state('')
   let sessionId = $state('')
   let entries = $state<AssistantTranscriptEntry[]>([])
   let appliedFingerprint = $state('')
@@ -71,7 +71,6 @@
 
     appendEntry('user', message)
     prompt = ''
-    error = ''
     pending = true
 
     const controller = new AbortController()
@@ -95,7 +94,9 @@
       )
     } catch (caughtError) {
       if (!isAbortError(caughtError)) {
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Harness AI request failed.'
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : 'Harness AI request failed.',
+        )
       }
     } finally {
       if (abortController === controller) {
@@ -113,7 +114,7 @@
     }
 
     if (event.kind === 'error') {
-      error = event.payload.message
+      toastStore.error(event.payload.message)
       pending = false
       return
     }
@@ -144,7 +145,6 @@
     abortController = null
     prompt = ''
     pending = false
-    error = ''
     sessionId = ''
     entries = []
     appliedFingerprint = ''
@@ -257,10 +257,6 @@
       disabled={!projectId || !workflowId || pending}
       onkeydown={handlePromptKeydown}
     />
-
-    {#if error}
-      <p class="text-destructive mt-2 text-xs">{error}</p>
-    {/if}
 
     <div class="mt-3 flex items-center justify-between gap-3">
       <p class="text-muted-foreground text-[11px] leading-4">

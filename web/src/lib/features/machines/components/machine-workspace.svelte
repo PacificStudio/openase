@@ -27,9 +27,7 @@
     saving = false,
     testing = false,
     deleting = false,
-    feedback = '',
     stateMessage = '',
-    editorError = '',
     onSearchChange,
     onSelectMachine,
     onDraftChange,
@@ -54,9 +52,7 @@
     saving?: boolean
     testing?: boolean
     deleting?: boolean
-    feedback?: string
     stateMessage?: string
-    editorError?: string
     onSearchChange?: (value: string) => void
     onSelectMachine?: (machineId: string) => void
     onDraftChange?: (field: MachineDraftField, value: string) => void
@@ -104,12 +100,6 @@
       <div class="mt-4">
         <Button onclick={onCreate}>New machine</Button>
       </div>
-      {#if feedback}
-        <p class="mt-4 text-sm text-emerald-400">{feedback}</p>
-      {/if}
-      {#if stateMessage}
-        <p class="text-destructive mt-3 text-sm">{stateMessage}</p>
-      {/if}
     </div>
   {:else}
     <div class="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
@@ -132,8 +122,6 @@
         {saving}
         {testing}
         {deleting}
-        {feedback}
-        error={editorError}
         {onDraftChange}
         {onSave}
         {onTest}

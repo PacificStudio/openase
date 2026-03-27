@@ -9,6 +9,7 @@
     updateMachine,
   } from '$lib/api/openase'
   import PageHeader from '$lib/components/layout/page-header.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import MachinePageActions from './machine-page-actions.svelte'
   import MachineWorkspace from './machine-workspace.svelte'
   import {
@@ -46,8 +47,6 @@
   let workspaceState = $state<MachineWorkspaceState>('loading')
   let routeOrgId = $state('')
   let listMessage = $state('')
-  let editorError = $state('')
-  let feedback = $state('')
   let machines = $state<MachineItem[]>([])
   let selectedId = $state('')
   let mode = $state<'create' | 'edit'>('edit')
@@ -83,9 +82,7 @@
     const nextMachine =
       nextData.initialMachines.find((machine) => machine.id === selectedId) ??
       nextData.initialMachines[0]
-    applyViewState(
-      createEditorSelectionState(nextOrgId, nextData.initialMachines, nextMachine, feedback, true),
-    )
+    applyViewState(createEditorSelectionState(nextOrgId, nextData.initialMachines, nextMachine))
     await loadMachineResources(nextMachine.id)
   }
 
@@ -100,14 +97,10 @@
     draft = nextState.draft
     snapshot = nextState.snapshot
     probe = nextState.probe
-    editorError = nextState.editorError
-    feedback = nextState.feedback
   }
 
-  async function openMachine(machine: MachineItem, options: { preserveFeedback?: boolean } = {}) {
-    applyViewState(
-      createEditorSelectionState(routeOrgId, machines, machine, feedback, options.preserveFeedback),
-    )
+  async function openMachine(machine: MachineItem) {
+    applyViewState(createEditorSelectionState(routeOrgId, machines, machine))
     await loadMachineResources(machine.id)
   }
 
@@ -118,30 +111,27 @@
       const payload = await getMachineResources(machineId)
       snapshot = parseMachineSnapshot(payload.resources)
     } catch (caughtError) {
-      editorError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load machine resources.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load machine resources.',
+      )
     } finally {
       loadingHealth = false
     }
   }
 
-  function startCreate(options: { preserveFeedback?: boolean } = {}) {
+  function startCreate() {
     if (!routeOrgId) return applyViewState(createNoOrgState())
-    applyViewState(createStartCreateState(routeOrgId, machines, feedback, options.preserveFeedback))
+    applyViewState(createStartCreateState(routeOrgId, machines))
   }
 
   function resetDraft() {
     if (mode === 'create') {
       draft = createEmptyMachineDraft()
-      feedback = ''
-      editorError = ''
       return
     }
 
     if (selectedMachine) {
       draft = createEditorSelectionState(routeOrgId, machines, selectedMachine).draft
-      feedback = ''
-      editorError = ''
     }
   }
 
@@ -161,31 +151,30 @@
   async function handleSave() {
     const parsed = parseMachineDraft(draft)
     if (!routeOrgId || !parsed.ok) {
-      editorError = parsed.ok ? 'Organization context is unavailable.' : parsed.error
-      feedback = ''
+      toastStore.error(parsed.ok ? 'Organization context is unavailable.' : parsed.error)
       return
     }
 
     saving = true
-    editorError = ''
-    feedback = ''
 
     try {
       if (mode === 'create') {
         const payload = await createMachine(routeOrgId, parsed.value)
         machines = [payload.machine, ...machines]
-        await openMachine(payload.machine, { preserveFeedback: true })
-        feedback = 'Machine created.'
+        await openMachine(payload.machine)
+        toastStore.success('Machine created.')
       } else if (selectedMachine) {
         const payload = await updateMachine(selectedMachine.id, parsed.value)
         machines = machines.map((machine) =>
           machine.id === payload.machine.id ? payload.machine : machine,
         )
-        await openMachine(payload.machine, { preserveFeedback: true })
-        feedback = 'Machine updated.'
+        await openMachine(payload.machine)
+        toastStore.success('Machine updated.')
       }
     } catch (caughtError) {
-      editorError = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save machine.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save machine.',
+      )
     } finally {
       saving = false
     }
@@ -194,20 +183,19 @@
   async function handleTest() {
     if (!selectedMachine) return
     testing = true
-    editorError = ''
-    feedback = ''
 
     try {
       const payload = await testMachineConnection(selectedMachine.id)
       machines = machines.map((machine) =>
         machine.id === payload.machine.id ? payload.machine : machine,
       )
-      await openMachine(payload.machine, { preserveFeedback: true })
+      await openMachine(payload.machine)
       probe = payload.probe
-      feedback = 'Connection test completed.'
+      toastStore.success('Connection test completed.')
     } catch (caughtError) {
-      editorError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to run connection test.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to run connection test.',
+      )
     } finally {
       testing = false
     }
@@ -216,25 +204,24 @@
   async function handleDelete() {
     if (!selectedMachine) return
     deleting = true
-    editorError = ''
-    feedback = ''
 
     try {
       await deleteMachine(selectedMachine.id)
       machines = machines.filter((machine) => machine.id !== selectedMachine.id)
       probe = null
       snapshot = null
-      feedback = 'Machine deleted.'
+      toastStore.success('Machine deleted.')
 
       const nextMachine = machines[0] ?? null
       if (nextMachine) {
-        await openMachine(nextMachine, { preserveFeedback: true })
+        await openMachine(nextMachine)
       } else {
-        applyViewState(createEmptyState(routeOrgId, feedback, true))
+        applyViewState(createEmptyState(routeOrgId))
       }
     } catch (caughtError) {
-      editorError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete machine.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete machine.',
+      )
     } finally {
       deleting = false
     }
@@ -272,9 +259,7 @@
   {saving}
   {testing}
   {deleting}
-  {feedback}
   stateMessage={listMessage}
-  {editorError}
   onSearchChange={(value) => {
     searchQuery = value
   }}

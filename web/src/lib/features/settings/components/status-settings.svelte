@@ -21,6 +21,7 @@
     type EditableStatus,
   } from '$lib/features/statuses/public'
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
   import type { StatusPayload } from '$lib/api/contracts'
   import StatusSettingsCreate from './status-settings-create.svelte'
@@ -35,10 +36,7 @@
   let creating = $state(false)
   let resetting = $state(false)
   let busyStatusId = $state('')
-  let error = $state(''),
-    feedback = $state('')
   const statusCapability = getSettingsSectionCapability('statuses')
-  const clearMessages = () => ((error = ''), (feedback = ''))
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -51,15 +49,12 @@
       busyStatusId = ''
       creating = false
       resetting = false
-      feedback = ''
-      error = ''
       return
     }
     let cancelled = false
 
     const load = async () => {
       loading = true
-      error = ''
 
       try {
         const payload = await listStatuses(projectId)
@@ -68,7 +63,9 @@
         stages = payload.stages
       } catch (caughtError) {
         if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load statuses.'
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load statuses.',
+        )
       } finally {
         if (!cancelled) loading = false
       }
@@ -95,13 +92,11 @@
       isDefault: createDefault,
     })
     if (!parsed.ok) {
-      error = parsed.error
-      feedback = ''
+      toastStore.error(parsed.error)
       return
     }
 
     creating = true
-    clearMessages()
 
     try {
       const payload = await createStatus(projectId, {
@@ -114,9 +109,11 @@
       createName = ''
       createColor = createEmptyStatusDraft().color
       createDefault = false
-      feedback = `Created status "${payload.status.name}".`
+      toastStore.success(`Created status "${payload.status.name}".`)
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create status.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create status.',
+      )
     } finally {
       creating = false
     }
@@ -137,15 +134,16 @@
     if (Object.keys(body).length === 0) return
 
     busyStatusId = statusId
-    clearMessages()
 
     try {
       await updateStatus(statusId, body)
       await reloadStatuses(projectId)
       statusSync.touch()
-      feedback = `Updated status "${draft.name}".`
+      toastStore.success(`Updated status "${draft.name}".`)
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to update status.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update status.',
+      )
     } finally {
       busyStatusId = ''
     }
@@ -160,7 +158,6 @@
 
     statuses = nextStatuses
     busyStatusId = statusId
-    clearMessages()
 
     try {
       await Promise.all(
@@ -168,9 +165,11 @@
       )
       await reloadStatuses(projectId)
       statusSync.touch()
-      feedback = 'Status order updated.'
+      toastStore.success('Status order updated.')
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to reorder statuses.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to reorder statuses.',
+      )
       await reloadStatuses(projectId)
     } finally {
       busyStatusId = ''
@@ -189,15 +188,16 @@
     }
 
     busyStatusId = status.id
-    clearMessages()
 
     try {
       await deleteStatus(status.id)
       await reloadStatuses(projectId)
       statusSync.touch()
-      feedback = `Deleted status "${status.name}".`
+      toastStore.success(`Deleted status "${status.name}".`)
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete status.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete status.',
+      )
     } finally {
       busyStatusId = ''
     }
@@ -215,15 +215,16 @@
     }
 
     resetting = true
-    clearMessages()
 
     try {
       await resetStatuses(projectId)
       await reloadStatuses(projectId)
       statusSync.touch()
-      feedback = 'Statuses reset to the default template.'
+      toastStore.success('Statuses reset to the default template.')
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to reset statuses.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to reset statuses.',
+      )
     } finally {
       resetting = false
     }
@@ -286,13 +287,5 @@
         {/each}
       {/if}
     </div>
-  {/if}
-
-  {#if feedback}
-    <p class="text-sm text-emerald-400">{feedback}</p>
-  {/if}
-
-  {#if error}
-    <p class="text-destructive text-sm">{error}</p>
   {/if}
 </div>

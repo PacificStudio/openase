@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
@@ -29,7 +30,6 @@
   } = $props()
 
   let saving = $state(false)
-  let error = $state('')
   let name = $state('')
   let agentId = $state('')
   let pickupStatusIds = $state<string[]>([])
@@ -45,30 +45,28 @@
     agentId = agentOptions[0]?.id ?? ''
     pickupStatusIds = statuses[0] ? [statuses[0].id] : []
     finishStatusIds = statuses.at(-1) ? [statuses.at(-1)!.id] : statuses[0] ? [statuses[0].id] : []
-    error = ''
   })
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!projectId) {
-      error = 'Select a project before creating a workflow.'
+      toastStore.error('Select a project before creating a workflow.')
       return
     }
     if (!name.trim()) {
-      error = 'Workflow name is required.'
+      toastStore.error('Workflow name is required.')
       return
     }
     if (!agentId) {
-      error = 'Bound agent is required.'
+      toastStore.error('Bound agent is required.')
       return
     }
     if (pickupStatusIds.length === 0 || finishStatusIds.length === 0) {
-      error = 'At least one pickup status and one finish status are required.'
+      toastStore.error('Pickup and finish status are required.')
       return
     }
 
     saving = true
-    error = ''
 
     try {
       const payload = await createWorkflowWithBinding(
@@ -85,7 +83,9 @@
       onCreated?.(payload)
       open = false
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create workflow.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create workflow.',
+      )
     } finally {
       saving = false
     }
@@ -174,10 +174,6 @@
           </div>
         </div>
       </div>
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || !projectId}>

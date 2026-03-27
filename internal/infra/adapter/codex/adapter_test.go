@@ -582,6 +582,180 @@ func TestAdapterSendPromptUsesTurnDefaultsAndAutoApprovesRequests(t *testing.T) 
 	}
 }
 
+func TestAdapterEmitsOutputEventsFromRuntimeNotifications(t *testing.T) {
+	process := newFakeProcess()
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: &fakeProcessManager{process: process}})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			if err := completeHandshake(decoder, encoder); err != nil {
+				return err
+			}
+
+			turnStart, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if turnStart.Method != methodTurnStart {
+				return errors.New("expected turn/start request")
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      turnStart.ID,
+				Result: mustMarshalJSON(wireTurnStartResponse{
+					Turn: wireTurn{ID: "turn-output", Status: "inProgress"},
+				}),
+			}); err != nil {
+				return err
+			}
+
+			notifications := []jsonRPCMessage{
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodAgentMessageDelta,
+					Params: mustMarshalJSON(wireAgentMessageDeltaNotification{
+						ThreadID: "thread-1",
+						TurnID:   "turn-output",
+						ItemID:   "msg-1",
+						Delta:    "Thinking through the fix.",
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodCommandOutput,
+					Params: mustMarshalJSON(wireCommandExecutionOutputDeltaNotification{
+						ThreadID: "thread-1",
+						TurnID:   "turn-output",
+						ItemID:   "cmd-1",
+						Delta:    "go test ./...\n",
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodItemCompleted,
+					Params: mustMarshalJSON(wireItemCompletedNotification{
+						ThreadID: "thread-1",
+						TurnID:   "turn-output",
+						Item: wireThreadItem{
+							ID:    "msg-2",
+							Type:  "agentMessage",
+							Text:  "Applied the patch.",
+							Phase: "commentary",
+						},
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodItemCompleted,
+					Params: mustMarshalJSON(wireItemCompletedNotification{
+						ThreadID: "thread-1",
+						TurnID:   "turn-output",
+						Item: wireThreadItem{
+							ID:               "cmd-2",
+							Type:             "commandExecution",
+							AggregatedOutput: stringPointer("PASS\n"),
+						},
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodTurnCompleted,
+					Params: mustMarshalJSON(wireTurnNotification{
+						ThreadID: "thread-1",
+						Turn: wireTurn{
+							ID:     "turn-output",
+							Status: "completed",
+						},
+					}),
+				},
+			}
+			for _, notification := range notifications {
+				if err := encoder.Encode(notification); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Thread: ThreadStartParams{
+			WorkingDirectory: "/tmp/openase",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Keep working.")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+	if turn.TurnID != "turn-output" {
+		t.Fatalf("expected turn id turn-output, got %q", turn.TurnID)
+	}
+
+	assistantDelta := requireEvent(t, session.Events())
+	if assistantDelta.Type != EventTypeOutputProduced || assistantDelta.Output == nil {
+		t.Fatalf("expected assistant output event, got %+v", assistantDelta)
+	}
+	if assistantDelta.Output.Stream != "assistant" || assistantDelta.Output.Text != "Thinking through the fix." || assistantDelta.Output.Snapshot {
+		t.Fatalf("unexpected assistant delta event: %+v", assistantDelta.Output)
+	}
+
+	commandDelta := requireEvent(t, session.Events())
+	if commandDelta.Type != EventTypeOutputProduced || commandDelta.Output == nil {
+		t.Fatalf("expected command output event, got %+v", commandDelta)
+	}
+	if commandDelta.Output.Stream != "command" || commandDelta.Output.Text != "go test ./...\n" || commandDelta.Output.Snapshot {
+		t.Fatalf("unexpected command delta event: %+v", commandDelta.Output)
+	}
+
+	assistantSnapshot := requireEvent(t, session.Events())
+	if assistantSnapshot.Type != EventTypeOutputProduced || assistantSnapshot.Output == nil {
+		t.Fatalf("expected assistant snapshot event, got %+v", assistantSnapshot)
+	}
+	if !assistantSnapshot.Output.Snapshot || assistantSnapshot.Output.Phase != "commentary" || assistantSnapshot.Output.Text != "Applied the patch." {
+		t.Fatalf("unexpected assistant snapshot event: %+v", assistantSnapshot.Output)
+	}
+
+	commandSnapshot := requireEvent(t, session.Events())
+	if commandSnapshot.Type != EventTypeOutputProduced || commandSnapshot.Output == nil {
+		t.Fatalf("expected command snapshot event, got %+v", commandSnapshot)
+	}
+	if !commandSnapshot.Output.Snapshot || commandSnapshot.Output.Text != "PASS\n" {
+		t.Fatalf("unexpected command snapshot event: %+v", commandSnapshot.Output)
+	}
+
+	completedEvent := requireEvent(t, session.Events())
+	if completedEvent.Type != EventTypeTurnCompleted || completedEvent.Turn == nil || completedEvent.Turn.TurnID != "turn-output" {
+		t.Fatalf("expected completed turn event, got %+v", completedEvent)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+}
+
 type fakeProcessManager struct {
 	process   *fakeProcess
 	startSpec provider.AgentCLIProcessSpec
@@ -743,4 +917,8 @@ func equalStrings(left []string, right []string) bool {
 	}
 
 	return true
+}
+
+func stringPointer(value string) *string {
+	return &value
 }

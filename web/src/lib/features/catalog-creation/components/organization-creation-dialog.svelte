@@ -9,6 +9,7 @@
     type OrganizationCreationDraft,
   } from '$lib/features/catalog-creation/model'
   import { organizationPath } from '$lib/stores/app-context'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
@@ -23,13 +24,11 @@
   let draft = $state<OrganizationCreationDraft>(createOrganizationDraft())
   let slugDirty = $state(false)
   let creating = $state(false)
-  let error = $state('')
 
   function reset() {
     draft = createOrganizationDraft()
     slugDirty = false
     creating = false
-    error = ''
   }
 
   function updateName(value: string) {
@@ -38,24 +37,21 @@
       name: value,
       slug: slugDirty ? draft.slug : slugFromName(value),
     }
-    error = ''
   }
 
   function updateSlug(value: string) {
     slugDirty = true
     draft = { ...draft, slug: value }
-    error = ''
   }
 
   async function handleSubmit() {
     const parsed = parseOrganizationDraft(draft)
     if (!parsed.ok) {
-      error = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
     creating = true
-    error = ''
 
     try {
       const payload = await createOrganization(parsed.value)
@@ -64,8 +60,9 @@
       await invalidateAll()
       await goto(organizationPath(payload.organization.id))
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create organization.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create organization.',
+      )
     } finally {
       creating = false
     }
@@ -113,10 +110,6 @@
           Lowercase letters, numbers, and hyphens. This becomes the stable org route handle.
         </p>
       </div>
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
 
       <Dialog.Footer>
         <Dialog.Close>

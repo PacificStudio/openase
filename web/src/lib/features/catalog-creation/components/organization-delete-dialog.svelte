@@ -3,6 +3,7 @@
   import type { Organization } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { archiveOrganization } from '$lib/api/openase'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
@@ -18,21 +19,18 @@
 
   let confirmation = $state('')
   let archiving = $state(false)
-  let error = $state('')
 
   const confirmed = $derived(confirmation === organization.name)
 
   function reset() {
     confirmation = ''
     archiving = false
-    error = ''
   }
 
   async function handleArchive() {
     if (!confirmed) return
 
     archiving = true
-    error = ''
 
     try {
       await archiveOrganization(organization.id)
@@ -40,8 +38,9 @@
       reset()
       await invalidateAll()
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive organization.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive organization.',
+      )
     } finally {
       archiving = false
     }
@@ -80,14 +79,9 @@
           placeholder={organization.name}
           oninput={(event) => {
             confirmation = (event.currentTarget as HTMLInputElement).value
-            error = ''
           }}
         />
       </div>
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
 
       <Dialog.Footer>
         <Dialog.Close>
