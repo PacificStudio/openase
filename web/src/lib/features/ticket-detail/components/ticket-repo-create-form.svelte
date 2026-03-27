@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from '$ui/button'
+  import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
@@ -145,10 +146,10 @@
     </div>
   </div>
 
-  <label class="flex items-center gap-2 text-xs">
-    <input type="checkbox" bind:checked={createIsPrimaryScope} />
-    <span>Mark as primary scope</span>
-  </label>
+  <div class="flex items-center gap-2 text-xs">
+    <Checkbox id="new-scope-primary" bind:checked={createIsPrimaryScope} />
+    <Label for="new-scope-primary" class="text-xs font-medium">Mark as primary scope</Label>
+  </div>
 
   <div class="flex justify-end gap-2">
     {#if onCancel}
