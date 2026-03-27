@@ -1,4 +1,5 @@
 import type { AgentProvider } from '$lib/api/contracts'
+import { providerIsDispatchReady } from '$lib/features/providers'
 
 export type AgentRegistrationDraft = {
   providerId: string
@@ -72,5 +73,9 @@ function resolveProviderId(providers: AgentProvider[], defaultProviderId?: strin
     return defaultProviderId
   }
 
-  return providers.find((provider) => provider.available)?.id ?? providers[0]?.id ?? ''
+  return (
+    providers.find((provider) => providerIsDispatchReady(provider.availability_state))?.id ??
+    providers[0]?.id ??
+    ''
+  )
 }
