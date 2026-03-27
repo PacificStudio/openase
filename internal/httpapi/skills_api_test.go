@@ -19,10 +19,7 @@ import (
 
 func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	client := openTestEntClient(t)
-	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	repoRoot := createTestGitRepo(t)
 
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
@@ -62,6 +59,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	createPrimaryProjectRepo(t, ctx, client, project.ID, repoRoot)
 	localMachine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName("local").
@@ -322,10 +320,7 @@ func TestBuiltinRoleLibraryRoute(t *testing.T) {
 
 func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 	client := openTestEntClient(t)
-	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	repoRoot := createTestGitRepo(t)
 
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
@@ -365,6 +360,7 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	createPrimaryProjectRepo(t, ctx, client, project.ID, repoRoot)
 	localMachine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName("local").

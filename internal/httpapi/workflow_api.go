@@ -250,6 +250,8 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
 	case errors.Is(err, workflowservice.ErrProjectNotFound):
 		return writeAPIError(c, http.StatusNotFound, "PROJECT_NOT_FOUND", err.Error())
+	case errors.Is(err, workflowservice.ErrPrimaryRepoUnavailable):
+		return writeAPIError(c, http.StatusConflict, "PRIMARY_REPO_UNAVAILABLE", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowNotFound):
 		return writeAPIError(c, http.StatusNotFound, "WORKFLOW_NOT_FOUND", err.Error())
 	case errors.Is(err, workflowservice.ErrStatusNotFound):

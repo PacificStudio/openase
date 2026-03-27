@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/google/uuid"
 )
 
 type harnessRegistry struct {
@@ -33,6 +34,7 @@ type cachedHarness struct {
 }
 
 type harnessReloadEvent struct {
+	ProjectID       uuid.UUID
 	RelativePath    string
 	PreviousContent string
 	CurrentContent  string

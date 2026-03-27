@@ -111,7 +111,10 @@ def assert_idle_agent_defaults(agent: dict):
         )
 
 
-def cleanup_harness_artifacts(repo_root: Path, project_id: str | None, workflow: dict | None):
+def cleanup_harness_artifacts(repo_root: Path | None, workflow: dict | None):
+    if repo_root is None:
+        return
+
     harnesses_root = (repo_root / ".openase" / "harnesses").resolve()
     cleanup_targets = []
 
@@ -119,8 +122,6 @@ def cleanup_harness_artifacts(repo_root: Path, project_id: str | None, workflow:
         raw_harness_path = workflow.get("harness_path", "")
         if isinstance(raw_harness_path, str) and raw_harness_path.strip():
             cleanup_targets.append((repo_root / raw_harness_path).resolve())
-    if project_id:
-        cleanup_targets.append((harnesses_root / project_id).resolve())
 
     seen = set()
     for target in cleanup_targets:
@@ -143,6 +144,7 @@ def main() -> int:
     openase_bin = args.openase_bin
     project = None
     workflow = None
+    primary_repo_root = None
 
     if not Path(openase_bin).exists():
         raise RuntimeError(f"openase binary not found at {openase_bin}")
@@ -182,7 +184,7 @@ def main() -> int:
             },
         )["project"]
 
-        print("[3/11] seed default statuses and create workflow")
+        print("[3/11] seed default statuses and register a local primary repo")
         statuses = request_json(
             base_url,
             "POST",
@@ -190,6 +192,23 @@ def main() -> int:
         )["statuses"]
         todo = require_by_name(statuses, "name", "Todo")
         done = require_by_name(statuses, "name", "Done")
+        primary_repo_root = (repo_root.parent / primary_repo_name).resolve()
+        primary_repo_root.mkdir(parents=True, exist_ok=False)
+        (primary_repo_root / ".git").mkdir()
+        repo = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/projects/{project['id']}/repos",
+            {
+                "name": primary_repo_name,
+                "repository_url": str(primary_repo_root),
+                "default_branch": "main",
+                "is_primary": True,
+                "labels": ["smoke", "main"],
+            },
+        )["repo"]
+
+        print("[4/11] create workflow, provider, ticket, and idle agent")
         workflow = request_json(
             base_url,
             "POST",
@@ -202,8 +221,6 @@ def main() -> int:
                 "harness_content": "---\nworkflow:\n  role: coding\n---\n\n# Blackbox Workflow\n",
             },
         )["workflow"]
-
-        print("[4/11] create provider, ticket, repo, and idle agent")
         provider = request_json(
             base_url,
             "POST",
@@ -229,18 +246,6 @@ def main() -> int:
                 "created_by": "user:blackbox",
             },
         )["ticket"]
-        repo = request_json(
-            base_url,
-            "POST",
-            f"/api/v1/projects/{project['id']}/repos",
-            {
-                "name": primary_repo_name,
-                "repository_url": "https://github.com/acme/blackbox-main.git",
-                "default_branch": "main",
-                "is_primary": True,
-                "labels": ["smoke", "main"],
-            },
-        )["repo"]
         agent = request_json(
             base_url,
             "POST",
@@ -434,11 +439,9 @@ def main() -> int:
         print(json.dumps(summary, indent=2))
         return 0
     finally:
-        cleanup_harness_artifacts(
-            repo_root,
-            project["id"] if project is not None else None,
-            workflow,
-        )
+        cleanup_harness_artifacts(primary_repo_root, workflow)
+        if primary_repo_root is not None:
+            shutil.rmtree(primary_repo_root, ignore_errors=True)
 
 
 if __name__ == "__main__":
