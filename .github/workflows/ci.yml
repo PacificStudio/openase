@@ -10,7 +10,7 @@ permissions:
 jobs:
   changes:
     name: Detect Changes
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     outputs:
       go_changed: ${{ steps.detect.outputs.go_changed }}
       web_changed: ${{ steps.detect.outputs.web_changed }}
@@ -70,7 +70,7 @@ jobs:
 
   api-contract:
     name: API Contract Checks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
       - name: Check Out Repository
@@ -102,7 +102,7 @@ jobs:
 
   frontend:
     name: Frontend Checks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs:
       - changes
       - api-contract
@@ -160,7 +160,7 @@ jobs:
 
   backend:
     name: Backend Checks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs:
       - changes
       - api-contract
@@ -197,7 +197,7 @@ jobs:
 
   go-lint:
     name: Go Lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs: changes
     if: needs.changes.outputs.go_changed == 'true'
 
