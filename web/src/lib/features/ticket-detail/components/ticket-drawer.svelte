@@ -228,7 +228,7 @@
 <Sheet bind:open>
   <SheetContent
     side="right"
-    class="flex flex-col p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[60vw]"
+    class="flex w-full flex-col p-0 sm:max-w-[60vw]"
     showCloseButton={false}
   >
     <SheetHeader class="sr-only">
