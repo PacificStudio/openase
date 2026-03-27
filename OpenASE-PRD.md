@@ -731,6 +731,127 @@ AgentProvider 表示**某台 Machine 上一个可被 OpenASE 调用的 Coding Ag
 | cost_per_input_token | Decimal | 输入 Token 单价 |
 | cost_per_output_token | Decimal | 输出 Token 单价 |
 
+**GitHub 出站凭证统一约定：**
+
+- OpenASE 对 GitHub 的所有**出站**能力统一复用一份平台托管的 `GH_TOKEN`，包括：
+  - GitHub 仓库 `clone / fetch / push`（统一使用 `https://github.com/...git` 传输）
+  - GitHub Issue / Pull Request / Project API 调用
+  - GitHub Connector 的 pull / sync-back
+- `GH_TOKEN` 是平台统一管理的加密 Secret，不允许分散存放在 ProjectRepo、脚本、用户 shell profile 或 repo 文件中。
+- `GH_TOKEN` 的来源支持两种：
+  - 平台发起 GitHub Device Flow 授权
+  - 导入当前用户已有的 `gh auth token`
+- 对 GitHub 的**入站** Webhook 验签仍然单独使用 `GITHUB_WEBHOOK_SECRET`；`GH_TOKEN` 不参与 Webhook HMAC 校验。
+
+**归属范围（Scope of Ownership）：**
+
+- 默认归属为**Organization 级**：同一 Organization 下的 ProjectRepo、GitHub PR/Issue 自动化、GitHub Connector 默认共享一份 `GH_TOKEN`。
+- Project 可以显式配置自己的 GitHub 出站凭证覆盖 Organization 默认值；未覆盖时一律回退到 Organization 级 `GH_TOKEN`。
+- 不定义“Machine 级真相源”的 GitHub token。Machine 上的 `gh auth status`、credential helper、SSH key 只作为观测或兼容信号，不作为平台鉴权配置源。
+- 一个 Project 在同一时刻只允许解析出**一份有效 GitHub 出站凭证**，避免 clone / issue / pr / connector 分别命中不同 token。
+
+**存储模型（Storage Model）：**
+
+- `GH_TOKEN` 必须存放在平台 Secret 存储层中，作为**加密静态配置**持久化；不得明文落在 ProjectRepo、Machine、Workflow、Provider、脚本仓库文件或用户 shell profile 中。
+- UI 默认只展示：
+  - 来源（`device_flow` / `gh_cli_import` / `manual_paste`）
+  - 归属范围（organization / project）
+  - 最近探测时间
+  - 权限探测结果
+  - 最近错误
+- UI 不回显完整 token；最多只显示固定格式的脱敏尾部，例如 `ghu_xxx...ABCD`。
+- 导出配置、诊断日志、ActivityEvent、AgentTraceEvent、Hook 输出中必须对 `GH_TOKEN` 做统一 redaction。
+
+**来源语义（Source Semantics）：**
+
+- `device_flow`：平台自己完成 GitHub 授权流程，最终保存一份平台托管 token。
+- `gh_cli_import`：平台在导入瞬间读取 `gh auth token` 的当前值并复制保存；导入完成后，该 token 与本机 `gh` 登录态**解耦**。
+- `manual_paste`：用户显式粘贴 token，由平台保存。
+- 一旦 token 已被平台保存，后续所有调度与运行时行为都读取平台 Secret 存储，而不是再次依赖执行机上的 `gh auth token` 命令输出。
+
+**边界与观测规则：**
+
+- `gh auth status` 仅表示某台机器上的 GitHub CLI 登录态，是观测信号，不是平台 GitHub 出站鉴权的真相源。
+- 本机 `go-git` 路径与远端 shell `git` 路径都必须显式消费平台托管的 `GH_TOKEN`；不得依赖“机器可能已经配置好 credential helper”的隐式前提。
+- 远端运行时只能把 `GH_TOKEN` 作为当前受控 session 的环境变量注入，不能写入用户全局 shell profile、仓库文件或工作区持久配置。
+- 平台保存 / 导入 `GH_TOKEN` 后，必须立即执行一次结构化权限探测，产出 `valid / permissions / repo_access / checked_at` 等结果；UI 与调度器读取的是探测结果，而不是“字符串非空”。
+
+**生命周期状态机（Lifecycle）：**
+
+- `missing`
+  - 当前 Organization / Project 未配置 GitHub 出站凭证。
+- `configured`
+  - token 已保存，但尚未完成首次探测。
+- `probing`
+  - 平台正在执行权限 / repo access 探测。
+- `valid`
+  - token 有效，且满足当前已启用 GitHub 能力所需最小权限。
+- `insufficient_permissions`
+  - token 有效，但缺少当前已启用能力所需权限。
+- `revoked`
+  - GitHub 返回 401 / token 无效 / token 已被撤销。
+- `error`
+  - 平台无法完成探测（网络异常、GitHub API 暂时失败、配置不一致等）。
+
+**状态迁移规则：**
+
+- 新建 / 导入 token：`missing -> configured -> probing -> valid | insufficient_permissions | revoked | error`
+- 手动“重新测试”或定时 probe：`valid | insufficient_permissions | error -> probing -> ...`
+- 用户删除 token：任意状态 -> `missing`
+- 用户旋转 token：旧 token 立即退出活动配置，新 token 重新走 `configured -> probing -> ...`
+
+**运行时投影规则（Runtime Projection）：**
+
+- 本机工作区管理：
+  - `go-git` clone / fetch / push 必须显式使用平台解析后的 GitHub transport auth；不能假设库会自动读取 `GH_TOKEN`。
+- 远端工作区管理：
+  - shell `git clone / fetch / push`
+  - `gh issue / pr / project`
+  以上命令只允许通过**当前受控 session 的临时环境变量**读取 `GH_TOKEN`。
+- Agent CLI 本身默认**不继承** `GH_TOKEN`，除非当前步骤明确需要调用 GitHub API / git transport 且平台显式投影给该子进程。
+- `GH_TOKEN` 不得写入：
+  - `.git/config`
+  - `.env`
+  - workspace 文件
+  - shell profile
+  - hook 脚本模板
+
+**能力矩阵（Capability Matrix）：**
+
+- 仅使用 GitHub 私有仓库 clone / fetch / push：
+  - 要求 repo transport 可用
+  - 不要求 Issue / PR / Project API 权限探测通过
+- 使用 GitHub Issue / PR 自动化：
+  - 要求 Issue / PR API 权限可用
+- 使用 GitHub Project：
+  - 额外要求 Project 权限可用
+- 调度器在判定“GitHub 能力可用”时，必须按**当前启用功能**解析，不得把所有场景都提升为最大权限要求
+
+**最小权限要求：**
+
+- Classic PAT / gh OAuth scope：
+  - `repo`
+  - `project`（仅当 OpenASE 需要创建 / 更新 GitHub Project 时）
+- Fine-grained PAT：
+  - Repository `Contents: write`
+  - Repository `Pull requests: write`
+  - Repository `Issues: write`
+  - Repository `Metadata: read`
+  - `Projects: write`（仅当 OpenASE 需要创建 / 更新 GitHub Project 时）
+
+**轮换与撤销（Rotation & Revocation）：**
+
+- 用户替换 token 后：
+  - 新任务只使用新 token
+  - 正在运行的 session 不要求热替换，但不得把旧 token 再次持久化或回写到任何机器
+- 如果 probe 判定 token 已撤销：
+  - 平台将状态标记为 `revoked`
+  - 新的 GitHub clone / issue / pr / connector 同步任务立即阻止启动
+  - 已经开始的任务允许失败收敛，但错误中必须说明是 GitHub 出站凭证失效
+- 定时 probe 建议周期：
+  - 成功态：30 分钟到 6 小时之间，按环境等级配置
+  - 错误态：指数退避，避免持续刷 GitHub API
+
 **重要：`AgentProvider` 的“可用性”不是静态配置字段，而是运行时派生状态。**
 
 - `cli_command`、`cli_args`、`auth_config`、`machine_id` 等属于**静态配置**
@@ -6252,6 +6373,13 @@ func (s *Scheduler) resolveExecutionTarget(ctx context.Context, wf *workflow.Wor
 
 **Repo 策略：远端 git clone（不是 rsync，不依赖共享存储）。** 每台远端机器独立 clone 仓库到自己的本地工作区。原因：远端机器可能在不同网络，共享存储不可靠；git clone 保证每次都是干净的代码状态；Agent 在远端执行 git push 不需要回传文件到控制平面。
 
+**GitHub 仓库鉴权约定：**
+
+- OpenASE 对 GitHub 仓库统一使用平台托管的 `GH_TOKEN` 作为出站凭证。
+- 远端 shell `git clone / fetch / push` 必须通过受控环境注入消费这份 `GH_TOKEN`；不得要求用户先手动在远端执行 `gh auth login` 才能工作。
+- 本机 `go-git` 路径也必须显式消费同一份 `GH_TOKEN`，保证本机 / 远端行为一致。
+- GitHub 仓库 URL 统一优先使用 `https://github.com/...git`，避免把 SSH key 登录态作为平台功能的隐式前提。
+
 ```go
 // internal/orchestrator/runtime_runner.go — 远端执行（概念示意）
 func (w *Worker) runOnRemote(ctx context.Context, m *machine.Machine, p *provider.AgentProvider, t *ticket.Ticket, harness *Harness) error {
@@ -6522,6 +6650,17 @@ echo '}'
 
 echo '}'
 ```
+
+**补充说明：**
+
+- `gh_cli.auth_status` 仅表示机器上的 GitHub CLI 登录态，是观测数据，不是平台 GitHub 出站鉴权的真相源。
+- L5 审计还必须输出一份独立的 `github_token_probe`：
+  - `configured`: 是否已配置平台托管 `GH_TOKEN`
+  - `valid`: token 是否有效
+  - `permissions`: 解析出的权限快照 / scope
+  - `repo_access`: 对目标仓库的访问探测结果
+  - `checked_at`: 最近一次探测时间
+- UI 与调度器应同时展示 `gh_cli.auth_status` 与 `github_token_probe`，其中真正决定 GitHub clone / issue / PR 是否可用的是后者。
 
 **Environment Provisioner——用 Agent 修机器**
 
@@ -7519,7 +7658,7 @@ connectors:
     project_id: "uuid-of-project"
     config:
       base_url: "https://api.github.com"          # GitHub.com，企业版填自建地址
-      auth_token: "${GITHUB_TOKEN}"
+      auth_token: "${GH_TOKEN}"                    # 默认复用平台统一托管的 GitHub 出站凭证
       project_ref: "acme/backend"                  # owner/repo
       poll_interval: "5m"
       sync_direction: "bidirectional"
@@ -7532,6 +7671,12 @@ connectors:
         closed: "done"                             # GitHub closed → OpenASE done
       auto_workflow: "coding"                      # 同步进来的 Issue 默认分配 coding Workflow
 ```
+
+**说明：**
+
+- GitHub Connector 的 `auth_token` 在配置模型中仍然保留，是为了保持 Connector 边界清晰。
+- 对 GitHub 而言，它默认应解析到平台统一托管的 `GH_TOKEN`，与 GitHub repo clone / PR / issue API 使用同一份出站凭证真相源。
+- `webhook_secret` 仍然独立，不与 `GH_TOKEN` 复用。
 
 **同步行为：**
 
