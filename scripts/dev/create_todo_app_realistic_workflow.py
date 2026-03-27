@@ -434,12 +434,12 @@ def main() -> int:
         },
     ]
 
-    print(f"[1/12] health check against {base_url}")
+    print(f"[1/11] health check against {base_url}")
     request_json(base_url, "GET", "/healthz")
     request_json(base_url, "GET", "/api/v1/healthz")
 
     if not args.skip_github:
-        print("[2/12] verify GitHub CLI auth and create a dedicated GitHub Project")
+        print("[2/11] verify GitHub CLI auth and create a dedicated GitHub Project")
         run_cli(["gh", "auth", "status"], check=True)
         github_project_title = f"OpenASE {project_name} Validation {stamp}"
         github_project = create_github_project(args.github_owner, github_project_title)
@@ -454,12 +454,12 @@ def main() -> int:
             github_items.append(github_issue)
         github_project = get_github_project_by_title(args.github_owner, github_project_title)
     else:
-        print("[2/12] skip GitHub project and issue creation")
+        print("[2/11] skip GitHub project and issue creation")
 
-    print("[3/12] prepare the Todo app workspace repo")
+    print("[3/11] prepare the Todo app workspace repo")
     print(f"workspace={workspace_path}")
 
-    print("[4/12] create isolated OpenASE organization and project")
+    print("[4/11] create isolated OpenASE organization and project")
     org = request_json(
         base_url,
         "POST",
@@ -482,36 +482,20 @@ def main() -> int:
         },
     )["project"]
 
-    print("[5/12] seed default statuses and create coding workflow")
+    print("[5/11] seed default statuses, create provider/agent, then create coding workflow")
     statuses = request_json(base_url, "POST", f"/api/v1/projects/{project['id']}/statuses/reset")["statuses"]
     todo = require_by_name(statuses, "name", "Todo")
     done = require_by_name(statuses, "name", "Done")
-    workflow = request_json(
-        base_url,
-        "POST",
-        f"/api/v1/projects/{project['id']}/workflows",
-        {
-            "name": workflow_name,
-            "type": "coding",
-            "pickup_status_id": todo["id"],
-            "finish_status_id": done["id"],
-            "harness_content": (
-                "---\n"
-                "workflow:\n"
-                "  role: coding\n"
-                "---\n\n"
-                f"# {project_name}\n\n"
-                "You are responsible for implementing coding tasks for the Todo app project.\n"
-                "You are running inside a dedicated Todo app git repository, not the OpenASE repo.\n"
-                "Prefer concrete code changes, tests, and short execution notes.\n"
-            ),
-        },
-    )["workflow"]
-
-    print("[6/12] create provider and coding agent")
+    machines = request_json(base_url, "GET", f"/api/v1/orgs/{org['id']}/machines").get("machines", [])
+    local_machine = next((item for item in machines if item.get("name") == "local"), None)
+    if local_machine is None:
+        if not machines:
+            raise RuntimeError(f"organization {org['id']} has no machines to host providers")
+        local_machine = machines[0]
     if args.provider_mode == "fake-codex":
         fake_codex_path = repo_root / "scripts" / "dev" / "fake_codex_app_server.py"
         provider_payload = {
+            "machine_id": local_machine["id"],
             "name": "Fake Codex Validation Provider",
             "adapter_type": "codex-app-server",
             "cli_command": os.environ.get("PYTHON", "python3"),
@@ -521,6 +505,7 @@ def main() -> int:
         }
     else:
         provider_payload = {
+            "machine_id": local_machine["id"],
             "name": "Codex Validation Provider",
             "adapter_type": "codex-app-server",
             "cli_command": "codex",
@@ -542,11 +527,32 @@ def main() -> int:
         {
             "provider_id": provider["id"],
             "name": f"{slugify(project_name)}-coding-01",
-            "capabilities": ["coding", "todo-app", "validation"],
         },
     )["agent"]
+    workflow = request_json(
+        base_url,
+        "POST",
+        f"/api/v1/projects/{project['id']}/workflows",
+        {
+            "agent_id": agent["id"],
+            "name": workflow_name,
+            "type": "coding",
+            "pickup_status_id": todo["id"],
+            "finish_status_id": done["id"],
+            "harness_content": (
+                "---\n"
+                "workflow:\n"
+                "  role: coding\n"
+                "---\n\n"
+                f"# {project_name}\n\n"
+                "You are responsible for implementing coding tasks for the Todo app project.\n"
+                "You are running inside a dedicated Todo app git repository, not the OpenASE repo.\n"
+                "Prefer concrete code changes, tests, and short execution notes.\n"
+            ),
+        },
+    )["workflow"]
 
-    print("[7/12] set project defaults and register the workspace repo for the workflow")
+    print("[6/11] set project defaults and register the workspace repo for the workflow")
     request_json(
         base_url,
         "PATCH",
@@ -569,7 +575,7 @@ def main() -> int:
         },
     )["repo"]
 
-    print("[8/12] create linked OpenASE tickets")
+    print("[7/11] create linked OpenASE tickets")
     tickets = []
     for index, spec in enumerate(todo_issue_specs):
         github_issue = github_items[index] if index < len(github_items) else None
@@ -609,7 +615,7 @@ def main() -> int:
             ticket = request_json(base_url, "GET", f"/api/v1/tickets/{ticket['id']}")["ticket"]
             tickets[-1] = ticket
 
-    print("[9/12] add one realistic dependency edge")
+    print("[8/11] add one realistic dependency edge")
     request_json(
         base_url,
         "POST",
@@ -620,14 +626,14 @@ def main() -> int:
         },
     )
 
-    print("[10/12] wait for the scheduler to claim work")
+    print("[9/11] wait for the scheduler to claim work")
     agent_after_claim = wait_for_agent_claim(base_url, project["id"], agent["id"], args.wait_seconds)
 
-    print("[11/12] wait for runtime execution and real workspace activity")
+    print("[10/11] wait for runtime execution and real workspace activity")
     agent_after_execution = wait_for_agent_execution(base_url, project["id"], agent["id"], args.wait_seconds)
     workspace_activity = wait_for_workspace_activity(workspace_path, workspace_baseline_head, args.wait_for_workspace_seconds)
 
-    print("[12/12] summarize created resources")
+    print("[11/11] summarize created resources")
     summary = {
         "openase": {
             "base_url": base_url,
