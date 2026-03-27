@@ -8,7 +8,12 @@
   import { applyUpdatedProviderState } from '../model'
   import { createAgentRegistrationDraft, parseAgentRegistrationDraft } from '../registration'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
-  import type { AgentInstance, ProviderConfig, ProviderDraftField } from '../types'
+  import type {
+    AgentInstance,
+    AgentRunInstance,
+    ProviderConfig,
+    ProviderDraftField,
+  } from '../types'
   import {
     registerAgentAndReload,
     registerAgentError,
@@ -20,8 +25,9 @@
   import { wireAgentOutputStream } from './agent-output-stream.svelte'
   import { createProviderEditorState } from './provider-editor-state.svelte'
 
-  let activeTab = $state('instances')
+  let activeTab = $state('runtime')
   let agents = $state<AgentInstance[]>([])
+  let agentRuns = $state<AgentRunInstance[]>([])
   let providers = $state<ProviderConfig[]>([])
   let providerItems = $state<AgentProvider[]>([])
   let machineItems = $state<Machine[]>([])
@@ -51,6 +57,7 @@
       orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
       agents = []
+      agentRuns = []
       providers = []
       providerItems = []
       machineItems = []
@@ -108,6 +115,7 @@
     machineItems = data.machineItems
     providers = data.providers
     agents = data.agents
+    agentRuns = data.agentRuns
   }
 
   function updateRegistrationDraft(field: AgentRegistrationDraftField, value: string) {
@@ -227,6 +235,7 @@
   bind:outputSheetOpen
   canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
   {agents}
+  {agentRuns}
   {providers}
   {loading}
   {error}

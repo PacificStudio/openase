@@ -65,6 +65,7 @@ const agentsPageDataFixture: AgentsPageData = {
       status: 'running',
       runtimePhase: 'ready',
       runtimeControlState: 'active',
+      activeRunCount: 1,
       currentTicket: {
         id: 'ticket-1',
         identifier: 'ASE-277',
@@ -76,6 +77,29 @@ const agentsPageDataFixture: AgentsPageData = {
       currentStepChangedAt: '2026-03-27T12:00:00Z',
       todayCompleted: 0,
       todayCost: 0,
+    },
+  ],
+  agentRuns: [
+    {
+      id: 'run-1',
+      agentId: 'agent-1',
+      agentName: 'Codex Worker',
+      providerId: 'provider-1',
+      providerName: 'Codex',
+      modelName: 'gpt-5.4',
+      workflowId: 'workflow-1',
+      workflowName: 'Coding',
+      status: 'ready',
+      ticket: {
+        id: 'ticket-1',
+        identifier: 'ASE-277',
+        title: 'Align runtime event pipeline',
+      },
+      lastHeartbeat: '2026-03-27T12:00:00Z',
+      runtimeStartedAt: '2026-03-27T12:00:00Z',
+      sessionId: 'session-1',
+      lastError: '',
+      createdAt: '2026-03-27T12:00:00Z',
     },
   ],
   providers: [

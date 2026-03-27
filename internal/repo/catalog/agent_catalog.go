@@ -142,7 +142,7 @@ func (r *EntRepository) ListAgents(ctx context.Context, projectID uuid.UUID) ([]
 		return nil, fmt.Errorf("list agents: %w", err)
 	}
 
-	currentRuns, err := r.loadCurrentRunSnapshots(ctx, projectID)
+	currentRuns, err := r.loadCurrentRunSummaries(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgen
 		return domain.Agent{}, mapWriteError("create agent", err)
 	}
 
-	return mapAgent(item, agentCurrentRunSnapshot{}), nil
+	return mapAgent(item, agentCurrentRunSummary{}), nil
 }
 
 func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
@@ -216,7 +216,7 @@ func (r *EntRepository) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agen
 		return domain.Agent{}, mapReadError("get agent", err)
 	}
 
-	currentRun, err := r.loadCurrentRunSnapshotForAgent(ctx, item.ProjectID, item.ID)
+	currentRun, err := r.loadCurrentRunSummaryForAgent(ctx, item.ProjectID, item.ID)
 	if err != nil {
 		return domain.Agent{}, err
 	}
@@ -241,7 +241,7 @@ func (r *EntRepository) UpdateAgentRuntimeControlState(ctx context.Context, inpu
 		return domain.Agent{}, mapWriteError("update agent runtime control state", err)
 	}
 
-	currentRun, err := r.loadCurrentRunSnapshotForAgent(ctx, item.ProjectID, item.ID)
+	currentRun, err := r.loadCurrentRunSummaryForAgent(ctx, item.ProjectID, item.ID)
 	if err != nil {
 		return domain.Agent{}, err
 	}
@@ -259,7 +259,7 @@ func (r *EntRepository) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.A
 		return domain.Agent{}, mapWriteError("delete agent", err)
 	}
 
-	return mapAgent(item, agentCurrentRunSnapshot{}), nil
+	return mapAgent(item, agentCurrentRunSummary{}), nil
 }
 
 func mapAgentProviders(items []*ent.AgentProvider) []domain.AgentProvider {
@@ -313,11 +313,11 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 	}
 }
 
-type agentCurrentRunSnapshot struct {
-	run *ent.AgentRun
+type agentCurrentRunSummary struct {
+	runs []*ent.AgentRun
 }
 
-func (r *EntRepository) loadCurrentRunSnapshots(ctx context.Context, projectID uuid.UUID) (map[uuid.UUID]agentCurrentRunSnapshot, error) {
+func (r *EntRepository) loadCurrentRunSummaries(ctx context.Context, projectID uuid.UUID) (map[uuid.UUID]agentCurrentRunSummary, error) {
 	tickets, err := r.client.Ticket.Query().
 		Where(
 			entticket.ProjectIDEQ(projectID),
@@ -329,31 +329,30 @@ func (r *EntRepository) loadCurrentRunSnapshots(ctx context.Context, projectID u
 		return nil, fmt.Errorf("load current agent runs for project %s: %w", projectID, err)
 	}
 
-	snapshots := make(map[uuid.UUID]agentCurrentRunSnapshot, len(tickets))
+	summaries := make(map[uuid.UUID]agentCurrentRunSummary, len(tickets))
 	for _, ticketItem := range tickets {
 		runItem := ticketItem.Edges.CurrentRun
 		if runItem == nil {
 			continue
 		}
-		current, exists := snapshots[runItem.AgentID]
-		if !exists || current.run == nil || current.run.CreatedAt.Before(runItem.CreatedAt) {
-			snapshots[runItem.AgentID] = agentCurrentRunSnapshot{run: runItem}
-		}
+		current := summaries[runItem.AgentID]
+		current.runs = append(current.runs, runItem)
+		summaries[runItem.AgentID] = current
 	}
 
-	return snapshots, nil
+	return summaries, nil
 }
 
-func (r *EntRepository) loadCurrentRunSnapshotForAgent(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) (agentCurrentRunSnapshot, error) {
-	snapshots, err := r.loadCurrentRunSnapshots(ctx, projectID)
+func (r *EntRepository) loadCurrentRunSummaryForAgent(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) (agentCurrentRunSummary, error) {
+	summaries, err := r.loadCurrentRunSummaries(ctx, projectID)
 	if err != nil {
-		return agentCurrentRunSnapshot{}, err
+		return agentCurrentRunSummary{}, err
 	}
 
-	return snapshots[agentID], nil
+	return summaries[agentID], nil
 }
 
-func mapAgents(items []*ent.Agent, currentRuns map[uuid.UUID]agentCurrentRunSnapshot) []domain.Agent {
+func mapAgents(items []*ent.Agent, currentRuns map[uuid.UUID]agentCurrentRunSummary) []domain.Agent {
 	agents := make([]domain.Agent, 0, len(items))
 	for _, item := range items {
 		agents = append(agents, mapAgent(item, currentRuns[item.ID]))
@@ -362,7 +361,7 @@ func mapAgents(items []*ent.Agent, currentRuns map[uuid.UUID]agentCurrentRunSnap
 	return agents
 }
 
-func mapAgent(item *ent.Agent, currentRun agentCurrentRunSnapshot) domain.Agent {
+func mapAgent(item *ent.Agent, currentRun agentCurrentRunSummary) domain.Agent {
 	return domain.Agent{
 		ID:                    item.ID,
 		ProviderID:            item.ProviderID,
@@ -371,7 +370,7 @@ func mapAgent(item *ent.Agent, currentRun agentCurrentRunSnapshot) domain.Agent 
 		RuntimeControlState:   toDomainAgentRuntimeControlState(item.RuntimeControlState),
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
-		Runtime:               domain.BuildAgentRuntime(mapAgentRunPointer(currentRun.run), toDomainAgentRuntimeControlState(item.RuntimeControlState)),
+		Runtime:               domain.BuildAgentRuntimeSummary(mapAgentRunList(currentRun.runs), toDomainAgentRuntimeControlState(item.RuntimeControlState)),
 	}
 }
 
@@ -384,13 +383,20 @@ func mapAgentRuns(items []*ent.AgentRun) []domain.AgentRun {
 	return runs
 }
 
-func mapAgentRunPointer(item *ent.AgentRun) *domain.AgentRun {
-	if item == nil {
+func mapAgentRunList(items []*ent.AgentRun) []domain.AgentRun {
+	if len(items) == 0 {
 		return nil
 	}
 
-	run := mapAgentRun(item)
-	return &run
+	runs := make([]domain.AgentRun, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		runs = append(runs, mapAgentRun(item))
+	}
+
+	return runs
 }
 
 func mapAgentRun(item *ent.AgentRun) domain.AgentRun {

@@ -144,6 +144,7 @@ const agentsFixture: AgentPayload = {
       name: 'Codex Worker',
       runtime_control_state: 'active',
       runtime: {
+        active_run_count: 1,
         status: 'running',
         current_run_id: null,
         current_ticket_id: 'ticket-1',

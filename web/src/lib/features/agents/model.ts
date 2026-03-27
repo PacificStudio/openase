@@ -1,122 +1,7 @@
-import type { AgentPayload, AgentProvider, Ticket } from '$lib/api/contracts'
+import type { AgentPayload, AgentProvider, AgentRun, Ticket, Workflow } from '$lib/api/contracts'
 import { normalizeProviderAvailabilityState } from '$lib/features/providers'
-import type {
-  AgentInstance,
-  ProviderDraft,
-  ProviderDraftParseResult,
-  ProviderConfig,
-  ProviderAdapterType,
-} from './types'
+import type { AgentInstance, AgentRunInstance, ProviderConfig } from './types'
 import { normalizeAgentStatus, normalizeRuntimeControlState, normalizeRuntimePhase } from './state'
-
-export const providerAdapterOptions: Array<{ value: ProviderAdapterType; label: string }> = [
-  { value: 'claude-code-cli', label: 'Claude Code CLI' },
-  { value: 'codex-app-server', label: 'Codex App Server' },
-  { value: 'gemini-cli', label: 'Gemini CLI' },
-  { value: 'custom', label: 'Custom' },
-]
-
-export function createEmptyProviderDraft(): ProviderDraft {
-  return {
-    machineId: '',
-    name: '',
-    adapterType: 'custom',
-    cliCommand: '',
-    cliArgs: '',
-    authConfig: '',
-    modelName: '',
-    modelTemperature: '0',
-    modelMaxTokens: '1',
-    costPerInputToken: '0',
-    costPerOutputToken: '0',
-  }
-}
-
-export function providerToDraft(provider: ProviderConfig): ProviderDraft {
-  return {
-    machineId: provider.machineId,
-    name: provider.name,
-    adapterType: provider.adapterType,
-    cliCommand: provider.cliCommand,
-    cliArgs: provider.cliArgs.join('\n'),
-    authConfig:
-      Object.keys(provider.authConfig).length > 0
-        ? JSON.stringify(provider.authConfig, null, 2)
-        : '',
-    modelName: provider.modelName,
-    modelTemperature: String(provider.modelTemperature),
-    modelMaxTokens: String(provider.modelMaxTokens),
-    costPerInputToken: String(provider.costPerInputToken),
-    costPerOutputToken: String(provider.costPerOutputToken),
-  }
-}
-
-export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResult {
-  const machineId = draft.machineId.trim()
-  if (!machineId) {
-    return { ok: false, error: 'Execution machine is required.' }
-  }
-
-  const name = draft.name.trim()
-  if (!name) {
-    return { ok: false, error: 'Provider name is required.' }
-  }
-
-  const adapterType = parseProviderAdapterType(draft.adapterType)
-  if (!adapterType) {
-    return {
-      ok: false,
-      error: `Adapter type must be one of ${providerAdapterOptions.map((option) => option.value).join(', ')}.`,
-    }
-  }
-
-  const modelName = draft.modelName.trim()
-  if (!modelName) {
-    return { ok: false, error: 'Model name is required.' }
-  }
-
-  const modelTemperature = parseNonNegativeNumber('Model temperature', draft.modelTemperature)
-  if (!modelTemperature.ok) {
-    return modelTemperature
-  }
-
-  const modelMaxTokens = parsePositiveInteger('Model max tokens', draft.modelMaxTokens)
-  if (!modelMaxTokens.ok) {
-    return modelMaxTokens
-  }
-
-  const costPerInputToken = parseNonNegativeNumber('Input token cost', draft.costPerInputToken)
-  if (!costPerInputToken.ok) {
-    return costPerInputToken
-  }
-
-  const costPerOutputToken = parseNonNegativeNumber('Output token cost', draft.costPerOutputToken)
-  if (!costPerOutputToken.ok) {
-    return costPerOutputToken
-  }
-
-  const authConfig = parseAuthConfig(draft.authConfig)
-  if (!authConfig.ok) {
-    return authConfig
-  }
-
-  return {
-    ok: true,
-    value: {
-      machine_id: machineId,
-      name,
-      adapter_type: adapterType,
-      cli_command: draft.cliCommand.trim(),
-      cli_args: splitLines(draft.cliArgs),
-      auth_config: authConfig.value,
-      model_name: modelName,
-      model_temperature: modelTemperature.value,
-      model_max_tokens: modelMaxTokens.value,
-      cost_per_input_token: costPerInputToken.value,
-      cost_per_output_token: costPerOutputToken.value,
-    },
-  }
-}
 
 export function buildProviderCards(
   providerItems: AgentProvider[],
@@ -160,9 +45,16 @@ export function buildAgentRows(
   return agentItems.map((agent) => {
     const provider = providerMap.get(agent.provider_id)
     const runtime = agent.runtime ?? null
-    const currentTicket = runtime?.current_ticket_id
-      ? ticketMap.get(runtime.current_ticket_id)
-      : null
+    const activeRunCount =
+      typeof runtime?.active_run_count === 'number'
+        ? runtime.active_run_count
+        : runtime?.current_run_id
+          ? 1
+          : 0
+    const currentTicket =
+      activeRunCount === 1 && runtime?.current_ticket_id
+        ? ticketMap.get(runtime.current_ticket_id)
+        : null
 
     return {
       id: agent.id,
@@ -173,6 +65,7 @@ export function buildAgentRows(
       status: normalizeAgentStatus(runtime?.status ?? 'idle'),
       runtimePhase: normalizeRuntimePhase(runtime?.runtime_phase ?? 'none'),
       runtimeControlState: normalizeRuntimeControlState(agent.runtime_control_state),
+      activeRunCount,
       currentTicket: currentTicket
         ? {
             id: currentTicket.id,
@@ -191,6 +84,69 @@ export function buildAgentRows(
       todayCost: 0,
     }
   })
+}
+
+export function buildAgentRunRows(
+  providerItems: AgentProvider[],
+  ticketItems: Ticket[],
+  workflowItems: Workflow[],
+  agentItems: AgentPayload['agents'],
+  agentRunItems: AgentRun[],
+): AgentRunInstance[] {
+  const ticketMap = new Map(ticketItems.map((ticket) => [ticket.id, ticket]))
+  const workflowMap = new Map(workflowItems.map((workflow) => [workflow.id, workflow]))
+  const providerMap = new Map(providerItems.map((provider) => [provider.id, provider]))
+  const agentMap = new Map(agentItems.map((agent) => [agent.id, agent]))
+
+  return agentRunItems
+    .map((agentRun) => {
+      const ticket = ticketMap.get(agentRun.ticket_id)
+      if (!ticket) {
+        return null
+      }
+
+      const agent = agentMap.get(agentRun.agent_id)
+      const provider = providerMap.get(agentRun.provider_id)
+      const workflow = workflowMap.get(agentRun.workflow_id)
+
+      return {
+        id: agentRun.id,
+        agentId: agentRun.agent_id,
+        agentName: agent?.name ?? 'Unknown agent',
+        providerId: agentRun.provider_id,
+        providerName: provider?.name ?? 'Unknown provider',
+        modelName: provider?.model_name ?? 'Unknown model',
+        workflowId: agentRun.workflow_id,
+        workflowName: workflow?.name ?? 'Unknown workflow',
+        status: normalizeAgentRunStatus(agentRun.status),
+        ticket: {
+          id: ticket.id,
+          identifier: ticket.identifier,
+          title: ticket.title,
+        },
+        lastHeartbeat: agentRun.last_heartbeat_at ?? null,
+        runtimeStartedAt: agentRun.runtime_started_at ?? null,
+        sessionId: agentRun.session_id ?? '',
+        lastError: agentRun.last_error ?? '',
+        createdAt: agentRun.created_at,
+      } satisfies AgentRunInstance
+    })
+    .filter((item): item is AgentRunInstance => item !== null)
+}
+
+function normalizeAgentRunStatus(status: string): AgentRunInstance['status'] {
+  if (
+    status === 'launching' ||
+    status === 'ready' ||
+    status === 'executing' ||
+    status === 'completed' ||
+    status === 'errored' ||
+    status === 'terminated'
+  ) {
+    return status
+  }
+
+  return 'launching'
 }
 
 export function applyUpdatedProviderState(
@@ -238,60 +194,5 @@ export function applyUpdatedProviderState(
     providers: nextProviders,
     agents: nextAgents,
     provider: nextProviders.find((provider) => provider.id === updatedProvider.id) ?? null,
-  }
-}
-
-function parseProviderAdapterType(raw: string): ProviderAdapterType | null {
-  const value = raw.trim().toLowerCase()
-  return providerAdapterOptions.some((option) => option.value === value)
-    ? (value as ProviderAdapterType)
-    : null
-}
-
-function splitLines(raw: string): string[] {
-  return raw
-    .split('\n')
-    .map((value) => value.trim())
-    .filter(Boolean)
-}
-
-function parseNonNegativeNumber(
-  label: string,
-  raw: string,
-): { ok: true; value: number } | { ok: false; error: string } {
-  const value = Number(raw.trim())
-  if (!Number.isFinite(value) || value < 0) {
-    return { ok: false, error: `${label} must be a number greater than or equal to 0.` }
-  }
-  return { ok: true, value }
-}
-
-function parsePositiveInteger(
-  label: string,
-  raw: string,
-): { ok: true; value: number } | { ok: false; error: string } {
-  const value = Number(raw.trim())
-  if (!Number.isInteger(value) || value <= 0) {
-    return { ok: false, error: `${label} must be a positive integer.` }
-  }
-  return { ok: true, value }
-}
-
-function parseAuthConfig(
-  raw: string,
-): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
-  const text = raw.trim()
-  if (!text) {
-    return { ok: true, value: {} }
-  }
-
-  try {
-    const parsed = JSON.parse(text) as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { ok: false, error: 'Auth config must be a JSON object.' }
-    }
-    return { ok: true, value: parsed as Record<string, unknown> }
-  } catch {
-    return { ok: false, error: 'Auth config must be valid JSON.' }
   }
 }

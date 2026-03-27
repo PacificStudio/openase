@@ -5,8 +5,9 @@ export type AgentInstance = {
   providerName: string
   modelName: string
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
-  runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
+  runtimePhase: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
   runtimeControlState: 'active' | 'pause_requested' | 'paused'
+  activeRunCount: number
   currentTicket?: { id: string; identifier: string; title: string }
   lastHeartbeat?: string | null
   runtimeStartedAt?: string | null
@@ -17,6 +18,24 @@ export type AgentInstance = {
   currentStepChangedAt?: string | null
   todayCompleted: number
   todayCost: number
+}
+
+export type AgentRunInstance = {
+  id: string
+  agentId: string
+  agentName: string
+  providerId: string
+  providerName: string
+  modelName: string
+  workflowId: string
+  workflowName: string
+  status: 'launching' | 'ready' | 'executing' | 'completed' | 'errored' | 'terminated'
+  ticket: { id: string; identifier: string; title: string }
+  lastHeartbeat: string | null
+  runtimeStartedAt: string | null
+  sessionId: string
+  lastError: string
+  createdAt: string
 }
 
 export type ProviderConfig = {

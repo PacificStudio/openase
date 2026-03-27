@@ -113,6 +113,7 @@ type OpenAPIAgent struct {
 }
 
 type OpenAPIAgentRuntime struct {
+	ActiveRunCount       int     `json:"active_run_count"`
 	CurrentRunID         *string `json:"current_run_id,omitempty"`
 	Status               string  `json:"status"`
 	CurrentTicketID      *string `json:"current_ticket_id,omitempty"`
@@ -124,6 +125,20 @@ type OpenAPIAgentRuntime struct {
 	CurrentStepStatus    *string `json:"current_step_status,omitempty"`
 	CurrentStepSummary   *string `json:"current_step_summary,omitempty"`
 	CurrentStepChangedAt *string `json:"current_step_changed_at,omitempty"`
+}
+
+type OpenAPIAgentRun struct {
+	ID               string  `json:"id"`
+	AgentID          string  `json:"agent_id"`
+	WorkflowID       string  `json:"workflow_id"`
+	TicketID         string  `json:"ticket_id"`
+	ProviderID       string  `json:"provider_id"`
+	Status           string  `json:"status"`
+	SessionID        string  `json:"session_id"`
+	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
+	LastError        string  `json:"last_error"`
+	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
+	CreatedAt        string  `json:"created_at"`
 }
 
 type OpenAPIAgentRuntimeControlResponse struct {
@@ -538,6 +553,10 @@ type OpenAPIAgentProviderResponse struct {
 
 type OpenAPIAgentsResponse struct {
 	Agents []OpenAPIAgent `json:"agents"`
+}
+
+type OpenAPIAgentRunsResponse struct {
+	AgentRuns []OpenAPIAgentRun `json:"agent_runs"`
 }
 
 type OpenAPIAgentResponse struct {
@@ -1570,7 +1589,7 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 
 	agentsGet, err := b.jsonOperation(
 		"listAgents",
-		"List agents",
+		"List agent definitions with aggregate runtime summaries",
 		[]string{"catalog"},
 		http.StatusOK,
 		OpenAPIAgentsResponse{},
@@ -1585,9 +1604,26 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	agentsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents", http.MethodGet, agentsGet)
 
+	agentRunsGet, err := b.jsonOperation(
+		"listAgentRuns",
+		"List project agent runs",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentRunsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentRunsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agent-runs", http.MethodGet, agentRunsGet)
+
 	agentsPost, err := b.jsonOperation(
 		"createAgent",
-		"Create an agent",
+		"Create an agent definition",
 		[]string{"catalog"},
 		http.StatusCreated,
 		OpenAPIAgentResponse{},
@@ -1605,7 +1641,7 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 
 	agentGet, err := b.jsonOperation(
 		"getAgent",
-		"Get an agent",
+		"Get an agent definition",
 		[]string{"catalog"},
 		http.StatusOK,
 		OpenAPIAgentResponse{},

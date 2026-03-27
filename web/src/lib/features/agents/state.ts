@@ -5,6 +5,7 @@ export function normalizeAgentStatus(status: string): AgentInstance['status'] {
     status === 'idle' ||
     status === 'claimed' ||
     status === 'running' ||
+    status === 'paused' ||
     status === 'failed' ||
     status === 'terminated'
   ) {
@@ -19,6 +20,7 @@ export function normalizeRuntimePhase(runtimePhase: string): AgentInstance['runt
     runtimePhase === 'none' ||
     runtimePhase === 'launching' ||
     runtimePhase === 'ready' ||
+    runtimePhase === 'executing' ||
     runtimePhase === 'failed'
   ) {
     return runtimePhase
