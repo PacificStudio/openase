@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -243,7 +242,7 @@ func (r *GeminiRuntime) collectTurn(
 			geminiTranscriptEntry{role: "User", content: strings.TrimSpace(message)},
 			geminiTranscriptEntry{role: "Assistant", content: responseText},
 		)
-		current.turnsUsed += 1
+		current.turnsUsed++
 		state = current
 	}
 	r.mu.Unlock()
@@ -289,13 +288,4 @@ func hasGeminiModelFlag(args []string) bool {
 	}
 
 	return false
-}
-
-func stopProcess(process provider.AgentCLIProcess) {
-	if process == nil {
-		return
-	}
-	closeCtx, closeCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer closeCancel()
-	_ = process.Stop(closeCtx)
 }

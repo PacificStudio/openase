@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -44,7 +45,20 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		SetPort(22).
 		SetDescription("Control-plane local execution host.").
 		SetStatus("online").
-		SetResources(map[string]any{"transport": "local", "last_success": true}).
+		SetResources(map[string]any{
+			"transport": "local",
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"checked_at": time.Now().UTC().Format(time.RFC3339),
+					"claude_code": map[string]any{
+						"installed":   true,
+						"auth_status": string(catalogdomain.MachineAgentAuthStatusLoggedIn),
+						"auth_mode":   string(catalogdomain.MachineAgentAuthModeLogin),
+						"ready":       true,
+					},
+				},
+			},
+		}).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create local machine: %v", err)

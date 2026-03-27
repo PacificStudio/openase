@@ -25,9 +25,7 @@ func TestParseStartInputRequiresTicketForTicketDetail(t *testing.T) {
 }
 
 func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
-	service := NewService(nil, nil, nil, nil, nil, "")
-
-	events := service.mapClaudeEvent(provider.ClaudeCodeEvent{
+	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
 		Message: []byte("{\n" +
 			"  \"role\":\"assistant\",\n" +

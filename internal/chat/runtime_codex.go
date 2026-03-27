@@ -225,7 +225,7 @@ func (r *CodexRuntime) bridgeTurn(
 			}
 
 			r.mu.Lock()
-			state.turnsUsed += 1
+			state.turnsUsed++
 			turnsUsed := state.turnsUsed
 			r.mu.Unlock()
 

@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -147,7 +146,6 @@ func (r *ClaudeRuntime) bridgeSession(
 			if !hasNativeSessionID && event.SessionID != "" {
 				parsed, err := provider.ParseClaudeCodeSessionID(event.SessionID)
 				if err == nil {
-					nativeSessionID = parsed
 					hasNativeSessionID = true
 					r.nativeSessions.Register(sessionID, parsed)
 				}
@@ -314,15 +312,4 @@ func (r *claudeSessionRegistry) Delete(sessionID SessionID) {
 		delete(r.sessions, sessionID)
 	}
 	r.mu.Unlock()
-}
-
-func decodeJSONMap(raw json.RawMessage) map[string]any {
-	var payload map[string]any
-	if len(raw) == 0 {
-		return nil
-	}
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil
-	}
-	return payload
 }

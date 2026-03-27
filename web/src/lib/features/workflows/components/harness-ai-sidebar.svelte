@@ -7,11 +7,9 @@
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Label } from '$ui/label'
   import { ScrollArea } from '$ui/scroll-area'
-  import * as Select from '$ui/select'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { Bot, LoaderCircle, RefreshCcw, Send, WandSparkles } from '@lucide/svelte'
+  import { Bot, LoaderCircle, RefreshCcw, Send } from '@lucide/svelte'
   import {
     buildDiffPreview,
     findLatestHarnessSuggestion,
@@ -20,7 +18,9 @@
     mapChatPayloadToTranscriptEntry,
     type AssistantTranscriptEntry,
   } from '../assistant'
-  import HarnessDiffPreview from './harness-diff-preview.svelte'
+  import HarnessChatEmptyState from './harness-chat-empty-state.svelte'
+  import HarnessChatProviderSelect from './harness-chat-provider-select.svelte'
+  import HarnessSuggestionCard from './harness-suggestion-card.svelte'
 
   let {
     projectId,
@@ -156,10 +156,7 @@
   }
 
   function handleApply() {
-    if (!suggestion) {
-      return
-    }
-
+    if (!suggestion) return
     onApplySuggestion?.(suggestion.content)
     appliedFingerprint = fingerprintSuggestion(suggestion.content)
   }
@@ -182,13 +179,15 @@
     appliedFingerprint = ''
   }
 
-  function providerLabel(provider: AgentProvider) {
-    return provider.model_name ? `${provider.name} · ${provider.model_name}` : provider.name
-  }
-
   function appendEntry(role: AssistantTranscriptEntry['role'], content: string) {
     entryCounter += 1
     entries = [...entries, { id: `entry-${entryCounter}`, role, content }]
+  }
+
+  function handleProviderChange(nextProviderId: string) {
+    if (nextProviderId === providerId) return
+    providerId = nextProviderId
+    resetConversation()
   }
 </script>
 
@@ -223,16 +222,7 @@
   <ScrollArea class="min-h-0 flex-1 px-4 py-4">
     <div class="space-y-3">
       {#if entries.length === 0}
-        <div class="border-border bg-muted/30 rounded-xl border border-dashed px-4 py-4 text-sm">
-          <div class="flex items-center gap-2 font-medium">
-            <WandSparkles class="text-primary size-4" />
-            Ask for a harness rewrite, guardrail tweak, or a new workflow handoff.
-          </div>
-          <p class="text-muted-foreground mt-2 text-xs leading-5">
-            When the assistant returns a full harness draft, you can preview the diff here and apply
-            it into the editor without leaving the page.
-          </p>
-        </div>
+        <HarnessChatEmptyState />
       {/if}
 
       {#each entries as entry (entry.id)}
@@ -261,56 +251,22 @@
       {/if}
 
       {#if suggestion && preview}
-        <div class="space-y-3 rounded-2xl border border-sky-500/30 bg-sky-500/8 p-3">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="text-sm font-medium">Suggested Harness Update</div>
-              <p class="text-muted-foreground mt-1 text-xs leading-5">{suggestion.summary}</p>
-            </div>
-            {#if suggestionAlreadyApplied}
-              <Badge variant="outline" class="text-[10px]">Applied</Badge>
-            {/if}
-          </div>
-
-          <HarnessDiffPreview {preview} />
-
-          <Button
-            size="sm"
-            class="w-full"
-            onclick={handleApply}
-            disabled={suggestionAlreadyApplied}
-          >
-            Apply to Editor
-          </Button>
-        </div>
+        <HarnessSuggestionCard
+          {suggestion}
+          {preview}
+          {suggestionAlreadyApplied}
+          onApply={handleApply}
+        />
       {/if}
     </div>
   </ScrollArea>
 
   <div class="border-border border-t px-4 py-3">
-    <div class="mb-3 space-y-2">
-      <Label class="text-[11px]">Provider</Label>
-      <Select.Root
-        type="single"
-        value={providerId}
-        onValueChange={(value) => {
-          if ((value || '') === providerId) {
-            return
-          }
-          providerId = value || ''
-          resetConversation()
-        }}
-      >
-        <Select.Trigger class="w-full text-left text-sm">
-          {selectedProvider ? providerLabel(selectedProvider) : 'No chat provider available'}
-        </Select.Trigger>
-        <Select.Content>
-          {#each chatProviders as provider (provider.id)}
-            <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
+    <HarnessChatProviderSelect
+      providers={chatProviders}
+      {providerId}
+      onProviderChange={handleProviderChange}
+    />
 
     <Textarea
       bind:value={prompt}
