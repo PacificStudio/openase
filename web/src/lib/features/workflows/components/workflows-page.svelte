@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { ApiError } from '$lib/api/client'
@@ -16,19 +17,25 @@
     WorkflowSummary,
   } from '../types'
   import { type SkillState, toHarnessContent } from '../model'
-  import { loadWorkflowHarness, loadWorkflowIndex } from '../data'
+  import {
+    loadWorkflowHarness,
+    loadWorkflowIndex,
+    loadWorkflowRepositoryPrerequisite,
+    type WorkflowRepositoryPrerequisite,
+  } from '../data'
   import WorkflowList from './workflow-list.svelte'
   import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
   import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
+  import WorkflowsPageState from './workflows-page-state.svelte'
   import WorkflowsPageToolbar from './workflows-page-toolbar.svelte'
-
   let showDetail = $state(true)
   let showCreateDialog = $state(false)
   let loading = $state(false),
     saving = $state(false),
     validating = $state(false)
   let loadError = $state('')
+  let prerequisite = $state<WorkflowRepositoryPrerequisite | null>(null)
   let workflows = $state<WorkflowSummary[]>([]),
     selectedId = $state('')
   let harness = $state<ReturnType<typeof toHarnessContent> | null>(null),
@@ -42,7 +49,11 @@
   let variableGroups = $state<HarnessVariableGroup[]>([])
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
   let isDirty = $derived(harness ? draftHarness !== harness.rawContent : false)
-
+  const settingsHref = $derived(
+    appStore.currentOrg?.id && appStore.currentProject?.id
+      ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'settings')
+      : null,
+  )
   $effect(() => {
     const projectId = appStore.currentProject?.id
     const orgId = appStore.currentOrg?.id
@@ -57,21 +68,34 @@
       providers = []
       variableGroups = []
       validationIssues = []
+      prerequisite = null
       loadError = ''
       loading = false
       return
     }
-
     let cancelled = false
-
     const load = async () => {
       loading = true
       loadError = ''
-
       try {
+        const nextPrerequisite = await loadWorkflowRepositoryPrerequisite(projectId)
+        if (cancelled) return
+        prerequisite = nextPrerequisite
+        if (nextPrerequisite.kind !== 'ready') {
+          workflows = []
+          selectedId = ''
+          harness = null
+          draftHarness = ''
+          skillStates = []
+          statuses = []
+          agentOptions = []
+          providers = []
+          variableGroups = []
+          validationIssues = []
+          return
+        }
         const payload = await loadWorkflowIndex(projectId, orgId, selectedId)
         if (cancelled) return
-
         const nextWorkflows = payload.workflows
         workflows = nextWorkflows
         agentOptions = payload.agentOptions
@@ -79,7 +103,6 @@
         if (!selectedId || !nextWorkflows.some((workflow) => workflow.id === selectedId)) {
           selectedId = nextWorkflows[0]?.id ?? ''
         }
-
         skillStates = payload.skillStates
         builtinRoleContent = payload.builtinRoleContent
         statuses = payload.statuses
@@ -94,14 +117,11 @@
         }
       }
     }
-
     void load()
-
     return () => {
       cancelled = true
     }
   })
-
   $effect(() => {
     const workflowId = selectedId
     const projectId = appStore.currentProject?.id
@@ -111,14 +131,11 @@
       validationIssues = []
       return
     }
-
     let cancelled = false
-
     const loadHarness = async () => {
       try {
         const payload = await loadWorkflowHarness(projectId, workflowId)
         if (cancelled) return
-
         harness = payload.harness
         draftHarness = payload.harness.rawContent
         validationIssues = []
@@ -130,19 +147,14 @@
         )
       }
     }
-
     void loadHarness()
-
     return () => {
       cancelled = true
     }
   })
-
   async function handleSave() {
     if (!selectedId) return
-
     saving = true
-
     try {
       const payload = await saveWorkflowHarness(selectedId, draftHarness)
       harness = toHarnessContent(payload.harness.content)
@@ -169,10 +181,8 @@
       saving = false
     }
   }
-
   async function handleValidate() {
     validating = true
-
     try {
       const payload = await validateHarness(draftHarness)
       validationIssues = payload.issues
@@ -189,15 +199,12 @@
       validating = false
     }
   }
-
-  async function handleCreateWorkflow() {
+  function handleCreateWorkflow() {
     if (statuses.length === 0 || agentOptions.length === 0) return
     showCreateDialog = true
   }
-
   async function handleToggleSkill(skill: SkillState) {
     if (!selectedId) return
-
     try {
       if (skill.bound) {
         await unbindWorkflowSkills(selectedId, [skill.path])
@@ -207,7 +214,6 @@
         toastStore.success(`Unbound ${skill.name}.`)
         return
       }
-
       await bindWorkflowSkills(selectedId, [skill.path])
       skillStates = skillStates.map((item) =>
         item.path === skill.path ? { ...item, bound: true } : item,
@@ -219,7 +225,6 @@
       )
     }
   }
-
   function handleApplyAssistantDraft(content: string) {
     draftHarness = content
     validationIssues = []
@@ -234,22 +239,19 @@
     onToggleDetail={() => (showDetail = !showDetail)}
     onCreate={handleCreateWorkflow}
   />
-  {#if loading}
-    <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-      Loading workflows…
-    </div>
-  {:else if loadError && workflows.length === 0}
-    <div
-      class="border-destructive/40 bg-destructive/10 text-destructive m-4 rounded-md border px-4 py-3 text-sm"
-    >
-      {loadError}
-    </div>
+  {#if loading || prerequisite?.kind === 'missing_primary_repo' || (loadError && workflows.length === 0)}
+    <WorkflowsPageState
+      {loading}
+      missingPrimaryRepo={prerequisite?.kind === 'missing_primary_repo'}
+      repoCount={prerequisite?.kind === 'missing_primary_repo' ? prerequisite.repoCount : 0}
+      {settingsHref}
+      loadError={workflows.length === 0 ? loadError : ''}
+    />
   {:else}
     <div class="flex flex-1 overflow-hidden">
       <div class="w-60 shrink-0">
         <WorkflowList {workflows} {selectedId} onselect={(id) => (selectedId = id)} />
       </div>
-
       <WorkflowEditorPanel
         projectId={appStore.currentProject?.id}
         {providers}
@@ -267,7 +269,6 @@
         onValidate={() => void handleValidate()}
         onToggleSkill={(skill) => void handleToggleSkill(skill)}
       />
-
       {#if showDetail && selectedWorkflow}
         <div class="w-70 shrink-0">
           <WorkflowLifecycleSidebar
@@ -283,7 +284,6 @@
     </div>
   {/if}
 </div>
-
 <WorkflowCreationDialog
   bind:open={showCreateDialog}
   projectId={appStore.currentProject?.id ?? ''}

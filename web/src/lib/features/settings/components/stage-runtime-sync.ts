@@ -10,12 +10,12 @@ type StageRuntimeSyncOptions = {
   loadStatuses: typeof listStatuses
   connectEventStream: typeof connectEventStream
   applySnapshot: (payload: StatusSnapshot) => void
-  setLoading: (loading: boolean) => void
-  onInitialError: (message: string) => void
+  setLoading?: (loading: boolean) => void
+  onInitialError?: (message: string) => void
   onRefreshError?: (error: unknown) => void
 }
 
-export function startStatusSettingsStageRuntimeSync(options: StageRuntimeSyncOptions) {
+export function startStageRuntimeSync(options: StageRuntimeSyncOptions) {
   let active = true
   let requestVersion = 0
   let queuedReload = false
@@ -24,13 +24,15 @@ export function startStatusSettingsStageRuntimeSync(options: StageRuntimeSyncOpt
   const isStaleLoad = (version: number) => !active || version !== requestVersion
   const setInitialLoading = (mode: LoadMode, loading: boolean) => {
     if (mode === 'initial') {
-      options.setLoading(loading)
+      options.setLoading?.(loading)
     }
   }
 
   const reportLoadError = (mode: LoadMode, error: unknown) => {
     if (mode === 'initial') {
-      options.onInitialError(error instanceof ApiError ? error.detail : 'Failed to load statuses.')
+      options.onInitialError?.(
+        error instanceof ApiError ? error.detail : 'Failed to load statuses.',
+      )
       return
     }
     options.onRefreshError?.(error)
@@ -81,7 +83,7 @@ export function startStatusSettingsStageRuntimeSync(options: StageRuntimeSyncOpt
         void drainReloadQueue()
       },
       onError: (error) => {
-        console.error('Status settings ticket stream error:', error)
+        console.error('Stage runtime ticket stream error:', error)
       },
     },
   )

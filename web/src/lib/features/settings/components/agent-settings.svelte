@@ -16,6 +16,7 @@
   import * as Select from '$ui/select'
   import { Separator } from '$ui/separator'
   import { Bot, Cpu } from '@lucide/svelte'
+  import { ProviderAvailabilityBadge } from '$lib/features/providers'
   import AgentSettingsBoundaries from './agent-settings-boundaries.svelte'
   import AgentSettingsInventory from './agent-settings-inventory.svelte'
   import AgentSettingsOverview from './agent-settings-overview.svelte'
@@ -26,10 +27,7 @@
     type GovernanceAgent,
     type ProviderOption,
   } from './agent-settings-model'
-  import {
-    providerAvailabilityBadgeVariant,
-    providerAvailabilityLabel,
-  } from '$lib/features/providers'
+  import { providerAvailabilityLabel } from '$lib/features/providers'
 
   const agentsCapability = getSettingsSectionCapability('agents')
   const inheritProviderValue = '__org_default__'
@@ -244,12 +242,12 @@
                             <span class="text-foreground truncate text-sm font-medium">
                               {provider.name}
                             </span>
-                            <Badge
-                              variant={providerAvailabilityBadgeVariant(provider.availabilityState)}
+                            <ProviderAvailabilityBadge
+                              availabilityState={provider.availabilityState}
+                              availabilityReason={provider.availabilityReason}
+                              availabilityCheckedAt={provider.availabilityCheckedAt}
                               class="text-[10px]"
-                            >
-                              {providerAvailabilityLabel(provider.availabilityState)}
-                            </Badge>
+                            />
                             {#if selectedDefaultProviderId === provider.id}
                               <Badge variant="outline" class="text-[10px]">Project default</Badge>
                             {:else if appStore.currentOrg?.default_agent_provider_id === provider.id}

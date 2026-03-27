@@ -1,24 +1,18 @@
-import { cleanup, render, waitFor } from '@testing-library/svelte'
+import { cleanup, render } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appStore } from '$lib/stores/app.svelte'
 import StatusSettings from './status-settings.svelte'
 
-const {
-  createStatus,
-  deleteStatus,
-  listStatuses,
-  resetStatuses,
-  updateStatus,
-  connectEventStream,
-} = vi.hoisted(() => ({
-  createStatus: vi.fn(),
-  deleteStatus: vi.fn(),
-  listStatuses: vi.fn(),
-  resetStatuses: vi.fn(),
-  updateStatus: vi.fn(),
-  connectEventStream: vi.fn(),
-}))
+const { createStatus, deleteStatus, listStatuses, resetStatuses, updateStatus } = vi.hoisted(
+  () => ({
+    createStatus: vi.fn(),
+    deleteStatus: vi.fn(),
+    listStatuses: vi.fn(),
+    resetStatuses: vi.fn(),
+    updateStatus: vi.fn(),
+  }),
+)
 
 vi.mock('$lib/api/openase', () => ({
   createStatus,
@@ -28,10 +22,6 @@ vi.mock('$lib/api/openase', () => ({
   updateStatus,
 }))
 
-vi.mock('$lib/api/sse', () => ({
-  connectEventStream,
-}))
-
 describe('Status settings', () => {
   afterEach(() => {
     cleanup()
@@ -39,7 +29,7 @@ describe('Status settings', () => {
     vi.clearAllMocks()
   })
 
-  it('renders shared stage occupancy and capacity from the statuses payload', async () => {
+  it('renders the status editor without embedding stage runtime cards', async () => {
     appStore.currentProject = {
       id: 'project-1',
       organization_id: 'org-1',
@@ -53,7 +43,6 @@ describe('Status settings', () => {
       max_concurrent_agents: 4,
     }
 
-    connectEventStream.mockReturnValue(() => {})
     listStatuses.mockResolvedValue({
       stages: [
         {
@@ -81,15 +70,19 @@ describe('Status settings', () => {
       statuses: [],
     })
 
-    const { findByText } = render(StatusSettings)
+    const { findByText, queryByText } = render(StatusSettings)
 
-    expect(await findByText('Stage Concurrency')).toBeTruthy()
-    expect(await findByText('In Progress')).toBeTruthy()
-    expect(await findByText('1 active now, capacity 1')).toBeTruthy()
-    expect(await findByText('0 active now, unlimited capacity')).toBeTruthy()
+    expect(await findByText('Statuses')).toBeTruthy()
+    expect(
+      await findByText(
+        'No statuses yet. Add one above or use reset to seed the default workflow template.',
+      ),
+    ).toBeTruthy()
+    expect(queryByText('Stage Concurrency')).toBeNull()
+    expect(queryByText('In Progress')).toBeNull()
   })
 
-  it('refreshes stage occupancy when the ticket stream emits runtime changes', async () => {
+  it('loads statuses once when the project settings page mounts', async () => {
     appStore.currentProject = {
       id: 'project-1',
       organization_id: 'org-1',
@@ -103,55 +96,15 @@ describe('Status settings', () => {
       max_concurrent_agents: 4,
     }
 
-    let onEvent: (() => void) | undefined
-    connectEventStream.mockImplementation((_url, options) => {
-      onEvent = () => options.onEvent({ event: 'ticket.updated', data: '{}' })
-      return () => {}
+    listStatuses.mockResolvedValue({
+      stages: [],
+      stage_groups: [],
+      statuses: [],
     })
-    listStatuses
-      .mockResolvedValueOnce({
-        stages: [
-          {
-            id: 'stage-1',
-            project_id: 'project-1',
-            key: 'backlog',
-            name: 'Backlog',
-            position: 1,
-            active_runs: 1,
-            max_active_runs: null,
-            description: '',
-          },
-        ],
-        stage_groups: [],
-        statuses: [],
-      })
-      .mockResolvedValueOnce({
-        stages: [
-          {
-            id: 'stage-1',
-            project_id: 'project-1',
-            key: 'backlog',
-            name: 'Backlog',
-            position: 1,
-            active_runs: 2,
-            max_active_runs: null,
-            description: '',
-          },
-        ],
-        stage_groups: [],
-        statuses: [],
-      })
 
     const { findByText } = render(StatusSettings)
 
-    expect(await findByText('1 active now, unlimited capacity')).toBeTruthy()
-    expect(onEvent).toBeTypeOf('function')
-
-    onEvent?.()
-
-    expect(await findByText('2 active now, unlimited capacity')).toBeTruthy()
-    await waitFor(() => {
-      expect(listStatuses).toHaveBeenCalledTimes(2)
-    })
+    expect(await findByText('Statuses')).toBeTruthy()
+    expect(listStatuses).toHaveBeenCalledTimes(1)
   })
 })

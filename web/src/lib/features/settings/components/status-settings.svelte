@@ -23,14 +23,9 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
-  import type { StatusPayload } from '$lib/api/contracts'
-  import { connectEventStream } from '$lib/api/sse'
   import StatusSettingsCreate from './status-settings-create.svelte'
   import StatusSettingsList from './status-settings-list.svelte'
-  import StatusStageConcurrency from './status-stage-concurrency.svelte'
-  import { startStatusSettingsStageRuntimeSync } from './status-settings-stage-runtime'
   let statuses = $state<EditableStatus[]>([])
-  let stages = $state<StatusPayload['stages']>([])
   let createName = $state('')
   let createColor = $state('#94a3b8')
   let createDefault = $state(false)
@@ -42,12 +37,10 @@
 
   function assignStatuses(payload: Awaited<ReturnType<typeof listStatuses>>) {
     statuses = normalizeStatuses(payload.statuses)
-    stages = payload.stages
   }
 
   function resetEditorState() {
     statuses = []
-    stages = []
     createName = ''
     createColor = createEmptyStatusDraft().color
     createDefault = false
@@ -64,19 +57,31 @@
       return
     }
 
-    const stopSync = startStatusSettingsStageRuntimeSync({
-      projectId,
-      loadStatuses: listStatuses,
-      connectEventStream,
-      applySnapshot: assignStatuses,
-      setLoading: (nextLoading) => (loading = nextLoading),
-      onInitialError: toastStore.error,
-      onRefreshError: (error) => {
-        console.error('Failed to refresh status settings:', error)
-      },
-    })
+    let cancelled = false
 
-    return stopSync
+    const load = async () => {
+      loading = true
+
+      try {
+        const payload = await listStatuses(projectId)
+        if (cancelled) return
+        assignStatuses(payload)
+      } catch (error) {
+        if (!cancelled) {
+          toastStore.error(error instanceof ApiError ? error.detail : 'Failed to load statuses.')
+        }
+      } finally {
+        if (!cancelled) {
+          loading = false
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
   })
 
   async function reloadStatuses(projectId: string) {
@@ -264,12 +269,6 @@
   </div>
 
   <Separator />
-
-  {#if stages.length > 0}
-    <StatusStageConcurrency {stages} />
-
-    <Separator />
-  {/if}
 
   <StatusSettingsCreate
     bind:name={createName}

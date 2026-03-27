@@ -28,7 +28,7 @@
     {:else if activeSection === 'repositories'}
       <RepositoriesSettings />
     {:else if activeSection === 'workflows'}
-      <WorkflowSettings />
+      <WorkflowSettings onOpenRepositories={() => handleSelect('repositories')} />
     {:else if activeSection === 'agents'}
       <AgentSettings />
     {:else if activeSection === 'connectors'}

@@ -9,6 +9,8 @@ export type ProviderOption = {
   modelName: string
   availabilityState: string
   available: boolean
+  availabilityCheckedAt?: string | null
+  availabilityReason?: string | null
   agentCount: number
 }
 
@@ -54,6 +56,8 @@ export function buildProviderOptions(
     availabilityState: normalizeProviderAvailabilityState(provider.availability_state),
     modelName: provider.model_name,
     available: provider.available,
+    availabilityCheckedAt: provider.availability_checked_at ?? null,
+    availabilityReason: provider.availability_reason ?? null,
     agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,
   }))
 }
