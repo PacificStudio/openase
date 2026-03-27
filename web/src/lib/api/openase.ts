@@ -552,7 +552,6 @@ export function updateWorkflow(
     max_retry_attempts?: number | null
     name?: string | null
     pickup_status_id?: string | null
-    required_machine_labels?: string[] | null
     stall_timeout_minutes?: number | null
     timeout_minutes?: number | null
     type?: string | null

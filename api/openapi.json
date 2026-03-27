@@ -8472,10 +8472,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "target_machine_id": {
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "title": {
                     "type": "string"
                   },
@@ -10045,12 +10041,6 @@
                           "project_id": {
                             "type": "string"
                           },
-                          "required_machine_labels": {
-                            "items": {
-                              "type": "string"
-                            },
-                            "type": "array"
-                          },
                           "stall_timeout_minutes": {
                             "type": "integer"
                           },
@@ -10190,12 +10180,6 @@
                   "pickup_status_id": {
                     "type": "string"
                   },
-                  "required_machine_labels": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
                   "stall_timeout_minutes": {
                     "nullable": true,
                     "type": "integer"
@@ -10262,12 +10246,6 @@
                         },
                         "project_id": {
                           "type": "string"
-                        },
-                        "required_machine_labels": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
                         },
                         "stall_timeout_minutes": {
                           "type": "integer"
@@ -12037,10 +12015,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "target_machine_id": {
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "title": {
                     "nullable": true,
                     "type": "string"
@@ -13340,12 +13314,6 @@
                         "project_id": {
                           "type": "string"
                         },
-                        "required_machine_labels": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
                         "stall_timeout_minutes": {
                           "type": "integer"
                         },
@@ -13508,12 +13476,6 @@
                         "project_id": {
                           "type": "string"
                         },
-                        "required_machine_labels": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
                         "stall_timeout_minutes": {
                           "type": "integer"
                         },
@@ -13652,13 +13614,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "required_machine_labels": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "nullable": true,
-                    "type": "array"
-                  },
                   "stall_timeout_minutes": {
                     "nullable": true,
                     "type": "integer"
@@ -13726,12 +13681,6 @@
                         },
                         "project_id": {
                           "type": "string"
-                        },
-                        "required_machine_labels": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
                         },
                         "stall_timeout_minutes": {
                           "type": "integer"

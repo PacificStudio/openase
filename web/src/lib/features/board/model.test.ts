@@ -26,7 +26,6 @@ const workflowsFixture: Workflow[] = [
     harness_path: '.openase/harnesses/coding.md',
     harness_content: null,
     hooks: {},
-    required_machine_labels: [],
     max_concurrent: 1,
     max_retry_attempts: 0,
     timeout_minutes: 30,

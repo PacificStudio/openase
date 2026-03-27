@@ -9,23 +9,22 @@ import (
 )
 
 type workflowResponse struct {
-	ID                    string         `json:"id"`
-	ProjectID             string         `json:"project_id"`
-	AgentID               *string        `json:"agent_id,omitempty"`
-	Name                  string         `json:"name"`
-	Type                  string         `json:"type"`
-	HarnessPath           string         `json:"harness_path"`
-	HarnessContent        *string        `json:"harness_content,omitempty"`
-	Hooks                 map[string]any `json:"hooks"`
-	RequiredMachineLabels []string       `json:"required_machine_labels,omitempty"`
-	MaxConcurrent         int            `json:"max_concurrent"`
-	MaxRetryAttempts      int            `json:"max_retry_attempts"`
-	TimeoutMinutes        int            `json:"timeout_minutes"`
-	StallTimeoutMinutes   int            `json:"stall_timeout_minutes"`
-	Version               int            `json:"version"`
-	IsActive              bool           `json:"is_active"`
-	PickupStatusID        string         `json:"pickup_status_id"`
-	FinishStatusID        *string        `json:"finish_status_id,omitempty"`
+	ID                  string         `json:"id"`
+	ProjectID           string         `json:"project_id"`
+	AgentID             *string        `json:"agent_id,omitempty"`
+	Name                string         `json:"name"`
+	Type                string         `json:"type"`
+	HarnessPath         string         `json:"harness_path"`
+	HarnessContent      *string        `json:"harness_content,omitempty"`
+	Hooks               map[string]any `json:"hooks"`
+	MaxConcurrent       int            `json:"max_concurrent"`
+	MaxRetryAttempts    int            `json:"max_retry_attempts"`
+	TimeoutMinutes      int            `json:"timeout_minutes"`
+	StallTimeoutMinutes int            `json:"stall_timeout_minutes"`
+	Version             int            `json:"version"`
+	IsActive            bool           `json:"is_active"`
+	PickupStatusID      string         `json:"pickup_status_id"`
+	FinishStatusID      *string        `json:"finish_status_id,omitempty"`
 }
 
 type harnessResponse struct {
@@ -269,8 +268,6 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_HARNESS", err.Error())
 	case errors.Is(err, workflowservice.ErrHookConfigInvalid):
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_WORKFLOW_HOOKS", err.Error())
-	case errors.Is(err, workflowservice.ErrRequiredMachineLabelsInvalid):
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUIRED_MACHINE_LABELS", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowHookBlocked):
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_HOOK_BLOCKED", err.Error())
 	default:
@@ -295,22 +292,21 @@ func mapWorkflowResponse(item workflowservice.Workflow) workflowResponse {
 	}
 
 	return workflowResponse{
-		ID:                    item.ID.String(),
-		ProjectID:             item.ProjectID.String(),
-		AgentID:               agentID,
-		Name:                  item.Name,
-		Type:                  item.Type.String(),
-		HarnessPath:           item.HarnessPath,
-		Hooks:                 item.Hooks,
-		RequiredMachineLabels: append([]string(nil), item.RequiredMachineLabels...),
-		MaxConcurrent:         item.MaxConcurrent,
-		MaxRetryAttempts:      item.MaxRetryAttempts,
-		TimeoutMinutes:        item.TimeoutMinutes,
-		StallTimeoutMinutes:   item.StallTimeoutMinutes,
-		Version:               item.Version,
-		IsActive:              item.IsActive,
-		PickupStatusID:        item.PickupStatusID.String(),
-		FinishStatusID:        uuidToStringPointer(item.FinishStatusID),
+		ID:                  item.ID.String(),
+		ProjectID:           item.ProjectID.String(),
+		AgentID:             agentID,
+		Name:                item.Name,
+		Type:                item.Type.String(),
+		HarnessPath:         item.HarnessPath,
+		Hooks:               item.Hooks,
+		MaxConcurrent:       item.MaxConcurrent,
+		MaxRetryAttempts:    item.MaxRetryAttempts,
+		TimeoutMinutes:      item.TimeoutMinutes,
+		StallTimeoutMinutes: item.StallTimeoutMinutes,
+		Version:             item.Version,
+		IsActive:            item.IsActive,
+		PickupStatusID:      item.PickupStatusID.String(),
+		FinishStatusID:      uuidToStringPointer(item.FinishStatusID),
 	}
 }
 

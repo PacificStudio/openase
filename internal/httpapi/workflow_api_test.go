@@ -117,13 +117,12 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
 		map[string]any{
-			"agent_id":                agent.ID.String(),
-			"name":                    "Coding Workflow",
-			"type":                    "coding",
-			"pickup_status_id":        todoID.String(),
-			"finish_status_id":        doneID.String(),
-			"required_machine_labels": []string{"gpu", "a100"},
-			"harness_content":         "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"agent_id":         agent.ID.String(),
+			"name":             "Coding Workflow",
+			"type":             "coding",
+			"pickup_status_id": todoID.String(),
+			"finish_status_id": doneID.String(),
+			"harness_content":  "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 			"hooks": map[string]any{
 				"workflow_hooks": map[string]any{
 					"on_activate": []map[string]any{{
@@ -143,9 +142,6 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 	if createResp.Workflow.AgentID == nil || *createResp.Workflow.AgentID != agent.ID.String() {
 		t.Fatalf("expected bound agent %s, got %+v", agent.ID, createResp.Workflow.AgentID)
-	}
-	if len(createResp.Workflow.RequiredMachineLabels) != 2 || createResp.Workflow.RequiredMachineLabels[0] != "gpu" {
-		t.Fatalf("expected required machine labels in create response, got %+v", createResp.Workflow.RequiredMachineLabels)
 	}
 	if createResp.Workflow.HarnessContent == nil || *createResp.Workflow.HarnessContent == "" {
 		t.Fatalf("expected harness content in create response, got %+v", createResp.Workflow)
@@ -210,9 +206,8 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
 		map[string]any{
-			"name":                    "Core Coding Workflow",
-			"max_concurrent":          7,
-			"required_machine_labels": []string{"gpu"},
+			"name":           "Core Coding Workflow",
+			"max_concurrent": 7,
 		},
 		http.StatusOK,
 		&patchResp,
@@ -220,8 +215,31 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if patchResp.Workflow.Name != "Core Coding Workflow" || patchResp.Workflow.MaxConcurrent != 7 || !patchResp.Workflow.IsActive {
 		t.Fatalf("unexpected patched workflow payload: %+v", patchResp.Workflow)
 	}
-	if len(patchResp.Workflow.RequiredMachineLabels) != 1 || patchResp.Workflow.RequiredMachineLabels[0] != "gpu" {
-		t.Fatalf("expected patched required machine labels, got %+v", patchResp.Workflow.RequiredMachineLabels)
+
+	legacyCreateRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		fmt.Sprintf(`{"agent_id":"%s","name":"Legacy Workflow","type":"coding","pickup_status_id":"%s","required_machine_labels":["gpu"]}`, agent.ID, todoID),
+	)
+	if legacyCreateRec.Code != http.StatusBadRequest ||
+		!strings.Contains(legacyCreateRec.Body.String(), "invalid JSON body") ||
+		!strings.Contains(legacyCreateRec.Body.String(), "required_machine_labels") {
+		t.Fatalf("expected legacy workflow machine labels to be rejected, got %d: %s", legacyCreateRec.Code, legacyCreateRec.Body.String())
+	}
+
+	legacyPatchRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
+		`{"required_machine_labels":["gpu"]}`,
+	)
+	if legacyPatchRec.Code != http.StatusBadRequest ||
+		!strings.Contains(legacyPatchRec.Body.String(), "invalid JSON body") ||
+		!strings.Contains(legacyPatchRec.Body.String(), "required_machine_labels") {
+		t.Fatalf("expected legacy workflow patch machine labels to be rejected, got %d: %s", legacyPatchRec.Code, legacyPatchRec.Body.String())
 	}
 
 	harnessResp := struct {
