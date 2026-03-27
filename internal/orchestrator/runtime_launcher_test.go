@@ -216,6 +216,159 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 }
 
+func TestRuntimeLauncherRunTickLaunchesConcurrentRunsForSameAgent(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 13, 1, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Parallel runtime launch test
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-parallel-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	ticketOne, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-401A").
+		SetTitle("Launch first run").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create first ticket: %v", err)
+	}
+	ticketTwo, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-401B").
+		SetTitle("Launch second run").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create second ticket: %v", err)
+	}
+
+	runOne := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketOne.ID, entagentrun.StatusLaunching, time.Time{})
+	runTwo := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketTwo.ID, entagentrun.StatusLaunching, time.Time{})
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetWorkspaceRoot("/srv/openase/workspaces").
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine workspace root: %v", err)
+	}
+
+	manager := &runtimeFakeProcessManager{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	launcher.now = func() time.Time {
+		return now
+	}
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	runOneAfter, err := client.AgentRun.Get(ctx, runOne.ID)
+	if err != nil {
+		t.Fatalf("reload first run: %v", err)
+	}
+	runTwoAfter, err := client.AgentRun.Get(ctx, runTwo.ID)
+	if err != nil {
+		t.Fatalf("reload second run: %v", err)
+	}
+	if runOneAfter.Status != entagentrun.StatusReady || runTwoAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected both runs ready, got first=%+v second=%+v", runOneAfter, runTwoAfter)
+	}
+	if launcher.loadSession(runOne.ID) == nil || launcher.loadSession(runTwo.ID) == nil {
+		t.Fatal("expected concurrent runs to keep separate cached sessions")
+	}
+
+	readyEvents, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.AgentIDEQ(agentItem.ID),
+			entactivityevent.EventTypeEQ(agentReadyType.String()),
+		).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("list ready activity events: %v", err)
+	}
+	if len(readyEvents) != 2 {
+		t.Fatalf("expected 2 ready activity events, got %+v", readyEvents)
+	}
+
+	readyRuns := map[string]bool{}
+	for _, event := range readyEvents {
+		runID, ok := event.Metadata["run_id"].(string)
+		if !ok || strings.TrimSpace(runID) == "" {
+			t.Fatalf("expected ready event metadata to include run_id, got %+v", event.Metadata)
+		}
+		readyRuns[runID] = true
+	}
+	if !readyRuns[runOne.ID.String()] || !readyRuns[runTwo.ID.String()] {
+		t.Fatalf("expected ready activity metadata for runs %s and %s, got %+v", runOne.ID, runTwo.ID, readyRuns)
+	}
+}
+
 func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -264,7 +417,7 @@ func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil, nil)
-	launcher.storeSession(agentItem.ID, nil)
+	launcher.storeSession(runItem.ID, nil)
 
 	if err := launcher.Close(ctx); err != nil {
 		t.Fatalf("close launcher: %v", err)
@@ -364,7 +517,7 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	launcher.now = func() time.Time {
 		return now
 	}
-	if err := launcher.finishResolvedExecution(ctx, agentItem.ID, resolvedTicket); err != nil {
+	if err := launcher.finishResolvedExecution(ctx, runItem.ID, agentItem.ID, resolvedTicket); err != nil {
 		t.Fatalf("finish resolved execution: %v", err)
 	}
 
@@ -501,7 +654,7 @@ Runtime reconcile test
 		t.Fatalf("reconcile non-running runtime: %v", err)
 	}
 
-	if launcher.loadSession(agentItem.ID) != nil {
+	if launcher.loadSession(runItem.ID) != nil {
 		t.Fatal("expected non-running agent session to be removed from cache")
 	}
 }

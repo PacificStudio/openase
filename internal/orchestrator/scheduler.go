@@ -316,7 +316,6 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 		Where(
 			entagent.IDEQ(agent.ID),
 			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-			entagent.Not(entagent.HasRunsWith(entagentrun.HasCurrentForTicket())),
 		).
 		SetRuntimeControlState(entagent.RuntimeControlStateActive).
 		Save(ctx)
@@ -364,7 +363,7 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 		return "", fmt.Errorf("commit dispatch tx: %w", err)
 	}
 
-	claimedAgent, err := loadAgentLifecycleState(ctx, s.client, agent.ID)
+	claimedAgent, err := loadAgentLifecycleState(ctx, s.client, agent.ID, &runItem.ID)
 	if err != nil {
 		return "", err
 	}

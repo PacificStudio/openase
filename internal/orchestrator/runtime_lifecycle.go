@@ -33,8 +33,9 @@ type agentLifecycleEnvelope struct {
 }
 
 type agentLifecycleState struct {
-	agent      *ent.Agent
-	currentRun *ent.AgentRun
+	agent        *ent.Agent
+	run          *ent.AgentRun
+	runIsCurrent bool
 }
 
 type agentLifecycleSnapshot struct {
@@ -110,8 +111,8 @@ func publishAgentLifecycleEvent(
 		SetMessage(message).
 		SetMetadata(cloneLifecycleMetadata(metadata)).
 		SetCreatedAt(publishedAt.UTC())
-	if state.currentRun != nil {
-		activityCreate.SetTicketID(state.currentRun.TicketID)
+	if state.run != nil {
+		activityCreate.SetTicketID(state.run.TicketID)
 	}
 
 	activityItem, err := activityCreate.
@@ -304,6 +305,9 @@ func runtimeEventMetadataForState(state agentLifecycleState) map[string]any {
 		"runtime_phase":         lifecycleAgentRuntimePhase(state),
 		"runtime_control_state": state.agent.RuntimeControlState.String(),
 	}
+	if runID := lifecycleRunID(state); runID != nil {
+		metadata["run_id"] = *runID
+	}
 	if runID := lifecycleCurrentRunID(state); runID != nil {
 		metadata["current_run_id"] = *runID
 	}
@@ -319,7 +323,7 @@ func runtimeEventMetadataForState(state agentLifecycleState) map[string]any {
 	return metadata
 }
 
-func loadAgentLifecycleState(ctx context.Context, client *ent.Client, agentID uuid.UUID) (agentLifecycleState, error) {
+func loadAgentLifecycleState(ctx context.Context, client *ent.Client, agentID uuid.UUID, preferredRunID *uuid.UUID) (agentLifecycleState, error) {
 	item, err := client.Agent.Query().
 		Where(entagent.IDEQ(agentID)).
 		Only(ctx)
@@ -328,77 +332,110 @@ func loadAgentLifecycleState(ctx context.Context, client *ent.Client, agentID uu
 	}
 
 	state := agentLifecycleState{agent: item}
-	runItem, err := client.AgentRun.Query().
+	currentRuns, err := client.AgentRun.Query().
 		Where(
 			entagentrun.AgentIDEQ(agentID),
 			entagentrun.HasCurrentForTicket(),
 		).
 		Order(ent.Desc(entagentrun.FieldCreatedAt)).
-		Only(ctx)
-	if err == nil {
-		state.currentRun = runItem
-		return state, nil
+		All(ctx)
+	if err != nil {
+		return agentLifecycleState{}, fmt.Errorf("load current runs for agent %s: %w", agentID, err)
 	}
-	if !ent.IsNotFound(err) {
-		return agentLifecycleState{}, fmt.Errorf("load current run for agent %s: %w", agentID, err)
+
+	if preferredRunID != nil {
+		for _, runItem := range currentRuns {
+			if runItem.ID == *preferredRunID {
+				state.run = runItem
+				state.runIsCurrent = true
+				return state, nil
+			}
+		}
+
+		runItem, err := client.AgentRun.Query().
+			Where(
+				entagentrun.IDEQ(*preferredRunID),
+				entagentrun.AgentIDEQ(agentID),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
+			return agentLifecycleState{}, fmt.Errorf("load run %s for agent %s: %w", *preferredRunID, agentID, err)
+		}
+		if err == nil {
+			state.run = runItem
+			return state, nil
+		}
+	}
+
+	if len(currentRuns) > 0 {
+		state.run = currentRuns[0]
+		state.runIsCurrent = true
 	}
 
 	return state, nil
 }
 
-func lifecycleCurrentRunID(state agentLifecycleState) *string {
-	if state.currentRun == nil {
+func lifecycleRunID(state agentLifecycleState) *string {
+	if state.run == nil {
 		return nil
 	}
-	value := state.currentRun.ID.String()
+	value := state.run.ID.String()
+	return &value
+}
+
+func lifecycleCurrentRunID(state agentLifecycleState) *string {
+	if state.run == nil || !state.runIsCurrent {
+		return nil
+	}
+	value := state.run.ID.String()
 	return &value
 }
 
 func lifecycleCurrentTicketID(state agentLifecycleState) *string {
-	if state.currentRun == nil {
+	if state.run == nil || !state.runIsCurrent {
 		return nil
 	}
-	value := state.currentRun.TicketID.String()
+	value := state.run.TicketID.String()
 	return &value
 }
 
 func lifecycleSessionID(state agentLifecycleState) string {
-	if state.currentRun == nil {
+	if state.run == nil {
 		return ""
 	}
-	return state.currentRun.SessionID
+	return state.run.SessionID
 }
 
 func lifecycleRuntimeStartedAt(state agentLifecycleState) *string {
-	if state.currentRun == nil {
+	if state.run == nil {
 		return nil
 	}
-	return timePointerToRFC3339(state.currentRun.RuntimeStartedAt)
+	return timePointerToRFC3339(state.run.RuntimeStartedAt)
 }
 
 func lifecycleLastError(state agentLifecycleState) string {
-	if state.currentRun == nil {
+	if state.run == nil {
 		return ""
 	}
-	return state.currentRun.LastError
+	return state.run.LastError
 }
 
 func lifecycleLastHeartbeatAt(state agentLifecycleState) *string {
-	if state.currentRun == nil {
+	if state.run == nil {
 		return nil
 	}
-	return timePointerToRFC3339(state.currentRun.LastHeartbeatAt)
+	return timePointerToRFC3339(state.run.LastHeartbeatAt)
 }
 
 func lifecycleAgentStatus(state agentLifecycleState) string {
 	switch {
-	case state.currentRun == nil:
+	case state.run == nil:
 		return "idle"
 	case state.agent.RuntimeControlState == entagent.RuntimeControlStatePaused:
 		return "paused"
 	}
 
-	switch state.currentRun.Status {
+	switch state.run.Status {
 	case entagentrun.StatusLaunching:
 		return "claimed"
 	case entagentrun.StatusReady, entagentrun.StatusExecuting:
@@ -413,11 +450,11 @@ func lifecycleAgentStatus(state agentLifecycleState) string {
 }
 
 func lifecycleAgentRuntimePhase(state agentLifecycleState) string {
-	if state.currentRun == nil {
+	if state.run == nil {
 		return "none"
 	}
 
-	switch state.currentRun.Status {
+	switch state.run.Status {
 	case entagentrun.StatusLaunching:
 		return "launching"
 	case entagentrun.StatusReady:

@@ -126,7 +126,7 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 	}
 
 	sessions := l.drainSessions()
-	for agentID, session := range sessions {
+	for runID, session := range sessions {
 		if session != nil {
 			stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			_ = session.Stop(stopCtx)
@@ -134,15 +134,15 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 		}
 
 		now := l.now().UTC()
-		assignment, err := l.loadAssignmentByAgent(ctx, agentID)
+		assignment, err := l.loadAssignmentByRun(ctx, runID)
 		if err != nil {
-			l.logger.Warn("load agent assignment during close", "agent_id", agentID, "error", err)
+			l.logger.Warn("load run assignment during close", "run_id", runID, "error", err)
 			continue
 		}
 		if assignment.run != nil {
 			tx, err := l.client.Tx(ctx)
 			if err != nil {
-				l.logger.Warn("start graceful shutdown tx", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
+				l.logger.Warn("start graceful shutdown tx", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
 				continue
 			}
 
@@ -155,7 +155,7 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 					SetStatus(entagentrun.StatusTerminated),
 			).Save(ctx); err != nil {
 				rollback(tx)
-				l.logger.Warn("mark agent run terminated", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
+				l.logger.Warn("mark agent run terminated", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
 				continue
 			}
 			if assignment.ticket != nil && assignment.ticket.CurrentRunID != nil {
@@ -167,19 +167,22 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 					ClearCurrentRunID().
 					Save(ctx); err != nil {
 					rollback(tx)
-					l.logger.Warn("clear ticket current run during close", "agent_id", agentID, "ticket_id", assignment.ticket.ID, "run_id", assignment.run.ID, "error", err)
+					l.logger.Warn("clear ticket current run during close", "agent_id", assignment.agent.ID, "ticket_id", assignment.ticket.ID, "run_id", assignment.run.ID, "error", err)
 					continue
 				}
 			}
 			if err := tx.Commit(); err != nil {
-				l.logger.Warn("commit graceful shutdown release", "agent_id", agentID, "run_id", assignment.run.ID, "error", err)
+				l.logger.Warn("commit graceful shutdown release", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
 				continue
 			}
 		}
 
-		agentState, err := loadAgentLifecycleState(ctx, l.client, agentID)
+		if assignment.agent == nil {
+			continue
+		}
+		agentState, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &runID)
 		if err != nil {
-			l.logger.Warn("reload terminated agent", "agent_id", agentID, "error", err)
+			l.logger.Warn("reload terminated agent", "agent_id", assignment.agent.ID, "run_id", runID, "error", err)
 			continue
 		}
 		if err := publishAgentLifecycleEvent(
@@ -192,7 +195,7 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			runtimeEventMetadataForState(agentState),
 			now,
 		); err != nil {
-			l.logger.Warn("publish terminated lifecycle", "agent_id", agentID, "error", err)
+			l.logger.Warn("publish terminated lifecycle", "agent_id", assignment.agent.ID, "run_id", runID, "error", err)
 		}
 	}
 
@@ -223,7 +226,7 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		return nil
 	}
 
-	launchingAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID)
+	launchingAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
 	if err != nil {
 		return err
 	}
@@ -245,7 +248,7 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		return l.markLaunchFailed(ctx, assignment.agent.ID, assignment.run.ID, launchErr)
 	}
 
-	l.storeSession(assignment.agent.ID, session)
+	l.storeSession(assignment.run.ID, session)
 
 	readyAt := l.now().UTC()
 	readyCount, err := l.client.AgentRun.Update().
@@ -260,17 +263,17 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		SetLastError("").
 		Save(ctx)
 	if err != nil {
-		l.deleteSession(assignment.agent.ID)
+		l.deleteSession(assignment.run.ID)
 		stopSession(context.Background(), session)
 		return fmt.Errorf("mark run %s ready: %w", assignment.run.ID, err)
 	}
 	if readyCount == 0 {
-		l.deleteSession(assignment.agent.ID)
+		l.deleteSession(assignment.run.ID)
 		stopSession(context.Background(), session)
 		return nil
 	}
 
-	readyAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID)
+	readyAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
 	if err != nil {
 		return err
 	}
@@ -322,7 +325,7 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 		return nil
 	}
 
-	failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID)
+	failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID)
 	if err != nil {
 		return err
 	}
@@ -362,31 +365,31 @@ func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
 
 func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 	l.sessionsMu.Lock()
-	sessionIDs := make([]uuid.UUID, 0, len(l.sessions))
-	for agentID := range l.sessions {
-		sessionIDs = append(sessionIDs, agentID)
+	runIDs := make([]uuid.UUID, 0, len(l.sessions))
+	for runID := range l.sessions {
+		runIDs = append(runIDs, runID)
 	}
 	l.sessionsMu.Unlock()
 
-	if len(sessionIDs) == 0 {
+	if len(runIDs) == 0 {
 		return nil
 	}
 
 	now := l.now().UTC()
-	for _, agentID := range sessionIDs {
-		assignment, err := l.loadAssignmentByAgent(ctx, agentID)
+	for _, runID := range runIDs {
+		assignment, err := l.loadAssignmentByRun(ctx, runID)
 		if err != nil {
-			stopSession(context.Background(), l.loadSession(agentID))
-			l.deleteSession(agentID)
-			l.finishExecution(agentID)
+			stopSession(context.Background(), l.loadSession(runID))
+			l.deleteSession(runID)
+			l.finishExecution(runID)
 			continue
 		}
 		if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil ||
 			assignment.agent.RuntimeControlState != entagent.RuntimeControlStateActive ||
 			(assignment.run.Status != entagentrun.StatusReady && assignment.run.Status != entagentrun.StatusExecuting) {
-			stopSession(context.Background(), l.loadSession(agentID))
-			l.deleteSession(agentID)
-			l.finishExecution(agentID)
+			stopSession(context.Background(), l.loadSession(runID))
+			l.deleteSession(runID)
+			l.finishExecution(runID)
 			continue
 		}
 	}
@@ -400,15 +403,15 @@ func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssi
 		return nil
 	}
 
-	session := l.loadSession(assignment.agent.ID)
+	session := l.loadSession(assignment.run.ID)
 	if session != nil {
 		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		stopErr := session.Stop(stopCtx)
 		cancel()
 		if stopErr != nil {
-			return fmt.Errorf("stop runtime session for agent %s: %w", assignment.agent.ID, stopErr)
+			return fmt.Errorf("stop runtime session for run %s: %w", assignment.run.ID, stopErr)
 		}
-		l.deleteSession(assignment.agent.ID)
+		l.deleteSession(assignment.run.ID)
 	}
 
 	pausedAt := l.now().UTC()
@@ -433,7 +436,7 @@ func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssi
 		return fmt.Errorf("mark agent %s control paused: %w", assignment.agent.ID, err)
 	}
 
-	pausedAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID)
+	pausedAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
 	if err != nil {
 		return err
 	}
@@ -694,10 +697,9 @@ func (l *RuntimeLauncher) listAssignments(ctx context.Context, predicates ...pre
 	return assignments, nil
 }
 
-func (l *RuntimeLauncher) loadAssignmentByAgent(ctx context.Context, agentID uuid.UUID) (runtimeAssignment, error) {
+func (l *RuntimeLauncher) loadAssignmentByRun(ctx context.Context, runID uuid.UUID) (runtimeAssignment, error) {
 	assignments, err := l.listAssignments(ctx,
-		entticket.CurrentRunIDNotNil(),
-		entticket.HasCurrentRunWith(entagentrun.AgentIDEQ(agentID)),
+		entticket.CurrentRunIDEQ(runID),
 	)
 	if err != nil {
 		return runtimeAssignment{}, err
@@ -1061,22 +1063,22 @@ func workspaceRoot(machine catalogdomain.Machine, workspace string) string {
 	return filepath.Clean(filepath.Dir(filepath.Dir(parent)))
 }
 
-func (l *RuntimeLauncher) storeSession(agentID uuid.UUID, session *codex.Session) {
+func (l *RuntimeLauncher) storeSession(runID uuid.UUID, session *codex.Session) {
 	l.sessionsMu.Lock()
 	defer l.sessionsMu.Unlock()
-	l.sessions[agentID] = session
+	l.sessions[runID] = session
 }
 
-func (l *RuntimeLauncher) loadSession(agentID uuid.UUID) *codex.Session {
+func (l *RuntimeLauncher) loadSession(runID uuid.UUID) *codex.Session {
 	l.sessionsMu.Lock()
 	defer l.sessionsMu.Unlock()
-	return l.sessions[agentID]
+	return l.sessions[runID]
 }
 
-func (l *RuntimeLauncher) deleteSession(agentID uuid.UUID) {
+func (l *RuntimeLauncher) deleteSession(runID uuid.UUID) {
 	l.sessionsMu.Lock()
 	defer l.sessionsMu.Unlock()
-	delete(l.sessions, agentID)
+	delete(l.sessions, runID)
 }
 
 func (l *RuntimeLauncher) drainSessions() map[uuid.UUID]*codex.Session {
@@ -1084,27 +1086,27 @@ func (l *RuntimeLauncher) drainSessions() map[uuid.UUID]*codex.Session {
 	defer l.sessionsMu.Unlock()
 
 	drained := make(map[uuid.UUID]*codex.Session, len(l.sessions))
-	for agentID, session := range l.sessions {
-		drained[agentID] = session
+	for runID, session := range l.sessions {
+		drained[runID] = session
 	}
 	l.sessions = map[uuid.UUID]*codex.Session{}
 	return drained
 }
 
-func (l *RuntimeLauncher) beginExecution(agentID uuid.UUID) bool {
+func (l *RuntimeLauncher) beginExecution(runID uuid.UUID) bool {
 	l.executionsMu.Lock()
 	defer l.executionsMu.Unlock()
-	if _, exists := l.executions[agentID]; exists {
+	if _, exists := l.executions[runID]; exists {
 		return false
 	}
-	l.executions[agentID] = struct{}{}
+	l.executions[runID] = struct{}{}
 	return true
 }
 
-func (l *RuntimeLauncher) finishExecution(agentID uuid.UUID) {
+func (l *RuntimeLauncher) finishExecution(runID uuid.UUID) {
 	l.executionsMu.Lock()
 	defer l.executionsMu.Unlock()
-	delete(l.executions, agentID)
+	delete(l.executions, runID)
 }
 
 func stopSession(ctx context.Context, session *codex.Session) {
