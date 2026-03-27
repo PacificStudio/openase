@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
@@ -27,7 +28,6 @@
   } = $props()
 
   let saving = $state(false)
-  let error = $state('')
   let name = $state('')
   let agentId = $state('')
   let pickupStatusId = $state('')
@@ -50,30 +50,28 @@
     agentId = agentOptions[0]?.id ?? ''
     pickupStatusId = statuses[0]?.id ?? ''
     finishStatusId = statuses.at(-1)?.id ?? statuses[0]?.id ?? ''
-    error = ''
   })
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!projectId) {
-      error = 'Select a project before creating a workflow.'
+      toastStore.error('Select a project before creating a workflow.')
       return
     }
     if (!name.trim()) {
-      error = 'Workflow name is required.'
+      toastStore.error('Workflow name is required.')
       return
     }
     if (!agentId) {
-      error = 'Bound agent is required.'
+      toastStore.error('Bound agent is required.')
       return
     }
     if (!pickupStatusId || !finishStatusId) {
-      error = 'Pickup and finish status are required.'
+      toastStore.error('Pickup and finish status are required.')
       return
     }
 
     saving = true
-    error = ''
 
     try {
       const payload = await createWorkflowWithBinding(
@@ -90,7 +88,9 @@
       onCreated?.(payload)
       open = false
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create workflow.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create workflow.',
+      )
     } finally {
       saving = false
     }
@@ -169,10 +169,6 @@
           </Select.Root>
         </div>
       </div>
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || !projectId}>

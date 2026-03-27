@@ -9,6 +9,7 @@
     type OrganizationCreationDraft,
   } from '$lib/features/catalog-creation/model'
   import { organizationPath } from '$lib/stores/app-context'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
   import { Input } from '$ui/input'
@@ -16,7 +17,6 @@
 
   let draft = $state<OrganizationCreationDraft>(createOrganizationDraft())
   let saving = $state(false)
-  let error = $state('')
   let slugDirty = $state(false)
 
   function updateName(event: Event) {
@@ -27,32 +27,30 @@
       name,
       slug: slugDirty ? draft.slug : slugFromName(name),
     }
-    error = ''
   }
 
   function updateSlug(event: Event) {
     const target = event.currentTarget as HTMLInputElement
     slugDirty = true
     draft = { ...draft, slug: target.value }
-    error = ''
   }
 
   async function handleCreateOrganization() {
     const parsed = parseOrganizationDraft(draft)
     if (!parsed.ok) {
-      error = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
     saving = true
-    error = ''
 
     try {
       const payload = await createOrganization(parsed.value)
       await goto(organizationPath(payload.organization.id))
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create organization.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create organization.',
+      )
     } finally {
       saving = false
     }
@@ -143,10 +141,6 @@
               Use lowercase letters, numbers, and hyphens. This becomes the stable org route handle.
             </p>
           </div>
-
-          {#if error}
-            <p class="text-destructive text-sm">{error}</p>
-          {/if}
 
           <Button type="submit" class="w-full" disabled={saving}>
             {saving ? 'Creating…' : 'Create organization'}

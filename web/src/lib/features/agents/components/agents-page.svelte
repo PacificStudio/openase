@@ -1,5 +1,6 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { connectEventStream } from '$lib/api/sse'
   import type { AgentProvider, Machine } from '$lib/api/contracts'
   import type { AgentsPageData } from '../data'
@@ -28,10 +29,6 @@
     error = $state('')
   let registerSheetOpen = $state(false)
   let registerSaving = $state(false)
-  let registerError = $state(''),
-    registerFeedback = $state(''),
-    pageFeedback = $state(''),
-    pageError = $state('')
   let registrationDraft = $state<AgentRegistrationDraft>(
     createAgentRegistrationDraft([], appStore.currentOrg?.default_agent_provider_id),
   )
@@ -80,12 +77,6 @@
     }
   })
 
-  $effect(() => {
-    if (!providerConfigOpen) {
-      providerEditor.clearMessages()
-    }
-  })
-
   wireAgentOutputStream({
     projectId: () => appStore.currentProject?.id,
     isOpen: () => outputSheetOpen,
@@ -128,37 +119,30 @@
       providerItems,
       appStore.currentOrg?.default_agent_provider_id,
     )
-    registerError = registerFeedback = ''
   }
 
   function handleRegisterOpenChange(open: boolean) {
     registerSheetOpen = open
     if (open) {
       resetRegistrationDraft()
-      pageFeedback = ''
-      return
     }
-    registerError = registerFeedback = ''
   }
 
   async function handleRegisterAgent() {
     const projectId = appStore.currentProject?.id,
       orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
-      registerError = 'Project context is unavailable.'
+      toastStore.error('Project context is unavailable.')
       return
     }
 
     const parsed = parseAgentRegistrationDraft(registrationDraft, providerItems)
     if (!parsed.ok) {
-      registerError = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
     registerSaving = true
-    registerError = ''
-    registerFeedback = ''
-    pageError = ''
 
     try {
       const result = await registerAgentAndReload({
@@ -169,12 +153,11 @@
         name: parsed.value.name,
       })
       applyPageData(result.data)
-      registerFeedback = 'Agent created.'
-      pageFeedback = result.feedback
+      toastStore.success(result.feedback || 'Agent created.')
       registerSheetOpen = false
       resetRegistrationDraft()
     } catch (caughtError) {
-      registerError = registerAgentError(caughtError)
+      toastStore.error(registerAgentError(caughtError))
     } finally {
       registerSaving = false
     }
@@ -201,7 +184,6 @@
   }
 
   async function handleProviderSave() {
-    pageError = ''
     await providerEditor.save(selectedProvider, applyUpdatedProvider)
   }
 
@@ -209,13 +191,11 @@
     const projectId = appStore.currentProject?.id,
       orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
-      pageError = 'Project context is unavailable.'
+      toastStore.error('Project context is unavailable.')
       return
     }
 
     runtimeActionAgentId = agentId
-    pageFeedback = ''
-    pageError = ''
 
     try {
       const result = await runRuntimeAction({
@@ -226,9 +206,9 @@
         defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
       })
       applyPageData(result.data)
-      pageFeedback = result.feedback
+      toastStore.success(result.feedback)
     } catch (caughtError) {
-      pageError = runtimeActionError(action, caughtError)
+      toastStore.error(runtimeActionError(action, caughtError))
     } finally {
       runtimeActionAgentId = null
     }
@@ -250,8 +230,6 @@
   {providers}
   {loading}
   {error}
-  {pageFeedback}
-  {pageError}
   {runtimeActionAgentId}
   registerButtonTitle={providerItems.length === 0
     ? 'Register a provider before creating agents.'
@@ -273,16 +251,12 @@
   currentOrgSlug={appStore.currentOrg?.slug}
   currentProjectSlug={appStore.currentProject?.slug}
   {registerSaving}
-  {registerError}
-  {registerFeedback}
   onRegistrationDraftChange={updateRegistrationDraft}
   onRegisterAgent={handleRegisterAgent}
   onRegisterOpenChange={handleRegisterOpenChange}
   {selectedProvider}
   providerDraft={providerEditor.draft}
   providerSaving={providerEditor.saving}
-  providerFeedback={providerEditor.feedback}
-  providerError={providerEditor.error}
   {selectedOutputAgent}
   outputEntries={outputState.entries}
   outputLoading={outputState.loading}

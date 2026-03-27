@@ -153,7 +153,13 @@ export function filterMachines(machines: Machine[], searchQuery: string): Machin
   }
 
   return machines.filter((machine) =>
-    [machine.name, machine.host, machine.status, (machine.labels ?? []).join(' '), machine.description]
+    [
+      machine.name,
+      machine.host,
+      machine.status,
+      (machine.labels ?? []).join(' '),
+      machine.description,
+    ]
       .join(' ')
       .toLowerCase()
       .includes(query),

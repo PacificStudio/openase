@@ -13,8 +13,6 @@
     draft,
     machines = [],
     creating = false,
-    feedback = '',
-    error = '',
     onFieldChange,
     onAdapterChange,
     onSubmit,
@@ -22,8 +20,6 @@
     draft: ProviderDraft
     machines?: Machine[]
     creating?: boolean
-    feedback?: string
-    error?: string
     onFieldChange?: (field: keyof ProviderDraft, value: string) => void
     onAdapterChange?: (value: string) => void
     onSubmit?: () => void
@@ -171,14 +167,6 @@
           />
         </div>
       </div>
-
-      {#if feedback}
-        <p class="text-sm text-emerald-400">{feedback}</p>
-      {/if}
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
 
       <Button type="submit" class="w-full" disabled={creating}>
         {creating ? 'Creating…' : 'Create provider'}

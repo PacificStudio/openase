@@ -13,6 +13,7 @@
     capabilityStateLabel,
   } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import {
     createEmptyRepositoryDraft,
     parseRepositoryDraft,
@@ -30,8 +31,6 @@
   let loading = $state(false)
   let saving = $state(false)
   let deleting = $state(false)
-  let error = $state('')
-  let feedback = $state('')
   let selectedId = $state('')
   let mode = $state<RepositoryEditorMode>('create')
   let draft = $state<RepositoryDraft>(createEmptyRepositoryDraft())
@@ -51,7 +50,6 @@
 
     const load = async () => {
       loading = true
-      error = ''
 
       try {
         const payload = await listProjectRepos(projectId)
@@ -59,8 +57,9 @@
         applyLoadedRepos(payload.repos)
       } catch (caughtError) {
         if (cancelled) return
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load repositories.'
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load repositories.',
+        )
       } finally {
         if (!cancelled) {
           loading = false
@@ -79,32 +78,24 @@
     repos = sortProjectRepos(nextRepos)
 
     if (repos.length === 0) {
-      startCreate({ preserveFeedback: true })
+      startCreate()
       return
     }
 
     const nextRepo = repos.find((repo) => repo.id === selectedId) ?? repos[0]
-    openRepo(nextRepo, { preserveFeedback: true })
+    openRepo(nextRepo)
   }
 
-  function openRepo(repo: ProjectRepoRecord, options: { preserveFeedback?: boolean } = {}) {
+  function openRepo(repo: ProjectRepoRecord) {
     mode = 'edit'
     selectedId = repo.id
     draft = projectRepoToDraft(repo)
-    error = ''
-    if (!options.preserveFeedback) {
-      feedback = ''
-    }
   }
 
-  function startCreate(options: { preserveFeedback?: boolean } = {}) {
+  function startCreate() {
     mode = 'create'
     selectedId = ''
     draft = createEmptyRepositoryDraft({ isPrimary: repos.length === 0 })
-    error = ''
-    if (!options.preserveFeedback) {
-      feedback = ''
-    }
   }
 
   function resetDraft() {
@@ -113,9 +104,6 @@
     } else if (selectedRepo) {
       draft = projectRepoToDraft(selectedRepo)
     }
-
-    error = ''
-    feedback = ''
   }
 
   async function reloadRepos(projectId: string) {
@@ -135,13 +123,13 @@
   ) {
     try {
       await reloadRepos(projectId)
-      feedback = successMessage
+      toastStore.success(successMessage)
     } catch (caughtError) {
-      feedback = ''
-      error =
+      toastStore.error(
         caughtError instanceof ApiError
           ? reloadFailureMessage(action, caughtError.detail)
-          : reloadFailureMessage(action)
+          : reloadFailureMessage(action),
+      )
     }
   }
 
@@ -149,14 +137,11 @@
     const projectId = appStore.currentProject?.id
     const parsed = parseRepositoryDraft(draft)
     if (!projectId || !parsed.ok) {
-      error = parsed.ok ? 'Project context is unavailable.' : parsed.error
-      feedback = ''
+      toastStore.error(parsed.ok ? 'Project context is unavailable.' : parsed.error)
       return
     }
 
     saving = true
-    error = ''
-    feedback = ''
 
     try {
       let successAction: 'created' | 'updated'
@@ -175,8 +160,9 @@
 
       await reloadReposAfterMutation(projectId, successAction, `Repository ${successAction}.`)
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save repository.'
-      feedback = ''
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save repository.',
+      )
     } finally {
       saving = false
     }
@@ -189,16 +175,15 @@
     }
 
     deleting = true
-    error = ''
-    feedback = ''
 
     try {
       await deleteProjectRepo(projectId, selectedRepo.id)
       selectedId = ''
       await reloadReposAfterMutation(projectId, 'deleted', 'Repository deleted.')
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete repository.'
-      feedback = ''
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete repository.',
+      )
     } finally {
       deleting = false
     }
@@ -223,13 +208,7 @@
   </div>
 
   <div class="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-    <RepositoriesList
-      {loading}
-      {repos}
-      {selectedId}
-      onCreate={() => startCreate()}
-      onSelect={(repo) => openRepo(repo)}
-    />
+    <RepositoriesList {loading} {repos} {selectedId} onCreate={startCreate} onSelect={openRepo} />
 
     <RepositoryEditor
       {mode}
@@ -239,8 +218,6 @@
       {loading}
       {saving}
       {deleting}
-      {feedback}
-      {error}
       onDraftChange={updateField}
       onSave={() => void handleSave()}
       onDelete={() => void handleDelete()}

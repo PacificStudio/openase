@@ -4,6 +4,7 @@
   import { ApiError } from '$lib/api/client'
   import { createTicket, listStatuses, listWorkflows } from '$lib/api/openase'
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
@@ -23,7 +24,6 @@
   let workflows = $state<Workflow[]>([])
   let loading = $state(false)
   let saving = $state(false)
-  let error = $state('')
   let draft = $state<NewTicketDraft>(createNewTicketDraft([], []))
   let openProjectId = $state('')
   let loadRequestId = 0
@@ -45,7 +45,6 @@
     if (!projectId || !isOpen) {
       openProjectId = ''
       if (!isOpen) {
-        error = ''
         saving = false
       }
       return
@@ -59,7 +58,6 @@
   async function loadDialogOptions(projectId: string) {
     const requestId = ++loadRequestId
     loading = true
-    error = ''
 
     try {
       const [statusPayload, workflowPayload] = await Promise.all([
@@ -76,8 +74,11 @@
       )
     } catch (caughtError) {
       if (requestId !== loadRequestId) return
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load ticket form options.'
+      toastStore.error(
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : 'Failed to load ticket form options.',
+      )
     } finally {
       if (requestId === loadRequestId) {
         loading = false
@@ -97,18 +98,17 @@
 
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      error = 'Select a project before creating a ticket.'
+      toastStore.error('Select a project before creating a ticket.')
       return
     }
 
     const parsedDraft = parseNewTicketDraft(draft)
     if (!parsedDraft.ok) {
-      error = parsedDraft.error
+      toastStore.error(parsedDraft.error)
       return
     }
 
     saving = true
-    error = ''
 
     try {
       const payload = await createTicket(projectId, parsedDraft.payload)
@@ -119,7 +119,9 @@
       await goto('/tickets')
       appStore.openRightPanel({ type: 'ticket', id: createdTicketId })
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to create ticket.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create ticket.',
+      )
     } finally {
       saving = false
     }
@@ -220,10 +222,6 @@
           </Select.Root>
         </div>
       </div>
-
-      {#if error}
-        <p class="text-destructive text-sm">{error}</p>
-      {/if}
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || loading || !appStore.currentProject?.id}>

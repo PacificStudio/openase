@@ -9,6 +9,7 @@
   import { archiveProject, listWorkflows, updateProject } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import { organizationPath } from '$lib/stores/app-context'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Button } from '$ui/button'
@@ -24,8 +25,6 @@
   let workflows = $state<Array<{ value: string; label: string }>>([])
   let saving = $state(false)
   let archiving = $state(false)
-  let feedback = $state('')
-  let error = $state('')
 
   $effect(() => {
     const project = appStore.currentProject
@@ -79,8 +78,6 @@
     if (!projectId) return
 
     saving = true
-    feedback = ''
-    error = ''
 
     try {
       const payload = await updateProject(projectId, {
@@ -90,10 +87,11 @@
         max_concurrent_agents: Number(maxConcurrentAgents),
       })
       appStore.currentProject = payload.project
-      feedback = 'Project settings saved.'
+      toastStore.success('Project settings saved.')
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save project settings.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save project settings.',
+      )
     } finally {
       saving = false
     }
@@ -110,15 +108,15 @@
     if (!confirmed) return
 
     archiving = true
-    feedback = ''
-    error = ''
 
     try {
       await archiveProject(projectId)
       appStore.currentProject = null
       await goto(orgId ? organizationPath(orgId) : '/')
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive project.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive project.',
+      )
     } finally {
       archiving = false
     }
@@ -201,12 +199,4 @@
       </Button>
     </div>
   </div>
-
-  {#if feedback}
-    <p class="text-sm text-emerald-400">{feedback}</p>
-  {/if}
-
-  {#if error}
-    <p class="text-destructive text-sm">{error}</p>
-  {/if}
 </div>

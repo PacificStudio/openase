@@ -12,7 +12,6 @@
   let deleteTarget = $state<Organization | null>(null)
   let showDeleteDialog = $state(false)
   let selectedIds = $state(new Set<string>())
-  let bulkError = $state('')
 
   const allSelected = $derived(
     organizations.length > 0 && selectedIds.size === organizations.length,
@@ -57,11 +56,7 @@
     <Button onclick={() => (showCreateDialog = true)}>New organization</Button>
   </div>
 
-  <OrganizationBulkArchiveBar
-    selectedIds={[...selectedIds]}
-    bind:error={bulkError}
-    onClear={clearSelection}
-  />
+  <OrganizationBulkArchiveBar selectedIds={[...selectedIds]} onClear={clearSelection} />
 
   {#if organizations.length > 0}
     <div class="border-border divide-border divide-y rounded-lg border">

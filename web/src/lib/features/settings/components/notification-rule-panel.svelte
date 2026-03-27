@@ -17,6 +17,7 @@
     type RuleUpdateInput,
   } from '../notification-rules'
   import { actionErrorMessage } from '../notification-support'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import NotificationRuleEditor from './notification-rule-editor.svelte'
 
   let {
@@ -42,8 +43,6 @@
   let saving = $state(false)
   let deleting = $state(false)
   let toggling = $state(false)
-  let feedback = $state('')
-  let error = $state('')
 
   const selectedRule = $derived(rules.find((rule) => rule.id === selectedId) ?? null)
   const canCreateRule = $derived(channels.length > 0 && eventTypes.length > 0)
@@ -63,32 +62,25 @@
 
   function selectRule(ruleId: string) {
     selectedId = ruleId
-    feedback = ''
-    error = ''
   }
 
   function selectNewRule() {
     selectedId = 'new'
-    feedback = ''
-    error = ''
   }
   async function handleSave() {
     if (!canCreateRule) {
-      error = 'Create at least one channel before managing notification rules.'
+      toastStore.error('Create at least one channel before managing notification rules.')
       return
     }
-
-    feedback = ''
-    error = ''
 
     if (selectedRule) {
       const parsed = buildUpdateRuleInput(draft, selectedRule)
       if (!parsed.ok) {
-        error = parsed.error
+        toastStore.error(parsed.error)
         return
       }
       if (!parsed.value.changed) {
-        feedback = 'No rule changes to save.'
+        toastStore.info('No rule changes to save.')
         return
       }
 
@@ -96,9 +88,9 @@
       try {
         const rule = await onUpdate(selectedRule.id, parsed.value.value)
         selectedId = rule.id
-        feedback = 'Rule updated.'
+        toastStore.success('Rule updated.')
       } catch (caughtError) {
-        error = actionErrorMessage(caughtError, 'Failed to update rule.')
+        toastStore.error(actionErrorMessage(caughtError, 'Failed to update rule.'))
       } finally {
         saving = false
       }
@@ -107,7 +99,7 @@
 
     const parsed = buildCreateRuleInput(draft)
     if (!parsed.ok) {
-      error = parsed.error
+      toastStore.error(parsed.error)
       return
     }
 
@@ -115,9 +107,9 @@
     try {
       const rule = await onCreate(parsed.value)
       selectedId = rule.id
-      feedback = 'Rule created.'
+      toastStore.success('Rule created.')
     } catch (caughtError) {
-      error = actionErrorMessage(caughtError, 'Failed to create rule.')
+      toastStore.error(actionErrorMessage(caughtError, 'Failed to create rule.'))
     } finally {
       saving = false
     }
@@ -127,15 +119,13 @@
     if (!selectedRule) return
     if (!window.confirm(`Delete rule "${selectedRule.name}"?`)) return
 
-    feedback = ''
-    error = ''
     deleting = true
     try {
       await onDelete(selectedRule.id)
       selectedId = 'new'
-      feedback = 'Rule deleted.'
+      toastStore.success('Rule deleted.')
     } catch (caughtError) {
-      error = actionErrorMessage(caughtError, 'Failed to delete rule.')
+      toastStore.error(actionErrorMessage(caughtError, 'Failed to delete rule.'))
     } finally {
       deleting = false
     }
@@ -144,15 +134,13 @@
   async function handleToggle() {
     if (!selectedRule) return
 
-    feedback = ''
-    error = ''
     toggling = true
     try {
       const rule = await onToggle(selectedRule.id, !selectedRule.is_enabled)
       selectedId = rule.id
-      feedback = rule.is_enabled ? 'Rule enabled.' : 'Rule disabled.'
+      toastStore.success(rule.is_enabled ? 'Rule enabled.' : 'Rule disabled.')
     } catch (caughtError) {
-      error = actionErrorMessage(caughtError, 'Failed to update rule state.')
+      toastStore.error(actionErrorMessage(caughtError, 'Failed to update rule state.'))
     } finally {
       toggling = false
     }
@@ -203,9 +191,7 @@
     <NotificationRuleEditor
       {channels}
       {draft}
-      {error}
       {eventTypes}
-      {feedback}
       {saving}
       {deleting}
       {toggling}

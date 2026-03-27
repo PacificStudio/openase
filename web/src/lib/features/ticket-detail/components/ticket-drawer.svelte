@@ -226,7 +226,11 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="flex w-full flex-col p-0 sm:max-w-xl" showCloseButton={false}>
+  <SheetContent
+    side="right"
+    class="flex flex-col p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[60vw]"
+    showCloseButton={false}
+  >
     <SheetHeader class="sr-only">
       <SheetTitle>{drawerState.ticket?.identifier ?? 'Ticket detail'}</SheetTitle>
       <SheetDescription>Ticket detail drawer</SheetDescription>
@@ -251,8 +255,6 @@
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
         repoOptions={drawerState.repoOptions}
-        mutationError={drawerState.mutationError}
-        mutationNotice={drawerState.mutationNotice}
         savingFields={drawerState.savingFields}
         creatingDependency={drawerState.creatingDependency}
         deletingDependencyId={drawerState.deletingDependencyId}

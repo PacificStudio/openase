@@ -1,5 +1,6 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { ApiError } from '$lib/api/client'
   import {
     bindWorkflowSkills,
@@ -27,8 +28,7 @@
   let loading = $state(false),
     saving = $state(false),
     validating = $state(false)
-  let error = $state(''),
-    statusMessage = $state('')
+  let loadError = $state('')
   let workflows = $state<WorkflowSummary[]>([]),
     selectedId = $state('')
   let harness = $state<ReturnType<typeof toHarnessContent> | null>(null),
@@ -55,8 +55,7 @@
       agentOptions = []
       variableGroups = []
       validationIssues = []
-      statusMessage = ''
-      error = ''
+      loadError = ''
       loading = false
       return
     }
@@ -65,7 +64,7 @@
 
     const load = async () => {
       loading = true
-      error = ''
+      loadError = ''
 
       try {
         const payload = await loadWorkflowIndex(projectId, orgId, selectedId)
@@ -84,7 +83,8 @@
         variableGroups = payload.variableGroups
       } catch (caughtError) {
         if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
+        loadError =
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
       } finally {
         if (!cancelled) {
           loading = false
@@ -122,7 +122,9 @@
         skillStates = payload.skillStates
       } catch (caughtError) {
         if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load harness.'
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load harness.',
+        )
       }
     }
 
@@ -137,8 +139,6 @@
     if (!selectedId) return
 
     saving = true
-    statusMessage = ''
-    error = ''
 
     try {
       const payload = await saveWorkflowHarness(selectedId, draftHarness)
@@ -153,11 +153,15 @@
             }
           : workflow,
       )
-      statusMessage = payload.harness.version
-        ? `Harness saved as v${payload.harness.version}.`
-        : 'Harness saved.'
+      toastStore.success(
+        payload.harness.version
+          ? `Harness saved as v${payload.harness.version}.`
+          : 'Harness saved.',
+      )
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to save harness.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save harness.',
+      )
     } finally {
       saving = false
     }
@@ -165,15 +169,19 @@
 
   async function handleValidate() {
     validating = true
-    statusMessage = ''
-    error = ''
 
     try {
       const payload = await validateHarness(draftHarness)
       validationIssues = payload.issues
-      statusMessage = payload.valid ? 'Harness is valid.' : 'Harness has validation issues.'
+      if (payload.valid) {
+        toastStore.success('Harness is valid.')
+      } else {
+        toastStore.warning('Harness has validation issues.')
+      }
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to validate harness.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to validate harness.',
+      )
     } finally {
       validating = false
     }
@@ -187,16 +195,13 @@
   async function handleToggleSkill(skill: SkillState) {
     if (!selectedId) return
 
-    error = ''
-    statusMessage = ''
-
     try {
       if (skill.bound) {
         await unbindWorkflowSkills(selectedId, [skill.path])
         skillStates = skillStates.map((item) =>
           item.path === skill.path ? { ...item, bound: false } : item,
         )
-        statusMessage = `Unbound ${skill.name}.`
+        toastStore.success(`Unbound ${skill.name}.`)
         return
       }
 
@@ -204,18 +209,18 @@
       skillStates = skillStates.map((item) =>
         item.path === skill.path ? { ...item, bound: true } : item,
       )
-      statusMessage = `Bound ${skill.name}.`
+      toastStore.success(`Bound ${skill.name}.`)
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow skills.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow skills.',
+      )
     }
   }
 
   function handleApplyAssistantDraft(content: string) {
     draftHarness = content
     validationIssues = []
-    error = ''
-    statusMessage = 'Applied AI suggestion to the harness draft.'
+    toastStore.info('Applied AI suggestion to the harness draft.')
   }
 </script>
 
@@ -230,11 +235,11 @@
     <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
       Loading workflows…
     </div>
-  {:else if error && workflows.length === 0}
+  {:else if loadError && workflows.length === 0}
     <div
       class="border-destructive/40 bg-destructive/10 text-destructive m-4 rounded-md border px-4 py-3 text-sm"
     >
-      {error}
+      {loadError}
     </div>
   {:else}
     <div class="flex flex-1 overflow-hidden">
@@ -249,8 +254,6 @@
         {variableGroups}
         {skillStates}
         {validationIssues}
-        {statusMessage}
-        {error}
         {saving}
         {validating}
         {isDirty}
@@ -287,7 +290,6 @@
   onCreated={({ workflow, selectedId: nextSelectedId }) => {
     workflows = [...workflows, workflow]
     selectedId = nextSelectedId
-    statusMessage = 'Workflow created.'
-    error = ''
+    toastStore.success('Workflow created.')
   }}
 />
