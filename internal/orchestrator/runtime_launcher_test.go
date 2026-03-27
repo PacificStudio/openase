@@ -1395,9 +1395,10 @@ func createRuntimeLauncherPrimaryRepo(
 ) {
 	t.Helper()
 
+	repoName := "repo-" + strings.ReplaceAll(projectID.String(), "-", "")[:8]
 	if _, err := client.ProjectRepo.Create().
 		SetProjectID(projectID).
-		SetName(filepath.Base(repoRoot)).
+		SetName(repoName).
 		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetIsPrimary(true).
