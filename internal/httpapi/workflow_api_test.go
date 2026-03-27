@@ -76,7 +76,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	createPrimaryProjectRepo(t, ctx, client, project.ID, primaryRepoRoot)
+	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
 
 	statusSvc := ticketstatus.NewService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)

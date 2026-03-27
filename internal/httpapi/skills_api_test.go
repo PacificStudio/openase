@@ -59,7 +59,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	createPrimaryProjectRepo(t, ctx, client, project.ID, repoRoot)
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
 	localMachine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName("local").
@@ -360,7 +360,7 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	createPrimaryProjectRepo(t, ctx, client, project.ID, repoRoot)
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
 	localMachine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName("local").

@@ -62,7 +62,7 @@ func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
 	}
 	repoRoot := t.TempDir()
 	initRuntimeLauncherRepo(t, repoRoot)
-	createRuntimeLauncherPrimaryRepo(t, ctx, client, fixture.projectID, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -412,7 +412,7 @@ func TestRuntimeLauncherRunTickDropsCachedSessionWhenAgentLeavesRunningState(t *
 
 	repoRoot := t.TempDir()
 	initRuntimeLauncherRepo(t, repoRoot)
-	createRuntimeLauncherPrimaryRepo(t, ctx, client, fixture.projectID, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -529,7 +529,7 @@ func TestRuntimeLauncherRunTickExecutesTurnsRecordsUsageAndSchedulesContinuation
 
 	repoRoot := t.TempDir()
 	initRuntimeLauncherRepo(t, repoRoot)
-	createRuntimeLauncherPrimaryRepo(t, ctx, client, fixture.projectID, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -696,9 +696,8 @@ func TestRuntimeLauncherExposesAgentOutputViaHTTPAndSSEDuringExecution(t *testin
 	}
 
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -712,6 +711,7 @@ Emit visible runtime output.
 `), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
+	commitRuntimeLauncherRepo(t, repoRoot)
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
@@ -779,7 +779,7 @@ Emit visible runtime output.
 		nil,
 	)
 	testServer := httptest.NewServer(server.Handler())
-	defer testServer.Close()
+	t.Cleanup(testServer.Close)
 
 	response, cancel := openRuntimeSSERequest(t, testServer.URL+"/api/v1/projects/"+fixture.projectID.String()+"/agents/"+agentItem.ID.String()+"/output/stream")
 	t.Cleanup(func() {
@@ -875,7 +875,7 @@ func TestRuntimeLauncherRunTickMarksRetryOnTurnFailure(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	initRuntimeLauncherRepo(t, repoRoot)
-	createRuntimeLauncherPrimaryRepo(t, ctx, client, fixture.projectID, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -1583,8 +1583,8 @@ func waitForRuntimeCondition(t *testing.T, timeout time.Duration, predicate func
 }
 
 func createRuntimeLauncherPrimaryRepo(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	client *ent.Client,
 	projectID uuid.UUID,
 	repoRoot string,
@@ -1621,6 +1621,7 @@ func commitRuntimeLauncherRepo(t *testing.T, repoRoot string) {
 func runRuntimeLauncherGit(t *testing.T, repoRoot string, args ...string) {
 	t.Helper()
 
+	//nolint:gosec // Test helper intentionally invokes local git with controlled arguments to seed repos.
 	cmd := exec.Command("git", args...)
 	cmd.Dir = repoRoot
 	output, err := cmd.CombinedOutput()

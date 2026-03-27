@@ -6,8 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -28,10 +26,7 @@ import (
 
 func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	client := openTestEntClient(t)
-	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	repoRoot := createTestGitRepo(t)
 
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
@@ -72,6 +67,7 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
 	localMachine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName("local").
@@ -221,10 +217,7 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 
 func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T) {
 	client := openTestEntClient(t)
-	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	repoRoot := createTestGitRepo(t)
 
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
@@ -265,6 +258,7 @@ func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
 
 	rec := performJSONRequest(t, server, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/hr-advisor", project.ID), "")
 	if rec.Code != http.StatusOK {

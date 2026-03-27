@@ -21,7 +21,7 @@ func createTestGitRepo(t *testing.T) string {
 	return repoRoot
 }
 
-func createPrimaryProjectRepo(t *testing.T, ctx context.Context, client *ent.Client, projectID uuid.UUID, repoRoot string) {
+func createPrimaryProjectRepo(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID, repoRoot string) {
 	t.Helper()
 
 	if _, err := client.ProjectRepo.Create().
