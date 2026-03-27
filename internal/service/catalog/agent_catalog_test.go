@@ -310,6 +310,127 @@ func TestRequestAgentResumeRejectsPauseRequestedState(t *testing.T) {
 	}
 }
 
+func TestRequestAgentResumePersistsActiveState(t *testing.T) {
+	agentID := uuid.New()
+	runID := uuid.New()
+	ticketID := uuid.New()
+	repo := &stubRepository{
+		agent: domain.Agent{
+			ID:                  agentID,
+			Name:                "worker-1",
+			RuntimeControlState: domain.AgentRuntimeControlStatePaused,
+			Runtime: &domain.AgentRuntime{
+				CurrentRunID:    &runID,
+				Status:          domain.AgentStatusRunning,
+				CurrentTicketID: &ticketID,
+				RuntimePhase:    domain.AgentRuntimePhaseReady,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	item, err := svc.RequestAgentResume(context.Background(), agentID)
+	if err != nil {
+		t.Fatalf("RequestAgentResume returned error: %v", err)
+	}
+	if item.RuntimeControlState != domain.AgentRuntimeControlStateActive {
+		t.Fatalf("expected active state, got %+v", item)
+	}
+	if repo.updatedRuntimeControl == nil || repo.updatedRuntimeControl.RuntimeControlState != domain.AgentRuntimeControlStateActive {
+		t.Fatalf("expected repo runtime control update, got %+v", repo.updatedRuntimeControl)
+	}
+}
+
+func TestAgentProviderAvailabilityHelpers(t *testing.T) {
+	codexPath := "/usr/local/bin/codex"
+	resolver := stubExecutableResolver{paths: map[string]string{"codex": codexPath, codexPath: codexPath}}
+	remoteCodexID := uuid.New()
+	localCodexID := uuid.New()
+	claudeID := uuid.New()
+
+	items := annotateAgentProvidersAvailability([]domain.AgentProvider{
+		{
+			ID:                localCodexID,
+			Name:              "OpenAI Codex",
+			AdapterType:       domain.AgentProviderAdapterTypeCodexAppServer,
+			CliCommand:        "codex",
+			MachineHost:       domain.LocalMachineHost,
+			MachineStatus:     domain.MachineStatusOnline,
+			MachineAgentCLIPath: &codexPath,
+		},
+		{
+			ID:          remoteCodexID,
+			Name:        "Remote Codex",
+			AdapterType: domain.AgentProviderAdapterTypeCodexAppServer,
+			CliCommand:  "codex",
+			MachineID:   uuid.New(),
+			MachineHost: "10.0.0.25",
+			MachineStatus: domain.MachineStatusOnline,
+			MachineResources: map[string]any{
+				"monitor": map[string]any{
+					"l4": map[string]any{
+						"codex": map[string]any{"installed": true},
+					},
+				},
+			},
+		},
+		{
+			ID:            claudeID,
+			Name:          "Claude Code",
+			AdapterType:   domain.AgentProviderAdapterTypeClaudeCodeCLI,
+			CliCommand:    "claude",
+			MachineID:     uuid.New(),
+			MachineHost:   "10.0.0.50",
+			MachineStatus: domain.MachineStatusMaintenance,
+		},
+	}, resolver)
+
+	if !items[0].Available {
+		t.Fatalf("expected local codex provider to be available, got %+v", items[0])
+	}
+	if !items[1].Available {
+		t.Fatalf("expected remote codex provider to be available, got %+v", items[1])
+	}
+	if items[2].Available {
+		t.Fatalf("expected maintenance provider to be unavailable, got %+v", items[2])
+	}
+
+	if installed, ok := providerMachineCLIInstalled(domain.AgentProviderAdapterTypeCodexAppServer, items[1].MachineResources); !ok || !installed {
+		t.Fatalf("providerMachineCLIInstalled(codex) = %t, %t", installed, ok)
+	}
+	if _, ok := providerMachineCLIInstalled(domain.AgentProviderAdapterTypeCustom, items[1].MachineResources); ok {
+		t.Fatal("providerMachineCLIInstalled(custom) should not resolve")
+	}
+	if got, ok := nestedResourceMap(map[string]any{"monitor": map[string]any{"l4": "invalid"}}, "monitor"); !ok || got["l4"] != "invalid" {
+		t.Fatalf("nestedResourceMap(monitor) = %+v, %t", got, ok)
+	}
+	if _, ok := nestedResourceMap(map[string]any{"monitor": "invalid"}, "monitor"); ok {
+		t.Fatal("nestedResourceMap(invalid) expected false")
+	}
+	if !remoteAgentProviderAvailable(domain.AgentProvider{
+		AdapterType: domain.AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:  "codex",
+		MachineResources: map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"codex": map[string]any{"installed": true},
+				},
+			},
+		},
+	}) {
+		t.Fatal("remoteAgentProviderAvailable(installed) expected true")
+	}
+	if remoteAgentProviderAvailable(domain.AgentProvider{
+		AdapterType:   domain.AgentProviderAdapterTypeClaudeCodeCLI,
+		MachineStatus: domain.MachineStatusOnline,
+	}) {
+		t.Fatal("remoteAgentProviderAvailable(empty command) expected false")
+	}
+	if got := preferredAvailableProviderID(items); got == nil || *got != localCodexID {
+		t.Fatalf("preferredAvailableProviderID() = %v, want %s", got, localCodexID)
+	}
+}
+
 type stubExecutableResolver struct {
 	paths map[string]string
 }

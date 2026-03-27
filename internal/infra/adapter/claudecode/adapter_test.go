@@ -1,7 +1,9 @@
 package claudecode
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"sync"
@@ -187,6 +189,156 @@ func TestSessionParsesNDJSONAndTracksSessionID(t *testing.T) {
 	}
 }
 
+func TestAdapterAndSessionValidationBranches(t *testing.T) {
+	adapter := NewAdapter(nil)
+	spec, err := provider.NewClaudeCodeSessionSpec(
+		provider.MustParseAgentCLICommand("claude"),
+		nil,
+		nil,
+		nil,
+		nil,
+		"",
+		nil,
+		nil,
+		nil,
+		false,
+	)
+	if err != nil {
+		t.Fatalf("NewClaudeCodeSessionSpec returned error: %v", err)
+	}
+
+	if _, err := adapter.Start(nil, spec); err == nil || err.Error() != "context must not be nil" {
+		t.Fatalf("expected nil context error, got %v", err)
+	}
+	if _, err := adapter.Start(context.Background(), spec); err == nil || err.Error() != "claude code process manager must not be nil" {
+		t.Fatalf("expected missing manager error, got %v", err)
+	}
+
+	startErrAdapter := NewAdapter(&fakeProcessManager{startErr: errors.New("start failed")})
+	if _, err := startErrAdapter.Start(context.Background(), spec); err == nil || err.Error() != "start failed" {
+		t.Fatalf("expected start error, got %v", err)
+	}
+
+	session := &session{
+		process: newFakeProcess("", ""),
+		events:  make(chan provider.ClaudeCodeEvent, 1),
+		errors:  make(chan error, 4),
+		done:    make(chan struct{}),
+	}
+	input := provider.ClaudeCodeTurnInput{Prompt: "hello"}
+
+	if err := session.Send(nil, input); err == nil || err.Error() != "context must not be nil" {
+		t.Fatalf("expected nil send context error, got %v", err)
+	}
+	if err := session.Send(context.Background(), provider.ClaudeCodeTurnInput{}); err == nil || err.Error() != "claude code turn prompt must not be empty" {
+		t.Fatalf("expected empty prompt error, got %v", err)
+	}
+
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := session.Send(canceledCtx, input); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected canceled context error, got %v", err)
+	}
+
+	close(session.done)
+	if err := session.Send(context.Background(), input); err == nil || err.Error() != "claude code session already closed" {
+		t.Fatalf("expected closed session error, got %v", err)
+	}
+	if err := session.Close(nil); err == nil || err.Error() != "context must not be nil" {
+		t.Fatalf("expected nil close context error, got %v", err)
+	}
+}
+
+func TestSessionReaderAndHelperCoverage(t *testing.T) {
+	process := newFakeProcess("", "")
+	sess := &session{
+		process: process,
+		events:  make(chan provider.ClaudeCodeEvent, 8),
+		errors:  make(chan error, 8),
+		done:    make(chan struct{}),
+	}
+
+	sess.readStdout(errorReadCloser{})
+	if err := <-sess.errors; err == nil || !strings.Contains(err.Error(), "read claude code stdout") {
+		t.Fatalf("expected stdout read error, got %v", err)
+	}
+
+	sess.readStderr(io.NopCloser(strings.NewReader("stderr line\n")))
+	if err := <-sess.errors; err == nil || !strings.Contains(err.Error(), "claude code stderr: stderr line") {
+		t.Fatalf("expected stderr line error, got %v", err)
+	}
+
+	sess.readStderr(errorReadCloser{})
+	if err := <-sess.errors; err == nil || !strings.Contains(err.Error(), "read claude code stderr") {
+		t.Fatalf("expected stderr read error, got %v", err)
+	}
+
+	if kind := mapEventKind("task_notification"); kind != provider.ClaudeCodeEventKindTaskNotice {
+		t.Fatalf("mapEventKind(task_notification)=%q", kind)
+	}
+	if kind := mapEventKind("unknown-type"); kind != provider.ClaudeCodeEventKindUnknown {
+		t.Fatalf("mapEventKind(unknown-type)=%q", kind)
+	}
+
+	if _, err := parseStreamEvent([]byte(`{"type":"   "}`)); err == nil || !strings.Contains(err.Error(), "missing type") {
+		t.Fatalf("expected missing type error, got %v", err)
+	}
+
+	unknownEvent, err := parseStreamEvent([]byte(`{"type":"custom","session_id":" invalid ","message":{"hello":"world"},"usage":{"tokens":1},"event":{"step":"a"},"uuid":" u-1 "}`))
+	if err != nil {
+		t.Fatalf("parseStreamEvent returned error: %v", err)
+	}
+	if unknownEvent.Kind != provider.ClaudeCodeEventKindUnknown || unknownEvent.UnknownType != "custom" {
+		t.Fatalf("unexpected unknown event: %+v", unknownEvent)
+	}
+	if unknownEvent.SessionID != "invalid" || unknownEvent.UUID != "u-1" {
+		t.Fatalf("expected trimmed fields, got %+v", unknownEvent)
+	}
+
+	var value float64 = 3.25
+	cloned := cloneOptionalFloat(&value)
+	if cloned == nil || *cloned != value || cloned == &value {
+		t.Fatalf("cloneOptionalFloat() = %v", cloned)
+	}
+	if cloneOptionalFloat(nil) != nil {
+		t.Fatal("expected nil float clone to stay nil")
+	}
+	if cloneRawJSON(nil) != nil {
+		t.Fatal("expected nil raw json clone to stay nil")
+	}
+	clonedJSON := cloneRawJSON(bytes.Repeat([]byte("a"), 2))
+	if string(clonedJSON) != "aa" {
+		t.Fatalf("unexpected raw json clone: %q", string(clonedJSON))
+	}
+
+	payload, err := encodeTurnInput(provider.ClaudeCodeTurnInput{Prompt: " prompt "})
+	if err != nil {
+		t.Fatalf("encodeTurnInput returned error: %v", err)
+	}
+	if !strings.HasSuffix(string(payload), "\n") || !strings.Contains(string(payload), `"text":" prompt "`) {
+		t.Fatalf("unexpected encoded payload: %s", string(payload))
+	}
+
+	sess.setSessionID("   ")
+	if _, ok := sess.SessionID(); ok {
+		t.Fatal("expected invalid session id to be ignored")
+	}
+	sess.setSessionID("sess-valid")
+	sess.setSessionID("sess-next")
+	sessionID, ok := sess.SessionID()
+	if !ok || sessionID != provider.MustParseClaudeCodeSessionID("sess-valid") {
+		t.Fatalf("unexpected session id: %q ok=%v", sessionID, ok)
+	}
+
+	close(sess.done)
+	sess.pushError(errors.New("ignored"))
+	select {
+	case err := <-sess.errors:
+		t.Fatalf("expected pushError to skip closed session, got %v", err)
+	default:
+	}
+}
+
 func collectEvents(t *testing.T, events <-chan provider.ClaudeCodeEvent) []provider.ClaudeCodeEvent {
 	t.Helper()
 
@@ -226,10 +378,14 @@ func collectErrors(t *testing.T, errors <-chan error) []error {
 type fakeProcessManager struct {
 	process  provider.AgentCLIProcess
 	lastSpec provider.AgentCLIProcessSpec
+	startErr error
 }
 
 func (m *fakeProcessManager) Start(_ context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
 	m.lastSpec = spec
+	if m.startErr != nil {
+		return nil, m.startErr
+	}
 	return m.process, nil
 }
 
@@ -319,4 +475,14 @@ func (b *bufferWriteCloser) String() string {
 	defer b.mu.Unlock()
 
 	return b.buffer.String()
+}
+
+type errorReadCloser struct{}
+
+func (errorReadCloser) Read([]byte) (int, error) {
+	return 0, io.ErrUnexpectedEOF
+}
+
+func (errorReadCloser) Close() error {
+	return nil
 }

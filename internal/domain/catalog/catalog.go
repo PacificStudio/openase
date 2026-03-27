@@ -286,10 +286,7 @@ func ParseCreateProjectRepo(projectID uuid.UUID, raw ProjectRepoInput) (CreatePr
 		return CreateProjectRepo{}, err
 	}
 
-	defaultBranch, err := parseDefaultBranch(raw.DefaultBranch)
-	if err != nil {
-		return CreateProjectRepo{}, err
-	}
+	defaultBranch := parseDefaultBranch(raw.DefaultBranch)
 
 	clonePath := parseOptionalText(raw.ClonePath)
 
@@ -402,12 +399,12 @@ func parseTrimmedRequired(fieldName string, raw string) (string, error) {
 	return trimmed, nil
 }
 
-func parseDefaultBranch(raw string) (string, error) {
+func parseDefaultBranch(raw string) string {
 	if strings.TrimSpace(raw) == "" {
-		return "main", nil
+		return "main"
 	}
 
-	return parseTrimmedRequired("default_branch", raw)
+	return strings.TrimSpace(raw)
 }
 
 func parseOptionalText(raw *string) *string {

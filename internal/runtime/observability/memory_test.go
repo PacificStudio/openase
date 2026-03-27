@@ -6,10 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"strings"
 	"testing"
+	"time"
 
 	otelinfra "github.com/BetterAndBetterII/openase/internal/infra/otel"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
 type staticMemoryCollector struct {
@@ -75,4 +78,69 @@ func TestProcessMemoryReporterExportsSnapshot(t *testing.T) {
 			t.Fatalf("expected scrape to contain %q, got %q", expected, body)
 		}
 	}
+}
+
+type countingMemoryCollector struct {
+	mu       sync.Mutex
+	calls    int
+	snapshot ProcessMemorySnapshot
+}
+
+func (c *countingMemoryCollector) Snapshot() ProcessMemorySnapshot {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.calls++
+	return c.snapshot
+}
+
+func (c *countingMemoryCollector) callCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.calls
+}
+
+func TestRuntimeProcessMemoryCollectorSnapshot(t *testing.T) {
+	snapshot := RuntimeProcessMemoryCollector{}.Snapshot()
+	if snapshot.ObservedAt.IsZero() {
+		t.Fatal("Snapshot() returned zero ObservedAt")
+	}
+	if snapshot.Goroutines < 1 {
+		t.Fatalf("Snapshot() goroutines = %d", snapshot.Goroutines)
+	}
+	if snapshot.TotalAllocBytes < snapshot.AllocBytes {
+		t.Fatalf("Snapshot() alloc totals = %+v", snapshot)
+	}
+}
+
+func TestProcessMemoryReporterStartUsesDefaultsAndTicks(t *testing.T) {
+	collector := &countingMemoryCollector{snapshot: ProcessMemorySnapshot{
+		ObservedAt:      time.Now().UTC(),
+		AllocBytes:      128,
+		TotalAllocBytes: 256,
+		SysBytes:        512,
+		Goroutines:      3,
+	}}
+	reporter := NewProcessMemoryReporter(
+		collector,
+		provider.NewNoopMetricsProvider(),
+		" ",
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+	)
+	if reporter.mode != "unknown" {
+		t.Fatalf("reporter.mode = %q", reporter.mode)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	reporter.Start(ctx, time.Millisecond)
+	deadline := time.Now().Add(150 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if collector.callCount() >= 2 {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	t.Fatalf("collector call count = %d, want at least 2", collector.callCount())
 }

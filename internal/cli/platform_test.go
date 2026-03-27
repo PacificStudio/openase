@@ -185,3 +185,84 @@ func TestProjectAddRepoCommandPostsRepoPayload(t *testing.T) {
 		t.Fatalf("expected two labels, got %+v", payload["labels"])
 	}
 }
+
+func TestTicketListCommandBuildsQueryFromFilters(t *testing.T) {
+	var method string
+	var path string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		path = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"tickets":[{"id":"ticket-1","title":"Follow-up"}]}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+
+	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	command.SetArgs([]string{"list", "--status-name", "Todo", "--status-name", "In Review", "--priority", "high", "--priority", "medium"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if method != http.MethodGet {
+		t.Fatalf("expected GET, got %s", method)
+	}
+	if path != "/projects/project-123/tickets?priority=high%2Cmedium&status_name=Todo%2CIn+Review" {
+		t.Fatalf("expected filtered ticket list path, got %q", path)
+	}
+	if !strings.Contains(stdout.String(), `"title": "Follow-up"`) {
+		t.Fatalf("expected pretty JSON output, got %q", stdout.String())
+	}
+}
+
+func TestProjectUpdateCommandPatchesDescription(t *testing.T) {
+	var method string
+	var path string
+	var payload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		path = r.URL.RequestURI()
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"project":{"id":"project-123","description":"Coverage raised"}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+
+	command := newProjectCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	command.SetArgs([]string{"update", "--description", "Coverage raised"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if method != http.MethodPatch {
+		t.Fatalf("expected PATCH, got %s", method)
+	}
+	if path != "/projects/project-123" {
+		t.Fatalf("expected project patch path, got %q", path)
+	}
+	if payload["description"] != "Coverage raised" {
+		t.Fatalf("unexpected project update payload: %+v", payload)
+	}
+	if !strings.Contains(stdout.String(), `"description": "Coverage raised"`) {
+		t.Fatalf("expected pretty JSON output, got %q", stdout.String())
+	}
+}

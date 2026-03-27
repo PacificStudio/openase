@@ -10,7 +10,7 @@ OPENASE_BIN := ./bin/openase
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test check hooks-install hooks-run openapi-generate openapi-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
+.PHONY: help format fmt-check test test-backend-coverage check hooks-install hooks-run openapi-generate openapi-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
 
 help:
 	@printf '%s\n' \
@@ -18,7 +18,8 @@ help:
 		'  make format        Format tracked Go files with gofmt' \
 		'  make fmt-check     Fail if tracked Go files need gofmt' \
 		'  make test          Run the Go test suite' \
-		'  make check         Run Go formatting and test checks' \
+		'  make test-backend-coverage Run full backend coverage gates (overall 85%+, domain/core 100%)' \
+		'  make check         Run Go formatting and enforced backend coverage checks' \
 		'  make hooks-install Install Git hooks via lefthook' \
 		'  make hooks-run     Run the pre-commit hook against all files' \
 		'  make openapi-generate Regenerate api/openapi.json and frontend generated API types' \
@@ -60,7 +61,10 @@ fmt-check:
 test:
 	$(GO) test ./...
 
-check: fmt-check test
+test-backend-coverage:
+	./scripts/ci/backend_coverage.sh
+
+check: fmt-check test-backend-coverage
 
 hooks-install:
 	$(GO) tool lefthook install

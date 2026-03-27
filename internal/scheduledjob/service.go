@@ -485,7 +485,7 @@ func (s *Service) createTicketForJob(ctx context.Context, item *ent.ScheduledJob
 	}
 
 	workflowItem := item.Edges.Workflow
-	if workflowItem == nil {
+	if workflowItem == nil || (strings.TrimSpace(template.Status) == "" && len(workflowItem.Edges.PickupStatuses) == 0) {
 		workflowItem, err = s.loadWorkflow(ctx, item.ProjectID, item.WorkflowID)
 		if err != nil {
 			return ticketservice.Ticket{}, err

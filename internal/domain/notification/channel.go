@@ -270,13 +270,13 @@ func ParseChannelConfig(channelType ChannelType, raw map[string]any) (ChannelCon
 
 // NormalizeChannelConfig validates and normalizes raw config before persistence.
 func NormalizeChannelConfig(channelType ChannelType, raw map[string]any) (map[string]any, error) {
-	config, err := ParseChannelConfig(channelType, raw)
-	if err != nil {
-		return nil, err
-	}
-
-	switch typed := config.(type) {
-	case WebhookConfig:
+	switch channelType {
+	case ChannelTypeWebhook:
+		config, err := ParseChannelConfig(channelType, raw)
+		if err != nil {
+			return nil, err
+		}
+		typed := config.(WebhookConfig)
 		normalized := map[string]any{
 			"url": typed.URL,
 		}
@@ -287,21 +287,36 @@ func NormalizeChannelConfig(channelType ChannelType, raw map[string]any) (map[st
 			normalized["secret"] = typed.Secret
 		}
 		return normalized, nil
-	case TelegramConfig:
+	case ChannelTypeTelegram:
+		config, err := ParseChannelConfig(channelType, raw)
+		if err != nil {
+			return nil, err
+		}
+		typed := config.(TelegramConfig)
 		return map[string]any{
 			"bot_token": typed.BotToken,
 			"chat_id":   typed.ChatID,
 		}, nil
-	case SlackConfig:
+	case ChannelTypeSlack:
+		config, err := ParseChannelConfig(channelType, raw)
+		if err != nil {
+			return nil, err
+		}
+		typed := config.(SlackConfig)
 		return map[string]any{
 			"webhook_url": typed.WebhookURL,
 		}, nil
-	case WeComConfig:
+	case ChannelTypeWeCom:
+		config, err := ParseChannelConfig(channelType, raw)
+		if err != nil {
+			return nil, err
+		}
+		typed := config.(WeComConfig)
 		return map[string]any{
 			"webhook_key": typed.WebhookKey,
 		}, nil
 	default:
-		return nil, fmt.Errorf("unsupported channel config type %T", typed)
+		return nil, fmt.Errorf("%w: %s", ErrChannelTypeUnsupported, channelType)
 	}
 }
 

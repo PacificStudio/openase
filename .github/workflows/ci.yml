@@ -189,7 +189,7 @@ jobs:
             go.mod
             go.sum
 
-      - name: Run Backend Formatting And Tests
+      - name: Run Backend Formatting, Tests, And Coverage Gates
         run: make check
 
       - name: Build OpenASE Binary

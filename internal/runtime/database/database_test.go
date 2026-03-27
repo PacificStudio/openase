@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -353,6 +354,486 @@ func TestOpenAddsMissingProjectAccessibleMachineIDsBeforeMigration(t *testing.T)
 	}
 	if len(projectAfter.AccessibleMachineIds) != 0 {
 		t.Fatalf("expected empty accessible machine ids after column add, got %+v", projectAfter.AccessibleMachineIds)
+	}
+}
+
+func TestOpenRejectsEmptyDSN(t *testing.T) {
+	if _, err := Open(context.Background(), "   "); err == nil || err.Error() != "database.dsn is required for serve and all-in-one modes" {
+		t.Fatalf("Open(empty dsn) error = %v", err)
+	}
+}
+
+func TestOpenFailsForMalformedDSN(t *testing.T) {
+	if _, err := Open(context.Background(), "postgres://%zz"); err == nil || !strings.Contains(err.Error(), "reserve database connection for schema bootstrap lock") {
+		t.Fatalf("Open(malformed dsn) error = %v", err)
+	}
+}
+
+func TestWithSchemaBootstrapLockReturnsFunctionError(t *testing.T) {
+	dsn := startEmbeddedPostgres(t)
+	wantErr := fmt.Errorf("boom")
+
+	err := withSchemaBootstrapLock(context.Background(), dsn, func() error {
+		return wantErr
+	})
+	if err == nil || err.Error() != wantErr.Error() {
+		t.Fatalf("withSchemaBootstrapLock() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestWithSchemaBootstrapLockExecutesCallbackOnSuccess(t *testing.T) {
+	dsn := startEmbeddedPostgres(t)
+	called := false
+
+	err := withSchemaBootstrapLock(context.Background(), dsn, func() error {
+		called = true
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("withSchemaBootstrapLock() error = %v", err)
+	}
+	if !called {
+		t.Fatal("withSchemaBootstrapLock() did not invoke callback")
+	}
+}
+
+func TestWithSchemaBootstrapLockRejectsMalformedDSN(t *testing.T) {
+	err := withSchemaBootstrapLock(context.Background(), "postgres://%zz", func() error {
+		t.Fatal("withSchemaBootstrapLock() should fail before invoking callback")
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "reserve database connection for schema bootstrap lock") {
+		t.Fatalf("withSchemaBootstrapLock(malformed dsn) error = %v", err)
+	}
+}
+
+func TestWithSchemaBootstrapLockHonorsCanceledContext(t *testing.T) {
+	dsn := startEmbeddedPostgres(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := withSchemaBootstrapLock(ctx, dsn, func() error {
+		t.Fatal("withSchemaBootstrapLock() should fail before invoking callback")
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "reserve database connection for schema bootstrap lock") {
+		t.Fatalf("withSchemaBootstrapLock(canceled context) error = %v", err)
+	}
+}
+
+func TestReconcileLegacyProjectAccessibleMachineIDsSkipsWhenProjectsTableMissing(t *testing.T) {
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	if err := reconcileLegacyProjectAccessibleMachineIDs(ctx, dsn); err != nil {
+		t.Fatalf("reconcileLegacyProjectAccessibleMachineIDs() error = %v", err)
+	}
+}
+
+func TestReconcileLegacyProjectAccessibleMachineIDsRejectsMalformedDSN(t *testing.T) {
+	err := reconcileLegacyProjectAccessibleMachineIDs(context.Background(), "postgres://%zz")
+	if err == nil || !strings.Contains(err.Error(), "ping database for project accessible machine reconciliation") {
+		t.Fatalf("reconcileLegacyProjectAccessibleMachineIDs(malformed dsn) error = %v", err)
+	}
+}
+
+func TestReconcileLegacyProjectAccessibleMachineIDsAddsMissingColumnAndBackfills(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-direct-access-backfill").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	projectItem, err := bootstrapClient.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-direct-access-backfill").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "projects" DROP COLUMN "accessible_machine_ids"`); err != nil {
+		t.Fatalf("drop project accessible machine ids column: %v", err)
+	}
+
+	if err := reconcileLegacyProjectAccessibleMachineIDs(ctx, dsn); err != nil {
+		t.Fatalf("reconcileLegacyProjectAccessibleMachineIDs() error = %v", err)
+	}
+
+	var machineIDs []byte
+	if err := db.QueryRowContext(ctx, `SELECT "accessible_machine_ids"::text FROM "projects" WHERE "id" = $1`, projectItem.ID).Scan(&machineIDs); err != nil {
+		t.Fatalf("query backfilled accessible_machine_ids: %v", err)
+	}
+	if string(machineIDs) != "[]" {
+		t.Fatalf("expected accessible_machine_ids to backfill to [], got %s", machineIDs)
+	}
+}
+
+func TestReconcileLegacyAgentProviderMachineIDsSkipsWhenProviderTableMissing(t *testing.T) {
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	if err := reconcileLegacyAgentProviderMachineIDs(ctx, dsn); err != nil {
+		t.Fatalf("reconcileLegacyAgentProviderMachineIDs() error = %v", err)
+	}
+}
+
+func TestReconcileLegacyAgentProviderMachineIDsRejectsMalformedDSN(t *testing.T) {
+	err := reconcileLegacyAgentProviderMachineIDs(context.Background(), "postgres://%zz")
+	if err == nil || !strings.Contains(err.Error(), "ping database for agent provider machine reconciliation") {
+		t.Fatalf("reconcileLegacyAgentProviderMachineIDs(malformed dsn) error = %v", err)
+	}
+}
+
+func TestReconcileLegacyAgentProviderMachineIDsSkipsWhenMachinesTableMissing(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	client, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := client.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `DROP TABLE "machines" CASCADE`); err != nil {
+		t.Fatalf("drop machines table: %v", err)
+	}
+
+	if err := reconcileLegacyAgentProviderMachineIDs(ctx, dsn); err != nil {
+		t.Fatalf("reconcileLegacyAgentProviderMachineIDs() error = %v", err)
+	}
+}
+
+func TestReconcileLegacyTicketIdentifierIndexFailsWithoutTicketsTable(t *testing.T) {
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	err := reconcileLegacyTicketIdentifierIndex(ctx, dsn)
+	if err == nil || !strings.Contains(err.Error(), "create project-scoped ticket identifier index") {
+		t.Fatalf("reconcileLegacyTicketIdentifierIndex() error = %v", err)
+	}
+}
+
+func TestReconcileLegacyTicketIdentifierIndexRejectsMalformedDSN(t *testing.T) {
+	err := reconcileLegacyTicketIdentifierIndex(context.Background(), "postgres://%zz")
+	if err == nil || !strings.Contains(err.Error(), "ping database for ticket index reconciliation") {
+		t.Fatalf("reconcileLegacyTicketIdentifierIndex(malformed dsn) error = %v", err)
+	}
+}
+
+func TestReconcileLegacyTicketIdentifierIndexReplacesLegacyIndex(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX "ticket_identifier" ON "tickets" ("identifier")`); err != nil {
+		t.Fatalf("create legacy ticket identifier index: %v", err)
+	}
+
+	if err := reconcileLegacyTicketIdentifierIndex(ctx, dsn); err != nil {
+		t.Fatalf("reconcileLegacyTicketIdentifierIndex() error = %v", err)
+	}
+
+	if legacyIndexExists(ctx, t, db, "ticket_identifier") {
+		t.Fatal("expected legacy ticket_identifier index to be removed")
+	}
+	if !legacyIndexExists(ctx, t, db, "ticket_project_id_identifier") {
+		t.Fatal("expected project-scoped ticket identifier index to exist")
+	}
+}
+
+func TestOpenBackfillsAgentProviderMachineIDBeforeMigration(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-provider-backfill").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := bootstrapClient.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("127.0.0.1").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	providerItem, err := bootstrapClient.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType("codex-app-server").
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent provider: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "agent_providers" ALTER COLUMN "machine_id" DROP NOT NULL`); err != nil {
+		t.Fatalf("drop agent provider machine_id not null: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE "agent_providers" SET "machine_id" = NULL WHERE "id" = $1`, providerItem.ID); err != nil {
+		t.Fatalf("null agent provider machine_id: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open runtime database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	providerAfter, err := client.AgentProvider.Get(ctx, providerItem.ID)
+	if err != nil {
+		t.Fatalf("reload provider: %v", err)
+	}
+	if providerAfter.MachineID != localMachine.ID {
+		t.Fatalf("expected provider machine id to backfill to local machine %s, got %s", localMachine.ID, providerAfter.MachineID)
+	}
+}
+
+func TestReconcileLegacyAgentProviderMachineIDsAddsMissingColumnAndBackfills(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-provider-column-add").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := bootstrapClient.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("127.0.0.1").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	providerItem, err := bootstrapClient.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType("codex-app-server").
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent provider: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "agent_providers" DROP COLUMN "machine_id"`); err != nil {
+		t.Fatalf("drop agent provider machine_id column: %v", err)
+	}
+
+	if err := reconcileLegacyAgentProviderMachineIDs(ctx, dsn); err != nil {
+		t.Fatalf("reconcileLegacyAgentProviderMachineIDs() error = %v", err)
+	}
+
+	var machineID uuid.UUID
+	if err := db.QueryRowContext(ctx, `SELECT "machine_id" FROM "agent_providers" WHERE "id" = $1`, providerItem.ID).Scan(&machineID); err != nil {
+		t.Fatalf("query backfilled machine_id: %v", err)
+	}
+	if machineID != localMachine.ID {
+		t.Fatalf("expected backfilled machine_id %s, got %s", localMachine.ID, machineID)
+	}
+}
+
+func TestOpenFailsWhenAgentProviderMachineIDCannotBackfill(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-provider-failure").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	remoteMachine, err := bootstrapClient.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("worker-1").
+		SetHost("10.0.1.10").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create remote machine: %v", err)
+	}
+	providerItem, err := bootstrapClient.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(remoteMachine.ID).
+		SetName("Codex").
+		SetAdapterType("codex-app-server").
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent provider: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "agent_providers" ALTER COLUMN "machine_id" DROP NOT NULL`); err != nil {
+		t.Fatalf("drop agent provider machine_id not null: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE "agent_providers" SET "machine_id" = NULL WHERE "id" = $1`, providerItem.ID); err != nil {
+		t.Fatalf("null agent provider machine_id: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err == nil {
+		_ = client.Close()
+		t.Fatal("Open() expected unresolved agent provider backfill error")
+	}
+	if !strings.Contains(err.Error(), "still missing a local machine binding") {
+		t.Fatalf("Open() unresolved machine error = %v", err)
 	}
 }
 

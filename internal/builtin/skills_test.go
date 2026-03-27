@@ -30,3 +30,27 @@ func TestEnvironmentProvisionerSkillsExist(t *testing.T) {
 		}
 	}
 }
+
+func TestSkillHelpers(t *testing.T) {
+	skills := Skills()
+	if len(skills) == 0 {
+		t.Fatal("Skills() expected built-in skills")
+	}
+
+	originalTitle := skills[0].Title
+	skills[0].Title = "mutated"
+	refreshed := Skills()
+	if len(refreshed) == 0 || refreshed[0].Title != originalTitle {
+		t.Fatalf("Skills() should clone templates, got %+v", refreshed)
+	}
+
+	if !IsBuiltinSkill("commit") {
+		t.Fatal("IsBuiltinSkill(commit) expected true")
+	}
+	if IsBuiltinSkill("missing-skill") {
+		t.Fatal("IsBuiltinSkill(missing-skill) expected false")
+	}
+	if _, ok := SkillByName("missing-skill"); ok {
+		t.Fatal("SkillByName(missing-skill) expected false")
+	}
+}

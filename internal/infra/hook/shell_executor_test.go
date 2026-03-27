@@ -68,6 +68,178 @@ func TestParseTicketHooksRejectsInvalidWorkdirType(t *testing.T) {
 	}
 }
 
+func TestParseTicketHooksCoversEmptyAndInvalidInputs(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     map[string]any
+		wantErr string
+	}{
+		{
+			name: "empty config",
+			raw:  map[string]any{},
+		},
+		{
+			name: "missing ticket hooks",
+			raw: map[string]any{
+				"other": true,
+			},
+		},
+		{
+			name: "nil ticket hooks",
+			raw: map[string]any{
+				"ticket_hooks": nil,
+			},
+		},
+		{
+			name: "ticket hooks must be object",
+			raw: map[string]any{
+				"ticket_hooks": []any{},
+			},
+			wantErr: "ticket_hooks must be an object",
+		},
+		{
+			name: "hook list must be slice",
+			raw: map[string]any{
+				"ticket_hooks": map[string]any{
+					"on_done": "invalid",
+				},
+			},
+			wantErr: "on_done must be a list",
+		},
+		{
+			name: "hook entry must be object",
+			raw: map[string]any{
+				"ticket_hooks": map[string]any{
+					"on_done": []any{"invalid"},
+				},
+			},
+			wantErr: "must be an object",
+		},
+		{
+			name: "missing cmd",
+			raw: map[string]any{
+				"ticket_hooks": map[string]any{
+					"on_done": []any{map[string]any{}},
+				},
+			},
+			wantErr: ".cmd is required",
+		},
+		{
+			name: "blank cmd",
+			raw: map[string]any{
+				"ticket_hooks": map[string]any{
+					"on_done": []any{
+						map[string]any{"cmd": "   "},
+					},
+				},
+			},
+			wantErr: ".cmd must be a non-empty string",
+		},
+		{
+			name: "fractional timeout",
+			raw: map[string]any{
+				"ticket_hooks": map[string]any{
+					"on_done": []any{
+						map[string]any{"cmd": "echo ok", "timeout": 1.25},
+					},
+				},
+			},
+			wantErr: "whole number of seconds",
+		},
+		{
+			name: "negative timeout",
+			raw: map[string]any{
+				"ticket_hooks": map[string]any{
+					"on_done": []any{
+						map[string]any{"cmd": "echo ok", "timeout": -1},
+					},
+				},
+			},
+			wantErr: "greater than or equal to zero",
+		},
+		{
+			name: "invalid on failure type",
+			raw: map[string]any{
+				"ticket_hooks": map[string]any{
+					"on_done": []any{
+						map[string]any{"cmd": "echo ok", "on_failure": true},
+					},
+				},
+			},
+			wantErr: "must be one of block, warn, ignore",
+		},
+		{
+			name: "invalid on failure value",
+			raw: map[string]any{
+				"ticket_hooks": map[string]any{
+					"on_done": []any{
+						map[string]any{"cmd": "echo ok", "on_failure": "panic"},
+					},
+				},
+			},
+			wantErr: "must be one of block, warn, ignore",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed, err := ParseTicketHooks(tt.raw)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("ParseTicketHooks returned error: %v", err)
+				}
+				if len(parsed.OnClaim) != 0 || len(parsed.OnStart) != 0 || len(parsed.OnComplete) != 0 ||
+					len(parsed.OnDone) != 0 || len(parsed.OnError) != 0 || len(parsed.OnCancel) != 0 {
+					t.Fatalf("expected empty hooks, got %+v", parsed)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatal("expected ParseTicketHooks to fail")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestParseTicketHooksSupportsMapSliceAndDefaults(t *testing.T) {
+	parsed, err := ParseTicketHooks(map[string]any{
+		"ticket_hooks": map[string]any{
+			"on_claim": []map[string]any{
+				{
+					"cmd":        "echo ok",
+					"workdir":    " subdir ",
+					"on_failure": " IGNORE ",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ParseTicketHooks returned error: %v", err)
+	}
+
+	if len(parsed.OnClaim) != 1 {
+		t.Fatalf("expected one on_claim hook, got %d", len(parsed.OnClaim))
+	}
+
+	hook := parsed.OnClaim[0]
+	if hook.Command != "echo ok" {
+		t.Fatalf("Command=%q, want echo ok", hook.Command)
+	}
+	if hook.Workdir != "subdir" {
+		t.Fatalf("Workdir=%q, want subdir", hook.Workdir)
+	}
+	if hook.OnFailure != FailurePolicyIgnore {
+		t.Fatalf("OnFailure=%q, want %q", hook.OnFailure, FailurePolicyIgnore)
+	}
+	if hook.Timeout != 0 {
+		t.Fatalf("Timeout=%s, want 0", hook.Timeout)
+	}
+}
+
 func TestShellExecutorInjectsEnvironmentAndResolvesRelativeWorkdir(t *testing.T) {
 	workspace := t.TempDir()
 	frontendDir := filepath.Join(workspace, "frontend")
@@ -256,6 +428,43 @@ func TestShellExecutorRejectsEscapingWorkdir(t *testing.T) {
 	}
 	if !strings.Contains(results[0].Error, "escapes workspace") {
 		t.Fatalf("unexpected result error: %+v", results[0])
+	}
+}
+
+func TestResolveWorkingDirectoryAndHelpersCoverErrorBranches(t *testing.T) {
+	workspace := t.TempDir()
+	nestedDir := filepath.Join(workspace, "nested")
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	notDir := filepath.Join(workspace, "file.txt")
+	if err := os.WriteFile(notDir, []byte("content"), 0o600); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	resolved, err := resolveWorkingDirectory(workspace, nestedDir)
+	if err != nil {
+		t.Fatalf("resolveWorkingDirectory returned error: %v", err)
+	}
+	if resolved != nestedDir {
+		t.Fatalf("resolved=%q, want %q", resolved, nestedDir)
+	}
+
+	if _, err := resolveWorkingDirectory("   ", ""); err == nil || !strings.Contains(err.Error(), "workspace must not be empty") {
+		t.Fatalf("expected empty workspace error, got %v", err)
+	}
+	if _, err := resolveWorkingDirectory(workspace, "missing"); err == nil || !strings.Contains(err.Error(), "stat hook working directory") {
+		t.Fatalf("expected missing workdir error, got %v", err)
+	}
+	if _, err := resolveWorkingDirectory(workspace, "file.txt"); err == nil || !strings.Contains(err.Error(), "is not a directory") {
+		t.Fatalf("expected not-directory error, got %v", err)
+	}
+
+	if code, ok := extractExitCode(errors.New("plain error")); ok || code != 0 {
+		t.Fatalf("extractExitCode() = (%d, %t), want (0, false)", code, ok)
+	}
+	if got := describeRunError(errors.New("plain error"), "   "); got != "plain error" {
+		t.Fatalf("describeRunError() = %q, want plain error", got)
 	}
 }
 

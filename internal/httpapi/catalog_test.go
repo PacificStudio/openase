@@ -155,6 +155,25 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		t.Fatalf("expected 1 project, got %d", len(listProjectPayload.Projects))
 	}
 
+	getProjectRec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+createProjectPayload.Project.ID,
+		"",
+	)
+	if getProjectRec.Code != http.StatusOK {
+		t.Fatalf("expected project get 200, got %d: %s", getProjectRec.Code, getProjectRec.Body.String())
+	}
+
+	var getProjectPayload struct {
+		Project projectResponse `json:"project"`
+	}
+	decodeResponse(t, getProjectRec, &getProjectPayload)
+	if getProjectPayload.Project.ID != createProjectPayload.Project.ID || getProjectPayload.Project.Name != "OpenASE" {
+		t.Fatalf("unexpected project get payload: %+v", getProjectPayload.Project)
+	}
+
 	updatedAccessibleMachineID := uuid.NewString()
 	patchProjectRec := performJSONRequest(
 		t,
@@ -285,6 +304,115 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	}
 }
 
+func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgID := uuid.New()
+	localMachineID := uuid.New()
+	machineID := uuid.New()
+	projectID := uuid.New()
+	repoID := uuid.New()
+	ticketID := uuid.New()
+	scopeID := uuid.New()
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme", Status: "active"}
+	service.machines[localMachineID] = domain.Machine{
+		ID:             localMachineID,
+		OrganizationID: orgID,
+		Name:           domain.LocalMachineName,
+		Host:           domain.LocalMachineHost,
+		Port:           22,
+		Status:         "online",
+	}
+	service.machines[machineID] = domain.Machine{ID: machineID, OrganizationID: orgID, Name: "builder", Host: "builder.local", Port: 22, Status: "online"}
+	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase", Status: "active"}
+	service.projectRepos[repoID] = domain.ProjectRepo{
+		ID:            repoID,
+		ProjectID:     projectID,
+		Name:          "backend",
+		RepositoryURL: "https://github.com/acme/backend.git",
+		DefaultBranch: "main",
+		IsPrimary:     true,
+	}
+	service.tickets[ticketID] = fakeCatalogTicket{ID: ticketID, ProjectID: projectID}
+	service.ticketScopes[scopeID] = domain.TicketRepoScope{
+		ID:             scopeID,
+		TicketID:       ticketID,
+		RepoID:         repoID,
+		BranchName:     "main",
+		PrStatus:       "open",
+		CiStatus:       "pending",
+		IsPrimaryScope: true,
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		path       string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "get organization invalid id", method: http.MethodGet, path: "/api/v1/orgs/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "orgId must be a valid UUID"},
+		{name: "get organization missing", method: http.MethodGet, path: "/api/v1/orgs/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "patch organization unknown field", method: http.MethodPatch, path: "/api/v1/orgs/" + orgID.String(), body: `{"unknown":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body"},
+		{name: "list projects invalid org id", method: http.MethodGet, path: "/api/v1/orgs/not-a-uuid/projects", wantStatus: http.StatusBadRequest, wantBody: "orgId must be a valid UUID"},
+		{name: "list machines invalid org id", method: http.MethodGet, path: "/api/v1/orgs/not-a-uuid/machines", wantStatus: http.StatusBadRequest, wantBody: "orgId must be a valid UUID"},
+		{name: "create project invalid payload", method: http.MethodPost, path: "/api/v1/orgs/" + orgID.String() + "/projects", body: `{"name":" ","slug":"openase"}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
+		{name: "create machine invalid payload", method: http.MethodPost, path: "/api/v1/orgs/" + orgID.String() + "/machines", body: `{"name":"builder","host":" ","port":22}`, wantStatus: http.StatusBadRequest, wantBody: "host must not be empty"},
+		{name: "get machine invalid id", method: http.MethodGet, path: "/api/v1/machines/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "machineId must be a valid UUID"},
+		{name: "get machine missing", method: http.MethodGet, path: "/api/v1/machines/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "patch machine invalid id", method: http.MethodPatch, path: "/api/v1/machines/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "machineId must be a valid UUID"},
+		{name: "patch machine multiple values", method: http.MethodPatch, path: "/api/v1/machines/" + machineID.String(), body: `{"name":"builder"}{"name":"again"}`, wantStatus: http.StatusBadRequest, wantBody: "multiple JSON values are not allowed"},
+		{name: "patch machine invalid status", method: http.MethodPatch, path: "/api/v1/machines/" + localMachineID.String(), body: `{"status":"broken"}`, wantStatus: http.StatusBadRequest, wantBody: "status must be one of"},
+		{name: "delete machine invalid id", method: http.MethodDelete, path: "/api/v1/machines/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "machineId must be a valid UUID"},
+		{name: "delete machine local invalid input", method: http.MethodDelete, path: "/api/v1/machines/" + localMachineID.String(), wantStatus: http.StatusBadRequest, wantBody: "invalid input"},
+		{name: "test machine invalid id", method: http.MethodPost, path: "/api/v1/machines/not-a-uuid/test", wantStatus: http.StatusBadRequest, wantBody: "machineId must be a valid UUID"},
+		{name: "test machine missing", method: http.MethodPost, path: "/api/v1/machines/" + uuid.NewString() + "/test", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "get machine resources missing", method: http.MethodGet, path: "/api/v1/machines/" + uuid.NewString() + "/resources", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "get project invalid id", method: http.MethodGet, path: "/api/v1/projects/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
+		{name: "get project missing", method: http.MethodGet, path: "/api/v1/projects/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "patch project invalid default workflow", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String(), body: `{"default_workflow_id":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "default_workflow_id must be a valid UUID"},
+		{name: "list repos invalid project id", method: http.MethodGet, path: "/api/v1/projects/not-a-uuid/repos", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
+		{name: "create repo invalid project id", method: http.MethodPost, path: "/api/v1/projects/not-a-uuid/repos", body: `{"name":"backend","repository_url":"https://github.com/acme/backend.git"}`, wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
+		{name: "create repo invalid payload", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/repos", body: `{"name":" ","repository_url":"https://github.com/acme/backend.git"}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
+		{name: "create repo conflict", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/repos", body: `{"name":"backend","repository_url":"https://github.com/acme/other.git"}`, wantStatus: http.StatusConflict, wantBody: "resource conflict"},
+		{name: "patch repo invalid repo id", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/repos/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "repoId must be a valid UUID"},
+		{name: "patch repo invalid payload", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/repos/" + repoID.String(), body: `{"name":" "}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
+		{name: "delete repo invalid project id", method: http.MethodDelete, path: "/api/v1/projects/not-a-uuid/repos/" + repoID.String(), wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
+		{name: "delete repo missing", method: http.MethodDelete, path: "/api/v1/projects/" + projectID.String() + "/repos/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "list repo scopes invalid project id", method: http.MethodGet, path: "/api/v1/projects/not-a-uuid/tickets/" + ticketID.String() + "/repo-scopes", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
+		{name: "list repo scopes invalid ticket id", method: http.MethodGet, path: "/api/v1/projects/" + projectID.String() + "/tickets/not-a-uuid/repo-scopes", wantStatus: http.StatusBadRequest, wantBody: "ticketId must be a valid UUID"},
+		{name: "list repo scopes missing ticket", method: http.MethodGet, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + uuid.NewString() + "/repo-scopes", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "create repo scope invalid payload", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes", body: `{"repo_id":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "repo_id must be a valid UUID"},
+		{name: "create repo scope conflict", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes", body: `{"repo_id":"` + repoID.String() + `"}`, wantStatus: http.StatusConflict, wantBody: "resource conflict"},
+		{name: "patch repo scope invalid scope id", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "scopeId must be a valid UUID"},
+		{name: "patch repo scope invalid payload", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/" + scopeID.String(), body: `{"pr_status":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "pr_status must be one of"},
+		{name: "delete repo scope invalid ticket id", method: http.MethodDelete, path: "/api/v1/projects/" + projectID.String() + "/tickets/not-a-uuid/repo-scopes/" + scopeID.String(), wantStatus: http.StatusBadRequest, wantBody: "ticketId must be a valid UUID"},
+		{name: "delete repo scope missing", method: http.MethodDelete, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequest(t, server, testCase.method, testCase.path, testCase.body)
+			if rec.Code != testCase.wantStatus {
+				t.Fatalf("status = %d, want %d, body=%s", rec.Code, testCase.wantStatus, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("body %q does not contain %q", rec.Body.String(), testCase.wantBody)
+			}
+		})
+	}
+}
+
 func TestArchiveOrganizationRouteArchivesOrganizationAndProjects(t *testing.T) {
 	service := newFakeCatalogService()
 	server := NewServer(
@@ -398,6 +526,19 @@ func TestMachineRoutes(t *testing.T) {
 	decodeResponse(t, createMachineRec, &createMachinePayload)
 	if createMachinePayload.Machine.Status != "maintenance" {
 		t.Fatalf("expected created remote machine to default to maintenance, got %+v", createMachinePayload.Machine)
+	}
+
+	getMachineRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+createMachinePayload.Machine.ID, "")
+	if getMachineRec.Code != http.StatusOK {
+		t.Fatalf("expected machine get 200, got %d: %s", getMachineRec.Code, getMachineRec.Body.String())
+	}
+
+	var getMachinePayload struct {
+		Machine machineResponse `json:"machine"`
+	}
+	decodeResponse(t, getMachineRec, &getMachinePayload)
+	if getMachinePayload.Machine.ID != createMachinePayload.Machine.ID || getMachinePayload.Machine.Name != "gpu-01" {
+		t.Fatalf("unexpected machine get payload: %+v", getMachinePayload.Machine)
 	}
 
 	patchMachineRec := performJSONRequest(

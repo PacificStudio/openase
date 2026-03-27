@@ -4,8 +4,11 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 func TestLoadDefaults(t *testing.T) {
@@ -284,6 +287,241 @@ func TestLoadRejectsInvalidTracingSampleRatio(t *testing.T) {
 
 	if _, err := Load(LoadOptions{}); err == nil {
 		t.Fatal("expected invalid tracing sample ratio error")
+	}
+}
+
+func TestConfigHelperParsers(t *testing.T) {
+	if got, err := parseNonEmptyString("  host  "); err != nil || got != "host" {
+		t.Fatalf("parseNonEmptyString() = %q, %v", got, err)
+	}
+	if _, err := parseNonEmptyString("   "); err == nil || !strings.Contains(err.Error(), "must not be empty") {
+		t.Fatalf("parseNonEmptyString(blank) error = %v", err)
+	}
+	if _, err := parseNonEmptyString(1); err == nil || !strings.Contains(err.Error(), "unsupported string type") {
+		t.Fatalf("parseNonEmptyString(type) error = %v", err)
+	}
+
+	if got, err := parseOptionalString("  value  "); err != nil || got != "value" {
+		t.Fatalf("parseOptionalString() = %q, %v", got, err)
+	}
+	if _, err := parseOptionalString(true); err == nil {
+		t.Fatalf("parseOptionalString(type) error = %v", err)
+	}
+
+	if got, err := parsePort(" 41000 "); err != nil || got != 41000 {
+		t.Fatalf("parsePort(string) = %d, %v", got, err)
+	}
+	if got, err := parsePort(int64(41001)); err != nil || got != 41001 {
+		t.Fatalf("parsePort(int64) = %d, %v", got, err)
+	}
+	if _, err := parsePort(70000); err == nil || !strings.Contains(err.Error(), "out of range") {
+		t.Fatalf("parsePort(range) error = %v", err)
+	}
+
+	if got, err := parseBool("TRUE"); err != nil || !got {
+		t.Fatalf("parseBool(string) = %v, %v", got, err)
+	}
+	if _, err := parseBool(1); err == nil {
+		t.Fatalf("parseBool(type) error = %v", err)
+	}
+
+	if got, err := parseDuration("3s"); err != nil || got != 3*time.Second {
+		t.Fatalf("parseDuration(string) = %s, %v", got, err)
+	}
+	if _, err := parseDuration(0 * time.Second); err == nil || !strings.Contains(err.Error(), "must be positive") {
+		t.Fatalf("parseDuration(non-positive) error = %v", err)
+	}
+
+	if got, err := parseUnitInterval("0.25"); err != nil || got != 0.25 {
+		t.Fatalf("parseUnitInterval(string) = %v, %v", got, err)
+	}
+	if _, err := parseUnitInterval(2); err == nil || !strings.Contains(err.Error(), "between 0 and 1") {
+		t.Fatalf("parseUnitInterval(range) error = %v", err)
+	}
+
+	if got, err := parseServerMode(ServerModeServe); err != nil || got != ServerModeServe {
+		t.Fatalf("parseServerMode() = %q, %v", got, err)
+	}
+	if _, err := parseServerMode("weird"); err == nil || !strings.Contains(err.Error(), "unsupported server mode") {
+		t.Fatalf("parseServerMode(invalid) error = %v", err)
+	}
+
+	if got, err := parseEventDriver(EventDriverChannel); err != nil || got != EventDriverChannel {
+		t.Fatalf("parseEventDriver() = %q, %v", got, err)
+	}
+	if _, err := parseEventDriver("weird"); err == nil || !strings.Contains(err.Error(), "unsupported event driver") {
+		t.Fatalf("parseEventDriver(invalid) error = %v", err)
+	}
+
+	if got, err := parseLogLevel("WARN"); err != nil || got != slog.LevelWarn {
+		t.Fatalf("parseLogLevel() = %v, %v", got, err)
+	}
+	if _, err := parseLogLevel(true); err == nil {
+		t.Fatalf("parseLogLevel(type) error = %v", err)
+	}
+
+	if got, err := parseLogFormat(LogFormatJSON); err != nil || got != LogFormatJSON {
+		t.Fatalf("parseLogFormat() = %q, %v", got, err)
+	}
+	if _, err := parseLogFormat("weird"); err == nil || !strings.Contains(err.Error(), "unsupported log format") {
+		t.Fatalf("parseLogFormat(invalid) error = %v", err)
+	}
+}
+
+func TestConfigValidationHelpers(t *testing.T) {
+	cfg := Config{
+		Server: ServerConfig{Mode: ServerModeAllInOne},
+		Event:  EventConfig{Driver: EventDriverAuto},
+	}
+	driver, err := cfg.ResolvedEventDriver()
+	if err != nil || driver != EventDriverChannel {
+		t.Fatalf("ResolvedEventDriver(all-in-one) = %q, %v", driver, err)
+	}
+
+	cfg = Config{
+		Server:   ServerConfig{Mode: ServerModeServe},
+		Event:    EventConfig{Driver: EventDriverAuto},
+		Database: DatabaseConfig{DSN: "postgres://example"},
+	}
+	driver, err = cfg.ResolvedEventDriver()
+	if err != nil || driver != EventDriverPGNotify {
+		t.Fatalf("ResolvedEventDriver(serve) = %q, %v", driver, err)
+	}
+	if err := validateConfig(cfg); err != nil {
+		t.Fatalf("validateConfig(valid) error = %v", err)
+	}
+
+	if _, err := (Config{Server: ServerConfig{Mode: "weird"}, Event: EventConfig{Driver: EventDriverAuto}}).ResolvedEventDriver(); err == nil {
+		t.Fatal("ResolvedEventDriver(invalid mode) expected error")
+	}
+	if err := validateConfig(Config{Server: ServerConfig{Mode: ServerModeServe}, Event: EventConfig{Driver: EventDriverChannel}}); err == nil {
+		t.Fatal("validateConfig(channel+serve) expected error")
+	}
+	if err := validateConfig(Config{Server: ServerConfig{Mode: ServerModeServe}, Event: EventConfig{Driver: EventDriverAuto}}); err == nil {
+		t.Fatal("validateConfig(pgnotify without dsn) expected error")
+	}
+}
+
+func TestConfigFileHelpers(t *testing.T) {
+	v := viper.New()
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "openase.yaml")
+	writeFile(t, configPath, []byte("server:\n  mode: serve\n"))
+
+	if used, err := readConfigFile(v, configPath); err != nil || used != configPath {
+		t.Fatalf("readConfigFile(explicit) = %q, %v", used, err)
+	}
+
+	empty := t.TempDir()
+	t.Setenv("HOME", empty)
+	other := viper.New()
+	used, err := readConfigFile(other, "")
+	if err != nil || used != "" {
+		t.Fatalf("readConfigFile(no file) = %q, %v", used, err)
+	}
+
+	overrideV := viper.New()
+	applyOverrides(overrideV, map[string]any{"server.port": 42000})
+	if got := overrideV.GetInt("server.port"); got != 42000 {
+		t.Fatalf("applyOverrides() server.port = %d, want 42000", got)
+	}
+}
+
+func TestConfigHelperParsersCoverAdditionalBranches(t *testing.T) {
+	if got, err := parsePort(float64(41002)); err != nil || got != 41002 {
+		t.Fatalf("parsePort(float64) = %d, %v", got, err)
+	}
+	if _, err := parsePort("oops"); err == nil || !strings.Contains(err.Error(), "invalid port") {
+		t.Fatalf("parsePort(invalid string) error = %v", err)
+	}
+	if _, err := parsePort(true); err == nil || !strings.Contains(err.Error(), "unsupported port type") {
+		t.Fatalf("parsePort(type) error = %v", err)
+	}
+
+	if got, err := parseBool(false); err != nil || got {
+		t.Fatalf("parseBool(bool) = %v, %v", got, err)
+	}
+	if _, err := parseBool("not-bool"); err == nil || !strings.Contains(err.Error(), "invalid bool") {
+		t.Fatalf("parseBool(invalid string) error = %v", err)
+	}
+
+	if got, err := parseDuration(4 * time.Second); err != nil || got != 4*time.Second {
+		t.Fatalf("parseDuration(duration) = %s, %v", got, err)
+	}
+	if _, err := parseDuration("bad"); err == nil || !strings.Contains(err.Error(), "invalid duration") {
+		t.Fatalf("parseDuration(invalid string) error = %v", err)
+	}
+	if _, err := parseDuration(5); err == nil || !strings.Contains(err.Error(), "unsupported duration type") {
+		t.Fatalf("parseDuration(type) error = %v", err)
+	}
+
+	if got, err := parseUnitInterval(int64(1)); err != nil || got != 1 {
+		t.Fatalf("parseUnitInterval(int64) = %v, %v", got, err)
+	}
+	if _, err := parseUnitInterval("oops"); err == nil || !strings.Contains(err.Error(), "invalid float") {
+		t.Fatalf("parseUnitInterval(invalid string) error = %v", err)
+	}
+	if _, err := parseUnitInterval(true); err == nil || !strings.Contains(err.Error(), "unsupported float type") {
+		t.Fatalf("parseUnitInterval(type) error = %v", err)
+	}
+
+	if got, err := parseServerMode(" orchestrate "); err != nil || got != ServerModeOrchestrate {
+		t.Fatalf("parseServerMode(string) = %q, %v", got, err)
+	}
+	if _, err := parseServerMode(true); err == nil || !strings.Contains(err.Error(), "unsupported server mode type") {
+		t.Fatalf("parseServerMode(type) error = %v", err)
+	}
+
+	if got, err := parseEventDriver(" channel "); err != nil || got != EventDriverChannel {
+		t.Fatalf("parseEventDriver(string) = %q, %v", got, err)
+	}
+	if _, err := parseEventDriver(true); err == nil || !strings.Contains(err.Error(), "unsupported event driver type") {
+		t.Fatalf("parseEventDriver(type) error = %v", err)
+	}
+
+	if got, err := parseLogLevel(slog.LevelError); err != nil || got != slog.LevelError {
+		t.Fatalf("parseLogLevel(level) = %v, %v", got, err)
+	}
+	if _, err := parseLogLevel("wat"); err == nil || !strings.Contains(err.Error(), "invalid slog level") {
+		t.Fatalf("parseLogLevel(invalid string) error = %v", err)
+	}
+
+	if got, err := parseLogFormat(" json "); err != nil || got != LogFormatJSON {
+		t.Fatalf("parseLogFormat(string) = %q, %v", got, err)
+	}
+	if _, err := parseLogFormat(true); err == nil || !strings.Contains(err.Error(), "unsupported log format type") {
+		t.Fatalf("parseLogFormat(type) error = %v", err)
+	}
+}
+
+func TestConfigValidationAndFileHelpersCoverFailurePaths(t *testing.T) {
+	cfg := Config{
+		Server:   ServerConfig{Mode: ServerModeServe},
+		Event:    EventConfig{Driver: EventDriverPGNotify},
+		Database: DatabaseConfig{DSN: "postgres://example"},
+	}
+	driver, err := cfg.ResolvedEventDriver()
+	if err != nil || driver != EventDriverPGNotify {
+		t.Fatalf("ResolvedEventDriver(pgnotify) = %q, %v", driver, err)
+	}
+	if err := validateConfig(cfg); err != nil {
+		t.Fatalf("validateConfig(pgnotify with dsn) error = %v", err)
+	}
+	if _, err := (Config{Event: EventConfig{Driver: "broken"}}).ResolvedEventDriver(); err == nil || !strings.Contains(err.Error(), "unsupported event driver") {
+		t.Fatalf("ResolvedEventDriver(invalid driver) error = %v", err)
+	}
+
+	v := viper.New()
+	if _, err := readConfigFile(v, filepath.Join(t.TempDir(), "missing.yaml")); err == nil || !strings.Contains(err.Error(), "read config file") {
+		t.Fatalf("readConfigFile(missing explicit) error = %v", err)
+	}
+
+	dir := t.TempDir()
+	badConfigPath := filepath.Join(dir, "openase.yaml")
+	writeFile(t, badConfigPath, []byte("server:\n  mode: ["))
+	other := viper.New()
+	if _, err := readConfigFile(other, badConfigPath); err == nil || !strings.Contains(err.Error(), "read config file") {
+		t.Fatalf("readConfigFile(invalid yaml) error = %v", err)
 	}
 }
 

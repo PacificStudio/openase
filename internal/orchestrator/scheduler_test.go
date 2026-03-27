@@ -1164,6 +1164,105 @@ func TestSchedulerRunTickContinuesWhenOneDueScheduledJobFails(t *testing.T) {
 	}
 }
 
+func TestSchedulerHelperCoverage(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	scheduler := newTestScheduler(client, time.Date(2026, 3, 27, 18, 0, 0, 0, time.UTC))
+
+	agentItem := fixture.createAgent(ctx, t, "resolve-machine", 0)
+	machine, err := scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem)
+	if err != nil || machine == nil || machine.ID != fixture.localMachineID {
+		t.Fatalf("resolveExecutionMachine(success) = %+v, %v", machine, err)
+	}
+
+	if _, err := client.Machine.UpdateOneID(fixture.localMachineID).SetStatus(entmachine.StatusOffline).Save(ctx); err != nil {
+		t.Fatalf("set machine offline: %v", err)
+	}
+	machine, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem)
+	if err != nil || machine != nil {
+		t.Fatalf("resolveExecutionMachine(offline) = %+v, %v", machine, err)
+	}
+	if _, err := client.Machine.UpdateOneID(fixture.localMachineID).SetStatus(entmachine.StatusOnline).Save(ctx); err != nil {
+		t.Fatalf("restore machine online: %v", err)
+	}
+
+	otherOrg, err := client.Organization.Create().
+		SetName("Other Org").
+		SetSlug("other-org").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create other org: %v", err)
+	}
+	otherMachine, err := client.Machine.Create().
+		SetOrganizationID(otherOrg.ID).
+		SetName("other-machine").
+		SetHost("10.0.0.9").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create other machine: %v", err)
+	}
+	otherProvider, err := client.AgentProvider.Create().
+		SetOrganizationID(otherOrg.ID).
+		SetMachineID(otherMachine.ID).
+		SetName("Other Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create other provider: %v", err)
+	}
+	crossOrgAgent, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(otherProvider.ID).
+		SetName("cross-org").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create cross org agent: %v", err)
+	}
+	machine, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, crossOrgAgent)
+	if err != nil || machine != nil {
+		t.Fatalf("resolveExecutionMachine(org mismatch) = %+v, %v", machine, err)
+	}
+
+	doneStatusID := fixture.statusIDs["Done"]
+	if !isDependencyResolved(&ent.Ticket{CompletedAt: timePointer(time.Now())}) {
+		t.Fatal("isDependencyResolved(completedAt) expected true")
+	}
+	if !isDependencyResolved(&ent.Ticket{
+		StatusID: doneStatusID,
+		Edges: ent.TicketEdges{
+			Workflow: &ent.Workflow{
+				Edges: ent.WorkflowEdges{
+					FinishStatuses: []*ent.TicketStatus{{ID: doneStatusID}},
+				},
+			},
+		},
+	}) {
+		t.Fatal("isDependencyResolved(finish status) expected true")
+	}
+	if !isDependencyResolved(&ent.Ticket{
+		Edges: ent.TicketEdges{
+			Status: &ent.TicketStatus{Name: "Done"},
+		},
+	}) {
+		t.Fatal("isDependencyResolved(done status name) expected true")
+	}
+	if isDependencyResolved(&ent.Ticket{StatusID: fixture.statusIDs["Todo"]}) {
+		t.Fatal("isDependencyResolved(todo) expected false")
+	}
+
+	counts := map[string]int{"capacity": 1}
+	mergeSkipCounts(counts, map[string]int{"capacity": 2, "blocked": 1})
+	if counts["capacity"] != 3 || counts["blocked"] != 1 {
+		t.Fatalf("mergeSkipCounts() = %+v", counts)
+	}
+	rollback(nil)
+}
+
 func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) projectFixture {
 	t.Helper()
 
@@ -1266,6 +1365,10 @@ func newTestScheduler(client *ent.Client, now time.Time) *Scheduler {
 		return now
 	}
 	return scheduler
+}
+
+func timePointer(value time.Time) *time.Time {
+	return &value
 }
 
 func backlogStageActiveRuns(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID) int {

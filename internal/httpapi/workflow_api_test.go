@@ -21,6 +21,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 )
 
 func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
@@ -478,6 +479,181 @@ func TestHarnessVariablesRoute(t *testing.T) {
 	}
 }
 
+func TestWorkflowRoutesErrorMappingsAndInvalidInputs(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	serverWithService := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		workflowSvc,
+	)
+	serverWithoutService := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		server     *Server
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name:       "list unavailable",
+			server:     serverWithoutService,
+			method:     http.MethodGet,
+			target:     fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+			wantStatus: http.StatusServiceUnavailable,
+			wantBody:   "SERVICE_UNAVAILABLE",
+		},
+		{
+			name:       "list invalid project id",
+			server:     serverWithService,
+			method:     http.MethodGet,
+			target:     "/api/v1/projects/not-a-uuid/workflows",
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "INVALID_PROJECT_ID",
+		},
+		{
+			name:       "list project not found",
+			server:     serverWithService,
+			method:     http.MethodGet,
+			target:     "/api/v1/projects/00000000-0000-0000-0000-000000000000/workflows",
+			wantStatus: http.StatusNotFound,
+			wantBody:   "PROJECT_NOT_FOUND",
+		},
+		{
+			name:       "get invalid workflow id",
+			server:     serverWithService,
+			method:     http.MethodGet,
+			target:     "/api/v1/workflows/not-a-uuid",
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "INVALID_WORKFLOW_ID",
+		},
+		{
+			name:       "get workflow not found",
+			server:     serverWithService,
+			method:     http.MethodGet,
+			target:     "/api/v1/workflows/00000000-0000-0000-0000-000000000000",
+			wantStatus: http.StatusNotFound,
+			wantBody:   "WORKFLOW_NOT_FOUND",
+		},
+		{
+			name:       "delete invalid workflow id",
+			server:     serverWithService,
+			method:     http.MethodDelete,
+			target:     "/api/v1/workflows/not-a-uuid",
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "INVALID_WORKFLOW_ID",
+		},
+		{
+			name:       "delete workflow not found",
+			server:     serverWithService,
+			method:     http.MethodDelete,
+			target:     "/api/v1/workflows/00000000-0000-0000-0000-000000000000",
+			wantStatus: http.StatusNotFound,
+			wantBody:   "WORKFLOW_NOT_FOUND",
+		},
+		{
+			name:       "get harness invalid workflow id",
+			server:     serverWithService,
+			method:     http.MethodGet,
+			target:     "/api/v1/workflows/not-a-uuid/harness",
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "INVALID_WORKFLOW_ID",
+		},
+		{
+			name:       "get harness workflow not found",
+			server:     serverWithService,
+			method:     http.MethodGet,
+			target:     "/api/v1/workflows/00000000-0000-0000-0000-000000000000/harness",
+			wantStatus: http.StatusNotFound,
+			wantBody:   "WORKFLOW_NOT_FOUND",
+		},
+		{
+			name:       "update harness invalid workflow id",
+			server:     serverWithService,
+			method:     http.MethodPut,
+			target:     "/api/v1/workflows/not-a-uuid/harness",
+			body:       `{"content":"---\nworkflow:\n  role: coding\n---\n\n# Coding\n"}`,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "INVALID_WORKFLOW_ID",
+		},
+		{
+			name:       "update harness empty content",
+			server:     serverWithService,
+			method:     http.MethodPut,
+			target:     "/api/v1/workflows/00000000-0000-0000-0000-000000000000/harness",
+			body:       `{"content":"   "}`,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "content must not be empty",
+		},
+		{
+			name:       "validate harness invalid json",
+			server:     serverWithService,
+			method:     http.MethodPost,
+			target:     "/api/v1/harness/validate",
+			body:       `{"content":`,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "invalid JSON body",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequest(t, testCase.server, testCase.method, testCase.target, testCase.body)
+			if rec.Code != testCase.wantStatus {
+				t.Fatalf("expected %d, got %d body=%s", testCase.wantStatus, rec.Code, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("expected body %q to contain %q", rec.Body.String(), testCase.wantBody)
+			}
+		})
+	}
+}
+
 func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -806,6 +982,128 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("expected rendered harness to contain %q, got:\n%s", want, rendered)
 		}
+	}
+}
+
+func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+	primaryRepoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-invalid-workflows").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-invalid-workflows").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	created := struct {
+		Workflow workflowResponse `json:"workflow"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		map[string]any{
+			"agent_id":          agent.ID.String(),
+			"name":              "Coding Workflow",
+			"type":              "coding",
+			"pickup_status_ids": []string{todoID.String()},
+			"finish_status_ids": []string{doneID.String()},
+			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		},
+		http.StatusCreated,
+		&created,
+	)
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "create invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + agent.ID.String() + `","name":" ","type":"coding","pickup_status_ids":["` + todoID.String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "create missing agent", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + uuid.New().String() + `","name":"Missing Agent","type":"coding","pickup_status_ids":["` + todoID.String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusBadRequest, wantBody: "AGENT_NOT_FOUND"},
+		{name: "create missing status", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + agent.ID.String() + `","name":"Missing Status","type":"coding","pickup_status_ids":["` + uuid.New().String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusBadRequest, wantBody: "STATUS_NOT_FOUND"},
+		{name: "update invalid request", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/workflows/%s", created.Workflow.ID), body: `{"max_concurrent":0}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "update missing workflow", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/workflows/%s", uuid.New()), body: `{"name":"missing"}`, wantStatus: http.StatusNotFound, wantBody: "WORKFLOW_NOT_FOUND"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequest(t, server, testCase.method, testCase.target, testCase.body)
+			if rec.Code != testCase.wantStatus || !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
+			}
+		})
 	}
 }
 

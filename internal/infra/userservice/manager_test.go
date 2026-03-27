@@ -2,6 +2,7 @@ package userservice
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -70,6 +71,38 @@ func TestSystemdLogsUsesJournalctl(t *testing.T) {
 	}
 }
 
+func TestSystemdConstructorsPlatformAndLifecycleHelpers(t *testing.T) {
+	homeDir := t.TempDir()
+	if manager := NewSystemdUserManager(homeDir); manager.homeDir != homeDir || manager.runner == nil {
+		t.Fatalf("NewSystemdUserManager() = %+v", manager)
+	}
+
+	runner := &recordingRunner{}
+	manager := newSystemdUserManagerForTest(homeDir, runner)
+	if got := manager.Platform(); got != "systemd --user" {
+		t.Fatalf("Platform() = %q", got)
+	}
+	if err := manager.Down(context.Background(), provider.MustParseServiceName("openase")); err != nil {
+		t.Fatalf("Down() error = %v", err)
+	}
+	if err := manager.Restart(context.Background(), provider.MustParseServiceName("openase")); err != nil {
+		t.Fatalf("Restart() error = %v", err)
+	}
+
+	expected := []recordedCommand{
+		{name: "systemctl", args: []string{"--user", "stop", "openase"}},
+		{name: "systemctl", args: []string{"--user", "restart", "openase"}},
+	}
+	if !reflect.DeepEqual(runner.calls, expected) {
+		t.Fatalf("unexpected commands: %+v", runner.calls)
+	}
+
+	failing := newSystemdUserManagerForTest(homeDir, &recordingRunner{results: []error{errors.New("boom")}})
+	if err := failing.Down(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), "systemctl --user stop openase: boom") {
+		t.Fatalf("Down() wrapped error = %v", err)
+	}
+}
+
 func TestLaunchdApplyWritesPlistAndBootstrapsService(t *testing.T) {
 	homeDir := t.TempDir()
 	runner := &recordingRunner{
@@ -135,6 +168,51 @@ func TestLaunchdRestartBootstrapsWhenServiceIsNotLoaded(t *testing.T) {
 	}
 }
 
+func TestLaunchdConstructorsPlatformDownAndRestartLoaded(t *testing.T) {
+	homeDir := t.TempDir()
+	if manager := NewLaunchdUserManager(homeDir, 501); manager.homeDir != homeDir || manager.uid != 501 || manager.runner == nil {
+		t.Fatalf("NewLaunchdUserManager() = %+v", manager)
+	}
+
+	runner := &recordingRunner{results: []error{&exec.ExitError{}}}
+	manager := newLaunchdUserManagerForTest(homeDir, 501, runner)
+	if got := manager.Platform(); got != "launchd" {
+		t.Fatalf("Platform() = %q", got)
+	}
+	if err := manager.Down(context.Background(), provider.MustParseServiceName("openase")); err != nil {
+		t.Fatalf("Down(unloaded) error = %v", err)
+	}
+	if len(runner.calls) != 1 || !reflect.DeepEqual(runner.calls[0], recordedCommand{name: "launchctl", args: []string{"print", "gui/501/com.openase"}}) {
+		t.Fatalf("Down(unloaded) calls = %+v", runner.calls)
+	}
+
+	runner = &recordingRunner{results: []error{nil}}
+	manager = newLaunchdUserManagerForTest(homeDir, 501, runner)
+	if err := manager.Down(context.Background(), provider.MustParseServiceName("openase")); err != nil {
+		t.Fatalf("Down(loaded) error = %v", err)
+	}
+	expectedDown := []recordedCommand{
+		{name: "launchctl", args: []string{"print", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"bootout", "gui/501/com.openase"}},
+	}
+	if !reflect.DeepEqual(runner.calls, expectedDown) {
+		t.Fatalf("Down(loaded) calls = %+v", runner.calls)
+	}
+
+	runner = &recordingRunner{results: []error{nil}}
+	manager = newLaunchdUserManagerForTest(homeDir, 501, runner)
+	if err := manager.Restart(context.Background(), provider.MustParseServiceName("openase")); err != nil {
+		t.Fatalf("Restart(loaded) error = %v", err)
+	}
+	expectedRestart := []recordedCommand{
+		{name: "launchctl", args: []string{"print", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"kickstart", "-k", "gui/501/com.openase"}},
+	}
+	if !reflect.DeepEqual(runner.calls, expectedRestart) {
+		t.Fatalf("Restart(loaded) calls = %+v", runner.calls)
+	}
+}
+
 func TestLaunchdLogsUsesTail(t *testing.T) {
 	homeDir := t.TempDir()
 	runner := &recordingRunner{}
@@ -158,6 +236,34 @@ func TestLaunchdLogsUsesTail(t *testing.T) {
 	}
 	if len(runner.calls) != 1 || !reflect.DeepEqual(runner.calls[0], expected) {
 		t.Fatalf("unexpected commands: %+v", runner.calls)
+	}
+}
+
+func TestLaunchdHelperErrorPathsAndExecRunner(t *testing.T) {
+	homeDir := t.TempDir()
+	manager := newLaunchdUserManagerForTest(homeDir, 501, &recordingRunner{results: []error{errors.New("boom")}})
+	if _, err := manager.isLoaded(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), "launchctl print gui/501/com.openase: boom") {
+		t.Fatalf("isLoaded(unexpected error) = %v", err)
+	}
+
+	failing := newLaunchdUserManagerForTest(homeDir, 501, &recordingRunner{results: []error{nil, errors.New("boom")}})
+	if err := failing.Restart(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), "launchctl kickstart -k gui/501/com.openase: boom") {
+		t.Fatalf("Restart(error) = %v", err)
+	}
+
+	command := "sh"
+	if _, err := exec.LookPath(command); err != nil {
+		t.Skipf("sh not available: %v", err)
+	}
+
+	var stdout strings.Builder
+	var stderr strings.Builder
+	err := (execCommandRunner{}).Run(context.Background(), command, []string{"-c", "printf 'out'; printf 'err' >&2"}, &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("execCommandRunner.Run() error = %v", err)
+	}
+	if stdout.String() != "out" || stderr.String() != "err" {
+		t.Fatalf("execCommandRunner output = %q / %q", stdout.String(), stderr.String())
 	}
 }
 

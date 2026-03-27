@@ -2,7 +2,9 @@ package agentcli
 
 import (
 	"context"
+	"errors"
 	"io"
+	"os"
 	"os/exec"
 	"runtime"
 	"testing"
@@ -158,6 +160,143 @@ func TestRunningProcessStopTerminatesRunningProcess(t *testing.T) {
 	}
 	if waitErr := process.Wait(); waitErr == nil {
 		t.Fatal("expected Wait to report a terminated process")
+	}
+}
+
+func TestManagerStartUsesStdinAndRejectsInvalidInputs(t *testing.T) {
+	command := requirePOSIXShell(t)
+	manager := NewManager(ManagerOptions{})
+
+	if _, err := manager.Start(nil, newShellSpec(t, command, "cat")); err == nil || err.Error() != "context must not be nil" {
+		t.Fatalf("Start(nil context) error = %v", err)
+	}
+
+	emptySpec := provider.AgentCLIProcessSpec{}
+	if _, err := manager.Start(context.Background(), emptySpec); err == nil || err.Error() != "agent cli command must not be empty" {
+		t.Fatalf("Start(empty command) error = %v", err)
+	}
+
+	process, err := manager.Start(context.Background(), newShellSpec(t, command, "read line; printf '%s' \"$line\""))
+	if err != nil {
+		t.Fatalf("Start(stdin echo) error = %v", err)
+	}
+	if _, err := io.WriteString(process.Stdin(), "stdin-line\n"); err != nil {
+		t.Fatalf("WriteString(stdin) error = %v", err)
+	}
+	if err := process.Stdin().Close(); err != nil {
+		t.Fatalf("stdin.Close() error = %v", err)
+	}
+
+	stdout, err := io.ReadAll(process.Stdout())
+	if err != nil {
+		t.Fatalf("ReadAll(stdout) error = %v", err)
+	}
+	if err := process.Wait(); err != nil {
+		t.Fatalf("Wait(stdin echo) error = %v", err)
+	}
+	if string(stdout) != "stdin-line" {
+		t.Fatalf("stdout = %q, want stdin-line", string(stdout))
+	}
+}
+
+func TestRunningProcessNilAndContextGuards(t *testing.T) {
+	var nilProcess *runningProcess
+	if got := nilProcess.PID(); got != 0 {
+		t.Fatalf("PID(nil) = %d, want 0", got)
+	}
+	if err := nilProcess.Wait(); err == nil || err.Error() != "process must not be nil" {
+		t.Fatalf("Wait(nil) error = %v", err)
+	}
+	if err := nilProcess.Stop(context.Background()); err == nil || err.Error() != "process must not be nil" {
+		t.Fatalf("Stop(nil) error = %v", err)
+	}
+
+	command := requirePOSIXShell(t)
+	manager := NewManager(ManagerOptions{})
+	process, err := manager.Start(context.Background(), newShellSpec(t, command, "sleep 1"))
+	if err != nil {
+		t.Fatalf("Start(sleep) error = %v", err)
+	}
+	if err := process.Stop(nil); err == nil || err.Error() != "context must not be nil" {
+		t.Fatalf("Stop(nil context) error = %v", err)
+	}
+	_ = process.Stop(context.Background())
+	_ = process.Wait()
+}
+
+func TestProcessOutputBufferCloseAndReadPaths(t *testing.T) {
+	buffer := newProcessOutputBuffer()
+	if _, err := buffer.Write([]byte("hello")); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+
+	got := make([]byte, 5)
+	n, err := buffer.Read(got)
+	if err != nil || string(got[:n]) != "hello" {
+		t.Fatalf("Read() = %d, %v, %q", n, err, string(got[:n]))
+	}
+
+	if err := buffer.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	n, err = buffer.Read(got)
+	if n != 0 || !errors.Is(err, io.EOF) {
+		t.Fatalf("Read() after Close = %d, %v", n, err)
+	}
+	if _, err := buffer.Write([]byte("x")); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("Write() after Close error = %v, want %v", err, io.ErrClosedPipe)
+	}
+
+	buffer = newProcessOutputBuffer()
+	if err := buffer.closeWithError(io.ErrUnexpectedEOF); err != nil {
+		t.Fatalf("closeWithError() error = %v", err)
+	}
+	n, err = buffer.Read(got)
+	if n != 0 || !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("Read() after closeWithError = %d, %v", n, err)
+	}
+}
+
+func TestInterruptKillAndPipeHelpers(t *testing.T) {
+	command := requirePOSIXShell(t)
+
+	if err := interruptProcess(nil); err == nil || err.Error() != "process not started" {
+		t.Fatalf("interruptProcess(nil) error = %v", err)
+	}
+	if err := killProcess(nil); err == nil || err.Error() != "process not started" {
+		t.Fatalf("killProcess(nil) error = %v", err)
+	}
+
+	cmd := exec.Command(command, "-c", "sleep 30")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("cmd.Start(interrupt) error = %v", err)
+	}
+	if err := interruptProcess(cmd.Process); err != nil {
+		t.Fatalf("interruptProcess() error = %v", err)
+	}
+	if err := cmd.Wait(); err == nil {
+		t.Fatal("Wait(interrupt) expected signal exit error")
+	}
+
+	cmd = exec.Command(command, "-c", "trap '' INT; sleep 30")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("cmd.Start(kill) error = %v", err)
+	}
+	if err := killProcess(cmd.Process); err != nil {
+		t.Fatalf("killProcess() error = %v", err)
+	}
+	if err := cmd.Wait(); err == nil {
+		t.Fatal("Wait(kill) expected signal exit error")
+	}
+
+	if !isProcessPipeClosedError(os.ErrClosed) {
+		t.Fatal("isProcessPipeClosedError(os.ErrClosed) = false, want true")
+	}
+	if !isProcessPipeClosedError(errors.New("file already closed")) {
+		t.Fatal("isProcessPipeClosedError(file already closed) = false, want true")
+	}
+	if isProcessPipeClosedError(errors.New("boom")) {
+		t.Fatal("isProcessPipeClosedError(boom) = true, want false")
 	}
 }
 
