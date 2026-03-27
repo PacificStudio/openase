@@ -4151,6 +4151,17 @@
                             "additionalProperties": {},
                             "type": "object"
                           },
+                          "availability_checked_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "availability_reason": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "availability_state": {
+                            "type": "string"
+                          },
                           "available": {
                             "type": "boolean"
                           },
@@ -4367,6 +4378,17 @@
                         "auth_config": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "availability_checked_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_reason": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_state": {
+                          "type": "string"
                         },
                         "available": {
                           "type": "boolean"
@@ -11134,6 +11156,17 @@
                         "auth_config": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "availability_checked_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_reason": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_state": {
+                          "type": "string"
                         },
                         "available": {
                           "type": "boolean"

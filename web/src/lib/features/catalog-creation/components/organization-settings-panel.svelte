@@ -3,6 +3,7 @@
   import type { AgentProvider, Organization } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { updateOrganization } from '$lib/api/openase'
+  import { providerAvailabilityLabel } from '$lib/features/providers'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
@@ -25,7 +26,8 @@
   let saving = $state(false)
 
   function providerLabel(provider: AgentProvider) {
-    return provider.available ? provider.name : `${provider.name} (Unavailable)`
+    const availabilityLabel = providerAvailabilityLabel(provider.availability_state)
+    return `${provider.name} (${availabilityLabel})`
   }
 
   function selectedProviderLabel() {
