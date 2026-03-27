@@ -1,0 +1,183 @@
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import type {
+  AgentOutputPayload,
+  AgentStepPayload,
+  Organization,
+  Project,
+} from '$lib/api/contracts'
+import { appStore } from '$lib/stores/app.svelte'
+import type { AgentsPageData } from '../data'
+import AgentsPage from './agents-page.svelte'
+
+const { listAgentOutput, listAgentSteps, connectEventStream, loadAgentsPageResult } = vi.hoisted(
+  () => ({
+    listAgentOutput: vi.fn(),
+    listAgentSteps: vi.fn(),
+    connectEventStream: vi.fn(),
+    loadAgentsPageResult: vi.fn(),
+  }),
+)
+
+vi.mock('$lib/api/openase', () => ({
+  listAgentOutput,
+  listAgentSteps,
+}))
+
+vi.mock('$lib/api/sse', () => ({
+  connectEventStream,
+}))
+
+vi.mock('../page-data', () => ({
+  loadAgentsPageResult,
+}))
+
+const projectFixture: Project = {
+  id: 'project-1',
+  organization_id: 'org-1',
+  name: 'OpenASE',
+  slug: 'openase',
+  description: '',
+  status: 'active',
+  default_workflow_id: null,
+  default_agent_provider_id: null,
+  accessible_machine_ids: [],
+  max_concurrent_agents: 4,
+}
+
+const orgFixture: Organization = {
+  id: 'org-1',
+  name: 'Acme',
+  slug: 'acme',
+  status: 'active',
+  default_agent_provider_id: null,
+}
+
+const agentsPageDataFixture: AgentsPageData = {
+  agents: [
+    {
+      id: 'agent-1',
+      name: 'Codex Worker',
+      providerId: 'provider-1',
+      providerName: 'Codex',
+      modelName: 'gpt-5.4',
+      status: 'running',
+      runtimePhase: 'ready',
+      runtimeControlState: 'active',
+      currentTicket: {
+        id: 'ticket-1',
+        identifier: 'ASE-277',
+        title: 'Align runtime event pipeline',
+      },
+      sessionId: 'session-1',
+      currentStepStatus: 'planning',
+      currentStepSummary: 'Inspecting runtime events.',
+      currentStepChangedAt: '2026-03-27T12:00:00Z',
+      todayCompleted: 0,
+      todayCost: 0,
+    },
+  ],
+  providers: [
+    {
+      id: 'provider-1',
+      machineId: 'machine-1',
+      machineName: 'Localhost',
+      machineHost: '127.0.0.1',
+      machineStatus: 'online',
+      machineWorkspaceRoot: '/workspace',
+      name: 'Codex',
+      adapterType: 'codex-app-server',
+      available: true,
+      cliCommand: 'codex',
+      cliArgs: [],
+      authConfig: {},
+      modelName: 'gpt-5.4',
+      modelTemperature: 0,
+      modelMaxTokens: 4096,
+      costPerInputToken: 0,
+      costPerOutputToken: 0,
+      agentCount: 1,
+      isDefault: true,
+    },
+  ],
+  providerItems: [
+    {
+      id: 'provider-1',
+      organization_id: 'org-1',
+      machine_id: 'machine-1',
+      machine_name: 'Localhost',
+      machine_host: '127.0.0.1',
+      machine_status: 'online',
+      machine_ssh_user: null,
+      machine_workspace_root: '/workspace',
+      name: 'Codex',
+      adapter_type: 'codex-app-server',
+      available: true,
+      cli_command: 'codex',
+      cli_args: [],
+      auth_config: {},
+      model_name: 'gpt-5.4',
+      model_temperature: 0,
+      model_max_tokens: 4096,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
+    },
+  ],
+  machineItems: [
+    {
+      id: 'machine-1',
+      organization_id: 'org-1',
+      name: 'Localhost',
+      host: '127.0.0.1',
+      port: 22,
+      ssh_user: null,
+      ssh_key_path: null,
+      description: '',
+      labels: [],
+      status: 'online',
+      workspace_root: '/workspace',
+      agent_cli_path: null,
+      env_vars: [],
+      last_heartbeat_at: null,
+      resources: {},
+    },
+  ],
+}
+
+const emptyOutputFixture: AgentOutputPayload = { entries: [] }
+const emptyStepFixture: AgentStepPayload = { entries: [] }
+
+describe('AgentsPage', () => {
+  afterEach(() => {
+    cleanup()
+    appStore.currentOrg = null
+    appStore.currentProject = null
+    vi.clearAllMocks()
+  })
+
+  it('opens separate trace and step streams for the output drawer', async () => {
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadAgentsPageResult.mockResolvedValue({ ok: true, data: agentsPageDataFixture })
+    listAgentOutput.mockResolvedValue(emptyOutputFixture)
+    listAgentSteps.mockResolvedValue(emptyStepFixture)
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByLabelText } = render(AgentsPage)
+
+    await fireEvent.click(await findByLabelText('View output'))
+
+    await waitFor(() => {
+      expect(connectEventStream).toHaveBeenCalledWith(
+        '/api/v1/projects/project-1/agents/agent-1/output/stream',
+        expect.any(Object),
+      )
+      expect(connectEventStream).toHaveBeenCalledWith(
+        '/api/v1/projects/project-1/agents/agent-1/steps/stream',
+        expect.any(Object),
+      )
+    })
+  })
+})

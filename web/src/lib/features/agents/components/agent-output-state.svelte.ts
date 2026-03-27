@@ -12,6 +12,8 @@ export function createAgentOutputState() {
   let loading = $state(false)
   let error = $state('')
   let streamState = $state<StreamConnectionState>('idle')
+  let traceStreamState = $state<StreamConnectionState>('idle')
+  let stepStreamState = $state<StreamConnectionState>('idle')
   let loadRequestId = 0
 
   return {
@@ -33,12 +35,17 @@ export function createAgentOutputState() {
     get streamState() {
       return streamState
     },
-    set streamState(value) {
-      streamState = value
-    },
     open(agentId: string) {
       selectedAgentId = agentId
       error = ''
+    },
+    setTraceStreamState(value: StreamConnectionState) {
+      traceStreamState = value
+      streamState = combineStreamStates(traceStreamState, stepStreamState)
+    },
+    setStepStreamState(value: StreamConnectionState) {
+      stepStreamState = value
+      streamState = combineStreamStates(traceStreamState, stepStreamState)
     },
     invalidate() {
       loadRequestId += 1
@@ -103,8 +110,27 @@ export function createAgentOutputState() {
       loading = false
       error = ''
       streamState = 'idle'
+      traceStreamState = 'idle'
+      stepStreamState = 'idle'
     },
   }
+}
+
+function combineStreamStates(
+  traceStreamState: StreamConnectionState,
+  stepStreamState: StreamConnectionState,
+): StreamConnectionState {
+  if (traceStreamState === 'retrying' || stepStreamState === 'retrying') {
+    return 'retrying'
+  }
+  if (traceStreamState === 'connecting' || stepStreamState === 'connecting') {
+    return 'connecting'
+  }
+  if (traceStreamState === 'live' || stepStreamState === 'live') {
+    return 'live'
+  }
+
+  return 'idle'
 }
 
 function mergeAgentStepEntry(entries: AgentStepEntry[], entry: AgentStepEntry) {

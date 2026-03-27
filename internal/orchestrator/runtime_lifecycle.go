@@ -482,15 +482,6 @@ func normalizeAgentStepSummary(raw string) string {
 	return strings.TrimSpace(trimmed[:240]) + "..."
 }
 
-func uuidPointer(value uuid.UUID) *uuid.UUID {
-	if value == uuid.Nil {
-		return nil
-	}
-
-	cloned := value
-	return &cloned
-}
-
 func lifecycleMessage(eventType provider.EventType, agentName string) string {
 	switch eventType {
 	case agentClaimedType:

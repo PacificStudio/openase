@@ -63,7 +63,8 @@
       </div>
       <SheetDescription>
         Dedicated runtime trace and human-readable steps for the selected agent. Snapshot history
-        loads first, then live output appends as new `agent.output` and `agent.step` events arrive.
+        loads first, then live trace and step feeds append independently as new runtime events
+        arrive.
       </SheetDescription>
       {#if agent}
         <div class="text-muted-foreground mt-3 flex flex-wrap gap-4 text-xs">
