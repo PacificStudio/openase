@@ -617,7 +617,7 @@ func TestSchedulerRunTickResolvesExecutionMachineFromBoundProvider(t *testing.T)
 	if _, err := client.Machine.UpdateOneID(remoteMachine.ID).
 		SetResources(map[string]any{
 			"monitor": map[string]any{
-				"l4": codexL4Snapshot(now.Add(-5*time.Minute), true, domaincatalog.MachineAgentAuthStatusLoggedIn, domaincatalog.MachineAgentAuthModeLogin, true),
+				"l4": codexL4Snapshot(now.Add(-5*time.Minute), domaincatalog.MachineAgentAuthStatusLoggedIn, true),
 			},
 		}).
 		Save(ctx); err != nil {
@@ -778,7 +778,7 @@ func TestSchedulerRunTickSkipsUnavailableProvider(t *testing.T) {
 			"transport":    "local",
 			"last_success": true,
 			"monitor": map[string]any{
-				"l4": codexL4Snapshot(now.Add(-5*time.Minute), true, domaincatalog.MachineAgentAuthStatusNotLoggedIn, domaincatalog.MachineAgentAuthModeLogin, false),
+				"l4": codexL4Snapshot(now.Add(-5*time.Minute), domaincatalog.MachineAgentAuthStatusNotLoggedIn, false),
 			},
 		}).
 		Save(ctx); err != nil {
@@ -841,7 +841,7 @@ func TestSchedulerRunTickSkipsStaleProvider(t *testing.T) {
 			"transport":    "local",
 			"last_success": true,
 			"monitor": map[string]any{
-				"l4": codexL4Snapshot(now.Add(-domaincatalog.ProviderAvailabilityStaleAfter-time.Minute), true, domaincatalog.MachineAgentAuthStatusLoggedIn, domaincatalog.MachineAgentAuthModeLogin, true),
+				"l4": codexL4Snapshot(now.Add(-domaincatalog.ProviderAvailabilityStaleAfter-time.Minute), domaincatalog.MachineAgentAuthStatusLoggedIn, true),
 			},
 		}).
 		Save(ctx); err != nil {
@@ -1325,7 +1325,7 @@ func seedProjectFixtureAt(ctx context.Context, t *testing.T, client *ent.Client,
 			"transport":    "local",
 			"last_success": true,
 			"monitor": map[string]any{
-				"l4": codexL4Snapshot(now.Add(-5*time.Minute), true, domaincatalog.MachineAgentAuthStatusLoggedIn, domaincatalog.MachineAgentAuthModeLogin, true),
+				"l4": codexL4Snapshot(now.Add(-5*time.Minute), domaincatalog.MachineAgentAuthStatusLoggedIn, true),
 			},
 		}).
 		Save(ctx)
@@ -1405,17 +1405,15 @@ func stringPointer(value string) *string {
 
 func codexL4Snapshot(
 	checkedAt time.Time,
-	installed bool,
 	authStatus domaincatalog.MachineAgentAuthStatus,
-	authMode domaincatalog.MachineAgentAuthMode,
 	ready bool,
 ) map[string]any {
 	return map[string]any{
 		"checked_at": checkedAt.UTC().Format(time.RFC3339),
 		"codex": map[string]any{
-			"installed":   installed,
+			"installed":   true,
 			"auth_status": string(authStatus),
-			"auth_mode":   string(authMode),
+			"auth_mode":   string(domaincatalog.MachineAgentAuthModeLogin),
 			"ready":       ready,
 		},
 	}
