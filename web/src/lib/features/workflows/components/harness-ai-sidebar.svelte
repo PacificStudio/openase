@@ -1,11 +1,15 @@
 <script lang="ts">
+  import type { AgentProvider } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { streamChatTurn, type ChatStreamEvent } from '$lib/api/chat'
+  import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import { Label } from '$ui/label'
   import { ScrollArea } from '$ui/scroll-area'
+  import * as Select from '$ui/select'
   import Textarea from '$ui/textarea/textarea.svelte'
   import { Bot, LoaderCircle, RefreshCcw, Send, WandSparkles } from '@lucide/svelte'
   import {
@@ -20,12 +24,14 @@
 
   let {
     projectId,
+    providers = [],
     workflowId,
     workflowName,
     draftContent,
     onApplySuggestion,
   }: {
     projectId?: string
+    providers?: AgentProvider[]
     workflowId?: string
     workflowName?: string
     draftContent: string
@@ -35,12 +41,23 @@
   let prompt = $state('')
   let pending = $state(false)
   let sessionId = $state('')
+  let providerId = $state('')
   let entries = $state<AssistantTranscriptEntry[]>([])
   let appliedFingerprint = $state('')
   let entryCounter = 0
   let previousContextKey = ''
   let abortController: AbortController | null = null
 
+  const chatProviders = $derived(
+    providers.filter(
+      (provider) =>
+        provider.available &&
+        ['claude-code-cli', 'codex-app-server', 'gemini-cli'].includes(provider.adapter_type),
+    ),
+  )
+  const selectedProvider = $derived(
+    chatProviders.find((provider) => provider.id === providerId) ?? null,
+  )
   const suggestion = $derived(findLatestHarnessSuggestion(entries))
   const preview = $derived(suggestion ? buildDiffPreview(draftContent, suggestion.content) : null)
   const currentFingerprint = $derived(suggestion ? fingerprintSuggestion(suggestion.content) : '')
@@ -58,6 +75,20 @@
   })
 
   $effect(() => {
+    if (providerId && chatProviders.some((provider) => provider.id === providerId)) {
+      return
+    }
+
+    const defaultProviderId = appStore.currentProject?.default_agent_provider_id ?? ''
+    if (defaultProviderId && chatProviders.some((provider) => provider.id === defaultProviderId)) {
+      providerId = defaultProviderId
+      return
+    }
+
+    providerId = chatProviders[0]?.id ?? ''
+  })
+
+  $effect(() => {
     return () => {
       abortController?.abort()
     }
@@ -65,7 +96,7 @@
 
   async function handleSend() {
     const message = prompt.trim()
-    if (!message || !projectId || !workflowId || pending) {
+    if (!message || !projectId || !workflowId || !providerId || pending) {
       return
     }
 
@@ -81,6 +112,7 @@
         {
           message,
           source: 'harness_editor',
+          providerId: providerId || undefined,
           sessionId: sessionId || undefined,
           context: {
             projectId,
@@ -150,6 +182,10 @@
     appliedFingerprint = ''
   }
 
+  function providerLabel(provider: AgentProvider) {
+    return provider.model_name ? `${provider.name} · ${provider.model_name}` : provider.name
+  }
+
   function appendEntry(role: AssistantTranscriptEntry['role'], content: string) {
     entryCounter += 1
     entries = [...entries, { id: `entry-${entryCounter}`, role, content }]
@@ -162,6 +198,9 @@
       <div class="flex items-center gap-2">
         <Bot class="text-primary size-4" />
         <h2 class="text-sm font-semibold">Harness AI</h2>
+        {#if selectedProvider}
+          <Badge variant="outline" class="text-[10px]">{selectedProvider.name}</Badge>
+        {/if}
         {#if sessionId}
           <Badge variant="outline" class="text-[10px]">Context kept</Badge>
         {/if}
@@ -249,12 +288,36 @@
   </ScrollArea>
 
   <div class="border-border border-t px-4 py-3">
+    <div class="mb-3 space-y-2">
+      <Label class="text-[11px]">Provider</Label>
+      <Select.Root
+        type="single"
+        value={providerId}
+        onValueChange={(value) => {
+          if ((value || '') === providerId) {
+            return
+          }
+          providerId = value || ''
+          resetConversation()
+        }}
+      >
+        <Select.Trigger class="w-full text-left text-sm">
+          {selectedProvider ? providerLabel(selectedProvider) : 'No chat provider available'}
+        </Select.Trigger>
+        <Select.Content>
+          {#each chatProviders as provider (provider.id)}
+            <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
+    </div>
+
     <Textarea
       bind:value={prompt}
       rows={4}
       class="text-sm"
       placeholder="Ask the assistant to refine this harness. Shift+Enter for newline."
-      disabled={!projectId || !workflowId || pending}
+      disabled={!projectId || !workflowId || !providerId || pending}
       onkeydown={handlePromptKeydown}
     />
 
@@ -267,7 +330,7 @@
       <Button
         size="sm"
         onclick={handleSend}
-        disabled={!prompt.trim() || !projectId || !workflowId || pending}
+        disabled={!prompt.trim() || !projectId || !workflowId || !providerId || pending}
       >
         <Send class="size-4" />
         Send

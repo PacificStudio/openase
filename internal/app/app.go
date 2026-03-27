@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
+	codex "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
@@ -137,9 +138,18 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("resolve chat working directory: %w", err)
 	}
+	chatProcessManager := agentcli.NewManager(agentcli.ManagerOptions{})
+	codexRuntimeAdapter, err := codex.NewAdapter(codex.AdapterOptions{ProcessManager: chatProcessManager})
+	if err != nil {
+		return fmt.Errorf("construct chat codex adapter: %w", err)
+	}
 	chatSvc := chatservice.NewService(
 		a.logger,
-		claudecodeadapter.NewAdapter(agentcli.NewManager(agentcli.ManagerOptions{})),
+		chatservice.NewRuntime(
+			chatservice.NewClaudeRuntime(claudecodeadapter.NewAdapter(chatProcessManager)),
+			chatservice.NewCodexRuntime(codexRuntimeAdapter),
+			chatservice.NewGeminiRuntime(chatProcessManager),
+		),
 		catalogSvc,
 		ticketSvc,
 		workflowSvc,

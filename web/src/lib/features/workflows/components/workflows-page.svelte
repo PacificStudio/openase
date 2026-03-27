@@ -8,7 +8,7 @@
     unbindWorkflowSkills,
     validateHarness,
   } from '$lib/api/openase'
-  import type { HarnessValidationIssue } from '$lib/api/contracts'
+  import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
   import type {
     HarnessVariableGroup,
     WorkflowAgentOption,
@@ -38,6 +38,7 @@
   let builtinRoleContent = $state(''),
     statuses = $state<WorkflowStatusOption[]>([])
   let agentOptions = $state<WorkflowAgentOption[]>([])
+  let providers = $state<AgentProvider[]>([])
   let variableGroups = $state<HarnessVariableGroup[]>([])
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
   let isDirty = $derived(harness ? draftHarness !== harness.rawContent : false)
@@ -53,6 +54,7 @@
       skillStates = []
       statuses = []
       agentOptions = []
+      providers = []
       variableGroups = []
       validationIssues = []
       loadError = ''
@@ -73,6 +75,7 @@
         const nextWorkflows = payload.workflows
         workflows = nextWorkflows
         agentOptions = payload.agentOptions
+        providers = payload.providers
         if (!selectedId || !nextWorkflows.some((workflow) => workflow.id === selectedId)) {
           selectedId = nextWorkflows[0]?.id ?? ''
         }
@@ -249,6 +252,7 @@
 
       <WorkflowEditorPanel
         projectId={appStore.currentProject?.id}
+        {providers}
         selectedWorkflow={selectedWorkflow ?? undefined}
         harness={harness ? toHarnessContent(draftHarness) : null}
         {variableGroups}

@@ -1721,6 +1721,7 @@ export interface operations {
             workflow_id?: string | null
           }
           message?: string
+          provider_id?: string | null
           session_id?: string | null
           source?: string
         }
@@ -1791,7 +1792,7 @@ export interface operations {
       query?: never
       header?: never
       path: {
-        /** @description Claude Code session ID. */
+        /** @description Ephemeral chat session ID. */
         sessionId: string
       }
       cookie?: never

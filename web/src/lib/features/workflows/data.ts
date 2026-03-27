@@ -97,6 +97,7 @@ export async function loadWorkflowCatalog(projectId: string, orgId: string) {
 
   return {
     agentOptions,
+    providers: providerPayload.providers,
     statuses,
     workflows: workflowPayload.workflows.map((workflow) =>
       mapWorkflowSummary(workflow, statusNamesById),
@@ -119,6 +120,7 @@ export async function loadWorkflowIndex(projectId: string, orgId: string, select
     builtinRoleContent:
       builtinRolePayload.roles.find((role) => role.workflow_type === 'coding')?.content ??
       defaultHarnessTemplate(),
+    providers: catalog.providers,
     statuses: catalog.statuses,
     skillStates: mapSkillStates(skillPayload.skills, currentWorkflowId),
     variableGroups: variablePayload.groups as HarnessVariableGroup[],

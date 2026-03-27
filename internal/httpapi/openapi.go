@@ -244,10 +244,11 @@ type OpenAPIChatContext struct {
 }
 
 type OpenAPIChatStartRequest struct {
-	Message   string             `json:"message"`
-	Source    string             `json:"source"`
-	Context   OpenAPIChatContext `json:"context"`
-	SessionID *string            `json:"session_id,omitempty"`
+	Message    string             `json:"message"`
+	Source     string             `json:"source"`
+	ProviderID *string            `json:"provider_id,omitempty"`
+	Context    OpenAPIChatContext `json:"context"`
+	SessionID  *string            `json:"session_id,omitempty"`
 }
 
 type OpenAPITicketStatus struct {
@@ -2475,7 +2476,7 @@ func (b openAPISpecBuilder) addChatOperations() error {
 		chatDelete.AddResponse(code, errorResponse)
 	}
 	chatDelete.AddParameter(openapi3.NewPathParameter("sessionId").
-		WithDescription("Claude Code session ID.").
+		WithDescription("Ephemeral chat session ID.").
 		WithRequired(true).
 		WithSchema(openapi3.NewStringSchema()),
 	)

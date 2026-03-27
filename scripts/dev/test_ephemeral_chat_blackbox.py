@@ -59,6 +59,18 @@ def require_by_name(items: list[dict[str, Any]], key: str, want: str) -> dict[st
     raise RuntimeError(f"could not find item with {key}={want!r} in {items!r}")
 
 
+def resolve_chat_provider(items: list[dict[str, Any]]) -> dict[str, Any]:
+    preferred_adapters = ["claude-code-cli", "codex-app-server", "gemini-cli"]
+    for adapter_type in preferred_adapters:
+        for item in items:
+            if item.get("adapter_type") == adapter_type and item.get("available"):
+                return item
+
+    raise RuntimeError(
+        f"could not find an available Ephemeral Chat provider in {json.dumps(items, ensure_ascii=False)}"
+    )
+
+
 def read_sse_stream(response, timeout_seconds: int):
     deadline = time.time() + timeout_seconds
     current_event = None
@@ -85,6 +97,44 @@ def read_sse_stream(response, timeout_seconds: int):
             data_lines = []
 
     raise RuntimeError(f"timed out after {timeout_seconds}s waiting for chat SSE terminal event")
+
+
+def start_chat_turn(base_url: str, timeout_seconds: int, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    request = urllib.request.Request(
+        base_url + "/api/v1/chat",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Accept": "text/event-stream",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    first_text = None
+    done_payload = None
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        for event_name, event_payload in read_sse_stream(response, timeout_seconds):
+            if event_name == "error":
+                raise RuntimeError(
+                    f"chat stream returned error payload: {json.dumps(event_payload, ensure_ascii=False)}"
+                )
+            if event_name == "message" and event_payload.get("type") == "text" and first_text is None:
+                first_text = event_payload.get("content")
+            if event_name == "done":
+                done_payload = event_payload
+                break
+
+    if not first_text or not str(first_text).strip():
+        raise RuntimeError("expected chat stream to emit a non-empty assistant text message")
+    if not isinstance(done_payload, dict):
+        raise RuntimeError("expected chat stream to emit a done event")
+    session_id = str(done_payload.get("session_id", "")).strip()
+    if session_id == "":
+        raise RuntimeError(
+            f"expected done event to include session_id, got {json.dumps(done_payload, ensure_ascii=False)}"
+        )
+
+    return first_text, done_payload
 
 
 def main() -> int:
@@ -119,81 +169,87 @@ def main() -> int:
         },
     )["project"]
 
-    print("[3/7] verify Claude Code provider availability")
+    print("[3/9] resolve an available Ephemeral Chat provider")
     providers = request_json(base_url, "GET", f"/api/v1/orgs/{org['id']}/providers")["providers"]
-    claude_provider = require_by_name(providers, "adapter_type", "claude-code-cli")
-    if not claude_provider.get("available"):
-        raise RuntimeError(f"Claude Code provider is not available: {json.dumps(claude_provider, ensure_ascii=False)}")
+    chat_provider = resolve_chat_provider(providers)
 
-    print("[4/7] set Claude Code as the default project provider")
+    print("[4/9] set the selected provider as the default project provider")
     project = request_json(
         base_url,
         "PATCH",
         f"/api/v1/projects/{project['id']}",
         {
-            "default_agent_provider_id": claude_provider["id"],
+            "default_agent_provider_id": chat_provider["id"],
         },
     )["project"]
 
-    print("[5/7] start project-sidebar ephemeral chat")
-    payload = {
+    print("[5/9] start project-sidebar chat with explicit provider selection")
+    explicit_payload = {
         "message": "Reply with one short sentence confirming this project sidebar chat is working.",
+        "source": "project_sidebar",
+        "provider_id": chat_provider["id"],
+        "context": {
+            "project_id": project["id"],
+        },
+        "session_id": None,
+    }
+    explicit_first_text, explicit_done_payload = start_chat_turn(base_url, args.timeout_seconds, explicit_payload)
+    explicit_session_id = str(explicit_done_payload.get("session_id", "")).strip()
+
+    print("[6/9] close the explicit-provider chat session")
+    close_request = urllib.request.Request(
+        base_url + f"/api/v1/chat/{explicit_session_id}",
+        headers={"Accept": "application/json"},
+        method="DELETE",
+    )
+    with urllib.request.urlopen(close_request, timeout=20) as response:
+        if response.status != 204:
+            raise RuntimeError(
+                f"expected DELETE /api/v1/chat/{explicit_session_id} to return 204, got {response.status}"
+            )
+
+    print("[7/9] start project-sidebar chat via default-provider fallback")
+    fallback_payload = {
+        "message": "Reply with one short sentence confirming default provider fallback works.",
         "source": "project_sidebar",
         "context": {
             "project_id": project["id"],
         },
         "session_id": None,
     }
-    request = urllib.request.Request(
-        base_url + "/api/v1/chat",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Accept": "text/event-stream",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+    fallback_first_text, fallback_done_payload = start_chat_turn(
+        base_url, args.timeout_seconds, fallback_payload
     )
+    fallback_session_id = str(fallback_done_payload.get("session_id", "")).strip()
 
-    first_text = None
-    done_payload = None
-    with urllib.request.urlopen(request, timeout=args.timeout_seconds) as response:
-        for event_name, event_payload in read_sse_stream(response, args.timeout_seconds):
-            if event_name == "error":
-                raise RuntimeError(f"chat stream returned error payload: {json.dumps(event_payload, ensure_ascii=False)}")
-            if event_name == "message" and event_payload.get("type") == "text" and first_text is None:
-                first_text = event_payload.get("content")
-            if event_name == "done":
-                done_payload = event_payload
-                break
-
-    if not first_text or not str(first_text).strip():
-        raise RuntimeError("expected chat stream to emit a non-empty assistant text message")
-    if not isinstance(done_payload, dict):
-        raise RuntimeError("expected chat stream to emit a done event")
-    session_id = str(done_payload.get("session_id", "")).strip()
-    if session_id == "":
-        raise RuntimeError(f"expected done event to include session_id, got {json.dumps(done_payload, ensure_ascii=False)}")
-
-    print("[6/7] close the ephemeral chat session")
+    print("[8/9] close the fallback chat session")
     close_request = urllib.request.Request(
-        base_url + f"/api/v1/chat/{session_id}",
+        base_url + f"/api/v1/chat/{fallback_session_id}",
         headers={"Accept": "application/json"},
         method="DELETE",
     )
     with urllib.request.urlopen(close_request, timeout=20) as response:
         if response.status != 204:
-            raise RuntimeError(f"expected DELETE /api/v1/chat/{session_id} to return 204, got {response.status}")
+            raise RuntimeError(
+                f"expected DELETE /api/v1/chat/{fallback_session_id} to return 204, got {response.status}"
+            )
 
-    print("[7/7] summarize results")
+    print("[9/9] summarize results")
     print(
         json.dumps(
             {
                 "base_url": base_url,
                 "organization": org,
                 "project": project,
-                "provider": claude_provider,
-                "assistant_first_text": first_text,
-                "done": done_payload,
+                "provider": chat_provider,
+                "explicit": {
+                    "assistant_first_text": explicit_first_text,
+                    "done": explicit_done_payload,
+                },
+                "fallback": {
+                    "assistant_first_text": fallback_first_text,
+                    "done": fallback_done_payload,
+                },
             },
             indent=2,
             ensure_ascii=False,

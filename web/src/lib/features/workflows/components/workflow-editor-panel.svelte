@@ -3,7 +3,7 @@
   import { Badge } from '$ui/badge'
   import Button from '$ui/button/button.svelte'
   import { Bot, PanelRightClose, PanelRightOpen } from '@lucide/svelte'
-  import type { HarnessValidationIssue } from '$lib/api/contracts'
+  import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
   import type { HarnessContent, HarnessVariableGroup, WorkflowSummary } from '../types'
   import type { SkillState } from '../model'
   import HarnessEditor from './harness-editor.svelte'
@@ -12,6 +12,7 @@
   let {
     selectedWorkflow,
     projectId,
+    providers = [],
     harness,
     variableGroups = [],
     skillStates,
@@ -27,6 +28,7 @@
   }: {
     selectedWorkflow?: WorkflowSummary
     projectId?: string
+    providers?: AgentProvider[]
     harness: HarnessContent | null
     variableGroups?: HarnessVariableGroup[]
     skillStates: SkillState[]
@@ -104,6 +106,7 @@
         >
           <HarnessAISidebar
             {projectId}
+            {providers}
             workflowId={selectedWorkflow?.id}
             workflowName={selectedWorkflow?.name}
             draftContent={harness.rawContent}
