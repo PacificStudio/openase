@@ -21,8 +21,13 @@ const (
 	methodPatchApproval     = "applyPatchApproval"
 	methodFileApproval      = "item/fileChange/requestApproval"
 	methodRequestUserInput  = "item/tool/requestUserInput"
+	methodAgentMessageDelta = "item/agentMessage/delta"
+	methodItemCompleted     = "item/completed"
+	methodCommandOutput     = "item/commandExecution/outputDelta"
 	methodTurnStarted       = "turn/started"
 	methodTurnCompleted     = "turn/completed"
+	methodTurnFailed        = "turn/failed"
+	methodTurnCancelled     = "turn/cancelled"
 	methodTokenUsageUpdated = "thread/tokenUsage/updated"
 	methodTurnError         = "error"
 	jsonRPCMethodNotFound   = -32601
@@ -219,6 +224,34 @@ type wireThreadTokenUsageUpdatedNotification struct {
 	ThreadID   string               `json:"threadId"`
 	TurnID     string               `json:"turnId"`
 	TokenUsage wireThreadTokenUsage `json:"tokenUsage"`
+}
+
+type wireAgentMessageDeltaNotification struct {
+	ThreadID string `json:"threadId"`
+	TurnID   string `json:"turnId"`
+	ItemID   string `json:"itemId"`
+	Delta    string `json:"delta"`
+}
+
+type wireCommandExecutionOutputDeltaNotification struct {
+	ThreadID string `json:"threadId"`
+	TurnID   string `json:"turnId"`
+	ItemID   string `json:"itemId"`
+	Delta    string `json:"delta"`
+}
+
+type wireItemCompletedNotification struct {
+	ThreadID string         `json:"threadId"`
+	TurnID   string         `json:"turnId"`
+	Item     wireThreadItem `json:"item"`
+}
+
+type wireThreadItem struct {
+	ID               string  `json:"id"`
+	Type             string  `json:"type"`
+	Text             string  `json:"text,omitempty"`
+	Phase            string  `json:"phase,omitempty"`
+	AggregatedOutput *string `json:"aggregatedOutput,omitempty"`
 }
 
 type wireThreadTokenUsage struct {
