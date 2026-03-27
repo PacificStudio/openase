@@ -40,11 +40,11 @@ export function machineToDraft(machine: Machine): MachineDraft {
     sshUser: machine.ssh_user ?? '',
     sshKeyPath: machine.ssh_key_path ?? '',
     description: machine.description,
-    labels: machine.labels.join(', '),
+    labels: (machine.labels ?? []).join(', '),
     status: normalizeMachineStatus(machine.status),
     workspaceRoot: machine.workspace_root ?? '',
     agentCLIPath: machine.agent_cli_path ?? '',
-    envVars: machine.env_vars.join('\n'),
+    envVars: (machine.env_vars ?? []).join('\n'),
   }
 }
 
@@ -153,7 +153,7 @@ export function filterMachines(machines: Machine[], searchQuery: string): Machin
   }
 
   return machines.filter((machine) =>
-    [machine.name, machine.host, machine.status, machine.labels.join(' '), machine.description]
+    [machine.name, machine.host, machine.status, (machine.labels ?? []).join(' '), machine.description]
       .join(' ')
       .toLowerCase()
       .includes(query),
