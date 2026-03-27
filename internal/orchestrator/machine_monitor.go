@@ -18,7 +18,7 @@ const (
 	machineMonitorLevel1Interval  = 15 * time.Second
 	machineMonitorLevel2Interval  = time.Minute
 	machineMonitorLevel3Interval  = 5 * time.Minute
-	machineMonitorLevel4Interval  = 30 * time.Minute
+	machineMonitorLevel4Interval  = domain.ProviderAvailabilityL4Interval
 	machineMonitorLevel5Interval  = 6 * time.Hour
 	machineMonitorOfflineFailures = 3
 	lowDiskThresholdGB            = 5.0
@@ -161,6 +161,8 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	hardReachabilityFailure := false
 	softReachabilityFailure := false
 	systemProbeFailure := false
+	level4ProbeFailure := false
+	level5ProbeFailure := false
 	domainMachine := machine.toDomain()
 
 	if level1Due {
@@ -212,6 +214,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		report.L4Checks++
 		agentEnvironment, err := m.collector.CollectAgentEnvironment(ctx, domainMachine)
 		if err != nil {
+			level4ProbeFailure = true
 			setMachineMonitorError(resources, "l4", err.Error())
 		} else {
 			updateL4Resources(resources, agentEnvironment)
@@ -223,6 +226,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		report.L5Checks++
 		fullAudit, err := m.collector.CollectFullAudit(ctx, domainMachine)
 		if err != nil {
+			level5ProbeFailure = true
 			setMachineMonitorError(resources, "l5", err.Error())
 		} else {
 			updateL5Resources(resources, fullAudit)
@@ -234,7 +238,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		switch {
 		case hardReachabilityFailure:
 			status = entmachine.StatusOffline
-		case softReachabilityFailure || systemProbeFailure || machineHasLowDisk(resources):
+		case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || machineHasLowDisk(resources):
 			status = entmachine.StatusDegraded
 		default:
 			status = entmachine.StatusOnline

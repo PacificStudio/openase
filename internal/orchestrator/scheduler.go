@@ -17,6 +17,7 @@ import (
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	domaincatalog "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -24,11 +25,14 @@ import (
 )
 
 const (
-	skipReasonBlocked        = "blocked"
-	skipReasonNoAgent        = "no_agent"
-	skipReasonNoMachine      = "no_machine"
-	skipReasonMaxConcurrency = "max_concurrency"
-	skipReasonStageCapacity  = "stage_capacity"
+	skipReasonBlocked             = "blocked"
+	skipReasonNoAgent             = "no_agent"
+	skipReasonNoMachine           = "no_machine"
+	skipReasonProviderUnknown     = "provider_unknown"
+	skipReasonProviderUnavailable = "provider_unavailable"
+	skipReasonProviderStale       = "provider_stale"
+	skipReasonMaxConcurrency      = "max_concurrency"
+	skipReasonStageCapacity       = "stage_capacity"
 )
 
 // TickReport summarizes the work done during one scheduler tick.
@@ -181,12 +185,12 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 	if agent == nil {
 		return false, skipReasonNoAgent, nil
 	}
-	machine, err := s.resolveExecutionMachine(ctx, project.OrganizationID, agent)
+	machine, reason, err := s.resolveExecutionMachine(ctx, project.OrganizationID, agent, now)
 	if err != nil {
 		return false, "", fmt.Errorf("resolve execution machine: %w", err)
 	}
 	if machine == nil {
-		return false, skipReasonNoMachine, nil
+		return false, reason, nil
 	}
 
 	outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, machine, agent, project.MaxConcurrentAgents, now)
@@ -232,16 +236,17 @@ func (s *Scheduler) resolveExecutionMachine(
 	ctx context.Context,
 	organizationID uuid.UUID,
 	agent *ent.Agent,
-) (*ent.Machine, error) {
+	now time.Time,
+) (*ent.Machine, string, error) {
 	providerItem, err := s.client.AgentProvider.Get(ctx, agent.ProviderID)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, nil
+			return nil, skipReasonNoMachine, nil
 		}
-		return nil, err
+		return nil, "", err
 	}
 	if providerItem.OrganizationID != organizationID {
-		return nil, nil
+		return nil, skipReasonNoMachine, nil
 	}
 
 	machine, err := s.client.Machine.Query().
@@ -252,14 +257,62 @@ func (s *Scheduler) resolveExecutionMachine(
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, nil
+			return nil, skipReasonNoMachine, nil
 		}
-		return nil, err
+		return nil, "", err
 	}
 	if machine.Status != entmachine.StatusOnline {
-		return nil, nil
+		return nil, skipReasonNoMachine, nil
 	}
-	return machine, nil
+
+	providerState := domaincatalog.DeriveAgentProviderAvailability(domaincatalog.AgentProvider{
+		ID:                   providerItem.ID,
+		OrganizationID:       providerItem.OrganizationID,
+		MachineID:            providerItem.MachineID,
+		MachineName:          machine.Name,
+		MachineHost:          machine.Host,
+		MachineStatus:        domaincatalog.MachineStatus(machine.Status),
+		MachineSSHUser:       schedulerOptionalString(machine.SSHUser),
+		MachineWorkspaceRoot: schedulerOptionalString(machine.WorkspaceRoot),
+		MachineAgentCLIPath:  schedulerOptionalString(machine.AgentCliPath),
+		MachineResources:     cloneResourceMap(machine.Resources),
+		Name:                 providerItem.Name,
+		AdapterType:          domaincatalog.AgentProviderAdapterType(providerItem.AdapterType),
+		CliCommand:           providerItem.CliCommand,
+		CliArgs:              append([]string(nil), providerItem.CliArgs...),
+		AuthConfig:           cloneResourceMap(providerItem.AuthConfig),
+		ModelName:            providerItem.ModelName,
+		ModelTemperature:     providerItem.ModelTemperature,
+		ModelMaxTokens:       providerItem.ModelMaxTokens,
+		CostPerInputToken:    providerItem.CostPerInputToken,
+		CostPerOutputToken:   providerItem.CostPerOutputToken,
+	}, now.UTC())
+	if providerState.AvailabilityState != domaincatalog.AgentProviderAvailabilityStateAvailable {
+		return nil, skipReasonForProviderAvailability(providerState.AvailabilityState), nil
+	}
+
+	return machine, "", nil
+}
+
+func schedulerOptionalString(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	copied := value
+	return &copied
+}
+
+func skipReasonForProviderAvailability(state domaincatalog.AgentProviderAvailabilityState) string {
+	switch state {
+	case domaincatalog.AgentProviderAvailabilityStateStale:
+		return skipReasonProviderStale
+	case domaincatalog.AgentProviderAvailabilityStateAvailable:
+		return ""
+	case domaincatalog.AgentProviderAvailabilityStateUnknown:
+		return skipReasonProviderUnknown
+	default:
+		return skipReasonProviderUnavailable
+	}
 }
 
 func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Workflow, ticket *ent.Ticket, machine *ent.Machine, agent *ent.Agent, projectMaxConcurrent int, now time.Time) (string, error) {

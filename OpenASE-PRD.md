@@ -1706,6 +1706,7 @@ type AgentAdapter interface {
 
 ```bash
 claude -p "{{harness_prompt}}" \
+  --verbose \
   --output-format stream-json \
   --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
   --max-turns 20 \
@@ -1715,6 +1716,7 @@ claude -p "{{harness_prompt}}" \
 
 - 解析 NDJSON 事件流，映射到 AgentEvent
 - 通过 `--resume session_id` 实现多 Turn 续接
+- 对 Claude Code 新版本，`-p/--print + --output-format stream-json` 必须同时带 `--verbose`
 
 **Phase 2：Agent SDK 集成**
 
@@ -8375,7 +8377,44 @@ OpenASE 的核心是工单驱动的编排系统——Agent 领取工单、按 Ha
 └────────────────────────────────────────────────────────┘
 ```
 
-**关键：不新增任何 Agent CLI 进程管理逻辑。** 就是调一次 `claude -p "..." --output-format stream-json`，拿到流式响应，通过 SSE 推给前端。对话结束进程退出，不保留 Worker、不监控心跳。
+**关键：不新增任何 Agent CLI 进程管理逻辑。** 就是调一次 Agent CLI 的非交互模式，拿到流式响应，通过 SSE 推给前端。对话结束进程退出，不保留 Worker、不监控心跳。
+
+当前各 CLI 的推荐启动方式：
+
+- Claude Code：`claude -p --verbose --output-format stream-json`
+- Codex：复用 `codex app-server` 会话，使用 thread/turn 流式事件
+- Gemini CLI：使用 Gemini 的非交互流式输出模式
+
+其中 Claude Code 新版本要求：当使用 `-p/--print` 且 `--output-format stream-json` 时，必须同时加 `--verbose`。
+
+### 31.2.1 多 CLI Ephemeral Chat Provider
+
+Ephemeral Chat 不能只绑定单一 CLI。项目应允许用户在对话入口显式选择当前会话使用的 Agent CLI Provider，至少支持：
+
+- Claude Code
+- OpenAI Codex
+- Gemini CLI
+
+设计原则：
+
+- Provider 选择是 **会话级** 配置，不影响项目默认工单 Agent Provider
+- 同一个项目可以同时存在多个 Ephemeral Chat provider
+- 前端默认优先选择项目默认 provider；如果默认 provider 不支持 Ephemeral Chat，则退回到第一个可用的 chat-capable provider
+- 每个 provider 仍走各自原生 adapter，不强行伪装成同一协议
+
+前端交互要求：
+
+- 在 Harness AI、项目侧栏问 AI、工单详情 AI 分析入口中，都提供 provider selector
+- selector 显示 provider 名称、adapter 类型、可用状态、模型名
+- provider 不可用时允许展示但不可选择，并说明原因
+- 切换 provider 会开启新会话，不复用上一 provider 的 session_id
+
+后端契约要求：
+
+- `POST /api/v1/chat` 请求体增加可选 `provider_id`
+- 若传入 `provider_id`，后端必须校验该 provider 属于当前项目所在 organization 且支持 Ephemeral Chat
+- 若未传入 `provider_id`，后端按“项目默认 provider -> 第一个可用 chat-capable provider”解析
+- `session_id` 只在同一 provider 内可续接，不能跨 provider resume
 
 ### 31.3 对话上下文注入
 
@@ -8489,6 +8528,8 @@ AI: ✅ 已创建 ASE-43、ASE-44、ASE-45，均关联为 ASE-42 的子工单。
 | 全局命令面板 | `Cmd+K` → "问 AI" | 项目基础信息 | "帮我配一个每天 9 点的安全扫描 cron"、"怎么添加新 Repo" |
 | 定时任务配置页 | cron 输入框旁的 AI 图标 | 当前 cron 表达式 | "每周一三五上午 10 点" → AI 生成 `0 10 * * 1,3,5` |
 
+所有入口统一带一个 provider selector，允许用户在 Claude Code / Codex / Gemini CLI 之间切换当前 Ephemeral Chat 会话使用的 provider。
+
 ### 31.6 Harness 编辑器中的 AI 辅助细节
 
 这是最高频的使用场景，需要更细致的交互设计：
@@ -8546,6 +8587,7 @@ AI: ✅ 已创建 ASE-43、ASE-44、ASE-45，均关联为 ASE-42 的子工单。
 {
   "message": "帮我优化工作边界的描述",
   "source": "harness_editor",
+  "provider_id": "uuid",
   "context": {
     "project_id": "uuid",
     "workflow_id": "uuid",
