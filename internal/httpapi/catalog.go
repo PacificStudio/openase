@@ -45,11 +45,11 @@ type machineResponse struct {
 	SSHUser         *string        `json:"ssh_user,omitempty"`
 	SSHKeyPath      *string        `json:"ssh_key_path,omitempty"`
 	Description     string         `json:"description"`
-	Labels          []string       `json:"labels,omitempty"`
+	Labels          []string       `json:"labels"`
 	Status          string         `json:"status"`
 	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
 	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
-	EnvVars         []string       `json:"env_vars,omitempty"`
+	EnvVars         []string       `json:"env_vars"`
 	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
 	Resources       map[string]any `json:"resources"`
 }

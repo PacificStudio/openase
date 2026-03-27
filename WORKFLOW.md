@@ -101,6 +101,7 @@ URL: {{ issue.url }}
 - 所有实现都必须与 `OpenASE-PRD.md` 保持一致，避免代码、文档和需求理解之间出现错配。
 - 如果 issue 明确要求新增能力、调整行为或修正现有产品定义，且现有 `OpenASE-PRD.md` 已不足以准确描述最终实现，则必须同步更新 PRD。
 - 如果 issue 只是实现既有需求、修复缺陷或做非需求变更，代码修改不得脱离 `OpenASE-PRD.md` 已定义的范围与约束。
+- 如果在 review 中发现 `OpenASE-PRD.md` 与现状实现存在偏差，但该偏差不属于当前 issue 的交付范围，且不阻塞当前 issue 的验收标准，可以创建 follow-up issue 继续收尾；该 follow-up issue 必须显式记录偏差内容，并设置 `blocked by` 当前 issue，避免在当前工单里偷扩 scope。
 - 如果改动可拆成更小的可交付增量，优先先交一个完整但窄的版本。
 - 提交前至少运行与改动相关的最小验证，并把命令和结果记入工作台评论。
 - 除非仓库约束明确要求直推主干，否则默认通过分支 + PR 推进，避免把未评审改动直接落到 `main`。
@@ -110,7 +111,7 @@ URL: {{ issue.url }}
 - `Backlog` -> 不处理，等待人类手动推进。
 - `Todo` -> 立即切换到 `In Progress`，然后开始实现，不经过 `Spec`。
 - `In Progress` -> 直接实现、验证、推送分支并创建或更新 PR；但在进入 `In Review` 前，必须先确认 PR 的 base branch，把当前分支更新到该 base branch 的最新提交，并确保与仓库 workflow/CI 对齐的验证已经跑通。
-- `In Review` -> 这是可执行状态，必须主动 pick up 并审核当前 PR / 分支代码；最重要的是确认 `OpenASE-PRD.md`、issue 目标与当前实现保持一致，没有需求错配、文档漂移或理解偏差。若无阻塞问题，则推进到 `Merging`；若存在问题，则提交 `change request` 并把工单推进到 `Rework`。
+- `In Review` -> 这是可执行状态，必须主动 pick up 并审核当前 PR / 分支代码；最重要的是确认 `OpenASE-PRD.md`、issue 目标与当前实现保持一致，没有需求错配、文档漂移或理解偏差。若发现不属于当前 issue 范围、且不阻塞当前验收的 PRD/实现偏差，可以登记 follow-up issue，并将其设置为 `blocked by` 当前 issue 后继续推进；若无阻塞问题，则推进到 `Merging`；若存在问题，则提交 `change request` 并把工单推进到 `Rework`。
 - `Rework` -> 基于 review 反馈继续实现；回到 `In Review` 前，同样必须把当前分支同步到最新的 PR base branch，重跑受影响验证，并确认相关 workflow/CI 已重新跑通。
 - `Merging` -> 已批准，可以整理分支、同步最新主干、完成合并或执行仓库既定落地动作；但在移动到 `Done` 前，必须先手动关闭对应 GitHub issue。
 - `Done` -> 终态，不做任何操作。
@@ -160,6 +161,7 @@ URL: {{ issue.url }}
    - 优先检查 `OpenASE-PRD.md`、issue 目标与最终实现是否一致，是否存在需求错配、遗漏约束、目录/依赖关系理解错误、接口语义偏差
    - 如果本次 issue 引入了新的需求定义或行为变化，检查 PRD 是否已经同步更新到位
    - 如果本次 issue 不涉及需求变更，检查代码是否偏离 PRD 既有定义
+   - 如果发现 PRD 与现状实现仍有偏差，但该偏差不属于当前 issue 范围，且不阻塞当前 issue 的验收标准，则创建或记录一个 follow-up issue，写清偏差内容、影响范围和后续处理建议，并将该 issue 设置为 `blocked by` 当前 issue
    - 检查本次改动对应的 workflow/CI 是否已经跑通，是否仍有失败、跳过、缺失或与本地自测不一致的地方
    - 只聚焦找阻塞合并的问题、行为回归、缺失验证和明显设计风险
    - 若没有需要阻塞的问题，则批准或给出明确通过结论，并将工单推进到 `Merging`
@@ -199,7 +201,8 @@ URL: {{ issue.url }}
 - `OpenASE-PRD.md` 与当前实现一致
 - 若实现新增或改变了产品定义，PRD 已同步更新
 - 若实现不应改变需求，代码没有脱离 PRD 原有约束
-- 不允许带着已知的 PRD/实现错配进入 `In Review` 或 `Merging`
+- 若存在不属于当前 issue 范围、且不阻塞当前验收的 PRD/实现偏差，必须登记 follow-up issue，明确偏差说明和收尾范围，并设置 `blocked by` 当前 issue
+- 不允许带着未记录、未定责的 PRD/实现错配进入 `In Review` 或 `Merging`
 
 当工单处于 `In Review` 时，审核结论必须二选一，不允许停留在模糊状态：
 

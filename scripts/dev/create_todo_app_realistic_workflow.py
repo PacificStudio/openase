@@ -146,6 +146,18 @@ def require_by_name(items, key: str, want: str):
     raise RuntimeError(f"could not find item with {key}={want!r} in {items!r}")
 
 
+def require_single_local_machine(base_url: str, org_id: str) -> dict:
+    machines = request_json(base_url, "GET", f"/api/v1/orgs/{org_id}/machines").get("machines", [])
+    local_machine = next((item for item in machines if item.get("name") == "local"), None)
+    if local_machine is None:
+        raise RuntimeError(f"organization {org_id} does not expose a local machine")
+    if local_machine.get("status") != "online":
+        raise RuntimeError(
+            f"organization {org_id} local machine is not healthy: status={local_machine.get('status')!r}"
+        )
+    return local_machine
+
+
 def slugify(raw: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
     slug = re.sub(r"-{2,}", "-", slug)
@@ -482,16 +494,11 @@ def main() -> int:
         },
     )["project"]
 
-    print("[5/11] seed default statuses, create provider/agent, then create coding workflow")
+    print("[5/11] seed default statuses, verify local machine, then create provider/agent/workflow")
     statuses = request_json(base_url, "POST", f"/api/v1/projects/{project['id']}/statuses/reset")["statuses"]
     todo = require_by_name(statuses, "name", "Todo")
     done = require_by_name(statuses, "name", "Done")
-    machines = request_json(base_url, "GET", f"/api/v1/orgs/{org['id']}/machines").get("machines", [])
-    local_machine = next((item for item in machines if item.get("name") == "local"), None)
-    if local_machine is None:
-        if not machines:
-            raise RuntimeError(f"organization {org['id']} has no machines to host providers")
-        local_machine = machines[0]
+    local_machine = require_single_local_machine(base_url, org["id"])
     if args.provider_mode == "fake-codex":
         fake_codex_path = repo_root / "scripts" / "dev" / "fake_codex_app_server.py"
         provider_payload = {
