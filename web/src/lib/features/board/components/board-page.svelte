@@ -1,6 +1,7 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
+  import { PageScaffold } from '$lib/components/layout'
   import {
     listActivity,
     listAgents,
@@ -241,31 +242,37 @@
   }
 </script>
 
-<div class="flex h-full flex-col gap-4">
-  <BoardToolbar bind:filter bind:view {workflows} agents={agentOptions} listEnabled={true} />
-  {#if error}
-    <div
-      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-    >
-      {error}
-    </div>
-  {/if}
-  {#if loading && allColumns.length === 0}
-    <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-      Loading board…
-    </div>
-  {:else if view === 'board'}
-    <BoardView
-      columns={filteredColumns}
-      onticketclick={handleTicketClick}
-      ondragstartticket={handleTicketDragStart}
-      ondragendticket={handleTicketDragEnd}
-      ondragovercolumn={handleTicketDragOverColumn}
-      ondropticket={handleTicketDrop}
-      {draggingTicketId}
-      {dropColumnId}
-    />
-  {:else}
-    <BoardListView columns={filteredColumns} onticketclick={handleTicketClick} />
-  {/if}
-</div>
+<PageScaffold
+  title="Board"
+  description="Track tickets across workflow statuses."
+  variant="workspace"
+>
+  <div class="flex min-h-0 flex-1 flex-col gap-4">
+    <BoardToolbar bind:filter bind:view {workflows} agents={agentOptions} listEnabled={true} />
+    {#if error}
+      <div
+        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+      >
+        {error}
+      </div>
+    {/if}
+    {#if loading && allColumns.length === 0}
+      <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+        Loading board…
+      </div>
+    {:else if view === 'board'}
+      <BoardView
+        columns={filteredColumns}
+        onticketclick={handleTicketClick}
+        ondragstartticket={handleTicketDragStart}
+        ondragendticket={handleTicketDragEnd}
+        ondragovercolumn={handleTicketDragOverColumn}
+        ondropticket={handleTicketDrop}
+        {draggingTicketId}
+        {dropColumnId}
+      />
+    {:else}
+      <BoardListView columns={filteredColumns} onticketclick={handleTicketClick} />
+    {/if}
+  </div>
+</PageScaffold>

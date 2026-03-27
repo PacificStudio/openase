@@ -59,18 +59,13 @@
   function canPause(agent: AgentInstance) {
     return (
       agent.runtimeControlState === 'active' &&
-      !!agent.currentTicket &&
+      agent.activeRunCount > 0 &&
       (agent.status === 'claimed' || agent.status === 'running')
     )
   }
 
   function canResume(agent: AgentInstance) {
-    return (
-      agent.runtimeControlState === 'paused' &&
-      !!agent.currentTicket &&
-      agent.status === 'claimed' &&
-      agent.runtimePhase === 'none'
-    )
+    return agent.runtimeControlState === 'paused'
   }
 
   function pauseTitle(agent: AgentInstance) {
@@ -79,7 +74,7 @@
       return 'Pause requested. Waiting for the runtime to stop.'
     }
     if (agent.runtimeControlState === 'paused') return 'Agent runtime is already paused.'
-    if (!agent.currentTicket) return 'Assign a ticket before pausing this agent.'
+    if (agent.activeRunCount === 0) return 'This agent definition has no active AgentRuns to pause.'
     if (agent.status !== 'claimed' && agent.status !== 'running') {
       return 'Only claimed or running agents can be paused.'
     }
@@ -92,11 +87,6 @@
       return 'Wait for the runtime to finish pausing before resuming.'
     }
     if (agent.runtimeControlState !== 'paused') return 'Pause this agent before resuming it.'
-    if (!agent.currentTicket)
-      return 'Paused runtime must keep its assigned ticket before it can resume.'
-    if (agent.status !== 'claimed' || agent.runtimePhase !== 'none') {
-      return 'Only paused claimed agents are ready to resume.'
-    }
     return agentResumeCapability.summary
   }
 </script>
@@ -107,7 +97,7 @@
       <tr class="border-border text-muted-foreground border-b text-left text-xs">
         <th class="pr-2 pb-2 pl-3 font-medium">Status</th>
         <th class="px-2 pb-2 font-medium">Agent</th>
-        <th class="px-2 pb-2 font-medium">Current Ticket</th>
+        <th class="px-2 pb-2 font-medium">Runtime Summary</th>
         <th class="px-2 pb-2 font-medium">Last Heartbeat</th>
         <th class="px-2 pb-2 text-right font-medium">Completed</th>
         <th class="px-2 pb-2 text-right font-medium">Cost</th>
@@ -138,6 +128,9 @@
             <div class="text-muted-foreground text-xs">{agent.modelName}</div>
           </td>
           <td class="px-2 py-2.5">
+            <div class="text-foreground text-xs tabular-nums">
+              {agent.activeRunCount} active run(s)
+            </div>
             {#if agent.currentTicket}
               <button
                 type="button"
@@ -149,6 +142,8 @@
               <div class="text-muted-foreground max-w-48 truncate text-xs">
                 {agent.currentTicket.title}
               </div>
+            {:else if agent.activeRunCount > 1}
+              <div class="text-muted-foreground text-xs">See Runtime tab for concurrent runs.</div>
             {:else}
               <span class="text-muted-foreground/50 text-xs">&mdash;</span>
             {/if}

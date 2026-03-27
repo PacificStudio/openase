@@ -2,7 +2,7 @@ import { ApiError } from '$lib/api/client'
 import type { AgentProvider } from '$lib/api/contracts'
 import { updateProvider } from '$lib/api/openase'
 import { toastStore } from '$lib/stores/toast.svelte'
-import { createEmptyProviderDraft, parseProviderDraft, providerToDraft } from '../model'
+import { createEmptyProviderDraft, parseProviderDraft, providerToDraft } from '../provider-draft'
 import type { ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
 
 export function createProviderEditorState() {

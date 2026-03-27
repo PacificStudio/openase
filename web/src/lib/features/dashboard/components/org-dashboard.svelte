@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { PageScaffold } from '$lib/components/layout'
   import { formatBytes, formatCount } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import {
     getHRAdvisor,
     getProject,
@@ -8,6 +10,7 @@
     listActivity,
     listAgents,
     listTickets,
+    updateProject,
   } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import StatCard from './stat-card.svelte'
@@ -28,6 +31,7 @@
   } from '../model'
   import type {
     DashboardStats,
+    ProjectStatus,
     DashboardUsageLeader,
     HRAdvisorSnapshot,
     MemorySnapshot,
@@ -59,7 +63,35 @@
   let memory = $state<MemorySnapshot | null>(null)
   let topCostTicket = $state<DashboardUsageLeader | null>(null)
   let topTokenAgent = $state<DashboardUsageLeader | null>(null)
+  let savingProjectStatusId = $state<string | null>(null)
   const totalTicketTokens = $derived(stats.ticketInputTokens + stats.ticketOutputTokens)
+
+  async function handleProjectStatusChange(projectId: string, status: ProjectStatus) {
+    if (savingProjectStatusId === projectId) return
+
+    savingProjectStatusId = projectId
+
+    try {
+      const payload = await updateProject(projectId, { status })
+      appStore.currentProject = payload.project
+      projects = projects.map((project) =>
+        project.id === projectId
+          ? {
+              ...project,
+              description: payload.project.description,
+              status: payload.project.status,
+            }
+          : project,
+      )
+      toastStore.success('Project status updated.')
+    } catch (caughtError) {
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update project status.',
+      )
+    } finally {
+      savingProjectStatusId = null
+    }
+  }
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -120,7 +152,7 @@
         projects = buildProjectSummary(
           projectPayload.project,
           stats,
-          activityPayload.events[0]?.created_at ?? new Date().toISOString(),
+          activityPayload.events[0]?.created_at ?? null,
         )
         activities = buildActivityItems(activityPayload.events)
         exceptions = buildExceptionItems(activityPayload.events)
@@ -153,55 +185,56 @@
   })
 </script>
 
-<div class="space-y-6">
-  <div>
-    <h1 class="text-foreground text-lg font-semibold">Dashboard</h1>
-    <p class="text-muted-foreground text-sm">Project overview</p>
-  </div>
+<PageScaffold title="Dashboard" description="Project overview">
+  <div class="space-y-6">
+    {#if loading}
+      <div
+        class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
+      >
+        Loading dashboard…
+      </div>
+    {:else if error}
+      <div
+        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+      >
+        {error}
+      </div>
+    {:else}
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
+        <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
+        <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
+        <StatCard label="Heap In Use" value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'} />
+      </div>
 
-  {#if loading}
-    <div
-      class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
-    >
-      Loading dashboard…
-    </div>
-  {:else if error}
-    <div
-      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-    >
-      {error}
-    </div>
-  {:else}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
-      <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
-      <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
-      <StatCard label="Heap In Use" value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'} />
-    </div>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <ProjectHealthList
+          {projects}
+          {savingProjectStatusId}
+          onUpdateStatus={handleProjectStatusChange}
+        />
+        <CostSnapshotPanel
+          newTicketsTodayCost={stats.newTicketsTodayCost}
+          projectCost={stats.projectCost}
+          ticketInputTokens={stats.ticketInputTokens}
+          ticketOutputTokens={stats.ticketOutputTokens}
+          totalAgentTokens={stats.totalAgentTokens}
+          ticketsCreatedToday={stats.ticketsCreatedToday}
+          ticketsCompletedToday={stats.ticketsCompletedToday}
+          {topCostTicket}
+          {topTokenAgent}
+        />
+        <ExceptionPanel {exceptions} />
+      </div>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <ProjectHealthList {projects} />
-      <CostSnapshotPanel
-        newTicketsTodayCost={stats.newTicketsTodayCost}
-        projectCost={stats.projectCost}
-        ticketInputTokens={stats.ticketInputTokens}
-        ticketOutputTokens={stats.ticketOutputTokens}
-        totalAgentTokens={stats.totalAgentTokens}
-        ticketsCreatedToday={stats.ticketsCreatedToday}
-        ticketsCompletedToday={stats.ticketsCompletedToday}
-        {topCostTicket}
-        {topTokenAgent}
-      />
-      <ExceptionPanel {exceptions} />
-    </div>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <ActivityFeedPanel {activities} class="lg:col-span-2" />
+        <MemorySnapshotPanel {memory} />
+      </div>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <ActivityFeedPanel {activities} class="lg:col-span-2" />
-      <MemorySnapshotPanel {memory} />
-    </div>
-
-    {#if hrAdvisor}
-      <HRAdvisorPanel advisor={hrAdvisor} />
+      {#if hrAdvisor}
+        <HRAdvisorPanel advisor={hrAdvisor} />
+      {/if}
     {/if}
-  {/if}
-</div>
+  </div>
+</PageScaffold>

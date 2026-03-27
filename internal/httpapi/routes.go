@@ -49,6 +49,7 @@ func (r routeRegistrar) registerAPIRoutes() {
 	r.api.GET("/projects/:projectId/tickets/stream", r.server.handleTicketStream)
 	r.api.GET("/projects/:projectId/agents/stream", r.server.handleAgentStream)
 	r.api.GET("/projects/:projectId/agents/:agentId/output/stream", r.server.streamAgentOutput)
+	r.api.GET("/projects/:projectId/agents/:agentId/steps/stream", r.server.streamAgentSteps)
 	r.api.GET("/projects/:projectId/hooks/stream", r.server.handleHookStream)
 	r.api.GET("/projects/:projectId/activity/stream", r.server.handleActivityStream)
 

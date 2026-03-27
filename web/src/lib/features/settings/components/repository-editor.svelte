@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { ProjectRepoRecord } from '$lib/api/contracts'
-  import { Button } from '$ui/button'
+  import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
+  import type { ProjectRepoRecord } from '$lib/api/contracts'
   import type { RepositoryDraft, RepositoryEditorMode } from '../repositories-model'
 
   let {
@@ -11,28 +11,17 @@
     selectedRepo,
     draft,
     reposCount = 0,
-    loading = false,
     saving = false,
-    deleting = false,
     onDraftChange,
-    onSave,
-    onDelete,
-    onReset,
   }: {
     mode: RepositoryEditorMode
     selectedRepo: ProjectRepoRecord | null
     draft: RepositoryDraft
     reposCount?: number
-    loading?: boolean
     saving?: boolean
-    deleting?: boolean
     onDraftChange?: (field: keyof RepositoryDraft, value: string | boolean) => void
-    onSave?: () => void
-    onDelete?: () => void
-    onReset?: () => void
   } = $props()
 
-  const canDelete = $derived(mode === 'edit' && Boolean(selectedRepo))
   const primaryToggleLocked = $derived(
     (mode === 'create' && reposCount === 0) ||
       (mode === 'edit' && reposCount === 1 && Boolean(selectedRepo?.is_primary)),
@@ -53,32 +42,15 @@
   }
 </script>
 
-<div class="border-border bg-card rounded-2xl border">
-  <div class="border-border flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4">
+<div class="space-y-5">
+  <section class="space-y-4">
     <div>
-      <h3 class="text-foreground text-base font-semibold">
-        {mode === 'create' ? 'Add repository' : (selectedRepo?.name ?? 'Edit repository')}
-      </h3>
-      <p class="text-muted-foreground mt-1 max-w-2xl text-sm">
-        Configure the Git repository metadata that ticket repo scopes, workflows, and workspace
-        bootstrap logic consume.
+      <h3 class="text-foreground text-sm font-semibold">Repository identity</h3>
+      <p class="text-muted-foreground mt-1 text-xs">
+        Basic Git coordinates that OpenASE uses for repo scopes and workspace preparation.
       </p>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2">
-      <Button variant="outline" onclick={onReset} disabled={saving || deleting || loading}>
-        Reset
-      </Button>
-      <Button onclick={onSave} disabled={saving || deleting || loading}>
-        {saving ? 'Saving…' : mode === 'create' ? 'Create repository' : 'Save changes'}
-      </Button>
-      <Button variant="destructive" onclick={onDelete} disabled={!canDelete || saving || deleting}>
-        {deleting ? 'Deleting…' : 'Delete'}
-      </Button>
-    </div>
-  </div>
-
-  <div class="space-y-5 px-5 py-5">
     <div class="grid gap-4 md:grid-cols-2">
       <div class="space-y-2">
         <Label for="repo-name">Name</Label>
@@ -111,6 +83,15 @@
         oninput={(event) => updateTextField('repositoryURL', event)}
       />
     </div>
+  </section>
+
+  <section class="border-border space-y-4 border-t pt-6">
+    <div>
+      <h3 class="text-foreground text-sm font-semibold">Workspace mapping</h3>
+      <p class="text-muted-foreground mt-1 text-xs">
+        Optional checkout path and primary-repository routing behavior.
+      </p>
+    </div>
 
     <div class="space-y-2">
       <Label for="repo-clone-path">Clone path</Label>
@@ -122,6 +103,34 @@
       />
       <p class="text-muted-foreground text-xs">
         Leave empty to let the runtime derive the workspace path automatically.
+      </p>
+    </div>
+
+    <div class="border-border rounded-xl border px-4 py-3">
+      <div class="flex items-start gap-3">
+        <Checkbox
+          id="repo-primary"
+          class="mt-0.5"
+          checked={draft.isPrimary}
+          aria-describedby="repo-primary-description"
+          disabled={primaryToggleLocked || saving}
+          onCheckedChange={(checked) => onDraftChange?.('isPrimary', checked)}
+        />
+        <div class="space-y-1">
+          <Label for="repo-primary" class="text-foreground block text-sm font-medium">
+            Primary repository
+          </Label>
+          <p id="repo-primary-description" class="text-muted-foreground text-xs">{primaryHint}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="border-border space-y-4 border-t pt-6">
+    <div>
+      <h3 class="text-foreground text-sm font-semibold">Metadata</h3>
+      <p class="text-muted-foreground mt-1 text-xs">
+        Labels help group repositories for workflows and ticket repo scopes.
       </p>
     </div>
 
@@ -139,23 +148,5 @@
         collapsed.
       </p>
     </div>
-
-    <div class="border-border rounded-xl border px-4 py-3">
-      <label for="repo-primary" class="flex items-start gap-3">
-        <input
-          id="repo-primary"
-          type="checkbox"
-          class="mt-0.5 size-4 accent-current"
-          checked={draft.isPrimary}
-          disabled={primaryToggleLocked || saving}
-          onchange={(event) =>
-            onDraftChange?.('isPrimary', (event.currentTarget as HTMLInputElement).checked)}
-        />
-        <span class="space-y-1">
-          <span class="text-foreground block text-sm font-medium">Primary repository</span>
-          <span class="text-muted-foreground block text-xs">{primaryHint}</span>
-        </span>
-      </label>
-    </div>
-  </div>
+  </section>
 </div>

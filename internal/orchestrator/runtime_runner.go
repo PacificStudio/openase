@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -104,6 +106,9 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 		if err != nil {
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
 			return
+		}
+		if err := l.recordAgentStep(ctx, state.agent.ProjectID, state.agent.ID, state.ticket.ID, state.run.ID, "planning", fmt.Sprintf("Started turn %d.", turnNumber), nil); err != nil {
+			l.logger.Warn("record agent planning step", "run_id", state.run.ID, "error", err)
 		}
 
 		if err := l.consumeTurn(ctx, state.agent.ProjectID, state.agent.ID, state.run.ID, state.ticket.ID, session, turn.TurnID, &highWater); err != nil {
@@ -228,6 +233,9 @@ func (l *RuntimeLauncher) consumeTurn(
 			if event.ToolCall == nil {
 				continue
 			}
+			if err := l.recordAgentToolCall(ctx, projectID, agentID, ticketID, runID, event.ToolCall); err != nil {
+				return err
+			}
 			if err := session.RespondToolCall(ctx, *event.ToolCall, codex.ToolCallResult{
 				Success: false,
 				ContentItems: []codex.ToolCallContentItem{
@@ -303,7 +311,6 @@ func (l *RuntimeLauncher) recordAgentOutput(
 	}
 
 	metadata := map[string]any{
-		"stream":   output.Stream,
 		"provider": "codex",
 		"run_id":   runID.String(),
 	}
@@ -320,11 +327,156 @@ func (l *RuntimeLauncher) recordAgentOutput(
 		metadata["snapshot"] = true
 	}
 
-	if err := publishAgentOutputEvent(ctx, l.client, l.events, projectID, agentID, ticketID, text, metadata, l.now().UTC()); err != nil {
+	traceItem, err := publishAgentTraceEvent(ctx, l.client, l.events, agentTraceEventInput{
+		ProjectID:   projectID,
+		AgentID:     agentID,
+		TicketID:    ticketID,
+		AgentRunID:  runID,
+		Provider:    "codex",
+		Kind:        agentTraceKindForOutput(output),
+		Stream:      output.Stream,
+		Text:        text,
+		Payload:     metadata,
+		EventType:   agentOutputType,
+		PublishedAt: l.now().UTC(),
+	})
+	if err != nil {
 		return fmt.Errorf("record agent output for run %s: %w", runID, err)
+	}
+	if stepStatus, stepSummary, ok := agentStepFromOutput(output, text); ok {
+		traceID := traceItem.ID
+		if err := l.recordAgentStep(ctx, projectID, agentID, ticketID, runID, stepStatus, stepSummary, &traceID); err != nil {
+			return fmt.Errorf("record agent step for run %s: %w", runID, err)
+		}
 	}
 
 	return nil
+}
+
+func (l *RuntimeLauncher) recordAgentToolCall(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	request *codex.ToolCallRequest,
+) error {
+	if l == nil || request == nil {
+		return nil
+	}
+
+	toolName := strings.TrimSpace(request.Tool)
+	metadata := map[string]any{
+		"provider": "codex",
+		"run_id":   runID.String(),
+		"tool":     toolName,
+	}
+	if callID := strings.TrimSpace(request.CallID); callID != "" {
+		metadata["call_id"] = callID
+	}
+	if turnID := strings.TrimSpace(request.TurnID); turnID != "" {
+		metadata["turn_id"] = turnID
+	}
+	if threadID := strings.TrimSpace(request.ThreadID); threadID != "" {
+		metadata["thread_id"] = threadID
+	}
+
+	traceItem, err := publishAgentTraceEvent(ctx, l.client, l.events, agentTraceEventInput{
+		ProjectID:   projectID,
+		AgentID:     agentID,
+		TicketID:    ticketID,
+		AgentRunID:  runID,
+		Provider:    "codex",
+		Kind:        catalogdomain.AgentTraceKindToolCallStarted,
+		Stream:      "tool",
+		Text:        toolName,
+		Payload:     metadata,
+		PublishedAt: l.now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("record tool call trace for run %s: %w", runID, err)
+	}
+	traceID := traceItem.ID
+	if err := l.recordAgentStep(ctx, projectID, agentID, ticketID, runID, "running_tool", toolCallStepSummary(toolName), &traceID); err != nil {
+		return fmt.Errorf("record tool call step for run %s: %w", runID, err)
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) recordAgentStep(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	stepStatus string,
+	summary string,
+	sourceTraceEventID *uuid.UUID,
+) error {
+	if l == nil {
+		return nil
+	}
+
+	if err := publishAgentStepEvent(ctx, l.client, l.events, projectID, agentID, ticketID, runID, stepStatus, summary, sourceTraceEventID, l.now().UTC()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func agentTraceKindForOutput(output *codex.OutputEvent) string {
+	if output == nil {
+		return catalogdomain.AgentTraceKindAssistantDelta
+	}
+
+	switch output.Stream {
+	case "command":
+		if output.Snapshot {
+			return catalogdomain.AgentTraceKindCommandSnapshot
+		}
+		return catalogdomain.AgentTraceKindCommandDelta
+	default:
+		if output.Snapshot {
+			return catalogdomain.AgentTraceKindAssistantSnapshot
+		}
+		return catalogdomain.AgentTraceKindAssistantDelta
+	}
+}
+
+func agentStepFromOutput(output *codex.OutputEvent, text string) (string, string, bool) {
+	if output == nil {
+		return "", "", false
+	}
+	if phase := strings.TrimSpace(output.Phase); phase != "" {
+		return phase, summarizeAgentStepText(text), true
+	}
+	switch strings.TrimSpace(output.Stream) {
+	case "command":
+		return "running_command", summarizeAgentStepText(text), true
+	case "assistant":
+		return "responding", summarizeAgentStepText(text), true
+	default:
+		return "", "", false
+	}
+}
+
+func summarizeAgentStepText(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return ""
+	}
+	line := strings.Split(trimmed, "\n")[0]
+	if len(line) <= 140 {
+		return line
+	}
+	return strings.TrimSpace(line[:140]) + "..."
+}
+
+func toolCallStepSummary(toolName string) string {
+	if strings.TrimSpace(toolName) == "" {
+		return "Running provider tool call."
+	}
+	return "Running provider tool " + strconv.Quote(toolName) + "."
 }
 
 func (l *RuntimeLauncher) touchHeartbeat(ctx context.Context, runID uuid.UUID) error {

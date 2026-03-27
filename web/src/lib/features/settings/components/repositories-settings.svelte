@@ -23,14 +23,15 @@
     type RepositoryEditorMode,
   } from '../repositories-model'
   import RepositoriesList from './repository-list.svelte'
-  import RepositoryEditor from './repository-editor.svelte'
+  import RepositoryEditorSheet from './repository-editor-sheet.svelte'
 
   const repositoriesCapability = getSettingsSectionCapability('repositories')
 
   let repos = $state<ProjectRepoRecord[]>([])
   let loading = $state(false)
   let saving = $state(false)
-  let deleting = $state(false)
+  let deletingId = $state('')
+  let editorOpen = $state(false)
   let selectedId = $state('')
   let mode = $state<RepositoryEditorMode>('create')
   let draft = $state<RepositoryDraft>(createEmptyRepositoryDraft())
@@ -41,6 +42,7 @@
     if (!projectId) {
       repos = []
       selectedId = ''
+      editorOpen = false
       mode = 'create'
       draft = createEmptyRepositoryDraft()
       return
@@ -78,32 +80,26 @@
     repos = sortProjectRepos(nextRepos)
 
     if (repos.length === 0) {
-      startCreate()
+      selectedId = ''
+      editorOpen = false
+      mode = 'create'
+      draft = createEmptyRepositoryDraft({ isPrimary: true })
       return
     }
-
-    const nextRepo = repos.find((repo) => repo.id === selectedId) ?? repos[0]
-    openRepo(nextRepo)
   }
 
   function openRepo(repo: ProjectRepoRecord) {
     mode = 'edit'
     selectedId = repo.id
     draft = projectRepoToDraft(repo)
+    editorOpen = true
   }
 
   function startCreate() {
     mode = 'create'
     selectedId = ''
     draft = createEmptyRepositoryDraft({ isPrimary: repos.length === 0 })
-  }
-
-  function resetDraft() {
-    if (mode === 'create') {
-      draft = createEmptyRepositoryDraft({ isPrimary: repos.length === 0 })
-    } else if (selectedRepo) {
-      draft = projectRepoToDraft(selectedRepo)
-    }
+    editorOpen = true
   }
 
   async function reloadRepos(projectId: string) {
@@ -168,25 +164,38 @@
     }
   }
 
-  async function handleDelete() {
+  async function handleDelete(targetRepo: ProjectRepoRecord | null = selectedRepo) {
     const projectId = appStore.currentProject?.id
-    if (!projectId || !selectedRepo) {
+    if (!projectId || !targetRepo) {
       return
     }
 
-    deleting = true
+    deletingId = targetRepo.id
 
     try {
-      await deleteProjectRepo(projectId, selectedRepo.id)
-      selectedId = ''
+      await deleteProjectRepo(projectId, targetRepo.id)
+      if (selectedId === targetRepo.id) {
+        selectedId = ''
+        editorOpen = false
+      }
       await reloadReposAfterMutation(projectId, 'deleted', 'Repository deleted.')
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete repository.',
       )
     } finally {
-      deleting = false
+      deletingId = ''
     }
+  }
+
+  async function handleDeleteRepo(repo: ProjectRepoRecord) {
+    if (repo.id !== selectedId) {
+      selectedId = repo.id
+      mode = 'edit'
+      draft = projectRepoToDraft(repo)
+    }
+
+    await handleDelete(repo)
   }
 
   function updateField(field: keyof RepositoryDraft, value: string | boolean) {
@@ -207,21 +216,24 @@
     <p class="text-muted-foreground mt-1 max-w-3xl text-sm">{repositoriesCapability.summary}</p>
   </div>
 
-  <div class="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-    <RepositoriesList {loading} {repos} {selectedId} onCreate={startCreate} onSelect={openRepo} />
+  <RepositoriesList
+    {loading}
+    {repos}
+    {selectedId}
+    {deletingId}
+    onCreate={startCreate}
+    onSelect={openRepo}
+    onDelete={(repo) => void handleDeleteRepo(repo)}
+  />
 
-    <RepositoryEditor
-      {mode}
-      {selectedRepo}
-      {draft}
-      reposCount={repos.length}
-      {loading}
-      {saving}
-      {deleting}
-      onDraftChange={updateField}
-      onSave={() => void handleSave()}
-      onDelete={() => void handleDelete()}
-      onReset={resetDraft}
-    />
-  </div>
+  <RepositoryEditorSheet
+    bind:open={editorOpen}
+    {mode}
+    {selectedRepo}
+    {draft}
+    reposCount={repos.length}
+    {saving}
+    onDraftChange={updateField}
+    onSave={() => void handleSave()}
+  />
 </div>

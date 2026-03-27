@@ -83,6 +83,7 @@ const agentFixture: Agent = {
   name: 'Codex Worker',
   runtime_control_state: 'active',
   runtime: {
+    active_run_count: 1,
     status: 'running',
     current_run_id: null,
     current_ticket_id: 'ticket-1',
@@ -91,6 +92,9 @@ const agentFixture: Agent = {
     runtime_started_at: null,
     last_error: '',
     last_heartbeat_at: null,
+    current_step_status: null,
+    current_step_summary: null,
+    current_step_changed_at: null,
   },
   total_tokens_used: 0,
   total_tickets_completed: 0,
@@ -117,6 +121,7 @@ describe('global search index', () => {
     expect(items.some((item) => item.id === 'command-new-ticket')).toBe(true)
     expect(items.some((item) => item.id === 'command-toggle-theme')).toBe(true)
     expect(items.some((item) => item.id === 'page-tickets' && item.badge === 'Current')).toBe(true)
+    expect(items.some((item) => item.id === 'page-scheduled-jobs')).toBe(true)
     expect(items.some((item) => item.id === 'project-project-1')).toBe(true)
     expect(items.some((item) => item.id === 'organization-org-1')).toBe(true)
   })

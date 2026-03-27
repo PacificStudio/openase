@@ -14,7 +14,7 @@
     SheetTitle,
   } from '$ui/sheet'
   import { Textarea } from '$ui/textarea'
-  import { providerAdapterOptions } from '../model'
+  import { providerAdapterOptions } from '../provider-draft'
   import type { ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
 
   let {

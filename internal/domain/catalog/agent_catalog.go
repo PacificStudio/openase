@@ -9,27 +9,30 @@ import (
 )
 
 type AgentProvider struct {
-	ID                   uuid.UUID
-	OrganizationID       uuid.UUID
-	MachineID            uuid.UUID
-	MachineName          string
-	MachineHost          string
-	MachineStatus        MachineStatus
-	MachineSSHUser       *string
-	MachineWorkspaceRoot *string
-	MachineAgentCLIPath  *string
-	MachineResources     map[string]any
-	Name                 string
-	AdapterType          AgentProviderAdapterType
-	Available            bool
-	CliCommand           string
-	CliArgs              []string
-	AuthConfig           map[string]any
-	ModelName            string
-	ModelTemperature     float64
-	ModelMaxTokens       int
-	CostPerInputToken    float64
-	CostPerOutputToken   float64
+	ID                    uuid.UUID
+	OrganizationID        uuid.UUID
+	MachineID             uuid.UUID
+	MachineName           string
+	MachineHost           string
+	MachineStatus         MachineStatus
+	MachineSSHUser        *string
+	MachineWorkspaceRoot  *string
+	MachineAgentCLIPath   *string
+	MachineResources      map[string]any
+	Name                  string
+	AdapterType           AgentProviderAdapterType
+	AvailabilityState     AgentProviderAvailabilityState
+	Available             bool
+	AvailabilityCheckedAt *time.Time
+	AvailabilityReason    *string
+	CliCommand            string
+	CliArgs               []string
+	AuthConfig            map[string]any
+	ModelName             string
+	ModelTemperature      float64
+	ModelMaxTokens        int
+	CostPerInputToken     float64
+	CostPerOutputToken    float64
 }
 
 type Agent struct {
@@ -44,28 +47,35 @@ type Agent struct {
 }
 
 type AgentRuntime struct {
-	CurrentRunID     *uuid.UUID
-	Status           AgentStatus
-	CurrentTicketID  *uuid.UUID
-	SessionID        string
-	RuntimePhase     AgentRuntimePhase
-	RuntimeStartedAt *time.Time
-	LastError        string
-	LastHeartbeatAt  *time.Time
+	ActiveRunCount       int
+	CurrentRunID         *uuid.UUID
+	Status               AgentStatus
+	CurrentTicketID      *uuid.UUID
+	SessionID            string
+	RuntimePhase         AgentRuntimePhase
+	RuntimeStartedAt     *time.Time
+	LastError            string
+	LastHeartbeatAt      *time.Time
+	CurrentStepStatus    *string
+	CurrentStepSummary   *string
+	CurrentStepChangedAt *time.Time
 }
 
 type AgentRun struct {
-	ID               uuid.UUID
-	AgentID          uuid.UUID
-	WorkflowID       uuid.UUID
-	TicketID         uuid.UUID
-	ProviderID       uuid.UUID
-	Status           AgentRunStatus
-	SessionID        string
-	RuntimeStartedAt *time.Time
-	LastError        string
-	LastHeartbeatAt  *time.Time
-	CreatedAt        time.Time
+	ID                   uuid.UUID
+	AgentID              uuid.UUID
+	WorkflowID           uuid.UUID
+	TicketID             uuid.UUID
+	ProviderID           uuid.UUID
+	Status               AgentRunStatus
+	SessionID            string
+	RuntimeStartedAt     *time.Time
+	LastError            string
+	LastHeartbeatAt      *time.Time
+	CurrentStepStatus    *string
+	CurrentStepSummary   *string
+	CurrentStepChangedAt *time.Time
+	CreatedAt            time.Time
 }
 
 type AgentProviderInput struct {
@@ -233,23 +243,34 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 	}, nil
 }
 
-func BuildAgentRuntime(currentRun *AgentRun, controlState AgentRuntimeControlState) *AgentRuntime {
-	if currentRun == nil {
+func BuildAgentRuntimeSummary(currentRuns []AgentRun, controlState AgentRuntimeControlState) *AgentRuntime {
+	if len(currentRuns) == 0 {
 		return nil
 	}
 
-	runtime := &AgentRuntime{
-		CurrentRunID:     &currentRun.ID,
-		Status:           DefaultAgentStatus,
-		CurrentTicketID:  &currentRun.TicketID,
-		SessionID:        currentRun.SessionID,
-		RuntimePhase:     DefaultAgentRuntimePhase,
-		RuntimeStartedAt: cloneTimePointer(currentRun.RuntimeStartedAt),
-		LastError:        currentRun.LastError,
-		LastHeartbeatAt:  cloneTimePointer(currentRun.LastHeartbeatAt),
+	representative := currentRuns[0]
+	for _, run := range currentRuns[1:] {
+		if preferAgentRuntimeRepresentative(run, representative) {
+			representative = run
+		}
 	}
 
-	switch currentRun.Status {
+	runtime := &AgentRuntime{
+		ActiveRunCount:       len(currentRuns),
+		CurrentRunID:         &representative.ID,
+		Status:               DefaultAgentStatus,
+		CurrentTicketID:      &representative.TicketID,
+		SessionID:            representative.SessionID,
+		RuntimePhase:         DefaultAgentRuntimePhase,
+		RuntimeStartedAt:     cloneTimePointer(representative.RuntimeStartedAt),
+		LastError:            representative.LastError,
+		LastHeartbeatAt:      cloneTimePointer(representative.LastHeartbeatAt),
+		CurrentStepStatus:    cloneStringPointer(representative.CurrentStepStatus),
+		CurrentStepSummary:   cloneStringPointer(representative.CurrentStepSummary),
+		CurrentStepChangedAt: cloneTimePointer(representative.CurrentStepChangedAt),
+	}
+
+	switch representative.Status {
 	case AgentRunStatusLaunching:
 		runtime.Status = AgentStatusClaimed
 		runtime.RuntimePhase = AgentRuntimePhaseLaunching
@@ -271,7 +292,90 @@ func BuildAgentRuntime(currentRun *AgentRun, controlState AgentRuntimeControlSta
 		runtime.Status = DefaultAgentStatus
 	}
 
+	for _, run := range currentRuns[1:] {
+		if moreRecentTime(run.LastHeartbeatAt, runtime.LastHeartbeatAt) {
+			runtime.LastHeartbeatAt = cloneTimePointer(run.LastHeartbeatAt)
+		}
+		if moreRecentTime(run.RuntimeStartedAt, runtime.RuntimeStartedAt) {
+			runtime.RuntimeStartedAt = cloneTimePointer(run.RuntimeStartedAt)
+		}
+		if preferAgentRuntimeError(run, runtime.LastError, runtime.LastHeartbeatAt) {
+			runtime.LastError = run.LastError
+		}
+	}
+
+	if len(currentRuns) > 1 {
+		runtime.CurrentRunID = nil
+		runtime.CurrentTicketID = nil
+		runtime.SessionID = ""
+		runtime.CurrentStepStatus = nil
+		runtime.CurrentStepSummary = nil
+		runtime.CurrentStepChangedAt = nil
+	}
+
 	return runtime
+}
+
+func preferAgentRuntimeRepresentative(candidate AgentRun, current AgentRun) bool {
+	candidatePriority := agentRuntimeRepresentativePriority(candidate.Status)
+	currentPriority := agentRuntimeRepresentativePriority(current.Status)
+	if candidatePriority != currentPriority {
+		return candidatePriority < currentPriority
+	}
+
+	if candidate.CreatedAt.Equal(current.CreatedAt) {
+		return false
+	}
+
+	return candidate.CreatedAt.After(current.CreatedAt)
+}
+
+func agentRuntimeRepresentativePriority(status AgentRunStatus) int {
+	switch status {
+	case AgentRunStatusExecuting:
+		return 0
+	case AgentRunStatusReady:
+		return 1
+	case AgentRunStatusLaunching:
+		return 2
+	case AgentRunStatusErrored:
+		return 3
+	case AgentRunStatusTerminated:
+		return 4
+	default:
+		return 5
+	}
+}
+
+func preferAgentRuntimeError(candidate AgentRun, currentError string, currentHeartbeat *time.Time) bool {
+	if strings.TrimSpace(candidate.LastError) == "" {
+		return false
+	}
+	if strings.TrimSpace(currentError) == "" {
+		return true
+	}
+
+	return moreRecentTime(candidate.LastHeartbeatAt, currentHeartbeat)
+}
+
+func moreRecentTime(candidate *time.Time, current *time.Time) bool {
+	if candidate == nil {
+		return false
+	}
+	if current == nil {
+		return true
+	}
+
+	return candidate.After(*current)
+}
+
+func cloneStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	cloned := strings.TrimSpace(*value)
+	return &cloned
 }
 
 func cloneTimePointer(value *time.Time) *time.Time {

@@ -112,6 +112,25 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		t.Fatalf("unexpected updated ticket payload: %+v", updateResp.Ticket)
 	}
 
+	statusUpdateResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		map[string]any{
+			"status_name": "Done",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&statusUpdateResp,
+	)
+	if statusUpdateResp.Ticket.StatusName != "Done" || statusUpdateResp.Ticket.CreatedBy != "agent:coding-01" {
+		t.Fatalf("unexpected status update payload: %+v", statusUpdateResp.Ticket)
+	}
+
 	usageResp := struct {
 		Ticket         ticketResponse             `json:"ticket"`
 		Applied        ticketservice.AppliedUsage `json:"applied"`

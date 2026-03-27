@@ -1,0 +1,136 @@
+<script lang="ts">
+  import { toHarnessContent } from '../model'
+  import type {
+    HarnessVariableGroup,
+    WorkflowAgentOption,
+    WorkflowStatusOption,
+    WorkflowSummary,
+  } from '../types'
+  import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
+  import type { SkillState } from '../model'
+  import type { WorkflowRepositoryPrerequisite } from '../data'
+  import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
+  import WorkflowEditorPanel from './workflow-editor-panel.svelte'
+  import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
+  import WorkflowList from './workflow-list.svelte'
+  import WorkflowsPageState from './workflows-page-state.svelte'
+
+  let {
+    loading = false,
+    prerequisite = null,
+    settingsHref = null,
+    loadError = '',
+    workflows,
+    selectedId,
+    projectId = '',
+    providers,
+    selectedWorkflow = null,
+    harness,
+    draftHarness,
+    variableGroups,
+    skillStates,
+    validationIssues,
+    saving = false,
+    validating = false,
+    isDirty = false,
+    showDetail = true,
+    showCreateDialog = $bindable(false),
+    statuses,
+    agentOptions,
+    builtinRoleContent = '',
+    onSelectedIdChange,
+    onDraftChange,
+    onApplyAssistantDraft,
+    onSave,
+    onValidate,
+    onToggleSkill,
+    onWorkflowsChange,
+    onCreated,
+  }: {
+    loading?: boolean
+    prerequisite?: WorkflowRepositoryPrerequisite | null
+    settingsHref?: string | null
+    loadError?: string
+    workflows: WorkflowSummary[]
+    selectedId: string
+    projectId?: string
+    providers: AgentProvider[]
+    selectedWorkflow?: WorkflowSummary | null
+    harness: ReturnType<typeof toHarnessContent> | null
+    draftHarness: string
+    variableGroups: HarnessVariableGroup[]
+    skillStates: SkillState[]
+    validationIssues: HarnessValidationIssue[]
+    saving?: boolean
+    validating?: boolean
+    isDirty?: boolean
+    showDetail?: boolean
+    showCreateDialog?: boolean
+    statuses: WorkflowStatusOption[]
+    agentOptions: WorkflowAgentOption[]
+    builtinRoleContent?: string
+    onSelectedIdChange?: (id: string) => void
+    onDraftChange?: (raw: string) => void
+    onApplyAssistantDraft?: (content: string) => void
+    onSave?: () => void
+    onValidate?: () => void
+    onToggleSkill?: (skill: SkillState) => void
+    onWorkflowsChange?: (workflows: WorkflowSummary[]) => void
+    onCreated?: (payload: { workflow: WorkflowSummary; selectedId: string }) => void
+  } = $props()
+</script>
+
+{#if loading || prerequisite?.kind === 'missing_primary_repo' || (loadError && workflows.length === 0)}
+  <WorkflowsPageState
+    {loading}
+    missingPrimaryRepo={prerequisite?.kind === 'missing_primary_repo'}
+    repoCount={prerequisite?.kind === 'missing_primary_repo' ? prerequisite.repoCount : 0}
+    {settingsHref}
+    loadError={workflows.length === 0 ? loadError : ''}
+  />
+{:else}
+  <div class="border-border/60 bg-card/60 flex min-h-0 flex-1 overflow-hidden rounded-xl border">
+    <div class="w-60 shrink-0">
+      <WorkflowList {workflows} {selectedId} onselect={(id) => onSelectedIdChange?.(id)} />
+    </div>
+    <WorkflowEditorPanel
+      projectId={projectId || undefined}
+      {providers}
+      selectedWorkflow={selectedWorkflow ?? undefined}
+      harness={harness ? toHarnessContent(draftHarness) : null}
+      {variableGroups}
+      {skillStates}
+      {validationIssues}
+      {saving}
+      {validating}
+      {isDirty}
+      onDraftChange={(raw) => onDraftChange?.(raw)}
+      {onApplyAssistantDraft}
+      {onSave}
+      {onValidate}
+      onToggleSkill={(skill) => onToggleSkill?.(skill)}
+    />
+    {#if showDetail && selectedWorkflow}
+      <div class="w-70 shrink-0">
+        <WorkflowLifecycleSidebar
+          workflow={selectedWorkflow}
+          {workflows}
+          {statuses}
+          {agentOptions}
+          onWorkflowsChange={(nextWorkflows) => onWorkflowsChange?.(nextWorkflows)}
+          onSelectedIdChange={(nextSelectedId) => onSelectedIdChange?.(nextSelectedId)}
+        />
+      </div>
+    {/if}
+  </div>
+{/if}
+
+<WorkflowCreationDialog
+  bind:open={showCreateDialog}
+  {projectId}
+  {statuses}
+  {agentOptions}
+  existingCount={workflows.length}
+  {builtinRoleContent}
+  {onCreated}
+/>

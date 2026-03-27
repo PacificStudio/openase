@@ -3,17 +3,42 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
-  import { ExternalLink } from '@lucide/svelte'
+  import { ExternalLink, Trash2 } from '@lucide/svelte'
   import type { GovernanceAgent } from './agent-settings-model'
   import { governanceAgentStatusClasses, governanceAgentStatusLabels } from './agent-settings-model'
 
   let {
     agents,
     agentsConsoleHref,
+    deletingAgentId = null,
+    onDelete,
   }: {
     agents: GovernanceAgent[]
     agentsConsoleHref: string
+    deletingAgentId?: string | null
+    onDelete?: (agent: GovernanceAgent) => Promise<void>
   } = $props()
+
+  function deleteTitle(agent: GovernanceAgent) {
+    if (deletingAgentId === agent.id) return 'Deleting agent...'
+    if (agent.activeRunCount > 0) {
+      return 'Finish or pause active runs from /agents before deleting this agent.'
+    }
+    return 'Delete this agent definition from the project.'
+  }
+
+  async function handleDelete(agent: GovernanceAgent) {
+    if (!onDelete) return
+
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm(
+        `Delete agent "${agent.name}"? This removes the project agent definition. Existing runtime history may still block deletion.`,
+      )
+      if (!confirmed) return
+    }
+
+    await onDelete(agent)
+  }
 </script>
 
 <Card.Root>
@@ -50,14 +75,30 @@
                 <Badge variant="secondary" class="text-[10px]">{agent.providerName}</Badge>
               </div>
               <div class="text-muted-foreground mt-1 text-xs">
-                Runtime phase: {agent.runtimePhase} · Machine: {agent.machineName}
+                Runtime phase: {agent.runtimePhase} · Machine: {agent.machineName} · Active runs:
+                {agent.activeRunCount}
               </div>
             </div>
-            <div class="text-muted-foreground text-right text-xs">
-              {#if agent.lastHeartbeat}
-                Last heartbeat {formatRelativeTime(agent.lastHeartbeat)}
-              {:else}
-                No heartbeat yet
+            <div class="flex items-center gap-2">
+              <div class="text-muted-foreground text-right text-xs">
+                {#if agent.lastHeartbeat}
+                  Last heartbeat {formatRelativeTime(agent.lastHeartbeat)}
+                {:else}
+                  No heartbeat yet
+                {/if}
+              </div>
+              {#if onDelete}
+                <Button
+                  variant="destructive"
+                  size="xs"
+                  disabled={deletingAgentId === agent.id || agent.activeRunCount > 0}
+                  title={deleteTitle(agent)}
+                  aria-label={`Delete agent ${agent.name}`}
+                  onclick={() => void handleDelete(agent)}
+                >
+                  <Trash2 class="size-3.5" />
+                  {deletingAgentId === agent.id ? 'Deleting…' : 'Delete'}
+                </Button>
               {/if}
             </div>
           </div>

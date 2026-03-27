@@ -11,25 +11,28 @@ import (
 )
 
 type agentProviderResponse struct {
-	ID                   string         `json:"id"`
-	OrganizationID       string         `json:"organization_id"`
-	MachineID            string         `json:"machine_id"`
-	MachineName          string         `json:"machine_name"`
-	MachineHost          string         `json:"machine_host"`
-	MachineStatus        string         `json:"machine_status"`
-	MachineSSHUser       *string        `json:"machine_ssh_user,omitempty"`
-	MachineWorkspaceRoot *string        `json:"machine_workspace_root,omitempty"`
-	Name                 string         `json:"name"`
-	AdapterType          string         `json:"adapter_type"`
-	Available            bool           `json:"available"`
-	CliCommand           string         `json:"cli_command"`
-	CliArgs              []string       `json:"cli_args"`
-	AuthConfig           map[string]any `json:"auth_config"`
-	ModelName            string         `json:"model_name"`
-	ModelTemperature     float64        `json:"model_temperature"`
-	ModelMaxTokens       int            `json:"model_max_tokens"`
-	CostPerInputToken    float64        `json:"cost_per_input_token"`
-	CostPerOutputToken   float64        `json:"cost_per_output_token"`
+	ID                    string         `json:"id"`
+	OrganizationID        string         `json:"organization_id"`
+	MachineID             string         `json:"machine_id"`
+	MachineName           string         `json:"machine_name"`
+	MachineHost           string         `json:"machine_host"`
+	MachineStatus         string         `json:"machine_status"`
+	MachineSSHUser        *string        `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot  *string        `json:"machine_workspace_root,omitempty"`
+	Name                  string         `json:"name"`
+	AdapterType           string         `json:"adapter_type"`
+	AvailabilityState     string         `json:"availability_state"`
+	Available             bool           `json:"available"`
+	AvailabilityCheckedAt *string        `json:"availability_checked_at,omitempty"`
+	AvailabilityReason    *string        `json:"availability_reason,omitempty"`
+	CliCommand            string         `json:"cli_command"`
+	CliArgs               []string       `json:"cli_args"`
+	AuthConfig            map[string]any `json:"auth_config"`
+	ModelName             string         `json:"model_name"`
+	ModelTemperature      float64        `json:"model_temperature"`
+	ModelMaxTokens        int            `json:"model_max_tokens"`
+	CostPerInputToken     float64        `json:"cost_per_input_token"`
+	CostPerOutputToken    float64        `json:"cost_per_output_token"`
 }
 
 type agentResponse struct {
@@ -44,14 +47,32 @@ type agentResponse struct {
 }
 
 type agentRuntimeResponse struct {
-	CurrentRunID     *string `json:"current_run_id,omitempty"`
+	ActiveRunCount       int     `json:"active_run_count"`
+	CurrentRunID         *string `json:"current_run_id,omitempty"`
+	Status               string  `json:"status"`
+	CurrentTicketID      *string `json:"current_ticket_id,omitempty"`
+	SessionID            string  `json:"session_id"`
+	RuntimePhase         string  `json:"runtime_phase"`
+	RuntimeStartedAt     *string `json:"runtime_started_at,omitempty"`
+	LastError            string  `json:"last_error"`
+	LastHeartbeatAt      *string `json:"last_heartbeat_at,omitempty"`
+	CurrentStepStatus    *string `json:"current_step_status,omitempty"`
+	CurrentStepSummary   *string `json:"current_step_summary,omitempty"`
+	CurrentStepChangedAt *string `json:"current_step_changed_at,omitempty"`
+}
+
+type agentRunResponse struct {
+	ID               string  `json:"id"`
+	AgentID          string  `json:"agent_id"`
+	WorkflowID       string  `json:"workflow_id"`
+	TicketID         string  `json:"ticket_id"`
+	ProviderID       string  `json:"provider_id"`
 	Status           string  `json:"status"`
-	CurrentTicketID  *string `json:"current_ticket_id,omitempty"`
 	SessionID        string  `json:"session_id"`
-	RuntimePhase     string  `json:"runtime_phase"`
 	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
 	LastError        string  `json:"last_error"`
 	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
+	CreatedAt        string  `json:"created_at"`
 }
 
 type agentProviderPatchRequest struct {
@@ -204,6 +225,22 @@ func (s *Server) listAgents(c echo.Context) error {
 	})
 }
 
+func (s *Server) listAgentRuns(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+
+	items, err := s.catalog.ListAgentRuns(c.Request().Context(), projectID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"agent_runs": mapAgentRunResponses(items),
+	})
+}
+
 func (s *Server) createAgent(c echo.Context) error {
 	projectID, err := parseUUIDPathParam(c, "projectId")
 	if err != nil {
@@ -326,26 +363,34 @@ func mapAgentProviderResponses(items []domain.AgentProvider) []agentProviderResp
 }
 
 func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
+	availabilityState := item.AvailabilityState
+	if !availabilityState.IsValid() {
+		availabilityState = domain.AgentProviderAvailabilityStateUnknown
+	}
+
 	return agentProviderResponse{
-		ID:                   item.ID.String(),
-		OrganizationID:       item.OrganizationID.String(),
-		MachineID:            item.MachineID.String(),
-		MachineName:          item.MachineName,
-		MachineHost:          item.MachineHost,
-		MachineStatus:        item.MachineStatus.String(),
-		MachineSSHUser:       stringPointerValue(item.MachineSSHUser),
-		MachineWorkspaceRoot: stringPointerValue(item.MachineWorkspaceRoot),
-		Name:                 item.Name,
-		AdapterType:          item.AdapterType.String(),
-		Available:            item.Available,
-		CliCommand:           item.CliCommand,
-		CliArgs:              cloneStringSlice(item.CliArgs),
-		AuthConfig:           cloneMap(item.AuthConfig),
-		ModelName:            item.ModelName,
-		ModelTemperature:     item.ModelTemperature,
-		ModelMaxTokens:       item.ModelMaxTokens,
-		CostPerInputToken:    item.CostPerInputToken,
-		CostPerOutputToken:   item.CostPerOutputToken,
+		ID:                    item.ID.String(),
+		OrganizationID:        item.OrganizationID.String(),
+		MachineID:             item.MachineID.String(),
+		MachineName:           item.MachineName,
+		MachineHost:           item.MachineHost,
+		MachineStatus:         item.MachineStatus.String(),
+		MachineSSHUser:        stringPointerValue(item.MachineSSHUser),
+		MachineWorkspaceRoot:  stringPointerValue(item.MachineWorkspaceRoot),
+		Name:                  item.Name,
+		AdapterType:           item.AdapterType.String(),
+		AvailabilityState:     availabilityState.String(),
+		Available:             item.Available,
+		AvailabilityCheckedAt: timePointerString(item.AvailabilityCheckedAt),
+		AvailabilityReason:    stringPointerValue(item.AvailabilityReason),
+		CliCommand:            item.CliCommand,
+		CliArgs:               cloneStringSlice(item.CliArgs),
+		AuthConfig:            cloneMap(item.AuthConfig),
+		ModelName:             item.ModelName,
+		ModelTemperature:      item.ModelTemperature,
+		ModelMaxTokens:        item.ModelMaxTokens,
+		CostPerInputToken:     item.CostPerInputToken,
+		CostPerOutputToken:    item.CostPerOutputToken,
 	}
 }
 
@@ -355,6 +400,14 @@ func stringPointerValue(value *string) *string {
 	}
 	copied := *value
 	return &copied
+}
+
+func timePointerString(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	formatted := value.UTC().Format(time.RFC3339)
+	return &formatted
 }
 
 func mapAgentResponses(items []domain.Agent) []agentResponse {
@@ -385,14 +438,43 @@ func mapAgentRuntimeResponse(item *domain.AgentRuntime) *agentRuntimeResponse {
 	}
 
 	return &agentRuntimeResponse{
-		CurrentRunID:     uuidToStringPointer(item.CurrentRunID),
+		ActiveRunCount:       item.ActiveRunCount,
+		CurrentRunID:         uuidToStringPointer(item.CurrentRunID),
+		Status:               item.Status.String(),
+		CurrentTicketID:      uuidToStringPointer(item.CurrentTicketID),
+		SessionID:            item.SessionID,
+		RuntimePhase:         item.RuntimePhase.String(),
+		RuntimeStartedAt:     timeToStringPointer(item.RuntimeStartedAt),
+		LastError:            item.LastError,
+		LastHeartbeatAt:      timeToStringPointer(item.LastHeartbeatAt),
+		CurrentStepStatus:    stringPointerValue(item.CurrentStepStatus),
+		CurrentStepSummary:   stringPointerValue(item.CurrentStepSummary),
+		CurrentStepChangedAt: timeToStringPointer(item.CurrentStepChangedAt),
+	}
+}
+
+func mapAgentRunResponses(items []domain.AgentRun) []agentRunResponse {
+	response := make([]agentRunResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapAgentRunResponse(item))
+	}
+
+	return response
+}
+
+func mapAgentRunResponse(item domain.AgentRun) agentRunResponse {
+	return agentRunResponse{
+		ID:               item.ID.String(),
+		AgentID:          item.AgentID.String(),
+		WorkflowID:       item.WorkflowID.String(),
+		TicketID:         item.TicketID.String(),
+		ProviderID:       item.ProviderID.String(),
 		Status:           item.Status.String(),
-		CurrentTicketID:  uuidToStringPointer(item.CurrentTicketID),
 		SessionID:        item.SessionID,
-		RuntimePhase:     item.RuntimePhase.String(),
 		RuntimeStartedAt: timeToStringPointer(item.RuntimeStartedAt),
 		LastError:        item.LastError,
 		LastHeartbeatAt:  timeToStringPointer(item.LastHeartbeatAt),
+		CreatedAt:        item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

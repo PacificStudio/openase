@@ -11,7 +11,7 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get an agent */
+    /** Get an agent definition */
     get: operations['getAgent']
     put?: never
     post?: never
@@ -425,6 +425,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/agent-runs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List project agent runs */
+    get: operations['listAgentRuns']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/agents': {
     parameters: {
       query?: never
@@ -432,10 +449,10 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** List agents */
+    /** List agent definitions with aggregate runtime summaries */
     get: operations['listAgents']
     put?: never
-    /** Create an agent */
+    /** Create an agent definition */
     post: operations['createAgent']
     delete?: never
     options?: never
@@ -486,6 +503,40 @@ export interface paths {
     }
     /** Stream agent output entries */
     get: operations['streamAgentOutput']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/agents/{agentId}/steps': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List agent step entries */
+    get: operations['listAgentSteps']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/agents/{agentId}/steps/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream agent step entries */
+    get: operations['streamAgentSteps']
     put?: never
     post?: never
     delete?: never
@@ -1131,7 +1182,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Get an agent response. */
+      /** @description Get an agent definition response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -1144,7 +1195,11 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
                 last_heartbeat_at?: string | null
@@ -1224,7 +1279,11 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
                 last_heartbeat_at?: string | null
@@ -1316,7 +1375,11 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
                 last_heartbeat_at?: string | null
@@ -1408,7 +1471,11 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
                 last_heartbeat_at?: string | null
@@ -1721,6 +1788,7 @@ export interface operations {
             workflow_id?: string | null
           }
           message?: string
+          provider_id?: string | null
           session_id?: string | null
           source?: string
         }
@@ -1791,7 +1859,7 @@ export interface operations {
       query?: never
       header?: never
       path: {
-        /** @description Claude Code session ID. */
+        /** @description Ephemeral chat session ID. */
         sessionId: string
       }
       cookie?: never
@@ -3462,6 +3530,9 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
               available?: boolean
               cli_args?: string[]
               cli_command?: string
@@ -3570,6 +3641,9 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
               available?: boolean
               cli_args?: string[]
               cli_command?: string
@@ -4012,6 +4086,79 @@ export interface operations {
       }
     }
   }
+  listAgentRuns: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List project agent runs response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent_runs?: {
+              agent_id?: string
+              created_at?: string
+              id?: string
+              last_error?: string
+              last_heartbeat_at?: string | null
+              provider_id?: string
+              runtime_started_at?: string | null
+              session_id?: string
+              status?: string
+              ticket_id?: string
+              workflow_id?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listAgents: {
     parameters: {
       query?: never
@@ -4024,7 +4171,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description List agents response. */
+      /** @description List agent definitions with aggregate runtime summaries response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -4037,7 +4184,11 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
                 last_heartbeat_at?: string | null
@@ -4102,7 +4253,7 @@ export interface operations {
       }
       cookie?: never
     }
-    /** @description Create an agent request body. */
+    /** @description Create an agent definition request body. */
     requestBody: {
       content: {
         'application/json': {
@@ -4112,7 +4263,7 @@ export interface operations {
       }
     }
     responses: {
-      /** @description Create an agent response. */
+      /** @description Create an agent definition response. */
       201: {
         headers: {
           [name: string]: unknown
@@ -4125,7 +4276,11 @@ export interface operations {
               project_id?: string
               provider_id?: string
               runtime?: {
+                active_run_count?: number
                 current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
                 current_ticket_id?: string | null
                 last_error?: string
                 last_heartbeat_at?: string | null
@@ -4267,6 +4422,7 @@ export interface operations {
           'application/json': {
             entries?: {
               agent_id?: string
+              agent_run_id?: string
               created_at?: string
               id?: string
               output?: string
@@ -4319,6 +4475,148 @@ export interface operations {
     parameters: {
       query?: {
         /** @description Filter streamed output by ticket ID. */
+        ticket_id?: string
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Agent ID. */
+        agentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listAgentSteps: {
+    parameters: {
+      query?: {
+        /** @description Filter steps by ticket ID. */
+        ticket_id?: string
+        /** @description Limit the number of returned step entries. */
+        limit?: number
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Agent ID. */
+        agentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List agent step entries response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            entries?: {
+              agent_id?: string
+              agent_run_id?: string
+              created_at?: string
+              id?: string
+              project_id?: string
+              source_trace_event_id?: string | null
+              step_status?: string
+              summary?: string
+              ticket_id?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamAgentSteps: {
+    parameters: {
+      query?: {
+        /** @description Filter streamed steps by ticket ID. */
         ticket_id?: string
       }
       header?: never
@@ -6257,6 +6555,13 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            assigned_agent?: {
+              id?: string
+              name?: string
+              provider?: string
+              runtime_control_state?: string
+              runtime_phase?: string | null
+            } | null
             comments?: {
               body?: string
               created_at?: string
@@ -6995,6 +7300,9 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
               available?: boolean
               cli_args?: string[]
               cli_command?: string

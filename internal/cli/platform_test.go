@@ -106,6 +106,39 @@ func TestTicketUpdateCommandFallsBackToCurrentTicketEnv(t *testing.T) {
 	}
 }
 
+func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
+	var path string
+	var payload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.RequestURI()
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ticket":{"id":"ticket-9","status_name":"Done"}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
+
+	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"update", "--status", "Done"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if path != "/tickets/ticket-9" {
+		t.Fatalf("expected env-backed ticket path, got %q", path)
+	}
+	if payload["status_name"] != "Done" {
+		t.Fatalf("unexpected update payload: %+v", payload)
+	}
+}
+
 func TestTicketReportUsageCommandPostsUsagePayload(t *testing.T) {
 	var method string
 	var path string

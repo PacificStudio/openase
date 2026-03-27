@@ -23,12 +23,9 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
-  import type { StatusPayload } from '$lib/api/contracts'
   import StatusSettingsCreate from './status-settings-create.svelte'
-  import StatusSettingsRow from './status-settings-row.svelte'
-  import StatusStageConcurrency from './status-stage-concurrency.svelte'
+  import StatusSettingsList from './status-settings-list.svelte'
   let statuses = $state<EditableStatus[]>([])
-  let stages = $state<StatusPayload['stages']>([])
   let createName = $state('')
   let createColor = $state('#94a3b8')
   let createDefault = $state(false)
@@ -38,19 +35,28 @@
   let busyStatusId = $state('')
   const statusCapability = getSettingsSectionCapability('statuses')
 
+  function assignStatuses(payload: Awaited<ReturnType<typeof listStatuses>>) {
+    statuses = normalizeStatuses(payload.statuses)
+  }
+
+  function resetEditorState() {
+    statuses = []
+    createName = ''
+    createColor = createEmptyStatusDraft().color
+    createDefault = false
+    busyStatusId = ''
+    creating = false
+    resetting = false
+    loading = false
+  }
+
   $effect(() => {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      statuses = []
-      stages = []
-      createName = ''
-      createColor = createEmptyStatusDraft().color
-      createDefault = false
-      busyStatusId = ''
-      creating = false
-      resetting = false
+      resetEditorState()
       return
     }
+
     let cancelled = false
 
     const load = async () => {
@@ -59,27 +65,27 @@
       try {
         const payload = await listStatuses(projectId)
         if (cancelled) return
-        statuses = normalizeStatuses(payload.statuses)
-        stages = payload.stages
-      } catch (caughtError) {
-        if (cancelled) return
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load statuses.',
-        )
+        assignStatuses(payload)
+      } catch (error) {
+        if (!cancelled) {
+          toastStore.error(error instanceof ApiError ? error.detail : 'Failed to load statuses.')
+        }
       } finally {
-        if (!cancelled) loading = false
+        if (!cancelled) {
+          loading = false
+        }
       }
     }
 
     void load()
 
-    return () => (cancelled = true)
+    return () => {
+      cancelled = true
+    }
   })
 
   async function reloadStatuses(projectId: string) {
-    const payload = await listStatuses(projectId)
-    statuses = normalizeStatuses(payload.statuses)
-    stages = payload.stages
+    assignStatuses(await listStatuses(projectId))
   }
 
   async function handleCreate() {
@@ -91,10 +97,7 @@
       color: createColor,
       isDefault: createDefault,
     })
-    if (!parsed.ok) {
-      toastStore.error(parsed.error)
-      return
-    }
+    if (!parsed.ok) return void toastStore.error(parsed.error)
 
     creating = true
 
@@ -143,6 +146,27 @@
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to update status.',
+      )
+    } finally {
+      busyStatusId = ''
+    }
+  }
+
+  async function handleSetDefault(statusId: string) {
+    const projectId = appStore.currentProject?.id
+    const current = statuses.find((status) => status.id === statusId)
+    if (!projectId || !current || current.isDefault) return
+
+    busyStatusId = statusId
+
+    try {
+      await updateStatus(statusId, { is_default: true })
+      await reloadStatuses(projectId)
+      statusSync.touch()
+      toastStore.success(`"${current.name}" is now the default status.`)
+    } catch (caughtError) {
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to set default status.',
       )
     } finally {
       busyStatusId = ''
@@ -246,12 +270,6 @@
 
   <Separator />
 
-  {#if stages.length > 0}
-    <StatusStageConcurrency {stages} />
-
-    <Separator />
-  {/if}
-
   <StatusSettingsCreate
     bind:name={createName}
     bind:color={createColor}
@@ -263,29 +281,14 @@
     onReset={handleReset}
   />
 
-  {#if loading}
-    <div class="text-muted-foreground text-sm">Loading statuses…</div>
-  {:else}
-    <div class="space-y-2">
-      {#if statuses.length === 0}
-        <div class="text-muted-foreground rounded-md border border-dashed px-4 py-6 text-sm">
-          No statuses yet. Add one above or use reset to seed the default workflow template.
-        </div>
-      {:else}
-        {#each statuses as status, index (status.id)}
-          <StatusSettingsRow
-            {status}
-            order={index}
-            busy={busyStatusId === status.id || resetting || loading}
-            canMoveUp={index > 0}
-            canMoveDown={index < statuses.length - 1}
-            onSave={handleSave}
-            onDelete={handleDelete}
-            onMoveUp={(statusId) => handleMove(statusId, 'up')}
-            onMoveDown={(statusId) => handleMove(statusId, 'down')}
-          />
-        {/each}
-      {/if}
-    </div>
-  {/if}
+  <StatusSettingsList
+    {statuses}
+    {loading}
+    {resetting}
+    {busyStatusId}
+    onSave={handleSave}
+    onDelete={handleDelete}
+    onMove={handleMove}
+    onSetDefault={handleSetDefault}
+  />
 </div>

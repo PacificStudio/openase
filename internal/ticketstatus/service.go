@@ -186,6 +186,35 @@ func (s *Service) List(ctx context.Context, projectID uuid.UUID) (ListResult, er
 	return buildListResult(stages, statuses, stageSnapshots), nil
 }
 
+// ResolveStatusIDByName finds a project status by display name.
+func (s *Service) ResolveStatusIDByName(ctx context.Context, projectID uuid.UUID, name string) (uuid.UUID, error) {
+	if s.client == nil {
+		return uuid.UUID{}, ErrUnavailable
+	}
+	if err := ensureProjectExists(ctx, s.client.Project, projectID); err != nil {
+		return uuid.UUID{}, err
+	}
+
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return uuid.UUID{}, fmt.Errorf("status name must not be empty")
+	}
+
+	statuses, err := s.client.TicketStatus.Query().
+		Where(entticketstatus.ProjectIDEQ(projectID)).
+		All(ctx)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("list ticket statuses for name resolution: %w", err)
+	}
+	for _, status := range statuses {
+		if strings.EqualFold(strings.TrimSpace(status.Name), trimmed) {
+			return status.ID, nil
+		}
+	}
+
+	return uuid.UUID{}, ErrStatusNotFound
+}
+
 // ListStages returns the ordered stages for a project.
 func (s *Service) ListStages(ctx context.Context, projectID uuid.UUID) ([]Stage, error) {
 	if s.client == nil {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PageScaffold } from '$lib/components/layout'
   import { appStore } from '$lib/stores/app.svelte'
   import { connectEventStream } from '$lib/api/sse'
   import { listActivity, listTickets } from '$lib/api/openase'
@@ -113,47 +114,44 @@
   }
 </script>
 
-<div class="mx-auto w-full max-w-3xl space-y-6">
-  <div>
-    <h1 class="text-foreground text-lg font-semibold">Activity</h1>
-    <p class="text-muted-foreground mt-1 text-sm">
-      Event log across all tickets, agents, and integrations.
-    </p>
-  </div>
-
-  <div class="flex flex-wrap items-center gap-3">
-    <div class="relative min-w-48 flex-1">
-      <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-      <Input placeholder="Search events..." class="pl-9" bind:value={searchQuery} />
+<PageScaffold title="Activity">
+  <div class="mx-auto w-full max-w-3xl space-y-6">
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="relative min-w-48 flex-1">
+        <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+        <Input placeholder="Search events..." class="pl-9" bind:value={searchQuery} />
+      </div>
+      <Select.Root
+        type="single"
+        onValueChange={(v) => {
+          selectedType = v || 'all'
+        }}
+      >
+        <Select.Trigger class="w-44">
+          {eventTypes.find((t) => t.value === selectedType)?.label ?? 'All events'}
+        </Select.Trigger>
+        <Select.Content>
+          {#each eventTypes as t (t.value)}
+            <Select.Item value={t.value}>{t.label}</Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
     </div>
-    <Select.Root
-      type="single"
-      onValueChange={(v) => {
-        selectedType = v || 'all'
-      }}
-    >
-      <Select.Trigger class="w-44">
-        {eventTypes.find((t) => t.value === selectedType)?.label ?? 'All events'}
-      </Select.Trigger>
-      <Select.Content>
-        {#each eventTypes as t (t.value)}
-          <Select.Item value={t.value}>{t.label}</Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  </div>
 
-  {#if loading}
-    <div class="text-muted-foreground py-16 text-center text-sm">Loading activity…</div>
-  {:else if error}
-    <div
-      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-    >
-      {error}
-    </div>
-  {:else if filtered.length > 0}
-    <ActivityTimeline entries={filtered} />
-  {:else}
-    <div class="text-muted-foreground py-16 text-center text-sm">No events match your filters.</div>
-  {/if}
-</div>
+    {#if loading}
+      <div class="text-muted-foreground py-16 text-center text-sm">Loading activity…</div>
+    {:else if error}
+      <div
+        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+      >
+        {error}
+      </div>
+    {:else if filtered.length > 0}
+      <ActivityTimeline entries={filtered} />
+    {:else}
+      <div class="text-muted-foreground py-16 text-center text-sm">
+        No events match your filters.
+      </div>
+    {/if}
+  </div>
+</PageScaffold>

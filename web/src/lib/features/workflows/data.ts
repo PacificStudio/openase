@@ -4,6 +4,7 @@ import {
   listAgents,
   listHarnessVariables,
   listBuiltinRoles,
+  listProjectRepos,
   listProviders,
   listSkills,
   listStatuses,
@@ -17,6 +18,18 @@ import type {
   WorkflowStatusOption,
   WorkflowSummary,
 } from './types'
+
+export type WorkflowRepositoryPrerequisite =
+  | {
+      kind: 'ready'
+      primaryRepoId: string
+      primaryRepoName: string
+      repoCount: number
+    }
+  | {
+      kind: 'missing_primary_repo'
+      repoCount: number
+    }
 
 export function mapWorkflowSummary(
   workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
@@ -84,6 +97,27 @@ function mapStatusOptions(
     .map((status) => ({ id: status.id, name: status.name }))
 }
 
+export async function loadWorkflowRepositoryPrerequisite(
+  projectId: string,
+): Promise<WorkflowRepositoryPrerequisite> {
+  const payload = await listProjectRepos(projectId)
+  const primaryRepo = payload.repos.find((repo) => repo.is_primary)
+
+  if (!primaryRepo) {
+    return {
+      kind: 'missing_primary_repo',
+      repoCount: payload.repos.length,
+    }
+  }
+
+  return {
+    kind: 'ready',
+    primaryRepoId: primaryRepo.id,
+    primaryRepoName: primaryRepo.name,
+    repoCount: payload.repos.length,
+  }
+}
+
 export async function loadWorkflowCatalog(projectId: string, orgId: string) {
   const [workflowPayload, statusPayload, agentPayload, providerPayload] = await Promise.all([
     listWorkflows(projectId),
@@ -97,6 +131,7 @@ export async function loadWorkflowCatalog(projectId: string, orgId: string) {
 
   return {
     agentOptions,
+    providers: providerPayload.providers,
     statuses,
     workflows: workflowPayload.workflows.map((workflow) =>
       mapWorkflowSummary(workflow, statusNamesById),
@@ -119,6 +154,7 @@ export async function loadWorkflowIndex(projectId: string, orgId: string, select
     builtinRoleContent:
       builtinRolePayload.roles.find((role) => role.workflow_type === 'coding')?.content ??
       defaultHarnessTemplate(),
+    providers: catalog.providers,
     statuses: catalog.statuses,
     skillStates: mapSkillStates(skillPayload.skills, currentWorkflowId),
     variableGroups: variablePayload.groups as HarnessVariableGroup[],

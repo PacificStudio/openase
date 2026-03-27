@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -27,10 +26,14 @@ const (
 )
 
 var (
-	ErrUnavailable       = errors.New("chat service unavailable")
-	ErrSourceUnsupported = errors.New("chat source is unsupported")
-	ErrProviderNotFound  = errors.New("claude code provider not found for project")
-	codeFencePattern     = regexp.MustCompile("(?s)^```(?:json)?\\s*(\\{.*\\})\\s*```$")
+	ErrUnavailable             = errors.New("chat service unavailable")
+	ErrSourceUnsupported       = errors.New("chat source is unsupported")
+	ErrProviderNotFound        = errors.New("chat-capable provider not found for project")
+	ErrProviderUnsupported     = errors.New("chat provider does not support ephemeral chat")
+	ErrProviderUnavailable     = errors.New("chat provider is unavailable")
+	ErrSessionNotFound         = errors.New("chat session not found")
+	ErrSessionProviderMismatch = errors.New("chat session cannot resume across providers")
+	codeFencePattern           = regexp.MustCompile("(?s)^```(?:json)?\\s*(\\{.*\\})\\s*```$")
 )
 
 type Source string
@@ -42,10 +45,11 @@ const (
 )
 
 type RawStartInput struct {
-	Message   string         `json:"message"`
-	Source    string         `json:"source"`
-	Context   RawChatContext `json:"context"`
-	SessionID *string        `json:"session_id"`
+	Message    string         `json:"message"`
+	Source     string         `json:"source"`
+	ProviderID *string        `json:"provider_id"`
+	Context    RawChatContext `json:"context"`
+	SessionID  *string        `json:"session_id"`
 }
 
 type RawChatContext struct {
@@ -61,10 +65,11 @@ type Context struct {
 }
 
 type StartInput struct {
-	Message   string
-	Source    Source
-	Context   Context
-	SessionID *provider.ClaudeCodeSessionID
+	Message    string
+	Source     Source
+	ProviderID *uuid.UUID
+	Context    Context
+	SessionID  *SessionID
 }
 
 type StreamEvent struct {
@@ -94,20 +99,15 @@ type workflowReader interface {
 }
 
 type Service struct {
-	logger         *slog.Logger
-	adapter        provider.ClaudeCodeAdapter
-	catalog        catalogReader
-	tickets        ticketReader
-	workflows      workflowReader
-	workingDir     provider.AbsolutePath
-	maxTurns       int
-	maxBudgetUSD   float64
-	activeSessions activeSessionRegistry
-}
-
-type activeSessionRegistry struct {
-	mu       sync.Mutex
-	sessions map[provider.ClaudeCodeSessionID]context.CancelFunc
+	logger           *slog.Logger
+	runtime          Runtime
+	catalog          catalogReader
+	tickets          ticketReader
+	workflows        workflowReader
+	workingDir       provider.AbsolutePath
+	maxTurns         int
+	maxBudgetUSD     float64
+	sessionProviders sessionProviderRegistry
 }
 
 type donePayload struct {
@@ -128,7 +128,7 @@ type textPayload struct {
 
 func NewService(
 	logger *slog.Logger,
-	adapter provider.ClaudeCodeAdapter,
+	runtime Runtime,
 	catalog catalogReader,
 	tickets ticketReader,
 	workflows workflowReader,
@@ -140,7 +140,7 @@ func NewService(
 
 	return &Service{
 		logger:       logger.With("component", "chat-service"),
-		adapter:      adapter,
+		runtime:      runtime,
 		catalog:      catalog,
 		tickets:      tickets,
 		workflows:    workflows,
@@ -157,6 +157,11 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 	}
 
 	source, err := parseSource(raw.Source)
+	if err != nil {
+		return StartInput{}, err
+	}
+
+	providerID, err := parseOptionalUUIDPointer("provider_id", raw.ProviderID)
 	if err != nil {
 		return StartInput{}, err
 	}
@@ -183,8 +188,9 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 	}
 
 	return StartInput{
-		Message: message,
-		Source:  source,
+		Message:    message,
+		Source:     source,
+		ProviderID: providerID,
 		Context: Context{
 			ProjectID:  projectID,
 			WorkflowID: workflowID,
@@ -194,12 +200,12 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 	}, nil
 }
 
-func ParseCloseSessionID(raw string) (provider.ClaudeCodeSessionID, error) {
-	return provider.ParseClaudeCodeSessionID(raw)
+func ParseCloseSessionID(raw string) (SessionID, error) {
+	return ParseSessionID(raw)
 }
 
 func (s *Service) StartTurn(ctx context.Context, input StartInput) (TurnStream, error) {
-	if s == nil || s.adapter == nil || s.catalog == nil || s.tickets == nil || s.workflows == nil {
+	if s == nil || s.runtime == nil || s.catalog == nil || s.tickets == nil || s.workflows == nil {
 		return TurnStream{}, ErrUnavailable
 	}
 
@@ -208,7 +214,8 @@ func (s *Service) StartTurn(ctx context.Context, input StartInput) (TurnStream, 
 		return TurnStream{}, fmt.Errorf("get project for chat: %w", err)
 	}
 
-	providerItem, err := s.resolveClaudeProvider(ctx, project)
+	sessionID, created := s.resolveSessionID(input.SessionID)
+	providerItem, err := s.resolveProvider(ctx, project, input.ProviderID, input.SessionID, sessionID)
 	if err != nil {
 		return TurnStream{}, err
 	}
@@ -218,203 +225,106 @@ func (s *Service) StartTurn(ctx context.Context, input StartInput) (TurnStream, 
 		return TurnStream{}, err
 	}
 
-	sessionSpec, err := s.buildSessionSpec(providerItem, input.SessionID, systemPrompt)
+	if created {
+		s.sessionProviders.Register(sessionID, providerItem.ID)
+	}
+
+	stream, err := s.runtime.StartTurn(ctx, RuntimeTurnInput{
+		SessionID:        sessionID,
+		Provider:         providerItem,
+		Message:          input.Message,
+		SystemPrompt:     systemPrompt,
+		WorkingDirectory: s.workingDir,
+		MaxTurns:         s.maxTurns,
+		MaxBudgetUSD:     s.maxBudgetUSD,
+	})
 	if err != nil {
+		if created {
+			s.sessionProviders.Delete(sessionID)
+		}
 		return TurnStream{}, err
 	}
 
-	runCtx, cancel := context.WithCancel(ctx)
-	session, err := s.adapter.Start(runCtx, sessionSpec)
-	if err != nil {
-		cancel()
-		return TurnStream{}, fmt.Errorf("start claude code chat turn: %w", err)
-	}
-
-	turnInput, err := provider.NewClaudeCodeTurnInput(input.Message)
-	if err != nil {
-		cancel()
-		return TurnStream{}, err
-	}
-	if err := session.Send(runCtx, turnInput); err != nil {
-		cancel()
-		return TurnStream{}, fmt.Errorf("send chat turn input: %w", err)
-	}
-
-	events := make(chan StreamEvent, 64)
-	go s.bridgeSession(runCtx, cancel, session, events)
-
-	return TurnStream{Events: events}, nil
+	return stream, nil
 }
 
-func (s *Service) CloseSession(sessionID provider.ClaudeCodeSessionID) bool {
-	return s.activeSessions.Close(sessionID)
+func (s *Service) CloseSession(sessionID SessionID) bool {
+	if s == nil || s.runtime == nil {
+		return false
+	}
+	s.sessionProviders.Delete(sessionID)
+	return s.runtime.CloseSession(sessionID)
 }
 
-func (s *Service) bridgeSession(
-	ctx context.Context,
-	cancel context.CancelFunc,
-	session provider.ClaudeCodeSession,
-	events chan<- StreamEvent,
-) {
-	defer close(events)
-	defer cancel()
-	defer func() {
-		closeCtx, closeCancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer closeCancel()
-		_ = session.Close(closeCtx)
-	}()
-
-	sessionID, hasSessionID := session.SessionID()
-	if hasSessionID {
-		s.activeSessions.Register(sessionID, cancel)
-		defer s.activeSessions.Close(sessionID)
+func (s *Service) resolveSessionID(raw *SessionID) (SessionID, bool) {
+	if raw != nil {
+		return *raw, false
 	}
 
-	eventCh := session.Events()
-	errorCh := session.Errors()
-
-	for eventCh != nil || errorCh != nil {
-		select {
-		case <-ctx.Done():
-			return
-		case err, ok := <-errorCh:
-			if !ok {
-				errorCh = nil
-				continue
-			}
-			events <- StreamEvent{
-				Event:   "error",
-				Payload: errorPayload{Message: err.Error()},
-			}
-		case event, ok := <-eventCh:
-			if !ok {
-				eventCh = nil
-				continue
-			}
-
-			if !hasSessionID && strings.TrimSpace(event.SessionID) != "" {
-				parsed, err := provider.ParseClaudeCodeSessionID(event.SessionID)
-				if err == nil {
-					sessionID = parsed
-					hasSessionID = true
-					s.activeSessions.Register(sessionID, cancel)
-					defer s.activeSessions.Close(sessionID)
-				}
-			}
-
-			for _, item := range s.mapClaudeEvent(event) {
-				events <- item
-			}
-			if event.Kind == provider.ClaudeCodeEventKindResult {
-				return
-			}
-		}
-	}
+	return SessionID(uuid.NewString()), true
 }
 
-func (s *Service) mapClaudeEvent(event provider.ClaudeCodeEvent) []StreamEvent {
-	switch event.Kind {
-	case provider.ClaudeCodeEventKindAssistant:
-		texts := extractAssistantTextBlocks(event.Message)
-		if len(texts) == 0 {
-			return nil
-		}
-
-		items := make([]StreamEvent, 0, len(texts))
-		for _, text := range texts {
-			if proposal, ok := parseActionProposalText(text); ok {
-				items = append(items, StreamEvent{Event: "message", Payload: proposal})
-				continue
-			}
-			items = append(items, StreamEvent{
-				Event:   "message",
-				Payload: textPayload{Type: "text", Content: text},
-			})
-		}
-		return items
-	case provider.ClaudeCodeEventKindTaskStart:
-		return []StreamEvent{{Event: "message", Payload: map[string]any{"type": "task_started", "raw": decodeRawJSON(event.Raw)}}}
-	case provider.ClaudeCodeEventKindTaskProgress:
-		return []StreamEvent{{Event: "message", Payload: map[string]any{"type": "task_progress", "raw": decodeRawJSON(event.Raw)}}}
-	case provider.ClaudeCodeEventKindTaskNotice:
-		return []StreamEvent{{Event: "message", Payload: map[string]any{"type": "task_notification", "raw": decodeRawJSON(event.Raw)}}}
-	case provider.ClaudeCodeEventKindUnknown:
-		payload := map[string]any{"type": event.UnknownType}
-		if data := decodeRawJSON(event.Raw); data != nil {
-			payload["raw"] = data
-		}
-		return []StreamEvent{{Event: "message", Payload: payload}}
-	case provider.ClaudeCodeEventKindResult:
-		sessionID := strings.TrimSpace(event.SessionID)
-		turnsRemaining := 0
-		if s.maxTurns > event.NumTurns {
-			turnsRemaining = s.maxTurns - event.NumTurns
-		}
-		return []StreamEvent{{
-			Event: "done",
-			Payload: donePayload{
-				SessionID:      sessionID,
-				CostUSD:        event.TotalCostUSD,
-				TurnsUsed:      event.NumTurns,
-				TurnsRemaining: turnsRemaining,
-			},
-		}}
-	default:
-		return nil
-	}
-}
-
-func (s *Service) buildSessionSpec(
-	providerItem catalogdomain.AgentProvider,
-	resumeSessionID *provider.ClaudeCodeSessionID,
-	systemPrompt string,
-) (provider.ClaudeCodeSessionSpec, error) {
-	command, err := provider.ParseAgentCLICommand(providerItem.CliCommand)
-	if err != nil {
-		return provider.ClaudeCodeSessionSpec{}, err
-	}
-
-	var workingDirectory *provider.AbsolutePath
-	if s.workingDir != "" {
-		workingDirectory = &s.workingDir
-	}
-
-	return provider.NewClaudeCodeSessionSpec(
-		command,
-		buildBaseArgs(providerItem.CliArgs, providerItem.ModelName),
-		workingDirectory,
-		provider.AuthConfigEnvironment(providerItem.AuthConfig),
-		nil,
-		systemPrompt,
-		&s.maxTurns,
-		&s.maxBudgetUSD,
-		resumeSessionID,
-		true,
-	)
-}
-
-func (s *Service) resolveClaudeProvider(
+func (s *Service) resolveProvider(
 	ctx context.Context,
 	project catalogdomain.Project,
+	rawProviderID *uuid.UUID,
+	rawSessionID *SessionID,
+	sessionID SessionID,
 ) (catalogdomain.AgentProvider, error) {
-	if project.DefaultAgentProviderID != nil {
-		item, err := s.catalog.GetAgentProvider(ctx, *project.DefaultAgentProviderID)
-		if err == nil && item.AdapterType == catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI {
-			return item, nil
-		}
-	}
-
-	items, err := s.catalog.ListAgentProviders(ctx, project.OrganizationID)
+	providers, err := s.catalog.ListAgentProviders(ctx, project.OrganizationID)
 	if err != nil {
 		return catalogdomain.AgentProvider{}, fmt.Errorf("list project agent providers for chat: %w", err)
 	}
-	for _, item := range items {
-		if item.AdapterType == catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI {
-			return item, nil
+
+	resolvedProviderID := rawProviderID
+	if rawSessionID != nil {
+		sessionProviderID, ok := s.sessionProviders.Resolve(*rawSessionID)
+		if !ok {
+			return catalogdomain.AgentProvider{}, ErrSessionNotFound
+		}
+		if resolvedProviderID != nil && *resolvedProviderID != sessionProviderID {
+			return catalogdomain.AgentProvider{}, ErrSessionProviderMismatch
+		}
+		resolvedProviderID = &sessionProviderID
+	}
+
+	if resolvedProviderID != nil {
+		providerItem, ok := findProvider(providers, *resolvedProviderID)
+		if !ok {
+			return catalogdomain.AgentProvider{}, ErrProviderNotFound
+		}
+		if !s.runtime.Supports(providerItem) {
+			return catalogdomain.AgentProvider{}, fmt.Errorf("%w: %s", ErrProviderUnsupported, providerItem.AdapterType)
+		}
+		if !providerItem.Available {
+			return catalogdomain.AgentProvider{}, fmt.Errorf("%w: %s", ErrProviderUnavailable, providerItem.Name)
+		}
+		return providerItem, nil
+	}
+
+	if project.DefaultAgentProviderID != nil {
+		if providerItem, ok := findProvider(providers, *project.DefaultAgentProviderID); ok && providerItem.Available && s.runtime.Supports(providerItem) {
+			return providerItem, nil
 		}
 	}
 
-	return catalogdomain.AgentProvider{}, ErrProviderNotFound
+	for _, providerItem := range providers {
+		if providerItem.Available && s.runtime.Supports(providerItem) {
+			return providerItem, nil
+		}
+	}
+
+	return catalogdomain.AgentProvider{}, fmt.Errorf("%w: project=%s session=%s", ErrProviderNotFound, project.ID, sessionID)
+}
+
+func findProvider(items []catalogdomain.AgentProvider, want uuid.UUID) (catalogdomain.AgentProvider, bool) {
+	for _, item := range items {
+		if item.ID == want {
+			return item, true
+		}
+	}
+
+	return catalogdomain.AgentProvider{}, false
 }
 
 func (s *Service) buildSystemPrompt(
@@ -616,6 +526,10 @@ func buildBaseArgs(cliArgs []string, modelName string) []string {
 	return append(args, "--model", modelName)
 }
 
+func buildCodexArgs(cliArgs []string) []string {
+	return append([]string(nil), cliArgs...)
+}
+
 func hasModelFlag(args []string) bool {
 	for index, arg := range args {
 		if arg == "--model" && index+1 < len(args) {
@@ -682,11 +596,11 @@ func parseOptionalUUIDPointer(field string, raw *string) (*uuid.UUID, error) {
 	return &parsed, nil
 }
 
-func parseOptionalSessionID(raw *string) (*provider.ClaudeCodeSessionID, error) {
+func parseOptionalSessionID(raw *string) (*SessionID, error) {
 	if raw == nil || strings.TrimSpace(*raw) == "" {
 		return nil, nil
 	}
-	parsed, err := provider.ParseClaudeCodeSessionID(*raw)
+	parsed, err := ParseSessionID(*raw)
 	if err != nil {
 		return nil, err
 	}
@@ -823,41 +737,4 @@ func uuidPtrValue(value *uuid.UUID) uuid.UUID {
 		return uuid.UUID{}
 	}
 	return *value
-}
-
-func (r *activeSessionRegistry) Register(sessionID provider.ClaudeCodeSessionID, cancel context.CancelFunc) {
-	if sessionID == "" || cancel == nil {
-		return
-	}
-
-	r.mu.Lock()
-	if r.sessions == nil {
-		r.sessions = make(map[provider.ClaudeCodeSessionID]context.CancelFunc)
-	}
-	previous := r.sessions[sessionID]
-	r.sessions[sessionID] = cancel
-	r.mu.Unlock()
-
-	if previous != nil {
-		previous()
-	}
-}
-
-func (r *activeSessionRegistry) Close(sessionID provider.ClaudeCodeSessionID) bool {
-	if sessionID == "" {
-		return false
-	}
-
-	r.mu.Lock()
-	cancel := r.sessions[sessionID]
-	if cancel != nil {
-		delete(r.sessions, sessionID)
-	}
-	r.mu.Unlock()
-
-	if cancel == nil {
-		return false
-	}
-	cancel()
-	return true
 }

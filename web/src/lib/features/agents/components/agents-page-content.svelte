@@ -1,17 +1,27 @@
 <script lang="ts">
-  import type { AgentOutputEntry, AgentProvider, Machine } from '$lib/api/contracts'
+  import { PageScaffold } from '$lib/components/layout'
+  import { Button } from '$ui/button'
+  import type { AgentOutputEntry, AgentProvider, AgentStepEntry, Machine } from '$lib/api/contracts'
   import type { StreamConnectionState } from '$lib/api/sse'
-  import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
+  import { Plus } from '@lucide/svelte'
+  import type {
+    AgentInstance,
+    AgentRunInstance,
+    ProviderConfig,
+    ProviderDraft,
+    ProviderDraftField,
+  } from '../types'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import AgentsPageDrawers from './agents-page-drawers.svelte'
   import AgentsPagePanel from './agents-page-panel.svelte'
 
   let {
-    activeTab = $bindable('instances'),
+    activeTab = $bindable('runtime'),
     registerSheetOpen = $bindable(false),
     providerConfigOpen = $bindable(false),
     outputSheetOpen = $bindable(false),
     agents,
+    agentRuns,
     providers,
     loading = false,
     error = '',
@@ -38,6 +48,7 @@
     providerSaving = false,
     selectedOutputAgent,
     outputEntries,
+    outputSteps,
     outputLoading = false,
     outputError = '',
     outputStreamState = 'idle',
@@ -50,6 +61,7 @@
     providerConfigOpen?: boolean
     outputSheetOpen?: boolean
     agents: AgentInstance[]
+    agentRuns: AgentRunInstance[]
     providers: ProviderConfig[]
     loading?: boolean
     error?: string
@@ -76,6 +88,7 @@
     providerSaving?: boolean
     selectedOutputAgent: AgentInstance | null
     outputEntries: AgentOutputEntry[]
+    outputSteps: AgentStepEntry[]
     outputLoading?: boolean
     outputError?: string
     outputStreamState?: StreamConnectionState
@@ -85,24 +98,40 @@
   } = $props()
 </script>
 
-<div class="space-y-4">
-  <AgentsPagePanel
-    bind:activeTab
-    {agents}
-    {providers}
-    {loading}
-    {error}
-    {runtimeActionAgentId}
-    {canRegister}
-    {registerButtonTitle}
-    {onOpenRegister}
-    {onSelectTicket}
-    {onViewOutput}
-    {onConfigureProvider}
-    {onPauseAgent}
-    {onResumeAgent}
-  />
-</div>
+{#snippet actions()}
+  <Button
+    size="sm"
+    onclick={() => onOpenRegister?.()}
+    disabled={!canRegister}
+    title={registerButtonTitle}
+  >
+    <Plus class="size-3.5" />
+    Register Agent
+  </Button>
+{/snippet}
+
+<PageScaffold
+  title="Agents"
+  description="Manage runtime sessions, definitions, and provider bindings."
+  {actions}
+>
+  <div class="space-y-4">
+    <AgentsPagePanel
+      bind:activeTab
+      {agents}
+      {agentRuns}
+      {providers}
+      {loading}
+      {error}
+      {runtimeActionAgentId}
+      {onSelectTicket}
+      {onViewOutput}
+      {onConfigureProvider}
+      {onPauseAgent}
+      {onResumeAgent}
+    />
+  </div>
+</PageScaffold>
 
 <AgentsPageDrawers
   bind:registerSheetOpen
@@ -122,6 +151,7 @@
   {providerSaving}
   {selectedOutputAgent}
   {outputEntries}
+  {outputSteps}
   {outputLoading}
   {outputError}
   {outputStreamState}

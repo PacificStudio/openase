@@ -84,8 +84,15 @@ func writeChatError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
 	case errors.Is(err, chatservice.ErrSourceUnsupported):
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_SOURCE", err.Error())
+	case errors.Is(err, chatservice.ErrSessionProviderMismatch):
+		return writeAPIError(c, http.StatusConflict, "CHAT_SESSION_PROVIDER_MISMATCH", err.Error())
 	case errors.Is(err, chatservice.ErrProviderNotFound):
 		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_NOT_CONFIGURED", err.Error())
+	case errors.Is(err, chatservice.ErrProviderUnavailable),
+		errors.Is(err, chatservice.ErrProviderUnsupported):
+		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNAVAILABLE", err.Error())
+	case errors.Is(err, chatservice.ErrSessionNotFound):
+		return writeAPIError(c, http.StatusNotFound, "CHAT_SESSION_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrTicketNotFound),
 		errors.Is(err, workflowservice.ErrWorkflowNotFound),
 		errors.Is(err, catalogservice.ErrNotFound):

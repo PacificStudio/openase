@@ -1,35 +1,42 @@
 <script lang="ts">
   import type { StatusPayload } from '$lib/api/contracts'
+  import * as Card from '$ui/card'
 
   let { stages }: { stages: StatusPayload['stages'] } = $props()
+
+  function hasUnlimitedCapacity(maxActiveRuns: number | null | undefined) {
+    return maxActiveRuns == null
+  }
 </script>
 
-<div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-  <div>
-    <h3 class="text-sm font-semibold text-slate-900">Stage Concurrency</h3>
-    <p class="mt-1 text-sm text-slate-600">
+<Card.Root class="gap-4">
+  <Card.Header class="gap-1">
+    <Card.Title>Stage Concurrency</Card.Title>
+    <Card.Description>
       Shared stage semaphores apply across every workflow that picks up from statuses inside the
       same stage.
-    </p>
-  </div>
+    </Card.Description>
+  </Card.Header>
 
-  <div class="space-y-2">
+  <Card.Content class="space-y-2">
     {#each stages as stage}
       <div
-        class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
+        class="bg-muted/40 border-border/70 flex items-center justify-between rounded-xl border px-3 py-3"
       >
-        <div>
-          <p class="text-sm font-medium text-slate-900">{stage.name}</p>
-          <p class="text-xs text-slate-500">
-            {#if stage.max_active_runs === null}
+        <div class="min-w-0">
+          <p class="text-foreground text-sm font-medium">{stage.name}</p>
+          <p class="text-muted-foreground mt-1 text-xs">
+            {#if hasUnlimitedCapacity(stage.max_active_runs)}
               {stage.active_runs} active now, unlimited capacity
             {:else}
               {stage.active_runs} active now, capacity {stage.max_active_runs}
             {/if}
           </p>
         </div>
-        <div class="text-sm font-medium text-slate-700">
-          {#if stage.max_active_runs === null}
+        <div
+          class="bg-background text-foreground border-border/70 shrink-0 rounded-full border px-2.5 py-1 text-sm font-medium"
+        >
+          {#if hasUnlimitedCapacity(stage.max_active_runs)}
             {stage.active_runs}
           {:else}
             {stage.active_runs}/{stage.max_active_runs}
@@ -37,5 +44,5 @@
         </div>
       </div>
     {/each}
-  </div>
-</div>
+  </Card.Content>
+</Card.Root>

@@ -29,7 +29,7 @@ describe('Status settings', () => {
     vi.clearAllMocks()
   })
 
-  it('renders shared stage occupancy and capacity from the statuses payload', async () => {
+  it('renders the status editor without embedding stage runtime cards', async () => {
     appStore.currentProject = {
       id: 'project-1',
       organization_id: 'org-1',
@@ -70,11 +70,41 @@ describe('Status settings', () => {
       statuses: [],
     })
 
+    const { findByText, queryByText } = render(StatusSettings)
+
+    expect(await findByText('Statuses')).toBeTruthy()
+    expect(
+      await findByText(
+        'No statuses yet. Add one above or use reset to seed the default workflow template.',
+      ),
+    ).toBeTruthy()
+    expect(queryByText('Stage Concurrency')).toBeNull()
+    expect(queryByText('In Progress')).toBeNull()
+  })
+
+  it('loads statuses once when the project settings page mounts', async () => {
+    appStore.currentProject = {
+      id: 'project-1',
+      organization_id: 'org-1',
+      name: 'OpenASE',
+      slug: 'openase',
+      description: '',
+      status: 'active',
+      default_workflow_id: null,
+      default_agent_provider_id: null,
+      accessible_machine_ids: [],
+      max_concurrent_agents: 4,
+    }
+
+    listStatuses.mockResolvedValue({
+      stages: [],
+      stage_groups: [],
+      statuses: [],
+    })
+
     const { findByText } = render(StatusSettings)
 
-    expect(await findByText('Stage Concurrency')).toBeTruthy()
-    expect(await findByText('In Progress')).toBeTruthy()
-    expect(await findByText('1 active now, capacity 1')).toBeTruthy()
-    expect(await findByText('0 active now, unlimited capacity')).toBeTruthy()
+    expect(await findByText('Statuses')).toBeTruthy()
+    expect(listStatuses).toHaveBeenCalledTimes(1)
   })
 })

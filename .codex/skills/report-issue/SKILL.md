@@ -2,7 +2,7 @@
 name: report-issue
 description:
   Create a detailed GitHub issue for OpenASE and add it to the OpenASE
-  Automation project in Todo. Use when asked to report a bug, deployment
+  Automation project with a caller-selected status (defaults to Todo). Use when asked to report a bug, deployment
   regression, local repro, or design task into GitHub with reproducible
   evidence and project binding.
 ---
@@ -12,7 +12,8 @@ description:
 ## Goals
 
 - Create a high-signal GitHub issue in the current repo.
-- Add it to project `OpenASE Automation` (`#2`) with status `Todo`.
+- Add it to project `OpenASE Automation` (`#2`) with the requested status.
+- Default to `Todo` when the caller does not specify a status.
 - Keep issue bodies concrete: exact branch, commit, commands, actual result,
   expected result, impact, and likely fix direction.
 
@@ -48,8 +49,20 @@ Prefer exact commands and exact errors over paraphrase.
 1. Gather concrete facts from the running repo and local deployment.
 2. Draft the issue body in a temp Markdown file.
 3. Run:
-   - `.codex/skills/report-issue/scripts/create_issue_and_add_to_project.sh --title "<title>" --body-file <file>`
-4. Return the issue URL and confirm project status is `Todo`.
+   - `.codex/skills/report-issue/scripts/create_issue_and_add_to_project.sh --title "<title>" --body-file <file> [--status "<status>"]`
+4. Return the issue URL and confirm the actual project status that was set.
+
+Supported `--status` values:
+
+- `Backlog`
+- `Todo`
+- `In Progress`
+- `Rework`
+- `In Review`
+- `Merging`
+- `Done`
+- `Canceled`
+- `Duplicated`
 
 ## Notes
 

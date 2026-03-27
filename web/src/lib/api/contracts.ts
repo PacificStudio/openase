@@ -71,11 +71,19 @@ export type MachineResourcesResponse = DeepRequired<
 
 export type AgentPayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/agents', 'get'>>
 export type Agent = ItemOf<AgentPayload['agents']>
+export type AgentRunPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/agent-runs', 'get'>
+>
+export type AgentRun = ItemOf<AgentRunPayload['agent_runs']>
 export type AgentResponse = DeepRequired<ResponseFor<'/api/v1/agents/{agentId}', 'get'>>
 export type AgentOutputPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/agents/{agentId}/output', 'get'>
 >
 export type AgentOutputEntry = ItemOf<AgentOutputPayload['entries']>
+export type AgentStepPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/agents/{agentId}/steps', 'get'>
+>
+export type AgentStepEntry = ItemOf<AgentStepPayload['entries']>
 
 export type ActivityPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/activity', 'get'>

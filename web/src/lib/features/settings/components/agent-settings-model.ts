@@ -1,4 +1,5 @@
 import type { Agent, AgentProvider } from '$lib/api/contracts'
+import { normalizeProviderAvailabilityState } from '$lib/features/providers'
 
 export type ProviderOption = {
   id: string
@@ -6,7 +7,10 @@ export type ProviderOption = {
   machineName: string
   adapterType: string
   modelName: string
+  availabilityState: string
   available: boolean
+  availabilityCheckedAt?: string | null
+  availabilityReason?: string | null
   agentCount: number
 }
 
@@ -16,11 +20,23 @@ export type GovernanceAgent = {
   providerName: string
   machineName: string
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
-  runtimePhase: 'none' | 'launching' | 'ready' | 'failed'
+  runtimePhase: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
+  activeRunCount: number
   lastHeartbeat?: string | null
 }
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string }
+
+const governanceAgentStatuses = [
+  'idle',
+  'claimed',
+  'running',
+  'paused',
+  'failed',
+  'terminated',
+] as const
+
+const governanceRuntimePhases = ['none', 'launching', 'ready', 'executing', 'failed'] as const
 
 export const governanceAgentStatusLabels: Record<GovernanceAgent['status'], string> = {
   idle: 'Idle',
@@ -49,8 +65,11 @@ export function buildProviderOptions(
     name: provider.name,
     machineName: provider.machine_name,
     adapterType: provider.adapter_type,
+    availabilityState: normalizeProviderAvailabilityState(provider.availability_state),
     modelName: provider.model_name,
     available: provider.available,
+    availabilityCheckedAt: provider.availability_checked_at ?? null,
+    availabilityReason: provider.availability_reason ?? null,
     agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,
   }))
 }
@@ -62,19 +81,7 @@ export function buildGovernanceAgents(
   const providerMap = new Map(providerItems.map((provider) => [provider.id, provider]))
 
   return agentItems
-    .map((agent) => {
-      const provider = providerMap.get(agent.provider_id)
-
-      return {
-        id: agent.id,
-        name: agent.name,
-        providerName: provider?.name ?? 'Unknown provider',
-        machineName: provider?.machine_name ?? 'Unknown machine',
-        status: normalizeAgentStatus(agent.runtime?.status ?? 'idle'),
-        runtimePhase: normalizeRuntimePhase(agent.runtime?.runtime_phase ?? 'none'),
-        lastHeartbeat: agent.runtime?.last_heartbeat_at ?? null,
-      }
-    })
+    .map((agent) => mapGovernanceAgent(agent, providerMap.get(agent.provider_id)))
     .sort((left, right) => left.name.localeCompare(right.name))
 }
 
@@ -94,29 +101,42 @@ export function parseDefaultProviderSelection(
 }
 
 function normalizeAgentStatus(status: string): GovernanceAgent['status'] {
-  if (
-    status === 'idle' ||
-    status === 'claimed' ||
-    status === 'running' ||
-    status === 'paused' ||
-    status === 'failed' ||
-    status === 'terminated'
-  ) {
-    return status
+  if (governanceAgentStatuses.includes(status as GovernanceAgent['status'])) {
+    return status as GovernanceAgent['status']
   }
 
   return status === 'active' ? 'running' : 'idle'
 }
 
 function normalizeRuntimePhase(runtimePhase: string): GovernanceAgent['runtimePhase'] {
-  if (
-    runtimePhase === 'none' ||
-    runtimePhase === 'launching' ||
-    runtimePhase === 'ready' ||
-    runtimePhase === 'failed'
-  ) {
-    return runtimePhase
+  if (governanceRuntimePhases.includes(runtimePhase as GovernanceAgent['runtimePhase'])) {
+    return runtimePhase as GovernanceAgent['runtimePhase']
   }
 
   return 'none'
+}
+
+function mapGovernanceAgent(agent: Agent, provider?: AgentProvider): GovernanceAgent {
+  return {
+    id: agent.id,
+    name: agent.name,
+    ...resolveGovernanceProvider(provider),
+    ...resolveGovernanceRuntime(agent.runtime),
+  }
+}
+
+function resolveGovernanceProvider(provider?: AgentProvider) {
+  return {
+    providerName: provider?.name ?? 'Unknown provider',
+    machineName: provider?.machine_name ?? 'Unknown machine',
+  }
+}
+
+function resolveGovernanceRuntime(runtime?: Agent['runtime'] | null) {
+  return {
+    status: normalizeAgentStatus(runtime?.status ?? 'idle'),
+    runtimePhase: normalizeRuntimePhase(runtime?.runtime_phase ?? 'none'),
+    activeRunCount: runtime?.active_run_count ?? 0,
+    lastHeartbeat: runtime?.last_heartbeat_at ?? null,
+  }
 }

@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -45,7 +46,20 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		SetPort(22).
 		SetDescription("Control-plane local execution host.").
 		SetStatus("online").
-		SetResources(map[string]any{"transport": "local", "last_success": true}).
+		SetResources(map[string]any{
+			"transport": "local",
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"checked_at": time.Now().UTC().Format(time.RFC3339),
+					"claude_code": map[string]any{
+						"installed":   true,
+						"auth_status": string(catalogdomain.MachineAgentAuthStatusLoggedIn),
+						"auth_mode":   string(catalogdomain.MachineAgentAuthModeLogin),
+						"ready":       true,
+					},
+				},
+			},
+		}).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create local machine: %v", err)
@@ -95,7 +109,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if _, err := client.ActivityEvent.Create().
 		SetProjectID(project.ID).
 		SetTicketID(ticketItem.ID).
-		SetEventType("agent.output").
+		SetEventType("pr.opened").
 		SetMessage("Collected failing test output").
 		SetMetadata(map[string]any{"stream": "stdout"}).
 		Save(ctx); err != nil {
@@ -123,7 +137,8 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse provider input: %v", err)
 	}
-	if _, err := catalogSvc.CreateAgentProvider(ctx, providerInput); err != nil {
+	providerItem, err := catalogSvc.CreateAgentProvider(ctx, providerInput)
+	if err != nil {
 		t.Fatalf("create agent provider: %v", err)
 	}
 
@@ -161,7 +176,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		nil,
 		WithChatService(chatservice.NewService(
 			slog.New(slog.NewTextHandler(io.Discard, nil)),
-			adapter,
+			chatservice.NewClaudeRuntime(adapter),
 			catalogSvc,
 			ticketservice.NewService(client),
 			staticWorkflowReader{},
@@ -173,9 +188,9 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	defer testServer.Close()
 
 	requestBody := mustMarshalJSON(t, map[string]any{
-		"message":    "为什么失败了？",
-		"source":     "ticket_detail",
-		"session_id": "sess-prev",
+		"message":     "为什么失败了？",
+		"source":      "ticket_detail",
+		"provider_id": providerItem.ID.String(),
 		"context": map[string]any{
 			"project_id": project.ID.String(),
 			"ticket_id":  ticketItem.ID.String(),
@@ -212,12 +227,12 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if !strings.Contains(textBody, "The ticket failed because") {
 		t.Fatalf("expected assistant message in stream, got %q", textBody)
 	}
-	if !strings.Contains(textBody, "event: done\n") || !strings.Contains(textBody, "\"session_id\":\"sess-ephemeral-1\"") {
+	if !strings.Contains(textBody, "event: done\n") || !strings.Contains(textBody, "\"session_id\":\"") {
 		t.Fatalf("expected done event with session id, got %q", textBody)
 	}
 
-	if adapter.lastSpec.ResumeSessionID == nil || adapter.lastSpec.ResumeSessionID.String() != "sess-prev" {
-		t.Fatalf("expected resume session id sess-prev, got %+v", adapter.lastSpec.ResumeSessionID)
+	if adapter.lastSpec.ResumeSessionID != nil {
+		t.Fatalf("expected first turn not to resume an existing session, got %+v", adapter.lastSpec.ResumeSessionID)
 	}
 	if adapter.lastSpec.MaxTurns == nil || *adapter.lastSpec.MaxTurns != chatservice.DefaultMaxTurns {
 		t.Fatalf("expected max turns %d, got %+v", chatservice.DefaultMaxTurns, adapter.lastSpec.MaxTurns)

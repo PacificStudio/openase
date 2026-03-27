@@ -77,25 +77,28 @@ type OpenAPIProjectRepo struct {
 }
 
 type OpenAPIAgentProvider struct {
-	ID                   string         `json:"id"`
-	OrganizationID       string         `json:"organization_id"`
-	MachineID            string         `json:"machine_id"`
-	MachineName          string         `json:"machine_name"`
-	MachineHost          string         `json:"machine_host"`
-	MachineStatus        string         `json:"machine_status"`
-	MachineSSHUser       *string        `json:"machine_ssh_user,omitempty"`
-	MachineWorkspaceRoot *string        `json:"machine_workspace_root,omitempty"`
-	Name                 string         `json:"name"`
-	AdapterType          string         `json:"adapter_type"`
-	Available            bool           `json:"available"`
-	CliCommand           string         `json:"cli_command"`
-	CliArgs              []string       `json:"cli_args"`
-	AuthConfig           map[string]any `json:"auth_config"`
-	ModelName            string         `json:"model_name"`
-	ModelTemperature     float64        `json:"model_temperature"`
-	ModelMaxTokens       int            `json:"model_max_tokens"`
-	CostPerInputToken    float64        `json:"cost_per_input_token"`
-	CostPerOutputToken   float64        `json:"cost_per_output_token"`
+	ID                    string         `json:"id"`
+	OrganizationID        string         `json:"organization_id"`
+	MachineID             string         `json:"machine_id"`
+	MachineName           string         `json:"machine_name"`
+	MachineHost           string         `json:"machine_host"`
+	MachineStatus         string         `json:"machine_status"`
+	MachineSSHUser        *string        `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot  *string        `json:"machine_workspace_root,omitempty"`
+	Name                  string         `json:"name"`
+	AdapterType           string         `json:"adapter_type"`
+	AvailabilityState     string         `json:"availability_state"`
+	Available             bool           `json:"available"`
+	AvailabilityCheckedAt *string        `json:"availability_checked_at,omitempty"`
+	AvailabilityReason    *string        `json:"availability_reason,omitempty"`
+	CliCommand            string         `json:"cli_command"`
+	CliArgs               []string       `json:"cli_args"`
+	AuthConfig            map[string]any `json:"auth_config"`
+	ModelName             string         `json:"model_name"`
+	ModelTemperature      float64        `json:"model_temperature"`
+	ModelMaxTokens        int            `json:"model_max_tokens"`
+	CostPerInputToken     float64        `json:"cost_per_input_token"`
+	CostPerOutputToken    float64        `json:"cost_per_output_token"`
 }
 
 type OpenAPIAgent struct {
@@ -110,14 +113,32 @@ type OpenAPIAgent struct {
 }
 
 type OpenAPIAgentRuntime struct {
-	CurrentRunID     *string `json:"current_run_id,omitempty"`
+	ActiveRunCount       int     `json:"active_run_count"`
+	CurrentRunID         *string `json:"current_run_id,omitempty"`
+	Status               string  `json:"status"`
+	CurrentTicketID      *string `json:"current_ticket_id,omitempty"`
+	SessionID            string  `json:"session_id"`
+	RuntimePhase         string  `json:"runtime_phase"`
+	RuntimeStartedAt     *string `json:"runtime_started_at,omitempty"`
+	LastError            string  `json:"last_error"`
+	LastHeartbeatAt      *string `json:"last_heartbeat_at,omitempty"`
+	CurrentStepStatus    *string `json:"current_step_status,omitempty"`
+	CurrentStepSummary   *string `json:"current_step_summary,omitempty"`
+	CurrentStepChangedAt *string `json:"current_step_changed_at,omitempty"`
+}
+
+type OpenAPIAgentRun struct {
+	ID               string  `json:"id"`
+	AgentID          string  `json:"agent_id"`
+	WorkflowID       string  `json:"workflow_id"`
+	TicketID         string  `json:"ticket_id"`
+	ProviderID       string  `json:"provider_id"`
 	Status           string  `json:"status"`
-	CurrentTicketID  *string `json:"current_ticket_id,omitempty"`
 	SessionID        string  `json:"session_id"`
-	RuntimePhase     string  `json:"runtime_phase"`
 	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
 	LastError        string  `json:"last_error"`
 	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
+	CreatedAt        string  `json:"created_at"`
 }
 
 type OpenAPIAgentRuntimeControlResponse struct {
@@ -138,13 +159,26 @@ type OpenAPIActivityEvent struct {
 }
 
 type OpenAPIAgentOutputEntry struct {
-	ID        string  `json:"id"`
-	ProjectID string  `json:"project_id"`
-	AgentID   string  `json:"agent_id"`
-	TicketID  *string `json:"ticket_id,omitempty"`
-	Stream    string  `json:"stream"`
-	Output    string  `json:"output"`
-	CreatedAt string  `json:"created_at"`
+	ID         string  `json:"id"`
+	ProjectID  string  `json:"project_id"`
+	AgentID    string  `json:"agent_id"`
+	TicketID   *string `json:"ticket_id,omitempty"`
+	AgentRunID string  `json:"agent_run_id"`
+	Stream     string  `json:"stream"`
+	Output     string  `json:"output"`
+	CreatedAt  string  `json:"created_at"`
+}
+
+type OpenAPIAgentStepEntry struct {
+	ID                 string  `json:"id"`
+	ProjectID          string  `json:"project_id"`
+	AgentID            string  `json:"agent_id"`
+	TicketID           *string `json:"ticket_id,omitempty"`
+	AgentRunID         string  `json:"agent_run_id"`
+	StepStatus         string  `json:"step_status"`
+	Summary            string  `json:"summary"`
+	SourceTraceEventID *string `json:"source_trace_event_id,omitempty"`
+	CreatedAt          string  `json:"created_at"`
 }
 
 type OpenAPITicketReference struct {
@@ -237,6 +271,14 @@ type OpenAPITicketRepoScope struct {
 	IsPrimaryScope bool    `json:"is_primary_scope"`
 }
 
+type OpenAPITicketAssignedAgent struct {
+	ID                  string  `json:"id"`
+	Name                string  `json:"name"`
+	Provider            string  `json:"provider"`
+	RuntimeControlState string  `json:"runtime_control_state,omitempty"`
+	RuntimePhase        *string `json:"runtime_phase,omitempty"`
+}
+
 type OpenAPIChatContext struct {
 	ProjectID  string  `json:"project_id"`
 	WorkflowID *string `json:"workflow_id,omitempty"`
@@ -244,10 +286,11 @@ type OpenAPIChatContext struct {
 }
 
 type OpenAPIChatStartRequest struct {
-	Message   string             `json:"message"`
-	Source    string             `json:"source"`
-	Context   OpenAPIChatContext `json:"context"`
-	SessionID *string            `json:"session_id,omitempty"`
+	Message    string             `json:"message"`
+	Source     string             `json:"source"`
+	ProviderID *string            `json:"provider_id,omitempty"`
+	Context    OpenAPIChatContext `json:"context"`
+	SessionID  *string            `json:"session_id,omitempty"`
 }
 
 type OpenAPITicketStatus struct {
@@ -513,12 +556,20 @@ type OpenAPIAgentsResponse struct {
 	Agents []OpenAPIAgent `json:"agents"`
 }
 
+type OpenAPIAgentRunsResponse struct {
+	AgentRuns []OpenAPIAgentRun `json:"agent_runs"`
+}
+
 type OpenAPIAgentResponse struct {
 	Agent OpenAPIAgent `json:"agent"`
 }
 
 type OpenAPIAgentOutputEntriesResponse struct {
 	Entries []OpenAPIAgentOutputEntry `json:"entries"`
+}
+
+type OpenAPIAgentStepEntriesResponse struct {
+	Entries []OpenAPIAgentStepEntry `json:"entries"`
 }
 
 type OpenAPIActivityEventsResponse struct {
@@ -710,11 +761,12 @@ type OpenAPISecuritySettingsResponse struct {
 }
 
 type OpenAPITicketDetailResponse struct {
-	Ticket      OpenAPITicket                  `json:"ticket"`
-	RepoScopes  []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
-	Comments    []OpenAPITicketComment         `json:"comments"`
-	Activity    []OpenAPIActivityEvent         `json:"activity"`
-	HookHistory []OpenAPIActivityEvent         `json:"hook_history"`
+	AssignedAgent *OpenAPITicketAssignedAgent    `json:"assigned_agent,omitempty"`
+	Ticket        OpenAPITicket                  `json:"ticket"`
+	RepoScopes    []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
+	Comments      []OpenAPITicketComment         `json:"comments"`
+	Activity      []OpenAPIActivityEvent         `json:"activity"`
+	HookHistory   []OpenAPIActivityEvent         `json:"hook_history"`
 }
 
 type OpenAPICreateOrganizationRequest catalogdomain.OrganizationInput
@@ -1538,7 +1590,7 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 
 	agentsGet, err := b.jsonOperation(
 		"listAgents",
-		"List agents",
+		"List agent definitions with aggregate runtime summaries",
 		[]string{"catalog"},
 		http.StatusOK,
 		OpenAPIAgentsResponse{},
@@ -1553,9 +1605,26 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	agentsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents", http.MethodGet, agentsGet)
 
+	agentRunsGet, err := b.jsonOperation(
+		"listAgentRuns",
+		"List project agent runs",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentRunsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentRunsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agent-runs", http.MethodGet, agentRunsGet)
+
 	agentsPost, err := b.jsonOperation(
 		"createAgent",
-		"Create an agent",
+		"Create an agent definition",
 		[]string{"catalog"},
 		http.StatusCreated,
 		OpenAPIAgentResponse{},
@@ -1573,7 +1642,7 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 
 	agentGet, err := b.jsonOperation(
 		"getAgent",
-		"Get an agent",
+		"Get an agent definition",
 		[]string{"catalog"},
 		http.StatusOK,
 		OpenAPIAgentResponse{},
@@ -1681,6 +1750,26 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	agentOutputGet.AddParameter(uuidQueryParameter("ticket_id", "Filter output by ticket ID."))
 	agentOutputGet.AddParameter(intQueryParameter("limit", "Limit the number of returned output entries."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/output", http.MethodGet, agentOutputGet)
+
+	agentStepsGet, err := b.jsonOperation(
+		"listAgentSteps",
+		"List agent step entries",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentStepEntriesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentStepsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	agentStepsGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	agentStepsGet.AddParameter(uuidQueryParameter("ticket_id", "Filter steps by ticket ID."))
+	agentStepsGet.AddParameter(intQueryParameter("limit", "Limit the number of returned step entries."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/steps", http.MethodGet, agentStepsGet)
 
 	rolesGet, err := b.jsonOperation(
 		"listBuiltinRoles",
@@ -2475,7 +2564,7 @@ func (b openAPISpecBuilder) addChatOperations() error {
 		chatDelete.AddResponse(code, errorResponse)
 	}
 	chatDelete.AddParameter(openapi3.NewPathParameter("sessionId").
-		WithDescription("Claude Code session ID.").
+		WithDescription("Ephemeral chat session ID.").
 		WithRequired(true).
 		WithSchema(openapi3.NewStringSchema()),
 	)
@@ -2530,6 +2619,22 @@ func (b openAPISpecBuilder) addStreamOperations() error {
 	agentOutputStream.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	agentOutputStream.AddParameter(uuidQueryParameter("ticket_id", "Filter streamed output by ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/output/stream", http.MethodGet, agentOutputStream)
+
+	agentStepStream, err := b.streamOperation(
+		"streamAgentSteps",
+		"Stream agent step entries",
+		[]string{"streams"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentStepStream.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	agentStepStream.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	agentStepStream.AddParameter(uuidQueryParameter("ticket_id", "Filter streamed steps by ticket ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/steps/stream", http.MethodGet, agentStepStream)
 
 	return nil
 }

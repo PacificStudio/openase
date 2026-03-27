@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/internal/builtin"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -226,8 +227,8 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		http.StatusOK,
 		&listResp,
 	)
-	if len(listResp.Skills) != 2 {
-		t.Fatalf("expected 2 skills, got %+v", listResp.Skills)
+	if len(listResp.Skills) != len(builtin.Skills()) {
+		t.Fatalf("expected %d skills, got %+v", len(builtin.Skills()), listResp.Skills)
 	}
 	reviewSkill := findSkillResponse(t, listResp.Skills, "review-code")
 	if len(reviewSkill.BoundWorkflows) != 1 || reviewSkill.BoundWorkflows[0].Name != "Coding Workflow" {
@@ -238,6 +239,13 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	}
 	if reviewSkill.Description == "" {
 		t.Fatalf("expected review-code to expose a description, got %+v", reviewSkill)
+	}
+	platformSkill := findSkillResponse(t, listResp.Skills, "openase-platform")
+	if !platformSkill.IsBuiltin {
+		t.Fatalf("expected openase-platform to be marked as built-in, got %+v", platformSkill)
+	}
+	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
+		t.Fatalf("expected built-in platform skill to materialize in repo: %v", err)
 	}
 
 	workspaceRoot := t.TempDir()
@@ -254,8 +262,11 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		http.StatusOK,
 		&refreshResp,
 	)
-	if len(refreshResp.InjectedSkills) != 2 {
-		t.Fatalf("expected 2 injected skills, got %+v", refreshResp)
+	if len(refreshResp.InjectedSkills) != len(builtin.Skills()) {
+		t.Fatalf("expected %d injected skills, got %+v", len(builtin.Skills()), refreshResp)
+	}
+	if !containsSkillName(refreshResp.InjectedSkills, "openase-platform") {
+		t.Fatalf("expected openase-platform to be injected, got %+v", refreshResp.InjectedSkills)
 	}
 	//nolint:gosec // test reads a file from a controlled temp workspace
 	refreshedSkill, err := os.ReadFile(filepath.Join(workspaceRoot, ".claude", "skills", "review-code", "SKILL.md"))
@@ -264,6 +275,9 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	}
 	if string(refreshedSkill) == "" {
 		t.Fatalf("expected refreshed skill content")
+	}
+	if _, err := os.Stat(filepath.Join(workspaceRoot, ".openase", "bin", "openase")); err != nil {
+		t.Fatalf("expected openase wrapper in refreshed workspace: %v", err)
 	}
 
 	writeWorkspaceSkill(t, workspaceRoot, ".claude", "deploy-docker", "# Deploy Docker\n\nDeploy the app with Docker.\n")
@@ -338,8 +352,8 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		http.StatusOK,
 		&listAfterResp,
 	)
-	if len(listAfterResp.Skills) != 3 {
-		t.Fatalf("expected 3 skills after harvest, got %+v", listAfterResp.Skills)
+	if len(listAfterResp.Skills) != len(builtin.Skills())+1 {
+		t.Fatalf("expected %d skills after harvest, got %+v", len(builtin.Skills())+1, listAfterResp.Skills)
 	}
 	for _, item := range listAfterResp.Skills {
 		if len(item.BoundWorkflows) != 0 {
@@ -353,6 +367,16 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if deploySkill.Description != "Deploy Docker" {
 		t.Fatalf("expected deploy-docker description to come from SKILL.md title, got %+v", deploySkill)
 	}
+}
+
+func containsSkillName(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+
+	return false
 }
 
 func TestBuiltinRoleLibraryRoute(t *testing.T) {

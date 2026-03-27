@@ -37,6 +37,10 @@ const (
 	EdgeRuns = "runs"
 	// EdgeTokens holds the string denoting the tokens edge name in mutations.
 	EdgeTokens = "tokens"
+	// EdgeAgentTraceEvents holds the string denoting the agent_trace_events edge name in mutations.
+	EdgeAgentTraceEvents = "agent_trace_events"
+	// EdgeAgentStepEvents holds the string denoting the agent_step_events edge name in mutations.
+	EdgeAgentStepEvents = "agent_step_events"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
 	EdgeActivityEvents = "activity_events"
 	// Table holds the table name of the agent in the database.
@@ -76,6 +80,20 @@ const (
 	TokensInverseTable = "agent_tokens"
 	// TokensColumn is the table column denoting the tokens relation/edge.
 	TokensColumn = "agent_id"
+	// AgentTraceEventsTable is the table that holds the agent_trace_events relation/edge.
+	AgentTraceEventsTable = "agent_trace_events"
+	// AgentTraceEventsInverseTable is the table name for the AgentTraceEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "agenttraceevent" package.
+	AgentTraceEventsInverseTable = "agent_trace_events"
+	// AgentTraceEventsColumn is the table column denoting the agent_trace_events relation/edge.
+	AgentTraceEventsColumn = "agent_id"
+	// AgentStepEventsTable is the table that holds the agent_step_events relation/edge.
+	AgentStepEventsTable = "agent_step_events"
+	// AgentStepEventsInverseTable is the table name for the AgentStepEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "agentstepevent" package.
+	AgentStepEventsInverseTable = "agent_step_events"
+	// AgentStepEventsColumn is the table column denoting the agent_step_events relation/edge.
+	AgentStepEventsColumn = "agent_id"
 	// ActivityEventsTable is the table that holds the activity_events relation/edge.
 	ActivityEventsTable = "activity_events"
 	// ActivityEventsInverseTable is the table name for the ActivityEvent entity.
@@ -238,6 +256,34 @@ func ByTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAgentTraceEventsCount orders the results by agent_trace_events count.
+func ByAgentTraceEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentTraceEventsStep(), opts...)
+	}
+}
+
+// ByAgentTraceEvents orders the results by agent_trace_events terms.
+func ByAgentTraceEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentTraceEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAgentStepEventsCount orders the results by agent_step_events count.
+func ByAgentStepEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentStepEventsStep(), opts...)
+	}
+}
+
+// ByAgentStepEvents orders the results by agent_step_events terms.
+func ByAgentStepEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentStepEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByActivityEventsCount orders the results by activity_events count.
 func ByActivityEventsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -284,6 +330,20 @@ func newTokensStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TokensInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TokensTable, TokensColumn),
+	)
+}
+func newAgentTraceEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentTraceEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentTraceEventsTable, AgentTraceEventsColumn),
+	)
+}
+func newAgentStepEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentStepEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentStepEventsTable, AgentStepEventsColumn),
 	)
 }
 func newActivityEventsStep() *sqlgraph.Step {

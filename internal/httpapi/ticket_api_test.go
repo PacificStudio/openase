@@ -1069,11 +1069,22 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 	backlogID := findStatusIDByName(t, statuses, "Backlog")
+	doneID := findStatusIDByName(t, statuses, "Done")
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(project.ID).
@@ -1142,7 +1153,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if _, err := client.ActivityEvent.Create().
 		SetProjectID(project.ID).
 		SetTicketID(ticketItem.ID).
-		SetEventType("agent.output").
+		SetEventType("pr.opened").
 		SetMessage("Opened frontend PR #9").
 		SetMetadata(map[string]any{"stream": "stdout"}).
 		Save(ctx); err != nil {
@@ -1175,13 +1186,64 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket comment: %v", err)
 	}
+	agentProvider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("codex-cloud").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent provider: %v", err)
+	}
+	assignedAgent, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(agentProvider.ID).
+		SetName("todo-app-coding-01").
+		SetRuntimeControlState(entagent.RuntimeControlStateActive).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create assigned agent: %v", err)
+	}
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetAgentID(assignedAgent.ID).
+		SetName("Todo App Coding Workflow").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		AddPickupStatusIDs(backlogID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	runtimeStartedAt := time.Now().UTC().Truncate(time.Second)
+	runItem, err := client.AgentRun.Create().
+		SetAgentID(assignedAgent.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(agentProvider.ID).
+		SetStatus(entagentrun.StatusExecuting).
+		SetRuntimeStartedAt(runtimeStartedAt).
+		SetLastHeartbeatAt(runtimeStartedAt).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetCurrentRunID(runItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("attach current run to ticket: %v", err)
+	}
 
 	var payload struct {
-		Ticket      ticketResponse                  `json:"ticket"`
-		RepoScopes  []ticketRepoScopeDetailResponse `json:"repo_scopes"`
-		Comments    []ticketCommentResponse         `json:"comments"`
-		Activity    []activityEventResponse         `json:"activity"`
-		HookHistory []activityEventResponse         `json:"hook_history"`
+		AssignedAgent *ticketAssignedAgentResponse    `json:"assigned_agent"`
+		Ticket        ticketResponse                  `json:"ticket"`
+		RepoScopes    []ticketRepoScopeDetailResponse `json:"repo_scopes"`
+		Comments      []ticketCommentResponse         `json:"comments"`
+		Activity      []activityEventResponse         `json:"activity"`
+		HookHistory   []activityEventResponse         `json:"hook_history"`
 	}
 	executeJSON(
 		t,
@@ -1195,6 +1257,18 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 
 	if payload.Ticket.ID != ticketItem.ID.String() || payload.Ticket.Identifier != "ASE-9" {
 		t.Fatalf("unexpected ticket payload: %+v", payload.Ticket)
+	}
+	if payload.AssignedAgent == nil {
+		t.Fatalf("expected ticket detail to include assigned agent")
+	}
+	if payload.AssignedAgent.ID != assignedAgent.ID.String() || payload.AssignedAgent.Name != "todo-app-coding-01" {
+		t.Fatalf("unexpected assigned agent payload: %+v", payload.AssignedAgent)
+	}
+	if payload.AssignedAgent.Provider != "codex-cloud" || payload.AssignedAgent.RuntimeControlState != "active" {
+		t.Fatalf("expected provider-backed assigned agent details, got %+v", payload.AssignedAgent)
+	}
+	if payload.AssignedAgent.RuntimePhase == nil || *payload.AssignedAgent.RuntimePhase != "executing" {
+		t.Fatalf("expected assigned agent runtime phase executing, got %+v", payload.AssignedAgent)
 	}
 	if len(payload.Ticket.ExternalLinks) != 1 || payload.Ticket.ExternalLinks[0].ExternalID != "acme/frontend#9" {
 		t.Fatalf("expected ticket detail to include external links, got %+v", payload.Ticket.ExternalLinks)

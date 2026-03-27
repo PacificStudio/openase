@@ -108,7 +108,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   agentsSettings: {
     state: 'available',
     summary:
-      'Agent governance settings now surface default provider selection, registered agent inventory, and ownership boundaries while live runtime controls stay on the Agents page.',
+      'Agent governance settings now surface default provider selection, registered agent inventory, inline deletion for inactive agent definitions, and ownership boundaries while live runtime controls stay on the Agents page.',
   },
   connectorsSettings: {
     state: 'unwired',

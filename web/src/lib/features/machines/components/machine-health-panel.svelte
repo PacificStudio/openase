@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
+  import { formatRelativeTime } from '$lib/utils'
   import type { MachineItem, MachineProbeResult, MachineSnapshot } from '../types'
 
   let {
@@ -76,8 +77,10 @@
     <div>
       <h3 class="text-foreground text-sm font-semibold">Health snapshot</h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        {#if machine?.last_heartbeat_at}
-          Last heartbeat {new Date(machine.last_heartbeat_at).toLocaleString()}
+        {#if snapshot?.checkedAt}
+          Snapshot collected {formatRelativeTime(snapshot.checkedAt)} and reflects detected machine state.
+        {:else if machine?.last_heartbeat_at}
+          Last heartbeat {formatRelativeTime(machine.last_heartbeat_at)}.
         {:else}
           No heartbeat has been recorded yet.
         {/if}
@@ -163,7 +166,7 @@
         <div>
           <h4 class="text-foreground text-sm font-semibold">Latest connection test</h4>
           <p class="text-muted-foreground mt-1 text-xs">
-            {new Date(probe.checked_at).toLocaleString()}
+            {formatRelativeTime(probe.checked_at)}
           </p>
         </div>
         <Badge variant="outline">{probe.transport}</Badge>

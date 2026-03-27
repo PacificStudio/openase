@@ -30,9 +30,7 @@ func TestParseStartInputRequiresTicketForTicketDetail(t *testing.T) {
 }
 
 func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
-	service := NewService(nil, nil, nil, nil, nil, "")
-
-	events := service.mapClaudeEvent(provider.ClaudeCodeEvent{
+	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
 		Message: []byte("{\n" +
 			"  \"role\":\"assistant\",\n" +
@@ -107,35 +105,13 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 
 	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
 	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
-	session := newFakeClaudeSession(
-		[]provider.ClaudeCodeEvent{
-			{
-				Kind:      provider.ClaudeCodeEventKindSystem,
-				SessionID: "sess-project-1",
-			},
-			{
-				Kind: provider.ClaudeCodeEventKindTaskStart,
-				Raw:  mustMarshalJSON(t, map[string]any{"phase": "start"}),
-			},
-			{
-				Kind: provider.ClaudeCodeEventKindAssistant,
-				Message: mustMarshalJSON(t, map[string]any{
-					"role": "assistant",
-					"content": []map[string]any{
-						{"type": "text", "text": "Project summary ready."},
-					},
-				}),
-			},
-			{
-				Kind:         provider.ClaudeCodeEventKindResult,
-				SessionID:    "sess-project-1",
-				NumTurns:     2,
-				TotalCostUSD: floatPointer(0.12),
-			},
+	runtime := &fakeRuntime{
+		streamEvents: []StreamEvent{
+			{Event: "message", Payload: map[string]any{"type": "task_started"}},
+			{Event: "message", Payload: textPayload{Type: "text", Content: "Project summary ready."}},
+			{Event: "done", Payload: donePayload{SessionID: "sess-project-1", TurnsUsed: 2, TurnsRemaining: 8, CostUSD: floatPointer(0.12)}},
 		},
-		nil,
-	)
-	adapter := &fakeClaudeAdapter{session: session}
+	}
 	catalog := fakeCatalogReader{
 		project: catalogdomain.Project{
 			ID:             projectID,
@@ -160,6 +136,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 				CliArgs:        []string{"chat"},
 				AuthConfig:     map[string]any{"anthropic_api_key": "test-key"},
 				ModelName:      "claude-sonnet-4-6",
+				Available:      true,
 			},
 		},
 	}
@@ -170,7 +147,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 			{StatusName: "Todo", RetryPaused: true},
 		},
 	}
-	service := NewService(nil, adapter, catalog, tickets, harnessWorkflowReader{}, "")
+	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, "")
 
 	stream, err := service.StartTurn(context.Background(), StartInput{
 		Message: "Summarize project",
@@ -196,13 +173,16 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		t.Fatalf("done payload = %#v", collected[2].Payload)
 	}
 
-	if adapter.lastSpec.Command != "claude" {
-		t.Fatalf("adapter command = %q, want claude", adapter.lastSpec.Command)
+	if runtime.lastInput.Provider.CliCommand != "claude" {
+		t.Fatalf("runtime provider command = %q, want claude", runtime.lastInput.Provider.CliCommand)
 	}
-	if strings.Join(adapter.lastSpec.BaseArgs, " ") != "chat --model claude-sonnet-4-6" {
-		t.Fatalf("adapter base args = %v", adapter.lastSpec.BaseArgs)
+	if strings.Join(runtime.lastInput.Provider.CliArgs, " ") != "chat" {
+		t.Fatalf("runtime provider cli args = %v", runtime.lastInput.Provider.CliArgs)
 	}
-	if !containsAll(adapter.lastSpec.AppendSystemPrompt,
+	if runtime.lastInput.Message != "Summarize project" {
+		t.Fatalf("runtime message = %q, want Summarize project", runtime.lastInput.Message)
+	}
+	if !containsAll(runtime.lastInput.SystemPrompt,
 		"## 来源: 项目侧栏",
 		"- 总数: 3",
 		"- 进行中: 1",
@@ -210,15 +190,12 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		"- 失败/暂停: 1",
 		"Updated issue status",
 	) {
-		t.Fatalf("project sidebar prompt = %q", adapter.lastSpec.AppendSystemPrompt)
+		t.Fatalf("project sidebar prompt = %q", runtime.lastInput.SystemPrompt)
 	}
-	if len(adapter.session.sent) != 1 || adapter.session.sent[0].Prompt != "Summarize project" {
-		t.Fatalf("sent prompts = %+v", adapter.session.sent)
+	if runtime.lastInput.SessionID == "" {
+		t.Fatal("runtime session id should be assigned")
 	}
-	if adapter.lastSpec.ResumeSessionID != nil {
-		t.Fatalf("resume session id = %+v, want nil", adapter.lastSpec.ResumeSessionID)
-	}
-	if service.CloseSession(provider.MustParseClaudeCodeSessionID("sess-project-1")) {
+	if service.CloseSession(SessionID("sess-project-1")) {
 		t.Fatal("CloseSession() after completion should return false")
 	}
 }
@@ -385,24 +362,36 @@ func TestChatHelperCoverageAndRegistry(t *testing.T) {
 		t.Fatalf("StartTurn() unavailable error = %v, want %v", err, ErrUnavailable)
 	}
 
-	var registry activeSessionRegistry
-	cancelCount := 0
-	cancelA := func() { cancelCount++ }
-	cancelB := func() { cancelCount += 10 }
-	sessionID := provider.MustParseClaudeCodeSessionID("sess-registry")
-	registry.Register(sessionID, cancelA)
-	registry.Register(sessionID, cancelB)
-	if cancelCount != 1 {
-		t.Fatalf("Register() previous cancel count = %d, want 1", cancelCount)
+	var registry sessionProviderRegistry
+	providerID := uuid.New()
+	sessionID := SessionID("sess-registry")
+	registry.Register(sessionID, providerID)
+	if got, ok := registry.Resolve(sessionID); !ok || got != providerID {
+		t.Fatalf("Resolve() = %v, %v", got, ok)
 	}
-	if !registry.Close(sessionID) {
-		t.Fatal("Close() should return true for registered session")
+	registry.Delete(sessionID)
+	if _, ok := registry.Resolve(sessionID); ok {
+		t.Fatal("Resolve() should fail after deletion")
 	}
-	if cancelCount != 11 {
-		t.Fatalf("Close() cancel count = %d, want 11", cancelCount)
+}
+
+func TestBuildBaseArgsAddsModelFlagWhenMissing(t *testing.T) {
+	args := buildBaseArgs([]string{"chat"}, "claude-sonnet-4-5")
+	if len(args) != 3 {
+		t.Fatalf("expected model flag to be appended, got %#v", args)
 	}
-	if registry.Close(sessionID) {
-		t.Fatal("Close() should return false after deletion")
+	if args[1] != "--model" || args[2] != "claude-sonnet-4-5" {
+		t.Fatalf("expected model flag args, got %#v", args)
+	}
+}
+
+func TestBuildCodexArgsDoesNotAppendModelFlag(t *testing.T) {
+	args := buildCodexArgs([]string{"app-server", "--listen", "stdio://"})
+	if len(args) != 3 {
+		t.Fatalf("expected codex args to remain unchanged, got %#v", args)
+	}
+	if strings.Contains(strings.Join(args, " "), "--model") {
+		t.Fatalf("expected codex args without model flag, got %#v", args)
 	}
 }
 
@@ -481,63 +470,33 @@ func (r fakeTicketReader) List(context.Context, ticketservice.ListInput) ([]tick
 	return r.items, r.listErr
 }
 
-type fakeClaudeAdapter struct {
-	session  *fakeClaudeSession
-	lastSpec provider.ClaudeCodeSessionSpec
-	startErr error
+type fakeRuntime struct {
+	streamEvents []StreamEvent
+	lastInput    RuntimeTurnInput
+	closeResult  bool
+	startErr     error
 }
 
-func (f *fakeClaudeAdapter) Start(_ context.Context, spec provider.ClaudeCodeSessionSpec) (provider.ClaudeCodeSession, error) {
-	if f.startErr != nil {
-		return nil, f.startErr
+func (r *fakeRuntime) Supports(catalogdomain.AgentProvider) bool {
+	return true
+}
+
+func (r *fakeRuntime) StartTurn(_ context.Context, input RuntimeTurnInput) (TurnStream, error) {
+	if r.startErr != nil {
+		return TurnStream{}, r.startErr
 	}
-	f.lastSpec = spec
-	return f.session, nil
-}
-
-type fakeClaudeSession struct {
-	sessionID provider.ClaudeCodeSessionID
-	events    chan provider.ClaudeCodeEvent
-	errors    chan error
-	sent      []provider.ClaudeCodeTurnInput
-}
-
-func newFakeClaudeSession(events []provider.ClaudeCodeEvent, errs []error) *fakeClaudeSession {
-	session := &fakeClaudeSession{
-		events: make(chan provider.ClaudeCodeEvent, len(events)),
-		errors: make(chan error, len(errs)),
+	r.lastInput = input
+	events := make(chan StreamEvent, len(r.streamEvents))
+	for _, event := range r.streamEvents {
+		events <- event
 	}
-	for _, event := range events {
-		session.events <- event
-		if strings.TrimSpace(event.SessionID) != "" && session.sessionID == "" {
-			session.sessionID = provider.MustParseClaudeCodeSessionID(event.SessionID)
-		}
-	}
-	for _, err := range errs {
-		session.errors <- err
-	}
-	close(session.events)
-	close(session.errors)
-	return session
+	close(events)
+	return TurnStream{Events: events}, nil
 }
 
-func (s *fakeClaudeSession) SessionID() (provider.ClaudeCodeSessionID, bool) {
-	if s.sessionID == "" {
-		return "", false
-	}
-	return s.sessionID, true
+func (r *fakeRuntime) CloseSession(SessionID) bool {
+	return r.closeResult
 }
-
-func (s *fakeClaudeSession) Events() <-chan provider.ClaudeCodeEvent { return s.events }
-
-func (s *fakeClaudeSession) Errors() <-chan error { return s.errors }
-
-func (s *fakeClaudeSession) Send(_ context.Context, input provider.ClaudeCodeTurnInput) error {
-	s.sent = append(s.sent, input)
-	return nil
-}
-
-func (s *fakeClaudeSession) Close(_ context.Context) error { return nil }
 
 func collectStreamEvents(events <-chan StreamEvent) []StreamEvent {
 	collected := make([]StreamEvent, 0)

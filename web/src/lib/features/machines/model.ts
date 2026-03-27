@@ -9,13 +9,6 @@ import type {
   ResourceMap,
 } from './types'
 
-export const machineStatusOptions: MachineStatus[] = [
-  'online',
-  'degraded',
-  'offline',
-  'maintenance',
-]
-
 export function createEmptyMachineDraft(): MachineDraft {
   return {
     name: '',
@@ -144,6 +137,38 @@ export function normalizeMachineStatus(status: string): MachineStatus {
   }
 
   return 'maintenance'
+}
+
+export function machineStatusLabel(status: string): string {
+  return normalizeMachineStatus(status)
+}
+
+export function machineStatusDescription(status: string): string {
+  switch (normalizeMachineStatus(status)) {
+    case 'online':
+      return 'Healthy and currently eligible for orchestration.'
+    case 'degraded':
+      return 'Reachable, but monitoring has detected issues that need attention.'
+    case 'offline':
+      return 'Currently unreachable or unable to report a healthy heartbeat.'
+    case 'maintenance':
+    default:
+      return 'Held out of scheduling while configuration or maintenance work is in progress.'
+  }
+}
+
+export function machineStatusBadgeClass(status: string): string {
+  switch (normalizeMachineStatus(status)) {
+    case 'online':
+      return 'border-emerald-500/30 bg-emerald-500/12 text-emerald-700'
+    case 'degraded':
+      return 'border-amber-500/30 bg-amber-500/14 text-amber-700'
+    case 'offline':
+      return 'border-rose-500/30 bg-rose-500/12 text-rose-700'
+    case 'maintenance':
+    default:
+      return 'border-slate-500/20 bg-slate-500/10 text-slate-700'
+  }
 }
 
 export function filterMachines(machines: Machine[], searchQuery: string): Machine[] {

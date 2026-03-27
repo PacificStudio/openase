@@ -2,8 +2,10 @@ import { api } from './client'
 import type {
   ActivityPayload,
   AgentPayload,
+  AgentRunPayload,
   AgentProviderResponse,
   AgentOutputPayload,
+  AgentStepPayload,
   AgentResponse,
   AgentProvider,
   AgentProviderListPayload,
@@ -227,6 +229,10 @@ export function listAgents(projectId: string) {
   return api.get<AgentPayload>(`/api/v1/projects/${projectId}/agents`)
 }
 
+export function listAgentRuns(projectId: string) {
+  return api.get<AgentRunPayload>(`/api/v1/projects/${projectId}/agent-runs`)
+}
+
 export function listAgentOutput(
   projectId: string,
   agentId: string,
@@ -236,6 +242,19 @@ export function listAgentOutput(
   },
 ) {
   return api.get<AgentOutputPayload>(`/api/v1/projects/${projectId}/agents/${agentId}/output`, {
+    params,
+  })
+}
+
+export function listAgentSteps(
+  projectId: string,
+  agentId: string,
+  params?: {
+    ticket_id?: string
+    limit?: number
+  },
+) {
+  return api.get<AgentStepPayload>(`/api/v1/projects/${projectId}/agents/${agentId}/steps`, {
     params,
   })
 }

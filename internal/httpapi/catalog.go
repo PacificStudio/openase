@@ -69,7 +69,7 @@ type projectRepoResponse struct {
 	DefaultBranch string   `json:"default_branch"`
 	ClonePath     *string  `json:"clone_path,omitempty"`
 	IsPrimary     bool     `json:"is_primary"`
-	Labels        []string `json:"labels,omitempty"`
+	Labels        []string `json:"labels"`
 }
 
 type ticketRepoScopeResponse struct {
@@ -160,8 +160,10 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.PATCH("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.patchTicketRepoScope)
 	api.DELETE("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.deleteTicketRepoScope)
 	api.GET("/projects/:projectId/agents", s.listAgents)
+	api.GET("/projects/:projectId/agent-runs", s.listAgentRuns)
 	api.GET("/projects/:projectId/activity", s.listActivityEvents)
 	api.GET("/projects/:projectId/agents/:agentId/output", s.listAgentOutput)
+	api.GET("/projects/:projectId/agents/:agentId/steps", s.listAgentSteps)
 	api.POST("/projects/:projectId/agents", s.createAgent)
 	api.PATCH("/providers/:providerId", s.patchAgentProvider)
 	api.GET("/agents/:agentId", s.getAgent)

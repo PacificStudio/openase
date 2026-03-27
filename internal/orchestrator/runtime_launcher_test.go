@@ -20,9 +20,12 @@ import (
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
+	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
@@ -155,8 +158,13 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 
 	manager := &runtimeFakeProcessManager{}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, workflowSvc)
+	launcher.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", agentplatform.NewService(client))
 	launcher.now = func() time.Time {
 		return now
+	}
+	currentExecutable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve current executable: %v", err)
 	}
 	t.Cleanup(func() {
 		if err := launcher.Close(context.Background()); err != nil {
@@ -216,6 +224,47 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "dev-01=") {
 		t.Fatalf("expected non-whitelisted machine to stay out of developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
+	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
+		t.Fatalf("expected built-in platform skill in primary repo: %v", err)
+	}
+	workspacePath, err := workspaceinfra.TicketWorkspacePath(
+		expectedLocalWorkspaceRoot,
+		"better-and-better",
+		"openase",
+		ticketItem.Identifier,
+	)
+	if err != nil {
+		t.Fatalf("resolve workspace path: %v", err)
+	}
+	repoWorkspacePath := filepath.Join(
+		workspacePath,
+		"repo-"+strings.ReplaceAll(fixture.projectID.String(), "-", "")[:8],
+	)
+	if manager.capturedProcessSpec().WorkingDirectory == nil || manager.capturedProcessSpec().WorkingDirectory.String() != repoWorkspacePath {
+		t.Fatalf("expected process working directory %s, got %+v", repoWorkspacePath, manager.capturedProcessSpec().WorkingDirectory)
+	}
+	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".codex", "skills", "openase-platform", "SKILL.md")); err != nil {
+		t.Fatalf("expected platform skill in codex workspace: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".openase", "bin", "openase")); err != nil {
+		t.Fatalf("expected openase wrapper in codex workspace: %v", err)
+	}
+	processEnvironment := manager.capturedProcessSpec().Environment
+	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_API_URL=http://127.0.0.1:19836/api/v1/platform") {
+		t.Fatalf("expected OPENASE_API_URL in process environment, got %+v", processEnvironment)
+	}
+	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_PROJECT_ID="+fixture.projectID.String()) {
+		t.Fatalf("expected OPENASE_PROJECT_ID in process environment, got %+v", processEnvironment)
+	}
+	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_TICKET_ID="+ticketItem.ID.String()) {
+		t.Fatalf("expected OPENASE_TICKET_ID in process environment, got %+v", processEnvironment)
+	}
+	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_AGENT_TOKEN=ase_agent_") {
+		t.Fatalf("expected OPENASE_AGENT_TOKEN in process environment, got %+v", processEnvironment)
+	}
+	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_REAL_BIN="+currentExecutable) {
+		t.Fatalf("expected OPENASE_REAL_BIN in process environment, got %+v", processEnvironment)
+	}
 }
 
 func TestRuntimeLauncherRunTickLaunchesConcurrentRunsForSameAgent(t *testing.T) {
@@ -249,8 +298,8 @@ workflow:
   role: coding
 ---
 
-Parallel runtime launch test
-`), 0o600); err != nil {
+	Parallel runtime launch test
+	`), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -1085,16 +1134,25 @@ Emit visible runtime output.
 		if err != nil {
 			return false
 		}
-		outputCount, err := client.ActivityEvent.Query().
+		outputCount, err := client.AgentTraceEvent.Query().
 			Where(
-				entactivityevent.AgentIDEQ(agentItem.ID),
-				entactivityevent.EventTypeEQ(catalogdomain.AgentOutputEventType),
+				entagenttraceevent.AgentID(agentItem.ID),
+				entagenttraceevent.KindIn(catalogdomain.AgentTraceOutputKinds()...),
 			).
 			Count(ctx)
 		if err != nil {
 			return false
 		}
-		return runSnapshot.Status == entagentrun.StatusExecuting && outputCount >= 2
+		stepCount, err := client.AgentStepEvent.Query().
+			Where(entagentstepevent.AgentID(agentItem.ID)).
+			Count(ctx)
+		if err != nil {
+			return false
+		}
+		return runSnapshot.Status == entagentrun.StatusExecuting &&
+			outputCount >= 2 &&
+			runSnapshot.CurrentStepStatus != nil &&
+			stepCount >= 1
 	})
 
 	req := httptest.NewRequest(
@@ -1401,8 +1459,8 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
-	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401'") {
-		t.Fatalf("expected remote process to cd into workspace, got %q", processSession.startedCommand)
+	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
+		t.Fatalf("expected remote process to cd into primary repo workspace, got %q", processSession.startedCommand)
 	}
 	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
 		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
@@ -1865,6 +1923,16 @@ func waitForRuntimeCondition(t *testing.T, timeout time.Duration, predicate func
 	}
 
 	t.Fatal("timed out waiting for runtime condition")
+}
+
+func containsEnvironmentPrefix(environment []string, want string) bool {
+	for _, item := range environment {
+		if strings.HasPrefix(item, want) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func createRuntimeLauncherPrimaryRepo(

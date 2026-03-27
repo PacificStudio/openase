@@ -15,6 +15,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
+	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -33,6 +35,8 @@ type AgentRunQuery struct {
 	withTicket           *TicketQuery
 	withProvider         *AgentProviderQuery
 	withCurrentForTicket *TicketQuery
+	withAgentTraceEvents *AgentTraceEventQuery
+	withAgentStepEvents  *AgentStepEventQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -172,6 +176,50 @@ func (_q *AgentRunQuery) QueryCurrentForTicket() *TicketQuery {
 			sqlgraph.From(agentrun.Table, agentrun.FieldID, selector),
 			sqlgraph.To(ticket.Table, ticket.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, agentrun.CurrentForTicketTable, agentrun.CurrentForTicketColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentTraceEvents chains the current query on the "agent_trace_events" edge.
+func (_q *AgentRunQuery) QueryAgentTraceEvents() *AgentTraceEventQuery {
+	query := (&AgentTraceEventClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentrun.Table, agentrun.FieldID, selector),
+			sqlgraph.To(agenttraceevent.Table, agenttraceevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agentrun.AgentTraceEventsTable, agentrun.AgentTraceEventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentStepEvents chains the current query on the "agent_step_events" edge.
+func (_q *AgentRunQuery) QueryAgentStepEvents() *AgentStepEventQuery {
+	query := (&AgentStepEventClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentrun.Table, agentrun.FieldID, selector),
+			sqlgraph.To(agentstepevent.Table, agentstepevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agentrun.AgentStepEventsTable, agentrun.AgentStepEventsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -376,6 +424,8 @@ func (_q *AgentRunQuery) Clone() *AgentRunQuery {
 		withTicket:           _q.withTicket.Clone(),
 		withProvider:         _q.withProvider.Clone(),
 		withCurrentForTicket: _q.withCurrentForTicket.Clone(),
+		withAgentTraceEvents: _q.withAgentTraceEvents.Clone(),
+		withAgentStepEvents:  _q.withAgentStepEvents.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -434,6 +484,28 @@ func (_q *AgentRunQuery) WithCurrentForTicket(opts ...func(*TicketQuery)) *Agent
 		opt(query)
 	}
 	_q.withCurrentForTicket = query
+	return _q
+}
+
+// WithAgentTraceEvents tells the query-builder to eager-load the nodes that are connected to
+// the "agent_trace_events" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AgentRunQuery) WithAgentTraceEvents(opts ...func(*AgentTraceEventQuery)) *AgentRunQuery {
+	query := (&AgentTraceEventClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentTraceEvents = query
+	return _q
+}
+
+// WithAgentStepEvents tells the query-builder to eager-load the nodes that are connected to
+// the "agent_step_events" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AgentRunQuery) WithAgentStepEvents(opts ...func(*AgentStepEventQuery)) *AgentRunQuery {
+	query := (&AgentStepEventClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentStepEvents = query
 	return _q
 }
 
@@ -515,12 +587,14 @@ func (_q *AgentRunQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Age
 	var (
 		nodes       = []*AgentRun{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [7]bool{
 			_q.withAgent != nil,
 			_q.withWorkflow != nil,
 			_q.withTicket != nil,
 			_q.withProvider != nil,
 			_q.withCurrentForTicket != nil,
+			_q.withAgentTraceEvents != nil,
+			_q.withAgentStepEvents != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -569,6 +643,20 @@ func (_q *AgentRunQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Age
 		if err := _q.loadCurrentForTicket(ctx, query, nodes,
 			func(n *AgentRun) { n.Edges.CurrentForTicket = []*Ticket{} },
 			func(n *AgentRun, e *Ticket) { n.Edges.CurrentForTicket = append(n.Edges.CurrentForTicket, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentTraceEvents; query != nil {
+		if err := _q.loadAgentTraceEvents(ctx, query, nodes,
+			func(n *AgentRun) { n.Edges.AgentTraceEvents = []*AgentTraceEvent{} },
+			func(n *AgentRun, e *AgentTraceEvent) { n.Edges.AgentTraceEvents = append(n.Edges.AgentTraceEvents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentStepEvents; query != nil {
+		if err := _q.loadAgentStepEvents(ctx, query, nodes,
+			func(n *AgentRun) { n.Edges.AgentStepEvents = []*AgentStepEvent{} },
+			func(n *AgentRun, e *AgentStepEvent) { n.Edges.AgentStepEvents = append(n.Edges.AgentStepEvents, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -719,6 +807,66 @@ func (_q *AgentRunQuery) loadCurrentForTicket(ctx context.Context, query *Ticket
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "current_run_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AgentRunQuery) loadAgentTraceEvents(ctx context.Context, query *AgentTraceEventQuery, nodes []*AgentRun, init func(*AgentRun), assign func(*AgentRun, *AgentTraceEvent)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*AgentRun)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agenttraceevent.FieldAgentRunID)
+	}
+	query.Where(predicate.AgentTraceEvent(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(agentrun.AgentTraceEventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AgentRunID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "agent_run_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AgentRunQuery) loadAgentStepEvents(ctx context.Context, query *AgentStepEventQuery, nodes []*AgentRun, init func(*AgentRun), assign func(*AgentRun, *AgentStepEvent)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*AgentRun)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agentstepevent.FieldAgentRunID)
+	}
+	query.Where(predicate.AgentStepEvent(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(agentrun.AgentStepEventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AgentRunID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "agent_run_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

@@ -2,18 +2,20 @@ import type {
   HRAdvisorRecommendation,
   HRAdvisorStaffing,
   HRAdvisorSummary,
+  Project,
   SystemMemorySnapshot,
 } from '$lib/api/contracts'
 
-export type ProjectHealth = 'healthy' | 'warning' | 'blocked'
+export type ProjectStatus = Project['status']
 
 export type ProjectSummary = {
   id: string
   name: string
-  health: ProjectHealth
+  description: string
+  status: ProjectStatus
   activeAgents: number
   activeTickets: number
-  lastActivity: string
+  lastActivity: string | null
 }
 
 export type DashboardStats = {

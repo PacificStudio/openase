@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
@@ -107,31 +108,36 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 
 func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 	orgID := uuid.New()
+	checkedAt := time.Now().UTC().Add(-5 * time.Minute)
 	repo := &stubRepository{
 		listedProviders: []domain.AgentProvider{
 			{
-				ID:             uuid.New(),
-				OrganizationID: orgID,
-				MachineID:      uuid.New(),
-				Name:           "Claude Code",
-				AdapterType:    domain.AgentProviderAdapterTypeClaudeCodeCLI,
-				CliCommand:     "claude",
-				ModelName:      "claude-sonnet-4-5",
+				ID:               uuid.New(),
+				OrganizationID:   orgID,
+				MachineID:        uuid.New(),
+				MachineHost:      domain.LocalMachineHost,
+				MachineStatus:    domain.MachineStatusOnline,
+				MachineResources: providerAvailabilityResources(checkedAt, "claude_code", false, domain.MachineAgentAuthStatusUnknown, domain.MachineAgentAuthModeUnknown, false),
+				Name:             "Claude Code",
+				AdapterType:      domain.AgentProviderAdapterTypeClaudeCodeCLI,
+				CliCommand:       "claude",
+				ModelName:        "claude-sonnet-4-5",
 			},
 			{
-				ID:             uuid.New(),
-				OrganizationID: orgID,
-				MachineID:      uuid.New(),
-				Name:           "OpenAI Codex",
-				AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
-				CliCommand:     "codex",
-				ModelName:      "gpt-5.3-codex",
+				ID:               uuid.New(),
+				OrganizationID:   orgID,
+				MachineID:        uuid.New(),
+				MachineHost:      domain.LocalMachineHost,
+				MachineStatus:    domain.MachineStatusOnline,
+				MachineResources: providerAvailabilityResources(checkedAt, "codex", true, domain.MachineAgentAuthStatusLoggedIn, domain.MachineAgentAuthModeLogin, true),
+				Name:             "OpenAI Codex",
+				AdapterType:      domain.AgentProviderAdapterTypeCodexAppServer,
+				CliCommand:       "codex",
+				ModelName:        "gpt-5.3-codex",
 			},
 		},
 	}
-	svc := New(repo, stubExecutableResolver{
-		paths: map[string]string{"codex": "/usr/local/bin/codex"},
-	}, nil)
+	svc := New(repo, stubExecutableResolver{}, nil)
 
 	items, err := svc.ListAgentProviders(context.Background(), orgID)
 	if err != nil {
@@ -143,13 +149,23 @@ func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 	if items[0].Available {
 		t.Fatalf("expected claude provider to be unavailable, got %+v", items[0])
 	}
+	if items[0].AvailabilityState != domain.AgentProviderAvailabilityStateUnavailable {
+		t.Fatalf("expected claude provider state unavailable, got %+v", items[0])
+	}
 	if !items[1].Available {
 		t.Fatalf("expected codex provider to be available, got %+v", items[1])
+	}
+	if items[1].AvailabilityState != domain.AgentProviderAvailabilityStateAvailable {
+		t.Fatalf("expected codex provider state available, got %+v", items[1])
+	}
+	if items[1].AvailabilityCheckedAt == nil {
+		t.Fatalf("expected codex provider to include availability_checked_at, got %+v", items[1])
 	}
 }
 
 func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *testing.T) {
 	orgID := uuid.New()
+	checkedAt := time.Now().UTC().Add(-5 * time.Minute)
 	repo := &stubRepository{
 		createdOrganization: domain.Organization{
 			ID:   orgID,
@@ -158,28 +174,32 @@ func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *tes
 		},
 		listedProviders: []domain.AgentProvider{
 			{
-				ID:             uuid.New(),
-				OrganizationID: orgID,
-				MachineID:      uuid.New(),
-				Name:           "Claude Code",
-				AdapterType:    domain.AgentProviderAdapterTypeClaudeCodeCLI,
-				CliCommand:     "claude",
-				ModelName:      "claude-sonnet-4-5",
+				ID:               uuid.New(),
+				OrganizationID:   orgID,
+				MachineID:        uuid.New(),
+				MachineHost:      domain.LocalMachineHost,
+				MachineStatus:    domain.MachineStatusOnline,
+				MachineResources: providerAvailabilityResources(checkedAt, "claude_code", false, domain.MachineAgentAuthStatusUnknown, domain.MachineAgentAuthModeUnknown, false),
+				Name:             "Claude Code",
+				AdapterType:      domain.AgentProviderAdapterTypeClaudeCodeCLI,
+				CliCommand:       "claude",
+				ModelName:        "claude-sonnet-4-5",
 			},
 			{
-				ID:             uuid.New(),
-				OrganizationID: orgID,
-				MachineID:      uuid.New(),
-				Name:           "OpenAI Codex",
-				AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
-				CliCommand:     "codex",
-				ModelName:      "gpt-5.3-codex",
+				ID:               uuid.New(),
+				OrganizationID:   orgID,
+				MachineID:        uuid.New(),
+				MachineHost:      domain.LocalMachineHost,
+				MachineStatus:    domain.MachineStatusOnline,
+				MachineResources: providerAvailabilityResources(checkedAt, "codex", true, domain.MachineAgentAuthStatusLoggedIn, domain.MachineAgentAuthModeLogin, true),
+				Name:             "OpenAI Codex",
+				AdapterType:      domain.AgentProviderAdapterTypeCodexAppServer,
+				CliCommand:       "codex",
+				ModelName:        "gpt-5.3-codex",
 			},
 		},
 	}
-	svc := New(repo, stubExecutableResolver{
-		paths: map[string]string{"codex": "/usr/local/bin/codex"},
-	}, nil)
+	svc := New(repo, stubExecutableResolver{}, nil)
 
 	item, err := svc.CreateOrganization(context.Background(), domain.CreateOrganization{
 		Name: "Acme",
@@ -251,6 +271,78 @@ func TestArchiveOrganizationDelegatesToRepository(t *testing.T) {
 	}
 	if item.Status != "archived" {
 		t.Fatalf("expected archived organization, got %+v", item)
+	}
+}
+
+func TestTestMachineConnectionPreservesExistingResourceSnapshot(t *testing.T) {
+	machineID := uuid.New()
+	orgID := uuid.New()
+	checkedAt := time.Now().UTC()
+	repo := &stubRepository{
+		machine: domain.Machine{
+			ID:             machineID,
+			OrganizationID: orgID,
+			Name:           "gpu-01",
+			Host:           "10.0.0.8",
+			Port:           22,
+			Status:         domain.MachineStatusOnline,
+			Resources: map[string]any{
+				"transport":           "ssh",
+				"cpu_usage_percent":   61.2,
+				"memory_total_gb":     64.0,
+				"memory_used_gb":      18.5,
+				"disk_available_gb":   220.0,
+				"gpu_dispatchable":    true,
+				"checked_at":          checkedAt.Add(-10 * time.Minute).Format(time.RFC3339),
+				"last_success":        true,
+				"monitor":             map[string]any{"l1": map[string]any{"reachable": true}},
+			},
+		},
+	}
+	tester := stubMachineTester{
+		probe: domain.MachineProbe{
+			CheckedAt: checkedAt,
+			Transport: "ssh",
+			Output:    "probe-ok",
+			Resources: map[string]any{
+				"transport":    "ssh",
+				"host":         "10.0.0.8",
+				"port":         22,
+				"checked_at":   checkedAt.Format(time.RFC3339),
+				"last_success": true,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, tester)
+
+	updated, probe, err := svc.TestMachineConnection(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("TestMachineConnection returned error: %v", err)
+	}
+	if probe.Transport != "ssh" {
+		t.Fatalf("expected ssh probe transport, got %+v", probe)
+	}
+	if repo.recordedMachineProbe == nil {
+		t.Fatal("expected machine probe to be recorded")
+	}
+	if got := repo.recordedMachineProbe.Resources["cpu_usage_percent"]; got != 61.2 {
+		t.Fatalf("expected cpu usage snapshot to survive probe, got %+v", repo.recordedMachineProbe.Resources)
+	}
+	if got := repo.recordedMachineProbe.Resources["memory_used_gb"]; got != 18.5 {
+		t.Fatalf("expected memory snapshot to survive probe, got %+v", repo.recordedMachineProbe.Resources)
+	}
+	connectionTest, ok := repo.recordedMachineProbe.Resources["connection_test"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected connection_test payload, got %+v", repo.recordedMachineProbe.Resources)
+	}
+	if connectionTest["last_success"] != true {
+		t.Fatalf("expected successful connection_test payload, got %+v", connectionTest)
+	}
+	if updated.Resources["cpu_usage_percent"] != 61.2 {
+		t.Fatalf("expected returned machine to retain cpu snapshot, got %+v", updated.Resources)
+	}
+	if updated.Resources["connection_test"] == nil {
+		t.Fatalf("expected returned machine to expose connection_test, got %+v", updated.Resources)
 	}
 }
 
@@ -443,6 +535,15 @@ func (r stubExecutableResolver) LookPath(name string) (string, error) {
 	return "", errors.New("not found")
 }
 
+type stubMachineTester struct {
+	probe domain.MachineProbe
+	err   error
+}
+
+func (s stubMachineTester) TestConnection(context.Context, domain.Machine) (domain.MachineProbe, error) {
+	return s.probe, s.err
+}
+
 type stubRepository struct {
 	createdProvider        *domain.CreateAgentProvider
 	updatedProvider        *domain.UpdateAgentProvider
@@ -454,6 +555,8 @@ type stubRepository struct {
 	listedProviders        []domain.AgentProvider
 	provider               domain.AgentProvider
 	agent                  domain.Agent
+	machine                domain.Machine
+	recordedMachineProbe   *domain.RecordMachineProbe
 }
 
 func (r *stubRepository) ListOrganizations(context.Context) ([]domain.Organization, error) {
@@ -498,7 +601,7 @@ func (r *stubRepository) CreateMachine(context.Context, domain.CreateMachine) (d
 }
 
 func (r *stubRepository) GetMachine(context.Context, uuid.UUID) (domain.Machine, error) {
-	return domain.Machine{}, nil
+	return r.machine, nil
 }
 
 func (r *stubRepository) UpdateMachine(context.Context, domain.UpdateMachine) (domain.Machine, error) {
@@ -509,7 +612,15 @@ func (r *stubRepository) DeleteMachine(context.Context, uuid.UUID) (domain.Machi
 	return domain.Machine{}, nil
 }
 
-func (r *stubRepository) RecordMachineProbe(context.Context, domain.RecordMachineProbe) error {
+func (r *stubRepository) RecordMachineProbe(_ context.Context, input domain.RecordMachineProbe) error {
+	return r.recordMachineProbe(input)
+}
+
+func (r *stubRepository) recordMachineProbe(input domain.RecordMachineProbe) error {
+	r.recordedMachineProbe = &input
+	r.machine.Status = input.Status
+	r.machine.LastHeartbeatAt = &input.LastHeartbeatAt
+	r.machine.Resources = cloneTestResources(input.Resources)
 	return nil
 }
 
@@ -582,6 +693,10 @@ func (r *stubRepository) ListActivityEvents(context.Context, domain.ListActivity
 }
 
 func (r *stubRepository) ListAgentOutput(context.Context, domain.ListAgentOutput) ([]domain.AgentOutputEntry, error) {
+	return nil, nil
+}
+
+func (r *stubRepository) ListAgentSteps(context.Context, domain.ListAgentSteps) ([]domain.AgentStepEntry, error) {
 	return nil, nil
 }
 
@@ -660,6 +775,42 @@ func equalStrings(left []string, right []string) bool {
 	}
 
 	return true
+}
+
+func cloneTestResources(raw map[string]any) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(raw))
+	for key, value := range raw {
+		cloned[key] = value
+	}
+
+	return cloned
+}
+
+func providerAvailabilityResources(
+	checkedAt time.Time,
+	entryName string,
+	installed bool,
+	authStatus domain.MachineAgentAuthStatus,
+	authMode domain.MachineAgentAuthMode,
+	ready bool,
+) map[string]any {
+	return map[string]any{
+		"monitor": map[string]any{
+			"l4": map[string]any{
+				"checked_at": checkedAt.UTC().Format(time.RFC3339),
+				entryName: map[string]any{
+					"installed":   installed,
+					"auth_status": string(authStatus),
+					"auth_mode":   string(authMode),
+					"ready":       ready,
+				},
+			},
+		},
+	}
 }
 
 type stubProjectStatusBootstrapper struct {

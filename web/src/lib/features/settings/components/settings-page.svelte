@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PageScaffold } from '$lib/components/layout'
   import type { SettingsSection } from '../types'
   import AgentSettings from './agent-settings.svelte'
   import ConnectorsSettings from './connectors-settings.svelte'
@@ -17,26 +18,28 @@
   }
 </script>
 
-<div class="flex gap-8">
-  <SettingsNav active={activeSection} onSelect={handleSelect} />
+<PageScaffold title="Settings">
+  <div class="flex flex-col gap-6 lg:flex-row lg:gap-8">
+    <SettingsNav active={activeSection} onSelect={handleSelect} />
 
-  <div class="min-w-0 flex-1">
-    {#if activeSection === 'general'}
-      <GeneralSettings />
-    {:else if activeSection === 'statuses'}
-      <StatusSettings />
-    {:else if activeSection === 'repositories'}
-      <RepositoriesSettings />
-    {:else if activeSection === 'workflows'}
-      <WorkflowSettings />
-    {:else if activeSection === 'agents'}
-      <AgentSettings />
-    {:else if activeSection === 'connectors'}
-      <ConnectorsSettings />
-    {:else if activeSection === 'notifications'}
-      <NotificationSettings />
-    {:else if activeSection === 'security'}
-      <SecuritySettings />
-    {/if}
+    <div class="min-w-0 flex-1">
+      {#if activeSection === 'general'}
+        <GeneralSettings />
+      {:else if activeSection === 'statuses'}
+        <StatusSettings />
+      {:else if activeSection === 'repositories'}
+        <RepositoriesSettings />
+      {:else if activeSection === 'workflows'}
+        <WorkflowSettings onOpenRepositories={() => handleSelect('repositories')} />
+      {:else if activeSection === 'agents'}
+        <AgentSettings />
+      {:else if activeSection === 'connectors'}
+        <ConnectorsSettings />
+      {:else if activeSection === 'notifications'}
+        <NotificationSettings />
+      {:else if activeSection === 'security'}
+        <SecuritySettings />
+      {/if}
+    </div>
   </div>
-</div>
+</PageScaffold>

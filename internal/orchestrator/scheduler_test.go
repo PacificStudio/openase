@@ -33,8 +33,8 @@ import (
 func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	codingWorkflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -157,8 +157,8 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 func TestSchedulerRunTickUsesMatchedPickupStatusForStageCapacityInMultiPickupWorkflow(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 10, 30, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	if _, err := client.TicketStage.UpdateOneID(fixture.stageIDs["review"]).SetMaxActiveRuns(1).Save(ctx); err != nil {
 		t.Fatalf("limit review stage: %v", err)
@@ -241,8 +241,8 @@ func TestSchedulerRunTickUsesMatchedPickupStatusForStageCapacityInMultiPickupWor
 func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 11, 0, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	if _, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -315,8 +315,8 @@ func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	workflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -401,8 +401,8 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 func TestSchedulerRunTickAllowsConcurrentClaimsForSingleAgentDefinition(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 12, 15, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	workflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -490,8 +490,8 @@ func TestSchedulerRunTickAllowsConcurrentClaimsForSingleAgentDefinition(t *testi
 func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 12, 30, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	bus := eventinfra.NewChannelBus()
 	stream, err := bus.Subscribe(ctx, agentLifecycleTopic)
@@ -594,8 +594,8 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 func TestSchedulerRunTickResolvesExecutionMachineFromBoundProvider(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 13, 0, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	repo := catalogrepo.NewEntRepository(client)
 	remoteMachineInput, err := domaincatalog.ParseCreateMachine(fixture.orgID, domaincatalog.MachineInput{
@@ -613,6 +613,15 @@ func TestSchedulerRunTickResolvesExecutionMachineFromBoundProvider(t *testing.T)
 	remoteMachine, err := repo.CreateMachine(ctx, remoteMachineInput)
 	if err != nil {
 		t.Fatalf("create remote machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(remoteMachine.ID).
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l4": codexL4Snapshot(now.Add(-5*time.Minute), domaincatalog.MachineAgentAuthStatusLoggedIn, true),
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("seed remote machine l4 snapshot: %v", err)
 	}
 
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
@@ -682,8 +691,8 @@ func TestSchedulerRunTickResolvesExecutionMachineFromBoundProvider(t *testing.T)
 func TestSchedulerRunTickIgnoresTicketTargetMachineAndUsesProviderBinding(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 13, 30, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	repo := catalogrepo.NewEntRepository(client)
 	explicitMachineInput, err := domaincatalog.ParseCreateMachine(fixture.orgID, domaincatalog.MachineInput{
@@ -758,11 +767,137 @@ func TestSchedulerRunTickIgnoresTicketTargetMachineAndUsesProviderBinding(t *tes
 	}
 }
 
+func TestSchedulerRunTickSkipsUnavailableProvider(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	now := time.Date(2026, 3, 20, 13, 45, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
+
+	if _, err := client.Machine.UpdateOneID(fixture.localMachineID).
+		SetResources(map[string]any{
+			"transport":    "local",
+			"last_success": true,
+			"monitor": map[string]any{
+				"l4": codexL4Snapshot(now.Add(-5*time.Minute), domaincatalog.MachineAgentAuthStatusNotLoggedIn, false),
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set unavailable provider snapshot: %v", err)
+	}
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-405").
+		SetTitle("Unavailable provider should not dispatch").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	report, err := newTestScheduler(client, now).RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 0 || report.TicketsSkipped[skipReasonProviderUnavailable] != 1 {
+		t.Fatalf("expected provider_unavailable skip, got %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.CurrentRunID != nil || ticketAfter.WorkflowID != nil {
+		t.Fatalf("expected ticket to remain unclaimed, got %+v", ticketAfter)
+	}
+}
+
+func TestSchedulerRunTickSkipsStaleProvider(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	now := time.Date(2026, 3, 20, 13, 50, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
+
+	if _, err := client.Machine.UpdateOneID(fixture.localMachineID).
+		SetResources(map[string]any{
+			"transport":    "local",
+			"last_success": true,
+			"monitor": map[string]any{
+				"l4": codexL4Snapshot(now.Add(-domaincatalog.ProviderAvailabilityStaleAfter-time.Minute), domaincatalog.MachineAgentAuthStatusLoggedIn, true),
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set stale provider snapshot: %v", err)
+	}
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-406").
+		SetTitle("Stale provider should not dispatch").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	report, err := newTestScheduler(client, now).RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 0 || report.TicketsSkipped[skipReasonProviderStale] != 1 {
+		t.Fatalf("expected provider_stale skip, got %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.CurrentRunID != nil || ticketAfter.WorkflowID != nil {
+		t.Fatalf("expected ticket to remain unclaimed, got %+v", ticketAfter)
+	}
+}
+
 func TestSchedulerRunTickSkipsWorkflowWhenBoundAgentIsPaused(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 14, 0, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
 	if _, err := client.Agent.UpdateOneID(agentItem.ID).
@@ -822,8 +957,8 @@ func TestSchedulerRunTickSkipsWorkflowWhenBoundAgentIsPaused(t *testing.T) {
 func TestSchedulerRunTickSkipsWorkflowWhenBoundAgentIsMissing(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 14, 30, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
 	workflow, err := client.Workflow.Create().
@@ -902,8 +1037,8 @@ type projectFixture struct {
 func TestSchedulerRunTickCreatesDueScheduledJobTicketsBeforeDispatch(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	workflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -992,8 +1127,8 @@ func TestSchedulerRunTickCreatesDueScheduledJobTicketsBeforeDispatch(t *testing.
 func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 12, 15, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	if _, err := client.TicketStage.UpdateOneID(fixture.stageIDs["backlog"]).SetMaxActiveRuns(1).Save(ctx); err != nil {
 		t.Fatalf("set backlog stage capacity: %v", err)
@@ -1071,8 +1206,8 @@ func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T
 func TestSchedulerRunTickContinuesWhenOneDueScheduledJobFails(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
-	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
 	workflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -1265,6 +1400,11 @@ func TestSchedulerHelperCoverage(t *testing.T) {
 
 func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) projectFixture {
 	t.Helper()
+	return seedProjectFixtureAt(ctx, t, client, time.Now().UTC())
+}
+
+func seedProjectFixtureAt(ctx context.Context, t *testing.T, client *ent.Client, now time.Time) projectFixture {
+	t.Helper()
 
 	org, err := client.Organization.Create().
 		SetName("Better And Better").
@@ -1283,6 +1423,9 @@ func seedProjectFixture(ctx context.Context, t *testing.T, client *ent.Client) p
 		SetResources(map[string]any{
 			"transport":    "local",
 			"last_success": true,
+			"monitor": map[string]any{
+				"l4": codexL4Snapshot(now.Add(-5*time.Minute), domaincatalog.MachineAgentAuthStatusLoggedIn, true),
+			},
 		}).
 		Save(ctx)
 	if err != nil {
@@ -1357,6 +1500,22 @@ func (f projectFixture) createAgent(ctx context.Context, t *testing.T, name stri
 
 func stringPointer(value string) *string {
 	return &value
+}
+
+func codexL4Snapshot(
+	checkedAt time.Time,
+	authStatus domaincatalog.MachineAgentAuthStatus,
+	ready bool,
+) map[string]any {
+	return map[string]any{
+		"checked_at": checkedAt.UTC().Format(time.RFC3339),
+		"codex": map[string]any{
+			"installed":   true,
+			"auth_status": string(authStatus),
+			"auth_mode":   string(domaincatalog.MachineAgentAuthModeLogin),
+			"ready":       ready,
+		},
+	}
 }
 
 func newTestScheduler(client *ent.Client, now time.Time) *Scheduler {

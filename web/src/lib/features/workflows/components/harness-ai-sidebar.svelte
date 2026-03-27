@@ -1,13 +1,15 @@
 <script lang="ts">
+  import type { AgentProvider } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { streamChatTurn, type ChatStreamEvent } from '$lib/api/chat'
+  import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { Bot, LoaderCircle, RefreshCcw, Send, WandSparkles } from '@lucide/svelte'
+  import { Bot, LoaderCircle, RefreshCcw, Send } from '@lucide/svelte'
   import {
     buildDiffPreview,
     findLatestHarnessSuggestion,
@@ -16,16 +18,20 @@
     mapChatPayloadToTranscriptEntry,
     type AssistantTranscriptEntry,
   } from '../assistant'
-  import HarnessDiffPreview from './harness-diff-preview.svelte'
+  import HarnessChatEmptyState from './harness-chat-empty-state.svelte'
+  import HarnessChatProviderSelect from './harness-chat-provider-select.svelte'
+  import HarnessSuggestionCard from './harness-suggestion-card.svelte'
 
   let {
     projectId,
+    providers = [],
     workflowId,
     workflowName,
     draftContent,
     onApplySuggestion,
   }: {
     projectId?: string
+    providers?: AgentProvider[]
     workflowId?: string
     workflowName?: string
     draftContent: string
@@ -35,12 +41,23 @@
   let prompt = $state('')
   let pending = $state(false)
   let sessionId = $state('')
+  let providerId = $state('')
   let entries = $state<AssistantTranscriptEntry[]>([])
   let appliedFingerprint = $state('')
   let entryCounter = 0
   let previousContextKey = ''
   let abortController: AbortController | null = null
 
+  const chatProviders = $derived(
+    providers.filter(
+      (provider) =>
+        provider.available &&
+        ['claude-code-cli', 'codex-app-server', 'gemini-cli'].includes(provider.adapter_type),
+    ),
+  )
+  const selectedProvider = $derived(
+    chatProviders.find((provider) => provider.id === providerId) ?? null,
+  )
   const suggestion = $derived(findLatestHarnessSuggestion(entries))
   const preview = $derived(suggestion ? buildDiffPreview(draftContent, suggestion.content) : null)
   const currentFingerprint = $derived(suggestion ? fingerprintSuggestion(suggestion.content) : '')
@@ -58,6 +75,20 @@
   })
 
   $effect(() => {
+    if (providerId && chatProviders.some((provider) => provider.id === providerId)) {
+      return
+    }
+
+    const defaultProviderId = appStore.currentProject?.default_agent_provider_id ?? ''
+    if (defaultProviderId && chatProviders.some((provider) => provider.id === defaultProviderId)) {
+      providerId = defaultProviderId
+      return
+    }
+
+    providerId = chatProviders[0]?.id ?? ''
+  })
+
+  $effect(() => {
     return () => {
       abortController?.abort()
     }
@@ -65,7 +96,7 @@
 
   async function handleSend() {
     const message = prompt.trim()
-    if (!message || !projectId || !workflowId || pending) {
+    if (!message || !projectId || !workflowId || !providerId || pending) {
       return
     }
 
@@ -81,6 +112,7 @@
         {
           message,
           source: 'harness_editor',
+          providerId: providerId || undefined,
           sessionId: sessionId || undefined,
           context: {
             projectId,
@@ -124,10 +156,7 @@
   }
 
   function handleApply() {
-    if (!suggestion) {
-      return
-    }
-
+    if (!suggestion) return
     onApplySuggestion?.(suggestion.content)
     appliedFingerprint = fingerprintSuggestion(suggestion.content)
   }
@@ -154,6 +183,12 @@
     entryCounter += 1
     entries = [...entries, { id: `entry-${entryCounter}`, role, content }]
   }
+
+  function handleProviderChange(nextProviderId: string) {
+    if (nextProviderId === providerId) return
+    providerId = nextProviderId
+    resetConversation()
+  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
@@ -162,6 +197,9 @@
       <div class="flex items-center gap-2">
         <Bot class="text-primary size-4" />
         <h2 class="text-sm font-semibold">Harness AI</h2>
+        {#if selectedProvider}
+          <Badge variant="outline" class="text-[10px]">{selectedProvider.name}</Badge>
+        {/if}
         {#if sessionId}
           <Badge variant="outline" class="text-[10px]">Context kept</Badge>
         {/if}
@@ -184,16 +222,7 @@
   <ScrollArea class="min-h-0 flex-1 px-4 py-4">
     <div class="space-y-3">
       {#if entries.length === 0}
-        <div class="border-border bg-muted/30 rounded-xl border border-dashed px-4 py-4 text-sm">
-          <div class="flex items-center gap-2 font-medium">
-            <WandSparkles class="text-primary size-4" />
-            Ask for a harness rewrite, guardrail tweak, or a new workflow handoff.
-          </div>
-          <p class="text-muted-foreground mt-2 text-xs leading-5">
-            When the assistant returns a full harness draft, you can preview the diff here and apply
-            it into the editor without leaving the page.
-          </p>
-        </div>
+        <HarnessChatEmptyState />
       {/if}
 
       {#each entries as entry (entry.id)}
@@ -222,39 +251,29 @@
       {/if}
 
       {#if suggestion && preview}
-        <div class="space-y-3 rounded-2xl border border-sky-500/30 bg-sky-500/8 p-3">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="text-sm font-medium">Suggested Harness Update</div>
-              <p class="text-muted-foreground mt-1 text-xs leading-5">{suggestion.summary}</p>
-            </div>
-            {#if suggestionAlreadyApplied}
-              <Badge variant="outline" class="text-[10px]">Applied</Badge>
-            {/if}
-          </div>
-
-          <HarnessDiffPreview {preview} />
-
-          <Button
-            size="sm"
-            class="w-full"
-            onclick={handleApply}
-            disabled={suggestionAlreadyApplied}
-          >
-            Apply to Editor
-          </Button>
-        </div>
+        <HarnessSuggestionCard
+          {suggestion}
+          {preview}
+          {suggestionAlreadyApplied}
+          onApply={handleApply}
+        />
       {/if}
     </div>
   </ScrollArea>
 
   <div class="border-border border-t px-4 py-3">
+    <HarnessChatProviderSelect
+      providers={chatProviders}
+      {providerId}
+      onProviderChange={handleProviderChange}
+    />
+
     <Textarea
       bind:value={prompt}
       rows={4}
       class="text-sm"
       placeholder="Ask the assistant to refine this harness. Shift+Enter for newline."
-      disabled={!projectId || !workflowId || pending}
+      disabled={!projectId || !workflowId || !providerId || pending}
       onkeydown={handlePromptKeydown}
     />
 
@@ -267,7 +286,7 @@
       <Button
         size="sm"
         onclick={handleSend}
-        disabled={!prompt.trim() || !projectId || !workflowId || pending}
+        disabled={!prompt.trim() || !projectId || !workflowId || !providerId || pending}
       >
         <Send class="size-4" />
         Send

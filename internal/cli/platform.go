@@ -65,9 +65,13 @@ type ticketUpdateInput struct {
 	title          string
 	description    string
 	externalRef    string
+	statusID       string
+	statusName     string
 	titleSet       bool
 	descriptionSet bool
 	externalRefSet bool
+	statusIDSet    bool
+	statusNameSet  bool
 }
 
 type ticketReportUsageInput struct {
@@ -232,6 +236,8 @@ func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient
 	var title string
 	var description string
 	var externalRef string
+	var statusID string
+	var statusName string
 
 	command := &cobra.Command{
 		Use:   "update [ticket-id]",
@@ -248,9 +254,13 @@ func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient
 				title:          title,
 				description:    description,
 				externalRef:    externalRef,
+				statusID:       statusID,
+				statusName:     statusName,
 				titleSet:       cmd.Flags().Changed("title"),
 				descriptionSet: cmd.Flags().Changed("description"),
 				externalRefSet: cmd.Flags().Changed("external-ref"),
+				statusIDSet:    cmd.Flags().Changed("status-id"),
+				statusNameSet:  cmd.Flags().Changed("status") || cmd.Flags().Changed("status-name"),
 			})
 			if err != nil {
 				return err
@@ -267,6 +277,9 @@ func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient
 	command.Flags().StringVar(&title, "title", "", "Updated ticket title.")
 	command.Flags().StringVar(&description, "description", "", "Updated ticket description.")
 	command.Flags().StringVar(&externalRef, "external-ref", "", "Updated external reference.")
+	command.Flags().StringVar(&statusName, "status", "", "Updated ticket status name.")
+	command.Flags().StringVar(&statusName, "status-name", "", "Updated ticket status name.")
+	command.Flags().StringVar(&statusID, "status-id", "", "Updated ticket status ID.")
 
 	return command
 }
@@ -478,11 +491,20 @@ func (platform platformContext) parseTicketUpdateInput(raw ticketUpdateInput) (t
 	if ticketID == "" {
 		return ticketUpdateInput{}, fmt.Errorf("ticket id is required via positional argument, --ticket-id, or OPENASE_TICKET_ID")
 	}
-	if !raw.titleSet && !raw.descriptionSet && !raw.externalRefSet {
-		return ticketUpdateInput{}, fmt.Errorf("at least one of --title, --description, or --external-ref must be set")
+	if !raw.titleSet && !raw.descriptionSet && !raw.externalRefSet && !raw.statusIDSet && !raw.statusNameSet {
+		return ticketUpdateInput{}, fmt.Errorf("at least one of --title, --description, --external-ref, --status, --status-name, or --status-id must be set")
 	}
 	if raw.titleSet && strings.TrimSpace(raw.title) == "" {
 		return ticketUpdateInput{}, fmt.Errorf("title must not be empty")
+	}
+	if raw.statusIDSet && raw.statusNameSet {
+		return ticketUpdateInput{}, fmt.Errorf("status-id and status name cannot be provided together")
+	}
+	if raw.statusIDSet && strings.TrimSpace(raw.statusID) == "" {
+		return ticketUpdateInput{}, fmt.Errorf("status-id must not be empty")
+	}
+	if raw.statusNameSet && strings.TrimSpace(raw.statusName) == "" {
+		return ticketUpdateInput{}, fmt.Errorf("status name must not be empty")
 	}
 
 	return ticketUpdateInput{
@@ -490,9 +512,13 @@ func (platform platformContext) parseTicketUpdateInput(raw ticketUpdateInput) (t
 		title:          strings.TrimSpace(raw.title),
 		description:    strings.TrimSpace(raw.description),
 		externalRef:    strings.TrimSpace(raw.externalRef),
+		statusID:       strings.TrimSpace(raw.statusID),
+		statusName:     strings.TrimSpace(raw.statusName),
 		titleSet:       raw.titleSet,
 		descriptionSet: raw.descriptionSet,
 		externalRefSet: raw.externalRefSet,
+		statusIDSet:    raw.statusIDSet,
+		statusNameSet:  raw.statusNameSet,
 	}, nil
 }
 
@@ -624,6 +650,12 @@ func (client platformClient) updateTicket(ctx context.Context, platform platform
 	}
 	if input.externalRefSet {
 		payload["external_ref"] = input.externalRef
+	}
+	if input.statusIDSet {
+		payload["status_id"] = input.statusID
+	}
+	if input.statusNameSet {
+		payload["status_name"] = input.statusName
 	}
 
 	return client.doJSON(ctx, platform, http.MethodPatch, "/tickets/"+url.PathEscape(input.ticketID), payload)

@@ -12,7 +12,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -521,6 +523,36 @@ func (_c *TicketCreate) AddAgentTokens(v ...*AgentToken) *TicketCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddAgentTokenIDs(ids...)
+}
+
+// AddAgentTraceEventIDs adds the "agent_trace_events" edge to the AgentTraceEvent entity by IDs.
+func (_c *TicketCreate) AddAgentTraceEventIDs(ids ...uuid.UUID) *TicketCreate {
+	_c.mutation.AddAgentTraceEventIDs(ids...)
+	return _c
+}
+
+// AddAgentTraceEvents adds the "agent_trace_events" edges to the AgentTraceEvent entity.
+func (_c *TicketCreate) AddAgentTraceEvents(v ...*AgentTraceEvent) *TicketCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentTraceEventIDs(ids...)
+}
+
+// AddAgentStepEventIDs adds the "agent_step_events" edge to the AgentStepEvent entity by IDs.
+func (_c *TicketCreate) AddAgentStepEventIDs(ids ...uuid.UUID) *TicketCreate {
+	_c.mutation.AddAgentStepEventIDs(ids...)
+	return _c
+}
+
+// AddAgentStepEvents adds the "agent_step_events" edges to the AgentStepEvent entity.
+func (_c *TicketCreate) AddAgentStepEvents(v ...*AgentStepEvent) *TicketCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentStepEventIDs(ids...)
 }
 
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by IDs.
@@ -1065,6 +1097,38 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentTraceEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentTraceEventsTable,
+			Columns: []string{ticket.AgentTraceEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttraceevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentStepEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.AgentStepEventsTable,
+			Columns: []string{ticket.AgentStepEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
