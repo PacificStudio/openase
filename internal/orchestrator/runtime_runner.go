@@ -103,7 +103,7 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, agentID uuid.UU
 			return
 		}
 
-		if err := l.consumeTurn(ctx, state.agent.ID, state.run.ID, state.ticket.ID, session, turn.TurnID, &highWater); err != nil {
+		if err := l.consumeTurn(ctx, state.agent.ProjectID, state.agent.ID, state.run.ID, state.ticket.ID, session, turn.TurnID, &highWater); err != nil {
 			lastError = err.Error()
 			l.handleExecutionFailure(ctx, state.agent.ID, state.ticket.ID, err)
 			return
@@ -200,6 +200,7 @@ func buildContinuationPrompt(ticket *ent.Ticket, turnNumber int, maxTurns int, l
 
 func (l *RuntimeLauncher) consumeTurn(
 	ctx context.Context,
+	projectID uuid.UUID,
 	agentID uuid.UUID,
 	runID uuid.UUID,
 	ticketID uuid.UUID,
@@ -207,6 +208,8 @@ func (l *RuntimeLauncher) consumeTurn(
 	turnID string,
 	highWater *tokenUsageHighWater,
 ) error {
+	outputItemsWithDelta := map[string]struct{}{}
+
 	for {
 		event, ok := <-session.Events()
 		if !ok {
@@ -243,6 +246,25 @@ func (l *RuntimeLauncher) consumeTurn(
 			if err := l.recordTokenUsage(ctx, agentID, ticketID, event.TokenUsage, highWater); err != nil {
 				return err
 			}
+		case codex.EventTypeOutputProduced:
+			if event.Output == nil {
+				continue
+			}
+			if event.Output.TurnID != "" && event.Output.TurnID != turnID {
+				continue
+			}
+			itemID := strings.TrimSpace(event.Output.ItemID)
+			if itemID != "" && !event.Output.Snapshot {
+				outputItemsWithDelta[itemID] = struct{}{}
+			}
+			if itemID != "" && event.Output.Snapshot {
+				if _, ok := outputItemsWithDelta[itemID]; ok {
+					continue
+				}
+			}
+			if err := l.recordAgentOutput(ctx, projectID, agentID, ticketID, runID, event.Output); err != nil {
+				return err
+			}
 		case codex.EventTypeTurnFailed:
 			if event.Turn == nil || event.Turn.TurnID != turnID {
 				continue
@@ -258,6 +280,48 @@ func (l *RuntimeLauncher) consumeTurn(
 			return nil
 		}
 	}
+}
+
+func (l *RuntimeLauncher) recordAgentOutput(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	output *codex.OutputEvent,
+) error {
+	if l == nil || output == nil {
+		return nil
+	}
+
+	text := strings.TrimSpace(output.Text)
+	if text == "" {
+		return nil
+	}
+
+	metadata := map[string]any{
+		"stream":   output.Stream,
+		"provider": "codex",
+		"run_id":   runID.String(),
+	}
+	if itemID := strings.TrimSpace(output.ItemID); itemID != "" {
+		metadata["item_id"] = itemID
+	}
+	if turnID := strings.TrimSpace(output.TurnID); turnID != "" {
+		metadata["turn_id"] = turnID
+	}
+	if phase := strings.TrimSpace(output.Phase); phase != "" {
+		metadata["phase"] = phase
+	}
+	if output.Snapshot {
+		metadata["snapshot"] = true
+	}
+
+	if err := publishAgentOutputEvent(ctx, l.client, l.events, projectID, agentID, ticketID, text, metadata, l.now().UTC()); err != nil {
+		return fmt.Errorf("record agent output for run %s: %w", runID, err)
+	}
+
+	return nil
 }
 
 func (l *RuntimeLauncher) touchHeartbeat(ctx context.Context, runID uuid.UUID) error {

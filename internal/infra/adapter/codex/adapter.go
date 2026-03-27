@@ -23,6 +23,7 @@ type EventType string
 const (
 	EventTypeToolCallRequested EventType = "tool_call_requested"
 	EventTypeTokenUsageUpdated EventType = "token_usage_updated"
+	EventTypeOutputProduced    EventType = "output_produced"
 	EventTypeTurnStarted       EventType = "turn_started"
 	EventTypeTurnCompleted     EventType = "turn_completed"
 	EventTypeTurnFailed        EventType = "turn_failed"
@@ -85,6 +86,7 @@ type Event struct {
 	Type       EventType
 	ToolCall   *ToolCallRequest
 	TokenUsage *TokenUsageEvent
+	Output     *OutputEvent
 	Turn       *TurnEvent
 }
 
@@ -130,6 +132,16 @@ type TokenUsageEvent struct {
 	TotalTokens        int64
 	LastTokens         int64
 	ModelContextWindow *int64
+}
+
+type OutputEvent struct {
+	ThreadID string
+	TurnID   string
+	ItemID   string
+	Stream   string
+	Text     string
+	Phase    string
+	Snapshot bool
 }
 
 type Session struct {
@@ -644,7 +656,59 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 		})
 
 		return nil
-	case methodTurnError:
+	case methodAgentMessageDelta:
+		var notification wireAgentMessageDeltaNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex agent message delta notification: %w", err)
+		}
+
+		s.emit(Event{
+			Type: EventTypeOutputProduced,
+			Output: &OutputEvent{
+				ThreadID: notification.ThreadID,
+				TurnID:   notification.TurnID,
+				ItemID:   notification.ItemID,
+				Stream:   "assistant",
+				Text:     notification.Delta,
+			},
+		})
+
+		return nil
+	case methodCommandOutput:
+		var notification wireCommandExecutionOutputDeltaNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex command execution output notification: %w", err)
+		}
+
+		s.emit(Event{
+			Type: EventTypeOutputProduced,
+			Output: &OutputEvent{
+				ThreadID: notification.ThreadID,
+				TurnID:   notification.TurnID,
+				ItemID:   notification.ItemID,
+				Stream:   "command",
+				Text:     notification.Delta,
+			},
+		})
+
+		return nil
+	case methodItemCompleted:
+		var notification wireItemCompletedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex item completed notification: %w", err)
+		}
+
+		outputEvent, ok := outputEventFromCompletedItem(notification)
+		if !ok {
+			return nil
+		}
+		s.emit(Event{
+			Type:   EventTypeOutputProduced,
+			Output: outputEvent,
+		})
+
+		return nil
+	case methodTurnError, methodTurnFailed, methodTurnCancelled:
 		var notification wireErrorNotification
 		if err := decodeParams(message.Params, &notification); err != nil {
 			return fmt.Errorf("decode codex error notification: %w", err)
@@ -666,6 +730,40 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 		return nil
 	default:
 		return nil
+	}
+}
+
+func outputEventFromCompletedItem(notification wireItemCompletedNotification) (*OutputEvent, bool) {
+	switch notification.Item.Type {
+	case "agentMessage":
+		if strings.TrimSpace(notification.Item.Text) == "" {
+			return nil, false
+		}
+
+		return &OutputEvent{
+			ThreadID: notification.ThreadID,
+			TurnID:   notification.TurnID,
+			ItemID:   notification.Item.ID,
+			Stream:   "assistant",
+			Text:     notification.Item.Text,
+			Phase:    strings.TrimSpace(notification.Item.Phase),
+			Snapshot: true,
+		}, true
+	case "commandExecution":
+		if notification.Item.AggregatedOutput == nil || strings.TrimSpace(*notification.Item.AggregatedOutput) == "" {
+			return nil, false
+		}
+
+		return &OutputEvent{
+			ThreadID: notification.ThreadID,
+			TurnID:   notification.TurnID,
+			ItemID:   notification.Item.ID,
+			Stream:   "command",
+			Text:     *notification.Item.AggregatedOutput,
+			Snapshot: true,
+		}, true
+	default:
+		return nil, false
 	}
 }
 

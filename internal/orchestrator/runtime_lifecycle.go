@@ -3,11 +3,13 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
@@ -23,6 +25,7 @@ var (
 	agentPausedType     = provider.MustParseEventType("agent.paused")
 	agentFailedType     = provider.MustParseEventType("agent.failed")
 	agentTerminatedType = provider.MustParseEventType("agent.terminated")
+	agentOutputType     = provider.MustParseEventType(catalogdomain.AgentOutputEventType)
 )
 
 type agentLifecycleEnvelope struct {
@@ -132,6 +135,58 @@ func publishAgentLifecycleEvent(
 	}
 	if err := events.Publish(ctx, activityEvent); err != nil {
 		return fmt.Errorf("publish %s activity stream event: %w", eventType, err)
+	}
+
+	return nil
+}
+
+func publishAgentOutputEvent(
+	ctx context.Context,
+	client *ent.Client,
+	events provider.EventProvider,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	message string,
+	metadata map[string]any,
+	publishedAt time.Time,
+) error {
+	trimmedMessage := strings.TrimSpace(message)
+	if trimmedMessage == "" {
+		return nil
+	}
+	if client == nil {
+		return fmt.Errorf("agent output event requires a client")
+	}
+
+	activityItem, err := client.ActivityEvent.Create().
+		SetProjectID(projectID).
+		SetAgentID(agentID).
+		SetTicketID(ticketID).
+		SetEventType(catalogdomain.AgentOutputEventType).
+		SetMessage(trimmedMessage).
+		SetMetadata(cloneLifecycleMetadata(metadata)).
+		SetCreatedAt(publishedAt.UTC()).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("persist %s activity event: %w", catalogdomain.AgentOutputEventType, err)
+	}
+
+	if events == nil {
+		return nil
+	}
+
+	activityEvent, err := provider.NewJSONEvent(
+		activityLifecycleTopic,
+		agentOutputType,
+		activityLifecycleEnvelope{Event: mapActivityLifecycleSnapshot(activityItem)},
+		publishedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("construct %s activity stream event: %w", catalogdomain.AgentOutputEventType, err)
+	}
+	if err := events.Publish(ctx, activityEvent); err != nil {
+		return fmt.Errorf("publish %s activity stream event: %w", catalogdomain.AgentOutputEventType, err)
 	}
 
 	return nil
