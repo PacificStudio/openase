@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+type testContextKey struct{}
+
 func TestProviderAgentCLIHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -242,7 +244,7 @@ func TestProviderTraceAndMetricHelpers(t *testing.T) {
 	t.Parallel()
 
 	traceProvider := NewNoopTraceProvider()
-	ctx := context.WithValue(context.Background(), struct{}{}, "value")
+	ctx := context.WithValue(context.Background(), testContextKey{}, "value")
 	header := http.Header{}
 	if got := traceProvider.ExtractHTTPContext(ctx, header); got != ctx {
 		t.Fatalf("ExtractHTTPContext() = %#v, want original context", got)

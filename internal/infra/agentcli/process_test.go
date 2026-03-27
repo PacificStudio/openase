@@ -166,8 +166,9 @@ func TestRunningProcessStopTerminatesRunningProcess(t *testing.T) {
 func TestManagerStartUsesStdinAndRejectsInvalidInputs(t *testing.T) {
 	command := requirePOSIXShell(t)
 	manager := NewManager(ManagerOptions{})
+	var nilCtx context.Context
 
-	if _, err := manager.Start(nil, newShellSpec(t, command, "cat")); err == nil || err.Error() != "context must not be nil" {
+	if _, err := manager.Start(nilCtx, newShellSpec(t, command, "cat")); err == nil || err.Error() != "context must not be nil" {
 		t.Fatalf("Start(nil context) error = %v", err)
 	}
 
@@ -217,7 +218,8 @@ func TestRunningProcessNilAndContextGuards(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Start(sleep) error = %v", err)
 	}
-	if err := process.Stop(nil); err == nil || err.Error() != "context must not be nil" {
+	var nilCtx context.Context
+	if err := process.Stop(nilCtx); err == nil || err.Error() != "context must not be nil" {
 		t.Fatalf("Stop(nil context) error = %v", err)
 	}
 	_ = process.Stop(context.Background())
@@ -267,7 +269,7 @@ func TestInterruptKillAndPipeHelpers(t *testing.T) {
 		t.Fatalf("killProcess(nil) error = %v", err)
 	}
 
-	cmd := exec.Command(command, "-c", "sleep 30")
+	cmd := newTestShellCommand(t, command, "sleep 30")
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start(interrupt) error = %v", err)
 	}
@@ -278,7 +280,7 @@ func TestInterruptKillAndPipeHelpers(t *testing.T) {
 		t.Fatal("Wait(interrupt) expected signal exit error")
 	}
 
-	cmd = exec.Command(command, "-c", "trap '' INT; sleep 30")
+	cmd = newTestShellCommand(t, command, "trap '' INT; sleep 30")
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("cmd.Start(kill) error = %v", err)
 	}
@@ -327,6 +329,13 @@ func requirePOSIXShell(t *testing.T) string {
 	}
 
 	return command
+}
+
+func newTestShellCommand(t *testing.T, command string, script string) *exec.Cmd {
+	t.Helper()
+
+	//nolint:gosec // Tests intentionally execute the discovered local POSIX shell.
+	return exec.Command(command, "-c", script)
 }
 
 func newShellSpec(t *testing.T, command string, script string) provider.AgentCLIProcessSpec {

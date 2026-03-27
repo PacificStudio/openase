@@ -98,7 +98,8 @@ func TestMetricsProviderHelperPathsAndNoopFallbacks(t *testing.T) {
 	if _, _, err := parseInstrumentSpec("metric.name", map[string]string{" ": "value"}); err == nil || !strings.Contains(err.Error(), "metric tag key must not be empty") {
 		t.Fatalf("parseInstrumentSpec(blank tag key) error = %v", err)
 	}
-	if _, key, err := parseInstrumentSpec(" metric.name ", map[string]string{" b ": " 2 ", "a": "1"}); err != nil || key != "metric.name|b=2|a=1" {
+	spacedKey := " b "
+	if _, key, err := parseInstrumentSpec(" metric.name ", map[string]string{spacedKey: " 2 ", "a": "1"}); err != nil || key != "metric.name|b=2|a=1" {
 		t.Fatalf("parseInstrumentSpec(sorted) = %q, %v", key, err)
 	}
 }

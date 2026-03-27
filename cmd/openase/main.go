@@ -33,7 +33,7 @@ func run(execute func(context.Context) error, stderr io.Writer, logError func(er
 		if errors.As(err, &exitErr) {
 			message := strings.TrimSpace(err.Error())
 			if message != "" {
-				fmt.Fprintln(stderr, message)
+				_, _ = fmt.Fprintln(stderr, message)
 			}
 			exit(exitErr.ExitCode())
 			return

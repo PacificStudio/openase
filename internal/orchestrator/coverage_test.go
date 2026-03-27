@@ -11,12 +11,16 @@ import (
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
+	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
 
@@ -207,6 +211,104 @@ func TestOrchestratorHelperCoverage(t *testing.T) {
 	}
 	if got := workspaceRoot(catalogdomain.Machine{Host: "10.0.0.11"}, "/srv/openase/workspaces/org/project/repo"); got != "/srv/openase/workspaces" {
 		t.Fatalf("workspaceRoot(derived) = %q", got)
+	}
+}
+
+func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
+	t.Run("build local openase environment", func(t *testing.T) {
+		env, err := buildLocalOpenASEEnvironment()
+		if err != nil {
+			t.Fatalf("buildLocalOpenASEEnvironment() error = %v", err)
+		}
+		if len(env) != 1 || !strings.HasPrefix(env[0], "OPENASE_REAL_BIN=") {
+			t.Fatalf("buildLocalOpenASEEnvironment() = %+v", env)
+		}
+		if strings.TrimSpace(strings.TrimPrefix(env[0], "OPENASE_REAL_BIN=")) == "" {
+			t.Fatalf("expected executable path in environment, got %+v", env)
+		}
+	})
+
+	t.Run("working directory selection", func(t *testing.T) {
+		primaryRepoID := uuid.New()
+		secondaryRepoID := uuid.New()
+		launchContext := runtimeLaunchContext{
+			projectRepos: []*ent.ProjectRepo{
+				{ID: primaryRepoID, Name: "backend", ClonePath: "repos/backend", IsPrimary: true},
+				{ID: secondaryRepoID, Name: "frontend", ClonePath: "repos/frontend"},
+			},
+			ticketScopes: []*ent.TicketRepoScope{
+				{RepoID: secondaryRepoID, IsPrimaryScope: true},
+			},
+		}
+
+		workspace := workspaceinfra.Workspace{
+			Path: "/tmp/workspaces/ASE-278",
+			Repos: []workspaceinfra.PreparedRepo{
+				{Name: "backend", ClonePath: "repos/backend", Path: "/tmp/workspaces/ASE-278/repos/backend"},
+				{Name: "frontend", ClonePath: "repos/frontend", Path: "/tmp/workspaces/ASE-278/repos/frontend"},
+			},
+		}
+
+		if got := primaryWorkspaceClonePath(launchContext); got != "repos/frontend" {
+			t.Fatalf("primaryWorkspaceClonePath(primary scope) = %q", got)
+		}
+		if got, ok := primaryPreparedRepoPath(launchContext, workspace.Repos); !ok || got != "/tmp/workspaces/ASE-278/repos/frontend" {
+			t.Fatalf("primaryPreparedRepoPath(primary scope) = %q, %t", got, ok)
+		}
+		if got := resolveAgentWorkingDirectory(launchContext, workspace); got != "/tmp/workspaces/ASE-278/repos/frontend" {
+			t.Fatalf("resolveAgentWorkingDirectory(primary scope) = %q", got)
+		}
+
+		noScopeContext := runtimeLaunchContext{
+			projectRepos: []*ent.ProjectRepo{
+				{ID: primaryRepoID, Name: "backend", ClonePath: "repos/backend", IsPrimary: true},
+				{ID: secondaryRepoID, Name: "frontend"},
+			},
+		}
+		if got := primaryWorkspaceClonePath(noScopeContext); got != "repos/backend" {
+			t.Fatalf("primaryWorkspaceClonePath(project primary) = %q", got)
+		}
+		if got := resolveAgentWorkingDirectory(noScopeContext, workspaceinfra.Workspace{
+			Path:  "/tmp/workspaces/ASE-278",
+			Repos: []workspaceinfra.PreparedRepo{{Name: "backend", ClonePath: "repos/backend", Path: "/tmp/workspaces/ASE-278/repos/backend"}},
+		}); got != "/tmp/workspaces/ASE-278/repos/backend" {
+			t.Fatalf("resolveAgentWorkingDirectory(single repo) = %q", got)
+		}
+		if got := resolveAgentWorkingDirectory(runtimeLaunchContext{}, workspaceinfra.Workspace{Path: "/tmp/workspaces/ASE-278"}); got != "/tmp/workspaces/ASE-278" {
+			t.Fatalf("resolveAgentWorkingDirectory(workspace root) = %q", got)
+		}
+		if got, ok := primaryPreparedRepoPath(runtimeLaunchContext{}, workspace.Repos); ok || got != "" {
+			t.Fatalf("primaryPreparedRepoPath(empty) = %q, %t", got, ok)
+		}
+		if got := projectRepoClonePath(&ent.ProjectRepo{Name: "backend"}); got != "backend" {
+			t.Fatalf("projectRepoClonePath(default) = %q", got)
+		}
+		if got := projectRepoClonePath(nil); got != "" {
+			t.Fatalf("projectRepoClonePath(nil) = %q", got)
+		}
+	})
+}
+
+func TestSchedulerProviderAvailabilityHelpers(t *testing.T) {
+	if got := schedulerOptionalString("  "); got != nil {
+		t.Fatalf("schedulerOptionalString(blank) = %+v", got)
+	}
+	if got := schedulerOptionalString("ready"); got == nil || *got != "ready" {
+		t.Fatalf("schedulerOptionalString(value) = %+v", got)
+	}
+
+	for _, testCase := range []struct {
+		state catalogdomain.AgentProviderAvailabilityState
+		want  string
+	}{
+		{state: catalogdomain.AgentProviderAvailabilityStateStale, want: skipReasonProviderStale},
+		{state: catalogdomain.AgentProviderAvailabilityStateAvailable, want: ""},
+		{state: catalogdomain.AgentProviderAvailabilityStateUnknown, want: skipReasonProviderUnknown},
+		{state: catalogdomain.AgentProviderAvailabilityStateUnavailable, want: skipReasonProviderUnavailable},
+	} {
+		if got := skipReasonForProviderAvailability(testCase.state); got != testCase.want {
+			t.Fatalf("skipReasonForProviderAvailability(%q) = %q, want %q", testCase.state, got, testCase.want)
+		}
 	}
 }
 
@@ -527,6 +629,111 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if ptr := int64Pointer(7); ptr == nil || *ptr != 7 {
 		t.Fatalf("int64Pointer() = %+v", ptr)
 	}
+
+	if got := agentTraceKindForOutput(nil); got != catalogdomain.AgentTraceKindAssistantDelta {
+		t.Fatalf("agentTraceKindForOutput(nil) = %q", got)
+	}
+	if got := agentTraceKindForOutput(&codex.OutputEvent{Stream: "command"}); got != catalogdomain.AgentTraceKindCommandDelta {
+		t.Fatalf("agentTraceKindForOutput(command delta) = %q", got)
+	}
+	if got := agentTraceKindForOutput(&codex.OutputEvent{Stream: "command", Snapshot: true}); got != catalogdomain.AgentTraceKindCommandSnapshot {
+		t.Fatalf("agentTraceKindForOutput(command snapshot) = %q", got)
+	}
+	if got := agentTraceKindForOutput(&codex.OutputEvent{Stream: "assistant", Snapshot: true}); got != catalogdomain.AgentTraceKindAssistantSnapshot {
+		t.Fatalf("agentTraceKindForOutput(assistant snapshot) = %q", got)
+	}
+
+	if stepStatus, stepSummary, ok := agentStepFromOutput(nil, "ignored"); ok || stepStatus != "" || stepSummary != "" {
+		t.Fatalf("agentStepFromOutput(nil) = %q, %q, %t", stepStatus, stepSummary, ok)
+	}
+	if stepStatus, stepSummary, ok := agentStepFromOutput(&codex.OutputEvent{Phase: " planning "}, " line one \nline two "); !ok || stepStatus != "planning" || stepSummary != "line one " {
+		t.Fatalf("agentStepFromOutput(phase) = %q, %q, %t", stepStatus, stepSummary, ok)
+	}
+	if stepStatus, _, ok := agentStepFromOutput(&codex.OutputEvent{Stream: "command"}, "run tests"); !ok || stepStatus != "running_command" {
+		t.Fatalf("agentStepFromOutput(command) = %q, %t", stepStatus, ok)
+	}
+	if stepStatus, _, ok := agentStepFromOutput(&codex.OutputEvent{Stream: "assistant"}, "reply"); !ok || stepStatus != "responding" {
+		t.Fatalf("agentStepFromOutput(assistant) = %q, %t", stepStatus, ok)
+	}
+	if _, _, ok := agentStepFromOutput(&codex.OutputEvent{Stream: "unknown"}, "noop"); ok {
+		t.Fatal("agentStepFromOutput(unknown) expected false")
+	}
+
+	if got := summarizeAgentStepText(" \n "); got != "" {
+		t.Fatalf("summarizeAgentStepText(blank) = %q", got)
+	}
+	longLine := strings.Repeat("x", 141)
+	if got := summarizeAgentStepText(longLine + "\nsecond"); got != strings.Repeat("x", 140)+"..." {
+		t.Fatalf("summarizeAgentStepText(long) = %q", got)
+	}
+	if got := toolCallStepSummary(" "); got != "Running provider tool call." {
+		t.Fatalf("toolCallStepSummary(blank) = %q", got)
+	}
+	if got := toolCallStepSummary("shell"); got != `Running provider tool "shell".` {
+		t.Fatalf("toolCallStepSummary(tool) = %q", got)
+	}
+
+	launcher := &RuntimeLauncher{now: func() time.Time { return time.Date(2026, 3, 27, 15, 0, 0, 0, time.UTC) }}
+	if err := (*RuntimeLauncher)(nil).recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, nil); err != nil {
+		t.Fatalf("recordAgentOutput(nil launcher) error = %v", err)
+	}
+	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, nil); err != nil {
+		t.Fatalf("recordAgentOutput(nil output) error = %v", err)
+	}
+	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, &codex.OutputEvent{Text: "   "}); err != nil {
+		t.Fatalf("recordAgentOutput(blank text) error = %v", err)
+	}
+	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, &codex.OutputEvent{
+		Text:     " stderr line ",
+		Stream:   "command",
+		ItemID:   " item-1 ",
+		TurnID:   " turn-1 ",
+		Phase:    " running_command ",
+		Snapshot: true,
+	}); err == nil || !strings.Contains(err.Error(), "record agent output for run") || !strings.Contains(err.Error(), "agent trace event requires a client") {
+		t.Fatalf("recordAgentOutput(no client) error = %v", err)
+	}
+	if err := (*RuntimeLauncher)(nil).recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, nil); err != nil {
+		t.Fatalf("recordAgentToolCall(nil launcher) error = %v", err)
+	}
+	if err := launcher.recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, nil); err != nil {
+		t.Fatalf("recordAgentToolCall(nil request) error = %v", err)
+	}
+	if err := launcher.recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, &codex.ToolCallRequest{
+		Tool:     " shell ",
+		CallID:   " call-1 ",
+		TurnID:   " turn-1 ",
+		ThreadID: " thread-1 ",
+	}); err == nil || !strings.Contains(err.Error(), "agent trace event requires a client") {
+		t.Fatalf("recordAgentToolCall(no client) error = %v", err)
+	}
+	if err := (*RuntimeLauncher)(nil).recordAgentStep(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, "responding", "summary", nil); err != nil {
+		t.Fatalf("recordAgentStep(nil launcher) error = %v", err)
+	}
+	if err := launcher.recordAgentStep(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, "responding", "summary", nil); err == nil || !strings.Contains(err.Error(), "agent step event requires a client") {
+		t.Fatalf("recordAgentStep(no client) error = %v", err)
+	}
+
+	highWater := &tokenUsageHighWater{}
+	if err := (*RuntimeLauncher)(nil).recordTokenUsage(context.Background(), uuid.New(), uuid.New(), nil, highWater); err != nil {
+		t.Fatalf("recordTokenUsage(nil launcher) error = %v", err)
+	}
+	launcher.tickets = ticketservice.NewService(nil)
+	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), &codex.TokenUsageEvent{
+		TotalInputTokens:  5,
+		TotalOutputTokens: 3,
+	}, highWater); err == nil || !strings.Contains(err.Error(), "record token usage for ticket") {
+		t.Fatalf("recordTokenUsage(service error) error = %v", err)
+	}
+	if highWater.inputTokens != 5 || highWater.outputTokens != 3 {
+		t.Fatalf("recordTokenUsage() highWater = %+v", highWater)
+	}
+	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), &codex.TokenUsageEvent{
+		TotalInputTokens:  4,
+		TotalOutputTokens: 2,
+	}, highWater); err != nil {
+		t.Fatalf("recordTokenUsage(no delta) error = %v", err)
+	}
 }
 
 func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
@@ -624,11 +831,37 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 		t.Fatalf("stallTimeoutForWorkflow(default) = %v", timeout)
 	}
 
-	if err := publishAgentOutputEvent(ctx, nil, nil, fixture.projectID, agentItem.ID, ticketItem.ID, "   ", map[string]any{"stream": "stdout"}, time.Now()); err != nil {
-		t.Fatalf("publishAgentOutputEvent(blank) error = %v", err)
+	blankTrace, err := publishAgentTraceEvent(ctx, client, nil, agentTraceEventInput{
+		ProjectID:   fixture.projectID,
+		AgentID:     agentItem.ID,
+		TicketID:    ticketItem.ID,
+		AgentRunID:  currentRun.ID,
+		Provider:    "codex",
+		Kind:        catalogdomain.AgentTraceKindCommandDelta,
+		Stream:      "stdout",
+		Text:        "   ",
+		EventType:   agentOutputType,
+		PublishedAt: currentStartedAt.Add(3 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("publishAgentTraceEvent(blank) error = %v", err)
 	}
-	if err := publishAgentOutputEvent(ctx, nil, nil, fixture.projectID, agentItem.ID, ticketItem.ID, " line ", map[string]any{"stream": "stdout"}, time.Now()); err == nil || !strings.Contains(err.Error(), "agent output event requires a client") {
-		t.Fatalf("publishAgentOutputEvent(nil client) error = %v", err)
+	if blankTrace.Text != "" {
+		t.Fatalf("publishAgentTraceEvent(blank) = %+v", blankTrace)
+	}
+	if _, err := publishAgentTraceEvent(ctx, nil, nil, agentTraceEventInput{
+		ProjectID:   fixture.projectID,
+		AgentID:     agentItem.ID,
+		TicketID:    ticketItem.ID,
+		AgentRunID:  currentRun.ID,
+		Provider:    "codex",
+		Kind:        catalogdomain.AgentTraceKindCommandDelta,
+		Stream:      "stdout",
+		Text:        " line ",
+		EventType:   agentOutputType,
+		PublishedAt: time.Now(),
+	}); err == nil || !strings.Contains(err.Error(), "agent trace event requires a client") {
+		t.Fatalf("publishAgentTraceEvent(nil client) error = %v", err)
 	}
 
 	bus := eventinfra.NewChannelBus()
@@ -639,37 +872,198 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	}()
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	stream, err := bus.Subscribe(streamCtx, activityLifecycleTopic)
+	stream, err := bus.Subscribe(streamCtx, agentTraceTopic)
 	if err != nil {
 		t.Fatalf("Subscribe() error = %v", err)
 	}
+	lifecycleStream, err := bus.Subscribe(streamCtx, agentLifecycleTopic)
+	if err != nil {
+		t.Fatalf("Subscribe(agent lifecycle) error = %v", err)
+	}
+	activityStream, err := bus.Subscribe(streamCtx, activityLifecycleTopic)
+	if err != nil {
+		t.Fatalf("Subscribe(activity lifecycle) error = %v", err)
+	}
+	stepStream, err := bus.Subscribe(streamCtx, agentStepTopic)
+	if err != nil {
+		t.Fatalf("Subscribe(agent step) error = %v", err)
+	}
 
 	publishedAt := time.Date(2026, time.March, 27, 12, 9, 0, 0, time.UTC)
-	if err := publishAgentOutputEvent(ctx, client, bus, fixture.projectID, agentItem.ID, ticketItem.ID, " stdout line ", map[string]any{"stream": "stdout"}, publishedAt); err != nil {
-		t.Fatalf("publishAgentOutputEvent() error = %v", err)
+	if _, err := publishAgentTraceEvent(ctx, client, bus, agentTraceEventInput{
+		ProjectID:   fixture.projectID,
+		AgentID:     agentItem.ID,
+		TicketID:    ticketItem.ID,
+		AgentRunID:  currentRun.ID,
+		Provider:    "codex",
+		Kind:        catalogdomain.AgentTraceKindCommandDelta,
+		Stream:      "stdout",
+		Text:        " stdout line ",
+		Payload:     map[string]any{"stream": "stdout"},
+		EventType:   agentOutputType,
+		PublishedAt: publishedAt,
+	}); err != nil {
+		t.Fatalf("publishAgentTraceEvent() error = %v", err)
 	}
 
 	select {
 	case event := <-stream:
-		if event.Topic != activityLifecycleTopic || event.Type != agentOutputType {
+		if event.Topic != agentTraceTopic || event.Type != agentOutputType {
 			t.Fatalf("published event = %+v", event)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for activity lifecycle event")
 	}
 
-	activityItems, err := client.ActivityEvent.Query().
-		Where(entactivityevent.AgentIDEQ(agentItem.ID)).
-		Order(ent.Desc(entactivityevent.FieldCreatedAt)).
+	traceItems, err := client.AgentTraceEvent.Query().
+		Where(entagenttraceevent.AgentIDEQ(agentItem.ID)).
+		Order(ent.Desc(entagenttraceevent.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
-		t.Fatalf("query activity events: %v", err)
+		t.Fatalf("query agent trace events: %v", err)
 	}
-	if len(activityItems) == 0 || activityItems[0].Message != "stdout line" {
-		t.Fatalf("activity events = %+v", activityItems)
+	if len(traceItems) == 0 || traceItems[0].Text != "stdout line" || traceItems[0].Stream != "stdout" {
+		t.Fatalf("agent trace events = %+v", traceItems)
 	}
-	if streamValue, ok := activityItems[0].Metadata["stream"]; !ok || streamValue != "stdout" {
-		t.Fatalf("activity metadata = %+v", activityItems[0].Metadata)
+	if streamValue, ok := traceItems[0].Payload["stream"]; !ok || streamValue != "stdout" {
+		t.Fatalf("trace payload = %+v", traceItems[0].Payload)
+	}
+
+	lifecyclePublishedAt := publishedAt.Add(30 * time.Second)
+	if err := publishAgentLifecycleEvent(ctx, client, bus, agentReadyType, state, "agent ready", map[string]any{
+		"status": "running",
+		"phase":  "executing",
+	}, lifecyclePublishedAt); err != nil {
+		t.Fatalf("publishAgentLifecycleEvent() error = %v", err)
+	}
+	select {
+	case event := <-lifecycleStream:
+		if event.Topic != agentLifecycleTopic || event.Type != agentReadyType {
+			t.Fatalf("agent lifecycle event = %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for agent lifecycle event")
+	}
+	select {
+	case event := <-activityStream:
+		if event.Topic != activityLifecycleTopic || event.Type != agentReadyType {
+			t.Fatalf("activity lifecycle event = %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for activity lifecycle event")
+	}
+	if err := publishAgentLifecycleEvent(ctx, nil, nil, agentReadyType, state, "agent ready without persistence", map[string]any{"status": "running"}, lifecyclePublishedAt); err != nil {
+		t.Fatalf("publishAgentLifecycleEvent(nil client, nil events) error = %v", err)
+	}
+	if err := publishAgentLifecycleEvent(ctx, client, nil, agentReadyType, agentLifecycleState{}, "missing agent", nil, lifecyclePublishedAt); err == nil || !strings.Contains(err.Error(), "agent lifecycle event requires an agent") {
+		t.Fatalf("publishAgentLifecycleEvent(missing agent) error = %v", err)
+	}
+
+	lifecycleActivities, err := client.ActivityEvent.Query().
+		Where(entactivityevent.EventTypeEQ(agentReadyType.String())).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query agent lifecycle activities: %v", err)
+	}
+	if len(lifecycleActivities) == 0 || lifecycleActivities[0].Message != "agent ready" || lifecycleActivities[0].Metadata["phase"] != "executing" {
+		t.Fatalf("agent lifecycle activities = %+v", lifecycleActivities)
+	}
+
+	launcher := &RuntimeLauncher{
+		client: client,
+		now:    func() time.Time { return publishedAt.Add(time.Minute) },
+	}
+	if err := launcher.recordAgentToolCall(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, &codex.ToolCallRequest{
+		Tool:     " shell ",
+		CallID:   " call-1 ",
+		TurnID:   " turn-1 ",
+		ThreadID: " thread-1 ",
+	}); err != nil {
+		t.Fatalf("recordAgentToolCall() error = %v", err)
+	}
+	if err := launcher.recordAgentOutput(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, &codex.OutputEvent{
+		Stream: "assistant",
+		Text:   "assistant response",
+		Phase:  "responding",
+		TurnID: "turn-1",
+	}); err != nil {
+		t.Fatalf("recordAgentOutput() error = %v", err)
+	}
+
+	toolTrace, err := client.AgentTraceEvent.Query().
+		Where(
+			entagenttraceevent.AgentRunIDEQ(currentRun.ID),
+			entagenttraceevent.KindEQ(catalogdomain.AgentTraceKindToolCallStarted),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("query tool-call trace event: %v", err)
+	}
+	if toolTrace.Stream != "tool" || toolTrace.Text != "shell" || toolTrace.Payload["call_id"] != "call-1" || toolTrace.Payload["turn_id"] != "turn-1" || toolTrace.Payload["thread_id"] != "thread-1" {
+		t.Fatalf("tool call trace = %+v", toolTrace)
+	}
+
+	stepItems, err := client.AgentStepEvent.Query().
+		Where(entagentstepevent.AgentRunIDEQ(currentRun.ID)).
+		Order(ent.Asc(entagentstepevent.FieldCreatedAt), ent.Asc(entagentstepevent.FieldID)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query agent step events: %v", err)
+	}
+	if len(stepItems) < 2 {
+		t.Fatalf("agent step events = %+v", stepItems)
+	}
+	var toolStepItem *ent.AgentStepEvent
+	var responseStepItem *ent.AgentStepEvent
+	for _, item := range stepItems {
+		if item.StepStatus == "running_tool" && item.Summary == `Running provider tool "shell".` {
+			toolStepItem = item
+		}
+		if item.StepStatus == "responding" && item.Summary == "assistant response" {
+			responseStepItem = item
+		}
+	}
+	if toolStepItem == nil || toolStepItem.SourceTraceEventID == nil || *toolStepItem.SourceTraceEventID != toolTrace.ID {
+		t.Fatalf("tool step event not found in %+v", stepItems)
+	}
+	if responseStepItem == nil {
+		t.Fatalf("output step event not found in %+v", stepItems)
+	}
+	beforeDuplicateCount := len(stepItems)
+	if err := publishAgentStepEvent(ctx, client, nil, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "responding", "assistant response", nil, publishedAt.Add(2*time.Minute)); err != nil {
+		t.Fatalf("publishAgentStepEvent(duplicate status) error = %v", err)
+	}
+	if err := publishAgentStepEvent(ctx, client, nil, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "   ", "ignored", nil, publishedAt.Add(3*time.Minute)); err != nil {
+		t.Fatalf("publishAgentStepEvent(blank status) error = %v", err)
+	}
+	stepCountAfterDuplicate, err := client.AgentStepEvent.Query().
+		Where(entagentstepevent.AgentRunIDEQ(currentRun.ID)).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count agent step events after duplicate status: %v", err)
+	}
+	if stepCountAfterDuplicate != beforeDuplicateCount {
+		t.Fatalf("agent step event count after duplicate status = %d, want %d", stepCountAfterDuplicate, beforeDuplicateCount)
+	}
+	stepPublishedAt := publishedAt.Add(4 * time.Minute)
+	if err := publishAgentStepEvent(ctx, client, bus, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "reviewing", "reviewing coverage report", nil, stepPublishedAt); err != nil {
+		t.Fatalf("publishAgentStepEvent(with events) error = %v", err)
+	}
+	select {
+	case event := <-stepStream:
+		if event.Topic != agentStepTopic || event.Type != agentStepType {
+			t.Fatalf("agent step stream event = %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for agent step event")
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, currentRun.ID)
+	if err != nil {
+		t.Fatalf("reload current run after tool/output events: %v", err)
+	}
+	if runAfter.CurrentStepStatus == nil || *runAfter.CurrentStepStatus != "reviewing" || runAfter.CurrentStepSummary == nil || *runAfter.CurrentStepSummary != "reviewing coverage report" {
+		t.Fatalf("run step snapshot after tool/output events = %+v", runAfter)
 	}
 }
 

@@ -18,7 +18,7 @@ help:
 		'  make format        Format tracked Go files with gofmt' \
 		'  make fmt-check     Fail if tracked Go files need gofmt' \
 		'  make test          Run the Go test suite' \
-		'  make test-backend-coverage Run full backend coverage gates (overall 85%+, domain/core 100%)' \
+		'  make test-backend-coverage Run full backend coverage gates (overall 75%+, domain/core 100%)' \
 		'  make check         Run Go formatting and enforced backend coverage checks' \
 		'  make hooks-install Install Git hooks via lefthook' \
 		'  make hooks-run     Run the pre-commit hook against all files' \

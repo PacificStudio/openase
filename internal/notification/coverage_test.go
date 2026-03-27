@@ -143,7 +143,7 @@ func TestNotificationAdapters(t *testing.T) {
 				if got := req.Header.Get("X-OpenASE-Signature"); got == "" {
 					t.Fatal("webhook signature header missing")
 				}
-				return okResponse("ok"), nil
+				return okResponse(), nil
 			})},
 			config: domain.WebhookConfig{
 				URL:     "https://hooks.example.com/openase",
@@ -167,7 +167,7 @@ func TestNotificationAdapters(t *testing.T) {
 				if !strings.Contains(string(body), "chat_id=chat") || !strings.Contains(string(body), "text=Ship%0AIt+works") {
 					t.Fatalf("telegram body = %q", string(body))
 				}
-				return okResponse("ok"), nil
+				return okResponse(), nil
 			})},
 			config: domain.TelegramConfig{BotToken: "token", ChatID: "chat"},
 		},
@@ -187,7 +187,7 @@ func TestNotificationAdapters(t *testing.T) {
 				if !strings.Contains(string(body), `"text":"Ship\nIt works"`) {
 					t.Fatalf("slack body = %q", string(body))
 				}
-				return okResponse("ok"), nil
+				return okResponse(), nil
 			})},
 			config: domain.SlackConfig{WebhookURL: "https://slack.example.com/hook"},
 		},
@@ -204,7 +204,7 @@ func TestNotificationAdapters(t *testing.T) {
 				if !strings.Contains(string(body), `"msgtype":"markdown"`) || !strings.Contains(string(body), "Ship\\nIt works") {
 					t.Fatalf("wecom body = %q", string(body))
 				}
-				return okResponse("ok"), nil
+				return okResponse(), nil
 			})},
 			config: domain.WeComConfig{WebhookKey: "abc123"},
 		},
@@ -247,7 +247,7 @@ func TestNotificationRequestAndContextHelpers(t *testing.T) {
 		t.Fatalf("NewRequestWithContext error = %v", err)
 	}
 	if err := doRequest(testHTTPClient(func(*http.Request) (*http.Response, error) {
-		return okResponse("ok"), nil
+		return okResponse(), nil
 	}), req); err != nil {
 		t.Fatalf("doRequest success error = %v", err)
 	}
@@ -450,10 +450,10 @@ func testHTTPClient(fn roundTripFunc) *http.Client {
 	return &http.Client{Transport: fn}
 }
 
-func okResponse(body string) *http.Response {
+func okResponse() *http.Response {
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(body)),
+		Body:       io.NopCloser(strings.NewReader("ok")),
 		Header:     make(http.Header),
 	}
 }
@@ -487,7 +487,7 @@ func TestNotificationWebhookPayloadIsJSON(t *testing.T) {
 		if err := json.Unmarshal(body, &payload); err != nil {
 			t.Fatalf("json.Unmarshal webhook payload: %v", err)
 		}
-		return okResponse("ok"), nil
+		return okResponse(), nil
 	})}
 	if err := adapter.Send(context.Background(), domain.WebhookConfig{URL: "https://hooks.example.com"}, domain.Message{
 		Title:    "Ship",

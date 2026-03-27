@@ -247,7 +247,7 @@ func TestHarnessRegistryWriteAndDeleteFailurePaths(t *testing.T) {
 
 	writePath := ".openase/harnesses/project/write-failure.md"
 	writeAbsPath := registry.absolutePath(writePath)
-	if err := os.MkdirAll(writeAbsPath, 0o755); err != nil {
+	if err := os.MkdirAll(writeAbsPath, 0o750); err != nil {
 		t.Fatalf("mkdir write failure path: %v", err)
 	}
 	if err := registry.Write(writePath, "---\nworkflow:\n  role: coding\n---\nbody\n"); err == nil {
@@ -262,7 +262,7 @@ func TestHarnessRegistryWriteAndDeleteFailurePaths(t *testing.T) {
 
 	deletePath := ".openase/harnesses/project/delete-failure.md"
 	deleteAbsPath := registry.absolutePath(deletePath)
-	if err := os.MkdirAll(deleteAbsPath, 0o755); err != nil {
+	if err := os.MkdirAll(deleteAbsPath, 0o750); err != nil {
 		t.Fatalf("mkdir delete failure path: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(deleteAbsPath, "nested.txt"), []byte("x"), 0o600); err != nil {

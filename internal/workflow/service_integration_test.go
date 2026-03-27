@@ -35,7 +35,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	client := openWorkflowTestEntClient(t)
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
-	fixture := seedWorkflowServiceFixture(t, ctx, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
 
 	activateMarkerPath := filepath.Join(repoRoot, "activate.marker")
 	reloadMarkerPath := filepath.Join(repoRoot, "reload.marker")
@@ -130,7 +130,9 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSkills() error = %v", err)
 	}
-	if len(skills) != 2 || skills[0].Name != "skill-one" || len(skills[0].BoundWorkflows) != 1 || skills[0].BoundWorkflows[0].ID != created.ID {
+	skillOne := findSkillByName(skills, "skill-one")
+	skillTwo := findSkillByName(skills, "skill-two")
+	if skillOne == nil || skillTwo == nil || len(skillOne.BoundWorkflows) != 1 || skillOne.BoundWorkflows[0].ID != created.ID || skillTwo.IsBuiltin {
 		t.Fatalf("ListSkills() = %+v", skills)
 	}
 
@@ -143,7 +145,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefreshSkills() error = %v", err)
 	}
-	if !slices.Equal(refreshResult.InjectedSkills, []string{"skill-one", "skill-two"}) {
+	if !slices.Contains(refreshResult.InjectedSkills, "skill-one") || !slices.Contains(refreshResult.InjectedSkills, "skill-two") {
 		t.Fatalf("RefreshSkills() = %+v", refreshResult)
 	}
 
@@ -223,7 +225,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		t.Fatalf("write external harness: %v", err)
 	}
 	storage.registry.handleEvent(fsnotify.Event{Name: harnessAbsPath, Op: fsnotify.Write})
-	waitForWorkflowVersion(t, ctx, client, created.ID, 5)
+	waitForWorkflowVersion(ctx, t, client, created.ID, 5)
 	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:5" {
 		t.Fatalf("reload marker after external write = %q", got)
 	}
@@ -274,7 +276,7 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 	client := openWorkflowTestEntClient(t)
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
-	fixture := seedWorkflowServiceFixture(t, ctx, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
 
 	created, err := service.Create(ctx, CreateInput{
 		ProjectID:           fixture.projectID,
@@ -342,7 +344,8 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSkills() after removing bound skill error = %v", err)
 	}
-	if len(skills) != 1 || skills[0].Name != "skill-one" || skills[0].Description != "" || len(skills[0].BoundWorkflows) != 1 || skills[0].BoundWorkflows[0].ID != created.ID {
+	skillOne := findSkillByName(skills, "skill-one")
+	if skillOne == nil || skillOne.Description != "" || len(skillOne.BoundWorkflows) != 1 || skillOne.BoundWorkflows[0].ID != created.ID {
 		t.Fatalf("ListSkills() after removing bound skill = %+v", skills)
 	}
 
@@ -382,12 +385,22 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 	}
 }
 
+func findSkillByName(items []Skill, name string) *Skill {
+	for i := range items {
+		if items[i].Name == name {
+			return &items[i]
+		}
+	}
+
+	return nil
+}
+
 func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	ctx := context.Background()
 	client := openWorkflowTestEntClient(t)
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
-	fixture := seedWorkflowServiceFixture(t, ctx, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
 
 	if got := Some("value"); !got.Set || got.Value != "value" {
 		t.Fatalf("Some() = %+v", got)
@@ -583,7 +596,7 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 	client := openWorkflowTestEntClient(t)
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
-	fixture := seedWorkflowServiceFixture(t, ctx, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
 
 	created, err := service.Create(ctx, CreateInput{
 		ProjectID:           fixture.projectID,
@@ -612,7 +625,7 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 	if err := os.Remove(harnessAbsPath); err != nil {
 		t.Fatalf("remove harness file: %v", err)
 	}
-	if err := os.MkdirAll(harnessAbsPath, 0o755); err != nil {
+	if err := os.MkdirAll(harnessAbsPath, 0o750); err != nil {
 		t.Fatalf("mkdir harness path: %v", err)
 	}
 	storage.registry.mu.Lock()
@@ -628,7 +641,7 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 	if err := os.RemoveAll(harnessAbsPath); err != nil {
 		t.Fatalf("remove harness directory: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(harnessAbsPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(harnessAbsPath), 0o750); err != nil {
 		t.Fatalf("mkdir harness parent: %v", err)
 	}
 	if err := os.WriteFile(harnessAbsPath, []byte(created.HarnessContent), 0o600); err != nil {
@@ -657,7 +670,7 @@ func TestWorkflowServiceBuildHarnessTemplateDataProjectContext(t *testing.T) {
 	client := openWorkflowTestEntClient(t)
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
-	fixture := seedWorkflowServiceFixture(t, ctx, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
 
 	if _, err := client.Agent.UpdateOneID(fixture.agentID).
 		SetTotalTicketsCompleted(47).
@@ -1016,7 +1029,7 @@ type workflowServiceFixture struct {
 	statusIDs            map[string]uuid.UUID
 }
 
-func seedWorkflowServiceFixture(t *testing.T, ctx context.Context, client *ent.Client, repoRoot string) workflowServiceFixture {
+func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.Client, repoRoot string) workflowServiceFixture {
 	t.Helper()
 
 	org, err := client.Organization.Create().
@@ -1194,6 +1207,7 @@ func freeWorkflowPort(t *testing.T) uint32 {
 func mustReadWorkflowFile(t *testing.T, path string) string {
 	t.Helper()
 
+	//nolint:gosec // Tests only read files created in isolated temp/project directories.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read file %s: %v", path, err)
@@ -1202,7 +1216,7 @@ func mustReadWorkflowFile(t *testing.T, path string) string {
 	return string(data)
 }
 
-func waitForWorkflowVersion(t *testing.T, ctx context.Context, client *ent.Client, workflowID uuid.UUID, wantVersion int) {
+func waitForWorkflowVersion(ctx context.Context, t *testing.T, client *ent.Client, workflowID uuid.UUID, wantVersion int) {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)

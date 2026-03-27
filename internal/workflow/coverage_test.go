@@ -258,13 +258,13 @@ Body
 	skillsRoot := t.TempDir()
 	mustWriteSkill(t, filepath.Join(skillsRoot, "skill-one"), "# Skill One\nbody")
 	mustWriteSkill(t, filepath.Join(skillsRoot, "skill-two"), "# Skill Two\nbody")
-	if err := os.Mkdir(filepath.Join(skillsRoot, "Bad Name"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(skillsRoot, "Bad Name"), 0o750); err != nil {
 		t.Fatalf("mkdir invalid skill: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(skillsRoot, "plain.txt"), []byte("x"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(skillsRoot, "plain.txt"), []byte("x"), 0o600); err != nil {
 		t.Fatalf("write plain file: %v", err)
 	}
-	if err := os.Mkdir(filepath.Join(skillsRoot, "missing-skill"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(skillsRoot, "missing-skill"), 0o750); err != nil {
 		t.Fatalf("mkdir missing skill: %v", err)
 	}
 	names, err := listSkillNames(skillsRoot)
@@ -294,20 +294,20 @@ Body
 	}
 
 	src := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(src, "nested"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(src, "nested"), 0o750); err != nil {
 		t.Fatalf("mkdir nested: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# Src\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# Src\n"), 0o600); err != nil {
 		t.Fatalf("write src skill: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(src, "nested", "notes.txt"), []byte("hello"), 0o640); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "nested", "notes.txt"), []byte("hello"), 0o600); err != nil {
 		t.Fatalf("write nested file: %v", err)
 	}
 	dst := filepath.Join(t.TempDir(), "dst")
 	if err := copyDirectory(src, dst); err != nil {
 		t.Fatalf("copyDirectory() error = %v", err)
 	}
-	if got, err := os.ReadFile(filepath.Join(dst, "nested", "notes.txt")); err != nil || string(got) != "hello" {
+	if got, err := readWorkflowTestFile(filepath.Join(dst, "nested", "notes.txt")); err != nil || string(got) != "hello" {
 		t.Fatalf("copied nested file = %q, %v", got, err)
 	}
 	firstFingerprint, err := directoryFingerprint(src)
@@ -321,7 +321,7 @@ Body
 	if firstFingerprint != secondFingerprint {
 		t.Fatalf("directoryFingerprint mismatch: %q != %q", firstFingerprint, secondFingerprint)
 	}
-	if err := os.WriteFile(filepath.Join(dst, "nested", "notes.txt"), []byte("changed"), 0o640); err != nil {
+	if err := os.WriteFile(filepath.Join(dst, "nested", "notes.txt"), []byte("changed"), 0o600); err != nil {
 		t.Fatalf("mutate dst file: %v", err)
 	}
 	changedFingerprint, err := directoryFingerprint(dst)
@@ -333,10 +333,10 @@ Body
 	}
 
 	replaceDst := filepath.Join(t.TempDir(), "replace-dst")
-	if err := os.MkdirAll(replaceDst, 0o755); err != nil {
+	if err := os.MkdirAll(replaceDst, 0o750); err != nil {
 		t.Fatalf("mkdir replace dst: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(replaceDst, "old.txt"), []byte("old"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(replaceDst, "old.txt"), []byte("old"), 0o600); err != nil {
 		t.Fatalf("write replace old file: %v", err)
 	}
 	if err := replaceDirectory(src, replaceDst); err != nil {
@@ -360,6 +360,115 @@ Body
 			t.Fatal("copyDirectory(symlink) expected error")
 		}
 	}
+}
+
+func TestProjectAssetHelpersAndWorkflowHookParserCoverage(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := ensureProjectBuiltinAssets(repoRoot); err != nil {
+		t.Fatalf("ensureProjectBuiltinAssets() error = %v", err)
+	}
+
+	wrapperPath := filepath.Join(repoRoot, ".openase", "bin", "openase")
+	originalWrapper, err := readWorkflowTestFile(wrapperPath)
+	if err != nil {
+		t.Fatalf("ReadFile(wrapper) error = %v", err)
+	}
+	if !strings.Contains(string(originalWrapper), "OPENASE_REAL_BIN") {
+		t.Fatalf("wrapper content = %q", originalWrapper)
+	}
+
+	customWrapper := []byte("#!/bin/sh\necho custom\n")
+	if err := os.WriteFile(wrapperPath, customWrapper, 0o600); err != nil {
+		t.Fatalf("WriteFile(wrapper) error = %v", err)
+	}
+	if err := ensureProjectBuiltinAssets(repoRoot); err != nil {
+		t.Fatalf("ensureProjectBuiltinAssets(existing wrapper) error = %v", err)
+	}
+	preservedWrapper, err := readWorkflowTestFile(wrapperPath)
+	if err != nil {
+		t.Fatalf("ReadFile(preserved wrapper) error = %v", err)
+	}
+	if string(preservedWrapper) != string(customWrapper) {
+		t.Fatalf("ensureProjectBuiltinAssets() overwrote existing wrapper: %q", preservedWrapper)
+	}
+
+	workspaceRoot := t.TempDir()
+	if err := syncProjectWrapperToWorkspace(repoRoot, workspaceRoot); err != nil {
+		t.Fatalf("syncProjectWrapperToWorkspace() error = %v", err)
+	}
+	syncedWrapper, err := readWorkflowTestFile(filepath.Join(workspaceRoot, ".openase", "bin", "openase"))
+	if err != nil {
+		t.Fatalf("ReadFile(synced wrapper) error = %v", err)
+	}
+	if string(syncedWrapper) != string(customWrapper) {
+		t.Fatalf("synced wrapper = %q, want %q", syncedWrapper, customWrapper)
+	}
+
+	if err := syncProjectWrapperToWorkspace(t.TempDir(), workspaceRoot); err == nil || !strings.Contains(err.Error(), "stat project openase wrapper") {
+		t.Fatalf("syncProjectWrapperToWorkspace(missing wrapper) error = %v", err)
+	}
+
+	brokenRepoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(brokenRepoRoot, ".openase"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("WriteFile(broken repo marker) error = %v", err)
+	}
+	if err := ensureProjectBuiltinAssets(brokenRepoRoot); err == nil || !strings.Contains(err.Error(), "create project asset directory") {
+		t.Fatalf("ensureProjectBuiltinAssets(broken repo) error = %v", err)
+	}
+
+	brokenWorkspaceRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(brokenWorkspaceRoot, ".openase"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("WriteFile(broken workspace marker) error = %v", err)
+	}
+	if err := syncProjectWrapperToWorkspace(repoRoot, brokenWorkspaceRoot); err == nil || !strings.Contains(err.Error(), "create workspace openase wrapper directory") {
+		t.Fatalf("syncProjectWrapperToWorkspace(broken workspace) error = %v", err)
+	}
+
+	if _, err := parseWorkflowHookList(map[string]any{
+		string(workflowHookOnReload): "bad",
+	}, workflowHookOnReload); err == nil || !strings.Contains(err.Error(), "must be a list") {
+		t.Fatalf("parseWorkflowHookList(invalid list) error = %v", err)
+	}
+	if _, err := parseWorkflowHookEntries([]any{"bad"}, "hooks.workflow_hooks.on_reload"); err == nil || !strings.Contains(err.Error(), "must be an object") {
+		t.Fatalf("parseWorkflowHookEntries(invalid entry) error = %v", err)
+	}
+	for _, testCase := range []struct {
+		name string
+		raw  any
+		want string
+	}{
+		{
+			name: "missing cmd",
+			raw:  map[string]any{},
+			want: ".cmd is required",
+		},
+		{
+			name: "blank cmd",
+			raw:  map[string]any{"cmd": "   "},
+			want: ".cmd must be a non-empty string",
+		},
+		{
+			name: "bad timeout",
+			raw:  map[string]any{"cmd": "echo ok", "timeout": "bad"},
+			want: ".timeout must be a whole number of seconds",
+		},
+		{
+			name: "bad on_failure",
+			raw:  map[string]any{"cmd": "echo ok", "on_failure": "explode"},
+			want: ".on_failure must be one of block, warn, ignore",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			if _, err := parseWorkflowHookDefinition(testCase.raw, "hooks.workflow_hooks.on_reload[0]"); err == nil || !strings.Contains(err.Error(), testCase.want) {
+				t.Fatalf("parseWorkflowHookDefinition() error = %v, want substring %q", err, testCase.want)
+			}
+		})
+	}
+}
+
+func readWorkflowTestFile(path string) ([]byte, error) {
+	//nolint:gosec // Test paths are created under t.TempDir and validated by the test flow.
+	return os.ReadFile(path)
 }
 
 func TestHarnessTemplateHelpers(t *testing.T) {
@@ -773,7 +882,7 @@ func TestWorkflowServiceLifecycleCoverage(t *testing.T) {
 	client := openWorkflowTestEntClient(t)
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
-	fixture := seedWorkflowServiceFixture(t, ctx, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
 
 	generated, err := service.resolveHarnessContent(
 		ctx,
@@ -920,10 +1029,10 @@ func TestWorkflowServiceHelperCoverage(t *testing.T) {
 
 func mustWriteSkill(t *testing.T, dir string, content string) {
 	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("mkdir skill dir %s: %v", dir, err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o600); err != nil {
 		t.Fatalf("write SKILL.md in %s: %v", dir, err)
 	}
 }

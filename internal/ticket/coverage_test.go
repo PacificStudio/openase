@@ -317,7 +317,7 @@ func (m *ticketMetricsProvider) Counter(name string, tags provider.Tags) provide
 func TestTicketHelperErrorBranches(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	fixture := seedTicketServiceFixture(t, ctx, client)
+	fixture := seedTicketServiceFixture(ctx, t, client)
 	service := NewService(client)
 
 	if err := service.ensureProjectExists(ctx, uuid.New()); !errors.Is(err, ErrProjectNotFound) {

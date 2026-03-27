@@ -116,6 +116,7 @@ func TestServerRouteErrorPathsAndRun(t *testing.T) {
 		t.Fatalf("POST test-database invalid JSON = %d", rec.Code)
 	}
 
+	//nolint:gosec // The test intentionally exercises the missing-password request shape.
 	rawDatabase, err := json.Marshal(RawDatabaseInput{
 		Host: "localhost",
 		Name: "openase",
@@ -225,7 +226,10 @@ func freeSetupPort(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("Listen() error = %v", err)
 	}
-	defer listener.Close()
+	tcpAddr := listener.Addr().(*net.TCPAddr)
+	if err := listener.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
 
-	return listener.Addr().(*net.TCPAddr).Port
+	return tcpAddr.Port
 }

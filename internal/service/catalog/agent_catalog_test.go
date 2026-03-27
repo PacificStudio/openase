@@ -435,10 +435,11 @@ func TestRequestAgentResumePersistsActiveState(t *testing.T) {
 
 func TestAgentProviderAvailabilityHelpers(t *testing.T) {
 	codexPath := "/usr/local/bin/codex"
-	resolver := stubExecutableResolver{paths: map[string]string{"codex": codexPath, codexPath: codexPath}}
 	remoteCodexID := uuid.New()
 	localCodexID := uuid.New()
 	claudeID := uuid.New()
+	checkedAt := time.Now().UTC()
+	workspaceRoot := "/tmp/openase-remote"
 
 	items := annotateAgentProvidersAvailability([]domain.AgentProvider{
 		{
@@ -448,20 +449,28 @@ func TestAgentProviderAvailabilityHelpers(t *testing.T) {
 			CliCommand:          "codex",
 			MachineHost:         domain.LocalMachineHost,
 			MachineStatus:       domain.MachineStatusOnline,
+			MachineResources:    providerAvailabilityResources(checkedAt, "codex", true, domain.MachineAgentAuthStatusLoggedIn, domain.MachineAgentAuthModeLogin, true),
 			MachineAgentCLIPath: &codexPath,
 		},
 		{
-			ID:            remoteCodexID,
-			Name:          "Remote Codex",
-			AdapterType:   domain.AgentProviderAdapterTypeCodexAppServer,
-			CliCommand:    "codex",
-			MachineID:     uuid.New(),
-			MachineHost:   "10.0.0.25",
-			MachineStatus: domain.MachineStatusOnline,
+			ID:                   remoteCodexID,
+			Name:                 "Remote Codex",
+			AdapterType:          domain.AgentProviderAdapterTypeCodexAppServer,
+			CliCommand:           "codex",
+			MachineID:            uuid.New(),
+			MachineHost:          "10.0.0.25",
+			MachineStatus:        domain.MachineStatusOnline,
+			MachineWorkspaceRoot: &workspaceRoot,
 			MachineResources: map[string]any{
 				"monitor": map[string]any{
 					"l4": map[string]any{
-						"codex": map[string]any{"installed": true},
+						"checked_at": checkedAt.Format(time.RFC3339),
+						"codex": map[string]any{
+							"installed":   true,
+							"auth_status": string(domain.MachineAgentAuthStatusLoggedIn),
+							"auth_mode":   string(domain.MachineAgentAuthModeLogin),
+							"ready":       true,
+						},
 					},
 				},
 			},
@@ -475,7 +484,7 @@ func TestAgentProviderAvailabilityHelpers(t *testing.T) {
 			MachineHost:   "10.0.0.50",
 			MachineStatus: domain.MachineStatusMaintenance,
 		},
-	}, resolver)
+	})
 
 	if !items[0].Available {
 		t.Fatalf("expected local codex provider to be available, got %+v", items[0])
@@ -487,36 +496,16 @@ func TestAgentProviderAvailabilityHelpers(t *testing.T) {
 		t.Fatalf("expected maintenance provider to be unavailable, got %+v", items[2])
 	}
 
-	if installed, ok := providerMachineCLIInstalled(domain.AgentProviderAdapterTypeCodexAppServer, items[1].MachineResources); !ok || !installed {
-		t.Fatalf("providerMachineCLIInstalled(codex) = %t, %t", installed, ok)
+	state, checked, reason := domain.ResolveAgentProviderAvailability(items[1], checkedAt)
+	if state != domain.AgentProviderAvailabilityStateAvailable || checked == nil || reason != nil {
+		t.Fatalf("ResolveAgentProviderAvailability(remote) = %q, %v, %v", state, checked, reason)
 	}
-	if _, ok := providerMachineCLIInstalled(domain.AgentProviderAdapterTypeCustom, items[1].MachineResources); ok {
-		t.Fatal("providerMachineCLIInstalled(custom) should not resolve")
-	}
-	if got, ok := nestedResourceMap(map[string]any{"monitor": map[string]any{"l4": "invalid"}}, "monitor"); !ok || got["l4"] != "invalid" {
-		t.Fatalf("nestedResourceMap(monitor) = %+v, %t", got, ok)
-	}
-	if _, ok := nestedResourceMap(map[string]any{"monitor": "invalid"}, "monitor"); ok {
-		t.Fatal("nestedResourceMap(invalid) expected false")
-	}
-	if !remoteAgentProviderAvailable(domain.AgentProvider{
-		AdapterType: domain.AgentProviderAdapterTypeCodexAppServer,
-		CliCommand:  "codex",
-		MachineResources: map[string]any{
-			"monitor": map[string]any{
-				"l4": map[string]any{
-					"codex": map[string]any{"installed": true},
-				},
-			},
-		},
-	}) {
-		t.Fatal("remoteAgentProviderAvailable(installed) expected true")
-	}
-	if remoteAgentProviderAvailable(domain.AgentProvider{
+	state, checked, reason = domain.ResolveAgentProviderAvailability(domain.AgentProvider{
 		AdapterType:   domain.AgentProviderAdapterTypeClaudeCodeCLI,
 		MachineStatus: domain.MachineStatusOnline,
-	}) {
-		t.Fatal("remoteAgentProviderAvailable(empty command) expected false")
+	}, checkedAt)
+	if state != domain.AgentProviderAvailabilityStateUnknown || checked != nil || reason == nil || *reason != "l4_snapshot_missing" {
+		t.Fatalf("ResolveAgentProviderAvailability(missing snapshot) = %q, %v, %v", state, checked, reason)
 	}
 	if got := preferredAvailableProviderID(items); got == nil || *got != localCodexID {
 		t.Fatalf("preferredAvailableProviderID() = %v, want %s", got, localCodexID)

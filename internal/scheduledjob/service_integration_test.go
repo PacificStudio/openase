@@ -24,7 +24,7 @@ import (
 func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 	ctx := context.Background()
 	client := openScheduledJobTestEntClient(t)
-	fixture := seedScheduledJobFixture(t, ctx, client)
+	fixture := seedScheduledJobFixture(ctx, t, client)
 	ticketSvc := ticketservice.NewService(client)
 	service := NewService(client, ticketSvc, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	now := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
@@ -244,7 +244,7 @@ func TestScheduledJobServiceValidationAndErrorPaths(t *testing.T) {
 	}
 
 	client := openScheduledJobTestEntClient(t)
-	fixture := seedScheduledJobFixture(t, ctx, client)
+	fixture := seedScheduledJobFixture(ctx, t, client)
 	service := NewService(client, ticketservice.NewService(client), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	service.SetNowFunc(func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) })
 
@@ -324,7 +324,7 @@ type scheduledJobFixture struct {
 	statusIDs     map[string]uuid.UUID
 }
 
-func seedScheduledJobFixture(t *testing.T, ctx context.Context, client *ent.Client) scheduledJobFixture {
+func seedScheduledJobFixture(ctx context.Context, t *testing.T, client *ent.Client) scheduledJobFixture {
 	t.Helper()
 
 	org, err := client.Organization.Create().

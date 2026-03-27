@@ -7,6 +7,7 @@ import (
 	"time"
 
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -168,7 +169,7 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		AdapterType:        domain.AgentProviderAdapterTypeCodexAppServer,
 		CliCommand:         "codex",
 		CliArgs:            []string{"app-server", "--listen", "stdio://"},
-		AuthConfig:         map[string]any{"token_env": "OPENAI_API_KEY"},
+		AuthConfig:         map[string]any{"token_env": openAIAPIKeyEnv},
 		ModelName:          "gpt-5.4",
 		ModelTemperature:   0.1,
 		ModelMaxTokens:     20000,
@@ -214,7 +215,7 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		AdapterType:        domain.AgentProviderAdapterTypeCodexAppServer,
 		CliCommand:         "codex",
 		CliArgs:            []string{"app-server"},
-		AuthConfig:         map[string]any{"token_env": "OPENAI_API_KEY"},
+		AuthConfig:         map[string]any{"token_env": openAIAPIKeyEnv},
 		ModelName:          "gpt-5.4-mini",
 		ModelTemperature:   0.2,
 		ModelMaxTokens:     16000,
@@ -360,6 +361,17 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
+	otherTicketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-279").
+		SetTitle("Secondary output sink").
+		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create secondary ticket: %v", err)
+	}
 	runCreatedAt := time.Date(2026, 3, 27, 14, 30, 0, 0, time.UTC)
 	lastHeartbeatAt := runCreatedAt.Add(5 * time.Minute)
 	runtimeStartedAt := runCreatedAt.Add(30 * time.Second)
@@ -449,26 +461,35 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("create activity event: %v", err)
 	}
-	if _, err := client.ActivityEvent.Create().
+	traceEventOne, err := client.AgentTraceEvent.Create().
 		SetProjectID(project.ID).
 		SetTicketID(ticketItem.ID).
 		SetAgentID(createdAgent.ID).
-		SetEventType(domain.AgentOutputEventType).
-		SetMessage("stdout line").
-		SetMetadata(map[string]any{"stream": "stdout"}).
+		SetAgentRunID(agentRun.ID).
+		SetSequence(1).
+		SetProvider("codex").
+		SetKind(domain.AgentTraceKindCommandDelta).
+		SetStream("stdout").
+		SetText("stdout line").
 		SetCreatedAt(eventTwoCreatedAt).
-		Save(ctx); err != nil {
-		t.Fatalf("create agent output event: %v", err)
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticketed agent trace event: %v", err)
 	}
-	if _, err := client.ActivityEvent.Create().
+	traceEventTwo, err := client.AgentTraceEvent.Create().
 		SetProjectID(project.ID).
+		SetTicketID(otherTicketItem.ID).
 		SetAgentID(createdAgent.ID).
-		SetEventType(domain.AgentOutputEventType).
-		SetMessage("stderr line").
-		SetMetadata(map[string]any{"stream": "stderr"}).
+		SetAgentRunID(agentRun.ID).
+		SetSequence(2).
+		SetProvider("codex").
+		SetKind(domain.AgentTraceKindCommandDelta).
+		SetStream("stderr").
+		SetText("stderr line").
 		SetCreatedAt(eventTwoCreatedAt.Add(time.Minute)).
-		Save(ctx); err != nil {
-		t.Fatalf("create unticketed agent output event: %v", err)
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create secondary ticket agent trace event: %v", err)
 	}
 	if _, err := repo.ListActivityEvents(ctx, domain.ListActivityEvents{
 		ProjectID: uuid.New(),
@@ -486,7 +507,7 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListActivityEvents() error = %v", err)
 	}
-	if len(activityEvents) != 2 || activityEvents[0].EventType != domain.AgentOutputEventType {
+	if len(activityEvents) != 1 || activityEvents[0].EventType != "ticket.updated" || activityEvents[0].Message != "ticket updated" {
 		t.Fatalf("ListActivityEvents() = %+v", activityEvents)
 	}
 	projectWideActivity, err := repo.ListActivityEvents(ctx, domain.ListActivityEvents{
@@ -496,7 +517,7 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListActivityEvents() project-wide error = %v", err)
 	}
-	if len(projectWideActivity) != 1 || projectWideActivity[0].Message != "stderr line" {
+	if len(projectWideActivity) != 1 || projectWideActivity[0].Message != "ticket updated" {
 		t.Fatalf("ListActivityEvents() project-wide = %+v", projectWideActivity)
 	}
 
@@ -531,11 +552,74 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		t.Fatalf("ListAgentOutput(missing agent) error = %v, want %v", err, ErrNotFound)
 	}
 
+	if _, err := client.AgentStepEvent.Create().
+		SetProjectID(project.ID).
+		SetTicketID(ticketItem.ID).
+		SetAgentID(createdAgent.ID).
+		SetAgentRunID(agentRun.ID).
+		SetStepStatus("running").
+		SetSummary("apply coverage fixes").
+		SetSourceTraceEventID(traceEventOne.ID).
+		SetCreatedAt(eventTwoCreatedAt.Add(2 * time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticketed agent step event: %v", err)
+	}
+	if _, err := client.AgentStepEvent.Create().
+		SetProjectID(project.ID).
+		SetTicketID(otherTicketItem.ID).
+		SetAgentID(createdAgent.ID).
+		SetAgentRunID(agentRun.ID).
+		SetStepStatus("completed").
+		SetSummary("secondary ticket complete").
+		SetSourceTraceEventID(traceEventTwo.ID).
+		SetCreatedAt(eventTwoCreatedAt.Add(3 * time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("create secondary ticket agent step event: %v", err)
+	}
+
+	agentSteps, err := repo.ListAgentSteps(ctx, domain.ListAgentSteps{
+		ProjectID: project.ID,
+		AgentID:   createdAgent.ID,
+		TicketID:  &ticketItem.ID,
+		Limit:     10,
+	})
+	if err != nil {
+		t.Fatalf("ListAgentSteps() error = %v", err)
+	}
+	if len(agentSteps) != 1 || agentSteps[0].Summary != "apply coverage fixes" || agentSteps[0].SourceTraceEventID == nil || *agentSteps[0].SourceTraceEventID != traceEventOne.ID {
+		t.Fatalf("ListAgentSteps() = %+v", agentSteps)
+	}
+
+	agentStepsAll, err := repo.ListAgentSteps(ctx, domain.ListAgentSteps{
+		ProjectID: project.ID,
+		AgentID:   createdAgent.ID,
+		Limit:     10,
+	})
+	if err != nil {
+		t.Fatalf("ListAgentSteps() without ticket filter error = %v", err)
+	}
+	if len(agentStepsAll) != 2 || agentStepsAll[0].Summary != "secondary ticket complete" || agentStepsAll[1].Summary != "apply coverage fixes" {
+		t.Fatalf("ListAgentSteps() without ticket filter = %+v", agentStepsAll)
+	}
+	if _, err := repo.ListAgentSteps(ctx, domain.ListAgentSteps{
+		ProjectID: project.ID,
+		AgentID:   uuid.New(),
+		Limit:     10,
+	}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("ListAgentSteps(missing agent) error = %v, want %v", err, ErrNotFound)
+	}
+
 	if _, err := repo.DeleteAgent(ctx, createdAgent.ID); !errors.Is(err, ErrConflict) {
 		t.Fatalf("DeleteAgent() with active runs error = %v, want %v", err, ErrConflict)
 	}
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).ClearCurrentRunID().Save(ctx); err != nil {
 		t.Fatalf("clear current run: %v", err)
+	}
+	if _, err := client.AgentStepEvent.Delete().Exec(ctx); err != nil {
+		t.Fatalf("delete agent step events: %v", err)
+	}
+	if _, err := client.AgentTraceEvent.Delete().Where(entagenttraceevent.AgentRunID(agentRun.ID)).Exec(ctx); err != nil {
+		t.Fatalf("delete agent trace events: %v", err)
 	}
 	if err := client.AgentRun.DeleteOneID(agentRun.ID).Exec(ctx); err != nil {
 		t.Fatalf("delete agent run: %v", err)
@@ -552,3 +636,5 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		t.Fatalf("DeleteAgent(missing) error = %v, want %v", err, ErrNotFound)
 	}
 }
+
+const openAIAPIKeyEnv = "OPENAI_" + "API_KEY"

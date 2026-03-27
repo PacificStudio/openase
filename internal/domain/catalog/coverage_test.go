@@ -71,6 +71,31 @@ func TestCatalogActivityAndOutputParsers(t *testing.T) {
 	if _, err := ParseListAgentOutput(projectID, agentID, AgentOutputListInput{Limit: "bad"}); err == nil {
 		t.Fatal("ParseListAgentOutput() expected limit validation error")
 	}
+
+	stepInput, err := ParseListAgentSteps(projectID, agentID, AgentEventListInput{
+		TicketID: ticketID.String(),
+		Limit:    "17",
+	})
+	if err != nil {
+		t.Fatalf("ParseListAgentSteps() error = %v", err)
+	}
+	if stepInput.ProjectID != projectID || stepInput.AgentID != agentID || stepInput.TicketID == nil || *stepInput.TicketID != ticketID || stepInput.Limit != 17 {
+		t.Fatalf("ParseListAgentSteps() = %+v", stepInput)
+	}
+	if _, err := ParseListAgentSteps(projectID, agentID, AgentEventListInput{TicketID: "bad"}); err == nil {
+		t.Fatal("ParseListAgentSteps() expected ticket_id validation error")
+	}
+	if _, err := ParseListAgentSteps(projectID, agentID, AgentEventListInput{Limit: "bad"}); err == nil {
+		t.Fatal("ParseListAgentSteps() expected limit validation error")
+	}
+	if got := AgentTraceOutputKinds(); !reflect.DeepEqual(got, []string{
+		AgentTraceKindAssistantDelta,
+		AgentTraceKindAssistantSnapshot,
+		AgentTraceKindCommandDelta,
+		AgentTraceKindCommandSnapshot,
+	}) {
+		t.Fatalf("AgentTraceOutputKinds() = %+v", got)
+	}
 }
 
 func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
@@ -137,7 +162,7 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 		t.Fatalf("ParseCreateAgent() = %+v", createAgent)
 	}
 
-	runtime := BuildAgentRuntime(&AgentRun{
+	runtime := BuildAgentRuntimeSummary([]AgentRun{{
 		ID:               runID,
 		TicketID:         ticketID,
 		Status:           AgentRunStatusExecuting,
@@ -145,30 +170,138 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 		RuntimeStartedAt: &now,
 		LastError:        "boom",
 		LastHeartbeatAt:  &now,
-	}, AgentRuntimeControlStateActive)
+	}}, AgentRuntimeControlStateActive)
 	if runtime == nil || runtime.Status != AgentStatusRunning || runtime.RuntimePhase != AgentRuntimePhaseExecuting || runtime.CurrentRunID == nil || *runtime.CurrentRunID != runID {
-		t.Fatalf("BuildAgentRuntime() executing = %+v", runtime)
+		t.Fatalf("BuildAgentRuntimeSummary() executing = %+v", runtime)
 	}
 	if runtime.RuntimeStartedAt == &now || runtime.LastHeartbeatAt == &now {
-		t.Fatal("BuildAgentRuntime() did not clone time pointers")
+		t.Fatal("BuildAgentRuntimeSummary() did not clone time pointers")
 	}
-	if got := BuildAgentRuntime(&AgentRun{Status: AgentRunStatusTerminated}, AgentRuntimeControlStatePaused); got.Status != AgentStatusPaused {
-		t.Fatalf("BuildAgentRuntime() paused terminated status = %q, want %q", got.Status, AgentStatusPaused)
+	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusTerminated}}, AgentRuntimeControlStatePaused); got.Status != AgentStatusPaused {
+		t.Fatalf("BuildAgentRuntimeSummary() paused terminated status = %q, want %q", got.Status, AgentStatusPaused)
 	}
-	if got := BuildAgentRuntime(&AgentRun{Status: AgentRunStatusReady}, AgentRuntimeControlStateActive); got.RuntimePhase != AgentRuntimePhaseReady {
-		t.Fatalf("BuildAgentRuntime() ready phase = %q, want %q", got.RuntimePhase, AgentRuntimePhaseReady)
+	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusReady}}, AgentRuntimeControlStateActive); got.RuntimePhase != AgentRuntimePhaseReady {
+		t.Fatalf("BuildAgentRuntimeSummary() ready phase = %q, want %q", got.RuntimePhase, AgentRuntimePhaseReady)
 	}
-	if got := BuildAgentRuntime(&AgentRun{Status: AgentRunStatusLaunching}, AgentRuntimeControlStateActive); got.Status != AgentStatusClaimed {
-		t.Fatalf("BuildAgentRuntime() launching status = %q, want claimed", got.Status)
+	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusLaunching}}, AgentRuntimeControlStateActive); got.Status != AgentStatusClaimed {
+		t.Fatalf("BuildAgentRuntimeSummary() launching status = %q, want claimed", got.Status)
 	}
-	if got := BuildAgentRuntime(&AgentRun{Status: AgentRunStatusErrored}, AgentRuntimeControlStateActive); got.Status != AgentStatusFailed {
-		t.Fatalf("BuildAgentRuntime() errored status = %q, want failed", got.Status)
+	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusErrored}}, AgentRuntimeControlStateActive); got.Status != AgentStatusFailed {
+		t.Fatalf("BuildAgentRuntimeSummary() errored status = %q, want failed", got.Status)
 	}
-	if got := BuildAgentRuntime(&AgentRun{Status: AgentRunStatusCompleted}, AgentRuntimeControlStateActive); got.Status != DefaultAgentStatus {
-		t.Fatalf("BuildAgentRuntime() completed status = %q, want idle", got.Status)
+	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusCompleted}}, AgentRuntimeControlStateActive); got.Status != DefaultAgentStatus {
+		t.Fatalf("BuildAgentRuntimeSummary() completed status = %q, want idle", got.Status)
 	}
-	if BuildAgentRuntime(nil, AgentRuntimeControlStateActive) != nil {
-		t.Fatal("BuildAgentRuntime(nil) expected nil")
+	if got := BuildAgentRuntimeSummary([]AgentRun{{
+		ID:                 runID,
+		TicketID:           ticketID,
+		Status:             AgentRunStatus("mystery"),
+		CurrentStepStatus:  stringPtr(" executing "),
+		CurrentStepSummary: stringPtr(" summary "),
+	}}, AgentRuntimeControlStateActive); got.Status != DefaultAgentStatus || got.RuntimePhase != DefaultAgentRuntimePhase || got.CurrentStepStatus == nil || *got.CurrentStepStatus != "executing" || got.CurrentStepSummary == nil || *got.CurrentStepSummary != "summary" {
+		t.Fatalf("BuildAgentRuntimeSummary() unknown status = %+v", got)
+	}
+	if BuildAgentRuntimeSummary(nil, AgentRuntimeControlStateActive) != nil {
+		t.Fatal("BuildAgentRuntimeSummary(nil) expected nil")
+	}
+	multiRuntime := BuildAgentRuntimeSummary([]AgentRun{
+		{
+			ID:                   uuid.New(),
+			TicketID:             uuid.New(),
+			Status:               AgentRunStatusReady,
+			LastError:            "older",
+			RuntimeStartedAt:     timePtr(now.Add(-3 * time.Minute)),
+			LastHeartbeatAt:      timePtr(now.Add(-2 * time.Minute)),
+			CurrentStepStatus:    stringPtr("running"),
+			CurrentStepSummary:   stringPtr("older"),
+			CurrentStepChangedAt: timePtr(now.Add(-2 * time.Minute)),
+			CreatedAt:            now.Add(-2 * time.Minute),
+		},
+		{
+			ID:               uuid.New(),
+			TicketID:         uuid.New(),
+			Status:           AgentRunStatusExecuting,
+			LastError:        "newer",
+			RuntimeStartedAt: timePtr(now.Add(-time.Minute)),
+			LastHeartbeatAt:  timePtr(now),
+			CreatedAt:        now.Add(-time.Minute),
+		},
+	}, AgentRuntimeControlStateActive)
+	if multiRuntime == nil || multiRuntime.ActiveRunCount != 2 || multiRuntime.CurrentRunID != nil || multiRuntime.CurrentTicketID != nil || multiRuntime.LastError != "newer" || multiRuntime.RuntimeStartedAt == nil || !multiRuntime.RuntimeStartedAt.Equal(now.Add(-time.Minute)) || multiRuntime.CurrentStepStatus != nil || multiRuntime.CurrentStepSummary != nil || multiRuntime.CurrentStepChangedAt != nil {
+		t.Fatalf("BuildAgentRuntimeSummary(multi) = %+v", multiRuntime)
+	}
+	mergedRuntime := BuildAgentRuntimeSummary([]AgentRun{
+		{
+			ID:               uuid.New(),
+			TicketID:         uuid.New(),
+			Status:           AgentRunStatusExecuting,
+			RuntimeStartedAt: timePtr(now.Add(-5 * time.Minute)),
+			LastHeartbeatAt:  timePtr(now.Add(-5 * time.Minute)),
+			CreatedAt:        now.Add(-5 * time.Minute),
+		},
+		{
+			ID:               uuid.New(),
+			TicketID:         uuid.New(),
+			Status:           AgentRunStatusReady,
+			RuntimeStartedAt: timePtr(now),
+			LastHeartbeatAt:  timePtr(now),
+			LastError:        "fresh error",
+			CreatedAt:        now,
+		},
+	}, AgentRuntimeControlStateActive)
+	if mergedRuntime == nil || mergedRuntime.RuntimeStartedAt == nil || !mergedRuntime.RuntimeStartedAt.Equal(now) || mergedRuntime.LastHeartbeatAt == nil || !mergedRuntime.LastHeartbeatAt.Equal(now) || mergedRuntime.LastError != "fresh error" {
+		t.Fatalf("BuildAgentRuntimeSummary(merged timestamps) = %+v", mergedRuntime)
+	}
+	if !preferAgentRuntimeRepresentative(
+		AgentRun{Status: AgentRunStatusExecuting, CreatedAt: now},
+		AgentRun{Status: AgentRunStatusReady, CreatedAt: now.Add(time.Minute)},
+	) {
+		t.Fatal("preferAgentRuntimeRepresentative(priority) expected true")
+	}
+	if !preferAgentRuntimeRepresentative(
+		AgentRun{Status: AgentRunStatusReady, CreatedAt: now.Add(time.Minute)},
+		AgentRun{Status: AgentRunStatusReady, CreatedAt: now},
+	) {
+		t.Fatal("preferAgentRuntimeRepresentative(recency) expected true")
+	}
+	if preferAgentRuntimeRepresentative(
+		AgentRun{Status: AgentRunStatusReady, CreatedAt: now},
+		AgentRun{Status: AgentRunStatusReady, CreatedAt: now},
+	) {
+		t.Fatal("preferAgentRuntimeRepresentative(equal) expected false")
+	}
+	if got := agentRuntimeRepresentativePriority(AgentRunStatusCompleted); got != 5 {
+		t.Fatalf("agentRuntimeRepresentativePriority(completed) = %d, want 5", got)
+	}
+	if got := agentRuntimeRepresentativePriority(AgentRunStatusReady); got != 1 {
+		t.Fatalf("agentRuntimeRepresentativePriority(ready) = %d, want 1", got)
+	}
+	if got := agentRuntimeRepresentativePriority(AgentRunStatusLaunching); got != 2 {
+		t.Fatalf("agentRuntimeRepresentativePriority(launching) = %d, want 2", got)
+	}
+	if got := agentRuntimeRepresentativePriority(AgentRunStatusErrored); got != 3 {
+		t.Fatalf("agentRuntimeRepresentativePriority(errored) = %d, want 3", got)
+	}
+	if got := agentRuntimeRepresentativePriority(AgentRunStatusTerminated); got != 4 {
+		t.Fatalf("agentRuntimeRepresentativePriority(terminated) = %d, want 4", got)
+	}
+	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusTerminated}}, AgentRuntimeControlStateActive); got.Status != AgentStatusTerminated {
+		t.Fatalf("BuildAgentRuntimeSummary(terminated active) = %q, want terminated", got.Status)
+	}
+	if !preferAgentRuntimeError(AgentRun{LastError: "boom", LastHeartbeatAt: timePtr(now)}, "", nil) {
+		t.Fatal("preferAgentRuntimeError(empty current) expected true")
+	}
+	if preferAgentRuntimeError(AgentRun{LastError: " ", LastHeartbeatAt: timePtr(now)}, "current", timePtr(now.Add(-time.Minute))) {
+		t.Fatal("preferAgentRuntimeError(blank candidate) expected false")
+	}
+	if !preferAgentRuntimeError(AgentRun{LastError: "boom", LastHeartbeatAt: timePtr(now)}, "current", timePtr(now.Add(-time.Minute))) {
+		t.Fatal("preferAgentRuntimeError(more recent) expected true")
+	}
+	if !moreRecentTime(timePtr(now), nil) {
+		t.Fatal("moreRecentTime(nil current) expected true")
+	}
+	if moreRecentTime(nil, timePtr(now)) {
+		t.Fatal("moreRecentTime(nil candidate) expected false")
 	}
 	if cloneTimePointer(nil) != nil {
 		t.Fatal("cloneTimePointer(nil) expected nil")
@@ -227,6 +360,188 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 	if _, err := ParseCreateAgent(projectID, AgentInput{ProviderID: providerID.String(), Name: " "}); err == nil {
 		t.Fatal("ParseCreateAgent() expected name validation error")
 	}
+}
+
+func TestCatalogProviderAvailabilityHelpers(t *testing.T) {
+	checkedAt := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
+	localCLIPath := "/usr/local/bin/codex"
+	workspaceRoot := "/srv/openase"
+	base := AgentProvider{
+		ID:                  uuid.New(),
+		Name:                "OpenAI Codex",
+		AdapterType:         AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:          "codex",
+		MachineHost:         LocalMachineHost,
+		MachineStatus:       MachineStatusOnline,
+		MachineAgentCLIPath: &localCLIPath,
+		MachineResources: map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"checked_at": checkedAt.Format(time.RFC3339),
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": string(MachineAgentAuthStatusLoggedIn),
+						"auth_mode":   string(MachineAgentAuthModeLogin),
+						"ready":       true,
+					},
+				},
+			},
+		},
+	}
+
+	derived := DeriveAgentProviderAvailability(base, checkedAt)
+	if !derived.Available || derived.AvailabilityState != AgentProviderAvailabilityStateAvailable || derived.AvailabilityCheckedAt == nil || derived.AvailabilityReason != nil {
+		t.Fatalf("DeriveAgentProviderAvailability() = %+v", derived)
+	}
+
+	cases := []struct {
+		name   string
+		item   AgentProvider
+		now    time.Time
+		state  AgentProviderAvailabilityState
+		reason string
+	}{
+		{name: "offline", item: AgentProvider{MachineStatus: MachineStatusOffline}, state: AgentProviderAvailabilityStateUnavailable, reason: providerReasonMachineOffline},
+		{name: "degraded", item: AgentProvider{MachineStatus: MachineStatusDegraded}, state: AgentProviderAvailabilityStateUnavailable, reason: providerReasonMachineDegraded},
+		{name: "maintenance", item: AgentProvider{MachineStatus: MachineStatusMaintenance}, state: AgentProviderAvailabilityStateUnavailable, reason: providerReasonMachineMaintenance},
+		{name: "missing-snapshot", item: AgentProvider{MachineStatus: MachineStatusOnline}, state: AgentProviderAvailabilityStateUnknown, reason: providerReasonL4SnapshotMissing},
+		{name: "stale", item: base, now: checkedAt.Add(ProviderAvailabilityStaleAfter + time.Minute), state: AgentProviderAvailabilityStateStale, reason: providerReasonStaleL4Snapshot},
+		{name: "unsupported-adapter", item: AgentProvider{AdapterType: AgentProviderAdapterTypeCustom, MachineStatus: MachineStatusOnline, MachineResources: base.MachineResources, CliCommand: "custom"}, now: checkedAt, state: AgentProviderAvailabilityStateUnavailable, reason: providerReasonUnsupportedAdapter},
+		{name: "cli-missing", item: withProviderCLIValue(base, "installed", false), now: checkedAt, state: AgentProviderAvailabilityStateUnavailable, reason: providerReasonCLIMissing},
+		{name: "not-logged-in", item: withProviderCLIValue(base, "auth_status", string(MachineAgentAuthStatusUnknown)), now: checkedAt, state: AgentProviderAvailabilityStateUnavailable, reason: providerReasonNotLoggedIn},
+		{name: "not-ready", item: withProviderCLIValue(base, "ready", false), now: checkedAt, state: AgentProviderAvailabilityStateUnavailable, reason: providerReasonNotReady},
+		{name: "config-incomplete", item: AgentProvider{AdapterType: AgentProviderAdapterTypeCodexAppServer, MachineStatus: MachineStatusOnline, MachineHost: "10.0.0.10", MachineResources: base.MachineResources, CliCommand: "codex"}, now: checkedAt, state: AgentProviderAvailabilityStateUnavailable, reason: providerReasonConfigIncomplete},
+		{name: "remote-ready", item: AgentProvider{AdapterType: AgentProviderAdapterTypeCodexAppServer, MachineStatus: MachineStatusOnline, MachineHost: "10.0.0.10", MachineWorkspaceRoot: &workspaceRoot, MachineResources: base.MachineResources, CliCommand: "codex"}, now: checkedAt, state: AgentProviderAvailabilityStateAvailable},
+		{name: "api-key-ready", item: withProviderCLIValue(withProviderCLIValue(base, "auth_mode", string(MachineAgentAuthModeAPIKey)), "auth_status", string(MachineAgentAuthStatusUnknown)), now: checkedAt, state: AgentProviderAvailabilityStateAvailable},
+	}
+	for _, tc := range cases {
+		state, coveredAt, reason := ResolveAgentProviderAvailability(tc.item, tc.now)
+		if state != tc.state {
+			t.Fatalf("%s state = %q, want %q", tc.name, state, tc.state)
+		}
+		if tc.reason == "" {
+			if reason != nil {
+				t.Fatalf("%s reason = %v, want nil", tc.name, reason)
+			}
+		} else if reason == nil || *reason != tc.reason {
+			t.Fatalf("%s reason = %v, want %q", tc.name, reason, tc.reason)
+		}
+		if tc.state == AgentProviderAvailabilityStateAvailable || tc.state == AgentProviderAvailabilityStateStale {
+			if coveredAt == nil || !coveredAt.Equal(checkedAt) {
+				t.Fatalf("%s checkedAt = %v, want %v", tc.name, coveredAt, checkedAt)
+			}
+		}
+	}
+	nowBase := time.Now().UTC()
+	zeroNowItem := AgentProvider{
+		AdapterType:   AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:    "codex",
+		MachineHost:   LocalMachineHost,
+		MachineStatus: MachineStatusOnline,
+		MachineResources: map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"checked_at": nowBase.Format(time.RFC3339),
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": string(MachineAgentAuthStatusLoggedIn),
+						"auth_mode":   string(MachineAgentAuthModeLogin),
+						"ready":       true,
+					},
+				},
+			},
+		},
+	}
+	if state, _, reason := ResolveAgentProviderAvailability(zeroNowItem, time.Time{}); state != AgentProviderAvailabilityStateAvailable || reason != nil {
+		t.Fatalf("ResolveAgentProviderAvailability(zero now) = %q, %v", state, reason)
+	}
+
+	l4Snapshot, coveredAt, ok := providerL4Snapshot(base.MachineResources)
+	if !ok || coveredAt == nil || l4Snapshot["checked_at"] == nil {
+		t.Fatalf("providerL4Snapshot() = %+v, %v, %t", l4Snapshot, coveredAt, ok)
+	}
+	if _, _, ok := providerL4Snapshot(map[string]any{"monitor": "bad"}); ok {
+		t.Fatal("providerL4Snapshot(invalid) expected false")
+	}
+	if _, _, ok := providerL4Snapshot(map[string]any{}); ok {
+		t.Fatal("providerL4Snapshot(missing monitor) expected false")
+	}
+	if _, _, ok := providerL4Snapshot(map[string]any{"monitor": map[string]any{}}); ok {
+		t.Fatal("providerL4Snapshot(missing l4) expected false")
+	}
+	if _, _, ok := providerL4Snapshot(map[string]any{"monitor": map[string]any{"l4": map[string]any{"checked_at": 123}}}); ok {
+		t.Fatal("providerL4Snapshot(non-string checked_at) expected false")
+	}
+	if _, _, ok := providerL4Snapshot(map[string]any{"monitor": map[string]any{"l4": map[string]any{"checked_at": ""}}}); ok {
+		t.Fatal("providerL4Snapshot(blank checked_at) expected false")
+	}
+	if _, _, ok := providerL4Snapshot(map[string]any{"monitor": map[string]any{"l4": map[string]any{"checked_at": "not-a-time"}}}); ok {
+		t.Fatal("providerL4Snapshot(invalid checked_at) expected false")
+	}
+	if cliSnapshot, ok := providerCLISnapshot(AgentProviderAdapterTypeCodexAppServer, l4Snapshot); !ok || cliSnapshot["installed"] != true {
+		t.Fatalf("providerCLISnapshot(codex) = %+v, %t", cliSnapshot, ok)
+	}
+	if cliSnapshot, ok := providerCLISnapshot(AgentProviderAdapterTypeClaudeCodeCLI, map[string]any{"claude_code": map[string]any{"installed": true}}); !ok || cliSnapshot["installed"] != true {
+		t.Fatalf("providerCLISnapshot(claude) = %+v, %t", cliSnapshot, ok)
+	}
+	if cliSnapshot, ok := providerCLISnapshot(AgentProviderAdapterTypeGeminiCLI, map[string]any{"gemini": map[string]any{"installed": true}}); !ok || cliSnapshot["installed"] != true {
+		t.Fatalf("providerCLISnapshot(gemini) = %+v, %t", cliSnapshot, ok)
+	}
+	if _, ok := providerCLISnapshot(AgentProviderAdapterTypeCustom, l4Snapshot); ok {
+		t.Fatal("providerCLISnapshot(custom) expected false")
+	}
+	if nested, ok := providerNestedMap(map[string]any{"monitor": map[string]any{"l4": "ok"}}, "monitor"); !ok || nested["l4"] != "ok" {
+		t.Fatalf("providerNestedMap() = %+v, %t", nested, ok)
+	}
+	if _, ok := providerNestedMap(map[string]any{"monitor": "bad"}, "monitor"); ok {
+		t.Fatal("providerNestedMap(invalid) expected false")
+	}
+	if !providerAuthReady(MachineAgentAuthStatusUnknown, MachineAgentAuthModeAPIKey) {
+		t.Fatal("providerAuthReady(api key) expected true")
+	}
+	if providerAuthReady(MachineAgentAuthStatusUnknown, MachineAgentAuthModeLogin) {
+		t.Fatal("providerAuthReady(login unknown) expected false")
+	}
+	if !providerLaunchConfigComplete(base) {
+		t.Fatal("providerLaunchConfigComplete(local) expected true")
+	}
+	if providerLaunchConfigComplete(AgentProvider{MachineHost: LocalMachineHost}) {
+		t.Fatal("providerLaunchConfigComplete(empty local command) expected false")
+	}
+	if !providerLaunchConfigComplete(AgentProvider{MachineHost: "10.0.0.10", CliCommand: "codex", MachineWorkspaceRoot: &workspaceRoot}) {
+		t.Fatal("providerLaunchConfigComplete(remote) expected true")
+	}
+	if providerLaunchConfigComplete(AgentProvider{MachineHost: "10.0.0.10", CliCommand: "codex"}) {
+		t.Fatal("providerLaunchConfigComplete(remote missing workspace) expected false")
+	}
+	if got := stringValue(" value "); got != " value " {
+		t.Fatalf("stringValue() = %q", got)
+	}
+	if got := stringValue(123); got != "" {
+		t.Fatalf("stringValue(non-string) = %q", got)
+	}
+	if got := availabilityReasonPointer("reason"); got == nil || *got != "reason" {
+		t.Fatalf("availabilityReasonPointer() = %+v", got)
+	}
+	if AgentProviderAvailabilityStateAvailable.String() != "available" || !AgentProviderAvailabilityStateAvailable.IsValid() {
+		t.Fatal("AgentProviderAvailabilityStateAvailable helpers failed")
+	}
+	if AgentProviderAvailabilityState("bogus").IsValid() {
+		t.Fatal("AgentProviderAvailabilityState(invalid) expected false")
+	}
+}
+
+func withProviderCLIValue(item AgentProvider, key string, value any) AgentProvider {
+	cloned := cloneAnyMap(item.MachineResources)
+	monitor := cloneAnyMap(cloned["monitor"].(map[string]any))
+	l4 := cloneAnyMap(monitor["l4"].(map[string]any))
+	codex := cloneAnyMap(l4["codex"].(map[string]any))
+	codex[key] = value
+	l4["codex"] = codex
+	monitor["l4"] = l4
+	cloned["monitor"] = monitor
+	item.MachineResources = cloned
+	return item
 }
 
 func TestCatalogEntityParsersAndHelpers(t *testing.T) {
@@ -1097,16 +1412,16 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 		isValid   func() bool
 		wantValue string
 	}{
-		{"org", OrganizationStatusActive, func() bool { return OrganizationStatusActive.IsValid() }, "active"},
-		{"project", ProjectStatusPaused, func() bool { return ProjectStatusPaused.IsValid() }, "paused"},
-		{"repo_pr", TicketRepoScopePRStatusMerged, func() bool { return TicketRepoScopePRStatusMerged.IsValid() }, "merged"},
-		{"repo_ci", TicketRepoScopeCIStatusPassing, func() bool { return TicketRepoScopeCIStatusPassing.IsValid() }, "passing"},
-		{"machine", MachineStatusOffline, func() bool { return MachineStatusOffline.IsValid() }, "offline"},
-		{"adapter", AgentProviderAdapterTypeCustom, func() bool { return AgentProviderAdapterTypeCustom.IsValid() }, "custom"},
-		{"agent_status", AgentStatusPaused, func() bool { return AgentStatusPaused.IsValid() }, "paused"},
-		{"runtime_phase", AgentRuntimePhaseFailed, func() bool { return AgentRuntimePhaseFailed.IsValid() }, "failed"},
-		{"run_status", AgentRunStatusCompleted, func() bool { return AgentRunStatusCompleted.IsValid() }, "completed"},
-		{"runtime_control", AgentRuntimeControlStatePaused, func() bool { return AgentRuntimeControlStatePaused.IsValid() }, "paused"},
+		{"org", OrganizationStatusActive, OrganizationStatusActive.IsValid, "active"},
+		{"project", ProjectStatusPaused, ProjectStatusPaused.IsValid, "paused"},
+		{"repo_pr", TicketRepoScopePRStatusMerged, TicketRepoScopePRStatusMerged.IsValid, "merged"},
+		{"repo_ci", TicketRepoScopeCIStatusPassing, TicketRepoScopeCIStatusPassing.IsValid, "passing"},
+		{"machine", MachineStatusOffline, MachineStatusOffline.IsValid, "offline"},
+		{"adapter", AgentProviderAdapterTypeCustom, AgentProviderAdapterTypeCustom.IsValid, "custom"},
+		{"agent_status", AgentStatusPaused, AgentStatusPaused.IsValid, "paused"},
+		{"runtime_phase", AgentRuntimePhaseFailed, AgentRuntimePhaseFailed.IsValid, "failed"},
+		{"run_status", AgentRunStatusCompleted, AgentRunStatusCompleted.IsValid, "completed"},
+		{"runtime_control", AgentRuntimeControlStatePaused, AgentRuntimeControlStatePaused.IsValid, "paused"},
 	}
 	for _, check := range validityChecks {
 		if !check.isValid() || check.stringer.String() != check.wantValue {
@@ -1134,5 +1449,9 @@ func floatPtr(value float64) *float64 {
 }
 
 func stringPtr(value string) *string {
+	return &value
+}
+
+func timePtr(value time.Time) *time.Time {
 	return &value
 }

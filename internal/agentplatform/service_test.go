@@ -260,7 +260,7 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 		if _, err := constrainScopes(defaultScopes, ScopeWhitelist{Configured: true, Scopes: []string{"bad"}}); !errors.Is(err, ErrInvalidScope) {
 			t.Fatalf("constrainScopes(invalid whitelist) error = %v, want %v", err, ErrInvalidScope)
 		}
-		if token, err := ParseToken("  ase_agent_trimmed  "); err != nil || token != "ase_agent_trimmed" {
+		if token, err := ParseToken("  " + TokenPrefix + "trimmed  "); err != nil || token != TokenPrefix+"trimmed" {
 			t.Fatalf("ParseToken(trimmed) = %q, %v", token, err)
 		}
 		if _, err := ParseToken("not_a_token"); !errors.Is(err, ErrInvalidToken) {
@@ -282,8 +282,6 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 	t.Run("service error branches", func(t *testing.T) {
 		ctx := context.Background()
 		projectID := uuid.New()
-		agentID := uuid.New()
-		ticketID := uuid.New()
 
 		var nilService *Service
 		if _, err := nilService.IssueToken(ctx, IssueInput{}); !errors.Is(err, ErrUnavailable) {
@@ -297,7 +295,7 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 		}
 
 		client := openTestEntClient(t)
-		projectID, agentID, ticketID = seedAgentPlatformFixture(ctx, t, client)
+		projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 		service := NewService(client)
 		service.now = func() time.Time { return time.Date(2026, 3, 27, 16, 0, 0, 0, time.UTC) }
 

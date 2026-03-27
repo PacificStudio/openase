@@ -254,12 +254,3 @@ func TestServiceCreateOrganizationAndProjectFallbackPaths(t *testing.T) {
 func ptrUUID(id uuid.UUID) *uuid.UUID {
 	return &id
 }
-
-type stubMachineTester struct {
-	probe domain.MachineProbe
-	err   error
-}
-
-func (s stubMachineTester) TestConnection(context.Context, domain.Machine) (domain.MachineProbe, error) {
-	return s.probe, s.err
-}

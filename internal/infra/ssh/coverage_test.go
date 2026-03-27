@@ -159,7 +159,8 @@ func TestSSHHelperAndRemoteProcessCoverage(t *testing.T) {
 	if err := nilProcess.Stop(context.Background()); err == nil || !strings.Contains(err.Error(), "process must not be nil") {
 		t.Fatalf("nil Stop() error = %v", err)
 	}
-	if err := process.Stop(nil); err == nil || !strings.Contains(err.Error(), "context must not be nil") {
+	var nilCtx context.Context
+	if err := process.Stop(nilCtx); err == nil || !strings.Contains(err.Error(), "context must not be nil") {
 		t.Fatalf("Stop(nil ctx) error = %v", err)
 	}
 }

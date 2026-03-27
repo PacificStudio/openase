@@ -1306,17 +1306,17 @@ func TestSchedulerHelperCoverage(t *testing.T) {
 	scheduler := newTestScheduler(client, time.Date(2026, 3, 27, 18, 0, 0, 0, time.UTC))
 
 	agentItem := fixture.createAgent(ctx, t, "resolve-machine", 0)
-	machine, err := scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem)
-	if err != nil || machine == nil || machine.ID != fixture.localMachineID {
-		t.Fatalf("resolveExecutionMachine(success) = %+v, %v", machine, err)
+	machine, reason, err := scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem, scheduler.now())
+	if err != nil || reason != "" || machine == nil || machine.ID != fixture.localMachineID {
+		t.Fatalf("resolveExecutionMachine(success) = %+v, %q, %v", machine, reason, err)
 	}
 
 	if _, err := client.Machine.UpdateOneID(fixture.localMachineID).SetStatus(entmachine.StatusOffline).Save(ctx); err != nil {
 		t.Fatalf("set machine offline: %v", err)
 	}
-	machine, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem)
-	if err != nil || machine != nil {
-		t.Fatalf("resolveExecutionMachine(offline) = %+v, %v", machine, err)
+	machine, reason, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem, scheduler.now())
+	if err != nil || reason != skipReasonNoMachine || machine != nil {
+		t.Fatalf("resolveExecutionMachine(offline) = %+v, %q, %v", machine, reason, err)
 	}
 	if _, err := client.Machine.UpdateOneID(fixture.localMachineID).SetStatus(entmachine.StatusOnline).Save(ctx); err != nil {
 		t.Fatalf("restore machine online: %v", err)
@@ -1358,9 +1358,9 @@ func TestSchedulerHelperCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create cross org agent: %v", err)
 	}
-	machine, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, crossOrgAgent)
-	if err != nil || machine != nil {
-		t.Fatalf("resolveExecutionMachine(org mismatch) = %+v, %v", machine, err)
+	machine, reason, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, crossOrgAgent, scheduler.now())
+	if err != nil || reason != skipReasonNoMachine || machine != nil {
+		t.Fatalf("resolveExecutionMachine(org mismatch) = %+v, %q, %v", machine, reason, err)
 	}
 
 	doneStatusID := fixture.statusIDs["Done"]

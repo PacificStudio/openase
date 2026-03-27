@@ -22,7 +22,7 @@ import (
 func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	fixture := seedTicketServiceFixture(t, ctx, client)
+	fixture := seedTicketServiceFixture(ctx, t, client)
 	service := NewService(client)
 
 	parent, err := service.Create(ctx, CreateInput{
@@ -260,7 +260,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		t.Fatalf("Update(budget resume) = %+v", resumedTicket)
 	}
 
-	runID := seedTicketCurrentRun(t, ctx, client, fixture, parent.ID)
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, parent.ID)
 	updatedParent, err := service.Update(ctx, UpdateInput{
 		TicketID:                          parent.ID,
 		StatusID:                          Some(fixture.doneID),
@@ -306,7 +306,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	fixture := seedTicketServiceFixture(t, ctx, client)
+	fixture := seedTicketServiceFixture(ctx, t, client)
 	service := NewService(client)
 
 	parent, err := service.Create(ctx, CreateInput{
@@ -484,7 +484,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	fixture := seedTicketServiceFixture(t, ctx, client)
+	fixture := seedTicketServiceFixture(ctx, t, client)
 	service := NewService(client)
 
 	parentOne, err := service.Create(ctx, CreateInput{
@@ -523,7 +523,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 		t.Fatalf("Create(child) error = %v", err)
 	}
 
-	runID := seedTicketCurrentRun(t, ctx, client, fixture, child.ID)
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, child.ID)
 	updated, err := service.Update(ctx, UpdateInput{
 		TicketID:        child.ID,
 		WorkflowID:      Some((*uuid.UUID)(nil)),
@@ -592,7 +592,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 func TestTicketServiceSyncRepoScopePRStatusTransitionsRetryAndFinish(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	fixture := seedTicketServiceFixture(t, ctx, client)
+	fixture := seedTicketServiceFixture(ctx, t, client)
 	service := NewService(client)
 
 	backendRepo, err := client.ProjectRepo.Create().
@@ -625,7 +625,7 @@ func TestTicketServiceSyncRepoScopePRStatusTransitionsRetryAndFinish(t *testing.
 	if err != nil {
 		t.Fatalf("Create(retryTicket) error = %v", err)
 	}
-	retryRunID := seedTicketCurrentRun(t, ctx, client, fixture, retryTicket.ID)
+	retryRunID := seedTicketCurrentRun(ctx, t, client, fixture, retryTicket.ID)
 	retryScope, err := client.TicketRepoScope.Create().
 		SetTicketID(retryTicket.ID).
 		SetRepoID(backendRepo.ID).
@@ -684,7 +684,7 @@ func TestTicketServiceSyncRepoScopePRStatusTransitionsRetryAndFinish(t *testing.
 	if err != nil {
 		t.Fatalf("Create(finishTicket) error = %v", err)
 	}
-	finishRunID := seedTicketCurrentRun(t, ctx, client, fixture, finishTicket.ID)
+	finishRunID := seedTicketCurrentRun(ctx, t, client, fixture, finishTicket.ID)
 	finishScopeOne, err := client.TicketRepoScope.Create().
 		SetTicketID(finishTicket.ID).
 		SetRepoID(backendRepo.ID).
@@ -768,7 +768,7 @@ func TestTicketServiceSyncRepoScopePRStatusTransitionsRetryAndFinish(t *testing.
 func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
-	fixture := seedTicketServiceFixture(t, ctx, client)
+	fixture := seedTicketServiceFixture(ctx, t, client)
 	service := NewService(client)
 
 	backendRepo, err := client.ProjectRepo.Create().
@@ -851,7 +851,7 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("set exhausted budget cost: %v", err)
 	}
-	budgetRunID := seedTicketCurrentRun(t, ctx, client, fixture, budgetRetryTicket.ID)
+	budgetRunID := seedTicketCurrentRun(ctx, t, client, fixture, budgetRetryTicket.ID)
 	if _, err := client.TicketRepoScope.Create().
 		SetTicketID(budgetRetryTicket.ID).
 		SetRepoID(backendRepo.ID).
@@ -909,6 +909,95 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		t.Fatalf("SyncRepoScopePRStatus(no workflow) error = %v", err)
 	}
 
+	retryPausedFinishTicket, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Finish clears retry pause state",
+		StatusID:   &fixture.todoID,
+		WorkflowID: &fixture.workflowID,
+		Priority:   "high",
+		Type:       "feature",
+	})
+	if err != nil {
+		t.Fatalf("Create(retryPausedFinishTicket) error = %v", err)
+	}
+	retryPausedFinishRunID := seedTicketCurrentRun(ctx, t, client, fixture, retryPausedFinishTicket.ID)
+	nextRetryAt := time.Date(2026, 3, 28, 9, 0, 0, 0, time.UTC)
+	if _, err := client.Ticket.UpdateOneID(retryPausedFinishTicket.ID).
+		SetNextRetryAt(nextRetryAt).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("mark retry paused finish ticket: %v", err)
+	}
+	if _, err := client.TicketRepoScope.Create().
+		SetTicketID(retryPausedFinishTicket.ID).
+		SetRepoID(backendRepo.ID).
+		SetBranchName("agent/codex/finish-clears-retry-state").
+		SetPrStatus(ticketreposcope.PrStatusOpen).
+		Save(ctx); err != nil {
+		t.Fatalf("create retry-paused finish scope: %v", err)
+	}
+	retryPausedFinishResult, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
+		RepositoryURL: backendRepo.RepositoryURL,
+		BranchName:    "agent/codex/finish-clears-retry-state",
+		PRStatus:      ticketreposcope.PrStatusMerged,
+	})
+	if err != nil {
+		t.Fatalf("SyncRepoScopePRStatus(finish clears retry state) error = %v", err)
+	}
+	if !retryPausedFinishResult.Matched || retryPausedFinishResult.Outcome != RepoScopePRStatusSyncOutcomeFinished || retryPausedFinishResult.Ticket == nil {
+		t.Fatalf("SyncRepoScopePRStatus(finish clears retry state) = %+v", retryPausedFinishResult)
+	}
+	if retryPausedFinishResult.Ticket.NextRetryAt != nil || retryPausedFinishResult.Ticket.RetryPaused || retryPausedFinishResult.Ticket.PauseReason != "" {
+		t.Fatalf("retry-paused finish ticket after sync = %+v", retryPausedFinishResult.Ticket)
+	}
+	retryPausedFinishRunAfter, err := client.AgentRun.Get(ctx, retryPausedFinishRunID)
+	if err != nil {
+		t.Fatalf("load retry-paused finish run: %v", err)
+	}
+	if retryPausedFinishRunAfter.Status != entagentrun.StatusCompleted || retryPausedFinishRunAfter.LastError != "" {
+		t.Fatalf("retry-paused finish run after sync = %+v", retryPausedFinishRunAfter)
+	}
+
+	ambiguousFinishWorkflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetAgentID(fixture.agentID).
+		SetName("ambiguous-finish").
+		SetType("coding").
+		SetHarnessPath("roles/ambiguous-finish.md").
+		AddPickupStatusIDs(fixture.todoID).
+		AddFinishStatusIDs(fixture.backlogID, fixture.doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ambiguous finish workflow: %v", err)
+	}
+	ambiguousFinishTicket, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Ambiguous merged finish selection",
+		StatusID:   &fixture.todoID,
+		WorkflowID: &ambiguousFinishWorkflow.ID,
+		Priority:   "high",
+		Type:       "feature",
+	})
+	if err != nil {
+		t.Fatalf("Create(ambiguousFinishTicket) error = %v", err)
+	}
+	if _, err := client.TicketRepoScope.Create().
+		SetTicketID(ambiguousFinishTicket.ID).
+		SetRepoID(backendRepo.ID).
+		SetBranchName("agent/codex/ambiguous-finish-selection").
+		SetPrStatus(ticketreposcope.PrStatusOpen).
+		Save(ctx); err != nil {
+		t.Fatalf("create ambiguous finish repo scope: %v", err)
+	}
+	if _, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
+		RepositoryURL: backendRepo.RepositoryURL,
+		BranchName:    "agent/codex/ambiguous-finish-selection",
+		PRStatus:      ticketreposcope.PrStatusMerged,
+	}); err == nil || err.Error() != "workflow "+ambiguousFinishWorkflow.ID.String()+" requires an explicit finish status selection from the configured finish set" {
+		t.Fatalf("SyncRepoScopePRStatus(ambiguous finish selection) error = %v", err)
+	}
+
 }
 
 type ticketServiceFixture struct {
@@ -928,7 +1017,7 @@ type ticketServiceFixture struct {
 	legacyTicketID     uuid.UUID
 }
 
-func seedTicketServiceFixture(t *testing.T, ctx context.Context, client *ent.Client) ticketServiceFixture {
+func seedTicketServiceFixture(ctx context.Context, t *testing.T, client *ent.Client) ticketServiceFixture {
 	t.Helper()
 
 	org, err := client.Organization.Create().
@@ -1084,7 +1173,7 @@ func seedTicketServiceFixture(t *testing.T, ctx context.Context, client *ent.Cli
 	}
 }
 
-func seedTicketCurrentRun(t *testing.T, ctx context.Context, client *ent.Client, fixture ticketServiceFixture, ticketID uuid.UUID) uuid.UUID {
+func seedTicketCurrentRun(ctx context.Context, t *testing.T, client *ent.Client, fixture ticketServiceFixture, ticketID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	now := time.Date(2026, 3, 27, 14, 0, 0, 0, time.UTC)

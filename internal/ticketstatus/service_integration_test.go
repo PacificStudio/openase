@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestTicketStatusServiceStatusCRUDResetAndRebind(t *testing.T) {
 
 	client := openTicketStatusTestEntClient(t)
 	ctx := context.Background()
-	projectID := seedTicketStatusProject(t, ctx, client)
+	projectID := seedTicketStatusProject(ctx, t, client)
 	service := NewService(client)
 
 	resetStatuses, err := service.ResetToDefaultTemplate(ctx, projectID)
@@ -214,7 +215,7 @@ func TestTicketStatusServiceStageCRUDAndSnapshots(t *testing.T) {
 
 	client := openTicketStatusTestEntClient(t)
 	ctx := context.Background()
-	projectID := seedTicketStatusProject(t, ctx, client)
+	projectID := seedTicketStatusProject(ctx, t, client)
 	service := NewService(client)
 
 	stage, err := service.CreateStage(ctx, CreateStageInput{
@@ -246,7 +247,7 @@ func TestTicketStatusServiceStageCRUDAndSnapshots(t *testing.T) {
 		t.Fatalf("Create() stage status = %+v", status)
 	}
 
-	seedTicketStatusActiveRun(t, ctx, client, projectID, status.ID)
+	seedTicketStatusActiveRun(ctx, t, client, projectID, status.ID)
 
 	listResult, err := service.List(ctx, projectID)
 	if err != nil {
@@ -329,7 +330,7 @@ func TestTicketStatusServiceBackfillDefaultStages(t *testing.T) {
 
 	client := openTicketStatusTestEntClient(t)
 	ctx := context.Background()
-	projectID := seedTicketStatusProject(t, ctx, client)
+	projectID := seedTicketStatusProject(ctx, t, client)
 	service := NewService(client)
 
 	for index, item := range defaultStatusTemplate {
@@ -383,7 +384,7 @@ func TestTicketStatusServiceErrorPaths(t *testing.T) {
 
 	client := openTicketStatusTestEntClient(t)
 	ctx := context.Background()
-	projectID := seedTicketStatusProject(t, ctx, client)
+	projectID := seedTicketStatusProject(ctx, t, client)
 	service := NewService(client)
 
 	primaryStatus, err := service.Create(ctx, CreateInput{
@@ -591,10 +592,14 @@ func freeTicketStatusPort(t *testing.T) uint32 {
 	if tcpAddr.Port < 0 || tcpAddr.Port > math.MaxUint16 {
 		t.Fatalf("expected TCP port in uint16 range, got %d", tcpAddr.Port)
 	}
-	return uint32(tcpAddr.Port)
+	parsed, err := strconv.ParseUint(strconv.Itoa(tcpAddr.Port), 10, 32)
+	if err != nil {
+		t.Fatalf("parse TCP port %d: %v", tcpAddr.Port, err)
+	}
+	return uint32(parsed)
 }
 
-func seedTicketStatusProject(t *testing.T, ctx context.Context, client *ent.Client) uuid.UUID {
+func seedTicketStatusProject(ctx context.Context, t *testing.T, client *ent.Client) uuid.UUID {
 	t.Helper()
 
 	org, err := client.Organization.Create().
@@ -615,7 +620,7 @@ func seedTicketStatusProject(t *testing.T, ctx context.Context, client *ent.Clie
 	return project.ID
 }
 
-func seedTicketStatusActiveRun(t *testing.T, ctx context.Context, client *ent.Client, projectID uuid.UUID, statusID uuid.UUID) {
+func seedTicketStatusActiveRun(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID, statusID uuid.UUID) {
 	t.Helper()
 
 	project, err := client.Project.Get(ctx, projectID)

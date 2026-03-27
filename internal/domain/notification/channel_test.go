@@ -162,7 +162,7 @@ func TestChannelParsingAndRedactionHelpers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NormalizeChannelConfig(%q) error = %v", testCase.channelType, err)
 		}
-		if parsed.(ChannelConfig).channelType() != testCase.channelType || len(normalized) == 0 {
+		if parsed.channelType() != testCase.channelType || len(normalized) == 0 {
 			t.Fatalf("channel config mismatch for %q", testCase.channelType)
 		}
 	}

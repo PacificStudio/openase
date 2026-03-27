@@ -23,10 +23,10 @@ func TestNotificationServiceChannelRuleCRUDAndDelivery(t *testing.T) {
 	client := openNotificationTestEntClient(t)
 	ctx := context.Background()
 
-	orgID := seedNotificationOrganization(t, ctx, client, "Better And Better", "better-and-better")
-	projectID := seedNotificationProject(t, ctx, client, orgID, "OpenASE", "openase")
-	otherOrgID := seedNotificationOrganization(t, ctx, client, "Other Org", "other-org")
-	otherProjectID := seedNotificationProject(t, ctx, client, otherOrgID, "Other Project", "other-project")
+	orgID := seedNotificationOrganization(ctx, t, client, "Better And Better", "better-and-better")
+	projectID := seedNotificationProject(ctx, t, client, orgID, "OpenASE", "openase")
+	otherOrgID := seedNotificationOrganization(ctx, t, client, "Other Org", "other-org")
+	otherProjectID := seedNotificationProject(ctx, t, client, otherOrgID, "Other Project", "other-project")
 
 	adapter := &recordingAdapter{}
 	service := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
@@ -436,7 +436,7 @@ func freeNotificationPort(t *testing.T) uint32 {
 	return uint32(parsed)
 }
 
-func seedNotificationOrganization(t *testing.T, ctx context.Context, client *ent.Client, name, slug string) uuid.UUID {
+func seedNotificationOrganization(ctx context.Context, t *testing.T, client *ent.Client, name, slug string) uuid.UUID {
 	t.Helper()
 
 	org, err := client.Organization.Create().
@@ -450,7 +450,7 @@ func seedNotificationOrganization(t *testing.T, ctx context.Context, client *ent
 	return org.ID
 }
 
-func seedNotificationProject(t *testing.T, ctx context.Context, client *ent.Client, organizationID uuid.UUID, name, slug string) uuid.UUID {
+func seedNotificationProject(ctx context.Context, t *testing.T, client *ent.Client, organizationID uuid.UUID, name, slug string) uuid.UUID {
 	t.Helper()
 
 	project, err := client.Project.Create().

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -123,7 +124,7 @@ func openSetupTestDSN(t *testing.T) string {
 	pg := embeddedpostgres.NewDatabase(
 		embeddedpostgres.DefaultConfig().
 			Version(embeddedpostgres.V16).
-			Port(uint32(port)).
+			Port(mustUint32Port(t, port)).
 			Username("postgres").
 			Password("postgres").
 			Database("openase").
@@ -141,6 +142,16 @@ func openSetupTestDSN(t *testing.T) string {
 	})
 
 	return fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/openase?sslmode=disable", port)
+}
+
+func mustUint32Port(t *testing.T, port int) uint32 {
+	t.Helper()
+
+	parsed, err := strconv.ParseUint(strconv.Itoa(port), 10, 32)
+	if err != nil {
+		t.Fatalf("parse port %d: %v", port, err)
+	}
+	return uint32(parsed)
 }
 
 func setupTestPortFromDSN(t *testing.T, dsn string) int {

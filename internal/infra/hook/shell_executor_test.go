@@ -434,7 +434,7 @@ func TestShellExecutorRejectsEscapingWorkdir(t *testing.T) {
 func TestResolveWorkingDirectoryAndHelpersCoverErrorBranches(t *testing.T) {
 	workspace := t.TempDir()
 	nestedDir := filepath.Join(workspace, "nested")
-	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+	if err := os.MkdirAll(nestedDir, 0o750); err != nil {
 		t.Fatalf("MkdirAll returned error: %v", err)
 	}
 	notDir := filepath.Join(workspace, "file.txt")

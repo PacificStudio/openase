@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -284,5 +285,10 @@ func freeDoctorPort(t *testing.T) uint32 {
 		_ = listener.Close()
 	}()
 
-	return uint32(listener.Addr().(*net.TCPAddr).Port)
+	port := listener.Addr().(*net.TCPAddr).Port
+	parsed, err := strconv.ParseUint(strconv.Itoa(port), 10, 32)
+	if err != nil {
+		t.Fatalf("parse free port %d: %v", port, err)
+	}
+	return uint32(parsed)
 }

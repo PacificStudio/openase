@@ -251,7 +251,9 @@ func TestAdapterAndSessionValidationBranches(t *testing.T) {
 		t.Fatalf("NewClaudeCodeSessionSpec returned error: %v", err)
 	}
 
-	if _, err := adapter.Start(nil, spec); err == nil || err.Error() != "context must not be nil" {
+	var nilCtx context.Context
+
+	if _, err := adapter.Start(nilCtx, spec); err == nil || err.Error() != "context must not be nil" {
 		t.Fatalf("expected nil context error, got %v", err)
 	}
 	if _, err := adapter.Start(context.Background(), spec); err == nil || err.Error() != "claude code process manager must not be nil" {
@@ -271,7 +273,7 @@ func TestAdapterAndSessionValidationBranches(t *testing.T) {
 	}
 	input := provider.ClaudeCodeTurnInput{Prompt: "hello"}
 
-	if err := session.Send(nil, input); err == nil || err.Error() != "context must not be nil" {
+	if err := session.Send(nilCtx, input); err == nil || err.Error() != "context must not be nil" {
 		t.Fatalf("expected nil send context error, got %v", err)
 	}
 	if err := session.Send(context.Background(), provider.ClaudeCodeTurnInput{}); err == nil || err.Error() != "claude code turn prompt must not be empty" {
@@ -288,7 +290,7 @@ func TestAdapterAndSessionValidationBranches(t *testing.T) {
 	if err := session.Send(context.Background(), input); err == nil || err.Error() != "claude code session already closed" {
 		t.Fatalf("expected closed session error, got %v", err)
 	}
-	if err := session.Close(nil); err == nil || err.Error() != "context must not be nil" {
+	if err := session.Close(nilCtx); err == nil || err.Error() != "context must not be nil" {
 		t.Fatalf("expected nil close context error, got %v", err)
 	}
 }
@@ -339,7 +341,7 @@ func TestSessionReaderAndHelperCoverage(t *testing.T) {
 		t.Fatalf("expected trimmed fields, got %+v", unknownEvent)
 	}
 
-	var value float64 = 3.25
+	value := 3.25
 	cloned := cloneOptionalFloat(&value)
 	if cloned == nil || *cloned != value || cloned == &value {
 		t.Fatalf("cloneOptionalFloat() = %v", cloned)

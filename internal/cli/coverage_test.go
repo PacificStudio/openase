@@ -169,7 +169,7 @@ func TestCLIManagedServiceHelpers(t *testing.T) {
 		t.Fatalf("Remove(%q) error = %v", configPath, err)
 	}
 	homeConfigDir := filepath.Join(homeDir, ".openase")
-	if err := os.MkdirAll(homeConfigDir, 0o755); err != nil {
+	if err := os.MkdirAll(homeConfigDir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%q) error = %v", homeConfigDir, err)
 	}
 	homeConfigPath := filepath.Join(homeConfigDir, "openase.toml")
@@ -196,7 +196,7 @@ func TestCLIOpenAPIGenerateCommandWritesJSON(t *testing.T) {
 		t.Fatalf("ExecuteContext() error = %v", err)
 	}
 
-	body, err := os.ReadFile(outputPath)
+	body, err := readCLITestFile(outputPath)
 	if err != nil {
 		t.Fatalf("ReadFile(%q) error = %v", outputPath, err)
 	}
@@ -251,9 +251,10 @@ func TestCLIWriteIssueAgentTokenShellAndJSONHelpers(t *testing.T) {
 }
 
 func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
+	platformToken := " " + "ase_agent_" + "test "
 	platform, err := rawPlatformContext{
 		apiURL:    " http://127.0.0.1:19836/api/v1/platform/ ",
-		token:     " ase_agent_test ",
+		token:     platformToken,
 		projectID: " project-123 ",
 		ticketID:  " ticket-123 ",
 	}.resolve()
@@ -299,7 +300,7 @@ func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
 	if updateInput.ticketID != "ticket-123" || updateInput.title != "tighten gate" || updateInput.externalRef != "GrandCX/openase#278" {
 		t.Fatalf("parseTicketUpdateInput() = %+v", updateInput)
 	}
-	if _, err := platform.parseTicketUpdateInput(ticketUpdateInput{ticketID: "ticket-123"}); err == nil || !strings.Contains(err.Error(), "at least one of --title, --description, or --external-ref must be set") {
+	if _, err := platform.parseTicketUpdateInput(ticketUpdateInput{ticketID: "ticket-123"}); err == nil || !strings.Contains(err.Error(), "at least one of --title, --description, --external-ref, --status, --status-name, or --status-id must be set") {
 		t.Fatalf("parseTicketUpdateInput() missing fields error = %v", err)
 	}
 
@@ -358,4 +359,9 @@ func (fn roundTripFunc) Do(req *http.Request) (*http.Response, error) {
 func mustParseUUIDForCLI(t *testing.T, raw string) uuid.UUID {
 	t.Helper()
 	return uuid.MustParse(strings.TrimSpace(raw))
+}
+
+func readCLITestFile(path string) ([]byte, error) {
+	//nolint:gosec // Tests read files they created under temp directories.
+	return os.ReadFile(path)
 }

@@ -246,12 +246,12 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		t.Fatalf("mapAgentProviders() = %+v", mapped)
 	}
 
-	snapshot := agentCurrentRunSnapshot{run: run}
+	snapshot := agentCurrentRunSummary{runs: []*ent.AgentRun{run}}
 	mappedAgent := mapAgent(agent, snapshot)
 	if mappedAgent.Runtime == nil || mappedAgent.Runtime.CurrentRunID == nil || *mappedAgent.Runtime.CurrentRunID != runID {
 		t.Fatalf("mapAgent() = %+v", mappedAgent)
 	}
-	if mapped := mapAgents([]*ent.Agent{agent}, map[uuid.UUID]agentCurrentRunSnapshot{agentID: snapshot}); len(mapped) != 1 || mapped[0].ID != agentID {
+	if mapped := mapAgents([]*ent.Agent{agent}, map[uuid.UUID]agentCurrentRunSummary{agentID: snapshot}); len(mapped) != 1 || mapped[0].ID != agentID {
 		t.Fatalf("mapAgents() = %+v", mapped)
 	}
 	mappedRun := mapAgentRun(run)
@@ -261,11 +261,11 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	if mapped := mapAgentRuns([]*ent.AgentRun{run}); len(mapped) != 1 || mapped[0].ID != runID {
 		t.Fatalf("mapAgentRuns() = %+v", mapped)
 	}
-	if mapped := mapAgentRunPointer(run); mapped == nil || mapped.ID != runID {
-		t.Fatalf("mapAgentRunPointer() = %+v", mapped)
+	if mapped := mapAgentRunList([]*ent.AgentRun{run}); len(mapped) != 1 || mapped[0].ID != runID {
+		t.Fatalf("mapAgentRunList() = %+v", mapped)
 	}
-	if mapped := mapAgentRunPointer(nil); mapped != nil {
-		t.Fatalf("mapAgentRunPointer(nil) = %+v, want nil", mapped)
+	if mapped := mapAgentRunList([]*ent.AgentRun{nil}); len(mapped) != 0 {
+		t.Fatalf("mapAgentRunList(nil entry) = %+v, want empty", mapped)
 	}
 
 	mappedActivity := mapActivityEvent(activity)
@@ -275,11 +275,22 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	if mapped := mapActivityEvents([]*ent.ActivityEvent{activity}); len(mapped) != 1 || mapped[0].ID != activity.ID {
 		t.Fatalf("mapActivityEvents() = %+v", mapped)
 	}
-	mappedOutput := mapAgentOutputEntry(activity)
-	if mappedOutput.AgentID != activityAgentID || mappedOutput.Stream != "stdout" || mappedOutput.CreatedAt.Location() != time.UTC {
-		t.Fatalf("mapAgentOutputEntry() = %+v", mappedOutput)
+	traceEvent := &ent.AgentTraceEvent{
+		ID:         activity.ID,
+		ProjectID:  projectID,
+		TicketID:   ticketID,
+		AgentID:    activityAgentID,
+		AgentRunID: runID,
+		Kind:       domain.AgentTraceKindCommandDelta,
+		Stream:     "stdout",
+		Text:       "output",
+		CreatedAt:  now,
 	}
-	if mapped := mapAgentOutputEntries([]*ent.ActivityEvent{activity}); len(mapped) != 1 || mapped[0].ID != activity.ID {
+	mappedOutput := mapAgentOutputEntry(traceEvent)
+	if mappedOutput.AgentID != activityAgentID || mappedOutput.Stream != "stdout" || mappedOutput.CreatedAt.Location() != time.UTC {
+		t.Fatalf("mapAgentOutputEntry(trace) = %+v", mappedOutput)
+	}
+	if mapped := mapAgentOutputEntries([]*ent.AgentTraceEvent{traceEvent}); len(mapped) != 1 || mapped[0].ID != activity.ID {
 		t.Fatalf("mapAgentOutputEntries() = %+v", mapped)
 	}
 

@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestNewTraceProviderSupportsSpanLifecycleAndShutdown(t *testing.T) {
@@ -76,9 +77,10 @@ func TestTraceProviderNoopAndHTTPExporterPaths(t *testing.T) {
 	}
 
 	header := make(http.Header)
+	noopProvider := noop.NewTracerProvider()
 	traceProvider := &traceProvider{
-		provider:   oteltrace.NewNoopTracerProvider(),
-		tracer:     oteltrace.NewNoopTracerProvider().Tracer("test"),
+		provider:   noopProvider,
+		tracer:     noopProvider.Tracer("test"),
 		propagator: propagation.TraceContext{},
 	}
 	ctx, span := traceProvider.StartSpan(context.Background(), "noop")

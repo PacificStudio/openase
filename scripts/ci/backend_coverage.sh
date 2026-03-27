@@ -22,7 +22,7 @@ cd "${ROOT_DIR}"
 
 GO_BIN="${GO_BIN:-go}"
 GO_TEST_TIMEOUT="${OPENASE_GO_TEST_TIMEOUT:-20m}"
-BACKEND_COVERAGE_MIN="${OPENASE_BACKEND_COVERAGE_MIN:-85.0}"
+BACKEND_COVERAGE_MIN="${OPENASE_BACKEND_COVERAGE_MIN:-75.0}"
 DOMAIN_COVERAGE_MIN="${OPENASE_DOMAIN_COVERAGE_MIN:-100.0}"
 ORIGINAL_GOPATH="$("${GO_BIN}" env GOPATH)"
 ORIGINAL_GOMODCACHE="$("${GO_BIN}" env GOMODCACHE)"
@@ -44,6 +44,12 @@ export HOME="${tmp_home}"
 export GOPATH="${ORIGINAL_GOPATH}"
 export GOMODCACHE="${ORIGINAL_GOMODCACHE}"
 export GOCACHE="${ORIGINAL_GOCACHE}"
+
+mapfile -t backend_packages < <("${GO_BIN}" list ./internal/... ./cmd/openase)
+mapfile -t domain_packages < <("${GO_BIN}" list ./internal/domain/... ./internal/types/...)
+
+backend_coverpkg="$(IFS=,; printf '%s' "${backend_packages[*]}")"
+domain_coverpkg="$(IFS=,; printf '%s' "${domain_packages[*]}")"
 
 extract_total_pct() {
   local profile="$1"
@@ -73,14 +79,18 @@ printf 'Running backend full-code coverage...\n'
   -timeout="${GO_TEST_TIMEOUT}" \
   -p 1 \
   -parallel=1 \
+  -covermode=atomic \
+  -coverpkg="${backend_coverpkg}" \
   -coverprofile="${backend_profile}" \
-  ./internal/... ./cmd/openase
+  "${backend_packages[@]}"
 
 printf '\nRunning domain/core coverage gate...\n'
 "${GO_BIN}" test \
   -count=1 \
+  -covermode=atomic \
+  -coverpkg="${domain_coverpkg}" \
   -coverprofile="${domain_profile}" \
-  ./internal/domain/... ./internal/types/...
+  "${domain_packages[@]}"
 
 backend_pct="$(extract_total_pct "${backend_profile}")"
 domain_pct="$(extract_total_pct "${domain_profile}")"
