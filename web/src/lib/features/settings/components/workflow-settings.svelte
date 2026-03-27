@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { projectPath } from '$lib/stores/app-context'
   import { ApiError } from '$lib/api/client'
   import {
     capabilityStateClasses,
@@ -14,8 +15,9 @@
     type WorkflowSummary,
   } from '$lib/features/workflows'
   import { appStore } from '$lib/stores/app.svelte'
+  import { Button } from '$ui/button'
+  import * as Card from '$ui/card'
   import { Separator } from '$ui/separator'
-  import WorkflowScheduledJobsPanel from './workflow-scheduled-jobs-panel.svelte'
 
   const workflowCapability = getSettingsSectionCapability('workflows')
 
@@ -27,6 +29,11 @@
   let selectedId = $state('')
 
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
+  const scheduledJobsHref = $derived(
+    appStore.currentOrg?.id && appStore.currentProject?.id
+      ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'scheduled-jobs')
+      : null,
+  )
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -117,9 +124,28 @@
         {/if}
       </div>
 
-      {#if appStore.currentProject?.id}
-        <WorkflowScheduledJobsPanel projectId={appStore.currentProject.id} {workflows} />
-      {/if}
+      <Card.Root>
+        <Card.Header>
+          <Card.Title>Scheduled Jobs</Card.Title>
+          <Card.Description>
+            Scheduled Jobs now lives as a dedicated project page in the left sidebar, separate from
+            workflow lifecycle editing.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-muted-foreground text-sm">
+            Open the project-level page to create, update, trigger, and remove recurring workflow
+            jobs.
+          </p>
+          <Button
+            variant="outline"
+            href={scheduledJobsHref ?? undefined}
+            disabled={!scheduledJobsHref}
+          >
+            Open Scheduled Jobs
+          </Button>
+        </Card.Content>
+      </Card.Root>
     </div>
   {/if}
 </div>

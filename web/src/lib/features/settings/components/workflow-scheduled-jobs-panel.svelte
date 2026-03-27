@@ -23,9 +23,15 @@
   let {
     projectId,
     workflows,
+    showHeader = true,
+    title = 'Scheduled Jobs',
+    description = 'Manage recurring ticket creation for project workflows.',
   }: {
     projectId: string
     workflows: WorkflowSummary[]
+    showHeader?: boolean
+    title?: string
+    description?: string
   } = $props()
 
   let jobs = $state<ScheduledJob[]>([])
@@ -210,15 +216,15 @@
 </script>
 
 <div class="space-y-4">
-  <div class="flex items-center justify-between gap-3">
-    <div>
-      <h3 class="text-foreground text-base font-semibold">Scheduled Jobs</h3>
-      <p class="text-muted-foreground mt-1 text-sm">
-        Wire recurring ticket creation to a workflow without leaving Settings.
-      </p>
+  {#if showHeader}
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h3 class="text-foreground text-base font-semibold">{title}</h3>
+        <p class="text-muted-foreground mt-1 text-sm">{description}</p>
+      </div>
+      <Button variant="outline" size="sm" onclick={selectNewJob}>New job</Button>
     </div>
-    <Button variant="outline" size="sm" onclick={selectNewJob}>New job</Button>
-  </div>
+  {/if}
 
   {#if loading}
     <div class="text-muted-foreground text-sm">Loading scheduled jobs…</div>
