@@ -268,6 +268,7 @@
   providerSaving={providerEditor.saving}
   {selectedOutputAgent}
   outputEntries={outputState.entries}
+  outputSteps={outputState.stepEntries}
   outputLoading={outputState.loading}
   outputError={outputState.error}
   outputStreamState={outputState.streamState}

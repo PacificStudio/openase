@@ -52,6 +52,18 @@
                               "nullable": true,
                               "type": "string"
                             },
+                            "current_step_changed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_status": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_summary": {
+                              "nullable": true,
+                              "type": "string"
+                            },
                             "current_ticket_id": {
                               "nullable": true,
                               "type": "string"
@@ -221,6 +233,18 @@
                               "nullable": true,
                               "type": "string"
                             },
+                            "current_step_changed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_status": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_summary": {
+                              "nullable": true,
+                              "type": "string"
+                            },
                             "current_ticket_id": {
                               "nullable": true,
                               "type": "string"
@@ -371,6 +395,18 @@
                               "type": "integer"
                             },
                             "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_changed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_status": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_summary": {
                               "nullable": true,
                               "type": "string"
                             },
@@ -542,6 +578,18 @@
                               "type": "integer"
                             },
                             "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_changed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_status": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_summary": {
                               "nullable": true,
                               "type": "string"
                             },
@@ -5396,6 +5444,18 @@
                                 "nullable": true,
                                 "type": "string"
                               },
+                              "current_step_changed_at": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "current_step_status": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "current_step_summary": {
+                                "nullable": true,
+                                "type": "string"
+                              },
                               "current_ticket_id": {
                                 "nullable": true,
                                 "type": "string"
@@ -5565,6 +5625,18 @@
                               "type": "integer"
                             },
                             "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_changed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_status": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_summary": {
                               "nullable": true,
                               "type": "string"
                             },
@@ -5817,6 +5889,9 @@
                           "agent_id": {
                             "type": "string"
                           },
+                          "agent_run_id": {
+                            "type": "string"
+                          },
                           "created_at": {
                             "type": "string"
                           },
@@ -6010,6 +6085,265 @@
           }
         },
         "summary": "Stream agent output entries",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/agents/{agentId}/steps": {
+      "get": {
+        "operationId": "listAgentSteps",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Agent ID.",
+            "in": "path",
+            "name": "agentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter steps by ticket ID.",
+            "in": "query",
+            "name": "ticket_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Limit the number of returned step entries.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "entries": {
+                      "items": {
+                        "properties": {
+                          "agent_id": {
+                            "type": "string"
+                          },
+                          "agent_run_id": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "source_trace_event_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "step_status": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "ticket_id": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List agent step entries response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List agent step entries",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/agents/{agentId}/steps/stream": {
+      "get": {
+        "operationId": "streamAgentSteps",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Agent ID.",
+            "in": "path",
+            "name": "agentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter streamed steps by ticket ID.",
+            "in": "query",
+            "name": "ticket_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Stream agent step entries",
         "tags": [
           "streams"
         ]

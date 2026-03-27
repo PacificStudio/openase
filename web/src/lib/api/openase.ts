@@ -5,6 +5,7 @@ import type {
   AgentRunPayload,
   AgentProviderResponse,
   AgentOutputPayload,
+  AgentStepPayload,
   AgentResponse,
   AgentProvider,
   AgentProviderListPayload,
@@ -241,6 +242,19 @@ export function listAgentOutput(
   },
 ) {
   return api.get<AgentOutputPayload>(`/api/v1/projects/${projectId}/agents/${agentId}/output`, {
+    params,
+  })
+}
+
+export function listAgentSteps(
+  projectId: string,
+  agentId: string,
+  params?: {
+    ticket_id?: string
+    limit?: number
+  },
+) {
+  return api.get<AgentStepPayload>(`/api/v1/projects/${projectId}/agents/${agentId}/steps`, {
     params,
   })
 }

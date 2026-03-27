@@ -47,15 +47,18 @@ type agentResponse struct {
 }
 
 type agentRuntimeResponse struct {
-	ActiveRunCount   int     `json:"active_run_count"`
-	CurrentRunID     *string `json:"current_run_id,omitempty"`
-	Status           string  `json:"status"`
-	CurrentTicketID  *string `json:"current_ticket_id,omitempty"`
-	SessionID        string  `json:"session_id"`
-	RuntimePhase     string  `json:"runtime_phase"`
-	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
-	LastError        string  `json:"last_error"`
-	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
+	ActiveRunCount       int     `json:"active_run_count"`
+	CurrentRunID         *string `json:"current_run_id,omitempty"`
+	Status               string  `json:"status"`
+	CurrentTicketID      *string `json:"current_ticket_id,omitempty"`
+	SessionID            string  `json:"session_id"`
+	RuntimePhase         string  `json:"runtime_phase"`
+	RuntimeStartedAt     *string `json:"runtime_started_at,omitempty"`
+	LastError            string  `json:"last_error"`
+	LastHeartbeatAt      *string `json:"last_heartbeat_at,omitempty"`
+	CurrentStepStatus    *string `json:"current_step_status,omitempty"`
+	CurrentStepSummary   *string `json:"current_step_summary,omitempty"`
+	CurrentStepChangedAt *string `json:"current_step_changed_at,omitempty"`
 }
 
 type agentRunResponse struct {
@@ -435,15 +438,18 @@ func mapAgentRuntimeResponse(item *domain.AgentRuntime) *agentRuntimeResponse {
 	}
 
 	return &agentRuntimeResponse{
-		ActiveRunCount:   item.ActiveRunCount,
-		CurrentRunID:     uuidToStringPointer(item.CurrentRunID),
-		Status:           item.Status.String(),
-		CurrentTicketID:  uuidToStringPointer(item.CurrentTicketID),
-		SessionID:        item.SessionID,
-		RuntimePhase:     item.RuntimePhase.String(),
-		RuntimeStartedAt: timeToStringPointer(item.RuntimeStartedAt),
-		LastError:        item.LastError,
-		LastHeartbeatAt:  timeToStringPointer(item.LastHeartbeatAt),
+		ActiveRunCount:       item.ActiveRunCount,
+		CurrentRunID:         uuidToStringPointer(item.CurrentRunID),
+		Status:               item.Status.String(),
+		CurrentTicketID:      uuidToStringPointer(item.CurrentTicketID),
+		SessionID:            item.SessionID,
+		RuntimePhase:         item.RuntimePhase.String(),
+		RuntimeStartedAt:     timeToStringPointer(item.RuntimeStartedAt),
+		LastError:            item.LastError,
+		LastHeartbeatAt:      timeToStringPointer(item.LastHeartbeatAt),
+		CurrentStepStatus:    stringPointerValue(item.CurrentStepStatus),
+		CurrentStepSummary:   stringPointerValue(item.CurrentStepSummary),
+		CurrentStepChangedAt: timeToStringPointer(item.CurrentStepChangedAt),
 	}
 }
 

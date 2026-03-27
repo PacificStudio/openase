@@ -77,6 +77,9 @@ export function buildAgentRows(
       runtimeStartedAt: runtime?.runtime_started_at ?? null,
       sessionId: runtime?.session_id ?? '',
       lastError: runtime?.last_error ?? '',
+      currentStepStatus: runtime?.current_step_status ?? undefined,
+      currentStepSummary: runtime?.current_step_summary ?? undefined,
+      currentStepChangedAt: runtime?.current_step_changed_at ?? null,
       todayCompleted: agent.total_tickets_completed,
       todayCost: 0,
     }

@@ -13,6 +13,9 @@ export type AgentInstance = {
   runtimeStartedAt?: string | null
   sessionId?: string
   lastError?: string
+  currentStepStatus?: string
+  currentStepSummary?: string
+  currentStepChangedAt?: string | null
   todayCompleted: number
   todayCost: number
 }

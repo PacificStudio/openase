@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AgentOutputEntry, AgentProvider, Machine } from '$lib/api/contracts'
+  import type { AgentOutputEntry, AgentProvider, AgentStepEntry, Machine } from '$lib/api/contracts'
   import type { StreamConnectionState } from '$lib/api/sse'
   import type {
     AgentInstance,
@@ -45,6 +45,7 @@
     providerSaving = false,
     selectedOutputAgent,
     outputEntries,
+    outputSteps,
     outputLoading = false,
     outputError = '',
     outputStreamState = 'idle',
@@ -84,6 +85,7 @@
     providerSaving?: boolean
     selectedOutputAgent: AgentInstance | null
     outputEntries: AgentOutputEntry[]
+    outputSteps: AgentStepEntry[]
     outputLoading?: boolean
     outputError?: string
     outputStreamState?: StreamConnectionState
@@ -131,6 +133,7 @@
   {providerSaving}
   {selectedOutputAgent}
   {outputEntries}
+  {outputSteps}
   {outputLoading}
   {outputError}
   {outputStreamState}

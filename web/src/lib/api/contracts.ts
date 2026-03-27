@@ -80,6 +80,10 @@ export type AgentOutputPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/agents/{agentId}/output', 'get'>
 >
 export type AgentOutputEntry = ItemOf<AgentOutputPayload['entries']>
+export type AgentStepPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/agents/{agentId}/steps', 'get'>
+>
+export type AgentStepEntry = ItemOf<AgentStepPayload['entries']>
 
 export type ActivityPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/activity', 'get'>

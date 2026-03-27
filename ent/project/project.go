@@ -49,6 +49,10 @@ const (
 	EdgeAgents = "agents"
 	// EdgeAgentTokens holds the string denoting the agent_tokens edge name in mutations.
 	EdgeAgentTokens = "agent_tokens"
+	// EdgeAgentTraceEvents holds the string denoting the agent_trace_events edge name in mutations.
+	EdgeAgentTraceEvents = "agent_trace_events"
+	// EdgeAgentStepEvents holds the string denoting the agent_step_events edge name in mutations.
+	EdgeAgentStepEvents = "agent_step_events"
 	// EdgeScheduledJobs holds the string denoting the scheduled_jobs edge name in mutations.
 	EdgeScheduledJobs = "scheduled_jobs"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
@@ -117,6 +121,20 @@ const (
 	AgentTokensInverseTable = "agent_tokens"
 	// AgentTokensColumn is the table column denoting the agent_tokens relation/edge.
 	AgentTokensColumn = "project_id"
+	// AgentTraceEventsTable is the table that holds the agent_trace_events relation/edge.
+	AgentTraceEventsTable = "agent_trace_events"
+	// AgentTraceEventsInverseTable is the table name for the AgentTraceEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "agenttraceevent" package.
+	AgentTraceEventsInverseTable = "agent_trace_events"
+	// AgentTraceEventsColumn is the table column denoting the agent_trace_events relation/edge.
+	AgentTraceEventsColumn = "project_id"
+	// AgentStepEventsTable is the table that holds the agent_step_events relation/edge.
+	AgentStepEventsTable = "agent_step_events"
+	// AgentStepEventsInverseTable is the table name for the AgentStepEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "agentstepevent" package.
+	AgentStepEventsInverseTable = "agent_step_events"
+	// AgentStepEventsColumn is the table column denoting the agent_step_events relation/edge.
+	AgentStepEventsColumn = "project_id"
 	// ScheduledJobsTable is the table that holds the scheduled_jobs relation/edge.
 	ScheduledJobsTable = "scheduled_jobs"
 	// ScheduledJobsInverseTable is the table name for the ScheduledJob entity.
@@ -372,6 +390,34 @@ func ByAgentTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAgentTraceEventsCount orders the results by agent_trace_events count.
+func ByAgentTraceEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentTraceEventsStep(), opts...)
+	}
+}
+
+// ByAgentTraceEvents orders the results by agent_trace_events terms.
+func ByAgentTraceEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentTraceEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAgentStepEventsCount orders the results by agent_step_events count.
+func ByAgentStepEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentStepEventsStep(), opts...)
+	}
+}
+
+// ByAgentStepEvents orders the results by agent_step_events terms.
+func ByAgentStepEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentStepEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByScheduledJobsCount orders the results by scheduled_jobs count.
 func ByScheduledJobsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -481,6 +527,20 @@ func newAgentTokensStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentTokensInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentTokensTable, AgentTokensColumn),
+	)
+}
+func newAgentTraceEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentTraceEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentTraceEventsTable, AgentTraceEventsColumn),
+	)
+}
+func newAgentStepEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentStepEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentStepEventsTable, AgentStepEventsColumn),
 	)
 }
 func newScheduledJobsStep() *sqlgraph.Step {

@@ -41,36 +41,40 @@ func TestListAgentOutputRoute(t *testing.T) {
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
 	service.agents[agentOneID] = domain.Agent{ID: agentOneID, ProjectID: projectID, Name: "Worker 1"}
 	service.agents[agentTwoID] = domain.Agent{ID: agentTwoID, ProjectID: projectID, Name: "Worker 2"}
-	service.activityEvents = []domain.ActivityEvent{
+	runID := uuid.New()
+	service.traceEvents = []domain.AgentTraceEntry{
 		{
-			ID:        uuid.New(),
-			ProjectID: projectID,
-			TicketID:  &ticketOneID,
-			AgentID:   &agentOneID,
-			EventType: domain.AgentOutputEventType,
-			Message:   "stdout line",
-			Metadata:  map[string]any{"stream": "stdout"},
-			CreatedAt: time.Date(2026, 3, 19, 17, 1, 0, 0, time.UTC),
+			ID:         uuid.New(),
+			ProjectID:  projectID,
+			TicketID:   &ticketOneID,
+			AgentID:    agentOneID,
+			AgentRunID: runID,
+			Kind:       domain.AgentTraceKindCommandDelta,
+			Stream:     "stdout",
+			Output:     "stdout line",
+			CreatedAt:  time.Date(2026, 3, 19, 17, 1, 0, 0, time.UTC),
 		},
 		{
-			ID:        uuid.New(),
-			ProjectID: projectID,
-			TicketID:  &ticketTwoID,
-			AgentID:   &agentTwoID,
-			EventType: domain.AgentOutputEventType,
-			Message:   "other agent line",
-			Metadata:  map[string]any{"stream": "stderr"},
-			CreatedAt: time.Date(2026, 3, 19, 17, 2, 0, 0, time.UTC),
+			ID:         uuid.New(),
+			ProjectID:  projectID,
+			TicketID:   &ticketTwoID,
+			AgentID:    agentTwoID,
+			AgentRunID: uuid.New(),
+			Kind:       domain.AgentTraceKindCommandDelta,
+			Stream:     "stderr",
+			Output:     "other agent line",
+			CreatedAt:  time.Date(2026, 3, 19, 17, 2, 0, 0, time.UTC),
 		},
 		{
-			ID:        uuid.New(),
-			ProjectID: projectID,
-			TicketID:  &ticketOneID,
-			AgentID:   &agentOneID,
-			EventType: "agent.heartbeat",
-			Message:   "still running",
-			Metadata:  map[string]any{"stream": "system"},
-			CreatedAt: time.Date(2026, 3, 19, 17, 3, 0, 0, time.UTC),
+			ID:         uuid.New(),
+			ProjectID:  projectID,
+			TicketID:   &ticketOneID,
+			AgentID:    agentOneID,
+			AgentRunID: runID,
+			Kind:       domain.AgentTraceKindToolCallStarted,
+			Stream:     "tool",
+			Output:     "run_shell",
+			CreatedAt:  time.Date(2026, 3, 19, 17, 3, 0, 0, time.UTC),
 		},
 	}
 
@@ -122,7 +126,7 @@ func TestListAgentOutputRouteRejectsInvalidQuery(t *testing.T) {
 	}
 }
 
-func TestAgentOutputStreamFiltersActivityEvents(t *testing.T) {
+func TestAgentOutputStreamFiltersTraceEvents(t *testing.T) {
 	bus := eventinfra.NewChannelBus()
 	service := newFakeCatalogService()
 	orgID := uuid.New()
@@ -155,8 +159,8 @@ func TestAgentOutputStreamFiltersActivityEvents(t *testing.T) {
 		}
 	})
 
-	publishAgentOutputActivityEvent(t, bus, otherProjectID, agentID, "ignored line")
-	publishAgentOutputActivityEvent(t, bus, projectID, agentID, "expected line")
+	publishAgentOutputTraceEvent(t, bus, otherProjectID, agentID, "ignored line")
+	publishAgentOutputTraceEvent(t, bus, projectID, agentID, "expected line")
 
 	body := readSSEBody(t, response, cancel)
 
@@ -177,7 +181,7 @@ func TestAgentOutputStreamFiltersActivityEvents(t *testing.T) {
 	}
 }
 
-func publishAgentOutputActivityEvent(
+func publishAgentOutputTraceEvent(
 	t *testing.T,
 	bus *eventinfra.ChannelBus,
 	projectID uuid.UUID,
@@ -187,17 +191,18 @@ func publishAgentOutputActivityEvent(
 	t.Helper()
 
 	message, err := provider.NewJSONEvent(
-		activityStreamTopic,
+		agentTraceStreamTopic,
 		provider.MustParseEventType(domain.AgentOutputEventType),
 		map[string]any{
-			"event": map[string]any{
-				"id":         uuid.NewString(),
-				"project_id": projectID.String(),
-				"agent_id":   agentID.String(),
-				"event_type": domain.AgentOutputEventType,
-				"message":    output,
-				"metadata":   map[string]any{"stream": "stdout"},
-				"created_at": time.Now().UTC().Format(time.RFC3339),
+			"entry": map[string]any{
+				"id":           uuid.NewString(),
+				"project_id":   projectID.String(),
+				"ticket_id":    "",
+				"agent_id":     agentID.String(),
+				"agent_run_id": uuid.NewString(),
+				"stream":       "stdout",
+				"output":       output,
+				"created_at":   time.Now().UTC().Format(time.RFC3339),
 			},
 		},
 		time.Now(),
