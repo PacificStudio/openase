@@ -24,9 +24,11 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
   import type { StatusPayload } from '$lib/api/contracts'
+  import { connectEventStream } from '$lib/api/sse'
   import StatusSettingsCreate from './status-settings-create.svelte'
   import StatusSettingsRow from './status-settings-row.svelte'
   import StatusStageConcurrency from './status-stage-concurrency.svelte'
+  import { startStatusSettingsStageRuntimeSync } from './status-settings-stage-runtime'
   let statuses = $state<EditableStatus[]>([])
   let stages = $state<StatusPayload['stages']>([])
   let createName = $state('')
@@ -38,48 +40,54 @@
   let busyStatusId = $state('')
   const statusCapability = getSettingsSectionCapability('statuses')
 
+  function assignStatuses(payload: Awaited<ReturnType<typeof listStatuses>>) {
+    statuses = normalizeStatuses(payload.statuses)
+    stages = payload.stages
+  }
+
+  function resetEditorState() {
+    statuses = []
+    stages = []
+    createName = ''
+    createColor = createEmptyStatusDraft().color
+    createDefault = false
+    busyStatusId = ''
+    creating = false
+    resetting = false
+    loading = false
+  }
+
   $effect(() => {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      statuses = []
-      stages = []
-      createName = ''
-      createColor = createEmptyStatusDraft().color
-      createDefault = false
-      busyStatusId = ''
-      creating = false
-      resetting = false
+      resetEditorState()
       return
     }
-    let cancelled = false
 
-    const load = async () => {
-      loading = true
+    const stopSync = startStatusSettingsStageRuntimeSync({
+      projectId,
+      loadStatuses: listStatuses,
+      connectEventStream,
+      applySnapshot: assignStatuses,
+      setLoading: (nextLoading) => {
+        loading = nextLoading
+      },
+      onInitialError: (message) => {
+        toastStore.error(message)
+      },
+      onRefreshError: (error) => {
+        console.error('Failed to refresh status settings:', error)
+      },
+    })
 
-      try {
-        const payload = await listStatuses(projectId)
-        if (cancelled) return
-        statuses = normalizeStatuses(payload.statuses)
-        stages = payload.stages
-      } catch (caughtError) {
-        if (cancelled) return
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load statuses.',
-        )
-      } finally {
-        if (!cancelled) loading = false
-      }
+    return () => {
+      stopSync()
     }
-
-    void load()
-
-    return () => (cancelled = true)
   })
 
   async function reloadStatuses(projectId: string) {
     const payload = await listStatuses(projectId)
-    statuses = normalizeStatuses(payload.statuses)
-    stages = payload.stages
+    assignStatuses(payload)
   }
 
   async function handleCreate() {
