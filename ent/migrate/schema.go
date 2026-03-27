@@ -63,7 +63,6 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
 		{Name: "runtime_control_state", Type: field.TypeEnum, Enums: []string{"active", "pause_requested", "paused"}, Default: "active"},
-		{Name: "workspace_path", Type: field.TypeString, Nullable: true},
 		{Name: "total_tokens_used", Type: field.TypeInt64, Default: 0},
 		{Name: "total_tickets_completed", Type: field.TypeInt, Default: 0},
 		{Name: "provider_id", Type: field.TypeUUID},
@@ -77,13 +76,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agents_agent_providers_agents",
-				Columns:    []*schema.Column{AgentsColumns[6]},
+				Columns:    []*schema.Column{AgentsColumns[5]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agents_projects_agents",
-				Columns:    []*schema.Column{AgentsColumns[7]},
+				Columns:    []*schema.Column{AgentsColumns[6]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -92,12 +91,12 @@ var (
 			{
 				Name:    "agent_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{AgentsColumns[7], AgentsColumns[1]},
+				Columns: []*schema.Column{AgentsColumns[6], AgentsColumns[1]},
 			},
 			{
 				Name:    "agent_project_id_runtime_control_state",
 				Unique:  false,
-				Columns: []*schema.Column{AgentsColumns[7], AgentsColumns[2]},
+				Columns: []*schema.Column{AgentsColumns[6], AgentsColumns[2]},
 			},
 		},
 	}
@@ -912,7 +911,6 @@ var (
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"coding", "test", "doc", "security", "deploy", "refine-harness", "custom"}},
 		{Name: "harness_path", Type: field.TypeString},
 		{Name: "hooks", Type: field.TypeJSON},
-		{Name: "required_machine_labels", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "max_concurrent", Type: field.TypeInt, Default: 3},
 		{Name: "max_retry_attempts", Type: field.TypeInt, Default: 3},
 		{Name: "timeout_minutes", Type: field.TypeInt, Default: 60},
@@ -932,25 +930,25 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "workflows_agents_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[12]},
+				Columns:    []*schema.Column{WorkflowsColumns[11]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "workflows_projects_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[13]},
+				Columns:    []*schema.Column{WorkflowsColumns[12]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "workflows_ticket_status_pickup_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[14]},
+				Columns:    []*schema.Column{WorkflowsColumns[13]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "workflows_ticket_status_finish_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[15]},
+				Columns:    []*schema.Column{WorkflowsColumns[14]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -959,12 +957,12 @@ var (
 			{
 				Name:    "workflow_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{WorkflowsColumns[13], WorkflowsColumns[1]},
+				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[1]},
 			},
 			{
 				Name:    "workflow_project_id_is_active",
 				Unique:  false,
-				Columns: []*schema.Column{WorkflowsColumns[13], WorkflowsColumns[11]},
+				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[10]},
 			},
 		},
 	}

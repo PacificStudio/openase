@@ -58,11 +58,11 @@ func init() {
 	// agent.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	agent.NameValidator = agentDescName.Validators[0].(func(string) error)
 	// agentDescTotalTokensUsed is the schema descriptor for total_tokens_used field.
-	agentDescTotalTokensUsed := agentFields[6].Descriptor()
+	agentDescTotalTokensUsed := agentFields[5].Descriptor()
 	// agent.DefaultTotalTokensUsed holds the default value on creation for the total_tokens_used field.
 	agent.DefaultTotalTokensUsed = agentDescTotalTokensUsed.Default.(int64)
 	// agentDescTotalTicketsCompleted is the schema descriptor for total_tickets_completed field.
-	agentDescTotalTicketsCompleted := agentFields[7].Descriptor()
+	agentDescTotalTicketsCompleted := agentFields[6].Descriptor()
 	// agent.DefaultTotalTicketsCompleted holds the default value on creation for the total_tickets_completed field.
 	agent.DefaultTotalTicketsCompleted = agentDescTotalTicketsCompleted.Default.(int)
 	// agentDescID is the schema descriptor for id field.
@@ -468,27 +468,27 @@ func init() {
 	// workflow.DefaultHooks holds the default value on creation for the hooks field.
 	workflow.DefaultHooks = workflowDescHooks.Default.(func() map[string]interface{})
 	// workflowDescMaxConcurrent is the schema descriptor for max_concurrent field.
-	workflowDescMaxConcurrent := workflowFields[8].Descriptor()
+	workflowDescMaxConcurrent := workflowFields[7].Descriptor()
 	// workflow.DefaultMaxConcurrent holds the default value on creation for the max_concurrent field.
 	workflow.DefaultMaxConcurrent = workflowDescMaxConcurrent.Default.(int)
 	// workflowDescMaxRetryAttempts is the schema descriptor for max_retry_attempts field.
-	workflowDescMaxRetryAttempts := workflowFields[9].Descriptor()
+	workflowDescMaxRetryAttempts := workflowFields[8].Descriptor()
 	// workflow.DefaultMaxRetryAttempts holds the default value on creation for the max_retry_attempts field.
 	workflow.DefaultMaxRetryAttempts = workflowDescMaxRetryAttempts.Default.(int)
 	// workflowDescTimeoutMinutes is the schema descriptor for timeout_minutes field.
-	workflowDescTimeoutMinutes := workflowFields[10].Descriptor()
+	workflowDescTimeoutMinutes := workflowFields[9].Descriptor()
 	// workflow.DefaultTimeoutMinutes holds the default value on creation for the timeout_minutes field.
 	workflow.DefaultTimeoutMinutes = workflowDescTimeoutMinutes.Default.(int)
 	// workflowDescStallTimeoutMinutes is the schema descriptor for stall_timeout_minutes field.
-	workflowDescStallTimeoutMinutes := workflowFields[11].Descriptor()
+	workflowDescStallTimeoutMinutes := workflowFields[10].Descriptor()
 	// workflow.DefaultStallTimeoutMinutes holds the default value on creation for the stall_timeout_minutes field.
 	workflow.DefaultStallTimeoutMinutes = workflowDescStallTimeoutMinutes.Default.(int)
 	// workflowDescVersion is the schema descriptor for version field.
-	workflowDescVersion := workflowFields[12].Descriptor()
+	workflowDescVersion := workflowFields[11].Descriptor()
 	// workflow.DefaultVersion holds the default value on creation for the version field.
 	workflow.DefaultVersion = workflowDescVersion.Default.(int)
 	// workflowDescIsActive is the schema descriptor for is_active field.
-	workflowDescIsActive := workflowFields[13].Descriptor()
+	workflowDescIsActive := workflowFields[12].Descriptor()
 	// workflow.DefaultIsActive holds the default value on creation for the is_active field.
 	workflow.DefaultIsActive = workflowDescIsActive.Default.(bool)
 	// workflowDescID is the schema descriptor for id field.

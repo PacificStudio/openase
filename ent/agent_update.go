@@ -90,26 +90,6 @@ func (_u *AgentUpdate) SetNillableRuntimeControlState(v *agent.RuntimeControlSta
 	return _u
 }
 
-// SetWorkspacePath sets the "workspace_path" field.
-func (_u *AgentUpdate) SetWorkspacePath(v string) *AgentUpdate {
-	_u.mutation.SetWorkspacePath(v)
-	return _u
-}
-
-// SetNillableWorkspacePath sets the "workspace_path" field if the given value is not nil.
-func (_u *AgentUpdate) SetNillableWorkspacePath(v *string) *AgentUpdate {
-	if v != nil {
-		_u.SetWorkspacePath(*v)
-	}
-	return _u
-}
-
-// ClearWorkspacePath clears the value of the "workspace_path" field.
-func (_u *AgentUpdate) ClearWorkspacePath() *AgentUpdate {
-	_u.mutation.ClearWorkspacePath()
-	return _u
-}
-
 // SetTotalTokensUsed sets the "total_tokens_used" field.
 func (_u *AgentUpdate) SetTotalTokensUsed(v int64) *AgentUpdate {
 	_u.mutation.ResetTotalTokensUsed()
@@ -388,12 +368,6 @@ func (_u *AgentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.RuntimeControlState(); ok {
 		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.WorkspacePath(); ok {
-		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)
-	}
-	if _u.mutation.WorkspacePathCleared() {
-		_spec.ClearField(agent.FieldWorkspacePath, field.TypeString)
 	}
 	if value, ok := _u.mutation.TotalTokensUsed(); ok {
 		_spec.SetField(agent.FieldTotalTokensUsed, field.TypeInt64, value)
@@ -721,26 +695,6 @@ func (_u *AgentUpdateOne) SetNillableRuntimeControlState(v *agent.RuntimeControl
 	return _u
 }
 
-// SetWorkspacePath sets the "workspace_path" field.
-func (_u *AgentUpdateOne) SetWorkspacePath(v string) *AgentUpdateOne {
-	_u.mutation.SetWorkspacePath(v)
-	return _u
-}
-
-// SetNillableWorkspacePath sets the "workspace_path" field if the given value is not nil.
-func (_u *AgentUpdateOne) SetNillableWorkspacePath(v *string) *AgentUpdateOne {
-	if v != nil {
-		_u.SetWorkspacePath(*v)
-	}
-	return _u
-}
-
-// ClearWorkspacePath clears the value of the "workspace_path" field.
-func (_u *AgentUpdateOne) ClearWorkspacePath() *AgentUpdateOne {
-	_u.mutation.ClearWorkspacePath()
-	return _u
-}
-
 // SetTotalTokensUsed sets the "total_tokens_used" field.
 func (_u *AgentUpdateOne) SetTotalTokensUsed(v int64) *AgentUpdateOne {
 	_u.mutation.ResetTotalTokensUsed()
@@ -1049,12 +1003,6 @@ func (_u *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error)
 	}
 	if value, ok := _u.mutation.RuntimeControlState(); ok {
 		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.WorkspacePath(); ok {
-		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)
-	}
-	if _u.mutation.WorkspacePathCleared() {
-		_spec.ClearField(agent.FieldWorkspacePath, field.TypeString)
 	}
 	if value, ok := _u.mutation.TotalTokensUsed(); ok {
 		_spec.SetField(agent.FieldTotalTokensUsed, field.TypeInt64, value)

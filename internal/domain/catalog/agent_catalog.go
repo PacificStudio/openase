@@ -38,7 +38,6 @@ type Agent struct {
 	ProjectID             uuid.UUID
 	Name                  string
 	RuntimeControlState   AgentRuntimeControlState
-	WorkspacePath         string
 	TotalTokensUsed       int64
 	TotalTicketsCompleted int
 	Runtime               *AgentRuntime

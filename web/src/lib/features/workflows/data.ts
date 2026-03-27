@@ -65,7 +65,6 @@ function mapWorkflowAgentOptions(
         providerName,
         modelName,
         machineName,
-        workspacePath: agent.workspace_path ?? '',
       }
     })
     .sort((left, right) => left.label.localeCompare(right.label))

@@ -58,20 +58,6 @@ func (_c *AgentCreate) SetNillableRuntimeControlState(v *agent.RuntimeControlSta
 	return _c
 }
 
-// SetWorkspacePath sets the "workspace_path" field.
-func (_c *AgentCreate) SetWorkspacePath(v string) *AgentCreate {
-	_c.mutation.SetWorkspacePath(v)
-	return _c
-}
-
-// SetNillableWorkspacePath sets the "workspace_path" field if the given value is not nil.
-func (_c *AgentCreate) SetNillableWorkspacePath(v *string) *AgentCreate {
-	if v != nil {
-		_c.SetWorkspacePath(*v)
-	}
-	return _c
-}
-
 // SetTotalTokensUsed sets the "total_tokens_used" field.
 func (_c *AgentCreate) SetTotalTokensUsed(v int64) *AgentCreate {
 	_c.mutation.SetTotalTokensUsed(v)
@@ -315,10 +301,6 @@ func (_c *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RuntimeControlState(); ok {
 		_spec.SetField(agent.FieldRuntimeControlState, field.TypeEnum, value)
 		_node.RuntimeControlState = value
-	}
-	if value, ok := _c.mutation.WorkspacePath(); ok {
-		_spec.SetField(agent.FieldWorkspacePath, field.TypeString, value)
-		_node.WorkspacePath = value
 	}
 	if value, ok := _c.mutation.TotalTokensUsed(); ok {
 		_spec.SetField(agent.FieldTotalTokensUsed, field.TypeInt64, value)

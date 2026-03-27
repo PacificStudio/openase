@@ -23,8 +23,6 @@ const (
 	FieldName = "name"
 	// FieldRuntimeControlState holds the string denoting the runtime_control_state field in the database.
 	FieldRuntimeControlState = "runtime_control_state"
-	// FieldWorkspacePath holds the string denoting the workspace_path field in the database.
-	FieldWorkspacePath = "workspace_path"
 	// FieldTotalTokensUsed holds the string denoting the total_tokens_used field in the database.
 	FieldTotalTokensUsed = "total_tokens_used"
 	// FieldTotalTicketsCompleted holds the string denoting the total_tickets_completed field in the database.
@@ -94,7 +92,6 @@ var Columns = []string{
 	FieldProjectID,
 	FieldName,
 	FieldRuntimeControlState,
-	FieldWorkspacePath,
 	FieldTotalTokensUsed,
 	FieldTotalTicketsCompleted,
 }
@@ -173,11 +170,6 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByRuntimeControlState orders the results by the runtime_control_state field.
 func ByRuntimeControlState(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRuntimeControlState, opts...).ToFunc()
-}
-
-// ByWorkspacePath orders the results by the workspace_path field.
-func ByWorkspacePath(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldWorkspacePath, opts...).ToFunc()
 }
 
 // ByTotalTokensUsed orders the results by the total_tokens_used field.

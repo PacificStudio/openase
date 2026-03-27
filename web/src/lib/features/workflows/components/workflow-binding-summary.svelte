@@ -6,12 +6,10 @@
     providerName = 'Select an agent first',
     modelName = 'Select an agent first',
     machineSummary,
-    workspacePath = 'Platform-derived ticket workspace',
   }: {
     providerName?: string
     modelName?: string
     machineSummary: string
-    workspacePath?: string
   } = $props()
 </script>
 
@@ -51,7 +49,7 @@
     <div
       class="border-border text-foreground min-h-10 rounded-md border px-3 py-2 text-sm break-all"
     >
-      {workspacePath}
+      OpenASE derives a fresh ticket workspace from the organization, project, and ticket.
     </div>
   </div>
 </div>

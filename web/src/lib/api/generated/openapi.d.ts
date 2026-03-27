@@ -1157,7 +1157,6 @@ export interface operations {
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
-              workspace_path?: string
             }
           }
         }
@@ -1238,7 +1237,6 @@ export interface operations {
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
-              workspace_path?: string
             }
           }
         }
@@ -1331,7 +1329,6 @@ export interface operations {
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
-              workspace_path?: string
             }
           }
         }
@@ -1424,7 +1421,6 @@ export interface operations {
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
-              workspace_path?: string
             }
           }
         }
@@ -4054,7 +4050,6 @@ export interface operations {
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
-              workspace_path?: string
             }[]
           }
         }
@@ -4143,7 +4138,6 @@ export interface operations {
               total_tickets_completed?: number
               /** Format: int64 */
               total_tokens_used?: number
-              workspace_path?: string
             }
           }
         }

@@ -97,7 +97,6 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-01").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
@@ -252,7 +251,6 @@ func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-close-01").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -321,7 +319,6 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-finish-01").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
@@ -449,7 +446,6 @@ Runtime reconcile test
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-02").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
@@ -567,7 +563,6 @@ Implement the ticket using the current workspace.
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-runner-01").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
@@ -724,7 +719,6 @@ Handle a failing runtime turn.
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-runner-fail-01").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
@@ -887,7 +881,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-01").
-		SetWorkspacePath("/srv/openase/workspaces/ASE-401").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
@@ -1009,7 +1002,6 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-02").
-		SetWorkspacePath("/srv/openase/workspaces/ASE-402").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
@@ -1103,7 +1095,6 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *t
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-fake-01").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
@@ -1201,7 +1192,6 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-api-key-01").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)
@@ -1305,7 +1295,6 @@ func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
 		SetName("codex-pause-01").
-		SetWorkspacePath("/tmp/openase").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create claimed agent: %v", err)

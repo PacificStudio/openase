@@ -233,7 +233,7 @@ function buildAgentItems({
         .join(' • '),
       badge: 'Agent',
       action: { kind: 'navigate', href: projectPath(currentOrg.id, currentProject.id, 'agents') },
-      keywords: [currentProject.name, agent.runtime?.session_id ?? '', agent.workspace_path],
+      keywords: [currentProject.name, agent.runtime?.session_id ?? ''],
     }),
   )
 }

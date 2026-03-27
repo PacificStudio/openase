@@ -223,7 +223,6 @@
         providerName={selectedAgent?.providerName}
         modelName={selectedAgent?.modelName}
         {machineSummary}
-        workspacePath={selectedAgent?.workspacePath}
       />
 
       <div class="grid gap-4 sm:grid-cols-2">

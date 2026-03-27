@@ -175,7 +175,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/skills/refresh", project.ID),
 		map[string]any{
-			"workspace_path": workspaceRoot,
+			"workspace_root": workspaceRoot,
 			"adapter_type":   "claude-code-cli",
 		},
 		http.StatusOK,
@@ -203,7 +203,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/skills/harvest", project.ID),
 		map[string]any{
-			"workspace_path": workspaceRoot,
+			"workspace_root": workspaceRoot,
 			"adapter_type":   "claude-code-cli",
 		},
 		http.StatusOK,

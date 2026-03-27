@@ -21,7 +21,7 @@
     <div>
       <Card.Title>Registered agents</Card.Title>
       <Card.Description>
-        Governance inventory for provider coverage and workspace paths.
+        Governance inventory for provider coverage and runtime readiness.
       </Card.Description>
     </div>
     <Button href={agentsConsoleHref} variant="outline" size="sm">
@@ -62,11 +62,8 @@
             </div>
           </div>
 
-          <div class="text-muted-foreground mt-3 grid gap-3 text-xs md:grid-cols-2">
-            <div>
-              <div class="text-foreground font-medium">Workspace</div>
-              <div class="mt-1 font-mono break-all">{agent.workspacePath || 'Not provided'}</div>
-            </div>
+          <div class="text-muted-foreground mt-3 text-xs">
+            Ticket workspaces are derived at runtime from the bound project and machine.
           </div>
         </div>
       {/each}

@@ -16,7 +16,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -68,12 +67,6 @@ func (_c *WorkflowCreate) SetHarnessPath(v string) *WorkflowCreate {
 // SetHooks sets the "hooks" field.
 func (_c *WorkflowCreate) SetHooks(v map[string]interface{}) *WorkflowCreate {
 	_c.mutation.SetHooks(v)
-	return _c
-}
-
-// SetRequiredMachineLabels sets the "required_machine_labels" field.
-func (_c *WorkflowCreate) SetRequiredMachineLabels(v pgarray.StringArray) *WorkflowCreate {
-	_c.mutation.SetRequiredMachineLabels(v)
 	return _c
 }
 
@@ -438,10 +431,6 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Hooks(); ok {
 		_spec.SetField(workflow.FieldHooks, field.TypeJSON, value)
 		_node.Hooks = value
-	}
-	if value, ok := _c.mutation.RequiredMachineLabels(); ok {
-		_spec.SetField(workflow.FieldRequiredMachineLabels, field.TypeOther, value)
-		_node.RequiredMachineLabels = value
 	}
 	if value, ok := _c.mutation.MaxConcurrent(); ok {
 		_spec.SetField(workflow.FieldMaxConcurrent, field.TypeInt, value)

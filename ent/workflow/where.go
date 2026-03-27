@@ -6,7 +6,6 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -73,11 +72,6 @@ func Name(v string) predicate.Workflow {
 // HarnessPath applies equality check predicate on the "harness_path" field. It's identical to HarnessPathEQ.
 func HarnessPath(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldHarnessPath, v))
-}
-
-// RequiredMachineLabels applies equality check predicate on the "required_machine_labels" field. It's identical to RequiredMachineLabelsEQ.
-func RequiredMachineLabels(v pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldEQ(FieldRequiredMachineLabels, v))
 }
 
 // MaxConcurrent applies equality check predicate on the "max_concurrent" field. It's identical to MaxConcurrentEQ.
@@ -318,56 +312,6 @@ func HarnessPathEqualFold(v string) predicate.Workflow {
 // HarnessPathContainsFold applies the ContainsFold predicate on the "harness_path" field.
 func HarnessPathContainsFold(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldContainsFold(FieldHarnessPath, v))
-}
-
-// RequiredMachineLabelsEQ applies the EQ predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsEQ(v pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldEQ(FieldRequiredMachineLabels, v))
-}
-
-// RequiredMachineLabelsNEQ applies the NEQ predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsNEQ(v pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldNEQ(FieldRequiredMachineLabels, v))
-}
-
-// RequiredMachineLabelsIn applies the In predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsIn(vs ...pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldIn(FieldRequiredMachineLabels, vs...))
-}
-
-// RequiredMachineLabelsNotIn applies the NotIn predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsNotIn(vs ...pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldNotIn(FieldRequiredMachineLabels, vs...))
-}
-
-// RequiredMachineLabelsGT applies the GT predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsGT(v pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldGT(FieldRequiredMachineLabels, v))
-}
-
-// RequiredMachineLabelsGTE applies the GTE predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsGTE(v pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldGTE(FieldRequiredMachineLabels, v))
-}
-
-// RequiredMachineLabelsLT applies the LT predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsLT(v pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldLT(FieldRequiredMachineLabels, v))
-}
-
-// RequiredMachineLabelsLTE applies the LTE predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsLTE(v pgarray.StringArray) predicate.Workflow {
-	return predicate.Workflow(sql.FieldLTE(FieldRequiredMachineLabels, v))
-}
-
-// RequiredMachineLabelsIsNil applies the IsNil predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsIsNil() predicate.Workflow {
-	return predicate.Workflow(sql.FieldIsNull(FieldRequiredMachineLabels))
-}
-
-// RequiredMachineLabelsNotNil applies the NotNil predicate on the "required_machine_labels" field.
-func RequiredMachineLabelsNotNil() predicate.Workflow {
-	return predicate.Workflow(sql.FieldNotNull(FieldRequiredMachineLabels))
 }
 
 // MaxConcurrentEQ applies the EQ predicate on the "max_concurrent" field.

@@ -85,9 +85,6 @@
                         "total_tokens_used": {
                           "format": "int64",
                           "type": "integer"
-                        },
-                        "workspace_path": {
-                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -254,9 +251,6 @@
                         "total_tokens_used": {
                           "format": "int64",
                           "type": "integer"
-                        },
-                        "workspace_path": {
-                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -407,9 +401,6 @@
                         "total_tokens_used": {
                           "format": "int64",
                           "type": "integer"
-                        },
-                        "workspace_path": {
-                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -578,9 +569,6 @@
                         "total_tokens_used": {
                           "format": "int64",
                           "type": "integer"
-                        },
-                        "workspace_path": {
-                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -5275,9 +5263,6 @@
                           "total_tokens_used": {
                             "format": "int64",
                             "type": "integer"
-                          },
-                          "workspace_path": {
-                            "type": "string"
                           }
                         },
                         "type": "object"
@@ -5447,9 +5432,6 @@
                         "total_tokens_used": {
                           "format": "int64",
                           "type": "integer"
-                        },
-                        "workspace_path": {
-                          "type": "string"
                         }
                       },
                       "type": "object"

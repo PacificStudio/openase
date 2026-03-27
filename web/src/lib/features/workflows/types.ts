@@ -39,7 +39,6 @@ export type WorkflowAgentOption = {
   providerName: string
   modelName: string
   machineName: string
-  workspacePath: string
 }
 
 export type HarnessContent = {

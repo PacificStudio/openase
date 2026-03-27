@@ -3,7 +3,6 @@ package catalog
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
@@ -13,7 +12,6 @@ import (
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -371,40 +369,10 @@ func mapAgent(item *ent.Agent, currentRun agentCurrentRunSnapshot) domain.Agent 
 		ProjectID:             item.ProjectID,
 		Name:                  item.Name,
 		RuntimeControlState:   toDomainAgentRuntimeControlState(item.RuntimeControlState),
-		WorkspacePath:         deriveAgentWorkspacePattern(item),
 		TotalTokensUsed:       item.TotalTokensUsed,
 		TotalTicketsCompleted: item.TotalTicketsCompleted,
 		Runtime:               domain.BuildAgentRuntime(mapAgentRunPointer(currentRun.run), toDomainAgentRuntimeControlState(item.RuntimeControlState)),
 	}
-}
-
-func deriveAgentWorkspacePattern(item *ent.Agent) string {
-	if item == nil || item.Edges.Project == nil || item.Edges.Provider == nil {
-		return item.WorkspacePath
-	}
-	if item.Edges.Project.Edges.Organization == nil {
-		return item.WorkspacePath
-	}
-
-	projectItem := item.Edges.Project
-	providerItem := item.Edges.Provider
-	organizationItem := projectItem.Edges.Organization
-
-	root := workspaceinfra.LocalWorkspacePatternRoot
-	if machineItem := providerItem.Edges.Machine; machineItem != nil {
-		if machineItem.Host != "" && machineItem.Host != domain.LocalMachineHost {
-			root = strings.TrimSpace(machineItem.WorkspaceRoot)
-		}
-	}
-	if strings.TrimSpace(root) == "" {
-		return item.WorkspacePath
-	}
-
-	pattern, err := workspaceinfra.TicketWorkspacePattern(root, organizationItem.Slug, projectItem.Slug)
-	if err != nil {
-		return item.WorkspacePath
-	}
-	return pattern
 }
 
 func mapAgentRuns(items []*ent.AgentRun) []domain.AgentRun {
