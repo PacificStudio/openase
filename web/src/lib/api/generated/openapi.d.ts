@@ -3508,6 +3508,9 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
               available?: boolean
               cli_args?: string[]
               cli_command?: string
@@ -3616,6 +3619,9 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
               available?: boolean
               cli_args?: string[]
               cli_command?: string
@@ -7190,6 +7196,9 @@ export interface operations {
               auth_config?: {
                 [key: string]: unknown
               }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
               available?: boolean
               cli_args?: string[]
               cli_command?: string

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
@@ -107,31 +108,36 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 
 func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 	orgID := uuid.New()
+	checkedAt := time.Now().UTC().Add(-5 * time.Minute)
 	repo := &stubRepository{
 		listedProviders: []domain.AgentProvider{
 			{
-				ID:             uuid.New(),
-				OrganizationID: orgID,
-				MachineID:      uuid.New(),
-				Name:           "Claude Code",
-				AdapterType:    domain.AgentProviderAdapterTypeClaudeCodeCLI,
-				CliCommand:     "claude",
-				ModelName:      "claude-sonnet-4-5",
+				ID:               uuid.New(),
+				OrganizationID:   orgID,
+				MachineID:        uuid.New(),
+				MachineHost:      domain.LocalMachineHost,
+				MachineStatus:    domain.MachineStatusOnline,
+				MachineResources: providerAvailabilityResources(checkedAt, "claude_code", false, domain.MachineAgentAuthStatusUnknown, domain.MachineAgentAuthModeUnknown, false),
+				Name:             "Claude Code",
+				AdapterType:      domain.AgentProviderAdapterTypeClaudeCodeCLI,
+				CliCommand:       "claude",
+				ModelName:        "claude-sonnet-4-5",
 			},
 			{
-				ID:             uuid.New(),
-				OrganizationID: orgID,
-				MachineID:      uuid.New(),
-				Name:           "OpenAI Codex",
-				AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
-				CliCommand:     "codex",
-				ModelName:      "gpt-5.3-codex",
+				ID:               uuid.New(),
+				OrganizationID:   orgID,
+				MachineID:        uuid.New(),
+				MachineHost:      domain.LocalMachineHost,
+				MachineStatus:    domain.MachineStatusOnline,
+				MachineResources: providerAvailabilityResources(checkedAt, "codex", true, domain.MachineAgentAuthStatusLoggedIn, domain.MachineAgentAuthModeLogin, true),
+				Name:             "OpenAI Codex",
+				AdapterType:      domain.AgentProviderAdapterTypeCodexAppServer,
+				CliCommand:       "codex",
+				ModelName:        "gpt-5.3-codex",
 			},
 		},
 	}
-	svc := New(repo, stubExecutableResolver{
-		paths: map[string]string{"codex": "/usr/local/bin/codex"},
-	}, nil)
+	svc := New(repo, stubExecutableResolver{}, nil)
 
 	items, err := svc.ListAgentProviders(context.Background(), orgID)
 	if err != nil {
@@ -143,13 +149,23 @@ func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 	if items[0].Available {
 		t.Fatalf("expected claude provider to be unavailable, got %+v", items[0])
 	}
+	if items[0].AvailabilityState != domain.AgentProviderAvailabilityStateUnavailable {
+		t.Fatalf("expected claude provider state unavailable, got %+v", items[0])
+	}
 	if !items[1].Available {
 		t.Fatalf("expected codex provider to be available, got %+v", items[1])
+	}
+	if items[1].AvailabilityState != domain.AgentProviderAvailabilityStateAvailable {
+		t.Fatalf("expected codex provider state available, got %+v", items[1])
+	}
+	if items[1].AvailabilityCheckedAt == nil {
+		t.Fatalf("expected codex provider to include availability_checked_at, got %+v", items[1])
 	}
 }
 
 func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *testing.T) {
 	orgID := uuid.New()
+	checkedAt := time.Now().UTC().Add(-5 * time.Minute)
 	repo := &stubRepository{
 		createdOrganization: domain.Organization{
 			ID:   orgID,
@@ -158,28 +174,32 @@ func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *tes
 		},
 		listedProviders: []domain.AgentProvider{
 			{
-				ID:             uuid.New(),
-				OrganizationID: orgID,
-				MachineID:      uuid.New(),
-				Name:           "Claude Code",
-				AdapterType:    domain.AgentProviderAdapterTypeClaudeCodeCLI,
-				CliCommand:     "claude",
-				ModelName:      "claude-sonnet-4-5",
+				ID:               uuid.New(),
+				OrganizationID:   orgID,
+				MachineID:        uuid.New(),
+				MachineHost:      domain.LocalMachineHost,
+				MachineStatus:    domain.MachineStatusOnline,
+				MachineResources: providerAvailabilityResources(checkedAt, "claude_code", false, domain.MachineAgentAuthStatusUnknown, domain.MachineAgentAuthModeUnknown, false),
+				Name:             "Claude Code",
+				AdapterType:      domain.AgentProviderAdapterTypeClaudeCodeCLI,
+				CliCommand:       "claude",
+				ModelName:        "claude-sonnet-4-5",
 			},
 			{
-				ID:             uuid.New(),
-				OrganizationID: orgID,
-				MachineID:      uuid.New(),
-				Name:           "OpenAI Codex",
-				AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
-				CliCommand:     "codex",
-				ModelName:      "gpt-5.3-codex",
+				ID:               uuid.New(),
+				OrganizationID:   orgID,
+				MachineID:        uuid.New(),
+				MachineHost:      domain.LocalMachineHost,
+				MachineStatus:    domain.MachineStatusOnline,
+				MachineResources: providerAvailabilityResources(checkedAt, "codex", true, domain.MachineAgentAuthStatusLoggedIn, domain.MachineAgentAuthModeLogin, true),
+				Name:             "OpenAI Codex",
+				AdapterType:      domain.AgentProviderAdapterTypeCodexAppServer,
+				CliCommand:       "codex",
+				ModelName:        "gpt-5.3-codex",
 			},
 		},
 	}
-	svc := New(repo, stubExecutableResolver{
-		paths: map[string]string{"codex": "/usr/local/bin/codex"},
-	}, nil)
+	svc := New(repo, stubExecutableResolver{}, nil)
 
 	item, err := svc.CreateOrganization(context.Background(), domain.CreateOrganization{
 		Name: "Acme",
@@ -543,6 +563,29 @@ func equalStrings(left []string, right []string) bool {
 	}
 
 	return true
+}
+
+func providerAvailabilityResources(
+	checkedAt time.Time,
+	entryName string,
+	installed bool,
+	authStatus domain.MachineAgentAuthStatus,
+	authMode domain.MachineAgentAuthMode,
+	ready bool,
+) map[string]any {
+	return map[string]any{
+		"monitor": map[string]any{
+			"l4": map[string]any{
+				"checked_at": checkedAt.UTC().Format(time.RFC3339),
+				entryName: map[string]any{
+					"installed":   installed,
+					"auth_status": string(authStatus),
+					"auth_mode":   string(authMode),
+					"ready":       ready,
+				},
+			},
+		},
+	}
 }
 
 type stubProjectStatusBootstrapper struct {

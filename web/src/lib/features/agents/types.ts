@@ -28,7 +28,10 @@ export type ProviderConfig = {
   machineWorkspaceRoot?: string | null
   name: string
   adapterType: string
+  availabilityState: string
   available: boolean
+  availabilityCheckedAt?: string | null
+  availabilityReason?: string | null
   cliCommand: string
   cliArgs: string[]
   authConfig: Record<string, unknown>

@@ -9,27 +9,30 @@ import (
 )
 
 type AgentProvider struct {
-	ID                   uuid.UUID
-	OrganizationID       uuid.UUID
-	MachineID            uuid.UUID
-	MachineName          string
-	MachineHost          string
-	MachineStatus        MachineStatus
-	MachineSSHUser       *string
-	MachineWorkspaceRoot *string
-	MachineAgentCLIPath  *string
-	MachineResources     map[string]any
-	Name                 string
-	AdapterType          AgentProviderAdapterType
-	Available            bool
-	CliCommand           string
-	CliArgs              []string
-	AuthConfig           map[string]any
-	ModelName            string
-	ModelTemperature     float64
-	ModelMaxTokens       int
-	CostPerInputToken    float64
-	CostPerOutputToken   float64
+	ID                    uuid.UUID
+	OrganizationID        uuid.UUID
+	MachineID             uuid.UUID
+	MachineName           string
+	MachineHost           string
+	MachineStatus         MachineStatus
+	MachineSSHUser        *string
+	MachineWorkspaceRoot  *string
+	MachineAgentCLIPath   *string
+	MachineResources      map[string]any
+	Name                  string
+	AdapterType           AgentProviderAdapterType
+	AvailabilityState     AgentProviderAvailabilityState
+	Available             bool
+	AvailabilityCheckedAt *time.Time
+	AvailabilityReason    *string
+	CliCommand            string
+	CliArgs               []string
+	AuthConfig            map[string]any
+	ModelName             string
+	ModelTemperature      float64
+	ModelMaxTokens        int
+	CostPerInputToken     float64
+	CostPerOutputToken    float64
 }
 
 type Agent struct {
