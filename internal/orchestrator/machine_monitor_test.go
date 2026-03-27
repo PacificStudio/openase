@@ -358,6 +358,61 @@ func TestMachineMonitorRunTickCapturesL4AndL5WithoutChangingMachineStatus(t *tes
 	}
 }
 
+func TestMachineMonitorRunTickMarksMachineDegradedWhenL4Fails(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-05.pem"
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName("builder-02").
+		SetHost("10.0.1.14").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l1": map[string]any{"checked_at": "2026-03-20T18:29:50Z"},
+				"l2": map[string]any{"checked_at": "2026-03-20T18:29:30Z"},
+			},
+		}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create remote machine: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 18, 30, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{
+		now:           func() time.Time { return now },
+		agentEnvError: errors.New("codex auth probe failed"),
+	}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	report, err := monitor.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.L4Checks != 1 || report.DegradedMachines != 1 {
+		t.Fatalf("expected one degraded machine after L4 failure, got %+v", report)
+	}
+
+	machineAfter, err := client.Machine.Get(ctx, machineItem.ID)
+	if err != nil {
+		t.Fatalf("reload machine: %v", err)
+	}
+	if machineAfter.Status != entmachine.StatusDegraded {
+		t.Fatalf("expected machine degraded after L4 failure, got %+v", machineAfter)
+	}
+	l4 := machineAfter.Resources["monitor"].(map[string]any)["l4"].(map[string]any)
+	if l4["error"] != "codex auth probe failed" {
+		t.Fatalf("expected l4 error to be recorded, got %+v", l4)
+	}
+}
+
 func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Client) uuid.UUID {
 	t.Helper()
 	org, err := client.Organization.Create().

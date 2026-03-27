@@ -26,6 +26,10 @@
     type GovernanceAgent,
     type ProviderOption,
   } from './agent-settings-model'
+  import {
+    providerAvailabilityBadgeVariant,
+    providerAvailabilityLabel,
+  } from '$lib/features/providers/availability'
 
   const agentsCapability = getSettingsSectionCapability('agents')
   const inheritProviderValue = '__org_default__'
@@ -201,9 +205,7 @@
                     <Select.Item value={provider.id}>
                       {provider.name}
                       {' '}· {provider.machineName}
-                      {#if !provider.available}
-                        {' '}· unavailable
-                      {/if}
+                      {' '}· {providerAvailabilityLabel(provider.availabilityState)}
                       {' '}· {provider.adapterType} · {provider.modelName}
                     </Select.Item>
                   {/each}
@@ -243,10 +245,10 @@
                               {provider.name}
                             </span>
                             <Badge
-                              variant={provider.available ? 'secondary' : 'outline'}
+                              variant={providerAvailabilityBadgeVariant(provider.availabilityState)}
                               class="text-[10px]"
                             >
-                              {provider.available ? 'Available' : 'Unavailable'}
+                              {providerAvailabilityLabel(provider.availabilityState)}
                             </Badge>
                             {#if selectedDefaultProviderId === provider.id}
                               <Badge variant="outline" class="text-[10px]">Project default</Badge>

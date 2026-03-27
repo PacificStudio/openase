@@ -1,5 +1,9 @@
 <script lang="ts">
   import { capabilityCatalog } from '$lib/features/capabilities'
+  import {
+    providerAvailabilityBadgeVariant,
+    providerAvailabilityLabel,
+  } from '$lib/features/providers/availability'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
@@ -38,8 +42,11 @@
               {#if provider.isDefault}
                 <Badge variant="outline" class="text-[10px]">Default</Badge>
               {/if}
-              <Badge variant={provider.available ? 'secondary' : 'outline'} class="text-[10px]">
-                {provider.available ? 'Available' : 'Unavailable'}
+              <Badge
+                variant={providerAvailabilityBadgeVariant(provider.availabilityState)}
+                class="text-[10px]"
+              >
+                {providerAvailabilityLabel(provider.availabilityState)}
               </Badge>
             </div>
             <Card.Description class="text-xs">{provider.adapterType}</Card.Description>

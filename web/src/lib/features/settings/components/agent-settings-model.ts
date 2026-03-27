@@ -1,4 +1,5 @@
 import type { Agent, AgentProvider } from '$lib/api/contracts'
+import { normalizeProviderAvailabilityState } from '$lib/features/providers/availability'
 
 export type ProviderOption = {
   id: string
@@ -6,6 +7,7 @@ export type ProviderOption = {
   machineName: string
   adapterType: string
   modelName: string
+  availabilityState: string
   available: boolean
   agentCount: number
 }
@@ -49,6 +51,7 @@ export function buildProviderOptions(
     name: provider.name,
     machineName: provider.machine_name,
     adapterType: provider.adapter_type,
+    availabilityState: normalizeProviderAvailabilityState(provider.availability_state),
     modelName: provider.model_name,
     available: provider.available,
     agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,

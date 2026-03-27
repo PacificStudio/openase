@@ -114,6 +114,31 @@ func (s MachineStatus) IsValid() bool {
 	}
 }
 
+type AgentProviderAvailabilityState string
+
+const (
+	AgentProviderAvailabilityStateUnknown     AgentProviderAvailabilityState = "unknown"
+	AgentProviderAvailabilityStateAvailable   AgentProviderAvailabilityState = "available"
+	AgentProviderAvailabilityStateUnavailable AgentProviderAvailabilityState = "unavailable"
+	AgentProviderAvailabilityStateStale       AgentProviderAvailabilityState = "stale"
+)
+
+func (s AgentProviderAvailabilityState) String() string {
+	return string(s)
+}
+
+func (s AgentProviderAvailabilityState) IsValid() bool {
+	switch s {
+	case AgentProviderAvailabilityStateUnknown,
+		AgentProviderAvailabilityStateAvailable,
+		AgentProviderAvailabilityStateUnavailable,
+		AgentProviderAvailabilityStateStale:
+		return true
+	default:
+		return false
+	}
+}
+
 type AgentProviderAdapterType string
 
 const (

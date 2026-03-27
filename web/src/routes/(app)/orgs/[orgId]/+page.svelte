@@ -3,6 +3,10 @@
   import OrganizationSettingsPanel from '$lib/features/catalog-creation/components/organization-settings-panel.svelte'
   import ProjectCreationDialog from '$lib/features/catalog-creation/components/project-creation-dialog.svelte'
   import ProviderCreationDialog from '$lib/features/catalog-creation/components/provider-creation-dialog.svelte'
+  import {
+    providerAvailabilityBadgeVariant,
+    providerAvailabilityLabel,
+  } from '$lib/features/providers/availability'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { Badge } from '$ui/badge'
@@ -101,8 +105,8 @@
             </div>
             <div class="flex shrink-0 items-center gap-2">
               <Badge variant="outline">{provider.machine_status}</Badge>
-              <Badge variant={provider.available ? 'secondary' : 'outline'}>
-                {provider.available ? 'Available' : 'Unavailable'}
+              <Badge variant={providerAvailabilityBadgeVariant(provider.availability_state)}>
+                {providerAvailabilityLabel(provider.availability_state)}
               </Badge>
               {#if currentOrg?.default_agent_provider_id === provider.id}
                 <Badge variant="secondary">Default</Badge>

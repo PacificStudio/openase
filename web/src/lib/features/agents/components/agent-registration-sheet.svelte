@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from '$ui/button'
+  import { providerAvailabilityLabel } from '$lib/features/providers/availability'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
@@ -52,9 +53,7 @@
   }
 
   function providerLabel(provider: AgentProvider) {
-    return provider.available
-      ? `${provider.name} · ${provider.machine_name} · ${provider.adapter_type} · ${provider.model_name}`
-      : `${provider.name} · ${provider.machine_name} · unavailable · ${provider.adapter_type} · ${provider.model_name}`
+    return `${provider.name} · ${provider.machine_name} · ${providerAvailabilityLabel(provider.availability_state)} · ${provider.adapter_type} · ${provider.model_name}`
   }
 
   function selectedProviderLabel() {
