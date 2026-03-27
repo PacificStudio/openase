@@ -22,9 +22,11 @@
   } from '$lib/features/statuses/public'
   import { appStore } from '$lib/stores/app.svelte'
   import { Separator } from '$ui/separator'
+  import type { StatusPayload } from '$lib/api/contracts'
   import StatusSettingsCreate from './status-settings-create.svelte'
   import StatusSettingsRow from './status-settings-row.svelte'
   let statuses = $state<EditableStatus[]>([])
+  let stages = $state<StatusPayload['stages']>([])
   let createName = $state('')
   let createColor = $state('#94a3b8')
   let createDefault = $state(false)
@@ -40,6 +42,7 @@
     const projectId = appStore.currentProject?.id
     if (!projectId) {
       statuses = []
+      stages = []
       createName = ''
       createColor = createEmptyStatusDraft().color
       createDefault = false
@@ -60,6 +63,7 @@
         const payload = await listStatuses(projectId)
         if (cancelled) return
         statuses = normalizeStatuses(payload.statuses)
+        stages = payload.stages
       } catch (caughtError) {
         if (cancelled) return
         error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load statuses.'
@@ -80,6 +84,7 @@
   async function reloadStatuses(projectId: string) {
     const payload = await listStatuses(projectId)
     statuses = normalizeStatuses(payload.statuses)
+    stages = payload.stages
   }
 
   async function handleCreate() {
@@ -246,6 +251,46 @@
   </div>
 
   <Separator />
+
+  {#if stages.length > 0}
+    <div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-900">Stage Concurrency</h3>
+        <p class="mt-1 text-sm text-slate-600">
+          Shared stage semaphores apply across every workflow that picks up from statuses inside the
+          same stage.
+        </p>
+      </div>
+
+      <div class="space-y-2">
+        {#each stages as stage}
+          <div
+            class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
+          >
+            <div>
+              <p class="text-sm font-medium text-slate-900">{stage.name}</p>
+              <p class="text-xs text-slate-500">
+                {#if stage.max_active_runs === null}
+                  {stage.active_runs} active now, unlimited capacity
+                {:else}
+                  {stage.active_runs} active now, capacity {stage.max_active_runs}
+                {/if}
+              </p>
+            </div>
+            <div class="text-sm font-medium text-slate-700">
+              {#if stage.max_active_runs === null}
+                {stage.active_runs}
+              {:else}
+                {stage.active_runs}/{stage.max_active_runs}
+              {/if}
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+
+    <Separator />
+  {/if}
 
   <StatusSettingsCreate
     bind:name={createName}

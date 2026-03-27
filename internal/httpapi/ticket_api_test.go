@@ -26,6 +26,7 @@ import (
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 )
 
 func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
@@ -1256,6 +1257,29 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		t.Fatalf("attach current run to ticket: %v", err)
 	}
 
+	statusesBeforeResp := struct {
+		Stages []ticketstatus.Stage `json:"stages"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID),
+		nil,
+		http.StatusOK,
+		&statusesBeforeResp,
+	)
+	backlogStageBefore := ticketstatus.Stage{}
+	for _, stage := range statusesBeforeResp.Stages {
+		if stage.Key == "backlog" {
+			backlogStageBefore = stage
+			break
+		}
+	}
+	if backlogStageBefore.ID == uuid.Nil || backlogStageBefore.ActiveRuns != 1 {
+		t.Fatalf("expected backlog stage active_runs=1 before status transition, got %+v", backlogStageBefore)
+	}
+
 	titleOnlyResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
@@ -1329,6 +1353,29 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	}
 	if agentAfterStatusChange.RuntimeControlState != entagent.RuntimeControlStateActive {
 		t.Fatalf("expected status update to reset agent control state, got %+v", agentAfterStatusChange)
+	}
+
+	statusesAfterResp := struct {
+		Stages []ticketstatus.Stage `json:"stages"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID),
+		nil,
+		http.StatusOK,
+		&statusesAfterResp,
+	)
+	backlogStageAfter := ticketstatus.Stage{}
+	for _, stage := range statusesAfterResp.Stages {
+		if stage.Key == "backlog" {
+			backlogStageAfter = stage
+			break
+		}
+	}
+	if backlogStageAfter.ID == uuid.Nil || backlogStageAfter.ActiveRuns != 0 {
+		t.Fatalf("expected backlog stage active_runs=0 after status transition, got %+v", backlogStageAfter)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
@@ -27,6 +28,7 @@ const (
 	skipReasonNoAgent        = "no_agent"
 	skipReasonNoMachine      = "no_machine"
 	skipReasonMaxConcurrency = "max_concurrency"
+	skipReasonStageCapacity  = "stage_capacity"
 )
 
 // TickReport summarizes the work done during one scheduler tick.
@@ -285,6 +287,29 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 	}
 	if projectActive >= projectMaxConcurrent {
 		return skipReasonMaxConcurrency, nil
+	}
+
+	pickupStatus, err := tx.TicketStatus.Query().
+		Where(entticketstatus.IDEQ(workflow.PickupStatusID)).
+		WithStage().
+		Only(ctx)
+	if err != nil {
+		return "", fmt.Errorf("load workflow pickup status: %w", err)
+	}
+	if pickupStatus.Edges.Stage != nil && pickupStatus.Edges.Stage.MaxActiveRuns != nil {
+		stageActive, err := tx.Ticket.Query().
+			Where(
+				entticket.ProjectIDEQ(workflow.ProjectID),
+				entticket.CurrentRunIDNotNil(),
+				entticket.HasStatusWith(entticketstatus.StageIDEQ(pickupStatus.Edges.Stage.ID)),
+			).
+			Count(ctx)
+		if err != nil {
+			return "", fmt.Errorf("count stage concurrency: %w", err)
+		}
+		if stageActive >= *pickupStatus.Edges.Stage.MaxActiveRuns {
+			return skipReasonStageCapacity, nil
+		}
 	}
 
 	claimedAgents, err := tx.Agent.Update().

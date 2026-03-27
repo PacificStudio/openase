@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -254,6 +255,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			machineReport, machineErr := machineMonitor.RunTick(tickCtx)
 			report, runErr := scheduler.RunTick(tickCtx)
 			launchErr := runtimeLauncher.RunTick(tickCtx)
+			stageSnapshots, stageErr := ticketstatus.ListStageRuntimeSnapshots(tickCtx, client)
 			payload := map[string]any{
 				"mode":           string(a.config.Server.Mode),
 				"time":           tick.UTC().Format(time.RFC3339),
@@ -261,7 +263,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 				"machine_report": machineReport,
 				"report":         report,
 			}
-			combinedErr := joinOrchestratorTickErrors(healthErr, machineErr, runErr, launchErr)
+			combinedErr := joinOrchestratorTickErrors(healthErr, machineErr, runErr, launchErr, stageErr)
 			if combinedErr != nil {
 				payload["error"] = combinedErr.Error()
 				span.RecordError(combinedErr)
@@ -301,6 +303,20 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			a.metrics.Histogram("openase.orchestrator.tick_duration_seconds", provider.Tags{
 				"mode": string(a.config.Server.Mode),
 			}).Record(time.Since(start).Seconds())
+			for _, snapshot := range stageSnapshots {
+				tags := provider.Tags{
+					"project_id": snapshot.ProjectID.String(),
+					"stage_id":   snapshot.StageID.String(),
+					"stage_key":  snapshot.Key,
+					"limited":    strconv.FormatBool(snapshot.MaxActiveRuns != nil),
+				}
+				a.metrics.Gauge("openase.ticket.stage_active_runs", tags).Set(float64(snapshot.ActiveRuns))
+				stageCapacity := 0
+				if snapshot.MaxActiveRuns != nil {
+					stageCapacity = *snapshot.MaxActiveRuns
+				}
+				a.metrics.Gauge("openase.ticket.stage_capacity", tags).Set(float64(stageCapacity))
+			}
 			span.SetAttributes(
 				provider.IntAttribute("orchestrator.health.claims_checked", healthReport.ClaimsChecked),
 				provider.IntAttribute("orchestrator.health.stalled_claims", healthReport.StalledClaims),
@@ -340,8 +356,8 @@ func sumSkipCounts(values map[string]int) int {
 	return total
 }
 
-func joinOrchestratorTickErrors(healthErr error, machineErr error, schedulerErr error, launcherErr error) error {
-	errs := make([]error, 0, 4)
+func joinOrchestratorTickErrors(healthErr error, machineErr error, schedulerErr error, launcherErr error, stageErr error) error {
+	errs := make([]error, 0, 5)
 	if healthErr != nil {
 		errs = append(errs, fmt.Errorf("health check: %w", healthErr))
 	}
@@ -353,6 +369,9 @@ func joinOrchestratorTickErrors(healthErr error, machineErr error, schedulerErr 
 	}
 	if launcherErr != nil {
 		errs = append(errs, fmt.Errorf("runtime launcher: %w", launcherErr))
+	}
+	if stageErr != nil {
+		errs = append(errs, fmt.Errorf("stage metrics: %w", stageErr))
 	}
 	if len(errs) == 0 {
 		return nil

@@ -47,6 +47,7 @@ type Stage struct {
 	Key           string    `json:"key"`
 	Name          string    `json:"name"`
 	Position      int       `json:"position"`
+	ActiveRuns    int       `json:"active_runs"`
 	MaxActiveRuns *int      `json:"max_active_runs,omitempty"`
 	Description   string    `json:"description"`
 }
@@ -167,8 +168,12 @@ func (s *Service) List(ctx context.Context, projectID uuid.UUID) (ListResult, er
 	if err != nil {
 		return ListResult{}, fmt.Errorf("list ticket statuses: %w", err)
 	}
+	stageSnapshots, err := ListProjectStageRuntimeSnapshots(ctx, s.client, projectID)
+	if err != nil {
+		return ListResult{}, fmt.Errorf("list ticket stage runtime snapshots: %w", err)
+	}
 
-	return buildListResult(stages, statuses), nil
+	return buildListResult(stages, statuses, stageSnapshots), nil
 }
 
 // ListStages returns the ordered stages for a project.
@@ -187,8 +192,12 @@ func (s *Service) ListStages(ctx context.Context, projectID uuid.UUID) ([]Stage,
 	if err != nil {
 		return nil, fmt.Errorf("list ticket stages: %w", err)
 	}
+	stageSnapshots, err := ListProjectStageRuntimeSnapshots(ctx, s.client, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list ticket stage runtime snapshots: %w", err)
+	}
 
-	return mapStages(stages), nil
+	return mapStages(stages, stageActiveRunsByID(stageSnapshots)), nil
 }
 
 // CreateStage persists a new ticket stage in a project.
@@ -241,7 +250,7 @@ func (s *Service) CreateStage(ctx context.Context, input CreateStageInput) (Stag
 		return Stage{}, fmt.Errorf("commit ticket stage create tx: %w", err)
 	}
 
-	return mapStage(created), nil
+	return mapStageWithActiveRuns(created, 0), nil
 }
 
 // UpdateStage applies a partial update to an existing ticket stage.
@@ -291,7 +300,12 @@ func (s *Service) UpdateStage(ctx context.Context, input UpdateStageInput) (Stag
 		return Stage{}, fmt.Errorf("commit ticket stage update tx: %w", err)
 	}
 
-	return mapStage(updated), nil
+	activeRuns, err := countStageActiveRuns(ctx, s.client, updated.ProjectID, updated.ID)
+	if err != nil {
+		return Stage{}, fmt.Errorf("count ticket stage active runs: %w", err)
+	}
+
+	return mapStageWithActiveRuns(updated, activeRuns), nil
 }
 
 // DeleteStage removes a ticket stage and ungroups all attached statuses.
@@ -398,7 +412,15 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Status, error)
 	if err != nil {
 		return Status{}, fmt.Errorf("load created ticket status: %w", err)
 	}
-	return mapStatus(saved), nil
+	activeRunsByStageID := map[uuid.UUID]int{}
+	if saved.StageID != nil {
+		activeRuns, err := countStageActiveRuns(ctx, s.client, saved.ProjectID, *saved.StageID)
+		if err != nil {
+			return Status{}, fmt.Errorf("count created ticket status stage active runs: %w", err)
+		}
+		activeRunsByStageID[*saved.StageID] = activeRuns
+	}
+	return mapStatus(saved, activeRunsByStageID), nil
 }
 
 // Update applies a partial update to an existing ticket status.
@@ -493,7 +515,15 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Status, error)
 	if err != nil {
 		return Status{}, fmt.Errorf("load updated ticket status: %w", err)
 	}
-	return mapStatus(saved), nil
+	activeRunsByStageID := map[uuid.UUID]int{}
+	if saved.StageID != nil {
+		activeRuns, err := countStageActiveRuns(ctx, s.client, saved.ProjectID, *saved.StageID)
+		if err != nil {
+			return Status{}, fmt.Errorf("count updated ticket status stage active runs: %w", err)
+		}
+		activeRunsByStageID[*saved.StageID] = activeRuns
+	}
+	return mapStatus(saved, activeRunsByStageID), nil
 }
 
 // Delete removes a ticket status and reassigns affected tickets when required.
@@ -713,7 +743,7 @@ func (s *Service) ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUI
 		return nil, fmt.Errorf("commit ticket status reset tx: %w", err)
 	}
 
-	return buildListResult(finalStages, finalStatuses).Statuses, nil
+	return buildListResult(finalStages, finalStatuses, nil).Statuses, nil
 }
 
 // BackfillDefaultStages creates the PRD stage template for legacy projects that still only have default statuses.
@@ -1021,9 +1051,10 @@ func hasTemplateStatus(statuses []*ent.TicketStatus) bool {
 	return false
 }
 
-func buildListResult(stages []*ent.TicketStage, statuses []*ent.TicketStatus) ListResult {
-	stageModels := mapStages(stages)
-	statusModels := mapStatuses(statuses)
+func buildListResult(stages []*ent.TicketStage, statuses []*ent.TicketStatus, stageSnapshots []StageRuntimeSnapshot) ListResult {
+	activeRunsByStageID := stageActiveRunsByID(stageSnapshots)
+	stageModels := mapStages(stages, activeRunsByStageID)
+	statusModels := mapStatuses(statuses, activeRunsByStageID)
 	sortStatusesForBoard(stageModels, statusModels)
 
 	return ListResult{
@@ -1100,35 +1131,40 @@ func buildStatusGroups(stages []Stage, statuses []Status) []StatusGroup {
 	return groups
 }
 
-func mapStages(stages []*ent.TicketStage) []Stage {
+func mapStages(stages []*ent.TicketStage, activeRunsByStageID map[uuid.UUID]int) []Stage {
 	out := make([]Stage, 0, len(stages))
 	for _, stage := range stages {
-		out = append(out, mapStage(stage))
+		out = append(out, mapStageWithActiveRuns(stage, activeRunsByStageID[stage.ID]))
 	}
 	return out
 }
 
 func mapStage(stage *ent.TicketStage) Stage {
+	return mapStageWithActiveRuns(stage, 0)
+}
+
+func mapStageWithActiveRuns(stage *ent.TicketStage, activeRuns int) Stage {
 	return Stage{
 		ID:            stage.ID,
 		ProjectID:     stage.ProjectID,
 		Key:           stage.Key,
 		Name:          stage.Name,
 		Position:      stage.Position,
+		ActiveRuns:    activeRuns,
 		MaxActiveRuns: cloneIntPointer(stage.MaxActiveRuns),
 		Description:   stage.Description,
 	}
 }
 
-func mapStatuses(statuses []*ent.TicketStatus) []Status {
+func mapStatuses(statuses []*ent.TicketStatus, activeRunsByStageID map[uuid.UUID]int) []Status {
 	out := make([]Status, 0, len(statuses))
 	for _, status := range statuses {
-		out = append(out, mapStatus(status))
+		out = append(out, mapStatus(status, activeRunsByStageID))
 	}
 	return out
 }
 
-func mapStatus(status *ent.TicketStatus) Status {
+func mapStatus(status *ent.TicketStatus, activeRunsByStageID map[uuid.UUID]int) Status {
 	var stageID *uuid.UUID
 	if status.StageID != nil {
 		stageID = cloneUUIDPointer(status.StageID)
@@ -1136,7 +1172,7 @@ func mapStatus(status *ent.TicketStatus) Status {
 
 	var stage *Stage
 	if status.Edges.Stage != nil {
-		stageValue := mapStage(status.Edges.Stage)
+		stageValue := mapStageWithActiveRuns(status.Edges.Stage, activeRunsByStageID[status.Edges.Stage.ID])
 		stage = &stageValue
 	}
 

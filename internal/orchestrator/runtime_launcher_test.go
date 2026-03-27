@@ -276,6 +276,9 @@ func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing
 	if ticketAfter.CurrentRunID != nil {
 		t.Fatalf("expected graceful shutdown to clear current run, got %+v", ticketAfter.CurrentRunID)
 	}
+	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 0 {
+		t.Fatalf("expected graceful shutdown to drop backlog stage occupancy to 0, got %d", got)
+	}
 
 	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
@@ -292,6 +295,95 @@ func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing
 	}
 	if payload.Agent.CurrentRunID != nil {
 		t.Fatalf("expected terminated event to publish cleared current_run_id, got %+v", payload.Agent.CurrentRunID)
+	}
+}
+
+func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 13, 5, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-finish-01").
+		SetWorkspacePath("/tmp/openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-402B").
+		SetTitle("Finish runtime execution").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+
+	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 1 {
+		t.Fatalf("expected active backlog stage occupancy before finish, got %d", got)
+	}
+
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetStatusID(fixture.statusIDs["Done"]).Save(ctx); err != nil {
+		t.Fatalf("mark ticket done: %v", err)
+	}
+	resolvedTicket, err := client.Ticket.Query().
+		Where(entticket.IDEQ(ticketItem.ID)).
+		WithCurrentRun().
+		WithWorkflow().
+		WithStatus().
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("reload resolved ticket: %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.now = func() time.Time {
+		return now
+	}
+	if err := launcher.finishResolvedExecution(ctx, agentItem.ID, resolvedTicket); err != nil {
+		t.Fatalf("finish resolved execution: %v", err)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected finish to clear current run, got %+v", ticketAfter.CurrentRunID)
+	}
+	if ticketAfter.CompletedAt == nil {
+		t.Fatalf("expected finish to stamp completed_at, got %+v", ticketAfter)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusCompleted {
+		t.Fatalf("expected completed run after finish, got %+v", runAfter)
+	}
+	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 0 {
+		t.Fatalf("expected finish to drop backlog stage occupancy to 0, got %d", got)
 	}
 }
 

@@ -5398,6 +5398,7 @@ export interface operations {
         content: {
           'application/json': {
             stages?: {
+              active_runs?: number
               description?: string
               id?: string
               key?: string
@@ -5478,6 +5479,7 @@ export interface operations {
         content: {
           'application/json': {
             stage?: {
+              active_runs?: number
               description?: string
               id?: string
               key?: string
@@ -5560,6 +5562,7 @@ export interface operations {
           'application/json': {
             stage_groups?: {
               stage?: {
+                active_runs?: number
                 description?: string
                 id?: string
                 key?: string
@@ -5578,6 +5581,7 @@ export interface operations {
                 position?: number
                 project_id?: string
                 stage?: {
+                  active_runs?: number
                   description?: string
                   id?: string
                   key?: string
@@ -5590,6 +5594,7 @@ export interface operations {
               }[]
             }[]
             stages?: {
+              active_runs?: number
               description?: string
               id?: string
               key?: string
@@ -5608,6 +5613,7 @@ export interface operations {
               position?: number
               project_id?: string
               stage?: {
+                active_runs?: number
                 description?: string
                 id?: string
                 key?: string
@@ -5701,6 +5707,7 @@ export interface operations {
               position?: number
               project_id?: string
               stage?: {
+                active_runs?: number
                 description?: string
                 id?: string
                 key?: string
@@ -5785,6 +5792,7 @@ export interface operations {
           'application/json': {
             stage_groups?: {
               stage?: {
+                active_runs?: number
                 description?: string
                 id?: string
                 key?: string
@@ -5803,6 +5811,7 @@ export interface operations {
                 position?: number
                 project_id?: string
                 stage?: {
+                  active_runs?: number
                   description?: string
                   id?: string
                   key?: string
@@ -5815,6 +5824,7 @@ export interface operations {
               }[]
             }[]
             stages?: {
+              active_runs?: number
               description?: string
               id?: string
               key?: string
@@ -5833,6 +5843,7 @@ export interface operations {
               position?: number
               project_id?: string
               stage?: {
+                active_runs?: number
                 description?: string
                 id?: string
                 key?: string
@@ -7522,6 +7533,7 @@ export interface operations {
         content: {
           'application/json': {
             stage?: {
+              active_runs?: number
               description?: string
               id?: string
               key?: string
@@ -7699,6 +7711,7 @@ export interface operations {
               position?: number
               project_id?: string
               stage?: {
+                active_runs?: number
                 description?: string
                 id?: string
                 key?: string

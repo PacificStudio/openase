@@ -71,6 +71,9 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	if result.ReleasedAgentID == nil || *result.ReleasedAgentID != agentItem.ID {
 		t.Fatalf("expected released agent %s, got %+v", agentItem.ID, result.ReleasedAgentID)
 	}
+	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 0 {
+		t.Fatalf("expected retry release to drop backlog stage occupancy to 0, got %d", got)
+	}
 
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
@@ -162,6 +165,9 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	}
 	if ticketAfter.PauseReason != ticketing.PauseReasonBudgetExhausted.String() {
 		t.Fatalf("expected pause reason %q, got %q", ticketing.PauseReasonBudgetExhausted, ticketAfter.PauseReason)
+	}
+	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 0 {
+		t.Fatalf("expected paused retry release to drop backlog stage occupancy to 0, got %d", got)
 	}
 	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
