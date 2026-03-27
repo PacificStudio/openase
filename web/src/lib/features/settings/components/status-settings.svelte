@@ -22,9 +22,12 @@
   } from '$lib/features/statuses/public'
   import { appStore } from '$lib/stores/app.svelte'
   import { Separator } from '$ui/separator'
+  import type { StatusPayload } from '$lib/api/contracts'
   import StatusSettingsCreate from './status-settings-create.svelte'
   import StatusSettingsRow from './status-settings-row.svelte'
+  import StatusStageConcurrency from './status-stage-concurrency.svelte'
   let statuses = $state<EditableStatus[]>([])
+  let stages = $state<StatusPayload['stages']>([])
   let createName = $state('')
   let createColor = $state('#94a3b8')
   let createDefault = $state(false)
@@ -35,11 +38,13 @@
   let error = $state(''),
     feedback = $state('')
   const statusCapability = getSettingsSectionCapability('statuses')
+  const clearMessages = () => ((error = ''), (feedback = ''))
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
       statuses = []
+      stages = []
       createName = ''
       createColor = createEmptyStatusDraft().color
       createDefault = false
@@ -60,26 +65,24 @@
         const payload = await listStatuses(projectId)
         if (cancelled) return
         statuses = normalizeStatuses(payload.statuses)
+        stages = payload.stages
       } catch (caughtError) {
         if (cancelled) return
         error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load statuses.'
       } finally {
-        if (!cancelled) {
-          loading = false
-        }
+        if (!cancelled) loading = false
       }
     }
 
     void load()
 
-    return () => {
-      cancelled = true
-    }
+    return () => (cancelled = true)
   })
 
   async function reloadStatuses(projectId: string) {
     const payload = await listStatuses(projectId)
     statuses = normalizeStatuses(payload.statuses)
+    stages = payload.stages
   }
 
   async function handleCreate() {
@@ -98,8 +101,7 @@
     }
 
     creating = true
-    error = ''
-    feedback = ''
+    clearMessages()
 
     try {
       const payload = await createStatus(projectId, {
@@ -135,8 +137,7 @@
     if (Object.keys(body).length === 0) return
 
     busyStatusId = statusId
-    error = ''
-    feedback = ''
+    clearMessages()
 
     try {
       await updateStatus(statusId, body)
@@ -159,8 +160,7 @@
 
     statuses = nextStatuses
     busyStatusId = statusId
-    error = ''
-    feedback = ''
+    clearMessages()
 
     try {
       await Promise.all(
@@ -189,8 +189,7 @@
     }
 
     busyStatusId = status.id
-    error = ''
-    feedback = ''
+    clearMessages()
 
     try {
       await deleteStatus(status.id)
@@ -216,8 +215,7 @@
     }
 
     resetting = true
-    error = ''
-    feedback = ''
+    clearMessages()
 
     try {
       await resetStatuses(projectId)
@@ -246,6 +244,12 @@
   </div>
 
   <Separator />
+
+  {#if stages.length > 0}
+    <StatusStageConcurrency {stages} />
+
+    <Separator />
+  {/if}
 
   <StatusSettingsCreate
     bind:name={createName}

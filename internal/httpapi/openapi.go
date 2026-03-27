@@ -270,6 +270,7 @@ type OpenAPITicketStage struct {
 	Key           string `json:"key"`
 	Name          string `json:"name"`
 	Position      int    `json:"position"`
+	ActiveRuns    int    `json:"active_runs"`
 	MaxActiveRuns *int   `json:"max_active_runs,omitempty"`
 	Description   string `json:"description"`
 }
