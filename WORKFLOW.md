@@ -25,7 +25,7 @@ workspace:
   root: "/home/yuzhong/agent-workspace/symphony/workspaces"
 hooks:
   after_create: |
-    git clone --depth 1 git@github.com:BetterAndBetterII/openase.git .
+    git clone --depth 1 git@github.com:GrandCX/openase.git .
 agent:
   max_concurrent_agents: 10
   max_turns: 24
