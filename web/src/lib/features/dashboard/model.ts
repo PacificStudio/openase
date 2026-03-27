@@ -42,13 +42,14 @@ export function buildDashboardStats(
 export function buildProjectSummary(
   project: Project,
   stats: Pick<DashboardStats, 'runningAgents' | 'activeTickets'>,
-  lastActivity: string,
+  lastActivity: string | null,
 ): ProjectSummary[] {
   return [
     {
       id: project.id,
       name: project.name,
-      health: projectHealth(project.status),
+      description: project.description,
+      status: project.status,
       activeAgents: stats.runningAgents,
       activeTickets: stats.activeTickets,
       lastActivity,
@@ -106,13 +107,6 @@ export function findTopTokenAgent(agents: Agent[]): DashboardUsageLeader | null 
 function isTerminalStatus(statusName: string) {
   const value = statusName.toLowerCase()
   return value === 'done' || value === 'cancelled' || value === 'archived'
-}
-
-function projectHealth(status: string): ProjectSummary['health'] {
-  const value = status.toLowerCase()
-  if (value === 'healthy' || value === 'active') return 'healthy'
-  if (value === 'blocked' || value === 'archived') return 'blocked'
-  return 'warning'
 }
 
 function isExceptionEvent(eventType: string) {

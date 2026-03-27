@@ -2,6 +2,7 @@
   import { PageScaffold } from '$lib/components/layout'
   import { formatBytes, formatCount } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import {
     getHRAdvisor,
     getProject,
@@ -9,6 +10,7 @@
     listActivity,
     listAgents,
     listTickets,
+    updateProject,
   } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import StatCard from './stat-card.svelte'
@@ -29,6 +31,7 @@
   } from '../model'
   import type {
     DashboardStats,
+    ProjectStatus,
     DashboardUsageLeader,
     HRAdvisorSnapshot,
     MemorySnapshot,
@@ -60,7 +63,35 @@
   let memory = $state<MemorySnapshot | null>(null)
   let topCostTicket = $state<DashboardUsageLeader | null>(null)
   let topTokenAgent = $state<DashboardUsageLeader | null>(null)
+  let savingProjectStatusId = $state<string | null>(null)
   const totalTicketTokens = $derived(stats.ticketInputTokens + stats.ticketOutputTokens)
+
+  async function handleProjectStatusChange(projectId: string, status: ProjectStatus) {
+    if (savingProjectStatusId === projectId) return
+
+    savingProjectStatusId = projectId
+
+    try {
+      const payload = await updateProject(projectId, { status })
+      appStore.currentProject = payload.project
+      projects = projects.map((project) =>
+        project.id === projectId
+          ? {
+              ...project,
+              description: payload.project.description,
+              status: payload.project.status,
+            }
+          : project,
+      )
+      toastStore.success('Project status updated.')
+    } catch (caughtError) {
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update project status.',
+      )
+    } finally {
+      savingProjectStatusId = null
+    }
+  }
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -121,7 +152,7 @@
         projects = buildProjectSummary(
           projectPayload.project,
           stats,
-          activityPayload.events[0]?.created_at ?? new Date().toISOString(),
+          activityPayload.events[0]?.created_at ?? null,
         )
         activities = buildActivityItems(activityPayload.events)
         exceptions = buildExceptionItems(activityPayload.events)
@@ -177,7 +208,11 @@
       </div>
 
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ProjectHealthList {projects} />
+        <ProjectHealthList
+          {projects}
+          {savingProjectStatusId}
+          onUpdateStatus={handleProjectStatusChange}
+        />
         <CostSnapshotPanel
           newTicketsTodayCost={stats.newTicketsTodayCost}
           projectCost={stats.projectCost}

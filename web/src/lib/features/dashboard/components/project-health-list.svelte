@@ -1,27 +1,36 @@
 <script lang="ts">
   import { cn, formatRelativeTime } from '$lib/utils'
-  import { Badge } from '$ui/badge'
-  import type { ProjectSummary } from '../types'
+  import * as Select from '$ui/select'
+  import type { ProjectStatus, ProjectSummary } from '../types'
   import { Bot, Ticket } from '@lucide/svelte'
 
   let {
     projects,
+    savingProjectStatusId = null,
+    onUpdateStatus,
     class: className = '',
   }: {
     projects: ProjectSummary[]
+    savingProjectStatusId?: string | null
+    onUpdateStatus?: (projectId: string, status: ProjectStatus) => void | Promise<void>
     class?: string
   } = $props()
 
-  const healthColor: Record<string, string> = {
-    healthy: 'bg-emerald-500',
-    warning: 'bg-amber-500',
-    blocked: 'bg-red-500',
+  const projectStatusOptions: ProjectStatus[] = ['planning', 'active', 'paused', 'archived']
+
+  const statusClassName: Record<ProjectStatus, string> = {
+    planning:
+      'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200',
+    active:
+      'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200',
+    paused:
+      'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200',
+    archived:
+      'border-border bg-background text-muted-foreground hover:bg-muted dark:hover:bg-muted/60',
   }
 
-  const healthVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
-    healthy: 'secondary',
-    warning: 'secondary',
-    blocked: 'destructive',
+  function statusLabel(status: ProjectStatus) {
+    return status.charAt(0).toUpperCase() + status.slice(1)
   }
 </script>
 
@@ -33,29 +42,55 @@
 
   <div class="divide-border divide-y">
     {#each projects as project (project.id)}
-      <div class="hover:bg-muted/50 flex items-center gap-4 px-4 py-3 transition-colors">
-        <div class="flex min-w-0 flex-1 items-center gap-2">
-          <span class={cn('size-2 shrink-0 rounded-full', healthColor[project.health])}></span>
-          <span class="text-foreground truncate text-sm font-medium">{project.name}</span>
+      <div class="hover:bg-muted/50 px-4 py-3 transition-colors">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="text-foreground truncate text-sm font-medium">{project.name}</div>
+            <p class="text-muted-foreground mt-1 text-xs leading-5">
+              {project.description || 'No description yet.'}
+            </p>
+          </div>
+
+          <Select.Root
+            type="single"
+            value={project.status}
+            onValueChange={(value) => {
+              if (!value || value === project.status) return
+              void onUpdateStatus?.(project.id, value as ProjectStatus)
+            }}
+          >
+            <Select.Trigger
+              class={cn(
+                'h-auto min-h-5 w-auto rounded-4xl border px-2 py-0.5 text-xs font-medium capitalize shadow-none',
+                statusClassName[project.status],
+              )}
+              disabled={savingProjectStatusId === project.id}
+            >
+              {statusLabel(project.status)}
+            </Select.Trigger>
+            <Select.Content>
+              {#each projectStatusOptions as status (status)}
+                <Select.Item value={status} class="capitalize">{statusLabel(status)}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
         </div>
 
-        <Badge variant={healthVariant[project.health]} class="text-[10px] capitalize">
-          {project.health}
-        </Badge>
+        <div class="text-muted-foreground mt-3 flex items-center gap-4 text-xs">
+          <div class="flex shrink-0 items-center gap-1">
+            <Bot class="size-3" />
+            <span>{project.activeAgents}</span>
+          </div>
 
-        <div class="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
-          <Bot class="size-3" />
-          <span>{project.activeAgents}</span>
+          <div class="flex shrink-0 items-center gap-1">
+            <Ticket class="size-3" />
+            <span>{project.activeTickets}</span>
+          </div>
+
+          <span class="ml-auto shrink-0 text-right">
+            {project.lastActivity ? formatRelativeTime(project.lastActivity) : 'No activity yet'}
+          </span>
         </div>
-
-        <div class="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
-          <Ticket class="size-3" />
-          <span>{project.activeTickets}</span>
-        </div>
-
-        <span class="text-muted-foreground w-16 shrink-0 text-right text-xs">
-          {formatRelativeTime(project.lastActivity)}
-        </span>
       </div>
     {/each}
   </div>
