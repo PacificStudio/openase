@@ -1,6 +1,9 @@
 name: Self-Hosted Smoke
 
 on:
+  push:
+    branches:
+      - codex/self-hosted-smoke
   workflow_dispatch:
 
 permissions:
