@@ -10,6 +10,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
 	_ "github.com/lib/pq"
@@ -42,6 +43,9 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 			entmigrate.WithDropIndex(false),
 		); err != nil {
 			return fmt.Errorf("migrate database schema: %w", err)
+		}
+		if err := ticketstatus.NewService(client).BackfillDefaultStages(ctx); err != nil {
+			return fmt.Errorf("backfill ticket stages: %w", err)
 		}
 		if err := reconcileLegacyTicketIdentifierIndex(ctx, trimmedDSN); err != nil {
 			return err

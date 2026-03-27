@@ -22,6 +22,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -209,6 +210,21 @@ func (_u *ProjectUpdate) AddRepos(v ...*ProjectRepo) *ProjectUpdate {
 	return _u.AddRepoIDs(ids...)
 }
 
+// AddStageIDs adds the "stages" edge to the TicketStage entity by IDs.
+func (_u *ProjectUpdate) AddStageIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddStageIDs(ids...)
+	return _u
+}
+
+// AddStages adds the "stages" edges to the TicketStage entity.
+func (_u *ProjectUpdate) AddStages(v ...*TicketStage) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddStageIDs(ids...)
+}
+
 // AddStatusIDs adds the "statuses" edge to the TicketStatus entity by IDs.
 func (_u *ProjectUpdate) AddStatusIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddStatusIDs(ids...)
@@ -369,6 +385,27 @@ func (_u *ProjectUpdate) RemoveRepos(v ...*ProjectRepo) *ProjectUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveRepoIDs(ids...)
+}
+
+// ClearStages clears all "stages" edges to the TicketStage entity.
+func (_u *ProjectUpdate) ClearStages() *ProjectUpdate {
+	_u.mutation.ClearStages()
+	return _u
+}
+
+// RemoveStageIDs removes the "stages" edge to TicketStage entities by IDs.
+func (_u *ProjectUpdate) RemoveStageIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveStageIDs(ids...)
+	return _u
+}
+
+// RemoveStages removes "stages" edges to TicketStage entities.
+func (_u *ProjectUpdate) RemoveStages(v ...*TicketStage) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveStageIDs(ids...)
 }
 
 // ClearStatuses clears all "statuses" edges to the TicketStatus entity.
@@ -709,6 +746,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(projectrepo.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.StagesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.StagesTable,
+			Columns: []string{project.StagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedStagesIDs(); len(nodes) > 0 && !_u.mutation.StagesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.StagesTable,
+			Columns: []string{project.StagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.StagesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.StagesTable,
+			Columns: []string{project.StagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1323,6 +1405,21 @@ func (_u *ProjectUpdateOne) AddRepos(v ...*ProjectRepo) *ProjectUpdateOne {
 	return _u.AddRepoIDs(ids...)
 }
 
+// AddStageIDs adds the "stages" edge to the TicketStage entity by IDs.
+func (_u *ProjectUpdateOne) AddStageIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddStageIDs(ids...)
+	return _u
+}
+
+// AddStages adds the "stages" edges to the TicketStage entity.
+func (_u *ProjectUpdateOne) AddStages(v ...*TicketStage) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddStageIDs(ids...)
+}
+
 // AddStatusIDs adds the "statuses" edge to the TicketStatus entity by IDs.
 func (_u *ProjectUpdateOne) AddStatusIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddStatusIDs(ids...)
@@ -1483,6 +1580,27 @@ func (_u *ProjectUpdateOne) RemoveRepos(v ...*ProjectRepo) *ProjectUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveRepoIDs(ids...)
+}
+
+// ClearStages clears all "stages" edges to the TicketStage entity.
+func (_u *ProjectUpdateOne) ClearStages() *ProjectUpdateOne {
+	_u.mutation.ClearStages()
+	return _u
+}
+
+// RemoveStageIDs removes the "stages" edge to TicketStage entities by IDs.
+func (_u *ProjectUpdateOne) RemoveStageIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveStageIDs(ids...)
+	return _u
+}
+
+// RemoveStages removes "stages" edges to TicketStage entities.
+func (_u *ProjectUpdateOne) RemoveStages(v ...*TicketStage) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveStageIDs(ids...)
 }
 
 // ClearStatuses clears all "statuses" edges to the TicketStatus entity.
@@ -1853,6 +1971,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(projectrepo.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.StagesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.StagesTable,
+			Columns: []string{project.StagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedStagesIDs(); len(nodes) > 0 && !_u.mutation.StagesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.StagesTable,
+			Columns: []string{project.StagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.StagesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.StagesTable,
+			Columns: []string{project.StagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

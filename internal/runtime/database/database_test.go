@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entticketstage "github.com/BetterAndBetterII/openase/ent/ticketstage"
+	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -119,6 +121,103 @@ func TestOpenReconcilesLegacyGlobalTicketIdentifierIndex(t *testing.T) {
 		if ticketItem.Identifier != "ASE-1" {
 			t.Fatalf("expected first ticket in project %d to use ASE-1, got %+v", index+1, ticketItem)
 		}
+	}
+}
+
+func TestOpenBackfillsDefaultTicketStagesForLegacyStatuses(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-stage-backfill").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	projectItem, err := bootstrapClient.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-stage-backfill").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	legacyStatuses := []struct {
+		name      string
+		position  int
+		isDefault bool
+	}{
+		{name: "Backlog", position: 0, isDefault: true},
+		{name: "Todo", position: 1},
+		{name: "Done", position: 2},
+		{name: "Research", position: 3},
+	}
+	for _, item := range legacyStatuses {
+		if _, err := bootstrapClient.TicketStatus.Create().
+			SetProjectID(projectItem.ID).
+			SetName(item.name).
+			SetColor("#111111").
+			SetPosition(item.position).
+			SetIsDefault(item.isDefault).
+			Save(ctx); err != nil {
+			t.Fatalf("create legacy status %s: %v", item.name, err)
+		}
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open runtime database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	stages, err := client.TicketStage.Query().
+		Where(entticketstage.ProjectIDEQ(projectItem.ID)).
+		Order(ent.Asc(entticketstage.FieldPosition)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query backfilled stages: %v", err)
+	}
+	if len(stages) != 4 {
+		t.Fatalf("expected 4 backfilled stages, got %+v", stages)
+	}
+
+	statuses, err := client.TicketStatus.Query().
+		Where(entticketstatus.ProjectIDEQ(projectItem.ID)).
+		Order(ent.Asc(entticketstatus.FieldPosition)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query statuses after backfill: %v", err)
+	}
+	if status := findStatusByName(statuses, "Backlog"); status == nil || status.StageID == nil || *status.StageID != findStageIDByKey(stages, "backlog") {
+		t.Fatalf("expected Backlog to backfill into backlog stage, got %+v", status)
+	}
+	if status := findStatusByName(statuses, "Todo"); status == nil || status.StageID == nil || *status.StageID != findStageIDByKey(stages, "backlog") {
+		t.Fatalf("expected Todo to backfill into backlog stage, got %+v", status)
+	}
+	if status := findStatusByName(statuses, "Done"); status == nil || status.StageID == nil || *status.StageID != findStageIDByKey(stages, "done") {
+		t.Fatalf("expected Done to backfill into done stage, got %+v", status)
+	}
+	if status := findStatusByName(statuses, "Research"); status == nil || status.StageID != nil {
+		t.Fatalf("expected custom status to remain ungrouped after backfill, got %+v", status)
 	}
 }
 
@@ -383,6 +482,24 @@ func findStatusID(t *testing.T, statuses []ticketstatus.Status, name string) uui
 	}
 	t.Fatalf("status %q not found in %+v", name, statuses)
 	return uuid.UUID{}
+}
+
+func findStageIDByKey(stages []*ent.TicketStage, key string) uuid.UUID {
+	for _, stage := range stages {
+		if stage.Key == key {
+			return stage.ID
+		}
+	}
+	return uuid.UUID{}
+}
+
+func findStatusByName(statuses []*ent.TicketStatus, name string) *ent.TicketStatus {
+	for _, status := range statuses {
+		if status.Name == name {
+			return status
+		}
+	}
+	return nil
 }
 
 func freePort(t *testing.T) uint32 {

@@ -634,6 +634,24 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/stages': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List ticket stages */
+    get: operations['listTicketStages']
+    put?: never
+    /** Create a ticket stage */
+    post: operations['createTicketStage']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/statuses': {
     parameters: {
       query?: never
@@ -842,6 +860,24 @@ export interface paths {
     options?: never
     head?: never
     patch?: never
+    trace?: never
+  }
+  '/api/v1/stages/{stageId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a ticket stage */
+    delete: operations['deleteTicketStage']
+    options?: never
+    head?: never
+    /** Update a ticket stage */
+    patch: operations['updateTicketStage']
     trace?: never
   }
   '/api/v1/statuses/{statusId}': {
@@ -5342,6 +5378,167 @@ export interface operations {
       }
     }
   }
+  listTicketStages: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List ticket stages response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            stages?: {
+              description?: string
+              id?: string
+              key?: string
+              max_active_runs?: number | null
+              name?: string
+              position?: number
+              project_id?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createTicketStage: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a ticket stage request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          description?: string
+          key?: string
+          max_active_runs?: number | null
+          name?: string
+          position?: number | null
+        }
+      }
+    }
+    responses: {
+      /** @description Create a ticket stage response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            stage?: {
+              description?: string
+              id?: string
+              key?: string
+              max_active_runs?: number | null
+              name?: string
+              position?: number
+              project_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listTicketStatuses: {
     parameters: {
       query?: never
@@ -5361,6 +5558,46 @@ export interface operations {
         }
         content: {
           'application/json': {
+            stage_groups?: {
+              stage?: {
+                description?: string
+                id?: string
+                key?: string
+                max_active_runs?: number | null
+                name?: string
+                position?: number
+                project_id?: string
+              } | null
+              statuses?: {
+                color?: string
+                description?: string
+                icon?: string
+                id?: string
+                is_default?: boolean
+                name?: string
+                position?: number
+                project_id?: string
+                stage?: {
+                  description?: string
+                  id?: string
+                  key?: string
+                  max_active_runs?: number | null
+                  name?: string
+                  position?: number
+                  project_id?: string
+                } | null
+                stage_id?: string | null
+              }[]
+            }[]
+            stages?: {
+              description?: string
+              id?: string
+              key?: string
+              max_active_runs?: number | null
+              name?: string
+              position?: number
+              project_id?: string
+            }[]
             statuses?: {
               color?: string
               description?: string
@@ -5370,6 +5607,16 @@ export interface operations {
               name?: string
               position?: number
               project_id?: string
+              stage?: {
+                description?: string
+                id?: string
+                key?: string
+                max_active_runs?: number | null
+                name?: string
+                position?: number
+                project_id?: string
+              } | null
+              stage_id?: string | null
             }[]
           }
         }
@@ -5432,6 +5679,7 @@ export interface operations {
           is_default?: boolean
           name?: string
           position?: number | null
+          stage_id?: string | null
         }
       }
     }
@@ -5452,6 +5700,16 @@ export interface operations {
               name?: string
               position?: number
               project_id?: string
+              stage?: {
+                description?: string
+                id?: string
+                key?: string
+                max_active_runs?: number | null
+                name?: string
+                position?: number
+                project_id?: string
+              } | null
+              stage_id?: string | null
             }
           }
         }
@@ -5525,6 +5783,46 @@ export interface operations {
         }
         content: {
           'application/json': {
+            stage_groups?: {
+              stage?: {
+                description?: string
+                id?: string
+                key?: string
+                max_active_runs?: number | null
+                name?: string
+                position?: number
+                project_id?: string
+              } | null
+              statuses?: {
+                color?: string
+                description?: string
+                icon?: string
+                id?: string
+                is_default?: boolean
+                name?: string
+                position?: number
+                project_id?: string
+                stage?: {
+                  description?: string
+                  id?: string
+                  key?: string
+                  max_active_runs?: number | null
+                  name?: string
+                  position?: number
+                  project_id?: string
+                } | null
+                stage_id?: string | null
+              }[]
+            }[]
+            stages?: {
+              description?: string
+              id?: string
+              key?: string
+              max_active_runs?: number | null
+              name?: string
+              position?: number
+              project_id?: string
+            }[]
             statuses?: {
               color?: string
               description?: string
@@ -5534,6 +5832,16 @@ export interface operations {
               name?: string
               position?: number
               project_id?: string
+              stage?: {
+                description?: string
+                id?: string
+                key?: string
+                max_active_runs?: number | null
+                name?: string
+                position?: number
+                project_id?: string
+              } | null
+              stage_id?: string | null
             }[]
           }
         }
@@ -7110,6 +7418,171 @@ export interface operations {
       }
     }
   }
+  deleteTicketStage: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket stage ID. */
+        stageId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete a ticket stage response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            deleted_stage_id?: string
+            detached_statuses?: number
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateTicketStage: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket stage ID. */
+        stageId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a ticket stage request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          description?: string | null
+          max_active_runs?: number | null
+          name?: string | null
+          position?: number | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update a ticket stage response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            stage?: {
+              description?: string
+              id?: string
+              key?: string
+              max_active_runs?: number | null
+              name?: string
+              position?: number
+              project_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   deleteTicketStatus: {
     parameters: {
       query?: never
@@ -7129,8 +7602,8 @@ export interface operations {
         }
         content: {
           'application/json': {
-            deleted_status_id?: unknown
-            replacement_status_id?: unknown
+            deleted_status_id?: string
+            replacement_status_id?: string
           }
         }
       }
@@ -7204,6 +7677,7 @@ export interface operations {
           is_default?: boolean | null
           name?: string | null
           position?: number | null
+          stage_id?: string | null
         }
       }
     }
@@ -7224,6 +7698,16 @@ export interface operations {
               name?: string
               position?: number
               project_id?: string
+              stage?: {
+                description?: string
+                id?: string
+                key?: string
+                max_active_runs?: number | null
+                name?: string
+                position?: number
+                project_id?: string
+              } | null
+              stage_id?: string | null
             }
           }
         }

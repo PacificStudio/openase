@@ -57,14 +57,51 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 	}
 
 	resetResp := struct {
-		Statuses []ticketstatus.Status `json:"statuses"`
+		Stages      []ticketstatus.Stage       `json:"stages"`
+		Statuses    []ticketstatus.Status      `json:"statuses"`
+		StageGroups []ticketstatus.StatusGroup `json:"stage_groups"`
 	}{}
 	executeJSON(t, server, http.MethodPost, fmt.Sprintf("/api/v1/projects/%s/statuses/reset", project.ID), nil, http.StatusOK, &resetResp)
 	if len(resetResp.Statuses) != 6 {
 		t.Fatalf("expected 6 default statuses after reset, got %d", len(resetResp.Statuses))
 	}
+	if len(resetResp.Stages) != 4 {
+		t.Fatalf("expected 4 default stages after reset, got %d", len(resetResp.Stages))
+	}
+	if len(resetResp.StageGroups) != 4 {
+		t.Fatalf("expected 4 default stage groups after reset, got %d", len(resetResp.StageGroups))
+	}
 	if resetResp.Statuses[0].Name != "Backlog" || !resetResp.Statuses[0].IsDefault {
 		t.Fatalf("expected Backlog to be first default status, got %+v", resetResp.Statuses[0])
+	}
+	stageKeys := make([]string, 0, len(resetResp.Stages))
+	for _, stage := range resetResp.Stages {
+		stageKeys = append(stageKeys, stage.Key)
+	}
+	if strings.Join(stageKeys, ",") != "backlog,in_progress,review,done" {
+		t.Fatalf("unexpected default stage order after reset: %v", stageKeys)
+	}
+	backlogStageID := findStageIDByKey(t, resetResp.Stages, "backlog")
+	inProgressStageID := findStageIDByKey(t, resetResp.Stages, "in_progress")
+	reviewStageID := findStageIDByKey(t, resetResp.Stages, "review")
+	doneStageID := findStageIDByKey(t, resetResp.Stages, "done")
+	if status := findStatusByName(t, resetResp.Statuses, "Backlog"); status.StageID == nil || *status.StageID != backlogStageID {
+		t.Fatalf("expected Backlog status to map to backlog stage %s, got %+v", backlogStageID, status)
+	}
+	if status := findStatusByName(t, resetResp.Statuses, "Todo"); status.StageID == nil || *status.StageID != backlogStageID {
+		t.Fatalf("expected Todo status to map to backlog stage %s, got %+v", backlogStageID, status)
+	}
+	if status := findStatusByName(t, resetResp.Statuses, "In Progress"); status.StageID == nil || *status.StageID != inProgressStageID {
+		t.Fatalf("expected In Progress status to map to in_progress stage %s, got %+v", inProgressStageID, status)
+	}
+	if status := findStatusByName(t, resetResp.Statuses, "In Review"); status.StageID == nil || *status.StageID != reviewStageID {
+		t.Fatalf("expected In Review status to map to review stage %s, got %+v", reviewStageID, status)
+	}
+	if status := findStatusByName(t, resetResp.Statuses, "Done"); status.StageID == nil || *status.StageID != doneStageID {
+		t.Fatalf("expected Done status to map to done stage %s, got %+v", doneStageID, status)
+	}
+	if status := findStatusByName(t, resetResp.Statuses, "Cancelled"); status.StageID == nil || *status.StageID != doneStageID {
+		t.Fatalf("expected Cancelled status to map to done stage %s, got %+v", doneStageID, status)
 	}
 
 	createResp := struct {
@@ -204,11 +241,16 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 	}
 
 	resetAgainResp := struct {
-		Statuses []ticketstatus.Status `json:"statuses"`
+		Stages      []ticketstatus.Stage       `json:"stages"`
+		Statuses    []ticketstatus.Status      `json:"statuses"`
+		StageGroups []ticketstatus.StatusGroup `json:"stage_groups"`
 	}{}
 	executeJSON(t, server, http.MethodPost, fmt.Sprintf("/api/v1/projects/%s/statuses/reset", project.ID), nil, http.StatusOK, &resetAgainResp)
 	if len(resetAgainResp.Statuses) != 6 {
 		t.Fatalf("expected reset to leave 6 statuses, got %d", len(resetAgainResp.Statuses))
+	}
+	if len(resetAgainResp.Stages) != 4 || len(resetAgainResp.StageGroups) != 4 {
+		t.Fatalf("expected reset to restore 4 stages and 4 groups, got stages=%d groups=%d", len(resetAgainResp.Stages), len(resetAgainResp.StageGroups))
 	}
 	for _, status := range resetAgainResp.Statuses {
 		if status.Name == "Research" {
@@ -217,7 +259,9 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 	}
 
 	listResp := struct {
-		Statuses []ticketstatus.Status `json:"statuses"`
+		Stages      []ticketstatus.Stage       `json:"stages"`
+		Statuses    []ticketstatus.Status      `json:"statuses"`
+		StageGroups []ticketstatus.StatusGroup `json:"stage_groups"`
 	}{}
 	executeJSON(t, server, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID), nil, http.StatusOK, &listResp)
 	names := make([]string, 0, len(listResp.Statuses))
@@ -226,6 +270,21 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 	}
 	if strings.Join(names, ",") != "Backlog,Todo,In Progress,In Review,Done,Cancelled" {
 		t.Fatalf("unexpected status order after reset: %v", names)
+	}
+	if len(listResp.StageGroups) != 4 {
+		t.Fatalf("expected 4 stage groups after reset list, got %d", len(listResp.StageGroups))
+	}
+	if got := len(listResp.StageGroups[0].Statuses); got != 2 {
+		t.Fatalf("expected backlog stage group to contain 2 statuses, got %d", got)
+	}
+	if got := len(listResp.StageGroups[1].Statuses); got != 1 {
+		t.Fatalf("expected in_progress stage group to contain 1 status, got %d", got)
+	}
+	if got := len(listResp.StageGroups[2].Statuses); got != 1 {
+		t.Fatalf("expected review stage group to contain 1 status, got %d", got)
+	}
+	if got := len(listResp.StageGroups[3].Statuses); got != 2 {
+		t.Fatalf("expected done stage group to contain 2 statuses, got %d", got)
 	}
 
 	backlogID := findStatusIDByName(t, listResp.Statuses, "Backlog")
@@ -249,6 +308,156 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 	}
 	if workflowAfterReset.FinishStatusID == nil || *workflowAfterReset.FinishStatusID != doneID {
 		t.Fatalf("expected workflow finish to move to Done %s, got %v", doneID, workflowAfterReset.FinishStatusID)
+	}
+}
+
+func TestTicketStageRoutesCRUDAndStatusGrouping(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	createStageResp := struct {
+		Stage ticketstatus.Stage `json:"stage"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/stages", project.ID),
+		map[string]any{
+			"key":             "qa",
+			"name":            "QA",
+			"position":        2,
+			"max_active_runs": 1,
+			"description":     "quality gate",
+		},
+		http.StatusCreated,
+		&createStageResp,
+	)
+	if createStageResp.Stage.Key != "qa" || createStageResp.Stage.MaxActiveRuns == nil || *createStageResp.Stage.MaxActiveRuns != 1 {
+		t.Fatalf("expected created stage to persist key and max_active_runs, got %+v", createStageResp.Stage)
+	}
+
+	createStatusResp := struct {
+		Status ticketstatus.Status `json:"status"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID),
+		map[string]any{
+			"name":       "QA Ready",
+			"color":      "#FF00AA",
+			"stage_id":   createStageResp.Stage.ID.String(),
+			"is_default": true,
+		},
+		http.StatusCreated,
+		&createStatusResp,
+	)
+	if createStatusResp.Status.StageID == nil || *createStatusResp.Status.StageID != createStageResp.Stage.ID {
+		t.Fatalf("expected created status to attach to stage %s, got %+v", createStageResp.Stage.ID, createStatusResp.Status)
+	}
+
+	listResp := struct {
+		Stages      []ticketstatus.Stage       `json:"stages"`
+		Statuses    []ticketstatus.Status      `json:"statuses"`
+		StageGroups []ticketstatus.StatusGroup `json:"stage_groups"`
+	}{}
+	executeJSON(t, server, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID), nil, http.StatusOK, &listResp)
+	if len(listResp.Stages) != 1 || len(listResp.StageGroups) != 1 {
+		t.Fatalf("expected one stage and one stage group, got stages=%d groups=%d", len(listResp.Stages), len(listResp.StageGroups))
+	}
+	if listResp.StageGroups[0].Stage == nil || listResp.StageGroups[0].Stage.ID != createStageResp.Stage.ID {
+		t.Fatalf("expected grouped response to include created stage, got %+v", listResp.StageGroups)
+	}
+	if len(listResp.StageGroups[0].Statuses) != 1 || listResp.StageGroups[0].Statuses[0].Name != "QA Ready" {
+		t.Fatalf("expected grouped response to contain QA Ready status, got %+v", listResp.StageGroups[0].Statuses)
+	}
+
+	updateStageResp := struct {
+		Stage ticketstatus.Stage `json:"stage"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/stages/%s", createStageResp.Stage.ID),
+		map[string]any{
+			"name":            "QA Gate",
+			"position":        5,
+			"max_active_runs": nil,
+			"description":     "merge gate",
+		},
+		http.StatusOK,
+		&updateStageResp,
+	)
+	if updateStageResp.Stage.Name != "QA Gate" || updateStageResp.Stage.MaxActiveRuns != nil || updateStageResp.Stage.Position != 5 {
+		t.Fatalf("expected updated stage to clear max_active_runs and rename, got %+v", updateStageResp.Stage)
+	}
+
+	deleteStageResp := ticketstatus.DeleteStageResult{}
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/stages/%s", createStageResp.Stage.ID),
+		nil,
+		http.StatusOK,
+		&deleteStageResp,
+	)
+	if deleteStageResp.DeletedStageID != createStageResp.Stage.ID || deleteStageResp.DetachedStatuses != 1 {
+		t.Fatalf("expected delete stage result to report one detached status, got %+v", deleteStageResp)
+	}
+
+	statusAfterDelete, err := client.TicketStatus.Get(ctx, createStatusResp.Status.ID)
+	if err != nil {
+		t.Fatalf("load status after stage delete: %v", err)
+	}
+	if statusAfterDelete.StageID != nil {
+		t.Fatalf("expected stage delete to clear status stage_id, got %+v", statusAfterDelete)
+	}
+
+	listAfterDelete := struct {
+		Stages      []ticketstatus.Stage       `json:"stages"`
+		Statuses    []ticketstatus.Status      `json:"statuses"`
+		StageGroups []ticketstatus.StatusGroup `json:"stage_groups"`
+	}{}
+	executeJSON(t, server, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID), nil, http.StatusOK, &listAfterDelete)
+	if len(listAfterDelete.Stages) != 0 {
+		t.Fatalf("expected no stages after delete, got %+v", listAfterDelete.Stages)
+	}
+	if len(listAfterDelete.StageGroups) != 1 || listAfterDelete.StageGroups[0].Stage != nil || len(listAfterDelete.StageGroups[0].Statuses) != 1 {
+		t.Fatalf("expected deleted-stage status to move into ungrouped bucket, got %+v", listAfterDelete.StageGroups)
+	}
+	if listAfterDelete.Statuses[0].StageID != nil {
+		t.Fatalf("expected listed status to be ungrouped after stage delete, got %+v", listAfterDelete.Statuses[0])
 	}
 }
 
@@ -292,11 +501,19 @@ func TestListTicketStatusesRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 	}
 
 	var payload struct {
-		Statuses []ticketstatus.Status `json:"statuses"`
+		Stages      []ticketstatus.Stage       `json:"stages"`
+		Statuses    []ticketstatus.Status      `json:"statuses"`
+		StageGroups []ticketstatus.StatusGroup `json:"stage_groups"`
 	}
 	decodeResponse(t, rec, &payload)
+	if payload.Stages == nil || len(payload.Stages) != 0 {
+		t.Fatalf("expected non-nil empty stages slice, got %+v", payload.Stages)
+	}
 	if payload.Statuses == nil || len(payload.Statuses) != 0 {
 		t.Fatalf("expected non-nil empty statuses slice, got %+v", payload.Statuses)
+	}
+	if payload.StageGroups == nil || len(payload.StageGroups) != 0 {
+		t.Fatalf("expected non-nil empty stage_groups slice, got %+v", payload.StageGroups)
 	}
 }
 
@@ -403,5 +620,29 @@ func findStatusIDByName(t *testing.T, statuses []ticketstatus.Status, name strin
 		}
 	}
 	t.Fatalf("status %q not found in %+v", name, statuses)
+	return uuid.UUID{}
+}
+
+func findStatusByName(t *testing.T, statuses []ticketstatus.Status, name string) ticketstatus.Status {
+	t.Helper()
+
+	for _, status := range statuses {
+		if status.Name == name {
+			return status
+		}
+	}
+	t.Fatalf("status %q not found in %+v", name, statuses)
+	return ticketstatus.Status{}
+}
+
+func findStageIDByKey(t *testing.T, stages []ticketstatus.Stage, key string) uuid.UUID {
+	t.Helper()
+
+	for _, stage := range stages {
+		if stage.Key == key {
+			return stage.ID
+		}
+	}
+	t.Fatalf("stage %q not found in %+v", key, stages)
 	return uuid.UUID{}
 }

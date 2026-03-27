@@ -480,6 +480,29 @@ func HasReposWith(preds ...predicate.ProjectRepo) predicate.Project {
 	})
 }
 
+// HasStages applies the HasEdge predicate on the "stages" edge.
+func HasStages() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, StagesTable, StagesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasStagesWith applies the HasEdge predicate on the "stages" edge with a given conditions (other predicates).
+func HasStagesWith(preds ...predicate.TicketStage) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newStagesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasStatuses applies the HasEdge predicate on the "statuses" edge.
 func HasStatuses() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {

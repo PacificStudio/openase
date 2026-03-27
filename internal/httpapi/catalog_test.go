@@ -621,7 +621,9 @@ func TestCreateProjectSeedsDefaultTicketStatuses(t *testing.T) {
 	)
 
 	var statusesPayload struct {
-		Statuses []ticketstatus.Status `json:"statuses"`
+		Stages      []ticketstatus.Stage       `json:"stages"`
+		Statuses    []ticketstatus.Status      `json:"statuses"`
+		StageGroups []ticketstatus.StatusGroup `json:"stage_groups"`
 	}
 	executeJSON(
 		t,
@@ -639,6 +641,12 @@ func TestCreateProjectSeedsDefaultTicketStatuses(t *testing.T) {
 	}
 	if strings.Join(names, ",") != "Backlog,Todo,In Progress,In Review,Done,Cancelled" {
 		t.Fatalf("unexpected default status order for new project: %v", names)
+	}
+	if len(statusesPayload.Stages) != 4 {
+		t.Fatalf("expected 4 default stages for new project, got %+v", statusesPayload.Stages)
+	}
+	if len(statusesPayload.StageGroups) != 4 {
+		t.Fatalf("expected 4 default stage groups for new project, got %+v", statusesPayload.StageGroups)
 	}
 	if len(statusesPayload.Statuses) == 0 || statusesPayload.Statuses[0].Name != "Backlog" || !statusesPayload.Statuses[0].IsDefault {
 		t.Fatalf("expected Backlog to be the default seeded status, got %+v", statusesPayload.Statuses)

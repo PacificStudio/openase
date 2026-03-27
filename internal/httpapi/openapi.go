@@ -9,7 +9,6 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 	"github.com/labstack/echo/v4"
@@ -253,14 +252,31 @@ type OpenAPIChatStartRequest struct {
 }
 
 type OpenAPITicketStatus struct {
-	ID          string `json:"id"`
-	ProjectID   string `json:"project_id"`
-	Name        string `json:"name"`
-	Color       string `json:"color"`
-	Icon        string `json:"icon"`
-	Position    int    `json:"position"`
-	IsDefault   bool   `json:"is_default"`
-	Description string `json:"description"`
+	ID          string              `json:"id"`
+	ProjectID   string              `json:"project_id"`
+	StageID     *string             `json:"stage_id,omitempty"`
+	Stage       *OpenAPITicketStage `json:"stage,omitempty"`
+	Name        string              `json:"name"`
+	Color       string              `json:"color"`
+	Icon        string              `json:"icon"`
+	Position    int                 `json:"position"`
+	IsDefault   bool                `json:"is_default"`
+	Description string              `json:"description"`
+}
+
+type OpenAPITicketStage struct {
+	ID            string `json:"id"`
+	ProjectID     string `json:"project_id"`
+	Key           string `json:"key"`
+	Name          string `json:"name"`
+	Position      int    `json:"position"`
+	MaxActiveRuns *int   `json:"max_active_runs,omitempty"`
+	Description   string `json:"description"`
+}
+
+type OpenAPITicketStatusGroup struct {
+	Stage    *OpenAPITicketStage   `json:"stage,omitempty"`
+	Statuses []OpenAPITicketStatus `json:"statuses"`
 }
 
 type OpenAPIWorkflow struct {
@@ -510,14 +526,32 @@ type OpenAPIActivityEventsResponse struct {
 }
 
 type OpenAPITicketStatusesResponse struct {
-	Statuses []OpenAPITicketStatus `json:"statuses"`
+	Stages      []OpenAPITicketStage       `json:"stages"`
+	Statuses    []OpenAPITicketStatus      `json:"statuses"`
+	StageGroups []OpenAPITicketStatusGroup `json:"stage_groups"`
 }
 
 type OpenAPITicketStatusResponse struct {
 	Status OpenAPITicketStatus `json:"status"`
 }
 
-type OpenAPITicketStatusDeleteResponse ticketstatus.DeleteResult
+type OpenAPITicketStatusDeleteResponse struct {
+	DeletedStatusID     string `json:"deleted_status_id"`
+	ReplacementStatusID string `json:"replacement_status_id"`
+}
+
+type OpenAPITicketStagesResponse struct {
+	Stages []OpenAPITicketStage `json:"stages"`
+}
+
+type OpenAPITicketStageResponse struct {
+	Stage OpenAPITicketStage `json:"stage"`
+}
+
+type OpenAPITicketStageDeleteResponse struct {
+	DeletedStageID   string `json:"deleted_stage_id"`
+	DetachedStatuses int    `json:"detached_statuses"`
+}
 
 type OpenAPITicketsResponse struct {
 	Tickets []OpenAPITicket `json:"tickets"`
@@ -709,8 +743,40 @@ type OpenAPICreateTicketCommentRequest rawCreateTicketCommentRequest
 type OpenAPIUpdateTicketCommentRequest rawUpdateTicketCommentRequest
 type OpenAPIAddTicketDependencyRequest rawAddDependencyRequest
 type OpenAPICreateTicketExternalLinkRequest rawAddExternalLinkRequest
-type OpenAPICreateTicketStatusRequest rawCreateTicketStatusRequest
-type OpenAPIUpdateTicketStatusRequest rawUpdateTicketStatusRequest
+type OpenAPICreateTicketStageRequest struct {
+	Key           string `json:"key"`
+	Name          string `json:"name"`
+	Position      *int   `json:"position"`
+	MaxActiveRuns *int   `json:"max_active_runs"`
+	Description   string `json:"description"`
+}
+
+type OpenAPIUpdateTicketStageRequest struct {
+	Name          *string `json:"name"`
+	Position      *int    `json:"position"`
+	MaxActiveRuns *int    `json:"max_active_runs"`
+	Description   *string `json:"description"`
+}
+
+type OpenAPICreateTicketStatusRequest struct {
+	StageID     *string `json:"stage_id"`
+	Name        string  `json:"name"`
+	Color       string  `json:"color"`
+	Icon        string  `json:"icon"`
+	Position    *int    `json:"position"`
+	IsDefault   bool    `json:"is_default"`
+	Description string  `json:"description"`
+}
+
+type OpenAPIUpdateTicketStatusRequest struct {
+	StageID     *string `json:"stage_id"`
+	Name        *string `json:"name"`
+	Color       *string `json:"color"`
+	Icon        *string `json:"icon"`
+	Position    *int    `json:"position"`
+	IsDefault   *bool   `json:"is_default"`
+	Description *string `json:"description"`
+}
 type OpenAPICreateNotificationChannelRequest notificationdomain.ChannelInput
 type OpenAPIUpdateNotificationChannelRequest notificationdomain.ChannelPatchInput
 type OpenAPICreateNotificationRuleRequest notificationdomain.RuleInput
@@ -1310,6 +1376,77 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	providerPatch.AddParameter(uuidPathParameter("providerId", "Agent provider ID."))
 	b.doc.AddOperation("/api/v1/providers/{providerId}", http.MethodPatch, providerPatch)
+
+	stagesGet, err := b.jsonOperation(
+		"listTicketStages",
+		"List ticket stages",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketStagesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	stagesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/stages", http.MethodGet, stagesGet)
+
+	stagesPost, err := b.jsonOperation(
+		"createTicketStage",
+		"Create a ticket stage",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPITicketStageResponse{},
+		OpenAPICreateTicketStageRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	stagesPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/stages", http.MethodPost, stagesPost)
+
+	stagePatch, err := b.jsonOperation(
+		"updateTicketStage",
+		"Update a ticket stage",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketStageResponse{},
+		OpenAPIUpdateTicketStageRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	stagePatch.AddParameter(uuidPathParameter("stageId", "Ticket stage ID."))
+	b.doc.AddOperation("/api/v1/stages/{stageId}", http.MethodPatch, stagePatch)
+
+	stageDelete, err := b.jsonOperation(
+		"deleteTicketStage",
+		"Delete a ticket stage",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPITicketStageDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	stageDelete.AddParameter(uuidPathParameter("stageId", "Ticket stage ID."))
+	b.doc.AddOperation("/api/v1/stages/{stageId}", http.MethodDelete, stageDelete)
 
 	statusesGet, err := b.jsonOperation(
 		"listTicketStatuses",

@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -42,6 +43,26 @@ func (_u *TicketStatusUpdate) SetNillableProjectID(v *uuid.UUID) *TicketStatusUp
 	if v != nil {
 		_u.SetProjectID(*v)
 	}
+	return _u
+}
+
+// SetStageID sets the "stage_id" field.
+func (_u *TicketStatusUpdate) SetStageID(v uuid.UUID) *TicketStatusUpdate {
+	_u.mutation.SetStageID(v)
+	return _u
+}
+
+// SetNillableStageID sets the "stage_id" field if the given value is not nil.
+func (_u *TicketStatusUpdate) SetNillableStageID(v *uuid.UUID) *TicketStatusUpdate {
+	if v != nil {
+		_u.SetStageID(*v)
+	}
+	return _u
+}
+
+// ClearStageID clears the value of the "stage_id" field.
+func (_u *TicketStatusUpdate) ClearStageID() *TicketStatusUpdate {
+	_u.mutation.ClearStageID()
 	return _u
 }
 
@@ -153,6 +174,11 @@ func (_u *TicketStatusUpdate) SetProject(v *Project) *TicketStatusUpdate {
 	return _u.SetProjectID(v.ID)
 }
 
+// SetStage sets the "stage" edge to the TicketStage entity.
+func (_u *TicketStatusUpdate) SetStage(v *TicketStage) *TicketStatusUpdate {
+	return _u.SetStageID(v.ID)
+}
+
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by IDs.
 func (_u *TicketStatusUpdate) AddTicketIDs(ids ...uuid.UUID) *TicketStatusUpdate {
 	_u.mutation.AddTicketIDs(ids...)
@@ -206,6 +232,12 @@ func (_u *TicketStatusUpdate) Mutation() *TicketStatusMutation {
 // ClearProject clears the "project" edge to the Project entity.
 func (_u *TicketStatusUpdate) ClearProject() *TicketStatusUpdate {
 	_u.mutation.ClearProject()
+	return _u
+}
+
+// ClearStage clears the "stage" edge to the TicketStage entity.
+func (_u *TicketStatusUpdate) ClearStage() *TicketStatusUpdate {
+	_u.mutation.ClearStage()
 	return _u
 }
 
@@ -385,6 +417,35 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.StageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticketstatus.StageTable,
+			Columns: []string{ticketstatus.StageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.StageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticketstatus.StageTable,
+			Columns: []string{ticketstatus.StageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.TicketsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -554,6 +615,26 @@ func (_u *TicketStatusUpdateOne) SetNillableProjectID(v *uuid.UUID) *TicketStatu
 	return _u
 }
 
+// SetStageID sets the "stage_id" field.
+func (_u *TicketStatusUpdateOne) SetStageID(v uuid.UUID) *TicketStatusUpdateOne {
+	_u.mutation.SetStageID(v)
+	return _u
+}
+
+// SetNillableStageID sets the "stage_id" field if the given value is not nil.
+func (_u *TicketStatusUpdateOne) SetNillableStageID(v *uuid.UUID) *TicketStatusUpdateOne {
+	if v != nil {
+		_u.SetStageID(*v)
+	}
+	return _u
+}
+
+// ClearStageID clears the value of the "stage_id" field.
+func (_u *TicketStatusUpdateOne) ClearStageID() *TicketStatusUpdateOne {
+	_u.mutation.ClearStageID()
+	return _u
+}
+
 // SetName sets the "name" field.
 func (_u *TicketStatusUpdateOne) SetName(v string) *TicketStatusUpdateOne {
 	_u.mutation.SetName(v)
@@ -662,6 +743,11 @@ func (_u *TicketStatusUpdateOne) SetProject(v *Project) *TicketStatusUpdateOne {
 	return _u.SetProjectID(v.ID)
 }
 
+// SetStage sets the "stage" edge to the TicketStage entity.
+func (_u *TicketStatusUpdateOne) SetStage(v *TicketStage) *TicketStatusUpdateOne {
+	return _u.SetStageID(v.ID)
+}
+
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by IDs.
 func (_u *TicketStatusUpdateOne) AddTicketIDs(ids ...uuid.UUID) *TicketStatusUpdateOne {
 	_u.mutation.AddTicketIDs(ids...)
@@ -715,6 +801,12 @@ func (_u *TicketStatusUpdateOne) Mutation() *TicketStatusMutation {
 // ClearProject clears the "project" edge to the Project entity.
 func (_u *TicketStatusUpdateOne) ClearProject() *TicketStatusUpdateOne {
 	_u.mutation.ClearProject()
+	return _u
+}
+
+// ClearStage clears the "stage" edge to the TicketStage entity.
+func (_u *TicketStatusUpdateOne) ClearStage() *TicketStatusUpdateOne {
+	_u.mutation.ClearStage()
 	return _u
 }
 
@@ -917,6 +1009,35 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(project.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.StageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticketstatus.StageTable,
+			Columns: []string{ticketstatus.StageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.StageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   ticketstatus.StageTable,
+			Columns: []string{ticketstatus.StageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

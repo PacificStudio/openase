@@ -33,6 +33,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 )
@@ -76,6 +77,8 @@ type Client struct {
 	TicketExternalLink *TicketExternalLinkClient
 	// TicketRepoScope is the client for interacting with the TicketRepoScope builders.
 	TicketRepoScope *TicketRepoScopeClient
+	// TicketStage is the client for interacting with the TicketStage builders.
+	TicketStage *TicketStageClient
 	// TicketStatus is the client for interacting with the TicketStatus builders.
 	TicketStatus *TicketStatusClient
 	// Workflow is the client for interacting with the Workflow builders.
@@ -108,6 +111,7 @@ func (c *Client) init() {
 	c.TicketDependency = NewTicketDependencyClient(c.config)
 	c.TicketExternalLink = NewTicketExternalLinkClient(c.config)
 	c.TicketRepoScope = NewTicketRepoScopeClient(c.config)
+	c.TicketStage = NewTicketStageClient(c.config)
 	c.TicketStatus = NewTicketStatusClient(c.config)
 	c.Workflow = NewWorkflowClient(c.config)
 }
@@ -219,6 +223,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		TicketDependency:    NewTicketDependencyClient(cfg),
 		TicketExternalLink:  NewTicketExternalLinkClient(cfg),
 		TicketRepoScope:     NewTicketRepoScopeClient(cfg),
+		TicketStage:         NewTicketStageClient(cfg),
 		TicketStatus:        NewTicketStatusClient(cfg),
 		Workflow:            NewWorkflowClient(cfg),
 	}, nil
@@ -257,6 +262,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		TicketDependency:    NewTicketDependencyClient(cfg),
 		TicketExternalLink:  NewTicketExternalLinkClient(cfg),
 		TicketRepoScope:     NewTicketRepoScopeClient(cfg),
+		TicketStage:         NewTicketStageClient(cfg),
 		TicketStatus:        NewTicketStatusClient(cfg),
 		Workflow:            NewWorkflowClient(cfg),
 	}, nil
@@ -291,7 +297,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentToken, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
 		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketComment, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketStage, c.TicketStatus,
+		c.Workflow,
 	} {
 		n.Use(hooks...)
 	}
@@ -304,7 +311,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentToken, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
 		c.ProjectRepo, c.ScheduledJob, c.Ticket, c.TicketComment, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketStatus, c.Workflow,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketStage, c.TicketStatus,
+		c.Workflow,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -347,6 +355,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TicketExternalLink.mutate(ctx, m)
 	case *TicketRepoScopeMutation:
 		return c.TicketRepoScope.mutate(ctx, m)
+	case *TicketStageMutation:
+		return c.TicketStage.mutate(ctx, m)
 	case *TicketStatusMutation:
 		return c.TicketStatus.mutate(ctx, m)
 	case *WorkflowMutation:
@@ -2221,6 +2231,22 @@ func (c *ProjectClient) QueryRepos(_m *Project) *ProjectRepoQuery {
 	return query
 }
 
+// QueryStages queries the stages edge of a Project.
+func (c *ProjectClient) QueryStages(_m *Project) *TicketStageQuery {
+	query := (&TicketStageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(ticketstage.Table, ticketstage.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.StagesTable, project.StagesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryStatuses queries the statuses edge of a Project.
 func (c *ProjectClient) QueryStatuses(_m *Project) *TicketStatusQuery {
 	query := (&TicketStatusClient{config: c.config}).Query()
@@ -3737,6 +3763,171 @@ func (c *TicketRepoScopeClient) mutate(ctx context.Context, m *TicketRepoScopeMu
 	}
 }
 
+// TicketStageClient is a client for the TicketStage schema.
+type TicketStageClient struct {
+	config
+}
+
+// NewTicketStageClient returns a client for the TicketStage from the given config.
+func NewTicketStageClient(c config) *TicketStageClient {
+	return &TicketStageClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `ticketstage.Hooks(f(g(h())))`.
+func (c *TicketStageClient) Use(hooks ...Hook) {
+	c.hooks.TicketStage = append(c.hooks.TicketStage, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `ticketstage.Intercept(f(g(h())))`.
+func (c *TicketStageClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TicketStage = append(c.inters.TicketStage, interceptors...)
+}
+
+// Create returns a builder for creating a TicketStage entity.
+func (c *TicketStageClient) Create() *TicketStageCreate {
+	mutation := newTicketStageMutation(c.config, OpCreate)
+	return &TicketStageCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TicketStage entities.
+func (c *TicketStageClient) CreateBulk(builders ...*TicketStageCreate) *TicketStageCreateBulk {
+	return &TicketStageCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TicketStageClient) MapCreateBulk(slice any, setFunc func(*TicketStageCreate, int)) *TicketStageCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TicketStageCreateBulk{err: fmt.Errorf("calling to TicketStageClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TicketStageCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TicketStageCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TicketStage.
+func (c *TicketStageClient) Update() *TicketStageUpdate {
+	mutation := newTicketStageMutation(c.config, OpUpdate)
+	return &TicketStageUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TicketStageClient) UpdateOne(_m *TicketStage) *TicketStageUpdateOne {
+	mutation := newTicketStageMutation(c.config, OpUpdateOne, withTicketStage(_m))
+	return &TicketStageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TicketStageClient) UpdateOneID(id uuid.UUID) *TicketStageUpdateOne {
+	mutation := newTicketStageMutation(c.config, OpUpdateOne, withTicketStageID(id))
+	return &TicketStageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TicketStage.
+func (c *TicketStageClient) Delete() *TicketStageDelete {
+	mutation := newTicketStageMutation(c.config, OpDelete)
+	return &TicketStageDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TicketStageClient) DeleteOne(_m *TicketStage) *TicketStageDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TicketStageClient) DeleteOneID(id uuid.UUID) *TicketStageDeleteOne {
+	builder := c.Delete().Where(ticketstage.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TicketStageDeleteOne{builder}
+}
+
+// Query returns a query builder for TicketStage.
+func (c *TicketStageClient) Query() *TicketStageQuery {
+	return &TicketStageQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTicketStage},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TicketStage entity by its id.
+func (c *TicketStageClient) Get(ctx context.Context, id uuid.UUID) (*TicketStage, error) {
+	return c.Query().Where(ticketstage.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TicketStageClient) GetX(ctx context.Context, id uuid.UUID) *TicketStage {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a TicketStage.
+func (c *TicketStageClient) QueryProject(_m *TicketStage) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketstage.Table, ticketstage.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticketstage.ProjectTable, ticketstage.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryStatuses queries the statuses edge of a TicketStage.
+func (c *TicketStageClient) QueryStatuses(_m *TicketStage) *TicketStatusQuery {
+	query := (&TicketStatusClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketstage.Table, ticketstage.FieldID, id),
+			sqlgraph.To(ticketstatus.Table, ticketstatus.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticketstage.StatusesTable, ticketstage.StatusesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TicketStageClient) Hooks() []Hook {
+	return c.hooks.TicketStage
+}
+
+// Interceptors returns the client interceptors.
+func (c *TicketStageClient) Interceptors() []Interceptor {
+	return c.inters.TicketStage
+}
+
+func (c *TicketStageClient) mutate(ctx context.Context, m *TicketStageMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TicketStageCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TicketStageUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TicketStageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TicketStageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TicketStage mutation op: %q", m.Op())
+	}
+}
+
 // TicketStatusClient is a client for the TicketStatus schema.
 type TicketStatusClient struct {
 	config
@@ -3854,6 +4045,22 @@ func (c *TicketStatusClient) QueryProject(_m *TicketStatus) *ProjectQuery {
 			sqlgraph.From(ticketstatus.Table, ticketstatus.FieldID, id),
 			sqlgraph.To(project.Table, project.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, ticketstatus.ProjectTable, ticketstatus.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryStage queries the stage edge of a TicketStatus.
+func (c *TicketStatusClient) QueryStage(_m *TicketStatus) *TicketStageQuery {
+	query := (&TicketStageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketstatus.Table, ticketstatus.FieldID, id),
+			sqlgraph.To(ticketstage.Table, ticketstage.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticketstatus.StageTable, ticketstatus.StageColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4185,12 +4392,12 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentToken, Machine,
 		NotificationChannel, NotificationRule, Organization, Project, ProjectRepo,
 		ScheduledJob, Ticket, TicketComment, TicketDependency, TicketExternalLink,
-		TicketRepoScope, TicketStatus, Workflow []ent.Hook
+		TicketRepoScope, TicketStage, TicketStatus, Workflow []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentToken, Machine,
 		NotificationChannel, NotificationRule, Organization, Project, ProjectRepo,
 		ScheduledJob, Ticket, TicketComment, TicketDependency, TicketExternalLink,
-		TicketRepoScope, TicketStatus, Workflow []ent.Interceptor
+		TicketRepoScope, TicketStage, TicketStatus, Workflow []ent.Interceptor
 	}
 )
