@@ -54,6 +54,9 @@ func (a *Adapter) Start(ctx context.Context, spec provider.ClaudeCodeSessionSpec
 
 func buildProcessSpec(spec provider.ClaudeCodeSessionSpec) (provider.AgentCLIProcessSpec, error) {
 	args := append([]string(nil), spec.BaseArgs...)
+	if !hasArgumentFlag(args, "--verbose") {
+		args = append(args, "--verbose")
+	}
 	args = append(args,
 		"-p",
 		"--output-format", "stream-json",
@@ -85,6 +88,18 @@ func buildProcessSpec(spec provider.ClaudeCodeSessionSpec) (provider.AgentCLIPro
 		spec.WorkingDirectory,
 		spec.Environment,
 	)
+}
+
+func hasArgumentFlag(args []string, want string) bool {
+	for _, arg := range args {
+		if arg == want {
+			return true
+		}
+		if strings.HasPrefix(arg, want+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 type session struct {
