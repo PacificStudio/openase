@@ -13,6 +13,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+var errAPIResponseCommitted = errors.New("api response already committed")
+
 type organizationResponse struct {
 	ID                     string  `json:"id"`
 	Name                   string  `json:"name"`
@@ -872,10 +874,16 @@ func decodeJSON(c echo.Context, target any) error {
 	decoder := json.NewDecoder(c.Request().Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse(fmt.Sprintf("invalid JSON body: %v", err)))
+		if writeErr := c.JSON(http.StatusBadRequest, errorResponse(fmt.Sprintf("invalid JSON body: %v", err))); writeErr != nil {
+			return writeErr
+		}
+		return errAPIResponseCommitted
 	}
 	if decoder.More() {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid JSON body: multiple JSON values are not allowed"))
+		if writeErr := c.JSON(http.StatusBadRequest, errorResponse("invalid JSON body: multiple JSON values are not allowed")); writeErr != nil {
+			return writeErr
+		}
+		return errAPIResponseCommitted
 	}
 
 	return nil
@@ -884,7 +892,10 @@ func decodeJSON(c echo.Context, target any) error {
 func parseUUIDPathParam(c echo.Context, name string) (uuid.UUID, error) {
 	parsed, err := parseUUIDPathParamValue(c, name)
 	if err != nil {
-		return uuid.UUID{}, c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+		if writeErr := c.JSON(http.StatusBadRequest, errorResponse(err.Error())); writeErr != nil {
+			return uuid.UUID{}, writeErr
+		}
+		return uuid.UUID{}, errAPIResponseCommitted
 	}
 
 	return parsed, nil

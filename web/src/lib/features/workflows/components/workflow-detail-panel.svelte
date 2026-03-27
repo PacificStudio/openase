@@ -83,9 +83,9 @@
   const finishStatusValue = $derived(draft.finishStatusId || unchangedFinishStatusValue)
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
   const machineSummary = $derived(
-    workflow.requiredMachineLabels.length > 0
-      ? `Labels: ${workflow.requiredMachineLabels.join(', ')}`
-      : 'Local default machine',
+    selectedAgent?.machineName
+      ? `Provider machine: ${selectedAgent.machineName}`
+      : 'Select bound agent',
   )
 
   $effect(() => {

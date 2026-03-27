@@ -100,14 +100,13 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
 		map[string]any{
-			"title":             "Implement ticket API",
-			"description":       "cover create/list/detail/update",
-			"priority":          "high",
-			"type":              "epic",
-			"workflow_id":       workflowItem.ID.String(),
-			"target_machine_id": targetMachine.ID.String(),
-			"created_by":        "user:gary",
-			"budget_usd":        3.5,
+			"title":       "Implement ticket API",
+			"description": "cover create/list/detail/update",
+			"priority":    "high",
+			"type":        "epic",
+			"workflow_id": workflowItem.ID.String(),
+			"created_by":  "user:gary",
+			"budget_usd":  3.5,
 		},
 		http.StatusCreated,
 		&parentCreateResp,
@@ -118,8 +117,21 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	if parentCreateResp.Ticket.StatusName != "Backlog" || parentCreateResp.Ticket.CreatedBy != "user:gary" {
 		t.Fatalf("unexpected parent create response: %+v", parentCreateResp.Ticket)
 	}
-	if parentCreateResp.Ticket.TargetMachineID == nil || *parentCreateResp.Ticket.TargetMachineID != targetMachine.ID.String() {
-		t.Fatalf("expected target machine binding %s, got %+v", targetMachine.ID, parentCreateResp.Ticket.TargetMachineID)
+	if parentCreateResp.Ticket.TargetMachineID != nil {
+		t.Fatalf("expected manual machine dispatch hint to stay unset, got %+v", parentCreateResp.Ticket.TargetMachineID)
+	}
+
+	legacyCreateRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
+		fmt.Sprintf(`{"title":"Legacy machine dispatch","target_machine_id":"%s"}`, targetMachine.ID),
+	)
+	if legacyCreateRec.Code != http.StatusBadRequest ||
+		!strings.Contains(legacyCreateRec.Body.String(), "invalid JSON body") ||
+		!strings.Contains(legacyCreateRec.Body.String(), "target_machine_id") {
+		t.Fatalf("expected legacy create target_machine_id to be rejected, got %d: %s", legacyCreateRec.Code, legacyCreateRec.Body.String())
 	}
 
 	childCreateResp := struct {
@@ -190,13 +202,12 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/tickets/%s", childCreateResp.Ticket.ID),
 		map[string]any{
-			"title":             "Implement dependency HTTP routes",
-			"priority":          "low",
-			"status_id":         doneID.String(),
-			"external_ref":      "BetterAndBetterII/openase#6",
-			"budget_usd":        1.25,
-			"target_machine_id": "",
-			"parent_ticket_id":  "",
+			"title":            "Implement dependency HTTP routes",
+			"priority":         "low",
+			"status_id":        doneID.String(),
+			"external_ref":     "BetterAndBetterII/openase#6",
+			"budget_usd":       1.25,
+			"parent_ticket_id": "",
 		},
 		http.StatusOK,
 		&childUpdateResp,
@@ -209,6 +220,19 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	}
 	if childUpdateResp.Ticket.TargetMachineID != nil {
 		t.Fatalf("expected patch to clear target machine binding, got %+v", childUpdateResp.Ticket.TargetMachineID)
+	}
+
+	legacyPatchRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", childCreateResp.Ticket.ID),
+		fmt.Sprintf(`{"target_machine_id":"%s"}`, targetMachine.ID),
+	)
+	if legacyPatchRec.Code != http.StatusBadRequest ||
+		!strings.Contains(legacyPatchRec.Body.String(), "invalid JSON body") ||
+		!strings.Contains(legacyPatchRec.Body.String(), "target_machine_id") {
+		t.Fatalf("expected legacy patch target_machine_id to be rejected, got %d: %s", legacyPatchRec.Code, legacyPatchRec.Body.String())
 	}
 
 	peerCreateResp := struct {

@@ -28,7 +28,6 @@ export function mapWorkflowSummary(
     type: normalizeWorkflowType(workflow.type),
     agentId: workflow.agent_id ?? null,
     harnessPath: workflow.harness_path ?? '',
-    requiredMachineLabels: workflow.required_machine_labels ?? [],
     pickupStatusId: workflow.pickup_status_id,
     pickupStatus: statusNamesById.get(workflow.pickup_status_id) ?? workflow.pickup_status_id,
     finishStatusId: workflow.finish_status_id,
@@ -57,13 +56,15 @@ function mapWorkflowAgentOptions(
       const provider = providersById.get(agent.provider_id)
       const providerName = provider?.name ?? 'Unknown provider'
       const modelName = provider?.model_name ?? 'Unknown model'
+      const machineName = provider?.machine_name ?? 'Unknown machine'
 
       return {
         id: agent.id,
-        label: `${agent.name} · ${providerName} · ${modelName}`,
+        label: `${agent.name} · ${providerName} · ${machineName} · ${modelName}`,
         agentName: agent.name,
         providerName,
         modelName,
+        machineName,
         workspacePath: agent.workspace_path ?? '',
       }
     })
@@ -168,7 +169,6 @@ export async function createWorkflowWithBinding(
     type: normalizeWorkflowType(createdWorkflow.type),
     agentId: createdWorkflow.agent_id ?? null,
     harnessPath: createdWorkflow.harness_path ?? '',
-    requiredMachineLabels: createdWorkflow.required_machine_labels ?? [],
     pickupStatusId: createdWorkflow.pickup_status_id,
     pickupStatus:
       statuses.find((status) => status.id === createdWorkflow.pickup_status_id)?.name ??

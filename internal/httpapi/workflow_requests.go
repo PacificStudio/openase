@@ -10,36 +10,34 @@ import (
 )
 
 type rawCreateWorkflowRequest struct {
-	AgentID               string         `json:"agent_id"`
-	Name                  string         `json:"name"`
-	Type                  string         `json:"type"`
-	HarnessPath           *string        `json:"harness_path"`
-	HarnessContent        string         `json:"harness_content"`
-	Hooks                 map[string]any `json:"hooks"`
-	RequiredMachineLabels []string       `json:"required_machine_labels"`
-	MaxConcurrent         *int           `json:"max_concurrent"`
-	MaxRetryAttempts      *int           `json:"max_retry_attempts"`
-	TimeoutMinutes        *int           `json:"timeout_minutes"`
-	StallTimeoutMinutes   *int           `json:"stall_timeout_minutes"`
-	IsActive              *bool          `json:"is_active"`
-	PickupStatusID        string         `json:"pickup_status_id"`
-	FinishStatusID        *string        `json:"finish_status_id"`
+	AgentID             string         `json:"agent_id"`
+	Name                string         `json:"name"`
+	Type                string         `json:"type"`
+	HarnessPath         *string        `json:"harness_path"`
+	HarnessContent      string         `json:"harness_content"`
+	Hooks               map[string]any `json:"hooks"`
+	MaxConcurrent       *int           `json:"max_concurrent"`
+	MaxRetryAttempts    *int           `json:"max_retry_attempts"`
+	TimeoutMinutes      *int           `json:"timeout_minutes"`
+	StallTimeoutMinutes *int           `json:"stall_timeout_minutes"`
+	IsActive            *bool          `json:"is_active"`
+	PickupStatusID      string         `json:"pickup_status_id"`
+	FinishStatusID      *string        `json:"finish_status_id"`
 }
 
 type rawUpdateWorkflowRequest struct {
-	AgentID               *string         `json:"agent_id"`
-	Name                  *string         `json:"name"`
-	Type                  *string         `json:"type"`
-	HarnessPath           *string         `json:"harness_path"`
-	Hooks                 *map[string]any `json:"hooks"`
-	RequiredMachineLabels *[]string       `json:"required_machine_labels"`
-	MaxConcurrent         *int            `json:"max_concurrent"`
-	MaxRetryAttempts      *int            `json:"max_retry_attempts"`
-	TimeoutMinutes        *int            `json:"timeout_minutes"`
-	StallTimeoutMinutes   *int            `json:"stall_timeout_minutes"`
-	IsActive              *bool           `json:"is_active"`
-	PickupStatusID        *string         `json:"pickup_status_id"`
-	FinishStatusID        *string         `json:"finish_status_id"`
+	AgentID             *string         `json:"agent_id"`
+	Name                *string         `json:"name"`
+	Type                *string         `json:"type"`
+	HarnessPath         *string         `json:"harness_path"`
+	Hooks               *map[string]any `json:"hooks"`
+	MaxConcurrent       *int            `json:"max_concurrent"`
+	MaxRetryAttempts    *int            `json:"max_retry_attempts"`
+	TimeoutMinutes      *int            `json:"timeout_minutes"`
+	StallTimeoutMinutes *int            `json:"stall_timeout_minutes"`
+	IsActive            *bool           `json:"is_active"`
+	PickupStatusID      *string         `json:"pickup_status_id"`
+	FinishStatusID      *string         `json:"finish_status_id"`
 }
 
 type rawUpdateHarnessRequest struct {
@@ -93,20 +91,19 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 	}
 
 	input := workflowservice.CreateInput{
-		ProjectID:             projectID,
-		AgentID:               agentID,
-		Name:                  name,
-		Type:                  workflowType,
-		HarnessContent:        raw.HarnessContent,
-		Hooks:                 raw.Hooks,
-		RequiredMachineLabels: append([]string(nil), raw.RequiredMachineLabels...),
-		MaxConcurrent:         maxConcurrent,
-		MaxRetryAttempts:      maxRetryAttempts,
-		TimeoutMinutes:        timeoutMinutes,
-		StallTimeoutMinutes:   stallTimeoutMinutes,
-		IsActive:              true,
-		PickupStatusID:        pickupStatusID,
-		FinishStatusID:        finishStatusID,
+		ProjectID:           projectID,
+		AgentID:             agentID,
+		Name:                name,
+		Type:                workflowType,
+		HarnessContent:      raw.HarnessContent,
+		Hooks:               raw.Hooks,
+		MaxConcurrent:       maxConcurrent,
+		MaxRetryAttempts:    maxRetryAttempts,
+		TimeoutMinutes:      timeoutMinutes,
+		StallTimeoutMinutes: stallTimeoutMinutes,
+		IsActive:            true,
+		PickupStatusID:      pickupStatusID,
+		FinishStatusID:      finishStatusID,
 	}
 	if raw.HarnessPath != nil {
 		path := strings.TrimSpace(*raw.HarnessPath)
@@ -152,9 +149,6 @@ func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowReque
 
 	if raw.Hooks != nil {
 		input.Hooks = workflowservice.Some(*raw.Hooks)
-	}
-	if raw.RequiredMachineLabels != nil {
-		input.RequiredMachineLabels = workflowservice.Some(append([]string(nil), (*raw.RequiredMachineLabels)...))
 	}
 
 	if raw.MaxConcurrent != nil {

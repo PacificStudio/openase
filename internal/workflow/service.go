@@ -17,22 +17,20 @@ import (
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
-	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
 var (
-	ErrUnavailable                  = errors.New("workflow service unavailable")
-	ErrProjectNotFound              = errors.New("project not found")
-	ErrWorkflowNotFound             = errors.New("workflow not found")
-	ErrStatusNotFound               = errors.New("workflow status not found in project")
-	ErrAgentNotFound                = errors.New("workflow agent not found in project")
-	ErrWorkflowConflict             = errors.New("workflow conflict")
-	ErrWorkflowInUse                = errors.New("workflow is still referenced by project or tickets")
-	ErrHarnessInvalid               = errors.New("workflow harness is invalid")
-	ErrHookConfigInvalid            = errors.New("workflow hook config is invalid")
-	ErrRequiredMachineLabelsInvalid = errors.New("workflow required machine labels are invalid")
-	ErrWorkflowHookBlocked          = errors.New("workflow hook blocked the lifecycle operation")
+	ErrUnavailable         = errors.New("workflow service unavailable")
+	ErrProjectNotFound     = errors.New("project not found")
+	ErrWorkflowNotFound    = errors.New("workflow not found")
+	ErrStatusNotFound      = errors.New("workflow status not found in project")
+	ErrAgentNotFound       = errors.New("workflow agent not found in project")
+	ErrWorkflowConflict    = errors.New("workflow conflict")
+	ErrWorkflowInUse       = errors.New("workflow is still referenced by project or tickets")
+	ErrHarnessInvalid      = errors.New("workflow harness is invalid")
+	ErrHookConfigInvalid   = errors.New("workflow hook config is invalid")
+	ErrWorkflowHookBlocked = errors.New("workflow hook blocked the lifecycle operation")
 )
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -47,22 +45,21 @@ func Some[T any](value T) Optional[T] {
 }
 
 type Workflow struct {
-	ID                    uuid.UUID        `json:"id"`
-	ProjectID             uuid.UUID        `json:"project_id"`
-	AgentID               *uuid.UUID       `json:"agent_id"`
-	Name                  string           `json:"name"`
-	Type                  entworkflow.Type `json:"type"`
-	HarnessPath           string           `json:"harness_path"`
-	Hooks                 map[string]any   `json:"hooks"`
-	RequiredMachineLabels []string         `json:"required_machine_labels"`
-	MaxConcurrent         int              `json:"max_concurrent"`
-	MaxRetryAttempts      int              `json:"max_retry_attempts"`
-	TimeoutMinutes        int              `json:"timeout_minutes"`
-	StallTimeoutMinutes   int              `json:"stall_timeout_minutes"`
-	Version               int              `json:"version"`
-	IsActive              bool             `json:"is_active"`
-	PickupStatusID        uuid.UUID        `json:"pickup_status_id"`
-	FinishStatusID        *uuid.UUID       `json:"finish_status_id"`
+	ID                  uuid.UUID        `json:"id"`
+	ProjectID           uuid.UUID        `json:"project_id"`
+	AgentID             *uuid.UUID       `json:"agent_id"`
+	Name                string           `json:"name"`
+	Type                entworkflow.Type `json:"type"`
+	HarnessPath         string           `json:"harness_path"`
+	Hooks               map[string]any   `json:"hooks"`
+	MaxConcurrent       int              `json:"max_concurrent"`
+	MaxRetryAttempts    int              `json:"max_retry_attempts"`
+	TimeoutMinutes      int              `json:"timeout_minutes"`
+	StallTimeoutMinutes int              `json:"stall_timeout_minutes"`
+	Version             int              `json:"version"`
+	IsActive            bool             `json:"is_active"`
+	PickupStatusID      uuid.UUID        `json:"pickup_status_id"`
+	FinishStatusID      *uuid.UUID       `json:"finish_status_id"`
 }
 
 type WorkflowDetail struct {
@@ -78,38 +75,36 @@ type HarnessDocument struct {
 }
 
 type CreateInput struct {
-	ProjectID             uuid.UUID
-	AgentID               uuid.UUID
-	Name                  string
-	Type                  entworkflow.Type
-	HarnessPath           *string
-	HarnessContent        string
-	Hooks                 map[string]any
-	RequiredMachineLabels []string
-	MaxConcurrent         int
-	MaxRetryAttempts      int
-	TimeoutMinutes        int
-	StallTimeoutMinutes   int
-	IsActive              bool
-	PickupStatusID        uuid.UUID
-	FinishStatusID        *uuid.UUID
+	ProjectID           uuid.UUID
+	AgentID             uuid.UUID
+	Name                string
+	Type                entworkflow.Type
+	HarnessPath         *string
+	HarnessContent      string
+	Hooks               map[string]any
+	MaxConcurrent       int
+	MaxRetryAttempts    int
+	TimeoutMinutes      int
+	StallTimeoutMinutes int
+	IsActive            bool
+	PickupStatusID      uuid.UUID
+	FinishStatusID      *uuid.UUID
 }
 
 type UpdateInput struct {
-	WorkflowID            uuid.UUID
-	AgentID               Optional[uuid.UUID]
-	Name                  Optional[string]
-	Type                  Optional[entworkflow.Type]
-	HarnessPath           Optional[string]
-	Hooks                 Optional[map[string]any]
-	RequiredMachineLabels Optional[[]string]
-	MaxConcurrent         Optional[int]
-	MaxRetryAttempts      Optional[int]
-	TimeoutMinutes        Optional[int]
-	StallTimeoutMinutes   Optional[int]
-	IsActive              Optional[bool]
-	PickupStatusID        Optional[uuid.UUID]
-	FinishStatusID        Optional[*uuid.UUID]
+	WorkflowID          uuid.UUID
+	AgentID             Optional[uuid.UUID]
+	Name                Optional[string]
+	Type                Optional[entworkflow.Type]
+	HarnessPath         Optional[string]
+	Hooks               Optional[map[string]any]
+	MaxConcurrent       Optional[int]
+	MaxRetryAttempts    Optional[int]
+	TimeoutMinutes      Optional[int]
+	StallTimeoutMinutes Optional[int]
+	IsActive            Optional[bool]
+	PickupStatusID      Optional[uuid.UUID]
+	FinishStatusID      Optional[*uuid.UUID]
 }
 
 type UpdateHarnessInput struct {
@@ -281,10 +276,6 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
-	requiredMachineLabels, err := normalizeWorkflowMachineLabels(input.RequiredMachineLabels)
-	if err != nil {
-		return WorkflowDetail{}, err
-	}
 
 	harnessContent, err := s.resolveHarnessContent(ctx, input.Name, input.Type, input.PickupStatusID, input.FinishStatusID, input.HarnessContent)
 	if err != nil {
@@ -323,9 +314,6 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		SetPickupStatusID(input.PickupStatusID)
 	if input.FinishStatusID != nil {
 		builder.SetFinishStatusID(*input.FinishStatusID)
-	}
-	if len(requiredMachineLabels) > 0 {
-		builder.SetRequiredMachineLabels(pgarray.StringArray(requiredMachineLabels))
 	}
 
 	item, err := builder.Save(ctx)
@@ -450,17 +438,6 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	}
 	if input.Hooks.Set {
 		builder.SetHooks(copyHooks(input.Hooks.Value))
-	}
-	if input.RequiredMachineLabels.Set {
-		requiredMachineLabels, err := normalizeWorkflowMachineLabels(input.RequiredMachineLabels.Value)
-		if err != nil {
-			return WorkflowDetail{}, err
-		}
-		if len(requiredMachineLabels) == 0 {
-			builder.ClearRequiredMachineLabels()
-		} else {
-			builder.SetRequiredMachineLabels(pgarray.StringArray(requiredMachineLabels))
-		}
 	}
 	if input.MaxConcurrent.Set {
 		builder.SetMaxConcurrent(input.MaxConcurrent.Value)
@@ -699,28 +676,6 @@ func (s *Service) ensureHarnessPathAvailable(ctx context.Context, harnessPath st
 	return nil
 }
 
-func normalizeWorkflowMachineLabels(raw []string) ([]string, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-
-	labels := make([]string, 0, len(raw))
-	seen := make(map[string]struct{}, len(raw))
-	for index, item := range raw {
-		trimmed := strings.TrimSpace(item)
-		if trimmed == "" {
-			return nil, fmt.Errorf("%w: required_machine_labels[%d] must not be empty", ErrRequiredMachineLabelsInvalid, index)
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		labels = append(labels, trimmed)
-	}
-
-	return labels, nil
-}
-
 func (s *Service) resolveHarnessContent(
 	ctx context.Context,
 	name string,
@@ -851,22 +806,21 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 
 func mapWorkflow(item *ent.Workflow) Workflow {
 	return Workflow{
-		ID:                    item.ID,
-		ProjectID:             item.ProjectID,
-		AgentID:               item.AgentID,
-		Name:                  item.Name,
-		Type:                  item.Type,
-		HarnessPath:           item.HarnessPath,
-		Hooks:                 copyHooks(item.Hooks),
-		RequiredMachineLabels: append([]string(nil), item.RequiredMachineLabels...),
-		MaxConcurrent:         item.MaxConcurrent,
-		MaxRetryAttempts:      item.MaxRetryAttempts,
-		TimeoutMinutes:        item.TimeoutMinutes,
-		StallTimeoutMinutes:   item.StallTimeoutMinutes,
-		Version:               item.Version,
-		IsActive:              item.IsActive,
-		PickupStatusID:        item.PickupStatusID,
-		FinishStatusID:        item.FinishStatusID,
+		ID:                  item.ID,
+		ProjectID:           item.ProjectID,
+		AgentID:             item.AgentID,
+		Name:                item.Name,
+		Type:                item.Type,
+		HarnessPath:         item.HarnessPath,
+		Hooks:               copyHooks(item.Hooks),
+		MaxConcurrent:       item.MaxConcurrent,
+		MaxRetryAttempts:    item.MaxRetryAttempts,
+		TimeoutMinutes:      item.TimeoutMinutes,
+		StallTimeoutMinutes: item.StallTimeoutMinutes,
+		Version:             item.Version,
+		IsActive:            item.IsActive,
+		PickupStatusID:      item.PickupStatusID,
+		FinishStatusID:      item.FinishStatusID,
 	}
 }
 
