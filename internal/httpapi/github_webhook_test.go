@@ -475,8 +475,8 @@ func newGitHubWebhookLifecycleFixture(
 		SetName("Coding").
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
-		SetPickupStatusID(todoID).
-		SetFinishStatusID(doneID).
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -608,8 +608,8 @@ func newGitHubWebhookSyncTestServer(
 		SetName("Coding").
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
-		SetPickupStatusID(todoID).
-		SetFinishStatusID(doneID).
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)

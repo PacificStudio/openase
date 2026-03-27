@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/ent"
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
@@ -52,8 +53,8 @@ func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -233,8 +234,8 @@ func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -314,8 +315,8 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -390,6 +391,138 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	}
 }
 
+func TestRuntimeLauncherFinishResolvedExecutionAutoAppliesSingleFinishStatus(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflowItem.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-91").
+		SetTitle("Auto finish").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	_ = mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+
+	resolvedTicket, err := client.Ticket.Query().
+		Where(entticket.IDEQ(ticketItem.ID)).
+		WithCurrentRun().
+		WithWorkflow(func(query *ent.WorkflowQuery) {
+			query.WithFinishStatuses()
+		}).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("reload resolved ticket: %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.now = func() time.Time { return now }
+	if err := launcher.finishResolvedExecution(ctx, agentItem.ID, resolvedTicket); err != nil {
+		t.Fatalf("finish resolved execution: %v", err)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.StatusID != fixture.statusIDs["Done"] {
+		t.Fatalf("expected auto finish status %s, got %s", fixture.statusIDs["Done"], ticketAfter.StatusID)
+	}
+	if ticketAfter.CompletedAt == nil {
+		t.Fatalf("expected completed_at after auto finish, got %+v", ticketAfter)
+	}
+}
+
+func TestRuntimeLauncherFinishResolvedExecutionRequiresExplicitFinishChoiceWhenMultipleAllowed(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 22, 10, 30, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"], fixture.statusIDs["In Review"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflowItem.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-92").
+		SetTitle("Need explicit finish").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+
+	resolvedTicket, err := client.Ticket.Query().
+		Where(entticket.IDEQ(ticketItem.ID)).
+		WithCurrentRun().
+		WithWorkflow(func(query *ent.WorkflowQuery) {
+			query.WithFinishStatuses()
+		}).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("reload resolved ticket: %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.now = func() time.Time { return now }
+	if err := launcher.finishResolvedExecution(ctx, agentItem.ID, resolvedTicket); err == nil {
+		t.Fatalf("expected missing explicit finish selection to fail")
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.StatusID != fixture.statusIDs["Todo"] || ticketAfter.CompletedAt != nil || ticketAfter.CurrentRunID == nil {
+		t.Fatalf("expected ticket to remain unresolved without explicit finish selection, got %+v", ticketAfter)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusExecuting {
+		t.Fatalf("expected direct finish helper error to leave run untouched, got %+v", runAfter)
+	}
+}
+
 func TestRuntimeLauncherRunTickDropsCachedSessionWhenAgentLeavesRunningState(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -401,8 +534,8 @@ func TestRuntimeLauncherRunTickDropsCachedSessionWhenAgentLeavesRunningState(t *
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -518,8 +651,8 @@ func TestRuntimeLauncherRunTickExecutesTurnsRecordsUsageAndSchedulesContinuation
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -686,8 +819,8 @@ func TestRuntimeLauncherExposesAgentOutputViaHTTPAndSSEDuringExecution(t *testin
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -864,8 +997,8 @@ func TestRuntimeLauncherRunTickMarksRetryOnTurnFailure(t *testing.T) {
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -999,8 +1132,8 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -1133,8 +1266,8 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -1236,8 +1369,8 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *t
 		SetName("Fake app server").
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -1332,8 +1465,8 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 		SetName("API key launch").
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -1467,8 +1600,8 @@ func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing
 		SetName("Pause runtime").
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)

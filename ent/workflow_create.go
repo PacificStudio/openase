@@ -154,26 +154,6 @@ func (_c *WorkflowCreate) SetNillableIsActive(v *bool) *WorkflowCreate {
 	return _c
 }
 
-// SetPickupStatusID sets the "pickup_status_id" field.
-func (_c *WorkflowCreate) SetPickupStatusID(v uuid.UUID) *WorkflowCreate {
-	_c.mutation.SetPickupStatusID(v)
-	return _c
-}
-
-// SetFinishStatusID sets the "finish_status_id" field.
-func (_c *WorkflowCreate) SetFinishStatusID(v uuid.UUID) *WorkflowCreate {
-	_c.mutation.SetFinishStatusID(v)
-	return _c
-}
-
-// SetNillableFinishStatusID sets the "finish_status_id" field if the given value is not nil.
-func (_c *WorkflowCreate) SetNillableFinishStatusID(v *uuid.UUID) *WorkflowCreate {
-	if v != nil {
-		_c.SetFinishStatusID(*v)
-	}
-	return _c
-}
-
 // SetID sets the "id" field.
 func (_c *WorkflowCreate) SetID(v uuid.UUID) *WorkflowCreate {
 	_c.mutation.SetID(v)
@@ -198,14 +178,34 @@ func (_c *WorkflowCreate) SetAgent(v *Agent) *WorkflowCreate {
 	return _c.SetAgentID(v.ID)
 }
 
-// SetPickupStatus sets the "pickup_status" edge to the TicketStatus entity.
-func (_c *WorkflowCreate) SetPickupStatus(v *TicketStatus) *WorkflowCreate {
-	return _c.SetPickupStatusID(v.ID)
+// AddPickupStatusIDs adds the "pickup_statuses" edge to the TicketStatus entity by IDs.
+func (_c *WorkflowCreate) AddPickupStatusIDs(ids ...uuid.UUID) *WorkflowCreate {
+	_c.mutation.AddPickupStatusIDs(ids...)
+	return _c
 }
 
-// SetFinishStatus sets the "finish_status" edge to the TicketStatus entity.
-func (_c *WorkflowCreate) SetFinishStatus(v *TicketStatus) *WorkflowCreate {
-	return _c.SetFinishStatusID(v.ID)
+// AddPickupStatuses adds the "pickup_statuses" edges to the TicketStatus entity.
+func (_c *WorkflowCreate) AddPickupStatuses(v ...*TicketStatus) *WorkflowCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddPickupStatusIDs(ids...)
+}
+
+// AddFinishStatusIDs adds the "finish_statuses" edge to the TicketStatus entity by IDs.
+func (_c *WorkflowCreate) AddFinishStatusIDs(ids ...uuid.UUID) *WorkflowCreate {
+	_c.mutation.AddFinishStatusIDs(ids...)
+	return _c
+}
+
+// AddFinishStatuses adds the "finish_statuses" edges to the TicketStatus entity.
+func (_c *WorkflowCreate) AddFinishStatuses(v ...*TicketStatus) *WorkflowCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddFinishStatusIDs(ids...)
 }
 
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by IDs.
@@ -372,14 +372,14 @@ func (_c *WorkflowCreate) check() error {
 	if _, ok := _c.mutation.IsActive(); !ok {
 		return &ValidationError{Name: "is_active", err: errors.New(`ent: missing required field "Workflow.is_active"`)}
 	}
-	if _, ok := _c.mutation.PickupStatusID(); !ok {
-		return &ValidationError{Name: "pickup_status_id", err: errors.New(`ent: missing required field "Workflow.pickup_status_id"`)}
-	}
 	if len(_c.mutation.ProjectIDs()) == 0 {
 		return &ValidationError{Name: "project", err: errors.New(`ent: missing required edge "Workflow.project"`)}
 	}
-	if len(_c.mutation.PickupStatusIDs()) == 0 {
-		return &ValidationError{Name: "pickup_status", err: errors.New(`ent: missing required edge "Workflow.pickup_status"`)}
+	if len(_c.mutation.PickupStatusesIDs()) == 0 {
+		return &ValidationError{Name: "pickup_statuses", err: errors.New(`ent: missing required edge "Workflow.pickup_statuses"`)}
+	}
+	if len(_c.mutation.FinishStatusesIDs()) == 0 {
+		return &ValidationError{Name: "finish_statuses", err: errors.New(`ent: missing required edge "Workflow.finish_statuses"`)}
 	}
 	return nil
 }
@@ -490,12 +490,12 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 		_node.AgentID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := _c.mutation.PickupStatusIDs(); len(nodes) > 0 {
+	if nodes := _c.mutation.PickupStatusesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.PickupStatusTable,
-			Columns: []string{workflow.PickupStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.PickupStatusesTable,
+			Columns: workflow.PickupStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -504,15 +504,14 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.PickupStatusID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := _c.mutation.FinishStatusIDs(); len(nodes) > 0 {
+	if nodes := _c.mutation.FinishStatusesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.FinishStatusTable,
-			Columns: []string{workflow.FinishStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.FinishStatusesTable,
+			Columns: workflow.FinishStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -521,7 +520,6 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.FinishStatusID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.TicketsIDs(); len(nodes) > 0 {

@@ -21,8 +21,8 @@ type rawCreateWorkflowRequest struct {
 	TimeoutMinutes      *int           `json:"timeout_minutes"`
 	StallTimeoutMinutes *int           `json:"stall_timeout_minutes"`
 	IsActive            *bool          `json:"is_active"`
-	PickupStatusID      string         `json:"pickup_status_id"`
-	FinishStatusID      *string        `json:"finish_status_id"`
+	PickupStatusIDs     []string       `json:"pickup_status_ids"`
+	FinishStatusIDs     []string       `json:"finish_status_ids"`
 }
 
 type rawUpdateWorkflowRequest struct {
@@ -36,8 +36,8 @@ type rawUpdateWorkflowRequest struct {
 	TimeoutMinutes      *int            `json:"timeout_minutes"`
 	StallTimeoutMinutes *int            `json:"stall_timeout_minutes"`
 	IsActive            *bool           `json:"is_active"`
-	PickupStatusID      *string         `json:"pickup_status_id"`
-	FinishStatusID      *string         `json:"finish_status_id"`
+	PickupStatusIDs     *[]string       `json:"pickup_status_ids"`
+	FinishStatusIDs     *[]string       `json:"finish_status_ids"`
 }
 
 type rawUpdateHarnessRequest struct {
@@ -63,12 +63,12 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 		return workflowservice.CreateInput{}, err
 	}
 
-	pickupStatusID, err := parseUUIDString("pickup_status_id", raw.PickupStatusID)
+	pickupStatusIDs, err := parseStatusBindingSet("pickup_status_ids", raw.PickupStatusIDs)
 	if err != nil {
 		return workflowservice.CreateInput{}, err
 	}
 
-	finishStatusID, err := parseOptionalUUIDString("finish_status_id", raw.FinishStatusID)
+	finishStatusIDs, err := parseStatusBindingSet("finish_status_ids", raw.FinishStatusIDs)
 	if err != nil {
 		return workflowservice.CreateInput{}, err
 	}
@@ -102,8 +102,8 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 		TimeoutMinutes:      timeoutMinutes,
 		StallTimeoutMinutes: stallTimeoutMinutes,
 		IsActive:            true,
-		PickupStatusID:      pickupStatusID,
-		FinishStatusID:      finishStatusID,
+		PickupStatusIDs:     pickupStatusIDs,
+		FinishStatusIDs:     finishStatusIDs,
 	}
 	if raw.HarnessPath != nil {
 		path := strings.TrimSpace(*raw.HarnessPath)
@@ -183,20 +183,20 @@ func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowReque
 		input.IsActive = workflowservice.Some(*raw.IsActive)
 	}
 
-	if raw.PickupStatusID != nil {
-		parsed, err := parseUUIDString("pickup_status_id", *raw.PickupStatusID)
+	if raw.PickupStatusIDs != nil {
+		parsed, err := parseStatusBindingSet("pickup_status_ids", *raw.PickupStatusIDs)
 		if err != nil {
 			return workflowservice.UpdateInput{}, err
 		}
-		input.PickupStatusID = workflowservice.Some(parsed)
+		input.PickupStatusIDs = workflowservice.Some(parsed)
 	}
 
-	if raw.FinishStatusID != nil {
-		parsed, err := parseOptionalUUIDString("finish_status_id", raw.FinishStatusID)
+	if raw.FinishStatusIDs != nil {
+		parsed, err := parseStatusBindingSet("finish_status_ids", *raw.FinishStatusIDs)
 		if err != nil {
 			return workflowservice.UpdateInput{}, err
 		}
-		input.FinishStatusID = workflowservice.Some(parsed)
+		input.FinishStatusIDs = workflowservice.Some(parsed)
 	}
 
 	return input, nil
@@ -247,6 +247,19 @@ func parseOptionalUUIDString(fieldName string, raw *string) (*uuid.UUID, error) 
 	}
 
 	return &parsed, nil
+}
+
+func parseStatusBindingSet(fieldName string, raw []string) (workflowservice.StatusBindingSet, error) {
+	ids := make([]uuid.UUID, 0, len(raw))
+	for _, item := range raw {
+		parsed, err := parseUUIDString(fieldName, item)
+		if err != nil {
+			return workflowservice.StatusBindingSet{}, err
+		}
+		ids = append(ids, parsed)
+	}
+
+	return workflowservice.ParseStatusBindingSet(fieldName, ids)
 }
 
 func parsePositiveInt(fieldName string, raw *int, defaultValue int) (int, error) {

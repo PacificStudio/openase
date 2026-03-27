@@ -371,10 +371,10 @@ func (_c *TicketStatusCreate) createSpec() (*TicketStatus, *sqlgraph.CreateSpec)
 	}
 	if nodes := _c.mutation.PickupWorkflowsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.PickupWorkflowsTable,
-			Columns: []string{ticketstatus.PickupWorkflowsColumn},
+			Columns: ticketstatus.PickupWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -387,10 +387,10 @@ func (_c *TicketStatusCreate) createSpec() (*TicketStatus, *sqlgraph.CreateSpec)
 	}
 	if nodes := _c.mutation.FinishWorkflowsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.FinishWorkflowsTable,
-			Columns: []string{ticketstatus.FinishWorkflowsColumn},
+			Columns: ticketstatus.FinishWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),

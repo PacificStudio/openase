@@ -26,17 +26,17 @@ import (
 // WorkflowQuery is the builder for querying Workflow entities.
 type WorkflowQuery struct {
 	config
-	ctx               *QueryContext
-	order             []workflow.OrderOption
-	inters            []Interceptor
-	predicates        []predicate.Workflow
-	withProject       *ProjectQuery
-	withAgent         *AgentQuery
-	withPickupStatus  *TicketStatusQuery
-	withFinishStatus  *TicketStatusQuery
-	withTickets       *TicketQuery
-	withAgentRuns     *AgentRunQuery
-	withScheduledJobs *ScheduledJobQuery
+	ctx                *QueryContext
+	order              []workflow.OrderOption
+	inters             []Interceptor
+	predicates         []predicate.Workflow
+	withProject        *ProjectQuery
+	withAgent          *AgentQuery
+	withPickupStatuses *TicketStatusQuery
+	withFinishStatuses *TicketStatusQuery
+	withTickets        *TicketQuery
+	withAgentRuns      *AgentRunQuery
+	withScheduledJobs  *ScheduledJobQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -117,8 +117,8 @@ func (_q *WorkflowQuery) QueryAgent() *AgentQuery {
 	return query
 }
 
-// QueryPickupStatus chains the current query on the "pickup_status" edge.
-func (_q *WorkflowQuery) QueryPickupStatus() *TicketStatusQuery {
+// QueryPickupStatuses chains the current query on the "pickup_statuses" edge.
+func (_q *WorkflowQuery) QueryPickupStatuses() *TicketStatusQuery {
 	query := (&TicketStatusClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -131,7 +131,7 @@ func (_q *WorkflowQuery) QueryPickupStatus() *TicketStatusQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
 			sqlgraph.To(ticketstatus.Table, ticketstatus.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, workflow.PickupStatusTable, workflow.PickupStatusColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, workflow.PickupStatusesTable, workflow.PickupStatusesPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -139,8 +139,8 @@ func (_q *WorkflowQuery) QueryPickupStatus() *TicketStatusQuery {
 	return query
 }
 
-// QueryFinishStatus chains the current query on the "finish_status" edge.
-func (_q *WorkflowQuery) QueryFinishStatus() *TicketStatusQuery {
+// QueryFinishStatuses chains the current query on the "finish_statuses" edge.
+func (_q *WorkflowQuery) QueryFinishStatuses() *TicketStatusQuery {
 	query := (&TicketStatusClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -153,7 +153,7 @@ func (_q *WorkflowQuery) QueryFinishStatus() *TicketStatusQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
 			sqlgraph.To(ticketstatus.Table, ticketstatus.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, workflow.FinishStatusTable, workflow.FinishStatusColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, workflow.FinishStatusesTable, workflow.FinishStatusesPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -414,18 +414,18 @@ func (_q *WorkflowQuery) Clone() *WorkflowQuery {
 		return nil
 	}
 	return &WorkflowQuery{
-		config:            _q.config,
-		ctx:               _q.ctx.Clone(),
-		order:             append([]workflow.OrderOption{}, _q.order...),
-		inters:            append([]Interceptor{}, _q.inters...),
-		predicates:        append([]predicate.Workflow{}, _q.predicates...),
-		withProject:       _q.withProject.Clone(),
-		withAgent:         _q.withAgent.Clone(),
-		withPickupStatus:  _q.withPickupStatus.Clone(),
-		withFinishStatus:  _q.withFinishStatus.Clone(),
-		withTickets:       _q.withTickets.Clone(),
-		withAgentRuns:     _q.withAgentRuns.Clone(),
-		withScheduledJobs: _q.withScheduledJobs.Clone(),
+		config:             _q.config,
+		ctx:                _q.ctx.Clone(),
+		order:              append([]workflow.OrderOption{}, _q.order...),
+		inters:             append([]Interceptor{}, _q.inters...),
+		predicates:         append([]predicate.Workflow{}, _q.predicates...),
+		withProject:        _q.withProject.Clone(),
+		withAgent:          _q.withAgent.Clone(),
+		withPickupStatuses: _q.withPickupStatuses.Clone(),
+		withFinishStatuses: _q.withFinishStatuses.Clone(),
+		withTickets:        _q.withTickets.Clone(),
+		withAgentRuns:      _q.withAgentRuns.Clone(),
+		withScheduledJobs:  _q.withScheduledJobs.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -454,25 +454,25 @@ func (_q *WorkflowQuery) WithAgent(opts ...func(*AgentQuery)) *WorkflowQuery {
 	return _q
 }
 
-// WithPickupStatus tells the query-builder to eager-load the nodes that are connected to
-// the "pickup_status" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *WorkflowQuery) WithPickupStatus(opts ...func(*TicketStatusQuery)) *WorkflowQuery {
+// WithPickupStatuses tells the query-builder to eager-load the nodes that are connected to
+// the "pickup_statuses" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkflowQuery) WithPickupStatuses(opts ...func(*TicketStatusQuery)) *WorkflowQuery {
 	query := (&TicketStatusClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withPickupStatus = query
+	_q.withPickupStatuses = query
 	return _q
 }
 
-// WithFinishStatus tells the query-builder to eager-load the nodes that are connected to
-// the "finish_status" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *WorkflowQuery) WithFinishStatus(opts ...func(*TicketStatusQuery)) *WorkflowQuery {
+// WithFinishStatuses tells the query-builder to eager-load the nodes that are connected to
+// the "finish_statuses" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkflowQuery) WithFinishStatuses(opts ...func(*TicketStatusQuery)) *WorkflowQuery {
 	query := (&TicketStatusClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withFinishStatus = query
+	_q.withFinishStatuses = query
 	return _q
 }
 
@@ -590,8 +590,8 @@ func (_q *WorkflowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wor
 		loadedTypes = [7]bool{
 			_q.withProject != nil,
 			_q.withAgent != nil,
-			_q.withPickupStatus != nil,
-			_q.withFinishStatus != nil,
+			_q.withPickupStatuses != nil,
+			_q.withFinishStatuses != nil,
 			_q.withTickets != nil,
 			_q.withAgentRuns != nil,
 			_q.withScheduledJobs != nil,
@@ -627,15 +627,17 @@ func (_q *WorkflowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wor
 			return nil, err
 		}
 	}
-	if query := _q.withPickupStatus; query != nil {
-		if err := _q.loadPickupStatus(ctx, query, nodes, nil,
-			func(n *Workflow, e *TicketStatus) { n.Edges.PickupStatus = e }); err != nil {
+	if query := _q.withPickupStatuses; query != nil {
+		if err := _q.loadPickupStatuses(ctx, query, nodes,
+			func(n *Workflow) { n.Edges.PickupStatuses = []*TicketStatus{} },
+			func(n *Workflow, e *TicketStatus) { n.Edges.PickupStatuses = append(n.Edges.PickupStatuses, e) }); err != nil {
 			return nil, err
 		}
 	}
-	if query := _q.withFinishStatus; query != nil {
-		if err := _q.loadFinishStatus(ctx, query, nodes, nil,
-			func(n *Workflow, e *TicketStatus) { n.Edges.FinishStatus = e }); err != nil {
+	if query := _q.withFinishStatuses; query != nil {
+		if err := _q.loadFinishStatuses(ctx, query, nodes,
+			func(n *Workflow) { n.Edges.FinishStatuses = []*TicketStatus{} },
+			func(n *Workflow, e *TicketStatus) { n.Edges.FinishStatuses = append(n.Edges.FinishStatuses, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -724,63 +726,124 @@ func (_q *WorkflowQuery) loadAgent(ctx context.Context, query *AgentQuery, nodes
 	}
 	return nil
 }
-func (_q *WorkflowQuery) loadPickupStatus(ctx context.Context, query *TicketStatusQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *TicketStatus)) error {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	nodeids := make(map[uuid.UUID][]*Workflow)
-	for i := range nodes {
-		fk := nodes[i].PickupStatusID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
+func (_q *WorkflowQuery) loadPickupStatuses(ctx context.Context, query *TicketStatusQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *TicketStatus)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[uuid.UUID]*Workflow)
+	nids := make(map[uuid.UUID]map[*Workflow]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
 		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
 	}
-	if len(ids) == 0 {
-		return nil
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(workflow.PickupStatusesTable)
+		s.Join(joinT).On(s.C(ticketstatus.FieldID), joinT.C(workflow.PickupStatusesPrimaryKey[1]))
+		s.Where(sql.InValues(joinT.C(workflow.PickupStatusesPrimaryKey[0]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(workflow.PickupStatusesPrimaryKey[0]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
 	}
-	query.Where(ticketstatus.IDIn(ids...))
-	neighbors, err := query.All(ctx)
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(uuid.UUID)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := *values[0].(*uuid.UUID)
+				inValue := *values[1].(*uuid.UUID)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*Workflow]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*TicketStatus](ctx, query, qr, query.inters)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
+		nodes, ok := nids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "pickup_status_id" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected "pickup_statuses" node returned %v`, n.ID)
 		}
-		for i := range nodes {
-			assign(nodes[i], n)
+		for kn := range nodes {
+			assign(kn, n)
 		}
 	}
 	return nil
 }
-func (_q *WorkflowQuery) loadFinishStatus(ctx context.Context, query *TicketStatusQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *TicketStatus)) error {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	nodeids := make(map[uuid.UUID][]*Workflow)
-	for i := range nodes {
-		if nodes[i].FinishStatusID == nil {
-			continue
+func (_q *WorkflowQuery) loadFinishStatuses(ctx context.Context, query *TicketStatusQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *TicketStatus)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[uuid.UUID]*Workflow)
+	nids := make(map[uuid.UUID]map[*Workflow]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
 		}
-		fk := *nodes[i].FinishStatusID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
 	}
-	if len(ids) == 0 {
-		return nil
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(workflow.FinishStatusesTable)
+		s.Join(joinT).On(s.C(ticketstatus.FieldID), joinT.C(workflow.FinishStatusesPrimaryKey[1]))
+		s.Where(sql.InValues(joinT.C(workflow.FinishStatusesPrimaryKey[0]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(workflow.FinishStatusesPrimaryKey[0]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
 	}
-	query.Where(ticketstatus.IDIn(ids...))
-	neighbors, err := query.All(ctx)
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(uuid.UUID)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := *values[0].(*uuid.UUID)
+				inValue := *values[1].(*uuid.UUID)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*Workflow]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*TicketStatus](ctx, query, qr, query.inters)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
+		nodes, ok := nids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "finish_status_id" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected "finish_statuses" node returned %v`, n.ID)
 		}
-		for i := range nodes {
-			assign(nodes[i], n)
+		for kn := range nodes {
+			assign(kn, n)
 		}
 	}
 	return nil
@@ -909,12 +972,6 @@ func (_q *WorkflowQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withAgent != nil {
 			_spec.Node.AddColumnOnce(workflow.FieldAgentID)
-		}
-		if _q.withPickupStatus != nil {
-			_spec.Node.AddColumnOnce(workflow.FieldPickupStatusID)
-		}
-		if _q.withFinishStatus != nil {
-			_spec.Node.AddColumnOnce(workflow.FieldFinishStatusID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

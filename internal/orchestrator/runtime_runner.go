@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -119,7 +120,7 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, agentID uuid.UU
 
 		if !shouldContinueExecution(reloaded, state.agent.ID) {
 			if err := l.finishResolvedExecution(ctx, state.agent.ID, reloaded); err != nil {
-				l.logger.Error("finish resolved execution", "agent_id", state.agent.ID, "ticket_id", reloaded.ID, "error", err)
+				l.handleExecutionFailure(ctx, state.agent.ID, reloaded.ID, err)
 			}
 			return
 		}
@@ -387,7 +388,10 @@ func (l *RuntimeLauncher) reloadExecutionTicket(ctx context.Context, ticketID uu
 	return l.client.Ticket.Query().
 		Where(entticket.IDEQ(ticketID)).
 		WithCurrentRun().
-		WithWorkflow().
+		WithWorkflow(func(query *ent.WorkflowQuery) {
+			query.WithPickupStatuses()
+			query.WithFinishStatuses()
+		}).
 		WithStatus().
 		Only(ctx)
 }
@@ -399,12 +403,22 @@ func shouldContinueExecution(ticket *ent.Ticket, agentID uuid.UUID) bool {
 	if ticket.Edges.CurrentRun.AgentID != agentID {
 		return false
 	}
-	return ticket.Edges.Workflow != nil && ticket.StatusID == ticket.Edges.Workflow.PickupStatusID && !ticket.RetryPaused
+	return ticket.Edges.Workflow != nil &&
+		slices.Contains(ticketStatusIDs(ticket.Edges.Workflow.Edges.PickupStatuses), ticket.StatusID) &&
+		!ticket.RetryPaused
 }
 
 func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID uuid.UUID, ticket *ent.Ticket) error {
 	stopSession(context.Background(), l.loadSession(agentID))
 	l.deleteSession(agentID)
+
+	if ticket != nil && ticket.WorkflowID != nil && (ticket.Edges.Workflow == nil || len(ticket.Edges.Workflow.Edges.FinishStatuses) == 0) {
+		reloadedTicket, err := l.reloadExecutionTicket(ctx, ticket.ID)
+		if err != nil {
+			return fmt.Errorf("reload ticket %s for completion: %w", ticket.ID, err)
+		}
+		ticket = reloadedTicket
+	}
 
 	assignment, err := l.loadAssignmentByAgent(ctx, agentID)
 	if err != nil {
@@ -418,11 +432,19 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID u
 	defer rollback(tx)
 
 	now := l.now().UTC()
+	finishStatusID, err := resolveWorkflowFinishStatus(ticket)
+	if err != nil {
+		return err
+	}
+
 	ticketUpdate := tx.Ticket.UpdateOneID(ticket.ID)
 	if ticket.CurrentRunID != nil {
 		ticketUpdate.ClearCurrentRunID()
 	}
-	if isDependencyResolved(ticket) && ticket.CompletedAt == nil {
+	if ticket.StatusID != finishStatusID {
+		ticketUpdate.SetStatusID(finishStatusID)
+	}
+	if ticket.CompletedAt == nil {
 		ticketUpdate.SetCompletedAt(now)
 	}
 	if _, err := ticketUpdate.Save(ctx); err != nil {
@@ -432,21 +454,15 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID u
 	agentUpdate := tx.Agent.Update().
 		Where(entagent.IDEQ(agentID)).
 		SetRuntimeControlState(entagent.RuntimeControlStateActive)
-	if isDependencyResolved(ticket) {
-		agentUpdate.AddTotalTicketsCompleted(1)
-	}
+	agentUpdate.AddTotalTicketsCompleted(1)
 	if _, err := agentUpdate.Save(ctx); err != nil {
 		return fmt.Errorf("update agent %s after execution: %w", agentID, err)
 	}
 
 	if assignment.run != nil {
-		runStatus := entagentrun.StatusTerminated
-		if isDependencyResolved(ticket) {
-			runStatus = entagentrun.StatusCompleted
-		}
 		if _, err := clearRuntimeStateOne(
 			tx.AgentRun.UpdateOneID(assignment.run.ID).
-				SetStatus(runStatus),
+				SetStatus(entagentrun.StatusCompleted),
 		).Save(ctx); err != nil {
 			return fmt.Errorf("update run %s after execution: %w", assignment.run.ID, err)
 		}
@@ -470,6 +486,31 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, agentID u
 		runtimeEventMetadataForState(agentItem),
 		now,
 	)
+}
+
+func resolveWorkflowFinishStatus(ticket *ent.Ticket) (uuid.UUID, error) {
+	if ticket == nil {
+		return uuid.UUID{}, fmt.Errorf("ticket missing workflow for completion")
+	}
+	if ticket.Edges.Workflow == nil {
+		return uuid.UUID{}, fmt.Errorf("ticket %s missing workflow for completion", ticket.ID)
+	}
+
+	finishStatusIDs := ticketStatusIDs(ticket.Edges.Workflow.Edges.FinishStatuses)
+	switch len(finishStatusIDs) {
+	case 0:
+		return uuid.UUID{}, fmt.Errorf("workflow %s has no finish statuses configured", ticket.Edges.Workflow.ID)
+	case 1:
+		return finishStatusIDs[0], nil
+	default:
+		if slices.Contains(finishStatusIDs, ticket.StatusID) {
+			return ticket.StatusID, nil
+		}
+		return uuid.UUID{}, fmt.Errorf(
+			"workflow %s requires an explicit finish status selection from the configured finish set",
+			ticket.Edges.Workflow.ID,
+		)
+	}
 }
 
 func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, agentID uuid.UUID, ticketID uuid.UUID, failure error) {

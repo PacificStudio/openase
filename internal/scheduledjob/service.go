@@ -504,7 +504,10 @@ func (s *Service) createTicketForJob(ctx context.Context, item *ent.ScheduledJob
 		return ticketservice.Ticket{}, err
 	}
 
-	statusID := workflowItem.PickupStatusID
+	statusID, err := resolveScheduledJobPickupStatus(template.Status, workflowItem)
+	if err != nil {
+		return ticketservice.Ticket{}, err
+	}
 	if template.Status != "" {
 		resolvedStatusID, err := s.resolveStatusIDByName(ctx, item.ProjectID, template.Status)
 		if err != nil {
@@ -546,6 +549,9 @@ func (s *Service) loadWorkflow(ctx context.Context, projectID uuid.UUID, workflo
 			entworkflow.IDEQ(workflowID),
 			entworkflow.ProjectIDEQ(projectID),
 		).
+		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -572,6 +578,26 @@ func (s *Service) resolveStatusIDByName(ctx context.Context, projectID uuid.UUID
 	}
 
 	return item.ID, nil
+}
+
+func resolveScheduledJobPickupStatus(templateStatus string, workflowItem *ent.Workflow) (uuid.UUID, error) {
+	if strings.TrimSpace(templateStatus) != "" {
+		return uuid.UUID{}, nil
+	}
+
+	pickupStatuses := workflowItem.Edges.PickupStatuses
+	switch len(pickupStatuses) {
+	case 0:
+		return uuid.UUID{}, fmt.Errorf("workflow %s has no pickup statuses configured", workflowItem.ID)
+	case 1:
+		return pickupStatuses[0].ID, nil
+	default:
+		return uuid.UUID{}, fmt.Errorf(
+			"%w: scheduled job ticket template must specify status when workflow %s has multiple pickup statuses",
+			ErrInvalidTicketTemplate,
+			workflowItem.ID,
+		)
+	}
 }
 
 func (s *Service) parseCron(raw string) (cron.Schedule, error) {

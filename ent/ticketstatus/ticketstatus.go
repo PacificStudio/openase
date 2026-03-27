@@ -62,20 +62,16 @@ const (
 	TicketsInverseTable = "tickets"
 	// TicketsColumn is the table column denoting the tickets relation/edge.
 	TicketsColumn = "status_id"
-	// PickupWorkflowsTable is the table that holds the pickup_workflows relation/edge.
-	PickupWorkflowsTable = "workflows"
+	// PickupWorkflowsTable is the table that holds the pickup_workflows relation/edge. The primary key declared below.
+	PickupWorkflowsTable = "workflow_pickup_statuses"
 	// PickupWorkflowsInverseTable is the table name for the Workflow entity.
 	// It exists in this package in order to avoid circular dependency with the "workflow" package.
 	PickupWorkflowsInverseTable = "workflows"
-	// PickupWorkflowsColumn is the table column denoting the pickup_workflows relation/edge.
-	PickupWorkflowsColumn = "pickup_status_id"
-	// FinishWorkflowsTable is the table that holds the finish_workflows relation/edge.
-	FinishWorkflowsTable = "workflows"
+	// FinishWorkflowsTable is the table that holds the finish_workflows relation/edge. The primary key declared below.
+	FinishWorkflowsTable = "workflow_finish_statuses"
 	// FinishWorkflowsInverseTable is the table name for the Workflow entity.
 	// It exists in this package in order to avoid circular dependency with the "workflow" package.
 	FinishWorkflowsInverseTable = "workflows"
-	// FinishWorkflowsColumn is the table column denoting the finish_workflows relation/edge.
-	FinishWorkflowsColumn = "finish_status_id"
 )
 
 // Columns holds all SQL columns for ticketstatus fields.
@@ -90,6 +86,15 @@ var Columns = []string{
 	FieldIsDefault,
 	FieldDescription,
 }
+
+var (
+	// PickupWorkflowsPrimaryKey and PickupWorkflowsColumn2 are the table columns denoting the
+	// primary key for the pickup_workflows relation (M2M).
+	PickupWorkflowsPrimaryKey = []string{"workflow_id", "ticket_status_id"}
+	// FinishWorkflowsPrimaryKey and FinishWorkflowsColumn2 are the table columns denoting the
+	// primary key for the finish_workflows relation (M2M).
+	FinishWorkflowsPrimaryKey = []string{"workflow_id", "ticket_status_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -242,13 +247,13 @@ func newPickupWorkflowsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PickupWorkflowsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, PickupWorkflowsTable, PickupWorkflowsColumn),
+		sqlgraph.Edge(sqlgraph.M2M, true, PickupWorkflowsTable, PickupWorkflowsPrimaryKey...),
 	)
 }
 func newFinishWorkflowsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(FinishWorkflowsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, FinishWorkflowsTable, FinishWorkflowsColumn),
+		sqlgraph.Edge(sqlgraph.M2M, true, FinishWorkflowsTable, FinishWorkflowsPrimaryKey...),
 	)
 }

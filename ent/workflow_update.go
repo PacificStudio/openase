@@ -235,40 +235,6 @@ func (_u *WorkflowUpdate) SetNillableIsActive(v *bool) *WorkflowUpdate {
 	return _u
 }
 
-// SetPickupStatusID sets the "pickup_status_id" field.
-func (_u *WorkflowUpdate) SetPickupStatusID(v uuid.UUID) *WorkflowUpdate {
-	_u.mutation.SetPickupStatusID(v)
-	return _u
-}
-
-// SetNillablePickupStatusID sets the "pickup_status_id" field if the given value is not nil.
-func (_u *WorkflowUpdate) SetNillablePickupStatusID(v *uuid.UUID) *WorkflowUpdate {
-	if v != nil {
-		_u.SetPickupStatusID(*v)
-	}
-	return _u
-}
-
-// SetFinishStatusID sets the "finish_status_id" field.
-func (_u *WorkflowUpdate) SetFinishStatusID(v uuid.UUID) *WorkflowUpdate {
-	_u.mutation.SetFinishStatusID(v)
-	return _u
-}
-
-// SetNillableFinishStatusID sets the "finish_status_id" field if the given value is not nil.
-func (_u *WorkflowUpdate) SetNillableFinishStatusID(v *uuid.UUID) *WorkflowUpdate {
-	if v != nil {
-		_u.SetFinishStatusID(*v)
-	}
-	return _u
-}
-
-// ClearFinishStatusID clears the value of the "finish_status_id" field.
-func (_u *WorkflowUpdate) ClearFinishStatusID() *WorkflowUpdate {
-	_u.mutation.ClearFinishStatusID()
-	return _u
-}
-
 // SetProject sets the "project" edge to the Project entity.
 func (_u *WorkflowUpdate) SetProject(v *Project) *WorkflowUpdate {
 	return _u.SetProjectID(v.ID)
@@ -279,14 +245,34 @@ func (_u *WorkflowUpdate) SetAgent(v *Agent) *WorkflowUpdate {
 	return _u.SetAgentID(v.ID)
 }
 
-// SetPickupStatus sets the "pickup_status" edge to the TicketStatus entity.
-func (_u *WorkflowUpdate) SetPickupStatus(v *TicketStatus) *WorkflowUpdate {
-	return _u.SetPickupStatusID(v.ID)
+// AddPickupStatusIDs adds the "pickup_statuses" edge to the TicketStatus entity by IDs.
+func (_u *WorkflowUpdate) AddPickupStatusIDs(ids ...uuid.UUID) *WorkflowUpdate {
+	_u.mutation.AddPickupStatusIDs(ids...)
+	return _u
 }
 
-// SetFinishStatus sets the "finish_status" edge to the TicketStatus entity.
-func (_u *WorkflowUpdate) SetFinishStatus(v *TicketStatus) *WorkflowUpdate {
-	return _u.SetFinishStatusID(v.ID)
+// AddPickupStatuses adds the "pickup_statuses" edges to the TicketStatus entity.
+func (_u *WorkflowUpdate) AddPickupStatuses(v ...*TicketStatus) *WorkflowUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPickupStatusIDs(ids...)
+}
+
+// AddFinishStatusIDs adds the "finish_statuses" edge to the TicketStatus entity by IDs.
+func (_u *WorkflowUpdate) AddFinishStatusIDs(ids ...uuid.UUID) *WorkflowUpdate {
+	_u.mutation.AddFinishStatusIDs(ids...)
+	return _u
+}
+
+// AddFinishStatuses adds the "finish_statuses" edges to the TicketStatus entity.
+func (_u *WorkflowUpdate) AddFinishStatuses(v ...*TicketStatus) *WorkflowUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFinishStatusIDs(ids...)
 }
 
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by IDs.
@@ -351,16 +337,46 @@ func (_u *WorkflowUpdate) ClearAgent() *WorkflowUpdate {
 	return _u
 }
 
-// ClearPickupStatus clears the "pickup_status" edge to the TicketStatus entity.
-func (_u *WorkflowUpdate) ClearPickupStatus() *WorkflowUpdate {
-	_u.mutation.ClearPickupStatus()
+// ClearPickupStatuses clears all "pickup_statuses" edges to the TicketStatus entity.
+func (_u *WorkflowUpdate) ClearPickupStatuses() *WorkflowUpdate {
+	_u.mutation.ClearPickupStatuses()
 	return _u
 }
 
-// ClearFinishStatus clears the "finish_status" edge to the TicketStatus entity.
-func (_u *WorkflowUpdate) ClearFinishStatus() *WorkflowUpdate {
-	_u.mutation.ClearFinishStatus()
+// RemovePickupStatusIDs removes the "pickup_statuses" edge to TicketStatus entities by IDs.
+func (_u *WorkflowUpdate) RemovePickupStatusIDs(ids ...uuid.UUID) *WorkflowUpdate {
+	_u.mutation.RemovePickupStatusIDs(ids...)
 	return _u
+}
+
+// RemovePickupStatuses removes "pickup_statuses" edges to TicketStatus entities.
+func (_u *WorkflowUpdate) RemovePickupStatuses(v ...*TicketStatus) *WorkflowUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePickupStatusIDs(ids...)
+}
+
+// ClearFinishStatuses clears all "finish_statuses" edges to the TicketStatus entity.
+func (_u *WorkflowUpdate) ClearFinishStatuses() *WorkflowUpdate {
+	_u.mutation.ClearFinishStatuses()
+	return _u
+}
+
+// RemoveFinishStatusIDs removes the "finish_statuses" edge to TicketStatus entities by IDs.
+func (_u *WorkflowUpdate) RemoveFinishStatusIDs(ids ...uuid.UUID) *WorkflowUpdate {
+	_u.mutation.RemoveFinishStatusIDs(ids...)
+	return _u
+}
+
+// RemoveFinishStatuses removes "finish_statuses" edges to TicketStatus entities.
+func (_u *WorkflowUpdate) RemoveFinishStatuses(v ...*TicketStatus) *WorkflowUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFinishStatusIDs(ids...)
 }
 
 // ClearTickets clears all "tickets" edges to the Ticket entity.
@@ -472,9 +488,6 @@ func (_u *WorkflowUpdate) check() error {
 	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Workflow.project"`)
-	}
-	if _u.mutation.PickupStatusCleared() && len(_u.mutation.PickupStatusIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "Workflow.pickup_status"`)
 	}
 	return nil
 }
@@ -594,12 +607,12 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.PickupStatusCleared() {
+	if _u.mutation.PickupStatusesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.PickupStatusTable,
-			Columns: []string{workflow.PickupStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.PickupStatusesTable,
+			Columns: workflow.PickupStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -607,12 +620,28 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.PickupStatusIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.RemovedPickupStatusesIDs(); len(nodes) > 0 && !_u.mutation.PickupStatusesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.PickupStatusTable,
-			Columns: []string{workflow.PickupStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.PickupStatusesTable,
+			Columns: workflow.PickupStatusesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PickupStatusesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.PickupStatusesTable,
+			Columns: workflow.PickupStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -623,12 +652,12 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.FinishStatusCleared() {
+	if _u.mutation.FinishStatusesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.FinishStatusTable,
-			Columns: []string{workflow.FinishStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.FinishStatusesTable,
+			Columns: workflow.FinishStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -636,12 +665,28 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.FinishStatusIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.RemovedFinishStatusesIDs(); len(nodes) > 0 && !_u.mutation.FinishStatusesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.FinishStatusTable,
-			Columns: []string{workflow.FinishStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.FinishStatusesTable,
+			Columns: workflow.FinishStatusesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FinishStatusesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.FinishStatusesTable,
+			Columns: workflow.FinishStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -1008,40 +1053,6 @@ func (_u *WorkflowUpdateOne) SetNillableIsActive(v *bool) *WorkflowUpdateOne {
 	return _u
 }
 
-// SetPickupStatusID sets the "pickup_status_id" field.
-func (_u *WorkflowUpdateOne) SetPickupStatusID(v uuid.UUID) *WorkflowUpdateOne {
-	_u.mutation.SetPickupStatusID(v)
-	return _u
-}
-
-// SetNillablePickupStatusID sets the "pickup_status_id" field if the given value is not nil.
-func (_u *WorkflowUpdateOne) SetNillablePickupStatusID(v *uuid.UUID) *WorkflowUpdateOne {
-	if v != nil {
-		_u.SetPickupStatusID(*v)
-	}
-	return _u
-}
-
-// SetFinishStatusID sets the "finish_status_id" field.
-func (_u *WorkflowUpdateOne) SetFinishStatusID(v uuid.UUID) *WorkflowUpdateOne {
-	_u.mutation.SetFinishStatusID(v)
-	return _u
-}
-
-// SetNillableFinishStatusID sets the "finish_status_id" field if the given value is not nil.
-func (_u *WorkflowUpdateOne) SetNillableFinishStatusID(v *uuid.UUID) *WorkflowUpdateOne {
-	if v != nil {
-		_u.SetFinishStatusID(*v)
-	}
-	return _u
-}
-
-// ClearFinishStatusID clears the value of the "finish_status_id" field.
-func (_u *WorkflowUpdateOne) ClearFinishStatusID() *WorkflowUpdateOne {
-	_u.mutation.ClearFinishStatusID()
-	return _u
-}
-
 // SetProject sets the "project" edge to the Project entity.
 func (_u *WorkflowUpdateOne) SetProject(v *Project) *WorkflowUpdateOne {
 	return _u.SetProjectID(v.ID)
@@ -1052,14 +1063,34 @@ func (_u *WorkflowUpdateOne) SetAgent(v *Agent) *WorkflowUpdateOne {
 	return _u.SetAgentID(v.ID)
 }
 
-// SetPickupStatus sets the "pickup_status" edge to the TicketStatus entity.
-func (_u *WorkflowUpdateOne) SetPickupStatus(v *TicketStatus) *WorkflowUpdateOne {
-	return _u.SetPickupStatusID(v.ID)
+// AddPickupStatusIDs adds the "pickup_statuses" edge to the TicketStatus entity by IDs.
+func (_u *WorkflowUpdateOne) AddPickupStatusIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.AddPickupStatusIDs(ids...)
+	return _u
 }
 
-// SetFinishStatus sets the "finish_status" edge to the TicketStatus entity.
-func (_u *WorkflowUpdateOne) SetFinishStatus(v *TicketStatus) *WorkflowUpdateOne {
-	return _u.SetFinishStatusID(v.ID)
+// AddPickupStatuses adds the "pickup_statuses" edges to the TicketStatus entity.
+func (_u *WorkflowUpdateOne) AddPickupStatuses(v ...*TicketStatus) *WorkflowUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPickupStatusIDs(ids...)
+}
+
+// AddFinishStatusIDs adds the "finish_statuses" edge to the TicketStatus entity by IDs.
+func (_u *WorkflowUpdateOne) AddFinishStatusIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.AddFinishStatusIDs(ids...)
+	return _u
+}
+
+// AddFinishStatuses adds the "finish_statuses" edges to the TicketStatus entity.
+func (_u *WorkflowUpdateOne) AddFinishStatuses(v ...*TicketStatus) *WorkflowUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFinishStatusIDs(ids...)
 }
 
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by IDs.
@@ -1124,16 +1155,46 @@ func (_u *WorkflowUpdateOne) ClearAgent() *WorkflowUpdateOne {
 	return _u
 }
 
-// ClearPickupStatus clears the "pickup_status" edge to the TicketStatus entity.
-func (_u *WorkflowUpdateOne) ClearPickupStatus() *WorkflowUpdateOne {
-	_u.mutation.ClearPickupStatus()
+// ClearPickupStatuses clears all "pickup_statuses" edges to the TicketStatus entity.
+func (_u *WorkflowUpdateOne) ClearPickupStatuses() *WorkflowUpdateOne {
+	_u.mutation.ClearPickupStatuses()
 	return _u
 }
 
-// ClearFinishStatus clears the "finish_status" edge to the TicketStatus entity.
-func (_u *WorkflowUpdateOne) ClearFinishStatus() *WorkflowUpdateOne {
-	_u.mutation.ClearFinishStatus()
+// RemovePickupStatusIDs removes the "pickup_statuses" edge to TicketStatus entities by IDs.
+func (_u *WorkflowUpdateOne) RemovePickupStatusIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.RemovePickupStatusIDs(ids...)
 	return _u
+}
+
+// RemovePickupStatuses removes "pickup_statuses" edges to TicketStatus entities.
+func (_u *WorkflowUpdateOne) RemovePickupStatuses(v ...*TicketStatus) *WorkflowUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePickupStatusIDs(ids...)
+}
+
+// ClearFinishStatuses clears all "finish_statuses" edges to the TicketStatus entity.
+func (_u *WorkflowUpdateOne) ClearFinishStatuses() *WorkflowUpdateOne {
+	_u.mutation.ClearFinishStatuses()
+	return _u
+}
+
+// RemoveFinishStatusIDs removes the "finish_statuses" edge to TicketStatus entities by IDs.
+func (_u *WorkflowUpdateOne) RemoveFinishStatusIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.RemoveFinishStatusIDs(ids...)
+	return _u
+}
+
+// RemoveFinishStatuses removes "finish_statuses" edges to TicketStatus entities.
+func (_u *WorkflowUpdateOne) RemoveFinishStatuses(v ...*TicketStatus) *WorkflowUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFinishStatusIDs(ids...)
 }
 
 // ClearTickets clears all "tickets" edges to the Ticket entity.
@@ -1258,9 +1319,6 @@ func (_u *WorkflowUpdateOne) check() error {
 	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Workflow.project"`)
-	}
-	if _u.mutation.PickupStatusCleared() && len(_u.mutation.PickupStatusIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "Workflow.pickup_status"`)
 	}
 	return nil
 }
@@ -1397,12 +1455,12 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.PickupStatusCleared() {
+	if _u.mutation.PickupStatusesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.PickupStatusTable,
-			Columns: []string{workflow.PickupStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.PickupStatusesTable,
+			Columns: workflow.PickupStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -1410,12 +1468,28 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.PickupStatusIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.RemovedPickupStatusesIDs(); len(nodes) > 0 && !_u.mutation.PickupStatusesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.PickupStatusTable,
-			Columns: []string{workflow.PickupStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.PickupStatusesTable,
+			Columns: workflow.PickupStatusesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PickupStatusesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.PickupStatusesTable,
+			Columns: workflow.PickupStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -1426,12 +1500,12 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.FinishStatusCleared() {
+	if _u.mutation.FinishStatusesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.FinishStatusTable,
-			Columns: []string{workflow.FinishStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.FinishStatusesTable,
+			Columns: workflow.FinishStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
@@ -1439,12 +1513,28 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.FinishStatusIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.RemovedFinishStatusesIDs(); len(nodes) > 0 && !_u.mutation.FinishStatusesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   workflow.FinishStatusTable,
-			Columns: []string{workflow.FinishStatusColumn},
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.FinishStatusesTable,
+			Columns: workflow.FinishStatusesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FinishStatusesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   workflow.FinishStatusesTable,
+			Columns: workflow.FinishStatusesPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketstatus.FieldID, field.TypeUUID),

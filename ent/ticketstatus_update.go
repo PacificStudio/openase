@@ -493,10 +493,10 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if _u.mutation.PickupWorkflowsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.PickupWorkflowsTable,
-			Columns: []string{ticketstatus.PickupWorkflowsColumn},
+			Columns: ticketstatus.PickupWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -506,10 +506,10 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if nodes := _u.mutation.RemovedPickupWorkflowsIDs(); len(nodes) > 0 && !_u.mutation.PickupWorkflowsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.PickupWorkflowsTable,
-			Columns: []string{ticketstatus.PickupWorkflowsColumn},
+			Columns: ticketstatus.PickupWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -522,10 +522,10 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if nodes := _u.mutation.PickupWorkflowsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.PickupWorkflowsTable,
-			Columns: []string{ticketstatus.PickupWorkflowsColumn},
+			Columns: ticketstatus.PickupWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -538,10 +538,10 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if _u.mutation.FinishWorkflowsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.FinishWorkflowsTable,
-			Columns: []string{ticketstatus.FinishWorkflowsColumn},
+			Columns: ticketstatus.FinishWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -551,10 +551,10 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if nodes := _u.mutation.RemovedFinishWorkflowsIDs(); len(nodes) > 0 && !_u.mutation.FinishWorkflowsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.FinishWorkflowsTable,
-			Columns: []string{ticketstatus.FinishWorkflowsColumn},
+			Columns: ticketstatus.FinishWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -567,10 +567,10 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if nodes := _u.mutation.FinishWorkflowsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.FinishWorkflowsTable,
-			Columns: []string{ticketstatus.FinishWorkflowsColumn},
+			Columns: ticketstatus.FinishWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -1092,10 +1092,10 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 	}
 	if _u.mutation.PickupWorkflowsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.PickupWorkflowsTable,
-			Columns: []string{ticketstatus.PickupWorkflowsColumn},
+			Columns: ticketstatus.PickupWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -1105,10 +1105,10 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 	}
 	if nodes := _u.mutation.RemovedPickupWorkflowsIDs(); len(nodes) > 0 && !_u.mutation.PickupWorkflowsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.PickupWorkflowsTable,
-			Columns: []string{ticketstatus.PickupWorkflowsColumn},
+			Columns: ticketstatus.PickupWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -1121,10 +1121,10 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 	}
 	if nodes := _u.mutation.PickupWorkflowsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.PickupWorkflowsTable,
-			Columns: []string{ticketstatus.PickupWorkflowsColumn},
+			Columns: ticketstatus.PickupWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -1137,10 +1137,10 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 	}
 	if _u.mutation.FinishWorkflowsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.FinishWorkflowsTable,
-			Columns: []string{ticketstatus.FinishWorkflowsColumn},
+			Columns: ticketstatus.FinishWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -1150,10 +1150,10 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 	}
 	if nodes := _u.mutation.RemovedFinishWorkflowsIDs(); len(nodes) > 0 && !_u.mutation.FinishWorkflowsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.FinishWorkflowsTable,
-			Columns: []string{ticketstatus.FinishWorkflowsColumn},
+			Columns: ticketstatus.FinishWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
@@ -1166,10 +1166,10 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 	}
 	if nodes := _u.mutation.FinishWorkflowsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
 			Table:   ticketstatus.FinishWorkflowsTable,
-			Columns: []string{ticketstatus.FinishWorkflowsColumn},
+			Columns: ticketstatus.FinishWorkflowsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),

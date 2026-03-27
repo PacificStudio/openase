@@ -39,18 +39,14 @@ const (
 	FieldVersion = "version"
 	// FieldIsActive holds the string denoting the is_active field in the database.
 	FieldIsActive = "is_active"
-	// FieldPickupStatusID holds the string denoting the pickup_status_id field in the database.
-	FieldPickupStatusID = "pickup_status_id"
-	// FieldFinishStatusID holds the string denoting the finish_status_id field in the database.
-	FieldFinishStatusID = "finish_status_id"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
 	// EdgeAgent holds the string denoting the agent edge name in mutations.
 	EdgeAgent = "agent"
-	// EdgePickupStatus holds the string denoting the pickup_status edge name in mutations.
-	EdgePickupStatus = "pickup_status"
-	// EdgeFinishStatus holds the string denoting the finish_status edge name in mutations.
-	EdgeFinishStatus = "finish_status"
+	// EdgePickupStatuses holds the string denoting the pickup_statuses edge name in mutations.
+	EdgePickupStatuses = "pickup_statuses"
+	// EdgeFinishStatuses holds the string denoting the finish_statuses edge name in mutations.
+	EdgeFinishStatuses = "finish_statuses"
 	// EdgeTickets holds the string denoting the tickets edge name in mutations.
 	EdgeTickets = "tickets"
 	// EdgeAgentRuns holds the string denoting the agent_runs edge name in mutations.
@@ -73,20 +69,16 @@ const (
 	AgentInverseTable = "agents"
 	// AgentColumn is the table column denoting the agent relation/edge.
 	AgentColumn = "agent_id"
-	// PickupStatusTable is the table that holds the pickup_status relation/edge.
-	PickupStatusTable = "workflows"
-	// PickupStatusInverseTable is the table name for the TicketStatus entity.
+	// PickupStatusesTable is the table that holds the pickup_statuses relation/edge. The primary key declared below.
+	PickupStatusesTable = "workflow_pickup_statuses"
+	// PickupStatusesInverseTable is the table name for the TicketStatus entity.
 	// It exists in this package in order to avoid circular dependency with the "ticketstatus" package.
-	PickupStatusInverseTable = "ticket_status"
-	// PickupStatusColumn is the table column denoting the pickup_status relation/edge.
-	PickupStatusColumn = "pickup_status_id"
-	// FinishStatusTable is the table that holds the finish_status relation/edge.
-	FinishStatusTable = "workflows"
-	// FinishStatusInverseTable is the table name for the TicketStatus entity.
+	PickupStatusesInverseTable = "ticket_status"
+	// FinishStatusesTable is the table that holds the finish_statuses relation/edge. The primary key declared below.
+	FinishStatusesTable = "workflow_finish_statuses"
+	// FinishStatusesInverseTable is the table name for the TicketStatus entity.
 	// It exists in this package in order to avoid circular dependency with the "ticketstatus" package.
-	FinishStatusInverseTable = "ticket_status"
-	// FinishStatusColumn is the table column denoting the finish_status relation/edge.
-	FinishStatusColumn = "finish_status_id"
+	FinishStatusesInverseTable = "ticket_status"
 	// TicketsTable is the table that holds the tickets relation/edge.
 	TicketsTable = "tickets"
 	// TicketsInverseTable is the table name for the Ticket entity.
@@ -125,9 +117,16 @@ var Columns = []string{
 	FieldStallTimeoutMinutes,
 	FieldVersion,
 	FieldIsActive,
-	FieldPickupStatusID,
-	FieldFinishStatusID,
 }
+
+var (
+	// PickupStatusesPrimaryKey and PickupStatusesColumn2 are the table columns denoting the
+	// primary key for the pickup_statuses relation (M2M).
+	PickupStatusesPrimaryKey = []string{"workflow_id", "ticket_status_id"}
+	// FinishStatusesPrimaryKey and FinishStatusesColumn2 are the table columns denoting the
+	// primary key for the finish_statuses relation (M2M).
+	FinishStatusesPrimaryKey = []string{"workflow_id", "ticket_status_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -253,16 +252,6 @@ func ByIsActive(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsActive, opts...).ToFunc()
 }
 
-// ByPickupStatusID orders the results by the pickup_status_id field.
-func ByPickupStatusID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldPickupStatusID, opts...).ToFunc()
-}
-
-// ByFinishStatusID orders the results by the finish_status_id field.
-func ByFinishStatusID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldFinishStatusID, opts...).ToFunc()
-}
-
 // ByProjectField orders the results by project field.
 func ByProjectField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -277,17 +266,31 @@ func ByAgentField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
-// ByPickupStatusField orders the results by pickup_status field.
-func ByPickupStatusField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByPickupStatusesCount orders the results by pickup_statuses count.
+func ByPickupStatusesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newPickupStatusStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborsCount(s, newPickupStatusesStep(), opts...)
 	}
 }
 
-// ByFinishStatusField orders the results by finish_status field.
-func ByFinishStatusField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByPickupStatuses orders the results by pickup_statuses terms.
+func ByPickupStatuses(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newFinishStatusStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborTerms(s, newPickupStatusesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByFinishStatusesCount orders the results by finish_statuses count.
+func ByFinishStatusesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newFinishStatusesStep(), opts...)
+	}
+}
+
+// ByFinishStatuses orders the results by finish_statuses terms.
+func ByFinishStatuses(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newFinishStatusesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -346,18 +349,18 @@ func newAgentStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.M2O, true, AgentTable, AgentColumn),
 	)
 }
-func newPickupStatusStep() *sqlgraph.Step {
+func newPickupStatusesStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(PickupStatusInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, PickupStatusTable, PickupStatusColumn),
+		sqlgraph.To(PickupStatusesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, PickupStatusesTable, PickupStatusesPrimaryKey...),
 	)
 }
-func newFinishStatusStep() *sqlgraph.Step {
+func newFinishStatusesStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(FinishStatusInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, FinishStatusTable, FinishStatusColumn),
+		sqlgraph.To(FinishStatusesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, FinishStatusesTable, FinishStatusesPrimaryKey...),
 	)
 }
 func newTicketsStep() *sqlgraph.Step {

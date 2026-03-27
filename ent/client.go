@@ -4092,7 +4092,7 @@ func (c *TicketStatusClient) QueryPickupWorkflows(_m *TicketStatus) *WorkflowQue
 		step := sqlgraph.NewStep(
 			sqlgraph.From(ticketstatus.Table, ticketstatus.FieldID, id),
 			sqlgraph.To(workflow.Table, workflow.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ticketstatus.PickupWorkflowsTable, ticketstatus.PickupWorkflowsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, true, ticketstatus.PickupWorkflowsTable, ticketstatus.PickupWorkflowsPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4108,7 +4108,7 @@ func (c *TicketStatusClient) QueryFinishWorkflows(_m *TicketStatus) *WorkflowQue
 		step := sqlgraph.NewStep(
 			sqlgraph.From(ticketstatus.Table, ticketstatus.FieldID, id),
 			sqlgraph.To(workflow.Table, workflow.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ticketstatus.FinishWorkflowsTable, ticketstatus.FinishWorkflowsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, true, ticketstatus.FinishWorkflowsTable, ticketstatus.FinishWorkflowsPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4281,15 +4281,15 @@ func (c *WorkflowClient) QueryAgent(_m *Workflow) *AgentQuery {
 	return query
 }
 
-// QueryPickupStatus queries the pickup_status edge of a Workflow.
-func (c *WorkflowClient) QueryPickupStatus(_m *Workflow) *TicketStatusQuery {
+// QueryPickupStatuses queries the pickup_statuses edge of a Workflow.
+func (c *WorkflowClient) QueryPickupStatuses(_m *Workflow) *TicketStatusQuery {
 	query := (&TicketStatusClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(workflow.Table, workflow.FieldID, id),
 			sqlgraph.To(ticketstatus.Table, ticketstatus.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, workflow.PickupStatusTable, workflow.PickupStatusColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, workflow.PickupStatusesTable, workflow.PickupStatusesPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4297,15 +4297,15 @@ func (c *WorkflowClient) QueryPickupStatus(_m *Workflow) *TicketStatusQuery {
 	return query
 }
 
-// QueryFinishStatus queries the finish_status edge of a Workflow.
-func (c *WorkflowClient) QueryFinishStatus(_m *Workflow) *TicketStatusQuery {
+// QueryFinishStatuses queries the finish_statuses edge of a Workflow.
+func (c *WorkflowClient) QueryFinishStatuses(_m *Workflow) *TicketStatusQuery {
 	query := (&TicketStatusClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(workflow.Table, workflow.FieldID, id),
 			sqlgraph.To(ticketstatus.Table, ticketstatus.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, workflow.FinishStatusTable, workflow.FinishStatusColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, workflow.FinishStatusesTable, workflow.FinishStatusesPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil

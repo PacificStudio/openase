@@ -68,8 +68,8 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 		SetName("Security Workflow").
 		SetType(entworkflow.TypeSecurity).
 		SetHarnessPath(".openase/harnesses/security.md").
-		SetPickupStatusID(todoID).
-		SetFinishStatusID(doneID).
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
