@@ -6554,6 +6554,13 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            assigned_agent?: {
+              id?: string
+              name?: string
+              provider?: string
+              runtime_control_state?: string
+              runtime_phase?: string | null
+            } | null
             comments?: {
               body?: string
               created_at?: string

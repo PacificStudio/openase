@@ -106,7 +106,7 @@ func TestAdapterStartDoesNotDuplicateVerboseFlag(t *testing.T) {
 	verboseCount := 0
 	for _, arg := range manager.lastSpec.Args {
 		if arg == "--verbose" {
-			verboseCount += 1
+			verboseCount++
 		}
 	}
 	if verboseCount != 1 {

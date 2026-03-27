@@ -271,6 +271,14 @@ type OpenAPITicketRepoScope struct {
 	IsPrimaryScope bool    `json:"is_primary_scope"`
 }
 
+type OpenAPITicketAssignedAgent struct {
+	ID                  string  `json:"id"`
+	Name                string  `json:"name"`
+	Provider            string  `json:"provider"`
+	RuntimeControlState string  `json:"runtime_control_state,omitempty"`
+	RuntimePhase        *string `json:"runtime_phase,omitempty"`
+}
+
 type OpenAPIChatContext struct {
 	ProjectID  string  `json:"project_id"`
 	WorkflowID *string `json:"workflow_id,omitempty"`
@@ -752,11 +760,12 @@ type OpenAPISecuritySettingsResponse struct {
 }
 
 type OpenAPITicketDetailResponse struct {
-	Ticket      OpenAPITicket                  `json:"ticket"`
-	RepoScopes  []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
-	Comments    []OpenAPITicketComment         `json:"comments"`
-	Activity    []OpenAPIActivityEvent         `json:"activity"`
-	HookHistory []OpenAPIActivityEvent         `json:"hook_history"`
+	AssignedAgent *OpenAPITicketAssignedAgent    `json:"assigned_agent,omitempty"`
+	Ticket        OpenAPITicket                  `json:"ticket"`
+	RepoScopes    []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
+	Comments      []OpenAPITicketComment         `json:"comments"`
+	Activity      []OpenAPIActivityEvent         `json:"activity"`
+	HookHistory   []OpenAPIActivityEvent         `json:"hook_history"`
 }
 
 type OpenAPICreateOrganizationRequest catalogdomain.OrganizationInput
