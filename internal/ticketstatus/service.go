@@ -1283,25 +1283,29 @@ func stageActiveRunsByID(snapshots []StageRuntimeSnapshot) map[uuid.UUID]int {
 }
 
 func countProjectStageActiveRuns(ctx context.Context, client *ent.Client, projectID uuid.UUID) (map[uuid.UUID]int, error) {
-	tickets, err := client.Ticket.Query().
+	var statusCounts []stageStatusActiveRunCount
+	err := client.Ticket.Query().
 		Where(entticket.ProjectIDEQ(projectID), entticket.CurrentRunIDNotNil()).
-		WithStatus().
-		All(ctx)
+		GroupBy(entticket.FieldStatusID).
+		Aggregate(ent.As(ent.Count(), "active_runs")).
+		Scan(ctx, &statusCounts)
 	if err != nil {
-		return nil, fmt.Errorf("list active project tickets for stage occupancy: %w", err)
+		return nil, fmt.Errorf("group active project tickets by status for stage occupancy: %w", err)
 	}
-	return collectStageActiveRuns(tickets), nil
+	return countStageActiveRunsFromStatusCounts(ctx, client, statusCounts)
 }
 
 func countStageActiveRunsAcrossProjects(ctx context.Context, client *ent.Client) (map[uuid.UUID]int, error) {
-	tickets, err := client.Ticket.Query().
+	var statusCounts []stageStatusActiveRunCount
+	err := client.Ticket.Query().
 		Where(entticket.CurrentRunIDNotNil()).
-		WithStatus().
-		All(ctx)
+		GroupBy(entticket.FieldStatusID).
+		Aggregate(ent.As(ent.Count(), "active_runs")).
+		Scan(ctx, &statusCounts)
 	if err != nil {
-		return nil, fmt.Errorf("list active tickets for stage occupancy: %w", err)
+		return nil, fmt.Errorf("group active tickets by status for stage occupancy: %w", err)
 	}
-	return collectStageActiveRuns(tickets), nil
+	return countStageActiveRunsFromStatusCounts(ctx, client, statusCounts)
 }
 
 func countStageActiveRuns(ctx context.Context, client *ent.Client, projectID uuid.UUID, stageID uuid.UUID) (int, error) {
@@ -1318,23 +1322,52 @@ func countStageActiveRuns(ctx context.Context, client *ent.Client, projectID uui
 	return count, nil
 }
 
-func collectStageActiveRuns(tickets []*ent.Ticket) map[uuid.UUID]int {
-	counts := make(map[uuid.UUID]int)
-	for _, ticket := range tickets {
-		status := ticket.Edges.Status
-		if status == nil || status.StageID == nil {
-			continue
-		}
-		counts[*status.StageID]++
-	}
-	return counts
-}
-
 func sameStage(left *uuid.UUID, right *uuid.UUID) bool {
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}
 	return *left == *right
+}
+
+type stageStatusActiveRunCount struct {
+	StatusID   uuid.UUID `json:"status_id"`
+	ActiveRuns int       `json:"active_runs"`
+}
+
+func countStageActiveRunsFromStatusCounts(ctx context.Context, client *ent.Client, statusCounts []stageStatusActiveRunCount) (map[uuid.UUID]int, error) {
+	if len(statusCounts) == 0 {
+		return map[uuid.UUID]int{}, nil
+	}
+
+	statusIDs := make([]uuid.UUID, 0, len(statusCounts))
+	for _, statusCount := range statusCounts {
+		statusIDs = append(statusIDs, statusCount.StatusID)
+	}
+
+	statuses, err := client.TicketStatus.Query().
+		Where(entticketstatus.IDIn(statusIDs...)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list statuses for stage occupancy: %w", err)
+	}
+
+	stageIDsByStatusID := make(map[uuid.UUID]uuid.UUID, len(statuses))
+	for _, status := range statuses {
+		if status.StageID == nil {
+			continue
+		}
+		stageIDsByStatusID[status.ID] = *status.StageID
+	}
+
+	counts := make(map[uuid.UUID]int)
+	for _, statusCount := range statusCounts {
+		stageID, ok := stageIDsByStatusID[statusCount.StatusID]
+		if !ok {
+			continue
+		}
+		counts[stageID] += statusCount.ActiveRuns
+	}
+	return counts, nil
 }
 
 type templateStage struct {
