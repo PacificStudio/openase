@@ -819,8 +819,8 @@ func TestRuntimeLauncherExposesAgentOutputViaHTTPAndSSEDuringExecution(t *testin
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
