@@ -25,9 +25,7 @@ func TestParseStartInputRequiresTicketForTicketDetail(t *testing.T) {
 }
 
 func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
-	service := NewService(nil, nil, nil, nil, nil, "")
-
-	events := service.mapClaudeEvent(provider.ClaudeCodeEvent{
+	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
 		Message: []byte("{\n" +
 			"  \"role\":\"assistant\",\n" +
@@ -94,6 +92,26 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 		"普通 Harness 建议不要输出 action_proposal",
 	) {
 		t.Fatalf("expected harness-editor response instructions in prompt, got %q", prompt)
+	}
+}
+
+func TestBuildBaseArgsAddsModelFlagWhenMissing(t *testing.T) {
+	args := buildBaseArgs([]string{"chat"}, "claude-sonnet-4-5")
+	if len(args) != 3 {
+		t.Fatalf("expected model flag to be appended, got %#v", args)
+	}
+	if args[1] != "--model" || args[2] != "claude-sonnet-4-5" {
+		t.Fatalf("expected model flag args, got %#v", args)
+	}
+}
+
+func TestBuildCodexArgsDoesNotAppendModelFlag(t *testing.T) {
+	args := buildCodexArgs([]string{"app-server", "--listen", "stdio://"})
+	if len(args) != 3 {
+		t.Fatalf("expected codex args to remain unchanged, got %#v", args)
+	}
+	if strings.Contains(strings.Join(args, " "), "--model") {
+		t.Fatalf("expected codex args without model flag, got %#v", args)
 	}
 }
 

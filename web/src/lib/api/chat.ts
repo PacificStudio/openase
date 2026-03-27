@@ -6,6 +6,7 @@ export type ChatSource = 'harness_editor' | 'project_sidebar' | 'ticket_detail'
 export type ChatTurnRequest = {
   message: string
   source: ChatSource
+  providerId?: string
   sessionId?: string
   context: {
     projectId: string
@@ -64,6 +65,7 @@ export async function streamChatTurn(
     body: JSON.stringify({
       message: request.message,
       source: request.source,
+      provider_id: request.providerId,
       session_id: request.sessionId,
       context: {
         project_id: request.context.projectId,

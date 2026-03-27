@@ -1110,6 +1110,10 @@
                   "message": {
                     "type": "string"
                   },
+                  "provider_id": {
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "session_id": {
                     "nullable": true,
                     "type": "string"
@@ -1220,7 +1224,7 @@
         "operationId": "closeEphemeralChat",
         "parameters": [
           {
-            "description": "Claude Code session ID.",
+            "description": "Ephemeral chat session ID.",
             "in": "path",
             "name": "sessionId",
             "required": true,
