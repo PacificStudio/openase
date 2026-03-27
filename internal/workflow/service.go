@@ -162,6 +162,9 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 func newProjectStorage(projectID uuid.UUID, repoRoot string, service *Service) (*projectStorage, error) {
 	harnessRoot := filepath.Join(repoRoot, ".openase", "harnesses")
 	skillRoot := filepath.Join(repoRoot, ".openase", "skills")
+	if err := ensureProjectBuiltinAssets(repoRoot); err != nil {
+		return nil, fmt.Errorf("materialize built-in project assets: %w", err)
+	}
 	if err := os.MkdirAll(skillRoot, 0o750); err != nil {
 		return nil, fmt.Errorf("create skill root: %w", err)
 	}

@@ -243,7 +243,10 @@ def wait_for_agent_claim(base_url: str, project_id: str, agent_id: str, timeout_
         agents = request_json(base_url, "GET", f"/api/v1/projects/{project_id}/agents").get("agents", [])
         current = require_by_name(agents, "id", agent_id)
         last_seen = current
-        if current.get("status") in ("claimed", "running") and current.get("current_ticket_id"):
+        runtime = current.get("runtime") or {}
+        status = runtime.get("status") or current.get("status")
+        current_ticket_id = runtime.get("current_ticket_id") or current.get("current_ticket_id")
+        if status in ("claimed", "running") and current_ticket_id:
             return current
         time.sleep(1)
     return last_seen
@@ -810,7 +813,8 @@ def main() -> int:
     platform_skill_result = None
     claimed_ticket_id = None
     if isinstance(agent_after_claim, dict):
-        claimed_ticket_id = agent_after_claim.get("current_ticket_id")
+        runtime = agent_after_claim.get("runtime") or {}
+        claimed_ticket_id = runtime.get("current_ticket_id") or agent_after_claim.get("current_ticket_id")
     if claimed_ticket_id:
         if args.provider_mode == "fake-codex" and not args.require_platform_skill:
             platform_skill_result = {

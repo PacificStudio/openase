@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -214,6 +216,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		sshPool,
 		workflowSvc,
 	)
+	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -345,6 +348,16 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func (a *App) agentPlatformAPIURL() string {
+	host := strings.TrimSpace(a.config.Server.Host)
+	switch host {
+	case "", "0.0.0.0", "::":
+		host = "127.0.0.1"
+	}
+
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(a.config.Server.Port)) + "/api/v1/platform"
 }
 
 func sumSkipCounts(values map[string]int) int {
