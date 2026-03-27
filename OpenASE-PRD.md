@@ -1639,6 +1639,9 @@ OpenASE 的 Codex 适配器应直接采用 Symphony 已验证的 **stdio request
 | `item/commandExecution/requestApproval` | Codex → OpenASE | 命令执行审批 |
 | `item/fileChange/requestApproval` | Codex → OpenASE | 文件修改审批 |
 | `item/tool/requestUserInput` | Codex → OpenASE | 请求交互式用户输入 |
+| `item/agentMessage/delta` | Codex → OpenASE | Agent 可见文本输出增量 |
+| `item/commandExecution/outputDelta` | Codex → OpenASE | 命令执行输出增量 |
+| `item/completed` | Codex → OpenASE | item 完成快照（用于无 delta 时兜底） |
 | `thread/tokenUsage/updated` | Codex → OpenASE | 线程级 token usage 流 |
 | `turn/completed` | Codex → OpenASE | turn 正常完成 |
 | `turn/failed` | Codex → OpenASE | turn 失败 |
@@ -1769,6 +1772,12 @@ OpenASE 应采用 Symphony 已文档化的 token accounting 规则：
     - 收到 `thread/tokenUsage/updated.total` 时计算 delta
     - delta 通过 `ticket.RecordUsage(...)` 入账
     - turn 完成时不再额外重复加 token
+
+- **最小运行时输出可观测性**
+  - `item/agentMessage/delta` 与 `item/commandExecution/outputDelta` 必须即时归一成 `ActivityEvent(event_type="agent.output")`
+  - `item/completed` 只作为“没有 delta 时”的快照兜底，避免重复持久化同一 item 文本
+  - `/api/v1/projects/{projectId}/agents/{agentId}/output` 与 `/output/stream` 必须读取同一批已持久化 `agent.output` 事件
+  - lifecycle / token usage 事件不能冒充 agent output
 
 OpenASE 第一阶段不要试图一次补完 Approval Center、Hook Gate、复杂 pause/resume。只要先把“真实 turn 能跑起来、能连续、能失败重试、不会重复记账”这四件事做扎实，链路就会从 `runtime ready` 变成真正可执行。
 

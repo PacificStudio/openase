@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,11 +21,15 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -654,6 +660,196 @@ Implement the ticket using the current workspace.
 	if manager.capturedTurnCount() != defaultRuntimeMaxTurns {
 		t.Fatalf("expected %d turns, got %d", defaultRuntimeMaxTurns, manager.capturedTurnCount())
 	}
+	outputCount, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.AgentIDEQ(agentItem.ID),
+			entactivityevent.EventTypeEQ(catalogdomain.AgentOutputEventType),
+		).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count agent output activity events: %v", err)
+	}
+	if outputCount != 0 {
+		t.Fatalf("expected token-only execution to persist no agent output events, got %d", outputCount)
+	}
+}
+
+func TestRuntimeLauncherExposesAgentOutputViaHTTPAndSSEDuringExecution(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 23, 10, 30, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		SetPickupStatusID(fixture.statusIDs["Todo"]).
+		SetFinishStatusID(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("create git marker: %v", err)
+	}
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Emit visible runtime output.
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-412").
+		SetTitle("Expose runtime output").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-output-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	manager := &runtimeFakeProcessManager{
+		agentMessageDelta:  "Thinking through the fix.",
+		commandOutputDelta: "go test ./...\n",
+		releaseTurn:        make(chan struct{}),
+	}
+	bus := eventinfra.NewChannelBus()
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, workflowSvc)
+	launcher.now = func() time.Time {
+		return now
+	}
+	t.Cleanup(func() {
+		select {
+		case <-manager.releaseTurn:
+		default:
+			close(manager.releaseTurn)
+		}
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	catalogSvc := catalogservice.New(catalogrepo.NewEntRepository(client), nil, nil)
+	server := httpapi.NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		nil,
+		nil,
+		nil,
+		catalogSvc,
+		nil,
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	response, cancel := openRuntimeSSERequest(t, testServer.URL+"/api/v1/projects/"+fixture.projectID.String()+"/agents/"+agentItem.ID.String()+"/output/stream")
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close agent output stream response body: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("launch runtime session: %v", err)
+	}
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("start ready execution: %v", err)
+	}
+
+	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
+		if err != nil {
+			return false
+		}
+		outputCount, err := client.ActivityEvent.Query().
+			Where(
+				entactivityevent.AgentIDEQ(agentItem.ID),
+				entactivityevent.EventTypeEQ(catalogdomain.AgentOutputEventType),
+			).
+			Count(ctx)
+		if err != nil {
+			return false
+		}
+		return runSnapshot.Status == entagentrun.StatusExecuting && outputCount >= 2
+	})
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/projects/"+fixture.projectID.String()+"/agents/"+agentItem.ID.String()+"/output?ticket_id="+ticketItem.ID.String(),
+		nil,
+	)
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected output list 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Thinking through the fix.") || !strings.Contains(rec.Body.String(), "go test ./...") {
+		t.Fatalf("expected executing runtime output in list API, got %s", rec.Body.String())
+	}
+
+	body := readRuntimeSSEBody(t, response, cancel)
+	if !strings.Contains(body, "\"topic\":\"agent.output.events\"") {
+		t.Fatalf("expected dedicated agent output topic, got %q", body)
+	}
+	if !strings.Contains(body, "Thinking through the fix.") {
+		t.Fatalf("expected streamed agent output delta, got %q", body)
+	}
+
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetStatusID(fixture.statusIDs["Done"]).
+		Save(ctx); err != nil {
+		t.Fatalf("mark ticket done: %v", err)
+	}
+	close(manager.releaseTurn)
+
+	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
+		if err != nil {
+			return false
+		}
+		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
+		if err != nil {
+			return false
+		}
+		return ticketSnapshot.CurrentRunID == nil && runSnapshot.Status == entagentrun.StatusCompleted
+	})
 }
 
 func TestRuntimeLauncherRunTickMarksRetryOnTurnFailure(t *testing.T) {
@@ -1403,7 +1599,12 @@ type runtimeFakeProcessManager struct {
 	turnCount          int
 	turnInputDelta     int64
 	turnOutputDelta    int64
+	agentMessageDelta  string
+	commandOutputDelta string
+	agentMessageFinal  string
+	commandOutputFinal string
 	failTurn           int
+	releaseTurn        chan struct{}
 	executionDone      chan struct{}
 }
 
@@ -1570,7 +1771,15 @@ func runRuntimeFakeHandshake(process *runtimeFakeProcess, manager *runtimeFakePr
 		return err
 	}
 
-	if manager != nil && (manager.turnInputDelta > 0 || manager.turnOutputDelta > 0 || manager.failTurn > 0 || manager.executionDone != nil) {
+	if manager != nil && (manager.turnInputDelta > 0 ||
+		manager.turnOutputDelta > 0 ||
+		strings.TrimSpace(manager.agentMessageDelta) != "" ||
+		strings.TrimSpace(manager.commandOutputDelta) != "" ||
+		strings.TrimSpace(manager.agentMessageFinal) != "" ||
+		strings.TrimSpace(manager.commandOutputFinal) != "" ||
+		manager.failTurn > 0 ||
+		manager.releaseTurn != nil ||
+		manager.executionDone != nil) {
 		for {
 			turnStart, err := readRuntimeMessage(decoder)
 			if err != nil {
@@ -1625,6 +1834,73 @@ func runRuntimeFakeHandshake(process *runtimeFakeProcess, manager *runtimeFakePr
 				}); err != nil {
 					return err
 				}
+			}
+
+			if strings.TrimSpace(manager.agentMessageDelta) != "" {
+				if err := encoder.Encode(runtimeJSONRPCMessage{
+					JSONRPC: "2.0",
+					Method:  "item/agentMessage/delta",
+					Params: mustMarshalRuntimeJSON(map[string]any{
+						"threadId": "thread-runtime-1",
+						"turnId":   turnID,
+						"itemId":   fmt.Sprintf("agent-message-%d", turnNumber),
+						"delta":    manager.agentMessageDelta,
+					}),
+				}); err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(manager.commandOutputDelta) != "" {
+				if err := encoder.Encode(runtimeJSONRPCMessage{
+					JSONRPC: "2.0",
+					Method:  "item/commandExecution/outputDelta",
+					Params: mustMarshalRuntimeJSON(map[string]any{
+						"threadId": "thread-runtime-1",
+						"turnId":   turnID,
+						"itemId":   fmt.Sprintf("command-output-%d", turnNumber),
+						"delta":    manager.commandOutputDelta,
+					}),
+				}); err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(manager.agentMessageFinal) != "" {
+				if err := encoder.Encode(runtimeJSONRPCMessage{
+					JSONRPC: "2.0",
+					Method:  "item/completed",
+					Params: mustMarshalRuntimeJSON(map[string]any{
+						"threadId": "thread-runtime-1",
+						"turnId":   turnID,
+						"item": map[string]any{
+							"id":    fmt.Sprintf("agent-message-%d", turnNumber),
+							"type":  "agentMessage",
+							"text":  manager.agentMessageFinal,
+							"phase": "commentary",
+						},
+					}),
+				}); err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(manager.commandOutputFinal) != "" {
+				if err := encoder.Encode(runtimeJSONRPCMessage{
+					JSONRPC: "2.0",
+					Method:  "item/completed",
+					Params: mustMarshalRuntimeJSON(map[string]any{
+						"threadId": "thread-runtime-1",
+						"turnId":   turnID,
+						"item": map[string]any{
+							"id":               fmt.Sprintf("command-output-%d", turnNumber),
+							"type":             "commandExecution",
+							"aggregatedOutput": manager.commandOutputFinal,
+						},
+					}),
+				}); err != nil {
+					return err
+				}
+			}
+			if manager.releaseTurn != nil {
+				<-manager.releaseTurn
 			}
 
 			if manager.failTurn > 0 && turnNumber == manager.failTurn {
@@ -1698,6 +1974,46 @@ func readRuntimeMessage(decoder *json.Decoder) (runtimeJSONRPCMessage, error) {
 		return runtimeJSONRPCMessage{}, err
 	}
 	return message, nil
+}
+
+func openRuntimeSSERequest(t *testing.T, url string) (*http.Response, context.CancelFunc) {
+	t.Helper()
+
+	requestCtx, cancel := context.WithCancel(context.Background())
+	request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, url, nil)
+	if err != nil {
+		cancel()
+		t.Fatalf("new SSE request: %v", err)
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		cancel()
+		t.Fatalf("open SSE request: %v", err)
+	}
+
+	return response, cancel
+}
+
+func readRuntimeSSEBody(t *testing.T, response *http.Response, cancel context.CancelFunc) string {
+	t.Helper()
+
+	bodyCh := make(chan string, 1)
+	go func() {
+		bytes, _ := io.ReadAll(response.Body)
+		bodyCh <- string(bytes)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+
+	select {
+	case body := <-bodyCh:
+		return body
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for SSE response body")
+		return ""
+	}
 }
 
 func mustMarshalRuntimeJSON(value any) json.RawMessage {
