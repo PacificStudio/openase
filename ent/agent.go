@@ -49,11 +49,15 @@ type AgentEdges struct {
 	Runs []*AgentRun `json:"runs,omitempty"`
 	// Tokens holds the value of the tokens edge.
 	Tokens []*AgentToken `json:"tokens,omitempty"`
+	// AgentTraceEvents holds the value of the agent_trace_events edge.
+	AgentTraceEvents []*AgentTraceEvent `json:"agent_trace_events,omitempty"`
+	// AgentStepEvents holds the value of the agent_step_events edge.
+	AgentStepEvents []*AgentStepEvent `json:"agent_step_events,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [8]bool
 }
 
 // ProviderOrErr returns the Provider value or an error if the edge
@@ -105,10 +109,28 @@ func (e AgentEdges) TokensOrErr() ([]*AgentToken, error) {
 	return nil, &NotLoadedError{edge: "tokens"}
 }
 
+// AgentTraceEventsOrErr returns the AgentTraceEvents value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
+	if e.loadedTypes[5] {
+		return e.AgentTraceEvents, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_trace_events"}
+}
+
+// AgentStepEventsOrErr returns the AgentStepEvents value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
+	if e.loadedTypes[6] {
+		return e.AgentStepEvents, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_step_events"}
+}
+
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[7] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -218,6 +240,16 @@ func (_m *Agent) QueryRuns() *AgentRunQuery {
 // QueryTokens queries the "tokens" edge of the Agent entity.
 func (_m *Agent) QueryTokens() *AgentTokenQuery {
 	return NewAgentClient(_m.config).QueryTokens(_m)
+}
+
+// QueryAgentTraceEvents queries the "agent_trace_events" edge of the Agent entity.
+func (_m *Agent) QueryAgentTraceEvents() *AgentTraceEventQuery {
+	return NewAgentClient(_m.config).QueryAgentTraceEvents(_m)
+}
+
+// QueryAgentStepEvents queries the "agent_step_events" edge of the Agent entity.
+func (_m *Agent) QueryAgentStepEvents() *AgentStepEventQuery {
+	return NewAgentClient(_m.config).QueryAgentStepEvents(_m)
 }
 
 // QueryActivityEvents queries the "activity_events" edge of the Agent entity.

@@ -26,6 +26,9 @@ func (AgentRun) Fields() []ent.Field {
 		field.Time("runtime_started_at").Optional().Nillable(),
 		field.String("last_error").Optional(),
 		field.Time("last_heartbeat_at").Optional().Nillable(),
+		field.String("current_step_status").Optional().Nillable(),
+		field.Text("current_step_summary").Optional().Nillable(),
+		field.Time("current_step_changed_at").Optional().Nillable(),
 		createdAtField(),
 	}
 }
@@ -54,6 +57,8 @@ func (AgentRun) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("current_for_ticket", Ticket.Type),
+		edge.To("agent_trace_events", AgentTraceEvent.Type),
+		edge.To("agent_step_events", AgentStepEvent.Type),
 	}
 }
 

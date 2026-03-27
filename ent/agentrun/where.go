@@ -96,6 +96,21 @@ func LastHeartbeatAt(v time.Time) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldLastHeartbeatAt, v))
 }
 
+// CurrentStepStatus applies equality check predicate on the "current_step_status" field. It's identical to CurrentStepStatusEQ.
+func CurrentStepStatus(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepSummary applies equality check predicate on the "current_step_summary" field. It's identical to CurrentStepSummaryEQ.
+func CurrentStepSummary(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepChangedAt applies equality check predicate on the "current_step_changed_at" field. It's identical to CurrentStepChangedAtEQ.
+func CurrentStepChangedAt(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCurrentStepChangedAt, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldCreatedAt, v))
@@ -451,6 +466,206 @@ func LastHeartbeatAtNotNil() predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldNotNull(FieldLastHeartbeatAt))
 }
 
+// CurrentStepStatusEQ applies the EQ predicate on the "current_step_status" field.
+func CurrentStepStatusEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusNEQ applies the NEQ predicate on the "current_step_status" field.
+func CurrentStepStatusNEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusIn applies the In predicate on the "current_step_status" field.
+func CurrentStepStatusIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldCurrentStepStatus, vs...))
+}
+
+// CurrentStepStatusNotIn applies the NotIn predicate on the "current_step_status" field.
+func CurrentStepStatusNotIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldCurrentStepStatus, vs...))
+}
+
+// CurrentStepStatusGT applies the GT predicate on the "current_step_status" field.
+func CurrentStepStatusGT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusGTE applies the GTE predicate on the "current_step_status" field.
+func CurrentStepStatusGTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusLT applies the LT predicate on the "current_step_status" field.
+func CurrentStepStatusLT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusLTE applies the LTE predicate on the "current_step_status" field.
+func CurrentStepStatusLTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusContains applies the Contains predicate on the "current_step_status" field.
+func CurrentStepStatusContains(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContains(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusHasPrefix applies the HasPrefix predicate on the "current_step_status" field.
+func CurrentStepStatusHasPrefix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasPrefix(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusHasSuffix applies the HasSuffix predicate on the "current_step_status" field.
+func CurrentStepStatusHasSuffix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasSuffix(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusIsNil applies the IsNil predicate on the "current_step_status" field.
+func CurrentStepStatusIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCurrentStepStatus))
+}
+
+// CurrentStepStatusNotNil applies the NotNil predicate on the "current_step_status" field.
+func CurrentStepStatusNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCurrentStepStatus))
+}
+
+// CurrentStepStatusEqualFold applies the EqualFold predicate on the "current_step_status" field.
+func CurrentStepStatusEqualFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEqualFold(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepStatusContainsFold applies the ContainsFold predicate on the "current_step_status" field.
+func CurrentStepStatusContainsFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContainsFold(FieldCurrentStepStatus, v))
+}
+
+// CurrentStepSummaryEQ applies the EQ predicate on the "current_step_summary" field.
+func CurrentStepSummaryEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryNEQ applies the NEQ predicate on the "current_step_summary" field.
+func CurrentStepSummaryNEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryIn applies the In predicate on the "current_step_summary" field.
+func CurrentStepSummaryIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldCurrentStepSummary, vs...))
+}
+
+// CurrentStepSummaryNotIn applies the NotIn predicate on the "current_step_summary" field.
+func CurrentStepSummaryNotIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldCurrentStepSummary, vs...))
+}
+
+// CurrentStepSummaryGT applies the GT predicate on the "current_step_summary" field.
+func CurrentStepSummaryGT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryGTE applies the GTE predicate on the "current_step_summary" field.
+func CurrentStepSummaryGTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryLT applies the LT predicate on the "current_step_summary" field.
+func CurrentStepSummaryLT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryLTE applies the LTE predicate on the "current_step_summary" field.
+func CurrentStepSummaryLTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryContains applies the Contains predicate on the "current_step_summary" field.
+func CurrentStepSummaryContains(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContains(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryHasPrefix applies the HasPrefix predicate on the "current_step_summary" field.
+func CurrentStepSummaryHasPrefix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasPrefix(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryHasSuffix applies the HasSuffix predicate on the "current_step_summary" field.
+func CurrentStepSummaryHasSuffix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasSuffix(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryIsNil applies the IsNil predicate on the "current_step_summary" field.
+func CurrentStepSummaryIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCurrentStepSummary))
+}
+
+// CurrentStepSummaryNotNil applies the NotNil predicate on the "current_step_summary" field.
+func CurrentStepSummaryNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCurrentStepSummary))
+}
+
+// CurrentStepSummaryEqualFold applies the EqualFold predicate on the "current_step_summary" field.
+func CurrentStepSummaryEqualFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEqualFold(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepSummaryContainsFold applies the ContainsFold predicate on the "current_step_summary" field.
+func CurrentStepSummaryContainsFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContainsFold(FieldCurrentStepSummary, v))
+}
+
+// CurrentStepChangedAtEQ applies the EQ predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtEQ(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCurrentStepChangedAt, v))
+}
+
+// CurrentStepChangedAtNEQ applies the NEQ predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtNEQ(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldCurrentStepChangedAt, v))
+}
+
+// CurrentStepChangedAtIn applies the In predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtIn(vs ...time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldCurrentStepChangedAt, vs...))
+}
+
+// CurrentStepChangedAtNotIn applies the NotIn predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtNotIn(vs ...time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldCurrentStepChangedAt, vs...))
+}
+
+// CurrentStepChangedAtGT applies the GT predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtGT(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldCurrentStepChangedAt, v))
+}
+
+// CurrentStepChangedAtGTE applies the GTE predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtGTE(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldCurrentStepChangedAt, v))
+}
+
+// CurrentStepChangedAtLT applies the LT predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtLT(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldCurrentStepChangedAt, v))
+}
+
+// CurrentStepChangedAtLTE applies the LTE predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtLTE(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldCurrentStepChangedAt, v))
+}
+
+// CurrentStepChangedAtIsNil applies the IsNil predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCurrentStepChangedAt))
+}
+
+// CurrentStepChangedAtNotNil applies the NotNil predicate on the "current_step_changed_at" field.
+func CurrentStepChangedAtNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCurrentStepChangedAt))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldCreatedAt, v))
@@ -598,6 +813,52 @@ func HasCurrentForTicket() predicate.AgentRun {
 func HasCurrentForTicketWith(preds ...predicate.Ticket) predicate.AgentRun {
 	return predicate.AgentRun(func(s *sql.Selector) {
 		step := newCurrentForTicketStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgentTraceEvents applies the HasEdge predicate on the "agent_trace_events" edge.
+func HasAgentTraceEvents() predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentTraceEventsTable, AgentTraceEventsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentTraceEventsWith applies the HasEdge predicate on the "agent_trace_events" edge with a given conditions (other predicates).
+func HasAgentTraceEventsWith(preds ...predicate.AgentTraceEvent) predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := newAgentTraceEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgentStepEvents applies the HasEdge predicate on the "agent_step_events" edge.
+func HasAgentStepEvents() predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentStepEventsTable, AgentStepEventsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentStepEventsWith applies the HasEdge predicate on the "agent_step_events" edge with a given conditions (other predicates).
+func HasAgentStepEventsWith(preds ...predicate.AgentStepEvent) predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := newAgentStepEventsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

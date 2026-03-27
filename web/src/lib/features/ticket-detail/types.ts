@@ -44,7 +44,13 @@ export type TicketDetail = {
   priority: 'urgent' | 'high' | 'medium' | 'low'
   type: 'feature' | 'bugfix' | 'refactor' | 'chore'
   workflow?: { id: string; name: string; type: string }
-  assignedAgent?: { id: string; name: string; provider: string }
+  assignedAgent?: {
+    id: string
+    name: string
+    provider: string
+    runtimeControlState?: string
+    runtimePhase?: string
+  }
   repoScopes: Array<{
     id: string
     repoId: string

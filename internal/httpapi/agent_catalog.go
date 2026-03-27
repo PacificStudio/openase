@@ -47,14 +47,17 @@ type agentResponse struct {
 }
 
 type agentRuntimeResponse struct {
-	CurrentRunID     *string `json:"current_run_id,omitempty"`
-	Status           string  `json:"status"`
-	CurrentTicketID  *string `json:"current_ticket_id,omitempty"`
-	SessionID        string  `json:"session_id"`
-	RuntimePhase     string  `json:"runtime_phase"`
-	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
-	LastError        string  `json:"last_error"`
-	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
+	CurrentRunID         *string `json:"current_run_id,omitempty"`
+	Status               string  `json:"status"`
+	CurrentTicketID      *string `json:"current_ticket_id,omitempty"`
+	SessionID            string  `json:"session_id"`
+	RuntimePhase         string  `json:"runtime_phase"`
+	RuntimeStartedAt     *string `json:"runtime_started_at,omitempty"`
+	LastError            string  `json:"last_error"`
+	LastHeartbeatAt      *string `json:"last_heartbeat_at,omitempty"`
+	CurrentStepStatus    *string `json:"current_step_status,omitempty"`
+	CurrentStepSummary   *string `json:"current_step_summary,omitempty"`
+	CurrentStepChangedAt *string `json:"current_step_changed_at,omitempty"`
 }
 
 type agentProviderPatchRequest struct {
@@ -404,14 +407,17 @@ func mapAgentRuntimeResponse(item *domain.AgentRuntime) *agentRuntimeResponse {
 	}
 
 	return &agentRuntimeResponse{
-		CurrentRunID:     uuidToStringPointer(item.CurrentRunID),
-		Status:           item.Status.String(),
-		CurrentTicketID:  uuidToStringPointer(item.CurrentTicketID),
-		SessionID:        item.SessionID,
-		RuntimePhase:     item.RuntimePhase.String(),
-		RuntimeStartedAt: timeToStringPointer(item.RuntimeStartedAt),
-		LastError:        item.LastError,
-		LastHeartbeatAt:  timeToStringPointer(item.LastHeartbeatAt),
+		CurrentRunID:         uuidToStringPointer(item.CurrentRunID),
+		Status:               item.Status.String(),
+		CurrentTicketID:      uuidToStringPointer(item.CurrentTicketID),
+		SessionID:            item.SessionID,
+		RuntimePhase:         item.RuntimePhase.String(),
+		RuntimeStartedAt:     timeToStringPointer(item.RuntimeStartedAt),
+		LastError:            item.LastError,
+		LastHeartbeatAt:      timeToStringPointer(item.LastHeartbeatAt),
+		CurrentStepStatus:    stringPointerValue(item.CurrentStepStatus),
+		CurrentStepSummary:   stringPointerValue(item.CurrentStepSummary),
+		CurrentStepChangedAt: timeToStringPointer(item.CurrentStepChangedAt),
 	}
 }
 

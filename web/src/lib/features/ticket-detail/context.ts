@@ -101,6 +101,15 @@ export function buildTicketDetailContext(
             type: workflow.type,
           }
         : undefined,
+      assignedAgent: detailPayload.assigned_agent
+        ? {
+            id: detailPayload.assigned_agent.id,
+            name: detailPayload.assigned_agent.name,
+            provider: detailPayload.assigned_agent.provider,
+            runtimeControlState: detailPayload.assigned_agent.runtime_control_state,
+            runtimePhase: detailPayload.assigned_agent.runtime_phase ?? undefined,
+          }
+        : undefined,
       repoScopes: detailPayload.repo_scopes.map((scope) => ({
         id: scope.id,
         repoId: scope.repo_id,
