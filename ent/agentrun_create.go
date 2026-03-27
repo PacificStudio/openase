@@ -13,6 +13,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
+	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -111,6 +113,48 @@ func (_c *AgentRunCreate) SetNillableLastHeartbeatAt(v *time.Time) *AgentRunCrea
 	return _c
 }
 
+// SetCurrentStepStatus sets the "current_step_status" field.
+func (_c *AgentRunCreate) SetCurrentStepStatus(v string) *AgentRunCreate {
+	_c.mutation.SetCurrentStepStatus(v)
+	return _c
+}
+
+// SetNillableCurrentStepStatus sets the "current_step_status" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCurrentStepStatus(v *string) *AgentRunCreate {
+	if v != nil {
+		_c.SetCurrentStepStatus(*v)
+	}
+	return _c
+}
+
+// SetCurrentStepSummary sets the "current_step_summary" field.
+func (_c *AgentRunCreate) SetCurrentStepSummary(v string) *AgentRunCreate {
+	_c.mutation.SetCurrentStepSummary(v)
+	return _c
+}
+
+// SetNillableCurrentStepSummary sets the "current_step_summary" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCurrentStepSummary(v *string) *AgentRunCreate {
+	if v != nil {
+		_c.SetCurrentStepSummary(*v)
+	}
+	return _c
+}
+
+// SetCurrentStepChangedAt sets the "current_step_changed_at" field.
+func (_c *AgentRunCreate) SetCurrentStepChangedAt(v time.Time) *AgentRunCreate {
+	_c.mutation.SetCurrentStepChangedAt(v)
+	return _c
+}
+
+// SetNillableCurrentStepChangedAt sets the "current_step_changed_at" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCurrentStepChangedAt(v *time.Time) *AgentRunCreate {
+	if v != nil {
+		_c.SetCurrentStepChangedAt(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *AgentRunCreate) SetCreatedAt(v time.Time) *AgentRunCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -172,6 +216,36 @@ func (_c *AgentRunCreate) AddCurrentForTicket(v ...*Ticket) *AgentRunCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddCurrentForTicketIDs(ids...)
+}
+
+// AddAgentTraceEventIDs adds the "agent_trace_events" edge to the AgentTraceEvent entity by IDs.
+func (_c *AgentRunCreate) AddAgentTraceEventIDs(ids ...uuid.UUID) *AgentRunCreate {
+	_c.mutation.AddAgentTraceEventIDs(ids...)
+	return _c
+}
+
+// AddAgentTraceEvents adds the "agent_trace_events" edges to the AgentTraceEvent entity.
+func (_c *AgentRunCreate) AddAgentTraceEvents(v ...*AgentTraceEvent) *AgentRunCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentTraceEventIDs(ids...)
+}
+
+// AddAgentStepEventIDs adds the "agent_step_events" edge to the AgentStepEvent entity by IDs.
+func (_c *AgentRunCreate) AddAgentStepEventIDs(ids ...uuid.UUID) *AgentRunCreate {
+	_c.mutation.AddAgentStepEventIDs(ids...)
+	return _c
+}
+
+// AddAgentStepEvents adds the "agent_step_events" edges to the AgentStepEvent entity.
+func (_c *AgentRunCreate) AddAgentStepEvents(v ...*AgentStepEvent) *AgentRunCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentStepEventIDs(ids...)
 }
 
 // Mutation returns the AgentRunMutation object of the builder.
@@ -311,6 +385,18 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 		_spec.SetField(agentrun.FieldLastHeartbeatAt, field.TypeTime, value)
 		_node.LastHeartbeatAt = &value
 	}
+	if value, ok := _c.mutation.CurrentStepStatus(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepStatus, field.TypeString, value)
+		_node.CurrentStepStatus = &value
+	}
+	if value, ok := _c.mutation.CurrentStepSummary(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepSummary, field.TypeString, value)
+		_node.CurrentStepSummary = &value
+	}
+	if value, ok := _c.mutation.CurrentStepChangedAt(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepChangedAt, field.TypeTime, value)
+		_node.CurrentStepChangedAt = &value
+	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(agentrun.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -392,6 +478,38 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentTraceEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentTraceEventsTable,
+			Columns: []string{agentrun.AgentTraceEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttraceevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentStepEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentStepEventsTable,
+			Columns: []string{agentrun.AgentStepEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

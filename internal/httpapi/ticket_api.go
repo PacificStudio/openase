@@ -93,6 +93,14 @@ type ticketRepoScopeDetailResponse struct {
 	IsPrimaryScope bool                 `json:"is_primary_scope"`
 }
 
+type ticketAssignedAgentResponse struct {
+	ID                  string  `json:"id"`
+	Name                string  `json:"name"`
+	Provider            string  `json:"provider"`
+	RuntimeControlState string  `json:"runtime_control_state,omitempty"`
+	RuntimePhase        *string `json:"runtime_phase,omitempty"`
+}
+
 const ticketCommentEventType = "comment_added"
 
 func (s *Server) registerTicketRoutes(api *echo.Group) {
@@ -247,12 +255,18 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 		return writeCatalogError(c, err)
 	}
 
+	assignedAgent, err := s.loadTicketAssignedAgent(c.Request().Context(), item)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
 	return c.JSON(http.StatusOK, map[string]any{
-		"ticket":       mapTicketResponse(item),
-		"repo_scopes":  mapTicketRepoScopeDetailResponses(repoScopes, indexProjectRepoResponses(projectRepos)),
-		"comments":     mapTicketCommentResponses(comments),
-		"activity":     mapActivityEventResponses(filterNonCommentActivityEvents(activityItems)),
-		"hook_history": mapActivityEventResponses(filterHookActivityEvents(filterNonCommentActivityEvents(activityItems))),
+		"assigned_agent": assignedAgent,
+		"ticket":         mapTicketResponse(item),
+		"repo_scopes":    mapTicketRepoScopeDetailResponses(repoScopes, indexProjectRepoResponses(projectRepos)),
+		"comments":       mapTicketCommentResponses(comments),
+		"activity":       mapActivityEventResponses(filterNonCommentActivityEvents(activityItems)),
+		"hook_history":   mapActivityEventResponses(filterHookActivityEvents(filterNonCommentActivityEvents(activityItems))),
 	})
 }
 
@@ -743,6 +757,44 @@ func mapTicketExternalLinkResponse(item ticketservice.ExternalLink) ticketExtern
 		Relation:   item.Relation.String(),
 		CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339),
 	}
+}
+
+func (s *Server) loadTicketAssignedAgent(ctx context.Context, item ticketservice.Ticket) (*ticketAssignedAgentResponse, error) {
+	if item.CurrentRunID == nil {
+		return nil, nil
+	}
+
+	runItem, err := s.catalog.GetAgentRun(ctx, *item.CurrentRunID)
+	if err != nil {
+		return nil, err
+	}
+
+	agentItem, err := s.catalog.GetAgent(ctx, runItem.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	providerItem, err := s.catalog.GetAgentProvider(ctx, agentItem.ProviderID)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapTicketAssignedAgentResponse(agentItem, providerItem), nil
+}
+
+func mapTicketAssignedAgentResponse(agentItem domain.Agent, providerItem domain.AgentProvider) *ticketAssignedAgentResponse {
+	response := &ticketAssignedAgentResponse{
+		ID:                  agentItem.ID.String(),
+		Name:                agentItem.Name,
+		Provider:            providerItem.Name,
+		RuntimeControlState: agentItem.RuntimeControlState.String(),
+	}
+	if agentItem.Runtime != nil {
+		runtimePhase := agentItem.Runtime.RuntimePhase.String()
+		response.RuntimePhase = &runtimePhase
+	}
+
+	return response
 }
 
 func mapDependencyType(value string) string {

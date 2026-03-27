@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AgentOutputEntry, AgentProvider, Machine } from '$lib/api/contracts'
+  import type { AgentOutputEntry, AgentProvider, AgentStepEntry, Machine } from '$lib/api/contracts'
   import type { StreamConnectionState } from '$lib/api/sse'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
@@ -25,6 +25,7 @@
     providerSaving = false,
     selectedOutputAgent,
     outputEntries,
+    outputSteps,
     outputLoading = false,
     outputError = '',
     outputStreamState = 'idle',
@@ -49,6 +50,7 @@
     providerSaving?: boolean
     selectedOutputAgent: AgentInstance | null
     outputEntries: AgentOutputEntry[]
+    outputSteps: AgentStepEntry[]
     outputLoading?: boolean
     outputError?: string
     outputStreamState?: StreamConnectionState
@@ -84,6 +86,7 @@
   bind:open={outputSheetOpen}
   agent={selectedOutputAgent}
   entries={outputEntries}
+  steps={outputSteps}
   loading={outputLoading}
   error={outputError}
   streamState={outputStreamState}

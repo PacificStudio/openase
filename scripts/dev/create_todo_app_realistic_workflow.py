@@ -243,7 +243,7 @@ def wait_for_agent_claim(base_url: str, project_id: str, agent_id: str, timeout_
         agents = request_json(base_url, "GET", f"/api/v1/projects/{project_id}/agents").get("agents", [])
         current = require_by_name(agents, "id", agent_id)
         last_seen = current
-        runtime = current.get("runtime") or {}
+        runtime = current.get("runtime") if isinstance(current.get("runtime"), dict) else {}
         status = runtime.get("status") or current.get("status")
         current_ticket_id = runtime.get("current_ticket_id") or current.get("current_ticket_id")
         if status in ("claimed", "running") and current_ticket_id:
@@ -375,7 +375,8 @@ def wait_for_agent_execution(base_url: str, project_id: str, agent_id: str, time
         agents = request_json(base_url, "GET", f"/api/v1/projects/{project_id}/agents").get("agents", [])
         current = require_by_name(agents, "id", agent_id)
         last_seen = current
-        if current.get("runtime_phase") == "executing" or current.get("total_tokens_used", 0) > 0:
+        runtime = current.get("runtime") if isinstance(current.get("runtime"), dict) else {}
+        if runtime.get("runtime_phase") == "executing" or current.get("total_tokens_used", 0) > 0:
             return current
         time.sleep(2)
     return last_seen
@@ -813,7 +814,7 @@ def main() -> int:
     platform_skill_result = None
     claimed_ticket_id = None
     if isinstance(agent_after_claim, dict):
-        runtime = agent_after_claim.get("runtime") or {}
+        runtime = agent_after_claim.get("runtime") if isinstance(agent_after_claim.get("runtime"), dict) else {}
         claimed_ticket_id = runtime.get("current_ticket_id") or agent_after_claim.get("current_ticket_id")
     if claimed_ticket_id:
         if args.provider_mode == "fake-codex" and not args.require_platform_skill:

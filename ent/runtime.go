@@ -9,7 +9,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
@@ -110,13 +112,27 @@ func init() {
 	agentrunFields := schema.AgentRun{}.Fields()
 	_ = agentrunFields
 	// agentrunDescCreatedAt is the schema descriptor for created_at field.
-	agentrunDescCreatedAt := agentrunFields[10].Descriptor()
+	agentrunDescCreatedAt := agentrunFields[13].Descriptor()
 	// agentrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agentrun.DefaultCreatedAt = agentrunDescCreatedAt.Default.(func() time.Time)
 	// agentrunDescID is the schema descriptor for id field.
 	agentrunDescID := agentrunFields[0].Descriptor()
 	// agentrun.DefaultID holds the default value on creation for the id field.
 	agentrun.DefaultID = agentrunDescID.Default.(func() uuid.UUID)
+	agentstepeventFields := schema.AgentStepEvent{}.Fields()
+	_ = agentstepeventFields
+	// agentstepeventDescStepStatus is the schema descriptor for step_status field.
+	agentstepeventDescStepStatus := agentstepeventFields[5].Descriptor()
+	// agentstepevent.StepStatusValidator is a validator for the "step_status" field. It is called by the builders before save.
+	agentstepevent.StepStatusValidator = agentstepeventDescStepStatus.Validators[0].(func(string) error)
+	// agentstepeventDescCreatedAt is the schema descriptor for created_at field.
+	agentstepeventDescCreatedAt := agentstepeventFields[8].Descriptor()
+	// agentstepevent.DefaultCreatedAt holds the default value on creation for the created_at field.
+	agentstepevent.DefaultCreatedAt = agentstepeventDescCreatedAt.Default.(func() time.Time)
+	// agentstepeventDescID is the schema descriptor for id field.
+	agentstepeventDescID := agentstepeventFields[0].Descriptor()
+	// agentstepevent.DefaultID holds the default value on creation for the id field.
+	agentstepevent.DefaultID = agentstepeventDescID.Default.(func() uuid.UUID)
 	agenttokenFields := schema.AgentToken{}.Fields()
 	_ = agenttokenFields
 	// agenttokenDescTokenHash is the schema descriptor for token_hash field.
@@ -135,6 +151,32 @@ func init() {
 	agenttokenDescID := agenttokenFields[0].Descriptor()
 	// agenttoken.DefaultID holds the default value on creation for the id field.
 	agenttoken.DefaultID = agenttokenDescID.Default.(func() uuid.UUID)
+	agenttraceeventFields := schema.AgentTraceEvent{}.Fields()
+	_ = agenttraceeventFields
+	// agenttraceeventDescProvider is the schema descriptor for provider field.
+	agenttraceeventDescProvider := agenttraceeventFields[6].Descriptor()
+	// agenttraceevent.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	agenttraceevent.ProviderValidator = agenttraceeventDescProvider.Validators[0].(func(string) error)
+	// agenttraceeventDescKind is the schema descriptor for kind field.
+	agenttraceeventDescKind := agenttraceeventFields[7].Descriptor()
+	// agenttraceevent.KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	agenttraceevent.KindValidator = agenttraceeventDescKind.Validators[0].(func(string) error)
+	// agenttraceeventDescStream is the schema descriptor for stream field.
+	agenttraceeventDescStream := agenttraceeventFields[8].Descriptor()
+	// agenttraceevent.StreamValidator is a validator for the "stream" field. It is called by the builders before save.
+	agenttraceevent.StreamValidator = agenttraceeventDescStream.Validators[0].(func(string) error)
+	// agenttraceeventDescPayload is the schema descriptor for payload field.
+	agenttraceeventDescPayload := agenttraceeventFields[10].Descriptor()
+	// agenttraceevent.DefaultPayload holds the default value on creation for the payload field.
+	agenttraceevent.DefaultPayload = agenttraceeventDescPayload.Default.(func() map[string]interface{})
+	// agenttraceeventDescCreatedAt is the schema descriptor for created_at field.
+	agenttraceeventDescCreatedAt := agenttraceeventFields[11].Descriptor()
+	// agenttraceevent.DefaultCreatedAt holds the default value on creation for the created_at field.
+	agenttraceevent.DefaultCreatedAt = agenttraceeventDescCreatedAt.Default.(func() time.Time)
+	// agenttraceeventDescID is the schema descriptor for id field.
+	agenttraceeventDescID := agenttraceeventFields[0].Descriptor()
+	// agenttraceevent.DefaultID holds the default value on creation for the id field.
+	agenttraceevent.DefaultID = agenttraceeventDescID.Default.(func() uuid.UUID)
 	machineFields := schema.Machine{}.Fields()
 	_ = machineFields
 	// machineDescName is the schema descriptor for name field.

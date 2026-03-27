@@ -20,6 +20,8 @@ import (
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
+	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
@@ -285,9 +287,8 @@ func TestRuntimeLauncherRunTickLaunchesConcurrentRunsForSameAgent(t *testing.T) 
 	}
 
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
-	}
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
@@ -297,10 +298,11 @@ workflow:
   role: coding
 ---
 
-Parallel runtime launch test
-`), 0o600); err != nil {
+	Parallel runtime launch test
+	`), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
+	commitRuntimeLauncherRepo(t, repoRoot)
 	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
@@ -1132,16 +1134,25 @@ Emit visible runtime output.
 		if err != nil {
 			return false
 		}
-		outputCount, err := client.ActivityEvent.Query().
+		outputCount, err := client.AgentTraceEvent.Query().
 			Where(
-				entactivityevent.AgentIDEQ(agentItem.ID),
-				entactivityevent.EventTypeEQ(catalogdomain.AgentOutputEventType),
+				entagenttraceevent.AgentID(agentItem.ID),
+				entagenttraceevent.KindIn(catalogdomain.AgentTraceOutputKinds()...),
 			).
 			Count(ctx)
 		if err != nil {
 			return false
 		}
-		return runSnapshot.Status == entagentrun.StatusExecuting && outputCount >= 2
+		stepCount, err := client.AgentStepEvent.Query().
+			Where(entagentstepevent.AgentID(agentItem.ID)).
+			Count(ctx)
+		if err != nil {
+			return false
+		}
+		return runSnapshot.Status == entagentrun.StatusExecuting &&
+			outputCount >= 2 &&
+			runSnapshot.CurrentStepStatus != nil &&
+			stepCount >= 1
 	})
 
 	req := httptest.NewRequest(

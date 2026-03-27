@@ -14,6 +14,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
+	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -183,6 +185,66 @@ func (_u *AgentRunUpdate) ClearLastHeartbeatAt() *AgentRunUpdate {
 	return _u
 }
 
+// SetCurrentStepStatus sets the "current_step_status" field.
+func (_u *AgentRunUpdate) SetCurrentStepStatus(v string) *AgentRunUpdate {
+	_u.mutation.SetCurrentStepStatus(v)
+	return _u
+}
+
+// SetNillableCurrentStepStatus sets the "current_step_status" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableCurrentStepStatus(v *string) *AgentRunUpdate {
+	if v != nil {
+		_u.SetCurrentStepStatus(*v)
+	}
+	return _u
+}
+
+// ClearCurrentStepStatus clears the value of the "current_step_status" field.
+func (_u *AgentRunUpdate) ClearCurrentStepStatus() *AgentRunUpdate {
+	_u.mutation.ClearCurrentStepStatus()
+	return _u
+}
+
+// SetCurrentStepSummary sets the "current_step_summary" field.
+func (_u *AgentRunUpdate) SetCurrentStepSummary(v string) *AgentRunUpdate {
+	_u.mutation.SetCurrentStepSummary(v)
+	return _u
+}
+
+// SetNillableCurrentStepSummary sets the "current_step_summary" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableCurrentStepSummary(v *string) *AgentRunUpdate {
+	if v != nil {
+		_u.SetCurrentStepSummary(*v)
+	}
+	return _u
+}
+
+// ClearCurrentStepSummary clears the value of the "current_step_summary" field.
+func (_u *AgentRunUpdate) ClearCurrentStepSummary() *AgentRunUpdate {
+	_u.mutation.ClearCurrentStepSummary()
+	return _u
+}
+
+// SetCurrentStepChangedAt sets the "current_step_changed_at" field.
+func (_u *AgentRunUpdate) SetCurrentStepChangedAt(v time.Time) *AgentRunUpdate {
+	_u.mutation.SetCurrentStepChangedAt(v)
+	return _u
+}
+
+// SetNillableCurrentStepChangedAt sets the "current_step_changed_at" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableCurrentStepChangedAt(v *time.Time) *AgentRunUpdate {
+	if v != nil {
+		_u.SetCurrentStepChangedAt(*v)
+	}
+	return _u
+}
+
+// ClearCurrentStepChangedAt clears the value of the "current_step_changed_at" field.
+func (_u *AgentRunUpdate) ClearCurrentStepChangedAt() *AgentRunUpdate {
+	_u.mutation.ClearCurrentStepChangedAt()
+	return _u
+}
+
 // SetAgent sets the "agent" edge to the Agent entity.
 func (_u *AgentRunUpdate) SetAgent(v *Agent) *AgentRunUpdate {
 	return _u.SetAgentID(v.ID)
@@ -216,6 +278,36 @@ func (_u *AgentRunUpdate) AddCurrentForTicket(v ...*Ticket) *AgentRunUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddCurrentForTicketIDs(ids...)
+}
+
+// AddAgentTraceEventIDs adds the "agent_trace_events" edge to the AgentTraceEvent entity by IDs.
+func (_u *AgentRunUpdate) AddAgentTraceEventIDs(ids ...uuid.UUID) *AgentRunUpdate {
+	_u.mutation.AddAgentTraceEventIDs(ids...)
+	return _u
+}
+
+// AddAgentTraceEvents adds the "agent_trace_events" edges to the AgentTraceEvent entity.
+func (_u *AgentRunUpdate) AddAgentTraceEvents(v ...*AgentTraceEvent) *AgentRunUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTraceEventIDs(ids...)
+}
+
+// AddAgentStepEventIDs adds the "agent_step_events" edge to the AgentStepEvent entity by IDs.
+func (_u *AgentRunUpdate) AddAgentStepEventIDs(ids ...uuid.UUID) *AgentRunUpdate {
+	_u.mutation.AddAgentStepEventIDs(ids...)
+	return _u
+}
+
+// AddAgentStepEvents adds the "agent_step_events" edges to the AgentStepEvent entity.
+func (_u *AgentRunUpdate) AddAgentStepEvents(v ...*AgentStepEvent) *AgentRunUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentStepEventIDs(ids...)
 }
 
 // Mutation returns the AgentRunMutation object of the builder.
@@ -266,6 +358,48 @@ func (_u *AgentRunUpdate) RemoveCurrentForTicket(v ...*Ticket) *AgentRunUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCurrentForTicketIDs(ids...)
+}
+
+// ClearAgentTraceEvents clears all "agent_trace_events" edges to the AgentTraceEvent entity.
+func (_u *AgentRunUpdate) ClearAgentTraceEvents() *AgentRunUpdate {
+	_u.mutation.ClearAgentTraceEvents()
+	return _u
+}
+
+// RemoveAgentTraceEventIDs removes the "agent_trace_events" edge to AgentTraceEvent entities by IDs.
+func (_u *AgentRunUpdate) RemoveAgentTraceEventIDs(ids ...uuid.UUID) *AgentRunUpdate {
+	_u.mutation.RemoveAgentTraceEventIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTraceEvents removes "agent_trace_events" edges to AgentTraceEvent entities.
+func (_u *AgentRunUpdate) RemoveAgentTraceEvents(v ...*AgentTraceEvent) *AgentRunUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTraceEventIDs(ids...)
+}
+
+// ClearAgentStepEvents clears all "agent_step_events" edges to the AgentStepEvent entity.
+func (_u *AgentRunUpdate) ClearAgentStepEvents() *AgentRunUpdate {
+	_u.mutation.ClearAgentStepEvents()
+	return _u
+}
+
+// RemoveAgentStepEventIDs removes the "agent_step_events" edge to AgentStepEvent entities by IDs.
+func (_u *AgentRunUpdate) RemoveAgentStepEventIDs(ids ...uuid.UUID) *AgentRunUpdate {
+	_u.mutation.RemoveAgentStepEventIDs(ids...)
+	return _u
+}
+
+// RemoveAgentStepEvents removes "agent_step_events" edges to AgentStepEvent entities.
+func (_u *AgentRunUpdate) RemoveAgentStepEvents(v ...*AgentStepEvent) *AgentRunUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentStepEventIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -355,6 +489,24 @@ func (_u *AgentRunUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.LastHeartbeatAtCleared() {
 		_spec.ClearField(agentrun.FieldLastHeartbeatAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CurrentStepStatus(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepStatus, field.TypeString, value)
+	}
+	if _u.mutation.CurrentStepStatusCleared() {
+		_spec.ClearField(agentrun.FieldCurrentStepStatus, field.TypeString)
+	}
+	if value, ok := _u.mutation.CurrentStepSummary(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepSummary, field.TypeString, value)
+	}
+	if _u.mutation.CurrentStepSummaryCleared() {
+		_spec.ClearField(agentrun.FieldCurrentStepSummary, field.TypeString)
+	}
+	if value, ok := _u.mutation.CurrentStepChangedAt(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepChangedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CurrentStepChangedAtCleared() {
+		_spec.ClearField(agentrun.FieldCurrentStepChangedAt, field.TypeTime)
 	}
 	if _u.mutation.AgentCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -510,6 +662,96 @@ func (_u *AgentRunUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentTraceEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentTraceEventsTable,
+			Columns: []string{agentrun.AgentTraceEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttraceevent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTraceEventsIDs(); len(nodes) > 0 && !_u.mutation.AgentTraceEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentTraceEventsTable,
+			Columns: []string{agentrun.AgentTraceEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttraceevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTraceEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentTraceEventsTable,
+			Columns: []string{agentrun.AgentTraceEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttraceevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentStepEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentStepEventsTable,
+			Columns: []string{agentrun.AgentStepEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentStepEventsIDs(); len(nodes) > 0 && !_u.mutation.AgentStepEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentStepEventsTable,
+			Columns: []string{agentrun.AgentStepEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentStepEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentStepEventsTable,
+			Columns: []string{agentrun.AgentStepEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -687,6 +929,66 @@ func (_u *AgentRunUpdateOne) ClearLastHeartbeatAt() *AgentRunUpdateOne {
 	return _u
 }
 
+// SetCurrentStepStatus sets the "current_step_status" field.
+func (_u *AgentRunUpdateOne) SetCurrentStepStatus(v string) *AgentRunUpdateOne {
+	_u.mutation.SetCurrentStepStatus(v)
+	return _u
+}
+
+// SetNillableCurrentStepStatus sets the "current_step_status" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableCurrentStepStatus(v *string) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetCurrentStepStatus(*v)
+	}
+	return _u
+}
+
+// ClearCurrentStepStatus clears the value of the "current_step_status" field.
+func (_u *AgentRunUpdateOne) ClearCurrentStepStatus() *AgentRunUpdateOne {
+	_u.mutation.ClearCurrentStepStatus()
+	return _u
+}
+
+// SetCurrentStepSummary sets the "current_step_summary" field.
+func (_u *AgentRunUpdateOne) SetCurrentStepSummary(v string) *AgentRunUpdateOne {
+	_u.mutation.SetCurrentStepSummary(v)
+	return _u
+}
+
+// SetNillableCurrentStepSummary sets the "current_step_summary" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableCurrentStepSummary(v *string) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetCurrentStepSummary(*v)
+	}
+	return _u
+}
+
+// ClearCurrentStepSummary clears the value of the "current_step_summary" field.
+func (_u *AgentRunUpdateOne) ClearCurrentStepSummary() *AgentRunUpdateOne {
+	_u.mutation.ClearCurrentStepSummary()
+	return _u
+}
+
+// SetCurrentStepChangedAt sets the "current_step_changed_at" field.
+func (_u *AgentRunUpdateOne) SetCurrentStepChangedAt(v time.Time) *AgentRunUpdateOne {
+	_u.mutation.SetCurrentStepChangedAt(v)
+	return _u
+}
+
+// SetNillableCurrentStepChangedAt sets the "current_step_changed_at" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableCurrentStepChangedAt(v *time.Time) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetCurrentStepChangedAt(*v)
+	}
+	return _u
+}
+
+// ClearCurrentStepChangedAt clears the value of the "current_step_changed_at" field.
+func (_u *AgentRunUpdateOne) ClearCurrentStepChangedAt() *AgentRunUpdateOne {
+	_u.mutation.ClearCurrentStepChangedAt()
+	return _u
+}
+
 // SetAgent sets the "agent" edge to the Agent entity.
 func (_u *AgentRunUpdateOne) SetAgent(v *Agent) *AgentRunUpdateOne {
 	return _u.SetAgentID(v.ID)
@@ -720,6 +1022,36 @@ func (_u *AgentRunUpdateOne) AddCurrentForTicket(v ...*Ticket) *AgentRunUpdateOn
 		ids[i] = v[i].ID
 	}
 	return _u.AddCurrentForTicketIDs(ids...)
+}
+
+// AddAgentTraceEventIDs adds the "agent_trace_events" edge to the AgentTraceEvent entity by IDs.
+func (_u *AgentRunUpdateOne) AddAgentTraceEventIDs(ids ...uuid.UUID) *AgentRunUpdateOne {
+	_u.mutation.AddAgentTraceEventIDs(ids...)
+	return _u
+}
+
+// AddAgentTraceEvents adds the "agent_trace_events" edges to the AgentTraceEvent entity.
+func (_u *AgentRunUpdateOne) AddAgentTraceEvents(v ...*AgentTraceEvent) *AgentRunUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTraceEventIDs(ids...)
+}
+
+// AddAgentStepEventIDs adds the "agent_step_events" edge to the AgentStepEvent entity by IDs.
+func (_u *AgentRunUpdateOne) AddAgentStepEventIDs(ids ...uuid.UUID) *AgentRunUpdateOne {
+	_u.mutation.AddAgentStepEventIDs(ids...)
+	return _u
+}
+
+// AddAgentStepEvents adds the "agent_step_events" edges to the AgentStepEvent entity.
+func (_u *AgentRunUpdateOne) AddAgentStepEvents(v ...*AgentStepEvent) *AgentRunUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentStepEventIDs(ids...)
 }
 
 // Mutation returns the AgentRunMutation object of the builder.
@@ -770,6 +1102,48 @@ func (_u *AgentRunUpdateOne) RemoveCurrentForTicket(v ...*Ticket) *AgentRunUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCurrentForTicketIDs(ids...)
+}
+
+// ClearAgentTraceEvents clears all "agent_trace_events" edges to the AgentTraceEvent entity.
+func (_u *AgentRunUpdateOne) ClearAgentTraceEvents() *AgentRunUpdateOne {
+	_u.mutation.ClearAgentTraceEvents()
+	return _u
+}
+
+// RemoveAgentTraceEventIDs removes the "agent_trace_events" edge to AgentTraceEvent entities by IDs.
+func (_u *AgentRunUpdateOne) RemoveAgentTraceEventIDs(ids ...uuid.UUID) *AgentRunUpdateOne {
+	_u.mutation.RemoveAgentTraceEventIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTraceEvents removes "agent_trace_events" edges to AgentTraceEvent entities.
+func (_u *AgentRunUpdateOne) RemoveAgentTraceEvents(v ...*AgentTraceEvent) *AgentRunUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTraceEventIDs(ids...)
+}
+
+// ClearAgentStepEvents clears all "agent_step_events" edges to the AgentStepEvent entity.
+func (_u *AgentRunUpdateOne) ClearAgentStepEvents() *AgentRunUpdateOne {
+	_u.mutation.ClearAgentStepEvents()
+	return _u
+}
+
+// RemoveAgentStepEventIDs removes the "agent_step_events" edge to AgentStepEvent entities by IDs.
+func (_u *AgentRunUpdateOne) RemoveAgentStepEventIDs(ids ...uuid.UUID) *AgentRunUpdateOne {
+	_u.mutation.RemoveAgentStepEventIDs(ids...)
+	return _u
+}
+
+// RemoveAgentStepEvents removes "agent_step_events" edges to AgentStepEvent entities.
+func (_u *AgentRunUpdateOne) RemoveAgentStepEvents(v ...*AgentStepEvent) *AgentRunUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentStepEventIDs(ids...)
 }
 
 // Where appends a list predicates to the AgentRunUpdate builder.
@@ -889,6 +1263,24 @@ func (_u *AgentRunUpdateOne) sqlSave(ctx context.Context) (_node *AgentRun, err 
 	}
 	if _u.mutation.LastHeartbeatAtCleared() {
 		_spec.ClearField(agentrun.FieldLastHeartbeatAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CurrentStepStatus(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepStatus, field.TypeString, value)
+	}
+	if _u.mutation.CurrentStepStatusCleared() {
+		_spec.ClearField(agentrun.FieldCurrentStepStatus, field.TypeString)
+	}
+	if value, ok := _u.mutation.CurrentStepSummary(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepSummary, field.TypeString, value)
+	}
+	if _u.mutation.CurrentStepSummaryCleared() {
+		_spec.ClearField(agentrun.FieldCurrentStepSummary, field.TypeString)
+	}
+	if value, ok := _u.mutation.CurrentStepChangedAt(); ok {
+		_spec.SetField(agentrun.FieldCurrentStepChangedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CurrentStepChangedAtCleared() {
+		_spec.ClearField(agentrun.FieldCurrentStepChangedAt, field.TypeTime)
 	}
 	if _u.mutation.AgentCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1044,6 +1436,96 @@ func (_u *AgentRunUpdateOne) sqlSave(ctx context.Context) (_node *AgentRun, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentTraceEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentTraceEventsTable,
+			Columns: []string{agentrun.AgentTraceEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttraceevent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTraceEventsIDs(); len(nodes) > 0 && !_u.mutation.AgentTraceEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentTraceEventsTable,
+			Columns: []string{agentrun.AgentTraceEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttraceevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTraceEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentTraceEventsTable,
+			Columns: []string{agentrun.AgentTraceEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttraceevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentStepEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentStepEventsTable,
+			Columns: []string{agentrun.AgentStepEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentStepEventsIDs(); len(nodes) > 0 && !_u.mutation.AgentStepEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentStepEventsTable,
+			Columns: []string{agentrun.AgentStepEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentStepEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agentrun.AgentStepEventsTable,
+			Columns: []string{agentrun.AgentStepEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

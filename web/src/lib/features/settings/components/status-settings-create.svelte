@@ -46,10 +46,23 @@
       bind:value={color}
       class="size-9 shrink-0 rounded border-0 bg-transparent p-0"
     />
-    <label class="text-muted-foreground flex items-center gap-2 text-xs font-medium">
-      <input type="checkbox" bind:checked={isDefault} />
-      Default
-    </label>
+    <div class="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        class={isDefault ? 'border-primary bg-primary/10 text-foreground' : undefined}
+        aria-pressed={isDefault}
+        disabled={creating || loading}
+        onclick={() => (isDefault = !isDefault)}
+      >
+        {isDefault ? 'Creates as default' : 'Create as default'}
+      </Button>
+      <span class="text-muted-foreground text-xs">
+        {isDefault
+          ? 'The new status will replace the current default.'
+          : 'Leave this off to keep the current default status.'}
+      </span>
+    </div>
     <Button onclick={onCreate} disabled={creating || loading}>
       <Plus class="size-3.5" />
       {creating ? 'Adding…' : 'Add'}

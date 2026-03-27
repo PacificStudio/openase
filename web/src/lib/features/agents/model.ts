@@ -1,4 +1,5 @@
 import type { AgentPayload, AgentProvider, Ticket } from '$lib/api/contracts'
+import { normalizeProviderAvailabilityState } from '$lib/features/providers'
 import type {
   AgentInstance,
   ProviderDraft,
@@ -131,7 +132,10 @@ export function buildProviderCards(
     machineWorkspaceRoot: provider.machine_workspace_root ?? null,
     name: provider.name,
     adapterType: provider.adapter_type,
+    availabilityState: normalizeProviderAvailabilityState(provider.availability_state),
     available: provider.available,
+    availabilityCheckedAt: provider.availability_checked_at ?? null,
+    availabilityReason: provider.availability_reason ?? null,
     cliCommand: provider.cli_command,
     cliArgs: [...provider.cli_args],
     authConfig: { ...provider.auth_config },
@@ -180,6 +184,9 @@ export function buildAgentRows(
       runtimeStartedAt: runtime?.runtime_started_at ?? null,
       sessionId: runtime?.session_id ?? '',
       lastError: runtime?.last_error ?? '',
+      currentStepStatus: runtime?.current_step_status ?? undefined,
+      currentStepSummary: runtime?.current_step_summary ?? undefined,
+      currentStepChangedAt: runtime?.current_step_changed_at ?? null,
       todayCompleted: agent.total_tickets_completed,
       todayCost: 0,
     }
@@ -202,7 +209,10 @@ export function applyUpdatedProviderState(
           machineWorkspaceRoot: updatedProvider.machine_workspace_root ?? null,
           name: updatedProvider.name,
           adapterType: updatedProvider.adapter_type,
+          availabilityState: normalizeProviderAvailabilityState(updatedProvider.availability_state),
           available: updatedProvider.available,
+          availabilityCheckedAt: updatedProvider.availability_checked_at ?? null,
+          availabilityReason: updatedProvider.availability_reason ?? null,
           cliCommand: updatedProvider.cli_command,
           cliArgs: [...updatedProvider.cli_args],
           authConfig: { ...updatedProvider.auth_config },
