@@ -5,6 +5,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
+  import { Switch } from '$ui/switch'
   import { Textarea } from '$ui/textarea'
   import {
     scheduledJobPriorityOptions,
@@ -99,18 +100,25 @@
       </div>
 
       <div class="space-y-2">
-        <Label>Delivery mode</Label>
-        <label
-          class="border-border bg-muted/20 flex min-h-10 items-center gap-3 rounded-md border px-3 text-sm"
+        <Label for="scheduled-job-enabled">Delivery mode</Label>
+        <div
+          class="border-border bg-muted/20 flex min-h-10 items-center justify-between gap-3 rounded-md border px-3 text-sm"
         >
-          <input
-            type="checkbox"
+          <div class="space-y-0.5">
+            <Label for="scheduled-job-enabled" class="text-sm font-medium">
+              {draft.isEnabled ? 'Enabled' : 'Disabled'}
+            </Label>
+            <p id="scheduled-job-enabled-description" class="text-muted-foreground text-xs">
+              Disabled jobs stay saved but will not schedule new tickets.
+            </p>
+          </div>
+          <Switch
+            id="scheduled-job-enabled"
             checked={draft.isEnabled}
-            onchange={(event) =>
-              onFieldChange?.('isEnabled', (event.currentTarget as HTMLInputElement).checked)}
+            aria-describedby="scheduled-job-enabled-description"
+            onCheckedChange={(checked) => onFieldChange?.('isEnabled', checked)}
           />
-          <span>{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
-        </label>
+        </div>
       </div>
     </div>
 

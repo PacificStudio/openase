@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ProjectRepoRecord } from '$lib/api/contracts'
   import { Button } from '$ui/button'
+  import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
@@ -141,21 +142,22 @@
     </div>
 
     <div class="border-border rounded-xl border px-4 py-3">
-      <label for="repo-primary" class="flex items-start gap-3">
-        <input
+      <div class="flex items-start gap-3">
+        <Checkbox
           id="repo-primary"
-          type="checkbox"
-          class="mt-0.5 size-4 accent-current"
+          class="mt-0.5"
           checked={draft.isPrimary}
+          aria-describedby="repo-primary-description"
           disabled={primaryToggleLocked || saving}
-          onchange={(event) =>
-            onDraftChange?.('isPrimary', (event.currentTarget as HTMLInputElement).checked)}
+          onCheckedChange={(checked) => onDraftChange?.('isPrimary', checked)}
         />
-        <span class="space-y-1">
-          <span class="text-foreground block text-sm font-medium">Primary repository</span>
-          <span class="text-muted-foreground block text-xs">{primaryHint}</span>
-        </span>
-      </label>
+        <div class="space-y-1">
+          <Label for="repo-primary" class="text-foreground block text-sm font-medium">
+            Primary repository
+          </Label>
+          <p id="repo-primary-description" class="text-muted-foreground text-xs">{primaryHint}</p>
+        </div>
+      </div>
     </div>
   </div>
 </div>
