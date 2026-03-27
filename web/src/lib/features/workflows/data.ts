@@ -175,17 +175,11 @@ export async function createWorkflowWithBinding(
     harnessPath: createdWorkflow.harness_path ?? '',
     pickupStatusIds: createdWorkflow.pickup_status_ids,
     pickupStatusLabel: createdWorkflow.pickup_status_ids
-      .map(
-        (statusId) =>
-          statuses.find((status) => status.id === statusId)?.name ?? statusId,
-      )
+      .map((statusId) => statuses.find((status) => status.id === statusId)?.name ?? statusId)
       .join(', '),
     finishStatusIds: createdWorkflow.finish_status_ids,
     finishStatusLabel: createdWorkflow.finish_status_ids
-      .map(
-        (statusId) =>
-          statuses.find((status) => status.id === statusId)?.name ?? statusId,
-      )
+      .map((statusId) => statuses.find((status) => status.id === statusId)?.name ?? statusId)
       .join(', '),
     maxConcurrent: createdWorkflow.max_concurrent,
     maxRetry: createdWorkflow.max_retry_attempts,

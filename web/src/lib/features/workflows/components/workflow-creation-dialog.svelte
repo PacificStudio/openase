@@ -143,7 +143,8 @@
                     : 'border-border text-muted-foreground hover:bg-muted',
                 )}
                 disabled={saving}
-                onclick={() => (pickupStatusIds = toggleWorkflowStatusSelection(pickupStatusIds, status.id))}
+                onclick={() =>
+                  (pickupStatusIds = toggleWorkflowStatusSelection(pickupStatusIds, status.id))}
               >
                 {status.name}
               </button>
@@ -164,7 +165,8 @@
                     : 'border-border text-muted-foreground hover:bg-muted',
                 )}
                 disabled={saving}
-                onclick={() => (finishStatusIds = toggleWorkflowStatusSelection(finishStatusIds, status.id))}
+                onclick={() =>
+                  (finishStatusIds = toggleWorkflowStatusSelection(finishStatusIds, status.id))}
               >
                 {status.name}
               </button>

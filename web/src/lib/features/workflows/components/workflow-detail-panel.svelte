@@ -111,11 +111,17 @@
   }
 
   function togglePickupStatus(statusId: string) {
-    updateDraftField('pickupStatusIds', toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId))
+    updateDraftField(
+      'pickupStatusIds',
+      toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId),
+    )
   }
 
   function toggleFinishStatus(statusId: string) {
-    updateDraftField('finishStatusIds', toggleWorkflowStatusSelection(draft.finishStatusIds, statusId))
+    updateDraftField(
+      'finishStatusIds',
+      toggleWorkflowStatusSelection(draft.finishStatusIds, statusId),
+    )
   }
 
   async function handleSubmit(event: SubmitEvent) {

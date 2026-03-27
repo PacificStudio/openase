@@ -10,8 +10,8 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )

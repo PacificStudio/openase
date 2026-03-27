@@ -157,18 +157,18 @@ type CreateInput struct {
 
 // UpdateInput carries a partial ticket update request.
 type UpdateInput struct {
-	TicketID        uuid.UUID
-	Title           Optional[string]
-	Description     Optional[string]
-	StatusID        Optional[uuid.UUID]
-	Priority        Optional[entticket.Priority]
-	Type            Optional[entticket.Type]
-	WorkflowID      Optional[*uuid.UUID]
-	TargetMachineID Optional[*uuid.UUID]
-	CreatedBy       Optional[string]
-	ParentTicketID  Optional[*uuid.UUID]
-	ExternalRef     Optional[string]
-	BudgetUSD       Optional[float64]
+	TicketID                          uuid.UUID
+	Title                             Optional[string]
+	Description                       Optional[string]
+	StatusID                          Optional[uuid.UUID]
+	Priority                          Optional[entticket.Priority]
+	Type                              Optional[entticket.Type]
+	WorkflowID                        Optional[*uuid.UUID]
+	TargetMachineID                   Optional[*uuid.UUID]
+	CreatedBy                         Optional[string]
+	ParentTicketID                    Optional[*uuid.UUID]
+	ExternalRef                       Optional[string]
+	BudgetUSD                         Optional[float64]
 	RestrictStatusToWorkflowFinishSet bool
 }
 
