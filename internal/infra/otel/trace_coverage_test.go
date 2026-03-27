@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 

@@ -607,7 +607,7 @@ func seedTicketStatusProject(t *testing.T, ctx context.Context, client *ent.Clie
 	project, err := client.Project.Create().
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
-		SetSlug(strings.ToLower("openase-"+uuid.NewString()[:8])).
+		SetSlug(strings.ToLower("openase-" + uuid.NewString()[:8])).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project: %v", err)
@@ -624,7 +624,7 @@ func seedTicketStatusActiveRun(t *testing.T, ctx context.Context, client *ent.Cl
 	}
 	machine, err := client.Machine.Create().
 		SetOrganizationID(project.OrganizationID).
-		SetName("worker-"+uuid.NewString()[:8]).
+		SetName("worker-" + uuid.NewString()[:8]).
 		SetHost("worker.internal").
 		SetPort(22).
 		SetDescription("runner").

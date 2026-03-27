@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 

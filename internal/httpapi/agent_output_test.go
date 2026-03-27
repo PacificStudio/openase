@@ -285,14 +285,14 @@ func TestAgentOutputRouteErrorAndHelperCoverage(t *testing.T) {
 		}
 
 		basePayload := map[string]any{
-			"id":         uuid.NewString(),
-			"project_id": projectID.String(),
-			"agent_id":   agentID.String(),
-			"ticket_id":  ticketID.String(),
+			"id":           uuid.NewString(),
+			"project_id":   projectID.String(),
+			"agent_id":     agentID.String(),
+			"ticket_id":    ticketID.String(),
 			"agent_run_id": uuid.NewString(),
-			"stream":     "stdout",
-			"output":     "stdout line",
-			"created_at": time.Date(2026, time.March, 27, 10, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			"stream":       "stdout",
+			"output":       "stdout line",
+			"created_at":   time.Date(2026, time.March, 27, 10, 0, 0, 0, time.UTC).Format(time.RFC3339),
 		}
 
 		for _, testCase := range []struct {

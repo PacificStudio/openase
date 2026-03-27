@@ -350,11 +350,11 @@ var _ AgentCLIProcess = (*testAgentCLIProcess)(nil)
 
 type testAgentCLIProcess struct{}
 
-func (testAgentCLIProcess) PID() int { return 0 }
-func (testAgentCLIProcess) Stdin() io.WriteCloser { return nopWriteCloser{Writer: io.Discard} }
-func (testAgentCLIProcess) Stdout() io.ReadCloser { return io.NopCloser(strings.NewReader("")) }
-func (testAgentCLIProcess) Stderr() io.ReadCloser { return io.NopCloser(strings.NewReader("")) }
-func (testAgentCLIProcess) Wait() error { return nil }
+func (testAgentCLIProcess) PID() int                   { return 0 }
+func (testAgentCLIProcess) Stdin() io.WriteCloser      { return nopWriteCloser{Writer: io.Discard} }
+func (testAgentCLIProcess) Stdout() io.ReadCloser      { return io.NopCloser(strings.NewReader("")) }
+func (testAgentCLIProcess) Stderr() io.ReadCloser      { return io.NopCloser(strings.NewReader("")) }
+func (testAgentCLIProcess) Wait() error                { return nil }
 func (testAgentCLIProcess) Stop(context.Context) error { return nil }
 
 type nopWriteCloser struct {
