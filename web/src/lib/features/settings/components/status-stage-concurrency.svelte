@@ -2,6 +2,10 @@
   import type { StatusPayload } from '$lib/api/contracts'
 
   let { stages }: { stages: StatusPayload['stages'] } = $props()
+
+  function hasUnlimitedCapacity(maxActiveRuns: number | null | undefined) {
+    return maxActiveRuns == null
+  }
 </script>
 
 <div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -21,7 +25,7 @@
         <div>
           <p class="text-sm font-medium text-slate-900">{stage.name}</p>
           <p class="text-xs text-slate-500">
-            {#if stage.max_active_runs === null}
+            {#if hasUnlimitedCapacity(stage.max_active_runs)}
               {stage.active_runs} active now, unlimited capacity
             {:else}
               {stage.active_runs} active now, capacity {stage.max_active_runs}
@@ -29,7 +33,7 @@
           </p>
         </div>
         <div class="text-sm font-medium text-slate-700">
-          {#if stage.max_active_runs === null}
+          {#if hasUnlimitedCapacity(stage.max_active_runs)}
             {stage.active_runs}
           {:else}
             {stage.active_runs}/{stage.max_active_runs}
