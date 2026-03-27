@@ -9577,6 +9577,28 @@
                       },
                       "type": "array"
                     },
+                    "assigned_agent": {
+                      "nullable": true,
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "runtime_control_state": {
+                          "type": "string"
+                        },
+                        "runtime_phase": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
                     "comments": {
                       "items": {
                         "properties": {
