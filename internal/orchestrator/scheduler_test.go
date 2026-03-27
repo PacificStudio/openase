@@ -398,6 +398,95 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 	}
 }
 
+func TestSchedulerRunTickAllowsConcurrentClaimsForSingleAgentDefinition(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 12, 15, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "parallel-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+
+	runningTicket, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-302A").
+		SetTitle("Already running on shared agent").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		SetWorkflowID(workflow.ID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create running ticket: %v", err)
+	}
+	mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, runningTicket.ID, entagentrun.StatusExecuting, now)
+
+	target, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-302B").
+		SetTitle("Concurrent claim on same agent definition").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityUrgent).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create target ticket: %v", err)
+	}
+
+	scheduler := newTestScheduler(client, now)
+	report, err := scheduler.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 1 {
+		t.Fatalf("expected second ticket to dispatch onto the same agent definition, got %+v", report)
+	}
+
+	targetAfter, err := client.Ticket.Get(ctx, target.ID)
+	if err != nil {
+		t.Fatalf("reload target ticket: %v", err)
+	}
+	if targetAfter.CurrentRunID == nil {
+		t.Fatalf("expected target ticket to be claimed, got %+v", targetAfter)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, *targetAfter.CurrentRunID)
+	if err != nil {
+		t.Fatalf("reload target run: %v", err)
+	}
+	if runAfter.AgentID != agentItem.ID {
+		t.Fatalf("expected shared agent %s, got %s", agentItem.ID, runAfter.AgentID)
+	}
+
+	activeRunCount, err := client.AgentRun.Query().
+		Where(
+			entagentrun.AgentIDEQ(agentItem.ID),
+			entagentrun.HasCurrentForTicket(),
+		).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count active current runs: %v", err)
+	}
+	if activeRunCount != 2 {
+		t.Fatalf("expected same agent definition to hold 2 concurrent current runs, got %d", activeRunCount)
+	}
+}
+
 func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
