@@ -526,6 +526,10 @@ func buildBaseArgs(cliArgs []string, modelName string) []string {
 	return append(args, "--model", modelName)
 }
 
+func buildCodexArgs(cliArgs []string) []string {
+	return append([]string(nil), cliArgs...)
+}
+
 func hasModelFlag(args []string) bool {
 	for index, arg := range args {
 		if arg == "--model" && index+1 < len(args) {

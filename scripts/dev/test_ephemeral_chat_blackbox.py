@@ -71,6 +71,24 @@ def resolve_chat_provider(items: list[dict[str, Any]]) -> dict[str, Any]:
     )
 
 
+def wait_for_chat_provider(base_url: str, org_id: str, timeout_seconds: int) -> dict[str, Any]:
+    deadline = time.time() + timeout_seconds
+    last_providers: list[dict[str, Any]] = []
+
+    while time.time() < deadline:
+        providers = request_json(base_url, "GET", f"/api/v1/orgs/{org_id}/providers")["providers"]
+        last_providers = providers
+        try:
+            return resolve_chat_provider(providers)
+        except RuntimeError:
+            time.sleep(1)
+
+    raise RuntimeError(
+        "timed out waiting for an available Ephemeral Chat provider in "
+        + json.dumps(last_providers, ensure_ascii=False)
+    )
+
+
 def read_sse_stream(response, timeout_seconds: int):
     deadline = time.time() + timeout_seconds
     current_event = None
@@ -110,7 +128,7 @@ def start_chat_turn(base_url: str, timeout_seconds: int, payload: dict[str, Any]
         method="POST",
     )
 
-    first_text = None
+    text_parts: list[str] = []
     done_payload = None
     with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
         for event_name, event_payload in read_sse_stream(response, timeout_seconds):
@@ -118,13 +136,14 @@ def start_chat_turn(base_url: str, timeout_seconds: int, payload: dict[str, Any]
                 raise RuntimeError(
                     f"chat stream returned error payload: {json.dumps(event_payload, ensure_ascii=False)}"
                 )
-            if event_name == "message" and event_payload.get("type") == "text" and first_text is None:
-                first_text = event_payload.get("content")
+            if event_name == "message" and event_payload.get("type") == "text":
+                text_parts.append(str(event_payload.get("content", "")))
             if event_name == "done":
                 done_payload = event_payload
                 break
 
-    if not first_text or not str(first_text).strip():
+    assistant_text = "".join(text_parts)
+    if not assistant_text.strip():
         raise RuntimeError("expected chat stream to emit a non-empty assistant text message")
     if not isinstance(done_payload, dict):
         raise RuntimeError("expected chat stream to emit a done event")
@@ -134,7 +153,7 @@ def start_chat_turn(base_url: str, timeout_seconds: int, payload: dict[str, Any]
             f"expected done event to include session_id, got {json.dumps(done_payload, ensure_ascii=False)}"
         )
 
-    return first_text, done_payload
+    return assistant_text, done_payload
 
 
 def main() -> int:
@@ -169,9 +188,8 @@ def main() -> int:
         },
     )["project"]
 
-    print("[3/9] resolve an available Ephemeral Chat provider")
-    providers = request_json(base_url, "GET", f"/api/v1/orgs/{org['id']}/providers")["providers"]
-    chat_provider = resolve_chat_provider(providers)
+    print("[3/9] wait for an available Ephemeral Chat provider")
+    chat_provider = wait_for_chat_provider(base_url, org["id"], args.timeout_seconds)
 
     print("[4/9] set the selected provider as the default project provider")
     project = request_json(
@@ -243,13 +261,13 @@ def main() -> int:
                 "project": project,
                 "provider": chat_provider,
                 "explicit": {
-                    "assistant_first_text": explicit_first_text,
-                    "done": explicit_done_payload,
-                },
-                "fallback": {
-                    "assistant_first_text": fallback_first_text,
-                    "done": fallback_done_payload,
-                },
+                "assistant_text": explicit_first_text,
+                "done": explicit_done_payload,
+            },
+            "fallback": {
+                "assistant_text": fallback_first_text,
+                "done": fallback_done_payload,
+            },
             },
             indent=2,
             ensure_ascii=False,

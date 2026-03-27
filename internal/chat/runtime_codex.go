@@ -110,7 +110,7 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,
-		buildBaseArgs(input.Provider.CliArgs, input.Provider.ModelName),
+		buildCodexArgs(input.Provider.CliArgs),
 		workingDirectory,
 		provider.AuthConfigEnvironment(input.Provider.AuthConfig),
 	)
