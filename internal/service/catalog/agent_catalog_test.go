@@ -464,6 +464,10 @@ func (r *stubRepository) ListAgentOutput(context.Context, domain.ListAgentOutput
 	return nil, nil
 }
 
+func (r *stubRepository) ListAgentSteps(context.Context, domain.ListAgentSteps) ([]domain.AgentStepEntry, error) {
+	return nil, nil
+}
+
 func (r *stubRepository) CreateAgent(context.Context, domain.CreateAgent) (domain.Agent, error) {
 	return domain.Agent{}, nil
 }

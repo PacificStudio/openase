@@ -44,28 +44,34 @@ type Agent struct {
 }
 
 type AgentRuntime struct {
-	CurrentRunID     *uuid.UUID
-	Status           AgentStatus
-	CurrentTicketID  *uuid.UUID
-	SessionID        string
-	RuntimePhase     AgentRuntimePhase
-	RuntimeStartedAt *time.Time
-	LastError        string
-	LastHeartbeatAt  *time.Time
+	CurrentRunID         *uuid.UUID
+	Status               AgentStatus
+	CurrentTicketID      *uuid.UUID
+	SessionID            string
+	RuntimePhase         AgentRuntimePhase
+	RuntimeStartedAt     *time.Time
+	LastError            string
+	LastHeartbeatAt      *time.Time
+	CurrentStepStatus    *string
+	CurrentStepSummary   *string
+	CurrentStepChangedAt *time.Time
 }
 
 type AgentRun struct {
-	ID               uuid.UUID
-	AgentID          uuid.UUID
-	WorkflowID       uuid.UUID
-	TicketID         uuid.UUID
-	ProviderID       uuid.UUID
-	Status           AgentRunStatus
-	SessionID        string
-	RuntimeStartedAt *time.Time
-	LastError        string
-	LastHeartbeatAt  *time.Time
-	CreatedAt        time.Time
+	ID                   uuid.UUID
+	AgentID              uuid.UUID
+	WorkflowID           uuid.UUID
+	TicketID             uuid.UUID
+	ProviderID           uuid.UUID
+	Status               AgentRunStatus
+	SessionID            string
+	RuntimeStartedAt     *time.Time
+	LastError            string
+	LastHeartbeatAt      *time.Time
+	CurrentStepStatus    *string
+	CurrentStepSummary   *string
+	CurrentStepChangedAt *time.Time
+	CreatedAt            time.Time
 }
 
 type AgentProviderInput struct {
@@ -239,14 +245,17 @@ func BuildAgentRuntime(currentRun *AgentRun, controlState AgentRuntimeControlSta
 	}
 
 	runtime := &AgentRuntime{
-		CurrentRunID:     &currentRun.ID,
-		Status:           DefaultAgentStatus,
-		CurrentTicketID:  &currentRun.TicketID,
-		SessionID:        currentRun.SessionID,
-		RuntimePhase:     DefaultAgentRuntimePhase,
-		RuntimeStartedAt: cloneTimePointer(currentRun.RuntimeStartedAt),
-		LastError:        currentRun.LastError,
-		LastHeartbeatAt:  cloneTimePointer(currentRun.LastHeartbeatAt),
+		CurrentRunID:         &currentRun.ID,
+		Status:               DefaultAgentStatus,
+		CurrentTicketID:      &currentRun.TicketID,
+		SessionID:            currentRun.SessionID,
+		RuntimePhase:         DefaultAgentRuntimePhase,
+		RuntimeStartedAt:     cloneTimePointer(currentRun.RuntimeStartedAt),
+		LastError:            currentRun.LastError,
+		LastHeartbeatAt:      cloneTimePointer(currentRun.LastHeartbeatAt),
+		CurrentStepStatus:    cloneStringPointer(currentRun.CurrentStepStatus),
+		CurrentStepSummary:   cloneStringPointer(currentRun.CurrentStepSummary),
+		CurrentStepChangedAt: cloneTimePointer(currentRun.CurrentStepChangedAt),
 	}
 
 	switch currentRun.Status {
@@ -272,6 +281,15 @@ func BuildAgentRuntime(currentRun *AgentRun, controlState AgentRuntimeControlSta
 	}
 
 	return runtime
+}
+
+func cloneStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	cloned := strings.TrimSpace(*value)
+	return &cloned
 }
 
 func cloneTimePointer(value *time.Time) *time.Time {

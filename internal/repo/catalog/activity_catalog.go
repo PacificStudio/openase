@@ -9,6 +9,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
+	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -28,6 +30,7 @@ func (r *EntRepository) ListActivityEvents(ctx context.Context, input domain.Lis
 
 	predicates := []predicate.ActivityEvent{
 		entactivityevent.ProjectID(input.ProjectID),
+		entactivityevent.EventTypeNEQ(domain.AgentOutputEventType),
 	}
 	if input.AgentID != nil {
 		predicates = append(predicates, entactivityevent.AgentID(*input.AgentID))
@@ -59,18 +62,18 @@ func (r *EntRepository) ListAgentOutput(ctx context.Context, input domain.ListAg
 		return nil, ErrNotFound
 	}
 
-	predicates := []predicate.ActivityEvent{
-		entactivityevent.ProjectID(input.ProjectID),
-		entactivityevent.AgentID(input.AgentID),
-		entactivityevent.EventType(domain.AgentOutputEventType),
+	predicates := []predicate.AgentTraceEvent{
+		entagenttraceevent.ProjectID(input.ProjectID),
+		entagenttraceevent.AgentID(input.AgentID),
+		entagenttraceevent.KindIn(domain.AgentTraceOutputKinds()...),
 	}
 	if input.TicketID != nil {
-		predicates = append(predicates, entactivityevent.TicketID(*input.TicketID))
+		predicates = append(predicates, entagenttraceevent.TicketID(*input.TicketID))
 	}
 
-	items, err := r.client.ActivityEvent.Query().
+	items, err := r.client.AgentTraceEvent.Query().
 		Where(predicates...).
-		Order(entactivityevent.ByCreatedAt(entsql.OrderDesc()), entactivityevent.ByID(entsql.OrderDesc())).
+		Order(entagenttraceevent.ByCreatedAt(entsql.OrderDesc()), entagenttraceevent.ByID(entsql.OrderDesc())).
 		Limit(input.Limit).
 		All(ctx)
 	if err != nil {
@@ -78,6 +81,37 @@ func (r *EntRepository) ListAgentOutput(ctx context.Context, input domain.ListAg
 	}
 
 	return mapAgentOutputEntries(items), nil
+}
+
+func (r *EntRepository) ListAgentSteps(ctx context.Context, input domain.ListAgentSteps) ([]domain.AgentStepEntry, error) {
+	exists, err := r.client.Agent.Query().
+		Where(entagent.ID(input.AgentID), entagent.ProjectID(input.ProjectID)).
+		Exist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check agent before listing steps: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	predicates := []predicate.AgentStepEvent{
+		entagentstepevent.ProjectID(input.ProjectID),
+		entagentstepevent.AgentID(input.AgentID),
+	}
+	if input.TicketID != nil {
+		predicates = append(predicates, entagentstepevent.TicketID(*input.TicketID))
+	}
+
+	items, err := r.client.AgentStepEvent.Query().
+		Where(predicates...).
+		Order(entagentstepevent.ByCreatedAt(entsql.OrderDesc()), entagentstepevent.ByID(entsql.OrderDesc())).
+		Limit(input.Limit).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list agent steps: %w", err)
+	}
+
+	return mapAgentStepEntries(items), nil
 }
 
 func mapActivityEvents(items []*ent.ActivityEvent) []domain.ActivityEvent {
@@ -102,7 +136,7 @@ func mapActivityEvent(item *ent.ActivityEvent) domain.ActivityEvent {
 	}
 }
 
-func mapAgentOutputEntries(items []*ent.ActivityEvent) []domain.AgentOutputEntry {
+func mapAgentOutputEntries(items []*ent.AgentTraceEvent) []domain.AgentOutputEntry {
 	entries := make([]domain.AgentOutputEntry, 0, len(items))
 	for _, item := range items {
 		entries = append(entries, mapAgentOutputEntry(item))
@@ -111,21 +145,49 @@ func mapAgentOutputEntries(items []*ent.ActivityEvent) []domain.AgentOutputEntry
 	return entries
 }
 
-func mapAgentOutputEntry(item *ent.ActivityEvent) domain.AgentOutputEntry {
-	agentID := uuid.Nil
-	if item.AgentID != nil {
-		agentID = *item.AgentID
+func mapAgentOutputEntry(item *ent.AgentTraceEvent) domain.AgentOutputEntry {
+	return domain.AgentOutputEntry{
+		ID:         item.ID,
+		ProjectID:  item.ProjectID,
+		AgentID:    item.AgentID,
+		TicketID:   uuidPointer(item.TicketID),
+		AgentRunID: item.AgentRunID,
+		Stream:     item.Stream,
+		Output:     item.Text,
+		CreatedAt:  cloneActivityCreatedAt(item.CreatedAt),
+	}
+}
+
+func mapAgentStepEntries(items []*ent.AgentStepEvent) []domain.AgentStepEntry {
+	entries := make([]domain.AgentStepEntry, 0, len(items))
+	for _, item := range items {
+		entries = append(entries, mapAgentStepEntry(item))
 	}
 
-	return domain.AgentOutputEntry{
-		ID:        item.ID,
-		ProjectID: item.ProjectID,
-		AgentID:   agentID,
-		TicketID:  item.TicketID,
-		Stream:    domain.AgentOutputMetadataStream(item.Metadata),
-		Output:    item.Message,
-		CreatedAt: cloneActivityCreatedAt(item.CreatedAt),
+	return entries
+}
+
+func mapAgentStepEntry(item *ent.AgentStepEvent) domain.AgentStepEntry {
+	return domain.AgentStepEntry{
+		ID:                 item.ID,
+		ProjectID:          item.ProjectID,
+		AgentID:            item.AgentID,
+		TicketID:           uuidPointer(item.TicketID),
+		AgentRunID:         item.AgentRunID,
+		StepStatus:         item.StepStatus,
+		Summary:            item.Summary,
+		SourceTraceEventID: item.SourceTraceEventID,
+		CreatedAt:          cloneActivityCreatedAt(item.CreatedAt),
 	}
+}
+
+func uuidPointer(value uuid.UUID) *uuid.UUID {
+	if value == uuid.Nil {
+		return nil
+	}
+
+	cloned := value
+	return &cloned
 }
 
 func cloneActivityCreatedAt(value time.Time) time.Time {

@@ -40,6 +40,12 @@ type AgentRun struct {
 	LastError string `json:"last_error,omitempty"`
 	// LastHeartbeatAt holds the value of the "last_heartbeat_at" field.
 	LastHeartbeatAt *time.Time `json:"last_heartbeat_at,omitempty"`
+	// CurrentStepStatus holds the value of the "current_step_status" field.
+	CurrentStepStatus *string `json:"current_step_status,omitempty"`
+	// CurrentStepSummary holds the value of the "current_step_summary" field.
+	CurrentStepSummary *string `json:"current_step_summary,omitempty"`
+	// CurrentStepChangedAt holds the value of the "current_step_changed_at" field.
+	CurrentStepChangedAt *time.Time `json:"current_step_changed_at,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -60,9 +66,13 @@ type AgentRunEdges struct {
 	Provider *AgentProvider `json:"provider,omitempty"`
 	// CurrentForTicket holds the value of the current_for_ticket edge.
 	CurrentForTicket []*Ticket `json:"current_for_ticket,omitempty"`
+	// AgentTraceEvents holds the value of the agent_trace_events edge.
+	AgentTraceEvents []*AgentTraceEvent `json:"agent_trace_events,omitempty"`
+	// AgentStepEvents holds the value of the agent_step_events edge.
+	AgentStepEvents []*AgentStepEvent `json:"agent_step_events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [7]bool
 }
 
 // AgentOrErr returns the Agent value or an error if the edge
@@ -118,14 +128,32 @@ func (e AgentRunEdges) CurrentForTicketOrErr() ([]*Ticket, error) {
 	return nil, &NotLoadedError{edge: "current_for_ticket"}
 }
 
+// AgentTraceEventsOrErr returns the AgentTraceEvents value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentRunEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
+	if e.loadedTypes[5] {
+		return e.AgentTraceEvents, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_trace_events"}
+}
+
+// AgentStepEventsOrErr returns the AgentStepEvents value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentRunEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
+	if e.loadedTypes[6] {
+		return e.AgentStepEvents, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_step_events"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*AgentRun) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case agentrun.FieldStatus, agentrun.FieldSessionID, agentrun.FieldLastError:
+		case agentrun.FieldStatus, agentrun.FieldSessionID, agentrun.FieldLastError, agentrun.FieldCurrentStepStatus, agentrun.FieldCurrentStepSummary:
 			values[i] = new(sql.NullString)
-		case agentrun.FieldRuntimeStartedAt, agentrun.FieldLastHeartbeatAt, agentrun.FieldCreatedAt:
+		case agentrun.FieldRuntimeStartedAt, agentrun.FieldLastHeartbeatAt, agentrun.FieldCurrentStepChangedAt, agentrun.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		case agentrun.FieldID, agentrun.FieldAgentID, agentrun.FieldWorkflowID, agentrun.FieldTicketID, agentrun.FieldProviderID:
 			values[i] = new(uuid.UUID)
@@ -206,6 +234,27 @@ func (_m *AgentRun) assignValues(columns []string, values []any) error {
 				_m.LastHeartbeatAt = new(time.Time)
 				*_m.LastHeartbeatAt = value.Time
 			}
+		case agentrun.FieldCurrentStepStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field current_step_status", values[i])
+			} else if value.Valid {
+				_m.CurrentStepStatus = new(string)
+				*_m.CurrentStepStatus = value.String
+			}
+		case agentrun.FieldCurrentStepSummary:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field current_step_summary", values[i])
+			} else if value.Valid {
+				_m.CurrentStepSummary = new(string)
+				*_m.CurrentStepSummary = value.String
+			}
+		case agentrun.FieldCurrentStepChangedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field current_step_changed_at", values[i])
+			} else if value.Valid {
+				_m.CurrentStepChangedAt = new(time.Time)
+				*_m.CurrentStepChangedAt = value.Time
+			}
 		case agentrun.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -248,6 +297,16 @@ func (_m *AgentRun) QueryProvider() *AgentProviderQuery {
 // QueryCurrentForTicket queries the "current_for_ticket" edge of the AgentRun entity.
 func (_m *AgentRun) QueryCurrentForTicket() *TicketQuery {
 	return NewAgentRunClient(_m.config).QueryCurrentForTicket(_m)
+}
+
+// QueryAgentTraceEvents queries the "agent_trace_events" edge of the AgentRun entity.
+func (_m *AgentRun) QueryAgentTraceEvents() *AgentTraceEventQuery {
+	return NewAgentRunClient(_m.config).QueryAgentTraceEvents(_m)
+}
+
+// QueryAgentStepEvents queries the "agent_step_events" edge of the AgentRun entity.
+func (_m *AgentRun) QueryAgentStepEvents() *AgentStepEventQuery {
+	return NewAgentRunClient(_m.config).QueryAgentStepEvents(_m)
 }
 
 // Update returns a builder for updating this AgentRun.
@@ -301,6 +360,21 @@ func (_m *AgentRun) String() string {
 	builder.WriteString(", ")
 	if v := _m.LastHeartbeatAt; v != nil {
 		builder.WriteString("last_heartbeat_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.CurrentStepStatus; v != nil {
+		builder.WriteString("current_step_status=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.CurrentStepSummary; v != nil {
+		builder.WriteString("current_step_summary=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.CurrentStepChangedAt; v != nil {
+		builder.WriteString("current_step_changed_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteString(", ")

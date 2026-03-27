@@ -14,7 +14,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
+	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -46,6 +48,8 @@ type TicketQuery struct {
 	withComments             *TicketCommentQuery
 	withExternalLinks        *TicketExternalLinkQuery
 	withAgentTokens          *AgentTokenQuery
+	withAgentTraceEvents     *AgentTraceEventQuery
+	withAgentStepEvents      *AgentStepEventQuery
 	withActivityEvents       *ActivityEventQuery
 	withAgentRuns            *AgentRunQuery
 	withOutgoingDependencies *TicketDependencyQuery
@@ -321,6 +325,50 @@ func (_q *TicketQuery) QueryAgentTokens() *AgentTokenQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
 			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentTokensTable, ticket.AgentTokensColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentTraceEvents chains the current query on the "agent_trace_events" edge.
+func (_q *TicketQuery) QueryAgentTraceEvents() *AgentTraceEventQuery {
+	query := (&AgentTraceEventClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
+			sqlgraph.To(agenttraceevent.Table, agenttraceevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentTraceEventsTable, ticket.AgentTraceEventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentStepEvents chains the current query on the "agent_step_events" edge.
+func (_q *TicketQuery) QueryAgentStepEvents() *AgentStepEventQuery {
+	query := (&AgentStepEventClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, selector),
+			sqlgraph.To(agentstepevent.Table, agentstepevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentStepEventsTable, ticket.AgentStepEventsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -619,6 +667,8 @@ func (_q *TicketQuery) Clone() *TicketQuery {
 		withComments:             _q.withComments.Clone(),
 		withExternalLinks:        _q.withExternalLinks.Clone(),
 		withAgentTokens:          _q.withAgentTokens.Clone(),
+		withAgentTraceEvents:     _q.withAgentTraceEvents.Clone(),
+		withAgentStepEvents:      _q.withAgentStepEvents.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
 		withAgentRuns:            _q.withAgentRuns.Clone(),
 		withOutgoingDependencies: _q.withOutgoingDependencies.Clone(),
@@ -750,6 +800,28 @@ func (_q *TicketQuery) WithAgentTokens(opts ...func(*AgentTokenQuery)) *TicketQu
 	return _q
 }
 
+// WithAgentTraceEvents tells the query-builder to eager-load the nodes that are connected to
+// the "agent_trace_events" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TicketQuery) WithAgentTraceEvents(opts ...func(*AgentTraceEventQuery)) *TicketQuery {
+	query := (&AgentTraceEventClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentTraceEvents = query
+	return _q
+}
+
+// WithAgentStepEvents tells the query-builder to eager-load the nodes that are connected to
+// the "agent_step_events" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TicketQuery) WithAgentStepEvents(opts ...func(*AgentStepEventQuery)) *TicketQuery {
+	query := (&AgentStepEventClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentStepEvents = query
+	return _q
+}
+
 // WithActivityEvents tells the query-builder to eager-load the nodes that are connected to
 // the "activity_events" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *TicketQuery) WithActivityEvents(opts ...func(*ActivityEventQuery)) *TicketQuery {
@@ -872,7 +944,7 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 	var (
 		nodes       = []*Ticket{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [17]bool{
 			_q.withProject != nil,
 			_q.withStatus != nil,
 			_q.withWorkflow != nil,
@@ -884,6 +956,8 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 			_q.withComments != nil,
 			_q.withExternalLinks != nil,
 			_q.withAgentTokens != nil,
+			_q.withAgentTraceEvents != nil,
+			_q.withAgentStepEvents != nil,
 			_q.withActivityEvents != nil,
 			_q.withAgentRuns != nil,
 			_q.withOutgoingDependencies != nil,
@@ -976,6 +1050,20 @@ func (_q *TicketQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ticke
 		if err := _q.loadAgentTokens(ctx, query, nodes,
 			func(n *Ticket) { n.Edges.AgentTokens = []*AgentToken{} },
 			func(n *Ticket, e *AgentToken) { n.Edges.AgentTokens = append(n.Edges.AgentTokens, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentTraceEvents; query != nil {
+		if err := _q.loadAgentTraceEvents(ctx, query, nodes,
+			func(n *Ticket) { n.Edges.AgentTraceEvents = []*AgentTraceEvent{} },
+			func(n *Ticket, e *AgentTraceEvent) { n.Edges.AgentTraceEvents = append(n.Edges.AgentTraceEvents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentStepEvents; query != nil {
+		if err := _q.loadAgentStepEvents(ctx, query, nodes,
+			func(n *Ticket) { n.Edges.AgentStepEvents = []*AgentStepEvent{} },
+			func(n *Ticket, e *AgentStepEvent) { n.Edges.AgentStepEvents = append(n.Edges.AgentStepEvents, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1338,6 +1426,66 @@ func (_q *TicketQuery) loadAgentTokens(ctx context.Context, query *AgentTokenQue
 	}
 	query.Where(predicate.AgentToken(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(ticket.AgentTokensColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.TicketID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "ticket_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *TicketQuery) loadAgentTraceEvents(ctx context.Context, query *AgentTraceEventQuery, nodes []*Ticket, init func(*Ticket), assign func(*Ticket, *AgentTraceEvent)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Ticket)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agenttraceevent.FieldTicketID)
+	}
+	query.Where(predicate.AgentTraceEvent(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(ticket.AgentTraceEventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.TicketID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "ticket_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *TicketQuery) loadAgentStepEvents(ctx context.Context, query *AgentStepEventQuery, nodes []*Ticket, init func(*Ticket), assign func(*Ticket, *AgentStepEvent)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Ticket)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agentstepevent.FieldTicketID)
+	}
+	query.Where(predicate.AgentStepEvent(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(ticket.AgentStepEventsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

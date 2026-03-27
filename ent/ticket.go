@@ -112,6 +112,10 @@ type TicketEdges struct {
 	ExternalLinks []*TicketExternalLink `json:"external_links,omitempty"`
 	// AgentTokens holds the value of the agent_tokens edge.
 	AgentTokens []*AgentToken `json:"agent_tokens,omitempty"`
+	// AgentTraceEvents holds the value of the agent_trace_events edge.
+	AgentTraceEvents []*AgentTraceEvent `json:"agent_trace_events,omitempty"`
+	// AgentStepEvents holds the value of the agent_step_events edge.
+	AgentStepEvents []*AgentStepEvent `json:"agent_step_events,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
 	// AgentRuns holds the value of the agent_runs edge.
@@ -122,7 +126,7 @@ type TicketEdges struct {
 	IncomingDependencies []*TicketDependency `json:"incoming_dependencies,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [15]bool
+	loadedTypes [17]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -236,10 +240,28 @@ func (e TicketEdges) AgentTokensOrErr() ([]*AgentToken, error) {
 	return nil, &NotLoadedError{edge: "agent_tokens"}
 }
 
+// AgentTraceEventsOrErr returns the AgentTraceEvents value or an error if the edge
+// was not loaded in eager-loading.
+func (e TicketEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
+	if e.loadedTypes[11] {
+		return e.AgentTraceEvents, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_trace_events"}
+}
+
+// AgentStepEventsOrErr returns the AgentStepEvents value or an error if the edge
+// was not loaded in eager-loading.
+func (e TicketEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
+	if e.loadedTypes[12] {
+		return e.AgentStepEvents, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_step_events"}
+}
+
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[13] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -248,7 +270,7 @@ func (e TicketEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
 // AgentRunsOrErr returns the AgentRuns value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) AgentRunsOrErr() ([]*AgentRun, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[14] {
 		return e.AgentRuns, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_runs"}
@@ -257,7 +279,7 @@ func (e TicketEdges) AgentRunsOrErr() ([]*AgentRun, error) {
 // OutgoingDependenciesOrErr returns the OutgoingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[15] {
 		return e.OutgoingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "outgoing_dependencies"}
@@ -266,7 +288,7 @@ func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
 // IncomingDependenciesOrErr returns the IncomingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) IncomingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[14] {
+	if e.loadedTypes[16] {
 		return e.IncomingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "incoming_dependencies"}
@@ -563,6 +585,16 @@ func (_m *Ticket) QueryExternalLinks() *TicketExternalLinkQuery {
 // QueryAgentTokens queries the "agent_tokens" edge of the Ticket entity.
 func (_m *Ticket) QueryAgentTokens() *AgentTokenQuery {
 	return NewTicketClient(_m.config).QueryAgentTokens(_m)
+}
+
+// QueryAgentTraceEvents queries the "agent_trace_events" edge of the Ticket entity.
+func (_m *Ticket) QueryAgentTraceEvents() *AgentTraceEventQuery {
+	return NewTicketClient(_m.config).QueryAgentTraceEvents(_m)
+}
+
+// QueryAgentStepEvents queries the "agent_step_events" edge of the Ticket entity.
+func (_m *Ticket) QueryAgentStepEvents() *AgentStepEventQuery {
+	return NewTicketClient(_m.config).QueryAgentStepEvents(_m)
 }
 
 // QueryActivityEvents queries the "activity_events" edge of the Ticket entity.

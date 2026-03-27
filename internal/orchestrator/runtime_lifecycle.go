@@ -9,6 +9,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
@@ -17,6 +18,8 @@ import (
 var (
 	agentLifecycleTopic    = provider.MustParseTopic("agent.events")
 	activityLifecycleTopic = provider.MustParseTopic("activity.events")
+	agentTraceTopic        = provider.MustParseTopic("agent.trace.events")
+	agentStepTopic         = provider.MustParseTopic("agent.step.events")
 
 	agentClaimedType    = provider.MustParseEventType("agent.claimed")
 	agentLaunchingType  = provider.MustParseEventType("agent.launching")
@@ -25,7 +28,9 @@ var (
 	agentPausedType     = provider.MustParseEventType("agent.paused")
 	agentFailedType     = provider.MustParseEventType("agent.failed")
 	agentTerminatedType = provider.MustParseEventType("agent.terminated")
+	agentTraceType      = provider.MustParseEventType("agent.trace")
 	agentOutputType     = provider.MustParseEventType(catalogdomain.AgentOutputEventType)
+	agentStepType       = provider.MustParseEventType(catalogdomain.AgentStepEventType)
 )
 
 type agentLifecycleEnvelope struct {
@@ -69,6 +74,55 @@ type activityLifecycleSnapshot struct {
 	Message   string         `json:"message"`
 	Metadata  map[string]any `json:"metadata"`
 	CreatedAt string         `json:"created_at"`
+}
+
+type agentTraceEnvelope struct {
+	Entry agentTraceSnapshot `json:"entry"`
+}
+
+type agentTraceSnapshot struct {
+	ID         string         `json:"id"`
+	ProjectID  string         `json:"project_id"`
+	TicketID   string         `json:"ticket_id"`
+	AgentID    string         `json:"agent_id"`
+	AgentRunID string         `json:"agent_run_id"`
+	Sequence   int64          `json:"sequence"`
+	Provider   string         `json:"provider"`
+	Kind       string         `json:"kind"`
+	Stream     string         `json:"stream"`
+	Output     string         `json:"output"`
+	Payload    map[string]any `json:"payload"`
+	CreatedAt  string         `json:"created_at"`
+}
+
+type agentStepEnvelope struct {
+	Entry agentStepSnapshot `json:"entry"`
+}
+
+type agentStepSnapshot struct {
+	ID                 string  `json:"id"`
+	ProjectID          string  `json:"project_id"`
+	TicketID           string  `json:"ticket_id"`
+	AgentID            string  `json:"agent_id"`
+	AgentRunID         string  `json:"agent_run_id"`
+	StepStatus         string  `json:"step_status"`
+	Summary            string  `json:"summary"`
+	SourceTraceEventID *string `json:"source_trace_event_id,omitempty"`
+	CreatedAt          string  `json:"created_at"`
+}
+
+type agentTraceEventInput struct {
+	ProjectID   uuid.UUID
+	AgentID     uuid.UUID
+	TicketID    uuid.UUID
+	AgentRunID  uuid.UUID
+	Provider    string
+	Kind        string
+	Stream      string
+	Text        string
+	Payload     map[string]any
+	EventType   provider.EventType
+	PublishedAt time.Time
 }
 
 func publishAgentLifecycleEvent(
@@ -141,53 +195,143 @@ func publishAgentLifecycleEvent(
 	return nil
 }
 
-func publishAgentOutputEvent(
+func publishAgentTraceEvent(
+	ctx context.Context,
+	client *ent.Client,
+	events provider.EventProvider,
+	input agentTraceEventInput,
+) (*ent.AgentTraceEvent, error) {
+	if client == nil {
+		return nil, fmt.Errorf("agent trace event requires a client")
+	}
+
+	nextSequence, err := nextAgentTraceSequence(ctx, client, input.AgentRunID)
+	if err != nil {
+		return nil, err
+	}
+
+	create := client.AgentTraceEvent.Create().
+		SetProjectID(input.ProjectID).
+		SetTicketID(input.TicketID).
+		SetAgentID(input.AgentID).
+		SetAgentRunID(input.AgentRunID).
+		SetSequence(nextSequence).
+		SetProvider(strings.TrimSpace(input.Provider)).
+		SetKind(strings.TrimSpace(input.Kind)).
+		SetStream(strings.TrimSpace(input.Stream)).
+		SetPayload(cloneLifecycleMetadata(input.Payload)).
+		SetCreatedAt(input.PublishedAt.UTC())
+	if trimmedText := strings.TrimSpace(input.Text); trimmedText != "" {
+		create.SetText(trimmedText)
+	}
+
+	traceItem, err := create.
+		Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("persist agent trace event: %w", err)
+	}
+
+	if events == nil {
+		return traceItem, nil
+	}
+
+	eventType := input.EventType
+	if eventType == "" {
+		eventType = agentTraceType
+	}
+	traceEvent, err := provider.NewJSONEvent(
+		agentTraceTopic,
+		eventType,
+		agentTraceEnvelope{Entry: mapAgentTraceSnapshot(traceItem)},
+		input.PublishedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("construct agent trace stream event: %w", err)
+	}
+	if err := events.Publish(ctx, traceEvent); err != nil {
+		return nil, fmt.Errorf("publish agent trace stream event: %w", err)
+	}
+
+	return traceItem, nil
+}
+
+func publishAgentStepEvent(
 	ctx context.Context,
 	client *ent.Client,
 	events provider.EventProvider,
 	projectID uuid.UUID,
 	agentID uuid.UUID,
 	ticketID uuid.UUID,
-	message string,
-	metadata map[string]any,
+	agentRunID uuid.UUID,
+	stepStatus string,
+	summary string,
+	sourceTraceEventID *uuid.UUID,
 	publishedAt time.Time,
 ) error {
-	trimmedMessage := strings.TrimSpace(message)
-	if trimmedMessage == "" {
-		return nil
-	}
 	if client == nil {
-		return fmt.Errorf("agent output event requires a client")
+		return fmt.Errorf("agent step event requires a client")
 	}
 
-	activityItem, err := client.ActivityEvent.Create().
-		SetProjectID(projectID).
-		SetAgentID(agentID).
-		SetTicketID(ticketID).
-		SetEventType(catalogdomain.AgentOutputEventType).
-		SetMessage(trimmedMessage).
-		SetMetadata(cloneLifecycleMetadata(metadata)).
-		SetCreatedAt(publishedAt.UTC()).
-		Save(ctx)
+	normalizedStatus := normalizeAgentStepStatus(stepStatus)
+	if normalizedStatus == "" {
+		return nil
+	}
+	normalizedSummary := normalizeAgentStepSummary(summary)
+
+	currentRun, err := client.AgentRun.Get(ctx, agentRunID)
 	if err != nil {
-		return fmt.Errorf("persist %s activity event: %w", catalogdomain.AgentOutputEventType, err)
+		return fmt.Errorf("load run %s before projecting step: %w", agentRunID, err)
+	}
+	if currentRun.CurrentStepStatus != nil && strings.TrimSpace(*currentRun.CurrentStepStatus) == normalizedStatus {
+		return nil
+	}
+
+	update := client.AgentRun.UpdateOneID(agentRunID).
+		SetCurrentStepStatus(normalizedStatus).
+		SetCurrentStepChangedAt(publishedAt.UTC())
+	if normalizedSummary == "" {
+		update.ClearCurrentStepSummary()
+	} else {
+		update.SetCurrentStepSummary(normalizedSummary)
+	}
+	if _, err := update.Save(ctx); err != nil {
+		return fmt.Errorf("update run %s current step snapshot: %w", agentRunID, err)
+	}
+
+	create := client.AgentStepEvent.Create().
+		SetProjectID(projectID).
+		SetTicketID(ticketID).
+		SetAgentID(agentID).
+		SetAgentRunID(agentRunID).
+		SetStepStatus(normalizedStatus).
+		SetCreatedAt(publishedAt.UTC())
+	if normalizedSummary != "" {
+		create.SetSummary(normalizedSummary)
+	}
+	if sourceTraceEventID != nil {
+		create.SetSourceTraceEventID(*sourceTraceEventID)
+	}
+
+	stepItem, err := create.Save(ctx)
+	if err != nil {
+		return fmt.Errorf("persist agent step event: %w", err)
 	}
 
 	if events == nil {
 		return nil
 	}
 
-	activityEvent, err := provider.NewJSONEvent(
-		activityLifecycleTopic,
-		agentOutputType,
-		activityLifecycleEnvelope{Event: mapActivityLifecycleSnapshot(activityItem)},
+	stepEvent, err := provider.NewJSONEvent(
+		agentStepTopic,
+		agentStepType,
+		agentStepEnvelope{Entry: mapAgentStepSnapshot(stepItem)},
 		publishedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("construct %s activity stream event: %w", catalogdomain.AgentOutputEventType, err)
+		return fmt.Errorf("construct agent step stream event: %w", err)
 	}
-	if err := events.Publish(ctx, activityEvent); err != nil {
-		return fmt.Errorf("publish %s activity stream event: %w", catalogdomain.AgentOutputEventType, err)
+	if err := events.Publish(ctx, stepEvent); err != nil {
+		return fmt.Errorf("publish agent step stream event: %w", err)
 	}
 
 	return nil
@@ -224,6 +368,37 @@ func mapActivityLifecycleSnapshot(item *ent.ActivityEvent) activityLifecycleSnap
 		Message:   item.Message,
 		Metadata:  cloneLifecycleMetadata(item.Metadata),
 		CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func mapAgentTraceSnapshot(item *ent.AgentTraceEvent) agentTraceSnapshot {
+	return agentTraceSnapshot{
+		ID:         item.ID.String(),
+		ProjectID:  item.ProjectID.String(),
+		TicketID:   item.TicketID.String(),
+		AgentID:    item.AgentID.String(),
+		AgentRunID: item.AgentRunID.String(),
+		Sequence:   item.Sequence,
+		Provider:   item.Provider,
+		Kind:       item.Kind,
+		Stream:     item.Stream,
+		Output:     item.Text,
+		Payload:    cloneLifecycleMetadata(item.Payload),
+		CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func mapAgentStepSnapshot(item *ent.AgentStepEvent) agentStepSnapshot {
+	return agentStepSnapshot{
+		ID:                 item.ID.String(),
+		ProjectID:          item.ProjectID.String(),
+		TicketID:           item.TicketID.String(),
+		AgentID:            item.AgentID.String(),
+		AgentRunID:         item.AgentRunID.String(),
+		StepStatus:         item.StepStatus,
+		Summary:            item.Summary,
+		SourceTraceEventID: uuidPointerToString(item.SourceTraceEventID),
+		CreatedAt:          item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 
@@ -272,6 +447,48 @@ func cloneLifecycleMetadata(metadata map[string]any) map[string]any {
 	}
 
 	return cloned
+}
+
+func nextAgentTraceSequence(ctx context.Context, client *ent.Client, agentRunID uuid.UUID) (int64, error) {
+	lastItem, err := client.AgentTraceEvent.Query().
+		Where(entagenttraceevent.AgentRunID(agentRunID)).
+		Order(ent.Desc(entagenttraceevent.FieldSequence)).
+		First(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return 1, nil
+		}
+		return 0, fmt.Errorf("load last trace sequence for run %s: %w", agentRunID, err)
+	}
+
+	return lastItem.Sequence + 1, nil
+}
+
+func normalizeAgentStepStatus(raw string) string {
+	normalized := strings.TrimSpace(strings.ToLower(raw))
+	normalized = strings.ReplaceAll(normalized, " ", "_")
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	return normalized
+}
+
+func normalizeAgentStepSummary(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if len(trimmed) <= 240 {
+		return trimmed
+	}
+	return strings.TrimSpace(trimmed[:240]) + "..."
+}
+
+func uuidPointer(value uuid.UUID) *uuid.UUID {
+	if value == uuid.Nil {
+		return nil
+	}
+
+	cloned := value
+	return &cloned
 }
 
 func lifecycleMessage(eventType provider.EventType, agentName string) string {

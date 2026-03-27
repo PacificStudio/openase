@@ -1,4 +1,4 @@
-import type { AgentOutputEntry, AgentProvider } from '$lib/api/contracts'
+import type { AgentOutputEntry, AgentProvider, AgentStepEntry } from '$lib/api/contracts'
 import type { StreamConnectionState } from '$lib/api/sse'
 import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
 import type { AgentInstance, ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
@@ -34,6 +34,7 @@ export type ContentViewModel = {
   providerError: string
   selectedOutputAgent: AgentInstance | null
   outputEntries: AgentOutputEntry[]
+  outputSteps: AgentStepEntry[]
   outputLoading: boolean
   outputError: string
   outputStreamState: StreamConnectionState
@@ -71,6 +72,7 @@ type ContentViewModelOptions = {
   providerError: string
   selectedOutputAgent: AgentInstance | null
   outputEntries: AgentOutputEntry[]
+  outputSteps: AgentStepEntry[]
   outputLoading: boolean
   outputError: string
   outputStreamState: StreamConnectionState
@@ -108,6 +110,7 @@ export function createContentViewModel({
   providerError,
   selectedOutputAgent,
   outputEntries,
+  outputSteps,
   outputLoading,
   outputError,
   outputStreamState,
@@ -151,6 +154,7 @@ export function createContentViewModel({
     providerError,
     selectedOutputAgent,
     outputEntries,
+    outputSteps,
     outputLoading,
     outputError,
     outputStreamState,

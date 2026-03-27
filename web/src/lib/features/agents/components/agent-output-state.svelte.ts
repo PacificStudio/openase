@@ -1,6 +1,6 @@
 import { ApiError } from '$lib/api/client'
-import type { AgentOutputEntry } from '$lib/api/contracts'
-import { listAgentOutput } from '$lib/api/openase'
+import type { AgentOutputEntry, AgentStepEntry } from '$lib/api/contracts'
+import { listAgentOutput, listAgentSteps } from '$lib/api/openase'
 import type { SSEFrame, StreamConnectionState } from '$lib/api/sse'
 
 const agentOutputLimit = 200
@@ -8,6 +8,7 @@ const agentOutputLimit = 200
 export function createAgentOutputState() {
   let selectedAgentId = $state<string | null>(null)
   let entries = $state<AgentOutputEntry[]>([])
+  let stepEntries = $state<AgentStepEntry[]>([])
   let loading = $state(false)
   let error = $state('')
   let streamState = $state<StreamConnectionState>('idle')
@@ -19,6 +20,9 @@ export function createAgentOutputState() {
     },
     get entries() {
       return entries
+    },
+    get stepEntries() {
+      return stepEntries
     },
     get loading() {
       return loading
@@ -47,10 +51,14 @@ export function createAgentOutputState() {
       error = ''
 
       try {
-        const payload = await listAgentOutput(projectId, agentId, { limit: agentOutputLimit })
+        const [outputPayload, stepPayload] = await Promise.all([
+          listAgentOutput(projectId, agentId, { limit: agentOutputLimit }),
+          listAgentSteps(projectId, agentId, { limit: agentOutputLimit }),
+        ])
         if (requestId !== loadRequestId || selectedAgentId !== agentId) return
 
-        entries = [...payload.entries].reverse()
+        entries = [...outputPayload.entries].reverse()
+        stepEntries = [...stepPayload.entries].reverse()
       } catch (caughtError) {
         if (requestId !== loadRequestId || selectedAgentId !== agentId) return
         error =
@@ -62,33 +70,54 @@ export function createAgentOutputState() {
       }
     },
     handleFrame(agentId: string, frame: SSEFrame) {
-      if (frame.event !== 'agent.output' || selectedAgentId !== agentId) {
+      if (selectedAgentId !== agentId) {
         return
       }
 
       try {
-        const envelope = JSON.parse(frame.data) as {
-          payload?: { entry?: AgentOutputEntry }
-        }
-        const entry = envelope.payload?.entry
-        if (!entry) {
+        const envelope = JSON.parse(frame.data) as { payload?: { entry?: unknown } }
+        if (frame.event === 'agent.output') {
+          const entry = envelope.payload?.entry as AgentOutputEntry | undefined
+          if (!entry) {
+            return
+          }
+          entries = mergeAgentOutputEntry(entries, entry)
           return
         }
-
-        entries = mergeAgentOutputEntry(entries, entry)
+        if (frame.event === 'agent.step') {
+          const entry = envelope.payload?.entry as AgentStepEntry | undefined
+          if (!entry) {
+            return
+          }
+          stepEntries = mergeAgentStepEntry(stepEntries, entry)
+        }
       } catch (caughtError) {
-        console.error('Failed to parse agent output frame:', caughtError)
+        console.error('Failed to parse agent runtime frame:', caughtError)
       }
     },
     reset() {
       loadRequestId += 1
       selectedAgentId = null
       entries = []
+      stepEntries = []
       loading = false
       error = ''
       streamState = 'idle'
     },
   }
+}
+
+function mergeAgentStepEntry(entries: AgentStepEntry[], entry: AgentStepEntry) {
+  if (entries.some((item) => item.id === entry.id)) {
+    return entries
+  }
+
+  const nextEntries = [...entries, entry]
+  if (nextEntries.length > agentOutputLimit) {
+    return nextEntries.slice(nextEntries.length - agentOutputLimit)
+  }
+
+  return nextEntries
 }
 
 function mergeAgentOutputEntry(entries: AgentOutputEntry[], entry: AgentOutputEntry) {

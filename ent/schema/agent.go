@@ -43,6 +43,8 @@ func (Agent) Edges() []ent.Edge {
 		edge.To("workflows", Workflow.Type),
 		edge.To("runs", AgentRun.Type),
 		edge.To("tokens", AgentToken.Type),
+		edge.To("agent_trace_events", AgentTraceEvent.Type),
+		edge.To("agent_step_events", AgentStepEvent.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 	}
 }
