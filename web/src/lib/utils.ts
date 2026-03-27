@@ -37,6 +37,10 @@ export function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`
 }
 
+export function formatCount(value: number): string {
+  return value.toLocaleString()
+}
+
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
 

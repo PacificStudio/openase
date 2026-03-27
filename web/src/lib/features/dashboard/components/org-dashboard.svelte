@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatBytes } from '$lib/utils'
+  import { formatBytes, formatCount } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
   import {
     getHRAdvisor,
@@ -14,13 +14,21 @@
   import ProjectHealthList from './project-health-list.svelte'
   import ExceptionPanel from './exception-panel.svelte'
   import ActivityFeedPanel from './activity-feed-panel.svelte'
+  import CostSnapshotPanel from './cost-snapshot-panel.svelte'
   import HRAdvisorPanel from './hr-advisor-panel.svelte'
   import MemorySnapshotPanel from './memory-snapshot-panel.svelte'
-  import { Bot, Ticket, ShieldCheck } from '@lucide/svelte'
+  import { Bot, Coins, Ticket } from '@lucide/svelte'
+  import {
+    buildActivityItems,
+    buildDashboardStats,
+    buildExceptionItems,
+    buildProjectSummary,
+    findTopCostTicket,
+    findTopTokenAgent,
+  } from '../model'
   import type {
-    ActivityItem,
     DashboardStats,
-    ExceptionItem,
+    DashboardUsageLeader,
     HRAdvisorSnapshot,
     MemorySnapshot,
     ProjectSummary,
@@ -34,18 +42,24 @@
     runningAgents: 0,
     activeTickets: 0,
     pendingApprovals: 0,
-    todayCost: 0,
-    weekCost: 0,
+    newTicketsTodayCost: 0,
+    projectCost: 0,
     ticketsCreatedToday: 0,
     ticketsCompletedToday: 0,
+    ticketInputTokens: 0,
+    ticketOutputTokens: 0,
+    totalAgentTokens: 0,
     avgCycleMinutes: 0,
     prMergeRate: 0,
   })
   let projects = $state<ProjectSummary[]>([])
-  let exceptions = $state<ExceptionItem[]>([])
-  let activities = $state<ActivityItem[]>([])
+  let exceptions = $state<ReturnType<typeof buildExceptionItems>>([])
+  let activities = $state<ReturnType<typeof buildActivityItems>>([])
   let hrAdvisor = $state<HRAdvisorSnapshot | null>(null)
   let memory = $state<MemorySnapshot | null>(null)
+  let topCostTicket = $state<DashboardUsageLeader | null>(null)
+  let topTokenAgent = $state<DashboardUsageLeader | null>(null)
+  const totalTicketTokens = $derived(stats.ticketInputTokens + stats.ticketOutputTokens)
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -55,6 +69,8 @@
       exceptions = []
       hrAdvisor = null
       memory = null
+      topCostTicket = null
+      topTokenAgent = null
       return
     }
 
@@ -89,34 +105,9 @@
 
         if (cancelled) return
 
-        const activeTickets = ticketPayload.tickets.filter(
-          (ticket) => !isTerminalStatus(ticket.status_name),
-        )
-        const runningAgents = agentPayload.agents.filter(
-          (agent) => agent.runtime?.status === 'running',
-        ).length
-        const totalCost = ticketPayload.tickets.reduce((sum, ticket) => sum + ticket.cost_amount, 0)
-        const todayStart = new Date()
-        todayStart.setHours(0, 0, 0, 0)
-
-        stats = {
-          runningAgents,
-          activeTickets: activeTickets.length,
-          pendingApprovals: 0,
-          todayCost: ticketPayload.tickets
-            .filter((ticket) => new Date(ticket.created_at) >= todayStart)
-            .reduce((sum, ticket) => sum + ticket.cost_amount, 0),
-          weekCost: totalCost,
-          ticketsCreatedToday: ticketPayload.tickets.filter(
-            (ticket) => new Date(ticket.created_at) >= todayStart,
-          ).length,
-          ticketsCompletedToday: ticketPayload.tickets.filter(
-            (ticket) =>
-              isTerminalStatus(ticket.status_name) && new Date(ticket.created_at) >= todayStart,
-          ).length,
-          avgCycleMinutes: 0,
-          prMergeRate: 0,
-        }
+        stats = buildDashboardStats(agentPayload.agents, ticketPayload.tickets)
+        topCostTicket = findTopCostTicket(ticketPayload.tickets)
+        topTokenAgent = findTopTokenAgent(agentPayload.agents)
         memory = systemPayload.memory
         hrAdvisor = hrAdvisorPayload
           ? {
@@ -126,35 +117,13 @@
             }
           : null
 
-        projects = [
-          {
-            id: projectPayload.project.id,
-            name: projectPayload.project.name,
-            health: projectHealth(projectPayload.project.status),
-            activeAgents: runningAgents,
-            activeTickets: activeTickets.length,
-            lastActivity: activityPayload.events[0]?.created_at ?? new Date().toISOString(),
-          },
-        ]
-
-        activities = activityPayload.events.slice(0, 6).map((event) => ({
-          id: event.id,
-          type: event.event_type,
-          message: event.message,
-          timestamp: event.created_at,
-          ticketIdentifier: undefined,
-          agentName: agentNameFromMetadata(event.metadata),
-        }))
-
-        exceptions = activityPayload.events
-          .filter((event) => isExceptionEvent(event.event_type))
-          .slice(0, 4)
-          .map((event) => ({
-            id: event.id,
-            type: normalizeExceptionType(event.event_type),
-            message: event.message,
-            timestamp: event.created_at,
-          }))
+        projects = buildProjectSummary(
+          projectPayload.project,
+          stats,
+          activityPayload.events[0]?.created_at ?? new Date().toISOString(),
+        )
+        activities = buildActivityItems(activityPayload.events)
+        exceptions = buildExceptionItems(activityPayload.events)
 
         error = ''
         hasLoaded = true
@@ -182,39 +151,6 @@
       window.clearInterval(interval)
     }
   })
-
-  function isTerminalStatus(statusName: string) {
-    const value = statusName.toLowerCase()
-    return value === 'done' || value === 'cancelled' || value === 'archived'
-  }
-
-  function projectHealth(status: string): ProjectSummary['health'] {
-    const value = status.toLowerCase()
-    if (value === 'healthy' || value === 'active') return 'healthy'
-    if (value === 'blocked' || value === 'archived') return 'blocked'
-    return 'warning'
-  }
-
-  function isExceptionEvent(eventType: string) {
-    return ['hook_failed', 'budget_alert', 'agent_stalled', 'retry_paused'].includes(eventType)
-  }
-
-  function normalizeExceptionType(eventType: string): ExceptionItem['type'] {
-    if (
-      eventType === 'hook_failed' ||
-      eventType === 'budget_alert' ||
-      eventType === 'agent_stalled'
-    ) {
-      return eventType
-    }
-
-    return 'retry_paused'
-  }
-
-  function agentNameFromMetadata(metadata: Record<string, unknown>) {
-    const value = metadata.agent_name
-    return typeof value === 'string' ? value : undefined
-  }
 </script>
 
 <div class="space-y-6">
@@ -239,12 +175,23 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
       <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
-      <StatCard label="Pending Approvals" value={stats.pendingApprovals} icon={ShieldCheck} />
+      <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
       <StatCard label="Heap In Use" value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'} />
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <ProjectHealthList {projects} class="lg:col-span-2" />
+      <ProjectHealthList {projects} />
+      <CostSnapshotPanel
+        newTicketsTodayCost={stats.newTicketsTodayCost}
+        projectCost={stats.projectCost}
+        ticketInputTokens={stats.ticketInputTokens}
+        ticketOutputTokens={stats.ticketOutputTokens}
+        totalAgentTokens={stats.totalAgentTokens}
+        ticketsCreatedToday={stats.ticketsCreatedToday}
+        ticketsCompletedToday={stats.ticketsCompletedToday}
+        {topCostTicket}
+        {topTokenAgent}
+      />
       <ExceptionPanel {exceptions} />
     </div>
 

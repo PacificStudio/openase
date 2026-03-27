@@ -731,6 +731,43 @@ AgentProvider 表示**某台 Machine 上一个可被 OpenASE 调用的 Coding Ag
 | cost_per_input_token | Decimal | 输入 Token 单价 |
 | cost_per_output_token | Decimal | 输出 Token 单价 |
 
+**重要：`AgentProvider` 的“可用性”不是静态配置字段，而是运行时派生状态。**
+
+- `cli_command`、`cli_args`、`auth_config`、`machine_id` 等属于**静态配置**
+- Provider 当前能不能被调度执行，属于**运行时派生结果**
+- 前端和调度器**不得**把“命令存在于 PATH 中”或“配置字段非空”直接解释为“Provider 可用”
+
+Provider 对外暴露以下派生字段（可通过 API response 返回，不要求持久化为配置列）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| availability_state | Enum | `unknown / available / unavailable / stale` |
+| available | Boolean | 兼容布尔字段；等价于 `availability_state == available` |
+| availability_checked_at | DateTime (nullable) | 最近一次用于判定 Provider 可用性的 L4 检查时间 |
+| availability_reason | String (nullable) | 不可用或过期原因（如 `machine_offline`、`cli_missing`、`not_logged_in`、`stale_l4_snapshot`） |
+
+**Provider 可用性的判定规则：**
+
+- `available`
+  - `machine.status == online`
+  - 最近一次 L4 Agent Environment 检查成功且未过期
+  - 对应 adapter 的 CLI 已安装
+  - 对应 CLI 认证状态已就绪（如 `logged_in` 或 API key mode）
+  - Provider 所需启动配置完整（命令、路径、远端工作区等）
+- `unavailable`
+  - 最近一次 L4 检查明确证明该 Provider 不可运行
+  - 或绑定 Machine 不处于 `online`
+- `unknown`
+  - 从未完成过可信的 L4 检查，系统尚无足够信息
+- `stale`
+  - 曾经有 L4 成功快照，但该快照已超过有效期，不能继续作为调度依据
+
+**默认过期窗口：**
+
+- L4 检查周期默认 30 分钟
+- `availability_state` 在 `now - availability_checked_at > 2 * L4_interval` 时转为 `stale`
+- `stale` 与 `unknown` 一样，均不得参与调度
+
 ### 6.8 Agent（执行定义）
 
 这里的 Agent 不是“调度池里的一个可占用 worker”，而是“某个 Provider 在当前项目中的运行方式定义”。它回答的是：
@@ -4722,9 +4759,10 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/v1/orgs/:orgId/providers` | 列出 Agent Provider |
+| GET | `/api/v1/orgs/:orgId/providers` | 列出 Agent Provider（含 `availability_state / available / availability_checked_at / availability_reason`） |
 | POST | `/api/v1/orgs/:orgId/providers` | 注册 Provider |
 | PATCH | `/api/v1/providers/:providerId` | 更新 Provider |
+| GET | `/api/v1/providers/:providerId` | Provider 详情（含运行时可用性派生字段） |
 | GET | `/api/v1/projects/:projectId/agents` | 列出 Agent |
 | POST | `/api/v1/projects/:projectId/agents` | 注册 Agent |
 | GET | `/api/v1/agents/:agentId` | Agent 详情（状态、当前工单、心跳、Token 消耗） |
@@ -5964,6 +6002,28 @@ OpenASE 需要支持：
 | last_heartbeat_at | DateTime | 最后健康检查时间 |
 | resources | JSONB | 最近一次采集的资源快照（动态数据，适合 JSONB） |
 
+**Machine `status` 的语义合同：**
+
+- `online`
+  - 只表示**机器基础执行面健康**
+  - 机器最近一次 L1 reachability 成功
+  - 且没有触发阻止调度的基础设施级故障
+  - `online` **不表示**任何具体 Provider 已安装、已登录、或一定能成功启动
+- `degraded`
+  - 机器可达，但存在需要运营关注的问题
+  - 例如：磁盘空间过低、L2/L4/L5 检查失败、部分环境异常
+  - 默认不参与自动调度，除非未来产品显式支持“degraded 仍可调度”的策略开关
+- `offline`
+  - 机器基础不可达，不能作为执行节点使用
+- `maintenance`
+  - 人工维护状态；无论监控结果如何都不得调度
+
+**关键约束：**
+
+- Machine `status` 只回答“这台机器作为执行节点是否健康”
+- Provider `availability_state` 才回答“这台机器上的某个具体 Agent CLI 入口能否执行”
+- Scheduler 必须同时检查 `machine.status` 与 `provider.availability_state`，不得只看其中一个
+
 **`resources` JSONB 结构**（由 Machine Monitor 定期采集）：
 
 ```json
@@ -6005,6 +6065,19 @@ OpenASE 需要支持：
 
 换句话说，用户在配置 Agent 时，实际是在选择“哪台机器上的哪个 Coding Agent CLI 入口”。Scheduler 运行时只做可用性检查和 semaphore 控制，不再根据 `required_machine_labels` 在多台机器之间做自动匹配。
 
+**调度准入规则：**
+
+- `machine.status == online`
+- `provider.availability_state == available`
+- Provider semaphore 未满
+- Workflow / Stage / Project 并发限制未满
+
+其中：
+
+- Machine `online` 是基础设施健康判断
+- Provider `availability_state == available` 是具体 adapter 入口可执行判断
+- 两者都必须满足，缺一不可
+
 分配策略（编排引擎 Tick 中）：
 
 ```go
@@ -6022,6 +6095,10 @@ func (s *Scheduler) resolveExecutionTarget(ctx context.Context, wf *workflow.Wor
     m, err := s.machineRepo.Get(ctx, p.MachineID)
     if err != nil || m.Status != machine.StatusOnline {
         return nil, nil, nil, ErrMachineUnavailable
+    }
+
+    if p.AvailabilityState != provider.AvailabilityAvailable {
+        return nil, nil, nil, ErrProviderUnavailable
     }
 
     if s.providerSemaphore.Active(p.ID) >= p.MaxParallelRuns {
@@ -6144,8 +6221,100 @@ func (w *Worker) runOnRemote(ctx context.Context, m *machine.Machine, p *provide
 | **L1: 网络可达** | 15s | 0（ICMP）+ 1（SSH 握手） | ping 可达性 + SSH 端口连通 + SSH 认证成功 | 连续 3 次失败 → `status=offline`，停止分发，通知告警 |
 | **L2: 系统资源** | 60s | 1 | CPU 使用率、内存可用量、磁盘可用量 | 磁盘 < 5GB → `status=degraded`；内存 < 10% → 告警 |
 | **L3: GPU 状态** | 5min | 1 | nvidia-smi 显存/利用率（仅 `gpu` 标签机器） | 显存全满 → 暂不分发 GPU 工单到该机器 |
-| **L4: Agent 环境** | 30min | 1 | Agent CLI 安装状态、版本号、是否已登录 | CLI 未安装/未登录 → 不分发到该机器 + 告警 |
+| **L4: Agent 环境** | 30min | 1 | Agent CLI 安装状态、版本号、是否已登录 | 更新对应 Provider 可用性；必要时将 Machine 置为 `degraded`，但不直接置为 `offline` |
 | **L5: 完整审计** | 6h / 手动 | 1 | Git 凭据、gh CLI、git config、网络出口（curl 测试） | 只记录报告，不自动改状态 |
+
+#### 25.7.1 Machine 状态机
+
+Machine 的状态机以**基础设施级故障**为中心，而不是以 Provider 运行能力为中心：
+
+```text
+maintenance --(operator resume + next successful L1)--> online
+maintenance --(operator resume + failed L1)-----------> offline
+
+online --(连续 3 次 L1 失败)---------------------------> offline
+online --(L2 触发阻止调度的资源问题)-------------------> degraded
+online --(operator set maintenance)--------------------> maintenance
+
+degraded --(L1 连续 3 次失败)-------------------------> offline
+degraded --(L2/L3 恢复到安全范围)---------------------> online
+degraded --(operator set maintenance)------------------> maintenance
+
+offline --(下一次 L1 成功，且无阻止调度问题)---------> online
+offline --(operator set maintenance)-------------------> maintenance
+```
+
+**状态来源：**
+
+- `offline` 的唯一自动来源是 L1 连续失败
+- `degraded` 的自动来源是“机器仍可达，但资源/环境存在问题”
+- `maintenance` 的唯一来源是人工操作
+
+**特别约束：**
+
+- L4/L5 失败默认将 Machine 置为 `degraded`，而不是 `offline`
+- `local` 机器可以被标记为 `degraded`，但不应因“本机无需 SSH”而跳过 L4/L5 语义校验
+
+#### 25.7.2 Provider 可用性状态机
+
+Provider 可用性是**Machine Monitor L4 的派生结果**，不是配置录入结果：
+
+```text
+unknown --(首次成功 L4 且满足所有条件)---------------> available
+unknown --(首次成功 L4 但不满足条件)-----------------> unavailable
+
+available --(绑定 machine != online)-----------------> unavailable
+available --(L4 明确检测到 cli_missing/not_logged_in/...)-> unavailable
+available --(L4 快照过期)----------------------------> stale
+
+unavailable --(后续成功 L4 且满足所有条件)-----------> available
+unavailable --(L4 快照过期)--------------------------> stale
+
+stale --(后续成功 L4 且满足所有条件)-----------------> available
+stale --(后续成功 L4 但不满足条件)-------------------> unavailable
+```
+
+**Provider `available` 的唯一真值来源：**
+
+- 最近一次可信的 L4 Agent Environment 检查
+- 以及绑定 Machine 的实时 `status`
+
+以下信号都**不能单独**推出 `provider.available = true`：
+
+- `cli_command` 非空
+- 命令名出现在 PATH 中
+- 机器仍然 `online`
+- 过去某次启动曾成功
+
+**L4 判定必须至少覆盖：**
+
+- 对应 adapter 的 CLI 已安装
+- 版本可读
+- 认证状态已就绪
+- 远端工作区 / 必需环境变量 / 启动路径满足要求
+
+**调度语义：**
+
+- `availability_state == available`：允许调度
+- `unknown / unavailable / stale`：禁止调度
+
+#### 25.7.3 前端展示与 API 合同
+
+前端和 API 必须区分 Machine 状态与 Provider 可用性：
+
+- Machine 显示：`Online / Degraded / Offline / Maintenance`
+- Provider 显示：`Available / Unavailable / Unknown / Stale`
+- 不得把 Machine `online` 渲染成 Provider “可用”
+- 不得把 `cli_command` 命中 PATH 渲染成 Provider “可用”
+
+Provider 列表 / 详情接口应返回：
+
+- `availability_state`
+- `available`
+- `availability_checked_at`
+- `availability_reason`
+
+其中 `available` 只是便捷布尔字段，前端应该优先使用 `availability_state`
 
 **L4 详细检测脚本（一条 SSH 命令完成）：**
 
@@ -6426,7 +6595,12 @@ openase workflow update training \
 | Hook | Hook 在远端机器上执行（SSH session 中运行脚本） |
 | 数据库 | 新增 `machines` 表；`agent_providers` 新增 `machine_id`；`agent_runs` 冗余记录 `machine_id` 便于审计；`projects` 新增 `accessible_machine_ids` |
 
-**当只有 `local` 一台机器时（默认），所有行为与没有多机器功能时完全一致。** 不启动 SSH 连接池，不运行 Machine Monitor，Scheduler 直接返回 `local`。
+**当只有 `local` 一台机器时（默认），所有行为在用户体验上与没有多机器功能时完全一致。** 但为了给 Provider 可用性提供真值来源，系统仍然运行本机版 Machine Monitor：
+
+- 不需要 SSH 连接池
+- L1 使用本地 reachability 语义
+- L2-L5 使用本地 shell/exec 采集
+- Scheduler 仍然要检查 `machine.status` 与 `provider.availability_state`
 
 ### 25.13 新增 API 端点
 
@@ -6440,7 +6614,7 @@ openase workflow update training \
 | POST | `/api/v1/machines/:machineId/test` | 测试 SSH 连接 + 采集资源 |
 | GET | `/api/v1/machines/:machineId/resources` | 获取最新资源快照 |
 
-SSE 新增事件类型：`machine.online`、`machine.offline`、`machine.degraded`、`machine.resources_updated`
+SSE 新增事件类型：`machine.online`、`machine.offline`、`machine.degraded`、`machine.resources_updated`、`provider.available`、`provider.unavailable`、`provider.stale`
 
 ### 25.14 新增可观测性指标
 
@@ -6452,6 +6626,8 @@ SSE 新增事件类型：`machine.online`、`machine.offline`、`machine.degrade
 | `openase.machine.gpu_utilization` | Gauge | machine_name, gpu_index | GPU 利用率 |
 | `openase.machine.ssh_latency_ms` | Histogram | machine_name | SSH 连接延迟 |
 | `openase.machine.ssh_errors_total` | Counter | machine_name | SSH 连接错误次数 |
+| `openase.provider.availability` | Gauge | provider_name, machine_name, adapter_type | Provider 可用性（1=available, 0=unknown/stale, -1=unavailable） |
+| `openase.provider.l4_age_seconds` | Gauge | provider_name, machine_name | 距离最近一次 L4 可用性检查的年龄 |
 | `openase.ticket.machine_dispatch` | Counter | machine_name, workflow_type | 工单分发到各机器的次数 |
 
 ---
