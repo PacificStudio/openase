@@ -2,6 +2,7 @@ import { organizationPath, projectPath } from '$lib/stores/app-context'
 import {
   Activity,
   Bot,
+  CalendarClock,
   KanbanSquare,
   LayoutDashboard,
   Server,
@@ -34,6 +35,7 @@ const projectSections = [
   { label: 'Machines', icon: Server, section: 'machines' as const },
   { label: 'Activity', icon: Activity, section: 'activity' as const },
   { label: 'Workflows', icon: Workflow, section: 'workflows' as const },
+  { label: 'Scheduled Jobs', icon: CalendarClock, section: 'scheduled-jobs' as const },
   { label: 'Settings', icon: Settings, section: 'settings' as const },
 ]
 
