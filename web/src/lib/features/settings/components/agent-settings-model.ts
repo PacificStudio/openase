@@ -1,5 +1,5 @@
 import type { Agent, AgentProvider } from '$lib/api/contracts'
-import { normalizeProviderAvailabilityState } from '$lib/features/providers/availability'
+import { normalizeProviderAvailabilityState } from '$lib/features/providers'
 
 export type ProviderOption = {
   id: string

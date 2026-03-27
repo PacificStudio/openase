@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import { providerAvailabilityLabel } from '$lib/features/providers/availability'
+  import { providerAvailabilityLabel } from '$lib/features/providers'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'

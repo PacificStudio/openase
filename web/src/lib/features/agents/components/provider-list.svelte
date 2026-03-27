@@ -3,7 +3,7 @@
   import {
     providerAvailabilityBadgeVariant,
     providerAvailabilityLabel,
-  } from '$lib/features/providers/availability'
+  } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'

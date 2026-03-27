@@ -29,7 +29,7 @@
   import {
     providerAvailabilityBadgeVariant,
     providerAvailabilityLabel,
-  } from '$lib/features/providers/availability'
+  } from '$lib/features/providers'
 
   const agentsCapability = getSettingsSectionCapability('agents')
   const inheritProviderValue = '__org_default__'

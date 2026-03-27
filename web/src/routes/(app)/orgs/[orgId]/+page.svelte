@@ -6,7 +6,7 @@
   import {
     providerAvailabilityBadgeVariant,
     providerAvailabilityLabel,
-  } from '$lib/features/providers/availability'
+  } from '$lib/features/providers'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { Badge } from '$ui/badge'

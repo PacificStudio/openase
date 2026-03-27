@@ -1,5 +1,5 @@
 import type { AgentPayload, AgentProvider, Ticket } from '$lib/api/contracts'
-import { normalizeProviderAvailabilityState } from '$lib/features/providers/availability'
+import { normalizeProviderAvailabilityState } from '$lib/features/providers'
 import type {
   AgentInstance,
   ProviderDraft,

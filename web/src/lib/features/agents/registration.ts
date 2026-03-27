@@ -1,5 +1,5 @@
 import type { AgentProvider } from '$lib/api/contracts'
-import { providerIsDispatchReady } from '$lib/features/providers/availability'
+import { providerIsDispatchReady } from '$lib/features/providers'
 
 export type AgentRegistrationDraft = {
   providerId: string
