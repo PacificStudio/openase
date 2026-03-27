@@ -62,8 +62,8 @@ type Workflow struct {
 	StallTimeoutMinutes int              `json:"stall_timeout_minutes"`
 	Version             int              `json:"version"`
 	IsActive            bool             `json:"is_active"`
-	PickupStatusID      uuid.UUID        `json:"pickup_status_id"`
-	FinishStatusID      *uuid.UUID       `json:"finish_status_id"`
+	PickupStatusIDs     []uuid.UUID      `json:"pickup_status_ids"`
+	FinishStatusIDs     []uuid.UUID      `json:"finish_status_ids"`
 }
 
 type WorkflowDetail struct {
@@ -91,8 +91,8 @@ type CreateInput struct {
 	TimeoutMinutes      int
 	StallTimeoutMinutes int
 	IsActive            bool
-	PickupStatusID      uuid.UUID
-	FinishStatusID      *uuid.UUID
+	PickupStatusIDs     StatusBindingSet
+	FinishStatusIDs     StatusBindingSet
 }
 
 type UpdateInput struct {
@@ -107,8 +107,8 @@ type UpdateInput struct {
 	TimeoutMinutes      Optional[int]
 	StallTimeoutMinutes Optional[int]
 	IsActive            Optional[bool]
-	PickupStatusID      Optional[uuid.UUID]
-	FinishStatusID      Optional[*uuid.UUID]
+	PickupStatusIDs     Optional[StatusBindingSet]
+	FinishStatusIDs     Optional[StatusBindingSet]
 }
 
 type UpdateHarnessInput struct {
@@ -357,6 +357,12 @@ func (s *Service) List(ctx context.Context, projectID uuid.UUID) ([]Workflow, er
 
 	items, err := s.client.Workflow.Query().
 		Where(entworkflow.ProjectIDEQ(projectID)).
+		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
+		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
 		Order(ent.Asc(entworkflow.FieldName)).
 		All(ctx)
 	if err != nil {
@@ -376,7 +382,15 @@ func (s *Service) Get(ctx context.Context, workflowID uuid.UUID) (WorkflowDetail
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
-	item, err := s.client.Workflow.Get(ctx, workflowID)
+	item, err := s.client.Workflow.Query().
+		Where(entworkflow.IDEQ(workflowID)).
+		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
+		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
+		Only(ctx)
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowReadError("get workflow", err)
 	}
@@ -398,19 +412,20 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
+	pickupStatusIDs := input.PickupStatusIDs
+	finishStatusIDs := input.FinishStatusIDs
+
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return WorkflowDetail{}, err
 	}
 	if err := s.ensureAgentBelongsToProject(ctx, input.ProjectID, input.AgentID); err != nil {
 		return WorkflowDetail{}, err
 	}
-	if err := s.ensureStatusBelongsToProject(ctx, input.ProjectID, input.PickupStatusID); err != nil {
+	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, pickupStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
-	if input.FinishStatusID != nil {
-		if err := s.ensureStatusBelongsToProject(ctx, input.ProjectID, *input.FinishStatusID); err != nil {
-			return WorkflowDetail{}, err
-		}
+	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, finishStatusIDs); err != nil {
+		return WorkflowDetail{}, err
 	}
 	storage, err := s.storageForProject(ctx, input.ProjectID)
 	if err != nil {
@@ -429,7 +444,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		return WorkflowDetail{}, err
 	}
 
-	harnessContent, err := s.resolveHarnessContent(ctx, input.Name, input.Type, input.PickupStatusID, input.FinishStatusID, input.HarnessContent)
+	harnessContent, err := s.resolveHarnessContent(ctx, input.Name, input.Type, pickupStatusIDs, finishStatusIDs, input.HarnessContent)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -463,15 +478,19 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		SetTimeoutMinutes(input.TimeoutMinutes).
 		SetStallTimeoutMinutes(input.StallTimeoutMinutes).
 		SetIsActive(input.IsActive).
-		SetPickupStatusID(input.PickupStatusID)
-	if input.FinishStatusID != nil {
-		builder.SetFinishStatusID(*input.FinishStatusID)
-	}
+		AddPickupStatusIDs(pickupStatusIDs.IDs()...).
+		AddFinishStatusIDs(finishStatusIDs.IDs()...)
 
 	item, err := builder.Save(ctx)
 	if err != nil {
 		_ = storage.registry.Delete(harnessPath)
 		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow", err)
+	}
+
+	item, err = s.getWorkflowWithStatusBindings(ctx, item.ID)
+	if err != nil {
+		_ = storage.registry.Delete(harnessPath)
+		return WorkflowDetail{}, err
 	}
 
 	return mapWorkflowDetail(item, harnessContent), nil
@@ -482,7 +501,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
-	current, err := s.client.Workflow.Get(ctx, input.WorkflowID)
+	current, err := s.getWorkflowWithStatusBindings(ctx, input.WorkflowID)
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowReadError("get workflow for update", err)
 	}
@@ -523,22 +542,20 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		}
 	}
 
-	nextPickupStatusID := current.PickupStatusID
-	if input.PickupStatusID.Set {
-		nextPickupStatusID = input.PickupStatusID.Value
+	nextPickupStatusIDs := MustStatusBindingSet(statusIDsFromEdges(current.Edges.PickupStatuses)...)
+	if input.PickupStatusIDs.Set {
+		nextPickupStatusIDs = input.PickupStatusIDs.Value
 	}
-	if err := s.ensureStatusBelongsToProject(ctx, projectID, nextPickupStatusID); err != nil {
+	if err := s.ensureStatusBindingsBelongToProject(ctx, projectID, nextPickupStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
 
-	nextFinishStatusID := current.FinishStatusID
-	if input.FinishStatusID.Set {
-		nextFinishStatusID = input.FinishStatusID.Value
+	nextFinishStatusIDs := MustStatusBindingSet(statusIDsFromEdges(current.Edges.FinishStatuses)...)
+	if input.FinishStatusIDs.Set {
+		nextFinishStatusIDs = input.FinishStatusIDs.Value
 	}
-	if nextFinishStatusID != nil {
-		if err := s.ensureStatusBelongsToProject(ctx, projectID, *nextFinishStatusID); err != nil {
-			return WorkflowDetail{}, err
-		}
+	if err := s.ensureStatusBindingsBelongToProject(ctx, projectID, nextFinishStatusIDs); err != nil {
+		return WorkflowDetail{}, err
 	}
 
 	nextHooksRaw := current.Hooks
@@ -610,15 +627,13 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if input.IsActive.Set {
 		builder.SetIsActive(input.IsActive.Value)
 	}
-	if input.PickupStatusID.Set {
-		builder.SetPickupStatusID(input.PickupStatusID.Value)
+	if input.PickupStatusIDs.Set {
+		builder.ClearPickupStatuses()
+		builder.AddPickupStatusIDs(nextPickupStatusIDs.IDs()...)
 	}
-	if input.FinishStatusID.Set {
-		if input.FinishStatusID.Value == nil {
-			builder.ClearFinishStatusID()
-		} else {
-			builder.SetFinishStatusID(*input.FinishStatusID.Value)
-		}
+	if input.FinishStatusIDs.Set {
+		builder.ClearFinishStatuses()
+		builder.AddFinishStatusIDs(nextFinishStatusIDs.IDs()...)
 	}
 
 	item, err := builder.Save(ctx)
@@ -635,6 +650,11 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		}
 	}
 
+	item, err = s.getWorkflowWithStatusBindings(ctx, item.ID)
+	if err != nil {
+		return WorkflowDetail{}, err
+	}
+
 	content, err := storage.registry.Read(item.HarnessPath)
 	if err != nil {
 		return WorkflowDetail{}, fmt.Errorf("read workflow harness after update: %w", err)
@@ -648,7 +668,7 @@ func (s *Service) Delete(ctx context.Context, workflowID uuid.UUID) (Workflow, e
 		return Workflow{}, ErrUnavailable
 	}
 
-	current, err := s.client.Workflow.Get(ctx, workflowID)
+	current, err := s.getWorkflowWithStatusBindings(ctx, workflowID)
 	if err != nil {
 		return Workflow{}, s.mapWorkflowReadError("get workflow for delete", err)
 	}
@@ -786,17 +806,17 @@ func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) 
 	return nil
 }
 
-func (s *Service) ensureStatusBelongsToProject(ctx context.Context, projectID uuid.UUID, statusID uuid.UUID) error {
+func (s *Service) ensureStatusBindingsBelongToProject(ctx context.Context, projectID uuid.UUID, statusIDs StatusBindingSet) error {
 	exists, err := s.client.TicketStatus.Query().
 		Where(
-			entticketstatus.ID(statusID),
+			entticketstatus.IDIn(statusIDs.IDs()...),
 			entticketstatus.ProjectIDEQ(projectID),
 		).
-		Exist(ctx)
+		Count(ctx)
 	if err != nil {
 		return fmt.Errorf("check workflow status existence: %w", err)
 	}
-	if !exists {
+	if exists != statusIDs.Len() {
 		return ErrStatusNotFound
 	}
 
@@ -857,8 +877,8 @@ func (s *Service) resolveHarnessContent(
 	ctx context.Context,
 	name string,
 	workflowType entworkflow.Type,
-	pickupStatusID uuid.UUID,
-	finishStatusID *uuid.UUID,
+	pickupStatusIDs StatusBindingSet,
+	finishStatusIDs StatusBindingSet,
 	rawContent string,
 ) (string, error) {
 	if strings.TrimSpace(rawContent) != "" {
@@ -868,21 +888,27 @@ func (s *Service) resolveHarnessContent(
 		return rawContent, nil
 	}
 
-	pickupStatus, err := s.client.TicketStatus.Get(ctx, pickupStatusID)
+	pickupStatuses, err := s.client.TicketStatus.Query().
+		Where(entticketstatus.IDIn(pickupStatusIDs.IDs()...)).
+		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
+		All(ctx)
 	if err != nil {
-		return "", s.mapWorkflowReadError("get pickup status for harness template", err)
+		return "", s.mapWorkflowReadError("get pickup statuses for harness template", err)
+	}
+	finishStatuses, err := s.client.TicketStatus.Query().
+		Where(entticketstatus.IDIn(finishStatusIDs.IDs()...)).
+		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
+		All(ctx)
+	if err != nil {
+		return "", s.mapWorkflowReadError("get finish statuses for harness template", err)
 	}
 
-	finishStatusName := ""
-	if finishStatusID != nil {
-		finishStatus, finishErr := s.client.TicketStatus.Get(ctx, *finishStatusID)
-		if finishErr != nil {
-			return "", s.mapWorkflowReadError("get finish status for harness template", finishErr)
-		}
-		finishStatusName = finishStatus.Name
-	}
-
-	content := defaultHarnessContent(name, workflowType, pickupStatus.Name, finishStatusName)
+	content := defaultHarnessContent(
+		name,
+		workflowType,
+		statusNamesFromEdges(pickupStatuses),
+		statusNamesFromEdges(finishStatuses),
+	)
 	if err := validateHarnessForSave(content); err != nil {
 		return "", err
 	}
@@ -998,6 +1024,23 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 	}
 }
 
+func (s *Service) getWorkflowWithStatusBindings(ctx context.Context, workflowID uuid.UUID) (*ent.Workflow, error) {
+	item, err := s.client.Workflow.Query().
+		Where(entworkflow.IDEQ(workflowID)).
+		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
+		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
+		Only(ctx)
+	if err != nil {
+		return nil, s.mapWorkflowReadError("get workflow with status bindings", err)
+	}
+
+	return item, nil
+}
+
 func mapWorkflow(item *ent.Workflow) Workflow {
 	return Workflow{
 		ID:                  item.ID,
@@ -1013,8 +1056,8 @@ func mapWorkflow(item *ent.Workflow) Workflow {
 		StallTimeoutMinutes: item.StallTimeoutMinutes,
 		Version:             item.Version,
 		IsActive:            item.IsActive,
-		PickupStatusID:      item.PickupStatusID,
-		FinishStatusID:      item.FinishStatusID,
+		PickupStatusIDs:     statusIDsFromEdges(item.Edges.PickupStatuses),
+		FinishStatusIDs:     statusIDsFromEdges(item.Edges.FinishStatuses),
 	}
 }
 
@@ -1036,6 +1079,22 @@ func copyHooks(source map[string]any) map[string]any {
 	}
 
 	return copied
+}
+
+func statusIDsFromEdges(statuses []*ent.TicketStatus) []uuid.UUID {
+	ids := make([]uuid.UUID, 0, len(statuses))
+	for _, status := range statuses {
+		ids = append(ids, status.ID)
+	}
+	return ids
+}
+
+func statusNamesFromEdges(statuses []*ent.TicketStatus) []string {
+	names := make([]string, 0, len(statuses))
+	for _, status := range statuses {
+		names = append(names, status.Name)
+	}
+	return names
 }
 
 func defaultHarnessPath(workflowName string) string {
@@ -1070,21 +1129,29 @@ func normalizeHarnessPath(raw string) (string, error) {
 	return cleaned, nil
 }
 
-func defaultHarnessContent(name string, workflowType entworkflow.Type, pickupStatusName string, finishStatusName string) string {
+func defaultHarnessContent(name string, workflowType entworkflow.Type, pickupStatusNames []string, finishStatusNames []string) string {
 	var builder strings.Builder
 	builder.WriteString("---\n")
 	builder.WriteString("workflow:\n")
 	_, _ = fmt.Fprintf(&builder, "  name: %q\n", name)
 	_, _ = fmt.Fprintf(&builder, "  type: %q\n", workflowType.String())
-	builder.WriteString("status:\n")
-	_, _ = fmt.Fprintf(&builder, "  pickup: %q\n", pickupStatusName)
-	if finishStatusName != "" {
-		_, _ = fmt.Fprintf(&builder, "  finish: %q\n", finishStatusName)
-	}
 	builder.WriteString("---\n\n")
 	builder.WriteString("# ")
 	builder.WriteString(name)
 	builder.WriteString("\n\n")
+	if len(pickupStatusNames) > 0 {
+		builder.WriteString("Pickup statuses: ")
+		builder.WriteString(strings.Join(pickupStatusNames, ", "))
+		builder.WriteString("\n")
+	}
+	if len(finishStatusNames) > 0 {
+		builder.WriteString("Finish statuses: ")
+		builder.WriteString(strings.Join(finishStatusNames, ", "))
+		builder.WriteString("\n")
+	}
+	if len(pickupStatusNames) > 0 || len(finishStatusNames) > 0 {
+		builder.WriteString("\n")
+	}
 	builder.WriteString("Describe the role, constraints, and expected outputs for this workflow.\n")
 
 	return builder.String()

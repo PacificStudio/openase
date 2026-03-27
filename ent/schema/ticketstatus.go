@@ -39,8 +39,10 @@ func (TicketStatus) Edges() []ent.Edge {
 			Field("stage_id").
 			Unique(),
 		edge.To("tickets", Ticket.Type),
-		edge.To("pickup_workflows", Workflow.Type),
-		edge.To("finish_workflows", Workflow.Type),
+		edge.From("pickup_workflows", Workflow.Type).
+			Ref("pickup_statuses"),
+		edge.From("finish_workflows", Workflow.Type).
+			Ref("finish_statuses"),
 	}
 }
 

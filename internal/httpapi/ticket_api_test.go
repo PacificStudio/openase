@@ -83,8 +83,8 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		SetName("coding-workflow").
 		SetType("coding").
 		SetHarnessPath("roles/coding.md").
-		SetPickupStatusID(backlogID).
-		SetFinishStatusID(doneID).
+		AddPickupStatusIDs(backlogID).
+		AddFinishStatusIDs(doneID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -817,12 +817,12 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 			http.MethodPost,
 			fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
 			map[string]any{
-				"agent_id":         agent.ID.String(),
-				"name":             fmt.Sprintf("Coding Workflow %d", index+1),
-				"type":             "coding",
-				"pickup_status_id": todoID.String(),
-				"finish_status_id": doneID.String(),
-				"harness_content":  "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+				"agent_id":          agent.ID.String(),
+				"name":              fmt.Sprintf("Coding Workflow %d", index+1),
+				"type":              "coding",
+				"pickup_status_ids": []string{todoID.String()},
+				"finish_status_ids": []string{doneID.String()},
+				"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 			},
 			http.StatusCreated,
 			&workflowResp,
@@ -1209,8 +1209,8 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		SetName("coding-workflow").
 		SetType("coding").
 		SetHarnessPath("roles/coding.md").
-		SetPickupStatusID(todoID).
-		SetFinishStatusID(doneID).
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)

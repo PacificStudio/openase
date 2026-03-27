@@ -42,8 +42,8 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(3).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create coding workflow: %v", err)
@@ -54,8 +54,8 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 		SetType(entworkflow.TypeTest).
 		SetHarnessPath(".openase/harnesses/review.md").
 		SetMaxConcurrent(3).
-		SetPickupStatusID(fixture.statusIDs["In Review"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["In Review"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create review workflow: %v", err)
@@ -154,6 +154,90 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 	}
 }
 
+func TestSchedulerRunTickUsesMatchedPickupStatusForStageCapacityInMultiPickupWorkflow(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 10, 30, 0, 0, time.UTC)
+
+	if _, err := client.TicketStage.UpdateOneID(fixture.stageIDs["review"]).SetMaxActiveRuns(1).Save(ctx); err != nil {
+		t.Fatalf("limit review stage: %v", err)
+	}
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(3).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"], fixture.statusIDs["In Review"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflowItem.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+	reviewWorkflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Review Capacity Holder").
+		SetType(entworkflow.TypeTest).
+		SetHarnessPath(".openase/harnesses/review.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["In Review"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create review workflow: %v", err)
+	}
+	reviewAgent := fixture.createAgent(ctx, t, "review-01", 1)
+	if _, err := client.Workflow.UpdateOneID(reviewWorkflow.ID).SetAgentID(reviewAgent.ID).Save(ctx); err != nil {
+		t.Fatalf("bind review workflow agent: %v", err)
+	}
+
+	reviewTicket, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-104").
+		SetTitle("Review slot occupied").
+		SetStatusID(fixture.statusIDs["In Review"]).
+		SetWorkflowID(reviewWorkflow.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create review ticket: %v", err)
+	}
+	_ = mustCreateCurrentRun(ctx, t, client, reviewAgent, reviewWorkflow.ID, reviewTicket.ID, entagentrun.StatusExecuting, now)
+
+	todoTicket, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-105").
+		SetTitle("Todo slot should still dispatch").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create todo ticket: %v", err)
+	}
+
+	report, err := newTestScheduler(client, now).RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 1 {
+		t.Fatalf("expected todo pickup to dispatch despite review stage being full, got %+v", report)
+	}
+
+	todoAfter, err := client.Ticket.Get(ctx, todoTicket.ID)
+	if err != nil {
+		t.Fatalf("reload todo ticket: %v", err)
+	}
+	if todoAfter.CurrentRunID == nil || todoAfter.WorkflowID == nil || *todoAfter.WorkflowID != workflowItem.ID {
+		t.Fatalf("expected todo ticket to be claimed by multi-pickup workflow, got %+v", todoAfter)
+	}
+}
+
 func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -166,8 +250,8 @@ func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(2).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx); err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
@@ -240,8 +324,8 @@ func TestSchedulerRunTickHonorsConcurrencyLimits(t *testing.T) {
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -332,8 +416,8 @@ func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testi
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -454,8 +538,8 @@ func TestSchedulerRunTickResolvesExecutionMachineFromBoundProvider(t *testing.T)
 		SetType(entworkflow.TypeCustom).
 		SetHarnessPath(".openase/harnesses/training.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -542,8 +626,8 @@ func TestSchedulerRunTickIgnoresTicketTargetMachineAndUsesProviderBinding(t *tes
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx); err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
@@ -605,8 +689,8 @@ func TestSchedulerRunTickSkipsWorkflowWhenBoundAgentIsPaused(t *testing.T) {
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -660,8 +744,8 @@ func TestSchedulerRunTickSkipsWorkflowWhenBoundAgentIsMissing(t *testing.T) {
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/coding.md").
 		SetMaxConcurrent(1).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -738,8 +822,8 @@ func TestSchedulerRunTickCreatesDueScheduledJobTicketsBeforeDispatch(t *testing.
 		SetType(entworkflow.TypeSecurity).
 		SetHarnessPath(".openase/harnesses/security.md").
 		SetMaxConcurrent(2).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -832,8 +916,8 @@ func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/backlog.md").
 		SetMaxConcurrent(2).
-		SetPickupStatusID(fixture.statusIDs["Backlog"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Backlog"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create backlog workflow: %v", err)
@@ -844,8 +928,8 @@ func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/todo.md").
 		SetMaxConcurrent(2).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create todo workflow: %v", err)
@@ -907,8 +991,8 @@ func TestSchedulerRunTickContinuesWhenOneDueScheduledJobFails(t *testing.T) {
 		SetType(entworkflow.TypeSecurity).
 		SetHarnessPath(".openase/harnesses/security.md").
 		SetMaxConcurrent(2).
-		SetPickupStatusID(fixture.statusIDs["Todo"]).
-		SetFinishStatusID(fixture.statusIDs["Done"]).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)

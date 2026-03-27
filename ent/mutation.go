@@ -21047,10 +21047,12 @@ type WorkflowMutation struct {
 	clearedproject           bool
 	agent                    *uuid.UUID
 	clearedagent             bool
-	pickup_status            *uuid.UUID
-	clearedpickup_status     bool
-	finish_status            *uuid.UUID
-	clearedfinish_status     bool
+	pickup_statuses          map[uuid.UUID]struct{}
+	removedpickup_statuses   map[uuid.UUID]struct{}
+	clearedpickup_statuses   bool
+	finish_statuses          map[uuid.UUID]struct{}
+	removedfinish_statuses   map[uuid.UUID]struct{}
+	clearedfinish_statuses   bool
 	tickets                  map[uuid.UUID]struct{}
 	removedtickets           map[uuid.UUID]struct{}
 	clearedtickets           bool
@@ -21714,91 +21716,6 @@ func (m *WorkflowMutation) ResetIsActive() {
 	m.is_active = nil
 }
 
-// SetPickupStatusID sets the "pickup_status_id" field.
-func (m *WorkflowMutation) SetPickupStatusID(u uuid.UUID) {
-	m.pickup_status = &u
-}
-
-// PickupStatusID returns the value of the "pickup_status_id" field in the mutation.
-func (m *WorkflowMutation) PickupStatusID() (r uuid.UUID, exists bool) {
-	v := m.pickup_status
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldPickupStatusID returns the old "pickup_status_id" field's value of the Workflow entity.
-// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *WorkflowMutation) OldPickupStatusID(ctx context.Context) (v uuid.UUID, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldPickupStatusID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldPickupStatusID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldPickupStatusID: %w", err)
-	}
-	return oldValue.PickupStatusID, nil
-}
-
-// ResetPickupStatusID resets all changes to the "pickup_status_id" field.
-func (m *WorkflowMutation) ResetPickupStatusID() {
-	m.pickup_status = nil
-}
-
-// SetFinishStatusID sets the "finish_status_id" field.
-func (m *WorkflowMutation) SetFinishStatusID(u uuid.UUID) {
-	m.finish_status = &u
-}
-
-// FinishStatusID returns the value of the "finish_status_id" field in the mutation.
-func (m *WorkflowMutation) FinishStatusID() (r uuid.UUID, exists bool) {
-	v := m.finish_status
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldFinishStatusID returns the old "finish_status_id" field's value of the Workflow entity.
-// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *WorkflowMutation) OldFinishStatusID(ctx context.Context) (v *uuid.UUID, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldFinishStatusID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldFinishStatusID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldFinishStatusID: %w", err)
-	}
-	return oldValue.FinishStatusID, nil
-}
-
-// ClearFinishStatusID clears the value of the "finish_status_id" field.
-func (m *WorkflowMutation) ClearFinishStatusID() {
-	m.finish_status = nil
-	m.clearedFields[workflow.FieldFinishStatusID] = struct{}{}
-}
-
-// FinishStatusIDCleared returns if the "finish_status_id" field was cleared in this mutation.
-func (m *WorkflowMutation) FinishStatusIDCleared() bool {
-	_, ok := m.clearedFields[workflow.FieldFinishStatusID]
-	return ok
-}
-
-// ResetFinishStatusID resets all changes to the "finish_status_id" field.
-func (m *WorkflowMutation) ResetFinishStatusID() {
-	m.finish_status = nil
-	delete(m.clearedFields, workflow.FieldFinishStatusID)
-}
-
 // ClearProject clears the "project" edge to the Project entity.
 func (m *WorkflowMutation) ClearProject() {
 	m.clearedproject = true
@@ -21853,58 +21770,112 @@ func (m *WorkflowMutation) ResetAgent() {
 	m.clearedagent = false
 }
 
-// ClearPickupStatus clears the "pickup_status" edge to the TicketStatus entity.
-func (m *WorkflowMutation) ClearPickupStatus() {
-	m.clearedpickup_status = true
-	m.clearedFields[workflow.FieldPickupStatusID] = struct{}{}
+// AddPickupStatusIDs adds the "pickup_statuses" edge to the TicketStatus entity by ids.
+func (m *WorkflowMutation) AddPickupStatusIDs(ids ...uuid.UUID) {
+	if m.pickup_statuses == nil {
+		m.pickup_statuses = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.pickup_statuses[ids[i]] = struct{}{}
+	}
 }
 
-// PickupStatusCleared reports if the "pickup_status" edge to the TicketStatus entity was cleared.
-func (m *WorkflowMutation) PickupStatusCleared() bool {
-	return m.clearedpickup_status
+// ClearPickupStatuses clears the "pickup_statuses" edge to the TicketStatus entity.
+func (m *WorkflowMutation) ClearPickupStatuses() {
+	m.clearedpickup_statuses = true
 }
 
-// PickupStatusIDs returns the "pickup_status" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// PickupStatusID instead. It exists only for internal usage by the builders.
-func (m *WorkflowMutation) PickupStatusIDs() (ids []uuid.UUID) {
-	if id := m.pickup_status; id != nil {
-		ids = append(ids, *id)
+// PickupStatusesCleared reports if the "pickup_statuses" edge to the TicketStatus entity was cleared.
+func (m *WorkflowMutation) PickupStatusesCleared() bool {
+	return m.clearedpickup_statuses
+}
+
+// RemovePickupStatusIDs removes the "pickup_statuses" edge to the TicketStatus entity by IDs.
+func (m *WorkflowMutation) RemovePickupStatusIDs(ids ...uuid.UUID) {
+	if m.removedpickup_statuses == nil {
+		m.removedpickup_statuses = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.pickup_statuses, ids[i])
+		m.removedpickup_statuses[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedPickupStatuses returns the removed IDs of the "pickup_statuses" edge to the TicketStatus entity.
+func (m *WorkflowMutation) RemovedPickupStatusesIDs() (ids []uuid.UUID) {
+	for id := range m.removedpickup_statuses {
+		ids = append(ids, id)
 	}
 	return
 }
 
-// ResetPickupStatus resets all changes to the "pickup_status" edge.
-func (m *WorkflowMutation) ResetPickupStatus() {
-	m.pickup_status = nil
-	m.clearedpickup_status = false
-}
-
-// ClearFinishStatus clears the "finish_status" edge to the TicketStatus entity.
-func (m *WorkflowMutation) ClearFinishStatus() {
-	m.clearedfinish_status = true
-	m.clearedFields[workflow.FieldFinishStatusID] = struct{}{}
-}
-
-// FinishStatusCleared reports if the "finish_status" edge to the TicketStatus entity was cleared.
-func (m *WorkflowMutation) FinishStatusCleared() bool {
-	return m.FinishStatusIDCleared() || m.clearedfinish_status
-}
-
-// FinishStatusIDs returns the "finish_status" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// FinishStatusID instead. It exists only for internal usage by the builders.
-func (m *WorkflowMutation) FinishStatusIDs() (ids []uuid.UUID) {
-	if id := m.finish_status; id != nil {
-		ids = append(ids, *id)
+// PickupStatusesIDs returns the "pickup_statuses" edge IDs in the mutation.
+func (m *WorkflowMutation) PickupStatusesIDs() (ids []uuid.UUID) {
+	for id := range m.pickup_statuses {
+		ids = append(ids, id)
 	}
 	return
 }
 
-// ResetFinishStatus resets all changes to the "finish_status" edge.
-func (m *WorkflowMutation) ResetFinishStatus() {
-	m.finish_status = nil
-	m.clearedfinish_status = false
+// ResetPickupStatuses resets all changes to the "pickup_statuses" edge.
+func (m *WorkflowMutation) ResetPickupStatuses() {
+	m.pickup_statuses = nil
+	m.clearedpickup_statuses = false
+	m.removedpickup_statuses = nil
+}
+
+// AddFinishStatusIDs adds the "finish_statuses" edge to the TicketStatus entity by ids.
+func (m *WorkflowMutation) AddFinishStatusIDs(ids ...uuid.UUID) {
+	if m.finish_statuses == nil {
+		m.finish_statuses = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.finish_statuses[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFinishStatuses clears the "finish_statuses" edge to the TicketStatus entity.
+func (m *WorkflowMutation) ClearFinishStatuses() {
+	m.clearedfinish_statuses = true
+}
+
+// FinishStatusesCleared reports if the "finish_statuses" edge to the TicketStatus entity was cleared.
+func (m *WorkflowMutation) FinishStatusesCleared() bool {
+	return m.clearedfinish_statuses
+}
+
+// RemoveFinishStatusIDs removes the "finish_statuses" edge to the TicketStatus entity by IDs.
+func (m *WorkflowMutation) RemoveFinishStatusIDs(ids ...uuid.UUID) {
+	if m.removedfinish_statuses == nil {
+		m.removedfinish_statuses = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.finish_statuses, ids[i])
+		m.removedfinish_statuses[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFinishStatuses returns the removed IDs of the "finish_statuses" edge to the TicketStatus entity.
+func (m *WorkflowMutation) RemovedFinishStatusesIDs() (ids []uuid.UUID) {
+	for id := range m.removedfinish_statuses {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FinishStatusesIDs returns the "finish_statuses" edge IDs in the mutation.
+func (m *WorkflowMutation) FinishStatusesIDs() (ids []uuid.UUID) {
+	for id := range m.finish_statuses {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFinishStatuses resets all changes to the "finish_statuses" edge.
+func (m *WorkflowMutation) ResetFinishStatuses() {
+	m.finish_statuses = nil
+	m.clearedfinish_statuses = false
+	m.removedfinish_statuses = nil
 }
 
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by ids.
@@ -22103,7 +22074,7 @@ func (m *WorkflowMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *WorkflowMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 12)
 	if m.project != nil {
 		fields = append(fields, workflow.FieldProjectID)
 	}
@@ -22140,12 +22111,6 @@ func (m *WorkflowMutation) Fields() []string {
 	if m.is_active != nil {
 		fields = append(fields, workflow.FieldIsActive)
 	}
-	if m.pickup_status != nil {
-		fields = append(fields, workflow.FieldPickupStatusID)
-	}
-	if m.finish_status != nil {
-		fields = append(fields, workflow.FieldFinishStatusID)
-	}
 	return fields
 }
 
@@ -22178,10 +22143,6 @@ func (m *WorkflowMutation) Field(name string) (ent.Value, bool) {
 		return m.Version()
 	case workflow.FieldIsActive:
 		return m.IsActive()
-	case workflow.FieldPickupStatusID:
-		return m.PickupStatusID()
-	case workflow.FieldFinishStatusID:
-		return m.FinishStatusID()
 	}
 	return nil, false
 }
@@ -22215,10 +22176,6 @@ func (m *WorkflowMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldVersion(ctx)
 	case workflow.FieldIsActive:
 		return m.OldIsActive(ctx)
-	case workflow.FieldPickupStatusID:
-		return m.OldPickupStatusID(ctx)
-	case workflow.FieldFinishStatusID:
-		return m.OldFinishStatusID(ctx)
 	}
 	return nil, fmt.Errorf("unknown Workflow field %s", name)
 }
@@ -22311,20 +22268,6 @@ func (m *WorkflowMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetIsActive(v)
-		return nil
-	case workflow.FieldPickupStatusID:
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetPickupStatusID(v)
-		return nil
-	case workflow.FieldFinishStatusID:
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetFinishStatusID(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Workflow field %s", name)
@@ -22422,9 +22365,6 @@ func (m *WorkflowMutation) ClearedFields() []string {
 	if m.FieldCleared(workflow.FieldAgentID) {
 		fields = append(fields, workflow.FieldAgentID)
 	}
-	if m.FieldCleared(workflow.FieldFinishStatusID) {
-		fields = append(fields, workflow.FieldFinishStatusID)
-	}
 	return fields
 }
 
@@ -22441,9 +22381,6 @@ func (m *WorkflowMutation) ClearField(name string) error {
 	switch name {
 	case workflow.FieldAgentID:
 		m.ClearAgentID()
-		return nil
-	case workflow.FieldFinishStatusID:
-		m.ClearFinishStatusID()
 		return nil
 	}
 	return fmt.Errorf("unknown Workflow nullable field %s", name)
@@ -22489,12 +22426,6 @@ func (m *WorkflowMutation) ResetField(name string) error {
 	case workflow.FieldIsActive:
 		m.ResetIsActive()
 		return nil
-	case workflow.FieldPickupStatusID:
-		m.ResetPickupStatusID()
-		return nil
-	case workflow.FieldFinishStatusID:
-		m.ResetFinishStatusID()
-		return nil
 	}
 	return fmt.Errorf("unknown Workflow field %s", name)
 }
@@ -22508,11 +22439,11 @@ func (m *WorkflowMutation) AddedEdges() []string {
 	if m.agent != nil {
 		edges = append(edges, workflow.EdgeAgent)
 	}
-	if m.pickup_status != nil {
-		edges = append(edges, workflow.EdgePickupStatus)
+	if m.pickup_statuses != nil {
+		edges = append(edges, workflow.EdgePickupStatuses)
 	}
-	if m.finish_status != nil {
-		edges = append(edges, workflow.EdgeFinishStatus)
+	if m.finish_statuses != nil {
+		edges = append(edges, workflow.EdgeFinishStatuses)
 	}
 	if m.tickets != nil {
 		edges = append(edges, workflow.EdgeTickets)
@@ -22538,14 +22469,18 @@ func (m *WorkflowMutation) AddedIDs(name string) []ent.Value {
 		if id := m.agent; id != nil {
 			return []ent.Value{*id}
 		}
-	case workflow.EdgePickupStatus:
-		if id := m.pickup_status; id != nil {
-			return []ent.Value{*id}
+	case workflow.EdgePickupStatuses:
+		ids := make([]ent.Value, 0, len(m.pickup_statuses))
+		for id := range m.pickup_statuses {
+			ids = append(ids, id)
 		}
-	case workflow.EdgeFinishStatus:
-		if id := m.finish_status; id != nil {
-			return []ent.Value{*id}
+		return ids
+	case workflow.EdgeFinishStatuses:
+		ids := make([]ent.Value, 0, len(m.finish_statuses))
+		for id := range m.finish_statuses {
+			ids = append(ids, id)
 		}
+		return ids
 	case workflow.EdgeTickets:
 		ids := make([]ent.Value, 0, len(m.tickets))
 		for id := range m.tickets {
@@ -22571,6 +22506,12 @@ func (m *WorkflowMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *WorkflowMutation) RemovedEdges() []string {
 	edges := make([]string, 0, 7)
+	if m.removedpickup_statuses != nil {
+		edges = append(edges, workflow.EdgePickupStatuses)
+	}
+	if m.removedfinish_statuses != nil {
+		edges = append(edges, workflow.EdgeFinishStatuses)
+	}
 	if m.removedtickets != nil {
 		edges = append(edges, workflow.EdgeTickets)
 	}
@@ -22587,6 +22528,18 @@ func (m *WorkflowMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *WorkflowMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case workflow.EdgePickupStatuses:
+		ids := make([]ent.Value, 0, len(m.removedpickup_statuses))
+		for id := range m.removedpickup_statuses {
+			ids = append(ids, id)
+		}
+		return ids
+	case workflow.EdgeFinishStatuses:
+		ids := make([]ent.Value, 0, len(m.removedfinish_statuses))
+		for id := range m.removedfinish_statuses {
+			ids = append(ids, id)
+		}
+		return ids
 	case workflow.EdgeTickets:
 		ids := make([]ent.Value, 0, len(m.removedtickets))
 		for id := range m.removedtickets {
@@ -22618,11 +22571,11 @@ func (m *WorkflowMutation) ClearedEdges() []string {
 	if m.clearedagent {
 		edges = append(edges, workflow.EdgeAgent)
 	}
-	if m.clearedpickup_status {
-		edges = append(edges, workflow.EdgePickupStatus)
+	if m.clearedpickup_statuses {
+		edges = append(edges, workflow.EdgePickupStatuses)
 	}
-	if m.clearedfinish_status {
-		edges = append(edges, workflow.EdgeFinishStatus)
+	if m.clearedfinish_statuses {
+		edges = append(edges, workflow.EdgeFinishStatuses)
 	}
 	if m.clearedtickets {
 		edges = append(edges, workflow.EdgeTickets)
@@ -22644,10 +22597,10 @@ func (m *WorkflowMutation) EdgeCleared(name string) bool {
 		return m.clearedproject
 	case workflow.EdgeAgent:
 		return m.clearedagent
-	case workflow.EdgePickupStatus:
-		return m.clearedpickup_status
-	case workflow.EdgeFinishStatus:
-		return m.clearedfinish_status
+	case workflow.EdgePickupStatuses:
+		return m.clearedpickup_statuses
+	case workflow.EdgeFinishStatuses:
+		return m.clearedfinish_statuses
 	case workflow.EdgeTickets:
 		return m.clearedtickets
 	case workflow.EdgeAgentRuns:
@@ -22668,12 +22621,6 @@ func (m *WorkflowMutation) ClearEdge(name string) error {
 	case workflow.EdgeAgent:
 		m.ClearAgent()
 		return nil
-	case workflow.EdgePickupStatus:
-		m.ClearPickupStatus()
-		return nil
-	case workflow.EdgeFinishStatus:
-		m.ClearFinishStatus()
-		return nil
 	}
 	return fmt.Errorf("unknown Workflow unique edge %s", name)
 }
@@ -22688,11 +22635,11 @@ func (m *WorkflowMutation) ResetEdge(name string) error {
 	case workflow.EdgeAgent:
 		m.ResetAgent()
 		return nil
-	case workflow.EdgePickupStatus:
-		m.ResetPickupStatus()
+	case workflow.EdgePickupStatuses:
+		m.ResetPickupStatuses()
 		return nil
-	case workflow.EdgeFinishStatus:
-		m.ResetFinishStatus()
+	case workflow.EdgeFinishStatuses:
+		m.ResetFinishStatuses()
 		return nil
 	case workflow.EdgeTickets:
 		m.ResetTickets()

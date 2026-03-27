@@ -104,16 +104,6 @@ func IsActive(v bool) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldIsActive, v))
 }
 
-// PickupStatusID applies equality check predicate on the "pickup_status_id" field. It's identical to PickupStatusIDEQ.
-func PickupStatusID(v uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldEQ(FieldPickupStatusID, v))
-}
-
-// FinishStatusID applies equality check predicate on the "finish_status_id" field. It's identical to FinishStatusIDEQ.
-func FinishStatusID(v uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldEQ(FieldFinishStatusID, v))
-}
-
 // ProjectIDEQ applies the EQ predicate on the "project_id" field.
 func ProjectIDEQ(v uuid.UUID) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldProjectID, v))
@@ -524,56 +514,6 @@ func IsActiveNEQ(v bool) predicate.Workflow {
 	return predicate.Workflow(sql.FieldNEQ(FieldIsActive, v))
 }
 
-// PickupStatusIDEQ applies the EQ predicate on the "pickup_status_id" field.
-func PickupStatusIDEQ(v uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldEQ(FieldPickupStatusID, v))
-}
-
-// PickupStatusIDNEQ applies the NEQ predicate on the "pickup_status_id" field.
-func PickupStatusIDNEQ(v uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldNEQ(FieldPickupStatusID, v))
-}
-
-// PickupStatusIDIn applies the In predicate on the "pickup_status_id" field.
-func PickupStatusIDIn(vs ...uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldIn(FieldPickupStatusID, vs...))
-}
-
-// PickupStatusIDNotIn applies the NotIn predicate on the "pickup_status_id" field.
-func PickupStatusIDNotIn(vs ...uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldNotIn(FieldPickupStatusID, vs...))
-}
-
-// FinishStatusIDEQ applies the EQ predicate on the "finish_status_id" field.
-func FinishStatusIDEQ(v uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldEQ(FieldFinishStatusID, v))
-}
-
-// FinishStatusIDNEQ applies the NEQ predicate on the "finish_status_id" field.
-func FinishStatusIDNEQ(v uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldNEQ(FieldFinishStatusID, v))
-}
-
-// FinishStatusIDIn applies the In predicate on the "finish_status_id" field.
-func FinishStatusIDIn(vs ...uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldIn(FieldFinishStatusID, vs...))
-}
-
-// FinishStatusIDNotIn applies the NotIn predicate on the "finish_status_id" field.
-func FinishStatusIDNotIn(vs ...uuid.UUID) predicate.Workflow {
-	return predicate.Workflow(sql.FieldNotIn(FieldFinishStatusID, vs...))
-}
-
-// FinishStatusIDIsNil applies the IsNil predicate on the "finish_status_id" field.
-func FinishStatusIDIsNil() predicate.Workflow {
-	return predicate.Workflow(sql.FieldIsNull(FieldFinishStatusID))
-}
-
-// FinishStatusIDNotNil applies the NotNil predicate on the "finish_status_id" field.
-func FinishStatusIDNotNil() predicate.Workflow {
-	return predicate.Workflow(sql.FieldNotNull(FieldFinishStatusID))
-}
-
 // HasProject applies the HasEdge predicate on the "project" edge.
 func HasProject() predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {
@@ -620,21 +560,21 @@ func HasAgentWith(preds ...predicate.Agent) predicate.Workflow {
 	})
 }
 
-// HasPickupStatus applies the HasEdge predicate on the "pickup_status" edge.
-func HasPickupStatus() predicate.Workflow {
+// HasPickupStatuses applies the HasEdge predicate on the "pickup_statuses" edge.
+func HasPickupStatuses() predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, PickupStatusTable, PickupStatusColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, PickupStatusesTable, PickupStatusesPrimaryKey...),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasPickupStatusWith applies the HasEdge predicate on the "pickup_status" edge with a given conditions (other predicates).
-func HasPickupStatusWith(preds ...predicate.TicketStatus) predicate.Workflow {
+// HasPickupStatusesWith applies the HasEdge predicate on the "pickup_statuses" edge with a given conditions (other predicates).
+func HasPickupStatusesWith(preds ...predicate.TicketStatus) predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {
-		step := newPickupStatusStep()
+		step := newPickupStatusesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -643,21 +583,21 @@ func HasPickupStatusWith(preds ...predicate.TicketStatus) predicate.Workflow {
 	})
 }
 
-// HasFinishStatus applies the HasEdge predicate on the "finish_status" edge.
-func HasFinishStatus() predicate.Workflow {
+// HasFinishStatuses applies the HasEdge predicate on the "finish_statuses" edge.
+func HasFinishStatuses() predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, FinishStatusTable, FinishStatusColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, FinishStatusesTable, FinishStatusesPrimaryKey...),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasFinishStatusWith applies the HasEdge predicate on the "finish_status" edge with a given conditions (other predicates).
-func HasFinishStatusWith(preds ...predicate.TicketStatus) predicate.Workflow {
+// HasFinishStatusesWith applies the HasEdge predicate on the "finish_statuses" edge with a given conditions (other predicates).
+func HasFinishStatusesWith(preds ...predicate.TicketStatus) predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {
-		step := newFinishStatusStep()
+		step := newFinishStatusesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

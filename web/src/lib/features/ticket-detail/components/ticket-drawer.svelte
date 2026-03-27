@@ -108,7 +108,7 @@
   }
 
   async function handleAddDependency(draft: DependencyDraft) {
-    await handleAddDependencyAction({
+    return await handleAddDependencyAction({
       ticketId,
       drawerState,
       draft,
@@ -145,12 +145,15 @@
 
   async function handleCreateRepoScope(draft: RepoScopeDraft) {
     const ticket = drawerState.ticket
-    if (!ticket || !projectId || !ticketId) return
+    if (!ticket || !projectId || !ticketId) return false
 
     const mutation = buildCreateRepoScopeMutation(drawerState.repoOptions, draft)
-    if (!mutation.ok) return drawerState.setMutationError(mutation.error)
+    if (!mutation.ok) {
+      drawerState.setMutationError(mutation.error)
+      return false
+    }
 
-    await runTicketDrawerMutation({
+    return await runTicketDrawerMutation({
       ...buildDrawerMutation(ticket),
       start: () => {
         drawerState.creatingRepoScope = true

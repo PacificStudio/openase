@@ -219,8 +219,12 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 	workflowItem, err := s.client.Workflow.Query().
 		Where(entworkflow.IDEQ(input.WorkflowID)).
 		WithProject().
-		WithPickupStatus().
-		WithFinishStatus().
+		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
+		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
+			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
 		Only(ctx)
 	if err != nil {
 		return HarnessTemplateData{}, s.mapWorkflowReadError("get workflow for harness render", err)
@@ -259,8 +263,12 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		WithWorkflows(func(query *ent.WorkflowQuery) {
 			query.
 				Order(ent.Asc(entworkflow.FieldName)).
-				WithPickupStatus().
-				WithFinishStatus()
+				WithPickupStatuses(func(statusQuery *ent.TicketStatusQuery) {
+					statusQuery.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+				}).
+				WithFinishStatuses(func(statusQuery *ent.TicketStatusQuery) {
+					statusQuery.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+				})
 		}).
 		WithStatuses(func(query *ent.TicketStatusQuery) {
 			query.
@@ -316,11 +324,6 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 	if err != nil {
 		return HarnessTemplateData{}, err
 	}
-	finishStatus := ""
-	if workflowItem.Edges.FinishStatus != nil {
-		finishStatus = workflowItem.Edges.FinishStatus.Name
-	}
-
 	data := HarnessTemplateData{
 		Ticket: HarnessTicketData{
 			ID:               ticketItem.ID.String(),
@@ -366,8 +369,8 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 			Name:         workflowItem.Name,
 			Type:         workflowItem.Type.String(),
 			RoleName:     extractWorkflowRoleName(harnessContent, workflowItem.Name),
-			PickupStatus: edgeTicketStatusName(workflowItem.Edges.PickupStatus),
-			FinishStatus: finishStatus,
+			PickupStatus: joinStatusNames(workflowItem.Edges.PickupStatuses),
+			FinishStatus: joinStatusNames(workflowItem.Edges.FinishStatuses),
 		},
 		Platform: normalizePlatformData(input.Platform, workflowItem.ProjectID, ticketItem.ID),
 	}
@@ -717,17 +720,13 @@ func (s *Service) mapHarnessProjectWorkflows(
 		if err != nil {
 			return nil, err
 		}
-		finishStatus := ""
-		if workflowItem.Edges.FinishStatus != nil {
-			finishStatus = workflowItem.Edges.FinishStatus.Name
-		}
 		items = append(items, HarnessProjectWorkflowData{
 			Name:            workflowItem.Name,
 			Type:            workflowItem.Type.String(),
 			RoleName:        roleName,
 			RoleDescription: extractWorkflowRoleDescription(harnessContent),
-			PickupStatus:    edgeTicketStatusName(workflowItem.Edges.PickupStatus),
-			FinishStatus:    finishStatus,
+			PickupStatus:    joinStatusNames(workflowItem.Edges.PickupStatuses),
+			FinishStatus:    joinStatusNames(workflowItem.Edges.FinishStatuses),
 			HarnessPath:     workflowItem.HarnessPath,
 			HarnessContent:  harnessContent,
 			Skills:          skills,
@@ -738,6 +737,14 @@ func (s *Service) mapHarnessProjectWorkflows(
 	}
 
 	return items, nil
+}
+
+func joinStatusNames(statuses []*ent.TicketStatus) string {
+	names := make([]string, 0, len(statuses))
+	for _, status := range statuses {
+		names = append(names, status.Name)
+	}
+	return strings.Join(names, ", ")
 }
 
 func (s *Service) listHarnessWorkflowRecentTickets(ctx context.Context, workflowID uuid.UUID, limit int) ([]HarnessProjectWorkflowTicketData, error) {

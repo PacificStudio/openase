@@ -63,9 +63,9 @@
         </div>
 
         <div class="text-muted-foreground mt-1.5 flex items-center gap-1 text-xs">
-          <span class="truncate">{wf.pickupStatus}</span>
+          <span class="truncate">{wf.pickupStatusLabel}</span>
           <ArrowRight class="size-3 shrink-0" />
-          <span class="truncate">{wf.finishStatus}</span>
+          <span class="truncate">{wf.finishStatusLabel}</span>
         </div>
 
         <div class="mt-1.5 flex items-center gap-2">

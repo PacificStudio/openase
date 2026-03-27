@@ -516,7 +516,7 @@ export function createWorkflow(
   projectId: string,
   body: {
     agent_id: string
-    finish_status_id?: string | null
+    finish_status_ids: string[]
     harness_content?: string
     harness_path?: string | null
     hooks?: Record<string, unknown>
@@ -524,7 +524,7 @@ export function createWorkflow(
     max_concurrent?: number | null
     max_retry_attempts?: number | null
     name?: string
-    pickup_status_id?: string
+    pickup_status_ids: string[]
     stall_timeout_minutes?: number | null
     timeout_minutes?: number | null
     type?: string
@@ -544,14 +544,14 @@ export function updateWorkflow(
   workflowId: string,
   body: {
     agent_id?: string | null
-    finish_status_id?: string | null
+    finish_status_ids?: string[]
     harness_path?: string | null
     hooks?: Record<string, unknown> | null
     is_active?: boolean | null
     max_concurrent?: number | null
     max_retry_attempts?: number | null
     name?: string | null
-    pickup_status_id?: string | null
+    pickup_status_ids?: string[]
     stall_timeout_minutes?: number | null
     timeout_minutes?: number | null
     type?: string | null

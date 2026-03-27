@@ -216,8 +216,8 @@ def main() -> int:
             {
                 "name": workflow_name,
                 "type": "coding",
-                "pickup_status_id": todo["id"],
-                "finish_status_id": done["id"],
+                "pickup_status_ids": [todo["id"]],
+                "finish_status_ids": [done["id"]],
                 "harness_content": "---\nworkflow:\n  role: coding\n---\n\n# Blackbox Workflow\n",
             },
         )["workflow"]

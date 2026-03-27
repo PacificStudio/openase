@@ -35,7 +35,10 @@
     creatingExternalLink?: boolean
     deletingExternalLinkId?: string | null
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
-    onAddDependency?: (draft: { targetTicketId: string; relation: string }) => void
+    onAddDependency?: (draft: {
+      targetTicketId: string
+      relation: string
+    }) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
     onCreateExternalLink?: (draft: TicketExternalLinkDraft) => Promise<boolean> | boolean
     onDeleteExternalLink?: (linkId: string) => void

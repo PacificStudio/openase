@@ -1,11 +1,11 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
-  import { Button } from '$ui/button'
-  import { Input } from '$ui/input'
-  import { Label } from '$ui/label'
+  import { buttonVariants, Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
   import Link2 from '@lucide/svelte/icons/link-2'
+  import Plus from '@lucide/svelte/icons/plus'
   import Trash2 from '@lucide/svelte/icons/trash-2'
-  import { toastStore } from '$lib/stores/toast.svelte'
+  import TicketExternalLinkForm from './ticket-external-link-form.svelte'
   import type { TicketExternalLink, TicketExternalLinkDraft } from '../types'
 
   let {
@@ -22,54 +22,55 @@
     onDelete?: (linkId: string) => void
   } = $props()
 
-  let draft = $state<TicketExternalLinkDraft>({
-    type: 'github',
-    url: '',
-    externalId: '',
-    title: '',
-    status: '',
-    relation: 'references',
-  })
-  async function handleSubmit() {
-    const normalized: TicketExternalLinkDraft = {
-      type: draft.type.trim().toLowerCase(),
-      url: draft.url.trim(),
-      externalId: draft.externalId.trim(),
-      title: draft.title.trim(),
-      status: draft.status.trim(),
-      relation: draft.relation.trim() || 'references',
-    }
+  let createOpen = $state(false)
 
-    if (!normalized.type) {
-      toastStore.error('Link type is required.')
-      return
-    }
-    if (!normalized.url) {
-      toastStore.error('Link URL is required.')
-      return
-    }
-    if (!normalized.externalId) {
-      toastStore.error('External ID is required.')
-      return
-    }
-
-    const accepted = await onCreate?.(normalized)
+  async function handleCreate(draft: {
+    type: string
+    url: string
+    externalId: string
+    title: string
+    status: string
+    relation: string
+  }) {
+    const accepted = (await onCreate?.(draft)) ?? false
     if (accepted) {
-      draft = {
-        ...draft,
-        url: '',
-        externalId: '',
-        title: '',
-        status: '',
-      }
+      createOpen = false
     }
+    return accepted
   }
 </script>
 
 <div class="flex flex-col gap-3">
-  <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-    External Links
-  </span>
+  <div class="flex items-center justify-between gap-3">
+    <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+      External Links
+    </span>
+
+    <Dialog.Root bind:open={createOpen}>
+      <Dialog.Trigger
+        class={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
+        aria-label="Add external link"
+      >
+        <Plus class="size-3.5" />
+      </Dialog.Trigger>
+      <Dialog.Content class="sm:max-w-xl">
+        <Dialog.Header>
+          <Dialog.Title>Add external link</Dialog.Title>
+          <Dialog.Description>
+            Attach a pull request, issue, document, or other external reference to this ticket.
+          </Dialog.Description>
+        </Dialog.Header>
+
+        <TicketExternalLinkForm
+          {creating}
+          onCreate={handleCreate}
+          onCancel={() => {
+            createOpen = false
+          }}
+        />
+      </Dialog.Content>
+    </Dialog.Root>
+  </div>
 
   {#if links.length > 0}
     <div class="space-y-2">
@@ -120,43 +121,4 @@
       No external links attached yet.
     </div>
   {/if}
-
-  <div class="border-border bg-muted/20 rounded-md border p-3">
-    <div class="grid gap-3 md:grid-cols-2">
-      <div class="space-y-2">
-        <Label for="external-link-type">Type</Label>
-        <Input id="external-link-type" bind:value={draft.type} placeholder="github" />
-      </div>
-      <div class="space-y-2">
-        <Label for="external-link-id">External ID</Label>
-        <Input id="external-link-id" bind:value={draft.externalId} placeholder="PR-482" />
-      </div>
-      <div class="space-y-2 md:col-span-2">
-        <Label for="external-link-url">URL</Label>
-        <Input
-          id="external-link-url"
-          bind:value={draft.url}
-          placeholder="https://github.com/org/repo/pull/482"
-        />
-      </div>
-      <div class="space-y-2">
-        <Label for="external-link-title">Title</Label>
-        <Input id="external-link-title" bind:value={draft.title} placeholder="Follow-up PR" />
-      </div>
-      <div class="space-y-2">
-        <Label for="external-link-status">Status</Label>
-        <Input id="external-link-status" bind:value={draft.status} placeholder="open" />
-      </div>
-      <div class="space-y-2 md:col-span-2">
-        <Label for="external-link-relation">Relation</Label>
-        <Input id="external-link-relation" bind:value={draft.relation} placeholder="references" />
-      </div>
-    </div>
-
-    <div class="mt-3 flex justify-end">
-      <Button onclick={handleSubmit} disabled={creating}>
-        {creating ? 'Adding…' : 'Add external link'}
-      </Button>
-    </div>
-  </div>
 </div>

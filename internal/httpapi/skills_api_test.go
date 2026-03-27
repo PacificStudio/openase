@@ -112,8 +112,8 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		TimeoutMinutes:      60,
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
-		PickupStatusID:      todoID,
-		FinishStatusID:      &doneID,
+		PickupStatusIDs:     workflowservice.MustStatusBindingSet(todoID),
+		FinishStatusIDs:     workflowservice.MustStatusBindingSet(doneID),
 	})
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -409,8 +409,8 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 		TimeoutMinutes:      60,
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
-		PickupStatusID:      todoID,
-		FinishStatusID:      &doneID,
+		PickupStatusIDs:     workflowservice.MustStatusBindingSet(todoID),
+		FinishStatusIDs:     workflowservice.MustStatusBindingSet(doneID),
 	})
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)

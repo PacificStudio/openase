@@ -76,7 +76,10 @@
     deletingCommentId?: string | null
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
-    onAddDependency?: (draft: { targetTicketId: string; relation: string }) => void
+    onAddDependency?: (draft: {
+      targetTicketId: string
+      relation: string
+    }) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
     onCreateExternalLink?: (draft: {
       type: string
@@ -94,7 +97,7 @@
       prStatus: string
       ciStatus: string
       isPrimaryScope: boolean
-    }) => void
+    }) => Promise<boolean> | boolean
     onUpdateScope?: (
       scopeId: string,
       draft: {

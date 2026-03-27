@@ -64,13 +64,15 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 	backlogID := findStatusIDByName(t, statuses, "Backlog")
+	doneID := findStatusIDByName(t, statuses, "Done")
 
 	workflowItem, err := client.Workflow.Create().
 		SetProjectID(project.ID).
 		SetName("coding-workflow").
 		SetType("coding").
 		SetHarnessPath("roles/coding.md").
-		SetPickupStatusID(backlogID).
+		AddPickupStatusIDs(backlogID).
+		AddFinishStatusIDs(doneID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)

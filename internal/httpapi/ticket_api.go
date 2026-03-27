@@ -510,6 +510,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "EXTERNAL_LINK_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrStatusNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_FOUND", err.Error())
+	case errors.Is(err, ticketservice.ErrStatusNotAllowed):
+		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_ALLOWED", err.Error())
 	case errors.Is(err, ticketservice.ErrWorkflowNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "WORKFLOW_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrTargetMachineNotFound):

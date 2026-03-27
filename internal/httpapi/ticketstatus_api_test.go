@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -152,8 +153,8 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		SetName("qa-workflow").
 		SetType("test").
 		SetHarnessPath("roles/qa.md").
-		SetPickupStatusID(updateResp.Status.ID).
-		SetFinishStatusID(updateResp.Status.ID).
+		AddPickupStatusIDs(updateResp.Status.ID).
+		AddFinishStatusIDs(updateResp.Status.ID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow for delete rebind: %v", err)
@@ -191,12 +192,22 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 	if ticketAfterDelete.StatusID != deleteResp.ReplacementStatusID {
 		t.Fatalf("expected ticket status to move to %s, got %s", deleteResp.ReplacementStatusID, ticketAfterDelete.StatusID)
 	}
-	workflowAfterDelete, err := client.Workflow.Get(ctx, workflowWithDeletedStatus.ID)
+	workflowAfterDelete, err := client.Workflow.Query().
+		Where(entworkflow.IDEQ(workflowWithDeletedStatus.ID)).
+		WithPickupStatuses().
+		WithFinishStatuses().
+		Only(ctx)
 	if err != nil {
 		t.Fatalf("load workflow after delete: %v", err)
 	}
-	if workflowAfterDelete.PickupStatusID != deleteResp.ReplacementStatusID || workflowAfterDelete.FinishStatusID == nil || *workflowAfterDelete.FinishStatusID != deleteResp.ReplacementStatusID {
-		t.Fatalf("expected workflow refs to move to %s, got pickup=%s finish=%v", deleteResp.ReplacementStatusID, workflowAfterDelete.PickupStatusID, workflowAfterDelete.FinishStatusID)
+	if len(workflowAfterDelete.Edges.PickupStatuses) != 1 || workflowAfterDelete.Edges.PickupStatuses[0].ID != deleteResp.ReplacementStatusID ||
+		len(workflowAfterDelete.Edges.FinishStatuses) != 1 || workflowAfterDelete.Edges.FinishStatuses[0].ID != deleteResp.ReplacementStatusID {
+		t.Fatalf(
+			"expected workflow refs to move to %s, got pickup=%v finish=%v",
+			deleteResp.ReplacementStatusID,
+			workflowAfterDelete.Edges.PickupStatuses,
+			workflowAfterDelete.Edges.FinishStatuses,
+		)
 	}
 
 	extraResp := struct {
@@ -222,8 +233,8 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		SetName("research-workflow").
 		SetType("custom").
 		SetHarnessPath("roles/research.md").
-		SetPickupStatusID(extraResp.Status.ID).
-		SetFinishStatusID(extraResp.Status.ID).
+		AddPickupStatusIDs(extraResp.Status.ID).
+		AddFinishStatusIDs(extraResp.Status.ID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow for reset rebind: %v", err)
@@ -299,15 +310,19 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		t.Fatalf("expected ticket reset status to move to Backlog %s, got %s", backlogID, ticketAfterReset.StatusID)
 	}
 
-	workflowAfterReset, err := client.Workflow.Get(ctx, workflowForReset.ID)
+	workflowAfterReset, err := client.Workflow.Query().
+		Where(entworkflow.IDEQ(workflowForReset.ID)).
+		WithPickupStatuses().
+		WithFinishStatuses().
+		Only(ctx)
 	if err != nil {
 		t.Fatalf("load workflow after reset: %v", err)
 	}
-	if workflowAfterReset.PickupStatusID != todoID {
-		t.Fatalf("expected workflow pickup to move to Todo %s, got %s", todoID, workflowAfterReset.PickupStatusID)
+	if len(workflowAfterReset.Edges.PickupStatuses) != 1 || workflowAfterReset.Edges.PickupStatuses[0].ID != todoID {
+		t.Fatalf("expected workflow pickup to move to Todo %s, got %v", todoID, workflowAfterReset.Edges.PickupStatuses)
 	}
-	if workflowAfterReset.FinishStatusID == nil || *workflowAfterReset.FinishStatusID != doneID {
-		t.Fatalf("expected workflow finish to move to Done %s, got %v", doneID, workflowAfterReset.FinishStatusID)
+	if len(workflowAfterReset.Edges.FinishStatuses) != 1 || workflowAfterReset.Edges.FinishStatuses[0].ID != doneID {
+		t.Fatalf("expected workflow finish to move to Done %s, got %v", doneID, workflowAfterReset.Edges.FinishStatuses)
 	}
 }
 
