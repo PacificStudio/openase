@@ -276,7 +276,7 @@ func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing
 	if ticketAfter.CurrentRunID != nil {
 		t.Fatalf("expected graceful shutdown to clear current run, got %+v", ticketAfter.CurrentRunID)
 	}
-	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 0 {
+	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected graceful shutdown to drop backlog stage occupancy to 0, got %d", got)
 	}
 
@@ -340,7 +340,7 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	}
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
-	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 1 {
+	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 1 {
 		t.Fatalf("expected active backlog stage occupancy before finish, got %d", got)
 	}
 
@@ -382,7 +382,7 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	if runAfter.Status != entagentrun.StatusCompleted {
 		t.Fatalf("expected completed run after finish, got %+v", runAfter)
 	}
-	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 0 {
+	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected finish to drop backlog stage occupancy to 0, got %d", got)
 	}
 }

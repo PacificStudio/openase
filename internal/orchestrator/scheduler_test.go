@@ -892,7 +892,7 @@ func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T
 	if report.TicketsDispatched != 1 || report.TicketsSkipped[skipReasonStageCapacity] != 1 {
 		t.Fatalf("expected one dispatch and one shared stage-capacity skip, got %+v", report)
 	}
-	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 1 {
+	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 1 {
 		t.Fatalf("expected backlog stage active runs 1, got %d", got)
 	}
 }
@@ -1097,7 +1097,7 @@ func newTestScheduler(client *ent.Client, now time.Time) *Scheduler {
 	return scheduler
 }
 
-func stageActiveRunsForKey(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID, key string) int {
+func backlogStageActiveRuns(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID) int {
 	t.Helper()
 
 	snapshots, err := ticketstatus.ListProjectStageRuntimeSnapshots(ctx, client, projectID)
@@ -1105,11 +1105,11 @@ func stageActiveRunsForKey(ctx context.Context, t *testing.T, client *ent.Client
 		t.Fatalf("list stage runtime snapshots: %v", err)
 	}
 	for _, snapshot := range snapshots {
-		if snapshot.Key == key {
+		if snapshot.Key == "backlog" {
 			return snapshot.ActiveRuns
 		}
 	}
-	t.Fatalf("stage runtime snapshot %q not found", key)
+	t.Fatal("backlog stage runtime snapshot not found")
 	return 0
 }
 

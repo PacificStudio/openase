@@ -70,7 +70,7 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.Equal(now.Add(stalledRetryDelay)) {
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(stalledRetryDelay), ticketAfter.NextRetryAt)
 	}
-	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 0 {
+	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected stalled release to drop backlog stage occupancy to 0, got %d", got)
 	}
 
@@ -206,7 +206,7 @@ func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 	if report.StalledClaims != 1 || report.AgentsReleased != 1 {
 		t.Fatalf("expected missing heartbeat to stall, got %+v", report)
 	}
-	if got := stageActiveRunsForKey(ctx, t, client, fixture.projectID, "backlog"); got != 0 {
+	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected missing-heartbeat recovery to drop backlog stage occupancy to 0, got %d", got)
 	}
 }
