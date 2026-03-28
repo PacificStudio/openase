@@ -1,0 +1,1131 @@
+const ORG_ID = 'org-e2e'
+const PROJECT_ID = 'project-e2e'
+const LOCAL_MACHINE_ID = 'machine-local'
+const GPU_MACHINE_ID = 'machine-gpu'
+const DEFAULT_PROVIDER_ID = 'provider-codex'
+const CLAUDE_PROVIDER_ID = 'provider-claude'
+const DEFAULT_AGENT_ID = 'agent-coder'
+const DEFAULT_WORKFLOW_ID = 'workflow-coding'
+const DEFAULT_REPO_ID = 'repo-todo'
+const DEFAULT_JOB_ID = 'job-nightly'
+const DEFAULT_TICKET_ID = 'ticket-1'
+const DEFAULT_STATUS_IDS = {
+  todo: 'status-todo',
+  review: 'status-review',
+  done: 'status-done',
+} as const
+
+type JsonValue = unknown
+
+type MockState = {
+  organizations: Record<string, unknown>[]
+  projects: Record<string, unknown>[]
+  machines: Record<string, unknown>[]
+  providers: Record<string, unknown>[]
+  agents: Record<string, unknown>[]
+  agentRuns: Record<string, unknown>[]
+  tickets: Record<string, unknown>[]
+  statuses: Record<string, unknown>[]
+  repos: Record<string, unknown>[]
+  workflows: Record<string, unknown>[]
+  harnessByWorkflowId: Record<string, { content: string; path: string; version: number }>
+  scheduledJobs: Record<string, unknown>[]
+  skills: Record<string, unknown>[]
+  builtinRoles: Record<string, unknown>[]
+  harnessVariables: { groups: Record<string, unknown>[] }
+  counters: {
+    machine: number
+    repo: number
+    workflow: number
+    agent: number
+    scheduledJob: number
+  }
+}
+
+const nowIso = '2026-03-27T10:00:00.000Z'
+const encoder = new TextEncoder()
+
+let mockState = createInitialState()
+
+export function resetMockState() {
+  mockState = createInitialState()
+  return clone(mockState)
+}
+
+export async function handleMockApi(request: Request, url: URL): Promise<Response | null> {
+  if (!url.pathname.startsWith('/api/v1/')) {
+    return null
+  }
+
+  if (url.pathname === '/api/v1/__e2e__/reset' && request.method === 'POST') {
+    resetMockState()
+    return jsonResponse({ ok: true })
+  }
+
+  if (url.pathname.endsWith('/stream')) {
+    return streamResponse()
+  }
+
+  if (url.pathname === '/api/v1/app-context' && request.method === 'GET') {
+    return jsonResponse(buildAppContextPayload(url))
+  }
+
+  const segments = url.pathname
+    .replace(/^\/api\/v1\//, '')
+    .split('/')
+    .filter(Boolean)
+
+  if (segments[0] === 'orgs') {
+    return handleOrgRoutes(request, segments)
+  }
+  if (segments[0] === 'projects') {
+    return handleProjectRoutes(request, segments, url)
+  }
+  if (segments[0] === 'machines') {
+    return handleMachineRoutes(request, segments)
+  }
+  if (segments[0] === 'providers') {
+    return handleProviderRoutes(request, segments)
+  }
+  if (segments[0] === 'agents') {
+    return handleAgentRoutes(request, segments)
+  }
+  if (segments[0] === 'workflows') {
+    return handleWorkflowRoutes(request, segments)
+  }
+  if (segments[0] === 'scheduled-jobs') {
+    return handleScheduledJobRoutes(request, segments)
+  }
+  if (segments[0] === 'harness') {
+    return handleHarnessRoutes(request, segments)
+  }
+  if (segments[0] === 'roles' && segments[1] === 'builtin') {
+    return jsonResponse({ roles: clone(mockState.builtinRoles) })
+  }
+
+  return jsonResponse(
+    { detail: `Mock route not implemented: ${request.method} ${url.pathname}` },
+    404,
+  )
+}
+
+async function handleOrgRoutes(request: Request, segments: string[]) {
+  if (segments.length === 1 && request.method === 'GET') {
+    return jsonResponse({ organizations: clone(mockState.organizations) })
+  }
+
+  const orgId = segments[1]
+  if (orgId !== ORG_ID) {
+    return notFound('Organization not found.')
+  }
+
+  if (segments[2] === 'projects' && request.method === 'GET') {
+    return jsonResponse({
+      projects: clone(mockState.projects.filter((project) => project.org_id === orgId)),
+    })
+  }
+  if (segments[2] === 'providers' && request.method === 'GET') {
+    return jsonResponse({
+      providers: clone(mockState.providers.filter((provider) => provider.org_id === orgId)),
+    })
+  }
+  if (segments[2] === 'machines') {
+    if (request.method === 'GET') {
+      return jsonResponse({
+        machines: clone(mockState.machines.filter((machine) => machine.org_id === orgId)),
+      })
+    }
+    if (request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const machine = createMachineRecord(body)
+      mockState.machines.unshift(machine)
+      return jsonResponse({ machine: clone(machine) }, 201)
+    }
+  }
+
+  return notFound('Mock org route not found.')
+}
+
+async function handleProjectRoutes(request: Request, segments: string[], _url: URL) {
+  const projectId = segments[1]
+  if (projectId !== PROJECT_ID) {
+    return notFound('Project not found.')
+  }
+
+  if (segments[2] === 'agents') {
+    if (request.method === 'GET') {
+      return jsonResponse({
+        agents: clone(mockState.agents.filter((agent) => agent.project_id === projectId)),
+      })
+    }
+    if (request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const providerId = asString(body.provider_id) ?? DEFAULT_PROVIDER_ID
+      const provider = findById(mockState.providers, providerId)
+      const agent = {
+        id: `agent-${++mockState.counters.agent}`,
+        project_id: projectId,
+        provider_id: providerId,
+        name: asString(body.name) ?? `Agent ${mockState.counters.agent}`,
+        runtime_control_state: 'active',
+        total_tickets_completed: 0,
+        runtime: {
+          status: 'idle',
+          runtime_phase: 'none',
+          active_run_count: 0,
+          current_run_id: null,
+          current_ticket_id: null,
+          last_heartbeat_at: nowIso,
+          runtime_started_at: null,
+          session_id: '',
+          last_error: '',
+        },
+      }
+      mockState.agents.push(agent)
+      if (provider) {
+        provider.updated_at = nowIso
+      }
+      return jsonResponse({ agent: clone(agent) }, 201)
+    }
+  }
+
+  if (segments[2] === 'agent-runs' && request.method === 'GET') {
+    return jsonResponse({
+      agent_runs: clone(mockState.agentRuns.filter((run) => run.project_id === projectId)),
+    })
+  }
+
+  if (segments[2] === 'tickets' && request.method === 'GET') {
+    return jsonResponse({
+      tickets: clone(mockState.tickets.filter((ticket) => ticket.project_id === projectId)),
+    })
+  }
+
+  if (segments[2] === 'workflows') {
+    if (request.method === 'GET') {
+      return jsonResponse({
+        workflows: clone(
+          mockState.workflows.filter((workflow) => workflow.project_id === projectId),
+        ),
+      })
+    }
+    if (request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const nextId = `workflow-${++mockState.counters.workflow}`
+      const workflow = {
+        id: nextId,
+        project_id: projectId,
+        name: asString(body.name) ?? `Workflow ${mockState.counters.workflow}`,
+        type: asString(body.type) ?? 'coding',
+        agent_id: asString(body.agent_id) ?? DEFAULT_AGENT_ID,
+        pickup_status_ids: asStringArray(body.pickup_status_ids),
+        finish_status_ids: asStringArray(body.finish_status_ids),
+        max_concurrent: asNumber(body.max_concurrent) ?? 1,
+        max_retry_attempts: asNumber(body.max_retry_attempts) ?? 1,
+        timeout_minutes: asNumber(body.timeout_minutes) ?? 30,
+        stall_timeout_minutes: asNumber(body.stall_timeout_minutes) ?? 5,
+        is_active: asBoolean(body.is_active) ?? true,
+        harness_path: `.openase/harnesses/${slugify(asString(body.name) ?? nextId)}.md`,
+        version: 1,
+      }
+      mockState.workflows.push(workflow)
+      mockState.harnessByWorkflowId[nextId] = {
+        content:
+          asString(body.harness_content) ??
+          defaultHarnessContent(asString(body.name) ?? `Workflow ${mockState.counters.workflow}`),
+        path: workflow.harness_path,
+        version: 1,
+      }
+      return jsonResponse({ workflow: clone(workflow) }, 201)
+    }
+  }
+
+  if (segments[2] === 'repos') {
+    if (segments.length === 3 && request.method === 'GET') {
+      return jsonResponse({
+        repos: clone(mockState.repos.filter((repo) => repo.project_id === projectId)),
+      })
+    }
+    if (segments.length === 3 && request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const repo = createRepoRecord(body)
+      if (asBoolean(body.is_primary)) {
+        demotePrimaryRepo()
+      }
+      mockState.repos.push(repo)
+      return jsonResponse({ repo: clone(repo) }, 201)
+    }
+    if (segments.length === 4) {
+      const repoId = segments[3]
+      let repo = findById(mockState.repos, repoId)
+      if (!repo) {
+        return notFound('Repository not found.')
+      }
+      if (request.method === 'PATCH') {
+        const body = await readBody<Record<string, unknown>>(request)
+        if (asBoolean(body.is_primary)) {
+          demotePrimaryRepo()
+          repo = findById(mockState.repos, repoId)
+          if (!repo) {
+            return notFound('Repository not found.')
+          }
+        }
+        applyRepoMutation(repo, body)
+        return jsonResponse({ repo: clone(repo) })
+      }
+      if (request.method === 'DELETE') {
+        mockState.repos = mockState.repos.filter((item) => item.id !== repoId)
+        if (!mockState.repos.some((item) => item.is_primary) && mockState.repos[0]) {
+          mockState.repos[0].is_primary = true
+        }
+        return jsonResponse({ repo: clone(repo) })
+      }
+    }
+  }
+
+  if (segments[2] === 'statuses' && request.method === 'GET') {
+    return jsonResponse({
+      statuses: clone(mockState.statuses.filter((status) => status.project_id === projectId)),
+    })
+  }
+
+  if (segments[2] === 'skills' && request.method === 'GET') {
+    return jsonResponse({
+      skills: clone(mockState.skills.filter((skill) => skill.project_id === projectId)),
+    })
+  }
+
+  if (segments[2] === 'scheduled-jobs') {
+    if (request.method === 'GET') {
+      return jsonResponse({
+        scheduled_jobs: clone(
+          mockState.scheduledJobs.filter((job) => job.project_id === projectId),
+        ),
+      })
+    }
+    if (request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const job = createScheduledJobRecord(body)
+      mockState.scheduledJobs.push(job)
+      return jsonResponse({ scheduled_job: clone(job) }, 201)
+    }
+  }
+
+  return notFound('Mock project route not found.')
+}
+
+function buildAppContextPayload(url: URL) {
+  const orgId = url.searchParams.get('org_id')
+  const projectId = url.searchParams.get('project_id')
+
+  return {
+    organizations: clone(mockState.organizations),
+    projects:
+      orgId === ORG_ID
+        ? clone(mockState.projects.filter((project) => project.org_id === orgId))
+        : [],
+    providers:
+      orgId === ORG_ID
+        ? clone(mockState.providers.filter((provider) => provider.org_id === orgId))
+        : [],
+    agent_count:
+      projectId === PROJECT_ID
+        ? mockState.agents.filter((agent) => agent.project_id === projectId).length
+        : 0,
+  }
+}
+
+async function handleMachineRoutes(request: Request, segments: string[]) {
+  const machineId = segments[1]
+  const machine = findById(mockState.machines, machineId)
+  if (!machine) {
+    return notFound('Machine not found.')
+  }
+
+  if (segments.length === 2) {
+    if (request.method === 'GET') {
+      return jsonResponse({ machine: clone(machine) })
+    }
+    if (request.method === 'PATCH') {
+      const body = await readBody<Record<string, unknown>>(request)
+      applyMachineMutation(machine, body)
+      return jsonResponse({ machine: clone(machine) })
+    }
+    if (request.method === 'DELETE') {
+      mockState.machines = mockState.machines.filter((item) => item.id !== machineId)
+      return jsonResponse({ machine: clone(machine) })
+    }
+  }
+
+  if (segments[2] === 'resources' && request.method === 'GET') {
+    return jsonResponse({ resources: clone(machine.resources as Record<string, unknown>) })
+  }
+
+  if (segments[2] === 'test' && request.method === 'POST') {
+    machine.last_heartbeat_at = nowIso
+    machine.status = 'online'
+    const mergedResources = {
+      ...(asObject(machine.resources) ?? {}),
+      transport: machine.host === 'local' ? 'local' : 'ssh',
+      checked_at: nowIso,
+      last_success: true,
+      connection_test: {
+        checked_at: nowIso,
+        transport: machine.host === 'local' ? 'local' : 'ssh',
+        last_success: true,
+        output: `Connected to ${machine.name} successfully.`,
+      },
+    }
+    machine.resources = mergedResources
+    const probe = {
+      checked_at: nowIso,
+      transport: machine.host === 'local' ? 'local' : 'ssh',
+      output: `Connected to ${machine.name} successfully.`,
+    }
+    return jsonResponse({ machine: clone(machine), probe })
+  }
+
+  return notFound('Mock machine route not found.')
+}
+
+async function handleProviderRoutes(request: Request, segments: string[]) {
+  const providerId = segments[1]
+  const provider = findById(mockState.providers, providerId)
+  if (!provider) {
+    return notFound('Provider not found.')
+  }
+  if (request.method !== 'PATCH') {
+    return notFound('Mock provider route not found.')
+  }
+
+  const body = await readBody<Record<string, unknown>>(request)
+  if (body.machine_id) {
+    const machine = findById(mockState.machines, asString(body.machine_id) ?? '')
+    if (machine) {
+      provider.machine_id = machine.id
+      provider.machine_name = machine.name
+      provider.machine_host = machine.host
+      provider.machine_status = machine.status
+      provider.machine_workspace_root = machine.workspace_root ?? null
+    }
+  }
+  provider.name = asString(body.name) ?? provider.name
+  provider.adapter_type = asString(body.adapter_type) ?? provider.adapter_type
+  provider.cli_command = asString(body.cli_command) ?? provider.cli_command
+  provider.cli_args = asStringArray(body.cli_args)
+  provider.model_name = asString(body.model_name) ?? provider.model_name
+  provider.model_temperature = asNumber(body.model_temperature) ?? provider.model_temperature
+  provider.model_max_tokens = asNumber(body.model_max_tokens) ?? provider.model_max_tokens
+  provider.cost_per_input_token =
+    asNumber(body.cost_per_input_token) ?? provider.cost_per_input_token
+  provider.cost_per_output_token =
+    asNumber(body.cost_per_output_token) ?? provider.cost_per_output_token
+  provider.auth_config = asObject(body.auth_config) ?? {}
+
+  return jsonResponse({ provider: clone(provider) })
+}
+
+async function handleAgentRoutes(request: Request, segments: string[]) {
+  const agentId = segments[1]
+  const agent = findById(mockState.agents, agentId)
+  if (!agent) {
+    return notFound('Agent not found.')
+  }
+
+  if (segments[2] === 'pause' && request.method === 'POST') {
+    agent.runtime_control_state = 'paused'
+    return jsonResponse({ agent: clone(agent) })
+  }
+  if (segments[2] === 'resume' && request.method === 'POST') {
+    agent.runtime_control_state = 'active'
+    return jsonResponse({ agent: clone(agent) })
+  }
+
+  return notFound('Mock agent route not found.')
+}
+
+async function handleWorkflowRoutes(request: Request, segments: string[]) {
+  const workflowId = segments[1]
+  const workflow = findById(mockState.workflows, workflowId)
+  if (!workflow) {
+    return notFound('Workflow not found.')
+  }
+
+  if (segments[2] === 'harness') {
+    if (request.method === 'GET') {
+      const harness = mockState.harnessByWorkflowId[workflowId]
+      return jsonResponse({
+        harness: {
+          workflow_id: workflowId,
+          content: harness.content,
+          path: harness.path,
+          version: harness.version,
+        },
+      })
+    }
+    if (request.method === 'PUT') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const current = mockState.harnessByWorkflowId[workflowId]
+      const nextVersion = current.version + 1
+      const content = asString(body.content) ?? current.content
+      mockState.harnessByWorkflowId[workflowId] = {
+        content,
+        path: current.path,
+        version: nextVersion,
+      }
+      workflow.version = nextVersion
+      return jsonResponse({
+        harness: {
+          workflow_id: workflowId,
+          content,
+          path: current.path,
+          version: nextVersion,
+        },
+      })
+    }
+  }
+
+  if (segments[2] === 'skills' && request.method === 'POST') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const skillPaths = asStringArray(body.skills)
+    const binding = segments[3] === 'bind'
+
+    mockState.skills = mockState.skills.map((skill) => {
+      if (!skillPaths.includes(skill.path as string)) {
+        return skill
+      }
+      const existing = Array.isArray(skill.bound_workflows)
+        ? (skill.bound_workflows as Record<string, unknown>[])
+        : []
+      const nextBound = binding
+        ? dedupeById([...existing, { id: workflowId }])
+        : existing.filter((item) => item.id !== workflowId)
+      return { ...skill, bound_workflows: nextBound }
+    })
+
+    const harness = mockState.harnessByWorkflowId[workflowId]
+    return jsonResponse({
+      harness: {
+        workflow_id: workflowId,
+        content: harness.content,
+        path: harness.path,
+        version: harness.version,
+      },
+    })
+  }
+
+  return notFound('Mock workflow route not found.')
+}
+
+async function handleScheduledJobRoutes(request: Request, segments: string[]) {
+  const jobId = segments[1]
+  const job = findById(mockState.scheduledJobs, jobId)
+  if (!job) {
+    return notFound('Scheduled job not found.')
+  }
+
+  if (segments.length === 2 && request.method === 'PATCH') {
+    const body = await readBody<Record<string, unknown>>(request)
+    applyScheduledJobMutation(job, body)
+    return jsonResponse({ scheduled_job: clone(job) })
+  }
+  if (segments.length === 2 && request.method === 'DELETE') {
+    mockState.scheduledJobs = mockState.scheduledJobs.filter((item) => item.id !== jobId)
+    return jsonResponse({ scheduled_job: clone(job) })
+  }
+  if (segments[2] === 'trigger' && request.method === 'POST') {
+    job.last_run_at = nowIso
+    job.next_run_at = '2026-03-28T02:00:00.000Z'
+    return jsonResponse({ scheduled_job: clone(job) })
+  }
+
+  return notFound('Mock scheduled job route not found.')
+}
+
+async function handleHarnessRoutes(request: Request, segments: string[]) {
+  if (segments[1] === 'validate' && request.method === 'POST') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const content = asString(body.content) ?? ''
+    const issues =
+      content.trim().length === 0
+        ? [{ level: 'error', message: 'Harness content must not be empty.' }]
+        : []
+    return jsonResponse({ valid: issues.length === 0, issues })
+  }
+  if (segments[1] === 'variables' && request.method === 'GET') {
+    return jsonResponse(clone(mockState.harnessVariables))
+  }
+
+  return notFound('Mock harness route not found.')
+}
+
+function createInitialState(): MockState {
+  const organizations = [
+    {
+      id: ORG_ID,
+      name: 'E2E Org',
+      slug: 'e2e-org',
+      default_agent_provider_id: DEFAULT_PROVIDER_ID,
+    },
+  ]
+
+  const projects = [
+    {
+      id: PROJECT_ID,
+      org_id: ORG_ID,
+      name: 'TodoApp',
+      slug: 'todo-app',
+      description: 'Playwright fixture project',
+      status: 'active',
+      default_workflow_id: DEFAULT_WORKFLOW_ID,
+      default_agent_provider_id: DEFAULT_PROVIDER_ID,
+      max_concurrent_agents: 4,
+    },
+  ]
+
+  const machines = [
+    {
+      id: LOCAL_MACHINE_ID,
+      org_id: ORG_ID,
+      name: 'local',
+      host: 'local',
+      port: 22,
+      ssh_user: '',
+      ssh_key_path: '',
+      description: 'Seeded local runner',
+      labels: ['local', 'default'],
+      status: 'online',
+      workspace_root: '~/.openase/workspace',
+      agent_cli_path: '/usr/local/bin/codex',
+      env_vars: ['OPENASE_ENV=dev'],
+      last_heartbeat_at: nowIso,
+      resources: machineResourceSnapshot('local', {
+        cpuUsagePercent: 18,
+        memoryTotalGB: 16,
+        memoryUsedGB: 5.5,
+        memoryAvailableGB: 10.5,
+        diskTotalGB: 512,
+        diskAvailableGB: 320,
+        gpuDispatchable: false,
+        gpus: [],
+      }),
+    },
+    {
+      id: GPU_MACHINE_ID,
+      org_id: ORG_ID,
+      name: 'gpu-runner-01',
+      host: '10.0.0.42',
+      port: 22,
+      ssh_user: 'openase',
+      ssh_key_path: '~/.ssh/openase_rsa',
+      description: 'Primary remote runner',
+      labels: ['gpu', 'remote'],
+      status: 'online',
+      workspace_root: '/srv/openase/workspace',
+      agent_cli_path: '/usr/bin/codex',
+      env_vars: ['CUDA_VISIBLE_DEVICES=0'],
+      last_heartbeat_at: nowIso,
+      resources: machineResourceSnapshot('ssh', {
+        cpuUsagePercent: 46,
+        memoryTotalGB: 64,
+        memoryUsedGB: 21.4,
+        memoryAvailableGB: 42.6,
+        diskTotalGB: 1024,
+        diskAvailableGB: 612,
+        gpuDispatchable: true,
+        gpus: [
+          {
+            index: 0,
+            name: 'NVIDIA A100',
+            memory_total_gb: 80,
+            memory_used_gb: 22,
+            utilization_percent: 54,
+          },
+        ],
+      }),
+    },
+  ]
+
+  const providers = [
+    {
+      id: DEFAULT_PROVIDER_ID,
+      org_id: ORG_ID,
+      machine_id: GPU_MACHINE_ID,
+      machine_name: 'gpu-runner-01',
+      machine_host: '10.0.0.42',
+      machine_status: 'online',
+      machine_workspace_root: '/srv/openase/workspace',
+      name: 'Codex Primary',
+      adapter_type: 'codex-app-server',
+      availability_state: 'available',
+      available: true,
+      availability_checked_at: nowIso,
+      availability_reason: null,
+      cli_command: 'codex',
+      cli_args: ['app-server', '--listen', 'stdio://'],
+      auth_config: { profile: 'default' },
+      model_name: 'gpt-5.4',
+      model_temperature: 0.2,
+      model_max_tokens: 8192,
+      cost_per_input_token: 0.000001,
+      cost_per_output_token: 0.000002,
+    },
+    {
+      id: CLAUDE_PROVIDER_ID,
+      org_id: ORG_ID,
+      machine_id: LOCAL_MACHINE_ID,
+      machine_name: 'local',
+      machine_host: 'local',
+      machine_status: 'online',
+      machine_workspace_root: '~/.openase/workspace',
+      name: 'Claude Local',
+      adapter_type: 'claude-code-cli',
+      availability_state: 'available',
+      available: true,
+      availability_checked_at: nowIso,
+      availability_reason: null,
+      cli_command: 'claude',
+      cli_args: [],
+      auth_config: {},
+      model_name: 'claude-sonnet-4',
+      model_temperature: 0.1,
+      model_max_tokens: 4096,
+      cost_per_input_token: 0.000002,
+      cost_per_output_token: 0.000004,
+    },
+  ]
+
+  const agents = [
+    {
+      id: DEFAULT_AGENT_ID,
+      project_id: PROJECT_ID,
+      provider_id: DEFAULT_PROVIDER_ID,
+      name: 'coding-main',
+      runtime_control_state: 'active',
+      total_tickets_completed: 12,
+      runtime: {
+        status: 'ready',
+        runtime_phase: 'ready',
+        active_run_count: 1,
+        current_run_id: 'run-1',
+        current_ticket_id: DEFAULT_TICKET_ID,
+        last_heartbeat_at: nowIso,
+        runtime_started_at: '2026-03-27T09:00:00.000Z',
+        session_id: 'sess-1',
+        last_error: '',
+      },
+    },
+  ]
+
+  const agentRuns = [
+    {
+      id: 'run-1',
+      project_id: PROJECT_ID,
+      agent_id: DEFAULT_AGENT_ID,
+      provider_id: DEFAULT_PROVIDER_ID,
+      workflow_id: DEFAULT_WORKFLOW_ID,
+      ticket_id: DEFAULT_TICKET_ID,
+      status: 'executing',
+      last_heartbeat_at: nowIso,
+      runtime_started_at: '2026-03-27T09:00:00.000Z',
+      session_id: 'sess-1',
+      last_error: '',
+      created_at: '2026-03-27T09:00:00.000Z',
+    },
+  ]
+
+  const tickets = [
+    {
+      id: DEFAULT_TICKET_ID,
+      project_id: PROJECT_ID,
+      identifier: 'ASE-101',
+      title: 'Improve machine management UX',
+      status: 'todo',
+    },
+  ]
+
+  const statuses = [
+    { id: DEFAULT_STATUS_IDS.todo, project_id: PROJECT_ID, name: 'Todo', position: 1 },
+    { id: DEFAULT_STATUS_IDS.review, project_id: PROJECT_ID, name: 'In Review', position: 2 },
+    { id: DEFAULT_STATUS_IDS.done, project_id: PROJECT_ID, name: 'Done', position: 3 },
+  ]
+
+  const repos = [
+    {
+      id: DEFAULT_REPO_ID,
+      project_id: PROJECT_ID,
+      name: 'TodoApp',
+      repository_url: 'https://github.com/BetterAndBetterII/TodoApp.git',
+      default_branch: 'main',
+      clone_path: '',
+      labels: [],
+      is_primary: true,
+    },
+  ]
+
+  const workflows = [
+    {
+      id: DEFAULT_WORKFLOW_ID,
+      project_id: PROJECT_ID,
+      name: 'Coding Workflow',
+      type: 'coding',
+      agent_id: DEFAULT_AGENT_ID,
+      pickup_status_ids: [DEFAULT_STATUS_IDS.todo],
+      finish_status_ids: [DEFAULT_STATUS_IDS.review],
+      max_concurrent: 1,
+      max_retry_attempts: 1,
+      timeout_minutes: 30,
+      stall_timeout_minutes: 5,
+      is_active: true,
+      harness_path: '.openase/harnesses/coding-workflow.md',
+      version: 3,
+    },
+  ]
+
+  const harnessByWorkflowId = {
+    [DEFAULT_WORKFLOW_ID]: {
+      content: defaultHarnessContent('Coding Workflow'),
+      path: '.openase/harnesses/coding-workflow.md',
+      version: 3,
+    },
+  }
+
+  const scheduledJobs = [
+    {
+      id: DEFAULT_JOB_ID,
+      project_id: PROJECT_ID,
+      workflow_id: DEFAULT_WORKFLOW_ID,
+      name: 'Nightly regression sweep',
+      cron_expression: '0 2 * * *',
+      is_enabled: true,
+      ticket_template: {
+        title: 'Run nightly regression sweep',
+        description: 'Verify the core project workflows still behave as expected.',
+        priority: 'medium',
+        type: 'feature',
+        budget_usd: 12,
+        created_by: 'scheduler',
+      },
+      last_run_at: '2026-03-26T02:00:00.000Z',
+      next_run_at: '2026-03-28T02:00:00.000Z',
+    },
+  ]
+
+  const skills = [
+    {
+      project_id: PROJECT_ID,
+      name: 'commit',
+      description: 'Create a well-formed git commit.',
+      path: '/skills/commit',
+      bound_workflows: [{ id: DEFAULT_WORKFLOW_ID }],
+    },
+    {
+      project_id: PROJECT_ID,
+      name: 'deploy-openase',
+      description: 'Build and redeploy OpenASE locally.',
+      path: '/skills/deploy-openase',
+      bound_workflows: [],
+    },
+  ]
+
+  const builtinRoles = [
+    {
+      id: 'builtin-coding',
+      workflow_type: 'coding',
+      name: 'coding',
+      content: defaultHarnessContent('Coding Workflow'),
+    },
+  ]
+
+  const harnessVariables = {
+    groups: [
+      {
+        name: 'ticket',
+        variables: [
+          { name: 'ticket.identifier', description: 'Ticket identifier' },
+          { name: 'ticket.title', description: 'Ticket title' },
+        ],
+      },
+      {
+        name: 'project',
+        variables: [{ name: 'project.name', description: 'Project name' }],
+      },
+    ],
+  }
+
+  return {
+    organizations,
+    projects,
+    machines,
+    providers,
+    agents,
+    agentRuns,
+    tickets,
+    statuses,
+    repos,
+    workflows,
+    harnessByWorkflowId,
+    scheduledJobs,
+    skills,
+    builtinRoles,
+    harnessVariables,
+    counters: {
+      machine: 2,
+      repo: 1,
+      workflow: 1,
+      agent: 1,
+      scheduledJob: 1,
+    },
+  }
+}
+
+function createMachineRecord(body: Record<string, unknown>) {
+  const id = `machine-${++mockState.counters.machine}`
+  return {
+    id,
+    org_id: ORG_ID,
+    name: asString(body.name) ?? `machine-${mockState.counters.machine}`,
+    host: asString(body.host) ?? '127.0.0.1',
+    port: asNumber(body.port) ?? 22,
+    ssh_user: asString(body.ssh_user) ?? '',
+    ssh_key_path: asString(body.ssh_key_path) ?? '',
+    description: asString(body.description) ?? '',
+    labels: asStringArray(body.labels),
+    status: asString(body.status) ?? 'maintenance',
+    workspace_root: asString(body.workspace_root) ?? '',
+    agent_cli_path: asString(body.agent_cli_path) ?? '',
+    env_vars: asStringArray(body.env_vars),
+    last_heartbeat_at: null,
+    resources: {},
+  }
+}
+
+function createRepoRecord(body: Record<string, unknown>) {
+  return {
+    id: `repo-${++mockState.counters.repo}`,
+    project_id: PROJECT_ID,
+    name: asString(body.name) ?? `repo-${mockState.counters.repo}`,
+    repository_url: asString(body.repository_url) ?? '',
+    default_branch: asString(body.default_branch) ?? 'main',
+    clone_path: asString(body.clone_path) ?? '',
+    labels: asStringArray(body.labels),
+    is_primary: asBoolean(body.is_primary) ?? false,
+  }
+}
+
+function createScheduledJobRecord(body: Record<string, unknown>) {
+  const ticketTemplate = asObject(body.ticket_template) ?? {}
+  return {
+    id: `job-${++mockState.counters.scheduledJob}`,
+    project_id: PROJECT_ID,
+    workflow_id: asString(body.workflow_id) ?? DEFAULT_WORKFLOW_ID,
+    name: asString(body.name) ?? `Job ${mockState.counters.scheduledJob}`,
+    cron_expression: asString(body.cron_expression) ?? '0 0 * * *',
+    is_enabled: asBoolean(body.is_enabled) ?? true,
+    ticket_template: {
+      title: asString(ticketTemplate.title) ?? null,
+      description: asString(ticketTemplate.description) ?? null,
+      priority: asString(ticketTemplate.priority) ?? 'medium',
+      type: asString(ticketTemplate.type) ?? 'feature',
+      budget_usd: asNumber(ticketTemplate.budget_usd) ?? 0,
+      created_by: asString(ticketTemplate.created_by) ?? null,
+    },
+    last_run_at: null,
+    next_run_at: '2026-03-28T02:00:00.000Z',
+  }
+}
+
+function applyMachineMutation(machine: Record<string, unknown>, body: Record<string, unknown>) {
+  machine.name = asString(body.name) ?? machine.name
+  machine.host = asString(body.host) ?? machine.host
+  machine.port = asNumber(body.port) ?? machine.port
+  machine.ssh_user = asString(body.ssh_user) ?? machine.ssh_user
+  machine.ssh_key_path = asString(body.ssh_key_path) ?? machine.ssh_key_path
+  machine.description = asString(body.description) ?? machine.description
+  machine.labels = asStringArray(body.labels)
+  machine.status = asString(body.status) ?? machine.status
+  machine.workspace_root = asString(body.workspace_root) ?? machine.workspace_root
+  machine.agent_cli_path = asString(body.agent_cli_path) ?? machine.agent_cli_path
+  machine.env_vars = asStringArray(body.env_vars)
+}
+
+function applyRepoMutation(repo: Record<string, unknown>, body: Record<string, unknown>) {
+  repo.name = asString(body.name) ?? repo.name
+  repo.repository_url = asString(body.repository_url) ?? repo.repository_url
+  repo.default_branch = asString(body.default_branch) ?? repo.default_branch
+  repo.clone_path = asString(body.clone_path) ?? repo.clone_path
+  repo.labels = asStringArray(body.labels)
+  if (typeof body.is_primary === 'boolean') {
+    repo.is_primary = body.is_primary
+  }
+}
+
+function applyScheduledJobMutation(job: Record<string, unknown>, body: Record<string, unknown>) {
+  job.name = asString(body.name) ?? job.name
+  job.cron_expression = asString(body.cron_expression) ?? job.cron_expression
+  job.workflow_id = asString(body.workflow_id) ?? job.workflow_id
+  if (typeof body.is_enabled === 'boolean') {
+    job.is_enabled = body.is_enabled
+  }
+  const ticketTemplate = {
+    ...(asObject(job.ticket_template) ?? {}),
+    ...(asObject(body.ticket_template) ?? {}),
+  }
+  job.ticket_template = {
+    title: asString(ticketTemplate.title) ?? null,
+    description: asString(ticketTemplate.description) ?? null,
+    priority: asString(ticketTemplate.priority) ?? 'medium',
+    type: asString(ticketTemplate.type) ?? 'feature',
+    budget_usd: asNumber(ticketTemplate.budget_usd) ?? 0,
+    created_by: asString(ticketTemplate.created_by) ?? null,
+  }
+}
+
+function demotePrimaryRepo() {
+  mockState.repos = mockState.repos.map((repo) => ({ ...repo, is_primary: false }))
+}
+
+function machineResourceSnapshot(
+  transport: string,
+  values: {
+    cpuUsagePercent: number
+    memoryTotalGB: number
+    memoryUsedGB: number
+    memoryAvailableGB: number
+    diskTotalGB: number
+    diskAvailableGB: number
+    gpuDispatchable: boolean
+    gpus: Record<string, unknown>[]
+  },
+) {
+  return {
+    transport,
+    checked_at: nowIso,
+    last_success: true,
+    cpu_cores: 16,
+    cpu_usage_percent: values.cpuUsagePercent,
+    memory_total_gb: values.memoryTotalGB,
+    memory_used_gb: values.memoryUsedGB,
+    memory_available_gb: values.memoryAvailableGB,
+    disk_total_gb: values.diskTotalGB,
+    disk_available_gb: values.diskAvailableGB,
+    gpu_dispatchable: values.gpuDispatchable,
+    gpu: values.gpus,
+    monitor: {
+      l1: {
+        checked_at: nowIso,
+        reachable: true,
+        latency_ms: transport === 'local' ? 1 : 18,
+        transport,
+      },
+      l2: {
+        checked_at: nowIso,
+        available: true,
+        disk_low: false,
+        memory_low: false,
+      },
+      l3: {
+        checked_at: nowIso,
+        gpu_dispatchable: values.gpuDispatchable,
+      },
+    },
+  }
+}
+
+function defaultHarnessContent(name: string) {
+  return `---\nname: ${name}\n---\n\n# ${name}\n\n- Inspect the ticket context.\n- Make the requested change.\n- Summarize the result.`
+}
+
+function dedupeById(items: Record<string, unknown>[]) {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    const id = asString(item.id)
+    if (!id || seen.has(id)) {
+      return false
+    }
+    seen.add(id)
+    return true
+  })
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function clone<T>(value: T): T {
+  return structuredClone(value)
+}
+
+function findById(
+  items: Record<string, unknown>[],
+  id: string,
+): Record<string, unknown> | undefined {
+  return items.find((item) => item.id === id)
+}
+
+function asString(value: JsonValue | undefined): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function asNumber(value: JsonValue | undefined): number | undefined {
+  return typeof value === 'number' ? value : undefined
+}
+
+function asBoolean(value: JsonValue | undefined): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
+
+function asObject(value: JsonValue | undefined): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function asStringArray(value: JsonValue | undefined): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+}
+
+async function readBody<T>(request: Request): Promise<T> {
+  const text = await request.text()
+  if (!text) {
+    return {} as T
+  }
+  return JSON.parse(text) as T
+}
+
+function jsonResponse(body: JsonValue | Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+    },
+  })
+}
+
+function notFound(detail: string) {
+  return jsonResponse({ detail }, 404)
+}
+
+function streamResponse() {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(': openase-e2e\n\n'))
+    },
+    cancel() {},
+  })
+
+  return new Response(stream, {
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-store',
+      connection: 'keep-alive',
+    },
+  })
+}

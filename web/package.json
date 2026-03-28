@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "test": "svelte-kit sync && vitest run",
+    "test:e2e": "playwright test",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "eslint .",
@@ -23,6 +24,8 @@
     "ci": "prettier --check . && eslint . && node scripts/check-file-budgets.mjs && node scripts/check-dependency-boundaries.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && vite build"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.6.1",
     "@eslint/js": "^9.39.1",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.50.2",

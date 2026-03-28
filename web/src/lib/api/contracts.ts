@@ -212,6 +212,13 @@ export type SkillBinding = ItemOf<Skill['bound_workflows']>
 export type BuiltinRolePayload = DeepRequired<ResponseFor<'/api/v1/roles/builtin', 'get'>>
 export type BuiltinRole = ItemOf<BuiltinRolePayload['roles']>
 
+export type AppContextPayload = {
+  organizations: Organization[]
+  projects: Project[]
+  providers: AgentProvider[]
+  agent_count: number
+}
+
 export type HRAdvisorResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/hr-advisor', 'get'>
 >

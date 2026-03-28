@@ -1,12 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { connectEventStream } from '$lib/api/sse'
+  import { writeHashSelection } from '$lib/utils/hash-state'
   import type { AgentProvider, Machine } from '$lib/api/contracts'
   import type { AgentsPageData } from '../data'
   import { loadAgentsPageResult } from '../page-data'
   import { applyUpdatedProviderState } from '../model'
-  import { createAgentRegistrationDraft, parseAgentRegistrationDraft } from '../registration'
+  import { createAgentRegistrationDraft } from '../registration'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import type {
     AgentInstance,
@@ -14,18 +16,15 @@
     ProviderConfig,
     ProviderDraftField,
   } from '../types'
-  import {
-    registerAgentAndReload,
-    registerAgentError,
-    runRuntimeAction,
-    runtimeActionError,
-  } from '../runtime-actions'
   import AgentsPageContent from './agents-page-content.svelte'
+  import { registerAgentPageAction, runAgentRuntimePageAction } from './agents-page-actions'
   import { createAgentOutputState } from './agent-output-state.svelte'
+  import { mapAgentsPageData, resolveAgentPageTab, type AgentPageTab } from './agents-page-helpers'
   import { wireAgentOutputStream } from './agent-output-stream.svelte'
   import { createProviderEditorState } from './provider-editor-state.svelte'
 
-  let activeTab = $state('runtime')
+  let activeTab = $state<AgentPageTab>('runtime')
+  let hashSyncReady = $state(false)
   let agents = $state<AgentInstance[]>([])
   let agentRuns = $state<AgentRunInstance[]>([])
   let providers = $state<ProviderConfig[]>([])
@@ -51,6 +50,27 @@
   const selectedOutputAgent = $derived(
     agents.find((agent) => agent.id === outputState.selectedAgentId) ?? null,
   )
+
+  onMount(() => {
+    activeTab = resolveAgentPageTab()
+    hashSyncReady = true
+
+    const handleHashChange = () => (activeTab = resolveAgentPageTab())
+
+    window.addEventListener('hashchange', handleHashChange)
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange)
+    }
+  })
+
+  $effect(() => {
+    if (!hashSyncReady) {
+      return
+    }
+
+    writeHashSelection(activeTab)
+  })
 
   $effect(() => {
     const projectId = appStore.currentProject?.id,
@@ -111,11 +131,7 @@
   }
 
   function applyPageData(data: AgentsPageData) {
-    providerItems = data.providerItems
-    machineItems = data.machineItems
-    providers = data.providers
-    agents = data.agents
-    agentRuns = data.agentRuns
+    ;({ providerItems, machineItems, providers, agents, agentRuns } = mapAgentsPageData(data))
   }
 
   function updateRegistrationDraft(field: AgentRegistrationDraftField, value: string) {
@@ -144,31 +160,26 @@
       return
     }
 
-    const parsed = parseAgentRegistrationDraft(registrationDraft, providerItems)
-    if (!parsed.ok) {
-      toastStore.error(parsed.error)
+    registerSaving = true
+
+    const result = await registerAgentPageAction({
+      projectId,
+      orgId,
+      defaultProviderId: appStore.currentOrg?.default_agent_provider_id,
+      draft: registrationDraft,
+      providerItems,
+    })
+    registerSaving = false
+
+    if (!result.ok) {
+      toastStore.error(result.error)
       return
     }
 
-    registerSaving = true
-
-    try {
-      const result = await registerAgentAndReload({
-        projectId,
-        orgId,
-        defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
-        providerId: parsed.value.providerId,
-        name: parsed.value.name,
-      })
-      applyPageData(result.data)
-      toastStore.success(result.feedback || 'Agent created.')
-      registerSheetOpen = false
-      resetRegistrationDraft()
-    } catch (caughtError) {
-      toastStore.error(registerAgentError(caughtError))
-    } finally {
-      registerSaving = false
-    }
+    applyPageData(result.data)
+    toastStore.success(result.feedback)
+    registerSheetOpen = false
+    resetRegistrationDraft()
   }
 
   function handleConfigureProvider(provider: ProviderConfig) {
@@ -204,22 +215,22 @@
     }
 
     runtimeActionAgentId = agentId
+    const result = await runAgentRuntimePageAction({
+      action,
+      agentId,
+      projectId,
+      orgId,
+      defaultProviderId: appStore.currentOrg?.default_agent_provider_id,
+    })
+    runtimeActionAgentId = null
 
-    try {
-      const result = await runRuntimeAction({
-        action,
-        agentId,
-        projectId,
-        orgId,
-        defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
-      })
-      applyPageData(result.data)
-      toastStore.success(result.feedback)
-    } catch (caughtError) {
-      toastStore.error(runtimeActionError(action, caughtError))
-    } finally {
-      runtimeActionAgentId = null
+    if (!result.ok) {
+      toastStore.error(result.error)
+      return
     }
+
+    applyPageData(result.data)
+    toastStore.success(result.feedback)
   }
 
   function handleOutputOpenChange(open: boolean) {

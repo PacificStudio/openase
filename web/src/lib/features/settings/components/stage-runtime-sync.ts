@@ -10,6 +10,7 @@ type StageRuntimeSyncOptions = {
   loadStatuses: typeof listStatuses
   connectEventStream: typeof connectEventStream
   applySnapshot: (payload: StatusSnapshot) => void
+  skipInitialLoad?: boolean
   setLoading?: (loading: boolean) => void
   onInitialError?: (message: string) => void
   onRefreshError?: (error: unknown) => void
@@ -73,7 +74,9 @@ export function startStageRuntimeSync(options: StageRuntimeSyncOptions) {
     }
   }
 
-  void load('initial')
+  if (!options.skipInitialLoad) {
+    void load('initial')
+  }
 
   const disconnect = options.connectEventStream(
     `/api/v1/projects/${options.projectId}/tickets/stream`,

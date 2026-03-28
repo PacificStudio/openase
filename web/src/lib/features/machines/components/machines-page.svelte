@@ -1,21 +1,20 @@
 <script lang="ts">
-  import { invalidate } from '$app/navigation'
-  import { ApiError } from '$lib/api/client'
-  import {
-    createMachine,
-    deleteMachine,
-    getMachineResources,
-    testMachineConnection,
-    updateMachine,
-  } from '$lib/api/openase'
+  import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import MachinesPageBody from './machines-page-body.svelte'
+  import {
+    loadMachineSnapshot,
+    loadMachines,
+    machineErrorMessage,
+    removeMachine,
+    runMachineConnectionTest,
+    saveMachine,
+  } from './machines-page-api'
   import {
     createEmptyMachineDraft,
     filterMachines,
     machineToDraft,
     parseMachineDraft,
-    parseMachineSnapshot,
   } from '../model'
   import {
     createEditorSelectionState,
@@ -29,12 +28,9 @@
     MachineDraft,
     MachineItem,
     MachineProbeResult,
-    MachinesPageData,
     MachineSnapshot,
     MachineWorkspaceState,
   } from '../types'
-
-  let { data }: { data: MachinesPageData } = $props()
 
   let loading = $state(false)
   let refreshing = $state(false)
@@ -58,40 +54,72 @@
   const filteredMachines = $derived(filterMachines(machines, searchQuery))
 
   $effect(() => {
-    void syncFromRouteData(data)
+    const currentOrg = appStore.currentOrg
+    if (!currentOrg) {
+      editorOpen = false
+      loading = false
+      refreshing = false
+      applyViewState(createNoOrgState())
+      return
+    }
+
+    let cancelled = false
+    void loadMachineList(currentOrg.id, { background: false, cancelled: () => cancelled })
+
+    return () => {
+      cancelled = true
+    }
   })
 
-  async function syncFromRouteData(nextData: MachinesPageData) {
-    loading = false
-    refreshing = false
-
-    if (nextData.orgContext.kind === 'no-org') {
+  async function syncFromMachineList(
+    orgId: string,
+    nextMachines: MachineItem[],
+    nextListError: string | null,
+  ) {
+    if (nextListError) {
       editorOpen = false
-      return applyViewState(createNoOrgState())
+      return applyViewState(createListErrorState(nextListError))
     }
-    if (nextData.orgContext.kind === 'error') {
+    if (nextMachines.length === 0) {
       editorOpen = false
-      return applyViewState(createListErrorState(nextData.orgContext.message))
-    }
-
-    const nextOrgId = nextData.orgContext.org.id
-    if (nextData.initialListError) {
-      editorOpen = false
-      return applyViewState(createListErrorState(nextData.initialListError))
-    }
-    if (nextData.initialMachines.length === 0) {
-      editorOpen = false
-      return applyViewState(createEmptyState(nextOrgId))
+      return applyViewState(createEmptyState(orgId))
     }
 
-    const nextMachine =
-      nextData.initialMachines.find((machine) => machine.id === selectedId) ??
-      nextData.initialMachines[0]
+    const nextMachine = nextMachines.find((machine) => machine.id === selectedId) ?? nextMachines[0]
     applyViewState({
-      ...createEditorSelectionState(nextOrgId, nextData.initialMachines, nextMachine),
+      ...createEditorSelectionState(orgId, nextMachines, nextMachine),
       searchQuery,
     })
     await loadMachineResources(nextMachine.id)
+  }
+
+  async function loadMachineList(
+    orgId: string,
+    options: {
+      background: boolean
+      cancelled?: () => boolean
+    },
+  ) {
+    loading = !options.background
+    refreshing = options.background
+
+    try {
+      const nextMachines = await loadMachines(orgId)
+      if (options.cancelled?.()) return
+      await syncFromMachineList(orgId, nextMachines, null)
+    } catch (caughtError) {
+      if (options.cancelled?.()) return
+      if (options.background && machines.length > 0) {
+        toastStore.error(machineErrorMessage(caughtError, 'Failed to refresh machines.'))
+      } else {
+        await syncFromMachineList(orgId, [], 'Failed to load machines.')
+      }
+    } finally {
+      if (!options.cancelled?.()) {
+        loading = false
+        refreshing = false
+      }
+    }
   }
 
   function applyViewState(nextState: MachinesPageViewState) {
@@ -120,12 +148,9 @@
     loadingHealth = true
 
     try {
-      const payload = await getMachineResources(machineId)
-      snapshot = parseMachineSnapshot(payload.resources)
+      snapshot = await loadMachineSnapshot(machineId)
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load machine resources.',
-      )
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to load machine resources.'))
     } finally {
       loadingHealth = false
     }
@@ -152,15 +177,8 @@
 
   async function handleRefresh() {
     if (loading || refreshing) return
-    if (workspaceState === 'error' || workspaceState === 'no-org') loading = true
-    else refreshing = true
-
-    try {
-      await invalidate('openase:machines-page')
-    } finally {
-      loading = false
-      refreshing = false
-    }
+    if (!routeOrgId) return
+    await loadMachineList(routeOrgId, { background: workspaceState === 'ready' })
   }
 
   async function handleSave() {
@@ -173,23 +191,15 @@
     saving = true
 
     try {
-      if (mode === 'create') {
-        const payload = await createMachine(routeOrgId, parsed.value)
-        machines = [payload.machine, ...machines]
-        await openMachine(payload.machine, true)
-        toastStore.success('Machine created.')
-      } else if (selectedMachine) {
-        const payload = await updateMachine(selectedMachine.id, parsed.value)
-        machines = machines.map((machine) =>
-          machine.id === payload.machine.id ? payload.machine : machine,
-        )
-        await openMachine(payload.machine, true)
-        toastStore.success('Machine updated.')
-      }
+      const result = await saveMachine(routeOrgId, selectedMachine, mode, parsed.value)
+      machines =
+        mode === 'create'
+          ? [result.machine, ...machines]
+          : machines.map((machine) => (machine.id === result.machine.id ? result.machine : machine))
+      await openMachine(result.machine, true)
+      toastStore.success(result.feedback)
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save machine.',
-      )
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to save machine.'))
     } finally {
       saving = false
     }
@@ -201,19 +211,17 @@
     testingMachineId = machineId
 
     try {
-      const payload = await testMachineConnection(machineId)
+      const payload = await runMachineConnectionTest(machineId)
       machines = machines.map((machine) =>
         machine.id === payload.machine.id ? payload.machine : machine,
       )
       if (selectedId === machineId) {
-        snapshot = parseMachineSnapshot(payload.machine.resources)
+        snapshot = payload.snapshot
         probe = payload.probe
       }
       toastStore.success('Connection test completed.')
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to run connection test.',
-      )
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to run connection test.'))
     } finally {
       testingMachineId = ''
     }
@@ -225,7 +233,7 @@
     deletingMachineId = machineId
 
     try {
-      await deleteMachine(machineId)
+      await removeMachine(machineId)
       const nextMachines = machines.filter((item) => item.id !== machineId)
       machines = nextMachines
       toastStore.success('Machine deleted.')
@@ -246,9 +254,7 @@
         }
       }
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete machine.',
-      )
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to delete machine.'))
     } finally {
       deletingMachineId = ''
     }
@@ -276,16 +282,12 @@
   bind:editorOpen
   onRefresh={() => void handleRefresh()}
   onCreate={startCreate}
-  onSearchChange={(value) => {
-    searchQuery = value
-  }}
+  onSearchChange={(value) => (searchQuery = value)}
   onSelectMachine={(machineId) => {
     const nextMachine = machines.find((machine) => machine.id === machineId)
     if (nextMachine) void openMachine(nextMachine)
   }}
-  onDraftChange={(field, value) => {
-    draft = { ...draft, [field]: value }
-  }}
+  onDraftChange={(field, value) => (draft = { ...draft, [field]: value })}
   onRetry={() => void handleRefresh()}
   onSave={() => void handleSave()}
   onTest={(machineId) => void handleTest(machineId)}

@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { PageScaffold } from '$lib/components/layout'
+  import { currentHashSelection, writeHashSelection } from '$lib/utils/hash-state'
   import type { SettingsSection } from '../types'
+  import { settingsSections } from '../types'
   import AgentSettings from './agent-settings.svelte'
   import ConnectorsSettings from './connectors-settings.svelte'
   import SettingsNav from './settings-nav.svelte'
@@ -12,10 +15,38 @@
   import WorkflowSettings from './workflow-settings.svelte'
 
   let activeSection = $state<SettingsSection>('general')
+  let hashSyncReady = $state(false)
 
   function handleSelect(section: SettingsSection) {
     activeSection = section
   }
+
+  function syncSectionFromHash() {
+    activeSection = currentHashSelection(settingsSections, 'general')
+  }
+
+  onMount(() => {
+    syncSectionFromHash()
+    hashSyncReady = true
+
+    const handleHashChange = () => {
+      syncSectionFromHash()
+    }
+
+    window.addEventListener('hashchange', handleHashChange)
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange)
+    }
+  })
+
+  $effect(() => {
+    if (!hashSyncReady) {
+      return
+    }
+
+    writeHashSelection(activeSection)
+  })
 </script>
 
 <PageScaffold title="Settings">

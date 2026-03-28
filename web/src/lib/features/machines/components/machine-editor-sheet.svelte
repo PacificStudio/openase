@@ -40,7 +40,11 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-2xl">
+  <SheetContent
+    side="right"
+    class="flex w-full flex-col gap-0 p-0 sm:max-w-2xl"
+    data-testid="machine-editor-sheet"
+  >
     <SheetHeader class="border-border border-b px-6 py-5 text-left">
       <div class="flex items-start justify-between gap-4 pr-10">
         <div class="min-w-0 space-y-2">
@@ -67,7 +71,7 @@
           {/if}
         </div>
 
-        <Button size="sm" onclick={onSave} disabled={saving}>
+        <Button size="sm" onclick={onSave} disabled={saving} data-testid="machine-save-button">
           {saving ? 'Saving…' : mode === 'create' ? 'Create machine' : 'Save changes'}
         </Button>
       </div>

@@ -58,6 +58,7 @@ func (r routeRegistrar) registerAPIRoutes() {
 	}
 	if r.server.catalog != nil {
 		r.server.registerCatalogRoutes(r.api)
+		r.server.registerAppContextRoutes(r.api)
 	}
 	r.server.registerTicketRoutes(r.api)
 	r.server.registerChatRoutes(r.api)
