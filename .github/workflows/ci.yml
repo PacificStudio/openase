@@ -88,6 +88,15 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
@@ -183,6 +192,15 @@ jobs:
           name: embedded-web-assets
           path: internal/webui/static
 
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
@@ -214,6 +232,15 @@ jobs:
         run: |
           mkdir -p internal/webui/static
           printf 'lint placeholder for embedded web assets\n' > internal/webui/static/lint-placeholder.txt
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
