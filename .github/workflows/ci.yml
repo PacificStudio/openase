@@ -7,6 +7,13 @@ on:
 permissions:
   contents: read
 
+env:
+  # Keep Go caches inside the checked-out workspace so self-hosted runner jobs
+  # never restore archives into a long-lived shared ~/go tree.
+  GOMODCACHE: ${{ github.workspace }}/.cache/go/pkg/mod
+  GOCACHE: ${{ github.workspace }}/.cache/go/build
+  GOTMPDIR: ${{ github.workspace }}/.cache/go/tmp
+
 jobs:
   changes:
     name: Detect Changes
@@ -87,6 +94,9 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Prepare Isolated Go Cache Directories
+        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
@@ -180,6 +190,9 @@ jobs:
           name: embedded-web-assets
           path: internal/webui/static
 
+      - name: Prepare Isolated Go Cache Directories
+        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
@@ -211,6 +224,9 @@ jobs:
         run: |
           mkdir -p internal/webui/static
           printf 'lint placeholder for embedded web assets\n' > internal/webui/static/lint-placeholder.txt
+
+      - name: Prepare Isolated Go Cache Directories
+        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
