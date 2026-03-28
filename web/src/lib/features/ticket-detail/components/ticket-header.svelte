@@ -4,6 +4,7 @@
   import { Input } from '$ui/input'
   import { Separator } from '$ui/separator'
   import * as Select from '$ui/select'
+  import Bot from '@lucide/svelte/icons/bot'
   import Copy from '@lucide/svelte/icons/copy'
   import Check from '@lucide/svelte/icons/check'
   import Pencil from '@lucide/svelte/icons/pencil'
@@ -16,13 +17,17 @@
     ticket,
     statuses,
     savingFields = false,
+    assistantOpen = false,
     onClose,
+    onToggleAssistant,
     onSaveFields,
   }: {
     ticket: TicketDetail
     statuses: TicketStatusOption[]
     savingFields?: boolean
+    assistantOpen?: boolean
     onClose?: () => void
+    onToggleAssistant?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
   } = $props()
 
@@ -134,7 +139,15 @@
         {typeLabels[ticket.type] ?? ticket.type}
       </Badge>
     </div>
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-2">
+      <Button
+        variant={assistantOpen ? 'secondary' : 'outline'}
+        size="sm"
+        onclick={onToggleAssistant}
+      >
+        <Bot class="size-4" />
+        AI 分析
+      </Button>
       <Button variant="ghost" size="icon-sm" onclick={onClose}>
         <X class="size-3.5" />
       </Button>

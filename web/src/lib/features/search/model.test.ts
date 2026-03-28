@@ -118,6 +118,7 @@ describe('global search index', () => {
   it('builds project navigation and workspace command entries', () => {
     const items = buildFixtureSearchIndex()
 
+    expect(items.some((item) => item.id === 'command-open-project-ai')).toBe(true)
     expect(items.some((item) => item.id === 'command-new-ticket')).toBe(true)
     expect(items.some((item) => item.id === 'command-toggle-theme')).toBe(true)
     expect(items.some((item) => item.id === 'page-tickets' && item.badge === 'Current')).toBe(true)
@@ -145,6 +146,16 @@ describe('global search index', () => {
         badge: 'Command',
         searchText: 'Toggle Theme Switch theme Command',
         action: { kind: 'toggle_theme' },
+      },
+      {
+        id: 'command-open-project-ai',
+        group: 'Commands',
+        kind: 'command',
+        title: 'Ask AI',
+        subtitle: 'Open project AI.',
+        badge: 'Command',
+        searchText: 'Ask AI Open project AI. Command',
+        action: { kind: 'open_project_ai' },
       },
       {
         id: 'organization-org-1',

@@ -1,6 +1,7 @@
 export type SearchItemAction =
   | { kind: 'navigate'; href: string }
   | { kind: 'open_ticket'; ticketId: string }
+  | { kind: 'open_project_ai' }
   | { kind: 'new_ticket' }
   | { kind: 'toggle_theme' }
 
