@@ -7,13 +7,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Keep Go caches inside the checked-out workspace so self-hosted runner jobs
-  # never restore archives into a long-lived shared ~/go tree.
-  GOMODCACHE: ${{ github.workspace }}/.cache/go/pkg/mod
-  GOCACHE: ${{ github.workspace }}/.cache/go/build
-  GOTMPDIR: ${{ github.workspace }}/.cache/go/tmp
-
 jobs:
   changes:
     name: Detect Changes
@@ -78,6 +71,12 @@ jobs:
   api-contract:
     name: API Contract Checks
     runs-on: [self-hosted, Linux, X64]
+    env:
+      # Keep Go caches outside the checkout so self-hosted jobs avoid both the
+      # shared ~/go tree and actions/checkout cleanup conflicts.
+      GOMODCACHE: ${{ runner.temp }}/openase-go/pkg/mod
+      GOCACHE: ${{ runner.temp }}/openase-go/build
+      GOTMPDIR: ${{ runner.temp }}/openase-go/tmp
 
     steps:
       - name: Check Out Repository
@@ -175,6 +174,10 @@ jobs:
       - changes
       - api-contract
       - frontend
+    env:
+      GOMODCACHE: ${{ runner.temp }}/openase-go/pkg/mod
+      GOCACHE: ${{ runner.temp }}/openase-go/build
+      GOTMPDIR: ${{ runner.temp }}/openase-go/tmp
     if: |
       needs.changes.outputs.go_changed == 'true' &&
       (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
@@ -212,6 +215,10 @@ jobs:
     name: Go Lint
     runs-on: [self-hosted, Linux, X64]
     needs: changes
+    env:
+      GOMODCACHE: ${{ runner.temp }}/openase-go/pkg/mod
+      GOCACHE: ${{ runner.temp }}/openase-go/build
+      GOTMPDIR: ${{ runner.temp }}/openase-go/tmp
     if: needs.changes.outputs.go_changed == 'true'
 
     steps:
