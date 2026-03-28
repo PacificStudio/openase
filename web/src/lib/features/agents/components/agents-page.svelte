@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { connectEventStream } from '$lib/api/sse'
+  import { currentHashSelection, writeHashSelection } from '$lib/utils/hash-state'
   import type { AgentProvider, Machine } from '$lib/api/contracts'
   import type { AgentsPageData } from '../data'
   import { loadAgentsPageResult } from '../page-data'
@@ -25,7 +27,10 @@
   import { wireAgentOutputStream } from './agent-output-stream.svelte'
   import { createProviderEditorState } from './provider-editor-state.svelte'
 
-  let activeTab = $state('runtime')
+  const agentPageTabs = ['runtime', 'definitions', 'providers'] as const
+
+  let activeTab = $state<(typeof agentPageTabs)[number]>('runtime')
+  let hashSyncReady = $state(false)
   let agents = $state<AgentInstance[]>([])
   let agentRuns = $state<AgentRunInstance[]>([])
   let providers = $state<ProviderConfig[]>([])
@@ -51,6 +56,33 @@
   const selectedOutputAgent = $derived(
     agents.find((agent) => agent.id === outputState.selectedAgentId) ?? null,
   )
+
+  function syncTabFromHash() {
+    activeTab = currentHashSelection(agentPageTabs, 'runtime')
+  }
+
+  onMount(() => {
+    syncTabFromHash()
+    hashSyncReady = true
+
+    const handleHashChange = () => {
+      syncTabFromHash()
+    }
+
+    window.addEventListener('hashchange', handleHashChange)
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange)
+    }
+  })
+
+  $effect(() => {
+    if (!hashSyncReady) {
+      return
+    }
+
+    writeHashSelection(activeTab)
+  })
 
   $effect(() => {
     const projectId = appStore.currentProject?.id,

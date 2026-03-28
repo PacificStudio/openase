@@ -56,9 +56,9 @@ func (r routeRegistrar) registerAPIRoutes() {
 	if r.server.agentPlatform != nil {
 		r.server.registerAgentPlatformRoutes(r.api.Group("/platform", r.server.authenticateAgentToken))
 	}
-	if r.server.catalog != nil {
-		r.server.registerCatalogRoutes(r.api)
-	}
+		if r.server.catalog != nil {
+			r.server.registerCatalogRoutes(r.api)
+		}
 	r.server.registerTicketRoutes(r.api)
 	r.server.registerChatRoutes(r.api)
 	r.server.registerWorkflowRoutes(r.api)

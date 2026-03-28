@@ -19,9 +19,8 @@
   } from '../types'
   import { type SkillState, toHarnessContent } from '../model'
   import {
+    loadWorkflowPageData,
     loadWorkflowHarness,
-    loadWorkflowIndex,
-    loadWorkflowRepositoryPrerequisite,
     type WorkflowRepositoryPrerequisite,
   } from '../data'
   import WorkflowsPageBody from './workflows-page-body.svelte'
@@ -37,6 +36,7 @@
     selectedId = $state('')
   let harness = $state<ReturnType<typeof toHarnessContent> | null>(null),
     draftHarness = $state('')
+  let loadedHarnessWorkflowId = $state('')
   let skillStates = $state<SkillState[]>([])
   let validationIssues = $state<HarnessValidationIssue[]>([])
   let builtinRoleContent = $state(''),
@@ -57,6 +57,7 @@
     selectedId = ''
     harness = null
     draftHarness = ''
+    loadedHarnessWorkflowId = ''
     skillStates = []
     statuses = []
     agentOptions = []
@@ -80,26 +81,32 @@
       loading = true
       loadError = ''
       try {
-        const nextPrerequisite = await loadWorkflowRepositoryPrerequisite(projectId)
+        const payload = await loadWorkflowPageData(projectId, orgId, selectedId)
         if (cancelled) return
-        prerequisite = nextPrerequisite
-        if (nextPrerequisite.kind !== 'ready') {
+        prerequisite = payload.prerequisite
+        if (payload.prerequisite.kind !== 'ready') {
           resetWorkflowContent()
           return
         }
-        const payload = await loadWorkflowIndex(projectId, orgId, selectedId)
-        if (cancelled) return
         const nextWorkflows = payload.workflows
         workflows = nextWorkflows
         agentOptions = payload.agentOptions
         providers = payload.providers
-        if (!selectedId || !nextWorkflows.some((workflow) => workflow.id === selectedId)) {
-          selectedId = nextWorkflows[0]?.id ?? ''
+        if (
+          !selectedId ||
+          !nextWorkflows.some((workflow) => workflow.id === selectedId) ||
+          payload.selectedWorkflowId
+        ) {
+          selectedId = payload.selectedWorkflowId || nextWorkflows[0]?.id || ''
         }
         skillStates = payload.skillStates
         builtinRoleContent = payload.builtinRoleContent
         statuses = payload.statuses
         variableGroups = payload.variableGroups
+        harness = payload.harness
+        draftHarness = payload.harness?.rawContent ?? ''
+        loadedHarnessWorkflowId = payload.harness && selectedId ? selectedId : ''
+        validationIssues = []
       } catch (caughtError) {
         if (cancelled) return
         loadError =
@@ -121,7 +128,11 @@
     if (!workflowId || !projectId) {
       harness = null
       draftHarness = ''
+      loadedHarnessWorkflowId = ''
       validationIssues = []
+      return
+    }
+    if (workflowId === loadedHarnessWorkflowId) {
       return
     }
     let cancelled = false
@@ -131,6 +142,7 @@
         if (cancelled) return
         harness = payload.harness
         draftHarness = payload.harness.rawContent
+        loadedHarnessWorkflowId = workflowId
         validationIssues = []
         skillStates = payload.skillStates
       } catch (caughtError) {

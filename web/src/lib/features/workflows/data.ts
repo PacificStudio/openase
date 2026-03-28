@@ -63,7 +63,7 @@ export function mapWorkflowSummary(
   }
 }
 
-function mapWorkflowAgentOptions(
+export function mapWorkflowAgentOptions(
   agents: Awaited<ReturnType<typeof listAgents>>['agents'],
   providers: Awaited<ReturnType<typeof listProviders>>['providers'],
 ): WorkflowAgentOption[] {
@@ -88,7 +88,7 @@ function mapWorkflowAgentOptions(
     .sort((left, right) => left.label.localeCompare(right.label))
 }
 
-function mapStatusOptions(
+export function mapStatusOptions(
   statuses: Awaited<ReturnType<typeof listStatuses>>['statuses'],
 ): WorkflowStatusOption[] {
   return statuses
@@ -115,6 +115,26 @@ export async function loadWorkflowRepositoryPrerequisite(
     primaryRepoId: primaryRepo.id,
     primaryRepoName: primaryRepo.name,
     repoCount: payload.repos.length,
+  }
+}
+
+export function mapWorkflowRepositoryPrerequisiteFromRepos(
+  repos: Array<{ id: string; name: string; is_primary: boolean }>,
+): WorkflowRepositoryPrerequisite {
+  const primaryRepo = repos.find((repo) => repo.is_primary)
+
+  if (!primaryRepo) {
+    return {
+      kind: 'missing_primary_repo',
+      repoCount: repos.length,
+    }
+  }
+
+  return {
+    kind: 'ready',
+    primaryRepoId: primaryRepo.id,
+    primaryRepoName: primaryRepo.name,
+    repoCount: repos.length,
   }
 }
 
@@ -170,6 +190,28 @@ export async function loadWorkflowHarness(projectId: string, workflowId: string)
   return {
     harness: toHarnessContent(harnessPayload.harness.content),
     skillStates: mapSkillStates(skillPayload.skills, workflowId),
+  }
+}
+
+export async function loadWorkflowPageData(projectId: string, orgId: string, selectedId: string) {
+  const prerequisite = await loadWorkflowRepositoryPrerequisite(projectId)
+  const index = await loadWorkflowIndex(projectId, orgId, selectedId)
+  const selectedWorkflowId = selectedId || index.workflows[0]?.id || ''
+  const harnessPayload = selectedWorkflowId
+    ? await loadWorkflowHarness(projectId, selectedWorkflowId)
+    : null
+
+  return {
+    prerequisite,
+    agentOptions: index.agentOptions,
+    workflows: index.workflows,
+    builtinRoleContent: index.builtinRoleContent,
+    providers: index.providers,
+    statuses: index.statuses,
+    skillStates: harnessPayload?.skillStates ?? index.skillStates,
+    variableGroups: index.variableGroups,
+    selectedWorkflowId,
+    harness: harnessPayload?.harness ?? null,
   }
 }
 

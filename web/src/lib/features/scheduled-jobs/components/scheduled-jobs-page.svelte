@@ -1,8 +1,10 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { ApiError } from '$lib/api/client'
+  import { listStatuses, listWorkflows } from '$lib/api/openase'
   import { WorkflowScheduledJobsPanel } from '$lib/features/settings'
-  import { loadWorkflowCatalog, type WorkflowSummary } from '$lib/features/workflows'
+  import { mapStatusOptions, mapWorkflowSummary } from '$lib/features/workflows/data'
+  import type { WorkflowSummary } from '$lib/features/workflows'
   import { projectPath } from '$lib/stores/app-context'
   import { Button } from '$ui/button'
 
@@ -18,8 +20,7 @@
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
-    const orgId = appStore.currentOrg?.id
-    if (!projectId || !orgId) {
+    if (!projectId || !appStore.currentOrg?.id) {
       workflows = []
       error = ''
       loading = false
@@ -33,10 +34,17 @@
       error = ''
 
       try {
-        const payload = await loadWorkflowCatalog(projectId, orgId)
+        const [workflowPayload, statusPayload] = await Promise.all([
+          listWorkflows(projectId),
+          listStatuses(projectId),
+        ])
         if (cancelled) return
 
-        workflows = payload.workflows
+        const statuses = mapStatusOptions(statusPayload.statuses)
+        const statusNamesById = new Map(statuses.map((status) => [status.id, status.name]))
+        workflows = workflowPayload.workflows.map((workflow) =>
+          mapWorkflowSummary(workflow, statusNamesById),
+        )
       } catch (caughtError) {
         if (cancelled) return
         error =

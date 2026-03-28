@@ -26,6 +26,7 @@
   import RepositoryEditorSheet from './repository-editor-sheet.svelte'
 
   const repositoriesCapability = getSettingsSectionCapability('repositories')
+  let {} = $props()
 
   let repos = $state<ProjectRepoRecord[]>([])
   let loading = $state(false)
@@ -49,19 +50,12 @@
     }
 
     let cancelled = false
-
     const load = async () => {
       loading = true
-
       try {
         const payload = await listProjectRepos(projectId)
         if (cancelled) return
-        applyLoadedRepos(payload.repos)
-      } catch (caughtError) {
-        if (cancelled) return
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load repositories.',
-        )
+        syncLoadedRepos(payload.repos)
       } finally {
         if (!cancelled) {
           loading = false
@@ -76,15 +70,23 @@
     }
   })
 
-  function applyLoadedRepos(nextRepos: ProjectRepoRecord[]) {
-    repos = sortProjectRepos(nextRepos)
+  function syncLoadedRepos(nextRepos: ProjectRepoRecord[]) {
+    const sortedRepos = sortProjectRepos(nextRepos)
+    repos = sortedRepos
 
-    if (repos.length === 0) {
+    if (sortedRepos.length === 0) {
       selectedId = ''
       editorOpen = false
       mode = 'create'
       draft = createEmptyRepositoryDraft({ isPrimary: true })
       return
+    }
+
+    if (selectedId && !sortedRepos.some((repo) => repo.id === selectedId)) {
+      selectedId = ''
+      editorOpen = false
+      mode = 'create'
+      draft = createEmptyRepositoryDraft({ isPrimary: false })
     }
   }
 
@@ -104,7 +106,7 @@
 
   async function reloadRepos(projectId: string) {
     const payload = await listProjectRepos(projectId)
-    applyLoadedRepos(payload.repos)
+    syncLoadedRepos(payload.repos)
   }
 
   function reloadFailureMessage(action: 'created' | 'updated' | 'deleted', detail?: string) {
@@ -222,7 +224,7 @@
     {selectedId}
     {deletingId}
     onCreate={startCreate}
-    onSelect={openRepo}
+    onOpenRepo={openRepo}
     onDelete={(repo) => void handleDeleteRepo(repo)}
   />
 

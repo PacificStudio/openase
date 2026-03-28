@@ -7,6 +7,7 @@
   } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
   import { archiveProject, listWorkflows, updateProject } from '$lib/api/openase'
+  import type { Workflow } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { organizationPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -17,6 +18,7 @@
   import { Separator } from '$ui/separator'
 
   const generalCapability = getSettingsSectionCapability('general')
+  let {} = $props()
 
   let projectName = $state('')
   let description = $state('')
@@ -25,6 +27,7 @@
   let workflows = $state<Array<{ value: string; label: string }>>([])
   let saving = $state(false)
   let archiving = $state(false)
+  let loadingWorkflows = $state(false)
 
   $effect(() => {
     const project = appStore.currentProject
@@ -46,22 +49,23 @@
     const projectId = appStore.currentProject?.id
     if (!projectId) {
       workflows = []
+      loadingWorkflows = false
       return
     }
 
     let cancelled = false
-
     const load = async () => {
+      loadingWorkflows = true
       try {
         const payload = await listWorkflows(projectId)
         if (cancelled) return
-        workflows = payload.workflows.map((workflow) => ({
+        workflows = payload.workflows.map((workflow: Workflow) => ({
           value: workflow.id,
           label: workflow.name,
         }))
-      } catch {
+      } finally {
         if (!cancelled) {
-          workflows = []
+          loadingWorkflows = false
         }
       }
     }
@@ -158,7 +162,11 @@
         }}
       >
         <Select.Trigger class="w-full">
-          {workflows.find((w) => w.value === defaultWorkflow)?.label ?? 'No default workflow'}
+          {#if loadingWorkflows}
+            Loading workflows…
+          {:else}
+            {workflows.find((w) => w.value === defaultWorkflow)?.label ?? 'No default workflow'}
+          {/if}
         </Select.Trigger>
         <Select.Content>
           {#each workflows as w (w.value)}

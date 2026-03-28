@@ -23,37 +23,27 @@ export async function loadAgentsPageData(
   orgId: string,
   defaultProviderId: string | null,
 ): Promise<AgentsPageData> {
-  const [
-    agentPayload,
-    agentRunPayload,
-    providerPayload,
-    ticketPayload,
-    workflowPayload,
-    machinePayload,
-  ] = await Promise.all([
-    listAgents(projectId),
-    listAgentRuns(projectId),
-    listProviders(orgId),
-    listTickets(projectId),
-    listWorkflows(projectId),
-    listMachines(orgId),
-  ])
+  const [providersPayload, ticketsPayload, workflowsPayload, agentsPayload, agentRunsPayload, machinesPayload] =
+    await Promise.all([
+      listProviders(orgId),
+      listTickets(projectId),
+      listWorkflows(projectId),
+      listAgents(projectId),
+      listAgentRuns(projectId),
+      listMachines(orgId),
+    ])
 
   return {
     agentRuns: buildAgentRunRows(
-      providerPayload.providers,
-      ticketPayload.tickets,
-      workflowPayload.workflows,
-      agentPayload.agents,
-      agentRunPayload.agent_runs,
+      providersPayload.providers,
+      ticketsPayload.tickets,
+      workflowsPayload.workflows,
+      agentsPayload.agents,
+      agentRunsPayload.agent_runs,
     ),
-    providerItems: providerPayload.providers,
-    machineItems: machinePayload.machines,
-    providers: buildProviderCards(
-      providerPayload.providers,
-      agentPayload.agents,
-      defaultProviderId,
-    ),
-    agents: buildAgentRows(providerPayload.providers, ticketPayload.tickets, agentPayload.agents),
+    providerItems: providersPayload.providers,
+    machineItems: machinesPayload.machines,
+    providers: buildProviderCards(providersPayload.providers, agentsPayload.agents, defaultProviderId),
+    agents: buildAgentRows(providersPayload.providers, ticketsPayload.tickets, agentsPayload.agents),
   }
 }
