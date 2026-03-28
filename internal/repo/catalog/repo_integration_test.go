@@ -83,7 +83,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		Name:                   "OpenASE",
 		Slug:                   "openase",
 		Description:            "Issue-driven automation",
-		Status:                 domain.ProjectStatusActive,
+		Status:                 domain.ProjectStatusInProgress,
 		DefaultAgentProviderID: &defaultProviderID,
 		AccessibleMachineIDs:   []uuid.UUID{machines[0].ID},
 		MaxConcurrentAgents:    4,
@@ -91,7 +91,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateProject() error = %v", err)
 	}
-	if project.Status != domain.ProjectStatusActive || project.DefaultAgentProviderID == nil || *project.DefaultAgentProviderID != defaultProviderID {
+	if project.Status != domain.ProjectStatusInProgress || project.DefaultAgentProviderID == nil || *project.DefaultAgentProviderID != defaultProviderID {
 		t.Fatalf("CreateProject() = %+v", project)
 	}
 
@@ -117,7 +117,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		Name:                   "OpenASE Core",
 		Slug:                   "openase-core",
 		Description:            "Backend coverage rollout",
-		Status:                 domain.ProjectStatusPaused,
+		Status:                 domain.ProjectStatusCanceled,
 		DefaultAgentProviderID: nil,
 		AccessibleMachineIDs:   []uuid.UUID{machines[0].ID},
 		MaxConcurrentAgents:    6,
@@ -125,7 +125,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateProject() error = %v", err)
 	}
-	if updatedProject.Name != "OpenASE Core" || updatedProject.Status != domain.ProjectStatusPaused || updatedProject.DefaultAgentProviderID != nil {
+	if updatedProject.Name != "OpenASE Core" || updatedProject.Status != domain.ProjectStatusCanceled || updatedProject.DefaultAgentProviderID != nil {
 		t.Fatalf("UpdateProject() = %+v", updatedProject)
 	}
 
@@ -412,7 +412,7 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 		Name:                 "OpenASE",
 		Slug:                 "openase",
 		Description:          "Issue-driven automation",
-		Status:               domain.ProjectStatusActive,
+		Status:               domain.ProjectStatusInProgress,
 		MaxConcurrentAgents:  2,
 		AccessibleMachineIDs: nil,
 	})
@@ -645,7 +645,7 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		Name:                "OpenASE",
 		Slug:                "openase",
 		Description:         "Coverage rollout",
-		Status:              domain.ProjectStatusActive,
+		Status:              domain.ProjectStatusInProgress,
 		MaxConcurrentAgents: 2,
 	})
 	if err != nil {
@@ -656,7 +656,7 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		Name:                "OpenASE Duplicate",
 		Slug:                "openase",
 		Description:         "Duplicate slug",
-		Status:              domain.ProjectStatusActive,
+		Status:              domain.ProjectStatusInProgress,
 		MaxConcurrentAgents: 2,
 	}); !errors.Is(err, ErrConflict) {
 		t.Fatalf("CreateProject(duplicate slug) error = %v, want %v", err, ErrConflict)

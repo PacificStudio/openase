@@ -117,7 +117,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	}
 
 	accessibleMachineID := uuid.NewString()
-	projectBody := fmt.Sprintf(`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"active","accessible_machine_ids":["%s"],"max_concurrent_agents":8}`, accessibleMachineID)
+	projectBody := fmt.Sprintf(`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"In Progress","accessible_machine_ids":["%s"],"max_concurrent_agents":8}`, accessibleMachineID)
 	projectRec := performJSONRequest(
 		t,
 		server,
@@ -133,7 +133,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Project projectResponse `json:"project"`
 	}
 	decodeResponse(t, projectRec, &createProjectPayload)
-	if createProjectPayload.Project.Status != "active" || createProjectPayload.Project.MaxConcurrentAgents != 8 {
+	if createProjectPayload.Project.Status != "In Progress" || createProjectPayload.Project.MaxConcurrentAgents != 8 {
 		t.Fatalf("unexpected created project payload: %+v", createProjectPayload.Project)
 	}
 	if len(createProjectPayload.Project.AccessibleMachineIDs) != 1 || createProjectPayload.Project.AccessibleMachineIDs[0] != accessibleMachineID {
@@ -184,7 +184,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+createProjectPayload.Project.ID,
-		fmt.Sprintf(`{"status":"paused","accessible_machine_ids":["%s"],"max_concurrent_agents":3}`, updatedAccessibleMachineID),
+		fmt.Sprintf(`{"status":"Canceled","accessible_machine_ids":["%s"],"max_concurrent_agents":3}`, updatedAccessibleMachineID),
 	)
 	if patchProjectRec.Code != http.StatusOK {
 		t.Fatalf("expected project patch 200, got %d: %s", patchProjectRec.Code, patchProjectRec.Body.String())
@@ -194,7 +194,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Project projectResponse `json:"project"`
 	}
 	decodeResponse(t, patchProjectRec, &patchProjectPayload)
-	if patchProjectPayload.Project.Status != "paused" || patchProjectPayload.Project.MaxConcurrentAgents != 3 {
+	if patchProjectPayload.Project.Status != "Canceled" || patchProjectPayload.Project.MaxConcurrentAgents != 3 {
 		t.Fatalf("unexpected patched project payload: %+v", patchProjectPayload.Project)
 	}
 	if len(patchProjectPayload.Project.AccessibleMachineIDs) != 1 || patchProjectPayload.Project.AccessibleMachineIDs[0] != updatedAccessibleMachineID {
@@ -309,7 +309,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Project projectResponse `json:"project"`
 	}
 	decodeResponse(t, archiveProjectRec, &archiveProjectPayload)
-	if archiveProjectPayload.Project.Status != "archived" {
+	if archiveProjectPayload.Project.Status != "Archived" {
 		t.Fatalf("expected archived project status, got %+v", archiveProjectPayload.Project)
 	}
 }
@@ -345,7 +345,7 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		Status:         "online",
 	}
 	service.machines[machineID] = domain.Machine{ID: machineID, OrganizationID: orgID, Name: "builder", Host: "builder.local", Port: 22, Status: "online"}
-	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase", Status: "active"}
+	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase", Status: "In Progress"}
 	service.projectRepos[repoID] = domain.ProjectRepo{
 		ID:            repoID,
 		ProjectID:     projectID,
@@ -379,6 +379,8 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "list projects invalid org id", method: http.MethodGet, path: "/api/v1/orgs/not-a-uuid/projects", wantStatus: http.StatusBadRequest, wantBody: "orgId must be a valid UUID"},
 		{name: "list machines invalid org id", method: http.MethodGet, path: "/api/v1/orgs/not-a-uuid/machines", wantStatus: http.StatusBadRequest, wantBody: "orgId must be a valid UUID"},
 		{name: "create project invalid payload", method: http.MethodPost, path: "/api/v1/orgs/" + orgID.String() + "/projects", body: `{"name":" ","slug":"openase"}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
+		{name: "create project legacy status", method: http.MethodPost, path: "/api/v1/orgs/" + orgID.String() + "/projects", body: `{"name":"OpenASE","slug":"openase","status":"active"}`, wantStatus: http.StatusBadRequest, wantBody: "status must be one of Backlog, Planned, In Progress, Completed, Canceled, Archived"},
+		{name: "create project whitespace status", method: http.MethodPost, path: "/api/v1/orgs/" + orgID.String() + "/projects", body: `{"name":"OpenASE","slug":"openase","status":" Planned "}`, wantStatus: http.StatusBadRequest, wantBody: "status must be one of Backlog, Planned, In Progress, Completed, Canceled, Archived"},
 		{name: "create machine invalid payload", method: http.MethodPost, path: "/api/v1/orgs/" + orgID.String() + "/machines", body: `{"name":"builder","host":" ","port":22}`, wantStatus: http.StatusBadRequest, wantBody: "host must not be empty"},
 		{name: "get machine invalid id", method: http.MethodGet, path: "/api/v1/machines/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "machineId must be a valid UUID"},
 		{name: "get machine missing", method: http.MethodGet, path: "/api/v1/machines/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
@@ -393,6 +395,8 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "get project invalid id", method: http.MethodGet, path: "/api/v1/projects/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
 		{name: "get project missing", method: http.MethodGet, path: "/api/v1/projects/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "patch project invalid default workflow", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String(), body: `{"default_workflow_id":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "default_workflow_id must be a valid UUID"},
+		{name: "patch project legacy status", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String(), body: `{"status":"paused"}`, wantStatus: http.StatusBadRequest, wantBody: "status must be one of Backlog, Planned, In Progress, Completed, Canceled, Archived"},
+		{name: "patch project lowercase status", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String(), body: `{"status":"planned"}`, wantStatus: http.StatusBadRequest, wantBody: "status must be one of Backlog, Planned, In Progress, Completed, Canceled, Archived"},
 		{name: "list repos invalid project id", method: http.MethodGet, path: "/api/v1/projects/not-a-uuid/repos", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
 		{name: "create repo invalid project id", method: http.MethodPost, path: "/api/v1/projects/not-a-uuid/repos", body: `{"name":"backend","repository_url":"https://github.com/acme/backend.git"}`, wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
 		{name: "create repo invalid payload", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/repos", body: `{"name":" ","repository_url":"https://github.com/acme/backend.git"}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
@@ -450,7 +454,7 @@ func TestArchiveOrganizationRouteArchivesOrganizationAndProjects(t *testing.T) {
 		OrganizationID: orgID,
 		Name:           "OpenASE",
 		Slug:           "openase",
-		Status:         "active",
+		Status:         "In Progress",
 	}
 
 	rec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/orgs/"+orgID.String(), "")
@@ -465,7 +469,7 @@ func TestArchiveOrganizationRouteArchivesOrganizationAndProjects(t *testing.T) {
 	if payload.Organization.Status != "archived" {
 		t.Fatalf("expected archived organization response, got %+v", payload.Organization)
 	}
-	if project := service.projects[projectID]; project.Status != "archived" {
+	if project := service.projects[projectID]; project.Status != "Archived" {
 		t.Fatalf("expected project to be archived with org, got %+v", project)
 	}
 
@@ -764,7 +768,7 @@ func TestCreateProjectSeedsDefaultTicketStatuses(t *testing.T) {
 			"name":                  "OpenASE",
 			"slug":                  "openase",
 			"description":           "Main control plane",
-			"status":                "active",
+			"status":                "In Progress",
 			"max_concurrent_agents": 4,
 		},
 		http.StatusCreated,
@@ -1134,7 +1138,7 @@ func (f *fakeCatalogService) ArchiveOrganization(_ context.Context, id uuid.UUID
 		if project.OrganizationID != id {
 			continue
 		}
-		project.Status = "archived"
+		project.Status = "Archived"
 		f.projects[projectID] = project
 	}
 	return item, nil
@@ -1142,7 +1146,7 @@ func (f *fakeCatalogService) ArchiveOrganization(_ context.Context, id uuid.UUID
 
 func (f *fakeCatalogService) ListMachines(_ context.Context, organizationID uuid.UUID) ([]domain.Machine, error) {
 	item, ok := f.organizations[organizationID]
-	if !ok || item.Status == "archived" {
+	if !ok || item.Status == "Archived" {
 		return nil, catalogservice.ErrNotFound
 	}
 
@@ -1268,7 +1272,7 @@ func (f *fakeCatalogService) TestMachineConnection(_ context.Context, id uuid.UU
 
 func (f *fakeCatalogService) ListProjects(_ context.Context, organizationID uuid.UUID) ([]domain.Project, error) {
 	item, ok := f.organizations[organizationID]
-	if !ok || item.Status == "archived" {
+	if !ok || item.Status == "Archived" {
 		return nil, catalogservice.ErrNotFound
 	}
 
@@ -1351,7 +1355,7 @@ func (f *fakeCatalogService) ArchiveProject(_ context.Context, id uuid.UUID) (do
 		return domain.Project{}, catalogservice.ErrNotFound
 	}
 
-	item.Status = "archived"
+	item.Status = "Archived"
 	f.projects[id] = item
 
 	return item, nil

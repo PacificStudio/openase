@@ -107,13 +107,13 @@ func (_u *ProjectUpdate) ClearDescription() *ProjectUpdate {
 }
 
 // SetStatus sets the "status" field.
-func (_u *ProjectUpdate) SetStatus(v project.Status) *ProjectUpdate {
+func (_u *ProjectUpdate) SetStatus(v string) *ProjectUpdate {
 	_u.mutation.SetStatus(v)
 	return _u
 }
 
 // SetNillableStatus sets the "status" field if the given value is not nil.
-func (_u *ProjectUpdate) SetNillableStatus(v *project.Status) *ProjectUpdate {
+func (_u *ProjectUpdate) SetNillableStatus(v *string) *ProjectUpdate {
 	if v != nil {
 		_u.SetStatus(*v)
 	}
@@ -726,11 +726,6 @@ func (_u *ProjectUpdate) check() error {
 			return &ValidationError{Name: "slug", err: fmt.Errorf(`ent: validator failed for field "Project.slug": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Status(); ok {
-		if err := project.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Project.status": %w`, err)}
-		}
-	}
 	if _u.mutation.OrganizationCleared() && len(_u.mutation.OrganizationIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Project.organization"`)
 	}
@@ -762,7 +757,7 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		_spec.ClearField(project.FieldDescription, field.TypeString)
 	}
 	if value, ok := _u.mutation.Status(); ok {
-		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
+		_spec.SetField(project.FieldStatus, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.GithubOutboundCredential(); ok {
 		_spec.SetField(project.FieldGithubOutboundCredential, field.TypeJSON, value)
@@ -1500,13 +1495,13 @@ func (_u *ProjectUpdateOne) ClearDescription() *ProjectUpdateOne {
 }
 
 // SetStatus sets the "status" field.
-func (_u *ProjectUpdateOne) SetStatus(v project.Status) *ProjectUpdateOne {
+func (_u *ProjectUpdateOne) SetStatus(v string) *ProjectUpdateOne {
 	_u.mutation.SetStatus(v)
 	return _u
 }
 
 // SetNillableStatus sets the "status" field if the given value is not nil.
-func (_u *ProjectUpdateOne) SetNillableStatus(v *project.Status) *ProjectUpdateOne {
+func (_u *ProjectUpdateOne) SetNillableStatus(v *string) *ProjectUpdateOne {
 	if v != nil {
 		_u.SetStatus(*v)
 	}
@@ -2132,11 +2127,6 @@ func (_u *ProjectUpdateOne) check() error {
 			return &ValidationError{Name: "slug", err: fmt.Errorf(`ent: validator failed for field "Project.slug": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Status(); ok {
-		if err := project.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Project.status": %w`, err)}
-		}
-	}
 	if _u.mutation.OrganizationCleared() && len(_u.mutation.OrganizationIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Project.organization"`)
 	}
@@ -2185,7 +2175,7 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 		_spec.ClearField(project.FieldDescription, field.TypeString)
 	}
 	if value, ok := _u.mutation.Status(); ok {
-		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
+		_spec.SetField(project.FieldStatus, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.GithubOutboundCredential(); ok {
 		_spec.SetField(project.FieldGithubOutboundCredential, field.TypeJSON, value)

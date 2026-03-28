@@ -95,12 +95,12 @@
           <Select.Root
             type="single"
             value={draft.status}
-            onValueChange={(value) => onFieldChange?.('status', value || 'planning')}
+            onValueChange={(value) => onFieldChange?.('status', value || 'Planned')}
           >
-            <Select.Trigger class="w-full capitalize">{draft.status}</Select.Trigger>
+            <Select.Trigger class="w-full">{draft.status}</Select.Trigger>
             <Select.Content>
               {#each projectStatusOptions as status (status)}
-                <Select.Item value={status} class="capitalize">{status}</Select.Item>
+                <Select.Item value={status}>{status}</Select.Item>
               {/each}
             </Select.Content>
           </Select.Root>

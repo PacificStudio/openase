@@ -491,13 +491,13 @@ func parseUUIDList(fieldName string, raw []string) ([]uuid.UUID, error) {
 }
 
 func parseProjectStatus(raw string) (ProjectStatus, error) {
-	if strings.TrimSpace(raw) == "" {
+	if raw == "" {
 		return DefaultProjectStatus, nil
 	}
 
-	status := ProjectStatus(strings.ToLower(strings.TrimSpace(raw)))
+	status := ProjectStatus(raw)
 	if !status.IsValid() {
-		return "", fmt.Errorf("status must be one of planning, active, paused, archived")
+		return "", fmt.Errorf("status must be one of Backlog, Planned, In Progress, Completed, Canceled, Archived")
 	}
 
 	return status, nil

@@ -227,7 +227,7 @@ func TestCreateProjectSeedsDefaultStatuses(t *testing.T) {
 			OrganizationID: uuid.New(),
 			Name:           "OpenASE",
 			Slug:           "openase",
-			Status:         "active",
+			Status:         "In Progress",
 		},
 	}
 	resetter := &stubProjectStatusBootstrapper{}
@@ -237,7 +237,7 @@ func TestCreateProjectSeedsDefaultStatuses(t *testing.T) {
 		OrganizationID: repo.createdProject.OrganizationID,
 		Name:           "OpenASE",
 		Slug:           "openase",
-		Status:         "active",
+		Status:         "In Progress",
 	})
 	if err != nil {
 		t.Fatalf("CreateProject returned error: %v", err)

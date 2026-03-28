@@ -574,7 +574,7 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "slug", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"planning", "active", "paused", "archived"}, Default: "planning"},
+		{Name: "status", Type: field.TypeString, Default: "Planned"},
 		{Name: "github_outbound_credential", Type: field.TypeJSON, Nullable: true},
 		{Name: "github_token_probe", Type: field.TypeJSON, Nullable: true},
 		{Name: "accessible_machine_ids", Type: field.TypeJSON},

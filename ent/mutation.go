@@ -12284,7 +12284,7 @@ type ProjectMutation struct {
 	name                          *string
 	slug                          *string
 	description                   *string
-	status                        *project.Status
+	status                        *string
 	github_outbound_credential    **githubauth.StoredCredential
 	github_token_probe            **githubauth.TokenProbe
 	accessible_machine_ids        *[]uuid.UUID
@@ -12601,12 +12601,12 @@ func (m *ProjectMutation) ResetDescription() {
 }
 
 // SetStatus sets the "status" field.
-func (m *ProjectMutation) SetStatus(pr project.Status) {
-	m.status = &pr
+func (m *ProjectMutation) SetStatus(s string) {
+	m.status = &s
 }
 
 // Status returns the value of the "status" field in the mutation.
-func (m *ProjectMutation) Status() (r project.Status, exists bool) {
+func (m *ProjectMutation) Status() (r string, exists bool) {
 	v := m.status
 	if v == nil {
 		return
@@ -12617,7 +12617,7 @@ func (m *ProjectMutation) Status() (r project.Status, exists bool) {
 // OldStatus returns the old "status" field's value of the Project entity.
 // If the Project object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectMutation) OldStatus(ctx context.Context) (v project.Status, err error) {
+func (m *ProjectMutation) OldStatus(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
 	}
@@ -13835,7 +13835,7 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		m.SetDescription(v)
 		return nil
 	case project.FieldStatus:
-		v, ok := value.(project.Status)
+		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}

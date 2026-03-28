@@ -68,13 +68,13 @@ func (_c *ProjectCreate) SetNillableDescription(v *string) *ProjectCreate {
 }
 
 // SetStatus sets the "status" field.
-func (_c *ProjectCreate) SetStatus(v project.Status) *ProjectCreate {
+func (_c *ProjectCreate) SetStatus(v string) *ProjectCreate {
 	_c.mutation.SetStatus(v)
 	return _c
 }
 
 // SetNillableStatus sets the "status" field if the given value is not nil.
-func (_c *ProjectCreate) SetNillableStatus(v *project.Status) *ProjectCreate {
+func (_c *ProjectCreate) SetNillableStatus(v *string) *ProjectCreate {
 	if v != nil {
 		_c.SetStatus(*v)
 	}
@@ -427,11 +427,6 @@ func (_c *ProjectCreate) check() error {
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Project.status"`)}
 	}
-	if v, ok := _c.mutation.Status(); ok {
-		if err := project.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Project.status": %w`, err)}
-		}
-	}
 	if _, ok := _c.mutation.AccessibleMachineIds(); !ok {
 		return &ValidationError{Name: "accessible_machine_ids", err: errors.New(`ent: missing required field "Project.accessible_machine_ids"`)}
 	}
@@ -489,7 +484,7 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 		_node.Description = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
-		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
+		_spec.SetField(project.FieldStatus, field.TypeString, value)
 		_node.Status = value
 	}
 	if value, ok := _c.mutation.GithubOutboundCredential(); ok {

@@ -23,13 +23,15 @@ func (s OrganizationStatus) IsValid() bool {
 type ProjectStatus string
 
 const (
-	DefaultProjectStatus              ProjectStatus = ProjectStatusPlanning
+	DefaultProjectStatus              ProjectStatus = ProjectStatusPlanned
 	DefaultProjectMaxConcurrentAgents               = 5
 
-	ProjectStatusPlanning ProjectStatus = "planning"
-	ProjectStatusActive   ProjectStatus = "active"
-	ProjectStatusPaused   ProjectStatus = "paused"
-	ProjectStatusArchived ProjectStatus = "archived"
+	ProjectStatusBacklog    ProjectStatus = "Backlog"
+	ProjectStatusPlanned    ProjectStatus = "Planned"
+	ProjectStatusInProgress ProjectStatus = "In Progress"
+	ProjectStatusCompleted  ProjectStatus = "Completed"
+	ProjectStatusCanceled   ProjectStatus = "Canceled"
+	ProjectStatusArchived   ProjectStatus = "Archived"
 )
 
 func (s ProjectStatus) String() string {
@@ -38,7 +40,12 @@ func (s ProjectStatus) String() string {
 
 func (s ProjectStatus) IsValid() bool {
 	switch s {
-	case ProjectStatusPlanning, ProjectStatusActive, ProjectStatusPaused, ProjectStatusArchived:
+	case ProjectStatusBacklog,
+		ProjectStatusPlanned,
+		ProjectStatusInProgress,
+		ProjectStatusCompleted,
+		ProjectStatusCanceled,
+		ProjectStatusArchived:
 		return true
 	default:
 		return false

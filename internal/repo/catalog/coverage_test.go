@@ -11,7 +11,6 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -27,10 +26,10 @@ func TestCatalogEnumMappings(t *testing.T) {
 	if got := toDomainOrganizationStatus(entorganization.StatusArchived); got != domain.OrganizationStatusArchived {
 		t.Fatalf("toDomainOrganizationStatus() = %q", got)
 	}
-	if got := toEntProjectStatus(domain.ProjectStatusPaused); got != entproject.StatusPaused {
+	if got := toEntProjectStatus(domain.ProjectStatusCanceled); got != "Canceled" {
 		t.Fatalf("toEntProjectStatus() = %q", got)
 	}
-	if got := toDomainProjectStatus(entproject.StatusActive); got != domain.ProjectStatusActive {
+	if got := toDomainProjectStatus("In Progress"); got != domain.ProjectStatusInProgress {
 		t.Fatalf("toDomainProjectStatus() = %q", got)
 	}
 	if got := toEntTicketRepoScopePRStatus(domain.TicketRepoScopePRStatusMerged); got != entticketreposcope.PrStatusMerged {
@@ -103,7 +102,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		Name:                   "OpenASE",
 		Slug:                   "openase",
 		Description:            "automation",
-		Status:                 entproject.StatusActive,
+		Status:                 "In Progress",
 		DefaultWorkflowID:      &defaultWorkflowID,
 		DefaultAgentProviderID: &defaultAgentProviderID,
 		AccessibleMachineIds:   []uuid.UUID{machineID},

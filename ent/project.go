@@ -31,7 +31,7 @@ type Project struct {
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
 	// Status holds the value of the "status" field.
-	Status project.Status `json:"status,omitempty"`
+	Status string `json:"status,omitempty"`
 	// GithubOutboundCredential holds the value of the "github_outbound_credential" field.
 	GithubOutboundCredential *githubauth.StoredCredential `json:"github_outbound_credential,omitempty"`
 	// GithubTokenProbe holds the value of the "github_token_probe" field.
@@ -292,7 +292,7 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
-				_m.Status = project.Status(value.String)
+				_m.Status = value.String
 			}
 		case project.FieldGithubOutboundCredential:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -462,7 +462,7 @@ func (_m *Project) String() string {
 	builder.WriteString(_m.Description)
 	builder.WriteString(", ")
 	builder.WriteString("status=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Status))
+	builder.WriteString(_m.Status)
 	builder.WriteString(", ")
 	builder.WriteString("github_outbound_credential=")
 	builder.WriteString(fmt.Sprintf("%v", _m.GithubOutboundCredential))
