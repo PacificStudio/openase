@@ -8,7 +8,7 @@ Usage: openase_ci_gate.sh [--plan] [--base-rev <rev>]
 Mirrors .github/workflows/ci.yml for the current branch:
 - always runs make openapi-check
 - runs frontend CI when web_changed=true
-- runs backend and Go lint checks when go_changed=true
+- runs backend formatting, tests, coverage gates, and Go lint checks when go_changed=true
 EOF
 }
 
@@ -17,6 +17,21 @@ PLAN_ONLY=false
 BASE_REV=""
 CREATED_LINT_PLACEHOLDER=false
 LINT_PLACEHOLDER_PATH=""
+
+toolchain_paths=()
+for candidate in \
+  "${ROOT_DIR}/.tooling/go/bin" \
+  "${OPENASE_GO_BIN_DIR:-}" \
+  "${HOME}/.local/go1.26.1/bin"
+do
+  if [[ -n "${candidate}" && -d "${candidate}" ]]; then
+    toolchain_paths+=("${candidate}")
+  fi
+done
+
+if [[ "${#toolchain_paths[@]}" -gt 0 ]]; then
+  PATH="$(IFS=:; printf '%s' "${toolchain_paths[*]}"):${PATH}"
+fi
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in

@@ -189,7 +189,7 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 			ID:              id,
 			Status:          domainMachineFailureStatus(machine),
 			LastHeartbeatAt: checkedAt,
-			Resources: mergeMachineProbeResources(machine.Resources, probe, checkedAt, err),
+			Resources:       mergeMachineProbeResources(machine.Resources, probe, checkedAt, err),
 		})
 		if updateErr != nil {
 			return domain.Machine{}, domain.MachineProbe{}, fmt.Errorf("%w: %v (status update failed: %v)", ErrMachineProbeFailed, err, updateErr)

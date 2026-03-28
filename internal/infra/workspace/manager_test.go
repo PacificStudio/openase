@@ -172,6 +172,71 @@ func TestTicketWorkspacePathAndPattern(t *testing.T) {
 	}
 }
 
+func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	root, err := LocalWorkspaceRoot()
+	if err != nil {
+		t.Fatalf("LocalWorkspaceRoot() error = %v", err)
+	}
+	if root != filepath.Join(homeDir, ".openase", "workspace") {
+		t.Fatalf("LocalWorkspaceRoot() = %q", root)
+	}
+
+	if got := RepoPath("/srv/workspace/ASE-1", "", " backend "); got != filepath.Join("/srv/workspace/ASE-1", "backend") {
+		t.Fatalf("RepoPath(default clone path) = %q", got)
+	}
+	if got := RepoPath("/srv/workspace/ASE-1", " services/api ", "backend"); got != filepath.Join("/srv/workspace/ASE-1", "services", "api") {
+		t.Fatalf("RepoPath(custom clone path) = %q", got)
+	}
+	if got := RepoPath(" /srv/workspace/ASE-1 ", " ", " "); got != "/srv/workspace/ASE-1" {
+		t.Fatalf("RepoPath(empty repo name) = %q", got)
+	}
+
+	if _, err := parseTicketWorkspaceRoot(" ", true); err == nil || !strings.Contains(err.Error(), "workspace_root must not be empty") {
+		t.Fatalf("parseTicketWorkspaceRoot(blank) error = %v", err)
+	}
+	if _, err := parseTicketWorkspaceRoot("relative/path", true); err == nil || !strings.Contains(err.Error(), "workspace_root must be absolute") {
+		t.Fatalf("parseTicketWorkspaceRoot(relative) error = %v", err)
+	}
+	if got, err := parseTicketWorkspaceRoot(" /srv/workspace/../workspace ", false); err != nil || got != "/srv/workspace" {
+		t.Fatalf("parseTicketWorkspaceRoot(clean) = %q, %v", got, err)
+	}
+
+	if got, err := parseTicketSegment("ticket_identifier", ticketPlaceholder); err != nil || got != ticketPlaceholder {
+		t.Fatalf("parseTicketSegment(placeholder) = %q, %v", got, err)
+	}
+	if _, err := parseRelativeWorkspacePath("repos[0].clone_path", "/abs"); err == nil || !strings.Contains(err.Error(), "must be relative") {
+		t.Fatalf("parseRelativeWorkspacePath(abs) error = %v", err)
+	}
+	if _, err := parseRelativeWorkspacePath("repos[0].clone_path", "../escape"); err == nil || !strings.Contains(err.Error(), "must stay inside the workspace") {
+		t.Fatalf("parseRelativeWorkspacePath(parent) error = %v", err)
+	}
+	if _, err := parseRelativeWorkspacePath("repos[0].clone_path", "bad path"); err == nil || !strings.Contains(err.Error(), "must match") {
+		t.Fatalf("parseRelativeWorkspacePath(pattern) error = %v", err)
+	}
+	if got, err := parseRelativeWorkspacePath("repos[0].clone_path", "./services/api"); err != nil || got != "services/api" {
+		t.Fatalf("parseRelativeWorkspacePath(clean) = %q, %v", got, err)
+	}
+
+	if _, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "repo.git", DefaultBranch: "feature/x"}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), "default_branch must not contain '/'") {
+		t.Fatalf("parseRepoInput(default branch) error = %v", err)
+	}
+	branch := "feature/x"
+	if _, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "repo.git", BranchName: &branch}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), `must equal "agent/codex-01/ASE-33"`) {
+		t.Fatalf("parseRepoInput(branch name) error = %v", err)
+	}
+
+	notDirPath := filepath.Join(t.TempDir(), "repo")
+	if err := os.WriteFile(notDirPath, []byte("not a directory"), 0o600); err != nil {
+		t.Fatalf("WriteFile(notDirPath) error = %v", err)
+	}
+	if _, err := cloneOrOpenRepository(context.Background(), notDirPath, "https://example.invalid/repo.git"); err == nil || !strings.Contains(err.Error(), "is not a directory") {
+		t.Fatalf("cloneOrOpenRepository(file path) error = %v", err)
+	}
+}
+
 func createRemoteRepo(t *testing.T, defaultBranch string, files map[string]string) (string, plumbing.Hash) {
 	t.Helper()
 

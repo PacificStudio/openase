@@ -287,15 +287,15 @@ func TestTestMachineConnectionPreservesExistingResourceSnapshot(t *testing.T) {
 			Port:           22,
 			Status:         domain.MachineStatusOnline,
 			Resources: map[string]any{
-				"transport":           "ssh",
-				"cpu_usage_percent":   61.2,
-				"memory_total_gb":     64.0,
-				"memory_used_gb":      18.5,
-				"disk_available_gb":   220.0,
-				"gpu_dispatchable":    true,
-				"checked_at":          checkedAt.Add(-10 * time.Minute).Format(time.RFC3339),
-				"last_success":        true,
-				"monitor":             map[string]any{"l1": map[string]any{"reachable": true}},
+				"transport":         "ssh",
+				"cpu_usage_percent": 61.2,
+				"memory_total_gb":   64.0,
+				"memory_used_gb":    18.5,
+				"disk_available_gb": 220.0,
+				"gpu_dispatchable":  true,
+				"checked_at":        checkedAt.Add(-10 * time.Minute).Format(time.RFC3339),
+				"last_success":      true,
+				"monitor":           map[string]any{"l1": map[string]any{"reachable": true}},
 			},
 		},
 	}
@@ -399,6 +399,116 @@ func TestRequestAgentResumeRejectsPauseRequestedState(t *testing.T) {
 	_, err := svc.RequestAgentResume(context.Background(), agentID)
 	if !errors.Is(err, ErrConflict) {
 		t.Fatalf("expected runtime control conflict, got %v", err)
+	}
+}
+
+func TestRequestAgentResumePersistsActiveState(t *testing.T) {
+	agentID := uuid.New()
+	runID := uuid.New()
+	ticketID := uuid.New()
+	repo := &stubRepository{
+		agent: domain.Agent{
+			ID:                  agentID,
+			Name:                "worker-1",
+			RuntimeControlState: domain.AgentRuntimeControlStatePaused,
+			Runtime: &domain.AgentRuntime{
+				CurrentRunID:    &runID,
+				Status:          domain.AgentStatusRunning,
+				CurrentTicketID: &ticketID,
+				RuntimePhase:    domain.AgentRuntimePhaseReady,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	item, err := svc.RequestAgentResume(context.Background(), agentID)
+	if err != nil {
+		t.Fatalf("RequestAgentResume returned error: %v", err)
+	}
+	if item.RuntimeControlState != domain.AgentRuntimeControlStateActive {
+		t.Fatalf("expected active state, got %+v", item)
+	}
+	if repo.updatedRuntimeControl == nil || repo.updatedRuntimeControl.RuntimeControlState != domain.AgentRuntimeControlStateActive {
+		t.Fatalf("expected repo runtime control update, got %+v", repo.updatedRuntimeControl)
+	}
+}
+
+func TestAgentProviderAvailabilityHelpers(t *testing.T) {
+	codexPath := "/usr/local/bin/codex"
+	remoteCodexID := uuid.New()
+	localCodexID := uuid.New()
+	claudeID := uuid.New()
+	checkedAt := time.Now().UTC()
+	workspaceRoot := "/tmp/openase-remote"
+
+	items := annotateAgentProvidersAvailability([]domain.AgentProvider{
+		{
+			ID:                  localCodexID,
+			Name:                "OpenAI Codex",
+			AdapterType:         domain.AgentProviderAdapterTypeCodexAppServer,
+			CliCommand:          "codex",
+			MachineHost:         domain.LocalMachineHost,
+			MachineStatus:       domain.MachineStatusOnline,
+			MachineResources:    providerAvailabilityResources(checkedAt, "codex", true, domain.MachineAgentAuthStatusLoggedIn, domain.MachineAgentAuthModeLogin, true),
+			MachineAgentCLIPath: &codexPath,
+		},
+		{
+			ID:                   remoteCodexID,
+			Name:                 "Remote Codex",
+			AdapterType:          domain.AgentProviderAdapterTypeCodexAppServer,
+			CliCommand:           "codex",
+			MachineID:            uuid.New(),
+			MachineHost:          "10.0.0.25",
+			MachineStatus:        domain.MachineStatusOnline,
+			MachineWorkspaceRoot: &workspaceRoot,
+			MachineResources: map[string]any{
+				"monitor": map[string]any{
+					"l4": map[string]any{
+						"checked_at": checkedAt.Format(time.RFC3339),
+						"codex": map[string]any{
+							"installed":   true,
+							"auth_status": string(domain.MachineAgentAuthStatusLoggedIn),
+							"auth_mode":   string(domain.MachineAgentAuthModeLogin),
+							"ready":       true,
+						},
+					},
+				},
+			},
+		},
+		{
+			ID:            claudeID,
+			Name:          "Claude Code",
+			AdapterType:   domain.AgentProviderAdapterTypeClaudeCodeCLI,
+			CliCommand:    "claude",
+			MachineID:     uuid.New(),
+			MachineHost:   "10.0.0.50",
+			MachineStatus: domain.MachineStatusMaintenance,
+		},
+	})
+
+	if !items[0].Available {
+		t.Fatalf("expected local codex provider to be available, got %+v", items[0])
+	}
+	if !items[1].Available {
+		t.Fatalf("expected remote codex provider to be available, got %+v", items[1])
+	}
+	if items[2].Available {
+		t.Fatalf("expected maintenance provider to be unavailable, got %+v", items[2])
+	}
+
+	state, checked, reason := domain.ResolveAgentProviderAvailability(items[1], checkedAt)
+	if state != domain.AgentProviderAvailabilityStateAvailable || checked == nil || reason != nil {
+		t.Fatalf("ResolveAgentProviderAvailability(remote) = %q, %v, %v", state, checked, reason)
+	}
+	state, checked, reason = domain.ResolveAgentProviderAvailability(domain.AgentProvider{
+		AdapterType:   domain.AgentProviderAdapterTypeClaudeCodeCLI,
+		MachineStatus: domain.MachineStatusOnline,
+	}, checkedAt)
+	if state != domain.AgentProviderAvailabilityStateUnknown || checked != nil || reason == nil || *reason != "l4_snapshot_missing" {
+		t.Fatalf("ResolveAgentProviderAvailability(missing snapshot) = %q, %v, %v", state, checked, reason)
+	}
+	if got := preferredAvailableProviderID(items); got == nil || *got != localCodexID {
+		t.Fatalf("preferredAvailableProviderID() = %v, want %s", got, localCodexID)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/ent"
@@ -483,6 +484,236 @@ func TestAgentPlatformTicketUpdateRejectsStatusOutsideWorkflowFinishSet(t *testi
 	)
 	if updateResp.Ticket.StatusID != reviewID.String() {
 		t.Fatalf("expected allowed finish status %s, got %+v", reviewID, updateResp.Ticket)
+	}
+}
+
+func TestAgentPlatformRouteErrorMappingsAndInvalidPayloads(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
+	platformService := agentplatform.NewService(client)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	issued, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+		Scopes: []string{
+			string(agentplatform.ScopeProjectsAddRepo),
+			string(agentplatform.ScopeProjectsUpdate),
+			string(agentplatform.ScopeTicketsCreate),
+			string(agentplatform.ScopeTicketsList),
+			string(agentplatform.ScopeTicketsReportUsage),
+			string(agentplatform.ScopeTicketsUpdateSelf),
+		},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+	headers := map[string]string{
+		echo.HeaderAuthorization: "Bearer " + issued.Token,
+		echo.HeaderContentType:   echo.MIMEApplicationJSON,
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "list invalid project", method: http.MethodGet, target: "/api/v1/platform/projects/not-a-uuid/tickets", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID), body: `{"title":"   "}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "update invalid ticket", method: http.MethodPatch, target: "/api/v1/platform/tickets/not-a-uuid", body: `{"description":"nope"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID"},
+		{name: "update invalid status", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID), body: `{"status_id":"not-a-uuid"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "report usage invalid ticket", method: http.MethodPost, target: "/api/v1/platform/tickets/not-a-uuid/usage", body: `{"input_tokens":1}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID"},
+		{name: "report usage invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/platform/tickets/%s/usage", currentTicketID), body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "update project invalid project", method: http.MethodPatch, target: "/api/v1/platform/projects/not-a-uuid", body: `{"description":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "update project missing description", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/platform/projects/%s", projectID), body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "description is required"},
+		{name: "create repo invalid project", method: http.MethodPost, target: "/api/v1/platform/projects/not-a-uuid/repos", body: `{"name":"worker-tools","repository_url":"https://github.com/acme/worker-tools.git"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create repo invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/platform/projects/%s/repos", projectID), body: `{"name":"","repository_url":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequestWithHeaders(t, server, testCase.method, testCase.target, testCase.body, headers)
+			if rec.Code != testCase.wantStatus || !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
+			}
+		})
+	}
+}
+
+func TestAgentPlatformForbiddenBoundaryPaths(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, doneTicketID := seedAgentPlatformHTTPFixture(ctx, t, client)
+	projectItem, err := client.Project.Get(ctx, projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+
+	otherProject, err := client.Project.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("Other Project").
+		SetSlug("other-project").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create other project: %v", err)
+	}
+
+	platformService := agentplatform.NewService(client)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	issued, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+		Scopes: []string{
+			string(agentplatform.ScopeProjectsAddRepo),
+			string(agentplatform.ScopeProjectsUpdate),
+			string(agentplatform.ScopeTicketsCreate),
+			string(agentplatform.ScopeTicketsList),
+			string(agentplatform.ScopeTicketsReportUsage),
+			string(agentplatform.ScopeTicketsUpdateSelf),
+		},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+	headers := map[string]string{
+		echo.HeaderAuthorization: "Bearer " + issued.Token,
+		echo.HeaderContentType:   echo.MIMEApplicationJSON,
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name:       "list another project",
+			method:     http.MethodGet,
+			target:     fmt.Sprintf("/api/v1/platform/projects/%s/tickets", otherProject.ID),
+			wantStatus: http.StatusForbidden,
+			wantBody:   "AGENT_PROJECT_FORBIDDEN",
+		},
+		{
+			name:       "create ticket in another project",
+			method:     http.MethodPost,
+			target:     fmt.Sprintf("/api/v1/platform/projects/%s/tickets", otherProject.ID),
+			body:       `{"title":"forbidden"}`,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "AGENT_PROJECT_FORBIDDEN",
+		},
+		{
+			name:       "update another project",
+			method:     http.MethodPatch,
+			target:     fmt.Sprintf("/api/v1/platform/projects/%s", otherProject.ID),
+			body:       `{"description":"forbidden"}`,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "AGENT_PROJECT_FORBIDDEN",
+		},
+		{
+			name:       "create repo in another project",
+			method:     http.MethodPost,
+			target:     fmt.Sprintf("/api/v1/platform/projects/%s/repos", otherProject.ID),
+			body:       `{"name":"worker-tools","repository_url":"https://github.com/acme/worker-tools.git"}`,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "AGENT_PROJECT_FORBIDDEN",
+		},
+		{
+			name:       "update another ticket",
+			method:     http.MethodPatch,
+			target:     fmt.Sprintf("/api/v1/platform/tickets/%s", doneTicketID),
+			body:       `{"description":"forbidden"}`,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "AGENT_TICKET_FORBIDDEN",
+		},
+		{
+			name:       "report usage another ticket",
+			method:     http.MethodPost,
+			target:     fmt.Sprintf("/api/v1/platform/tickets/%s/usage", doneTicketID),
+			body:       `{"input_tokens":1}`,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "AGENT_TICKET_FORBIDDEN",
+		},
+		{
+			name:       "update conflicting status fields",
+			method:     http.MethodPatch,
+			target:     fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+			body:       fmt.Sprintf(`{"status_id":"%s","status_name":"Done"}`, uuid.NewString()),
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "status_id and status_name cannot be provided together",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequestWithHeaders(t, server, testCase.method, testCase.target, testCase.body, headers)
+			if rec.Code != testCase.wantStatus || !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
+			}
+		})
+	}
+
+	if _, err := client.Ticket.UpdateOneID(currentTicketID).SetProjectID(otherProject.ID).Save(ctx); err != nil {
+		t.Fatalf("move current ticket to other project: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name:       "update own ticket after project mismatch",
+			method:     http.MethodPatch,
+			target:     fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+			body:       `{"description":"forbidden"}`,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "AGENT_PROJECT_FORBIDDEN",
+		},
+		{
+			name:       "report usage after project mismatch",
+			method:     http.MethodPost,
+			target:     fmt.Sprintf("/api/v1/platform/tickets/%s/usage", currentTicketID),
+			body:       `{"input_tokens":1}`,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "AGENT_PROJECT_FORBIDDEN",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequestWithHeaders(t, server, testCase.method, testCase.target, testCase.body, headers)
+			if rec.Code != testCase.wantStatus || !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
+			}
+		})
 	}
 }
 

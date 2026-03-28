@@ -2492,7 +2492,9 @@ type runtimeSSHProcessSession struct {
 	stderrRead  *io.PipeReader
 	stderrWrite *io.PipeWriter
 
-	done chan error
+	done    chan error
+	closeCh chan struct{}
+	once    sync.Once
 
 	startedCommand string
 }
@@ -2509,6 +2511,7 @@ func newRuntimeSSHProcessSession() *runtimeSSHProcessSession {
 		stderrRead:  stderrRead,
 		stderrWrite: stderrWrite,
 		done:        make(chan error, 1),
+		closeCh:     make(chan struct{}),
 	}
 }
 
@@ -2525,7 +2528,12 @@ func (s *runtimeSSHProcessSession) StderrPipe() (io.Reader, error) { return s.st
 func (s *runtimeSSHProcessSession) Start(cmd string) error {
 	s.startedCommand = cmd
 	go func() {
-		s.done <- runRuntimeSSHHandshake(s)
+		if err := runRuntimeSSHHandshake(s); err != nil {
+			s.done <- err
+			return
+		}
+		<-s.closeCh
+		s.done <- nil
 	}()
 	return nil
 }
@@ -2539,12 +2547,15 @@ func (s *runtimeSSHProcessSession) Wait() error {
 }
 
 func (s *runtimeSSHProcessSession) Close() error {
-	_ = s.stdinRead.Close()
-	_ = s.stdinWrite.Close()
-	_ = s.stdoutRead.Close()
-	_ = s.stdoutWrite.Close()
-	_ = s.stderrRead.Close()
-	_ = s.stderrWrite.Close()
+	s.once.Do(func() {
+		close(s.closeCh)
+		_ = s.stdinRead.Close()
+		_ = s.stdinWrite.Close()
+		_ = s.stdoutRead.Close()
+		_ = s.stdoutWrite.Close()
+		_ = s.stderrRead.Close()
+		_ = s.stderrWrite.Close()
+	})
 	return nil
 }
 

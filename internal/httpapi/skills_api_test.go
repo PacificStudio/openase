@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
@@ -16,7 +17,81 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 )
+
+func TestSkillRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	server := NewServer(
+		config.ServerConfig{Port: 40029},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		workflowSvc,
+	)
+	unavailableServer := NewServer(
+		config.ServerConfig{Port: 40030},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	rec := performJSONRequest(t, unavailableServer, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/skills", uuid.New()), "")
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "SERVICE_UNAVAILABLE") {
+		t.Fatalf("list skills unavailable = %d %s", rec.Code, rec.Body.String())
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		server     *Server
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "list invalid project", server: server, method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/skills", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "refresh invalid project", server: server, method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/skills/refresh", body: `{"workspace_root":"/tmp/ws","adapter_type":"claude-code-cli"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "refresh invalid payload", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/skills/refresh", uuid.New()), body: `{"workspace_root":"   ","adapter_type":"claude-code-cli"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "harvest invalid project", server: server, method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/skills/harvest", body: `{"workspace_root":"/tmp/ws","adapter_type":"claude-code-cli"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "harvest invalid payload", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/skills/harvest", uuid.New()), body: `{"workspace_root":"/tmp/ws","adapter_type":"   "}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "bind invalid workflow id", server: server, method: http.MethodPost, target: "/api/v1/workflows/not-a-uuid/skills/bind", body: `{"skills":["commit"]}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_WORKFLOW_ID"},
+		{name: "bind invalid payload", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/workflows/%s/skills/bind", uuid.New()), body: `{"skills":[]}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "bind missing workflow", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/workflows/%s/skills/bind", uuid.New()), body: `{"skills":["commit"]}`, wantStatus: http.StatusNotFound, wantBody: "WORKFLOW_NOT_FOUND"},
+		{name: "unbind invalid workflow id", server: server, method: http.MethodPost, target: "/api/v1/workflows/not-a-uuid/skills/unbind", body: `{"skills":["commit"]}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_WORKFLOW_ID"},
+		{name: "unbind invalid payload", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/workflows/%s/skills/unbind", uuid.New()), body: `{"skills":[]}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "unbind missing workflow", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/workflows/%s/skills/unbind", uuid.New()), body: `{"skills":["commit"]}`, wantStatus: http.StatusNotFound, wantBody: "WORKFLOW_NOT_FOUND"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequest(t, testCase.server, testCase.method, testCase.target, testCase.body)
+			if rec.Code != testCase.wantStatus || !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
+			}
+		})
+	}
+}
 
 func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	client := openTestEntClient(t)

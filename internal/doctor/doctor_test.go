@@ -2,10 +2,15 @@ package doctor
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+
+	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 )
 
 func TestDiagnoseHealthyEnvironment(t *testing.T) {
@@ -147,6 +152,61 @@ func TestParseScriptReference(t *testing.T) {
 	}
 }
 
+func TestDoctorHelperFunctions(t *testing.T) {
+	report := Report{Results: []Result{{Name: "warn", Status: StatusWarning}, {Name: "err", Status: StatusError}}}
+	if !report.HasErrors() {
+		t.Fatal("HasErrors() expected true")
+	}
+
+	candidates := configCandidates("/repo", "/home/codex")
+	if len(candidates) != 8 || candidates[0] != filepath.Join("/repo", "openase.yaml") || candidates[4] != filepath.Join("/home/codex", ".openase", "openase.yaml") {
+		t.Fatalf("configCandidates() = %+v", candidates)
+	}
+
+	repoRoot := t.TempDir()
+	writeFile(t, filepath.Join(repoRoot, ".git"), []byte("gitdir"))
+	configPath := filepath.Join(repoRoot, "openase.yaml")
+	writeFile(t, configPath, []byte("server:\n  mode: all-in-one\n"))
+
+	resolvedRepoRoot, err := resolveRepoRoot(repoRoot)
+	if err != nil || resolvedRepoRoot != repoRoot {
+		t.Fatalf("resolveRepoRoot(explicit) = %q, %v", resolvedRepoRoot, err)
+	}
+
+	resolvedConfigPath, err := resolveConfigPath(configPath, "", "")
+	if err != nil || resolvedConfigPath != configPath {
+		t.Fatalf("resolveConfigPath(explicit file) = %q, %v", resolvedConfigPath, err)
+	}
+
+	if _, err := resolveConfigPath(repoRoot, "", ""); err == nil || !strings.Contains(err.Error(), "must be a file") {
+		t.Fatalf("resolveConfigPath(directory) error = %v", err)
+	}
+
+	resolvedCandidate, err := resolveConfigPath("", repoRoot, "")
+	if err != nil || resolvedCandidate != configPath {
+		t.Fatalf("resolveConfigPath(candidate) = %q, %v", resolvedCandidate, err)
+	}
+}
+
+func TestDoctorExecAndPostgresHelpers(t *testing.T) {
+	output, err := runExecCommand(context.Background(), "sh", "-c", "printf ok")
+	if err != nil || output != "ok" {
+		t.Fatalf("runExecCommand(success) = %q, %v", output, err)
+	}
+
+	if _, err := runExecCommand(context.Background(), "sh", "-c", "echo nope >&2; exit 7"); err == nil || !strings.Contains(err.Error(), "nope") {
+		t.Fatalf("runExecCommand(failure) error = %v", err)
+	}
+
+	dsn := startDoctorPostgres(t)
+	if err := pingPostgres(context.Background(), dsn); err != nil {
+		t.Fatalf("pingPostgres() error = %v", err)
+	}
+	if err := pingPostgres(context.Background(), "postgres://postgres:postgres@127.0.0.1:1/openase?sslmode=disable"); err == nil {
+		t.Fatal("pingPostgres(invalid dsn) expected error")
+	}
+}
+
 func assertStatus(t *testing.T, report Report, name string, want Status) {
 	t.Helper()
 
@@ -184,4 +244,51 @@ func writeFileMode(t *testing.T, path string, content []byte, mode os.FileMode) 
 	if err := os.WriteFile(path, content, mode); err != nil {
 		t.Fatalf("WriteFile(%q) returned error: %v", path, err)
 	}
+}
+
+func startDoctorPostgres(t *testing.T) string {
+	t.Helper()
+
+	port := freeDoctorPort(t)
+	dataDir := t.TempDir()
+	pg := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Version(embeddedpostgres.V16).
+			Port(port).
+			Username("postgres").
+			Password("postgres").
+			Database("openase").
+			RuntimePath(filepath.Join(dataDir, "runtime")).
+			BinariesPath(filepath.Join(dataDir, "binaries")).
+			DataPath(filepath.Join(dataDir, "data")),
+	)
+	if err := pg.Start(); err != nil {
+		t.Fatalf("start embedded postgres: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := pg.Stop(); err != nil {
+			t.Errorf("stop embedded postgres: %v", err)
+		}
+	})
+
+	return fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/openase?sslmode=disable", port)
+}
+
+func freeDoctorPort(t *testing.T) uint32 {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for free port: %v", err)
+	}
+	defer func() {
+		_ = listener.Close()
+	}()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	parsed, err := strconv.ParseUint(strconv.Itoa(port), 10, 32)
+	if err != nil {
+		t.Fatalf("parse free port %d: %v", port, err)
+	}
+	return uint32(parsed)
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,7 +16,107 @@ import (
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	"github.com/google/uuid"
 )
+
+func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
+	client := openTestEntClient(t)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ticketSvc := ticketservice.NewService(client)
+	scheduledJobSvc := scheduledjobservice.NewService(client, ticketSvc, logger)
+
+	server := NewServer(
+		config.ServerConfig{Port: 40027},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		ticketSvc,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+		WithScheduledJobService(scheduledJobSvc),
+	)
+	unavailableServer := NewServer(
+		config.ServerConfig{Port: 40028},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		ticketSvc,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("OpenASE").
+		SetSlug("openase-scheduled-job-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Platform").
+		SetSlug("platform-scheduled-job-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("Automation Workflow").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/automation.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	rec := performJSONRequest(t, unavailableServer, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), "")
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "SERVICE_UNAVAILABLE") {
+		t.Fatalf("list scheduled jobs unavailable = %d %s", rec.Code, rec.Body.String())
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "list invalid project", method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/scheduled-jobs", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create invalid project", method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/scheduled-jobs", body: `{"name":"nightly","cron_expression":"0 1 * * *","workflow_id":"` + workflowItem.ID.String() + `","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create invalid payload", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"","cron_expression":"0 1 * * *","workflow_id":"` + workflowItem.ID.String() + `","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "create invalid cron", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"nightly","cron_expression":"bad cron","workflow_id":"` + workflowItem.ID.String() + `","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_CRON_EXPRESSION"},
+		{name: "create missing workflow", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"nightly","cron_expression":"0 1 * * *","workflow_id":"` + uuid.New().String() + `","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusNotFound, wantBody: "WORKFLOW_NOT_FOUND"},
+		{name: "update invalid job id", method: http.MethodPatch, target: "/api/v1/scheduled-jobs/not-a-uuid", body: `{"name":"renamed"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_JOB_ID"},
+		{name: "update invalid payload", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/scheduled-jobs/%s", uuid.New()), body: `{"name":"   "}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "update missing job", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/scheduled-jobs/%s", uuid.New()), body: `{"name":"renamed"}`, wantStatus: http.StatusNotFound, wantBody: "SCHEDULED_JOB_NOT_FOUND"},
+		{name: "delete invalid job id", method: http.MethodDelete, target: "/api/v1/scheduled-jobs/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_JOB_ID"},
+		{name: "delete missing job", method: http.MethodDelete, target: fmt.Sprintf("/api/v1/scheduled-jobs/%s", uuid.New()), wantStatus: http.StatusNotFound, wantBody: "SCHEDULED_JOB_NOT_FOUND"},
+		{name: "trigger invalid job id", method: http.MethodPost, target: "/api/v1/scheduled-jobs/not-a-uuid/trigger", wantStatus: http.StatusBadRequest, wantBody: "INVALID_JOB_ID"},
+		{name: "trigger missing job", method: http.MethodPost, target: fmt.Sprintf("/api/v1/scheduled-jobs/%s/trigger", uuid.New()), wantStatus: http.StatusNotFound, wantBody: "SCHEDULED_JOB_NOT_FOUND"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequest(t, server, testCase.method, testCase.target, testCase.body)
+			if rec.Code != testCase.wantStatus || !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
+			}
+		})
+	}
+}
 
 func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 	client := openTestEntClient(t)

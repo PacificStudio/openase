@@ -527,6 +527,182 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 	}
 }
 
+func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	service := server.catalog.(*fakeCatalogService)
+	orgID := uuid.New()
+	projectID := uuid.New()
+	providerID := uuid.New()
+	pausedAgentID := uuid.New()
+	activeAgentID := uuid.New()
+	runID := uuid.New()
+	ticketID := uuid.New()
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex"}
+	service.agents[pausedAgentID] = domain.Agent{
+		ID:                  pausedAgentID,
+		ProviderID:          providerID,
+		ProjectID:           projectID,
+		Name:                "paused-agent",
+		RuntimeControlState: domain.AgentRuntimeControlStatePaused,
+		Runtime: &domain.AgentRuntime{
+			CurrentRunID:    &runID,
+			Status:          domain.AgentStatusRunning,
+			CurrentTicketID: &ticketID,
+			RuntimePhase:    domain.AgentRuntimePhaseReady,
+		},
+	}
+	service.agents[activeAgentID] = domain.Agent{
+		ID:                  activeAgentID,
+		ProviderID:          providerID,
+		ProjectID:           projectID,
+		Name:                "active-agent",
+		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+		Runtime: &domain.AgentRuntime{
+			CurrentRunID:    &runID,
+			Status:          domain.AgentStatusRunning,
+			CurrentTicketID: &ticketID,
+			RuntimePhase:    domain.AgentRuntimePhaseReady,
+		},
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		path       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "pause invalid id", method: http.MethodPost, path: "/api/v1/agents/not-a-uuid/pause", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
+		{name: "pause missing agent", method: http.MethodPost, path: "/api/v1/agents/" + uuid.NewString() + "/pause", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "pause conflict", method: http.MethodPost, path: "/api/v1/agents/" + pausedAgentID.String() + "/pause", wantStatus: http.StatusConflict, wantBody: "AGENT_RUNTIME_CONTROL_CONFLICT"},
+		{name: "resume invalid id", method: http.MethodPost, path: "/api/v1/agents/not-a-uuid/resume", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
+		{name: "resume missing agent", method: http.MethodPost, path: "/api/v1/agents/" + uuid.NewString() + "/resume", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "resume conflict", method: http.MethodPost, path: "/api/v1/agents/" + activeAgentID.String() + "/resume", wantStatus: http.StatusConflict, wantBody: "AGENT_RUNTIME_CONTROL_CONFLICT"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequest(t, server, testCase.method, testCase.path, "")
+			if rec.Code != testCase.wantStatus {
+				t.Fatalf("status = %d, want %d, body=%s", rec.Code, testCase.wantStatus, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("body %q does not contain %q", rec.Body.String(), testCase.wantBody)
+			}
+		})
+	}
+}
+
+func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+	)
+
+	service := server.catalog.(*fakeCatalogService)
+	orgOneID := uuid.New()
+	orgTwoID := uuid.New()
+	projectOneID := uuid.New()
+	projectTwoID := uuid.New()
+	machineOneID := uuid.New()
+	machineTwoID := uuid.New()
+	providerOneID := uuid.New()
+	agentID := uuid.New()
+
+	sshUser := "openase"
+	workspaceRoot := "/srv/openase/workspaces"
+	service.organizations[orgOneID] = domain.Organization{ID: orgOneID, Name: "Org One", Slug: "org-one"}
+	service.organizations[orgTwoID] = domain.Organization{ID: orgTwoID, Name: "Org Two", Slug: "org-two"}
+	service.projects[projectOneID] = domain.Project{ID: projectOneID, OrganizationID: orgOneID, Name: "Project One", Slug: "project-one"}
+	service.projects[projectTwoID] = domain.Project{ID: projectTwoID, OrganizationID: orgTwoID, Name: "Project Two", Slug: "project-two"}
+	service.machines[machineOneID] = domain.Machine{ID: machineOneID, OrganizationID: orgOneID, Name: domain.LocalMachineName, Host: domain.LocalMachineHost, Status: domain.MachineStatusOnline, SSHUser: &sshUser, WorkspaceRoot: &workspaceRoot}
+	service.machines[machineTwoID] = domain.Machine{ID: machineTwoID, OrganizationID: orgTwoID, Name: domain.LocalMachineName, Host: domain.LocalMachineHost, Status: domain.MachineStatusOnline}
+	service.providers[providerOneID] = domain.AgentProvider{
+		ID:                   providerOneID,
+		OrganizationID:       orgOneID,
+		MachineID:            machineOneID,
+		MachineName:          domain.LocalMachineName,
+		MachineHost:          domain.LocalMachineHost,
+		MachineStatus:        domain.MachineStatusOnline,
+		MachineSSHUser:       &sshUser,
+		MachineWorkspaceRoot: &workspaceRoot,
+		Name:                 "Codex",
+		AdapterType:          domain.AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:           "codex",
+	}
+	service.agents[agentID] = domain.Agent{
+		ID:                  agentID,
+		ProviderID:          providerOneID,
+		ProjectID:           projectOneID,
+		Name:                "worker-1",
+		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "list providers invalid org", method: http.MethodGet, target: "/api/v1/orgs/not-a-uuid/providers", wantStatus: http.StatusBadRequest, wantBody: "orgId must be a valid UUID"},
+		{name: "list providers missing org", method: http.MethodGet, target: "/api/v1/orgs/" + uuid.NewString() + "/providers", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "patch provider invalid id", method: http.MethodPatch, target: "/api/v1/providers/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "providerId must be a valid UUID"},
+		{name: "patch provider missing", method: http.MethodPatch, target: "/api/v1/providers/" + uuid.NewString(), body: `{}`, wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "patch provider invalid payload", method: http.MethodPatch, target: "/api/v1/providers/" + providerOneID.String(), body: `{"cli_command":" "}`, wantStatus: http.StatusBadRequest, wantBody: "model_name must not be empty"},
+		{name: "list agents invalid project", method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/agents", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
+		{name: "list agents missing project", method: http.MethodGet, target: "/api/v1/projects/" + uuid.NewString() + "/agents", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "create agent invalid payload", method: http.MethodPost, target: "/api/v1/projects/" + projectOneID.String() + "/agents", body: `{"provider_id":"bad","name":"worker"}`, wantStatus: http.StatusBadRequest, wantBody: "provider_id must be a valid UUID"},
+		{name: "create agent missing provider", method: http.MethodPost, target: "/api/v1/projects/" + projectOneID.String() + "/agents", body: `{"provider_id":"` + uuid.NewString() + `","name":"worker"}`, wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "create agent project provider mismatch", method: http.MethodPost, target: "/api/v1/projects/" + projectTwoID.String() + "/agents", body: `{"provider_id":"` + providerOneID.String() + `","name":"worker"}`, wantStatus: http.StatusBadRequest, wantBody: "catalog invalid input"},
+		{name: "get agent invalid id", method: http.MethodGet, target: "/api/v1/agents/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
+		{name: "get agent missing", method: http.MethodGet, target: "/api/v1/agents/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "delete agent invalid id", method: http.MethodDelete, target: "/api/v1/agents/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
+		{name: "delete agent missing", method: http.MethodDelete, target: "/api/v1/agents/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequest(t, server, testCase.method, testCase.target, testCase.body)
+			if rec.Code != testCase.wantStatus {
+				t.Fatalf("status = %d, want %d, body=%s", rec.Code, testCase.wantStatus, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("body %q does not contain %q", rec.Body.String(), testCase.wantBody)
+			}
+		})
+	}
+
+	mappedProvider := mapAgentProviderResponse(service.providers[providerOneID])
+	if mappedProvider.MachineSSHUser == nil || *mappedProvider.MachineSSHUser != sshUser || mappedProvider.MachineWorkspaceRoot == nil || *mappedProvider.MachineWorkspaceRoot != workspaceRoot {
+		t.Fatalf("mapAgentProviderResponse() = %+v", mappedProvider)
+	}
+	*mappedProvider.MachineSSHUser = "changed"
+	if *service.providers[providerOneID].MachineSSHUser != sshUser {
+		t.Fatalf("mapAgentProviderResponse() should clone machine pointers, got %+v", service.providers[providerOneID])
+	}
+	if stringPointerValue(nil) != nil {
+		t.Fatal("stringPointerValue(nil) expected nil")
+	}
+}
+
 func (f *fakeCatalogService) ListAgentProviders(_ context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error) {
 	item, ok := f.organizations[organizationID]
 	if !ok || item.Status == "archived" {

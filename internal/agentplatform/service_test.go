@@ -2,11 +2,14 @@ package agentplatform
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -227,6 +230,152 @@ func TestBuildEnvironmentIncludesPlatformVariables(t *testing.T) {
 			t.Fatalf("expected environment to contain %q, got %v", want, environment)
 		}
 	}
+}
+
+func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
+	t.Run("scope helpers and parser failures", func(t *testing.T) {
+		gotSupported := SupportedScopes()
+		wantSupported := []string{
+			string(ScopeProjectsAddRepo),
+			string(ScopeProjectsUpdate),
+			string(ScopeTicketsCreate),
+			string(ScopeTicketsList),
+			string(ScopeTicketsReportUsage),
+			string(ScopeTicketsUpdateSelf),
+		}
+		if !slices.Equal(gotSupported, wantSupported) {
+			t.Fatalf("SupportedScopes() = %v, want %v", gotSupported, wantSupported)
+		}
+
+		if _, err := parseExplicitScopes([]string{" "}); !errors.Is(err, ErrInvalidScope) {
+			t.Fatalf("parseExplicitScopes(blank) error = %v, want %v", err, ErrInvalidScope)
+		}
+		if _, err := parseExplicitScopes([]string{"tickets.nope"}); !errors.Is(err, ErrInvalidScope) {
+			t.Fatalf("parseExplicitScopes(unsupported) error = %v, want %v", err, ErrInvalidScope)
+		}
+		defaultScopes, err := parseScopes(nil)
+		if err != nil {
+			t.Fatalf("parseScopes(nil) error = %v", err)
+		}
+		if _, err := constrainScopes(defaultScopes, ScopeWhitelist{Configured: true, Scopes: []string{"bad"}}); !errors.Is(err, ErrInvalidScope) {
+			t.Fatalf("constrainScopes(invalid whitelist) error = %v, want %v", err, ErrInvalidScope)
+		}
+		if token, err := ParseToken("  " + TokenPrefix + "trimmed  "); err != nil || token != TokenPrefix+"trimmed" {
+			t.Fatalf("ParseToken(trimmed) = %q, %v", token, err)
+		}
+		if _, err := ParseToken("not_a_token"); !errors.Is(err, ErrInvalidToken) {
+			t.Fatalf("ParseToken(invalid) error = %v, want %v", err, ErrInvalidToken)
+		}
+		if _, err := ParseBearerToken("Bearer"); !errors.Is(err, ErrInvalidToken) {
+			t.Fatalf("ParseBearerToken(missing token) error = %v, want %v", err, ErrInvalidToken)
+		}
+
+		claims := Claims{Scopes: []string{string(ScopeTicketsList)}}
+		if !claims.HasScope(ScopeTicketsList) {
+			t.Fatal("Claims.HasScope() expected true for present scope")
+		}
+		if claims.HasScope(ScopeProjectsUpdate) {
+			t.Fatal("Claims.HasScope() expected false for missing scope")
+		}
+	})
+
+	t.Run("service error branches", func(t *testing.T) {
+		ctx := context.Background()
+		projectID := uuid.New()
+
+		var nilService *Service
+		if _, err := nilService.IssueToken(ctx, IssueInput{}); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("nil IssueToken() error = %v, want %v", err, ErrUnavailable)
+		}
+		if _, err := nilService.Authenticate(ctx, TokenPrefix+"missing"); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("nil Authenticate() error = %v, want %v", err, ErrUnavailable)
+		}
+		if _, err := nilService.ProjectTokenInventory(ctx, projectID); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("nil ProjectTokenInventory() error = %v, want %v", err, ErrUnavailable)
+		}
+
+		client := openTestEntClient(t)
+		projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
+		service := NewService(client)
+		service.now = func() time.Time { return time.Date(2026, 3, 27, 16, 0, 0, 0, time.UTC) }
+
+		if _, err := service.IssueToken(ctx, IssueInput{ProjectID: projectID, TicketID: ticketID}); err == nil || err.Error() != "agent_id must be a valid UUID" {
+			t.Fatalf("IssueToken(nil agent) error = %v", err)
+		}
+		if _, err := service.IssueToken(ctx, IssueInput{AgentID: agentID, TicketID: ticketID}); err == nil || err.Error() != "project_id must be a valid UUID" {
+			t.Fatalf("IssueToken(nil project) error = %v", err)
+		}
+		if _, err := service.IssueToken(ctx, IssueInput{AgentID: agentID, ProjectID: projectID}); err == nil || err.Error() != "ticket_id must be a valid UUID" {
+			t.Fatalf("IssueToken(nil ticket) error = %v", err)
+		}
+		if _, err := service.IssueToken(ctx, IssueInput{
+			AgentID:   uuid.New(),
+			ProjectID: projectID,
+			TicketID:  ticketID,
+		}); !errors.Is(err, ErrAgentNotFound) {
+			t.Fatalf("IssueToken(missing agent) error = %v, want %v", err, ErrAgentNotFound)
+		}
+		if _, err := service.IssueToken(ctx, IssueInput{
+			AgentID:   agentID,
+			ProjectID: uuid.New(),
+			TicketID:  ticketID,
+		}); !errors.Is(err, ErrProjectMismatch) {
+			t.Fatalf("IssueToken(project mismatch) error = %v, want %v", err, ErrProjectMismatch)
+		}
+
+		service.rng = failingReader{}
+		if _, err := service.IssueToken(ctx, IssueInput{
+			AgentID:   agentID,
+			ProjectID: projectID,
+			TicketID:  ticketID,
+		}); err == nil || !strings.Contains(err.Error(), "generate agent token bytes") {
+			t.Fatalf("IssueToken(rng failure) error = %v", err)
+		}
+		service.rng = strings.NewReader(strings.Repeat("a", 24))
+
+		issued, err := service.IssueToken(ctx, IssueInput{
+			AgentID:   agentID,
+			ProjectID: projectID,
+			TicketID:  ticketID,
+		})
+		if err != nil {
+			t.Fatalf("IssueToken(valid) error = %v", err)
+		}
+		if _, err := service.Authenticate(ctx, TokenPrefix+"missing"); !errors.Is(err, ErrTokenNotFound) {
+			t.Fatalf("Authenticate(missing token) error = %v, want %v", err, ErrTokenNotFound)
+		}
+		if _, err := service.Authenticate(ctx, "bad"); !errors.Is(err, ErrInvalidToken) {
+			t.Fatalf("Authenticate(invalid token) error = %v, want %v", err, ErrInvalidToken)
+		}
+
+		currentProject, err := client.Project.Get(ctx, projectID)
+		if err != nil {
+			t.Fatalf("load current project: %v", err)
+		}
+		otherProject, err := client.Project.Create().
+			SetOrganizationID(currentProject.OrganizationID).
+			SetName("Other Project").
+			SetSlug("other-project").
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("create other project: %v", err)
+		}
+		if _, err := client.Agent.UpdateOneID(agentID).SetProjectID(otherProject.ID).Save(ctx); err != nil {
+			t.Fatalf("rebind agent project: %v", err)
+		}
+		if _, err := service.Authenticate(ctx, issued.Token); !errors.Is(err, ErrProjectMismatch) {
+			t.Fatalf("Authenticate(project mismatch) error = %v, want %v", err, ErrProjectMismatch)
+		}
+		if _, err := service.ProjectTokenInventory(ctx, uuid.Nil); err == nil || err.Error() != "project_id must be a valid UUID" {
+			t.Fatalf("ProjectTokenInventory(nil project) error = %v", err)
+		}
+	})
+}
+
+type failingReader struct{}
+
+func (failingReader) Read(_ []byte) (int, error) {
+	return 0, io.ErrUnexpectedEOF
 }
 
 func seedAgentPlatformFixture(ctx context.Context, t *testing.T, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID) {

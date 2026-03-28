@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -14,16 +15,30 @@ import (
 var version = "dev"
 
 func main() {
-	if err := cli.NewRootCommand(version).ExecuteContext(context.Background()); err != nil {
+	run(
+		func(ctx context.Context) error {
+			return cli.NewRootCommand(version).ExecuteContext(ctx)
+		},
+		os.Stderr,
+		func(err error) {
+			slog.Error("openase command failed", "error", err)
+		},
+		os.Exit,
+	)
+}
+
+func run(execute func(context.Context) error, stderr io.Writer, logError func(error), exit func(int)) {
+	if err := execute(context.Background()); err != nil {
 		var exitErr interface{ ExitCode() int }
 		if errors.As(err, &exitErr) {
 			message := strings.TrimSpace(err.Error())
 			if message != "" {
-				fmt.Fprintln(os.Stderr, message)
+				_, _ = fmt.Fprintln(stderr, message)
 			}
-			os.Exit(exitErr.ExitCode())
+			exit(exitErr.ExitCode())
+			return
 		}
-		slog.Error("openase command failed", "error", err)
-		os.Exit(1)
+		logError(err)
+		exit(1)
 	}
 }

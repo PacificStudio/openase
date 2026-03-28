@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,103 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
+
+func TestNotificationRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
+	client := openTestEntClient(t)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer webhookServer.Close()
+
+	server := NewServer(
+		config.ServerConfig{Port: 40025},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithNotificationService(notificationservice.NewService(client, logger, webhookServer.Client())),
+	)
+	unavailableServer := NewServer(
+		config.ServerConfig{Port: 40026},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("OpenASE").
+		SetSlug("openase-notification-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Platform").
+		SetSlug("platform-notification-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	rec := performJSONRequest(t, unavailableServer, http.MethodGet, fmt.Sprintf("/api/v1/orgs/%s/channels", org.ID), "")
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "SERVICE_UNAVAILABLE") {
+		t.Fatalf("list channels unavailable = %d %s", rec.Code, rec.Body.String())
+	}
+
+	channelInput, err := domain.ParseCreateChannel(org.ID, domain.ChannelInput{
+		Name: "Primary Webhook",
+		Type: "webhook",
+		Config: map[string]any{
+			"url": webhookServer.URL,
+		},
+	})
+	if err != nil {
+		t.Fatalf("parse channel: %v", err)
+	}
+	service := notificationservice.NewService(client, logger, webhookServer.Client())
+	channel, err := service.Create(ctx, channelInput)
+	if err != nil {
+		t.Fatalf("create channel: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "create channel invalid org", method: http.MethodPost, target: "/api/v1/orgs/not-a-uuid/channels", body: `{"name":"Ops","type":"webhook","config":{"url":"https://example.com"}}`, wantStatus: http.StatusBadRequest, wantBody: "orgId must be a valid UUID"},
+		{name: "create channel invalid payload", method: http.MethodPost, target: fmt.Sprintf("/api/v1/orgs/%s/channels", org.ID), body: `{"name":"","type":"webhook","config":{}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "update channel invalid id", method: http.MethodPatch, target: "/api/v1/channels/not-a-uuid", body: `{"name":"Ops"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_CHANNEL_ID"},
+		{name: "delete channel missing", method: http.MethodDelete, target: fmt.Sprintf("/api/v1/channels/%s", uuid.New()), wantStatus: http.StatusNotFound, wantBody: "CHANNEL_NOT_FOUND"},
+		{name: "test channel missing", method: http.MethodPost, target: fmt.Sprintf("/api/v1/channels/%s/test", uuid.New()), wantStatus: http.StatusNotFound, wantBody: "CHANNEL_NOT_FOUND"},
+		{name: "list rules invalid project", method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/notification-rules", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create rule invalid payload", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/notification-rules", project.ID), body: `{"name":"","event_type":"","channel_id":"` + channel.ID.String() + `"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "update rule invalid id", method: http.MethodPatch, target: "/api/v1/notification-rules/not-a-uuid", body: `{"name":"Ops"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_RULE_ID"},
+		{name: "delete rule missing", method: http.MethodDelete, target: fmt.Sprintf("/api/v1/notification-rules/%s", uuid.New()), wantStatus: http.StatusNotFound, wantBody: "RULE_NOT_FOUND"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			rec := performJSONRequest(t, server, testCase.method, testCase.target, testCase.body)
+			if rec.Code != testCase.wantStatus || !strings.Contains(rec.Body.String(), testCase.wantBody) {
+				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
+			}
+		})
+	}
+}
 
 func TestNotificationChannelRoutesCRUDAndTestSend(t *testing.T) {
 	client := openTestEntClient(t)

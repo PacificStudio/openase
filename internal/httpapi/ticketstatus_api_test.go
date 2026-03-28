@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -529,6 +530,239 @@ func TestListTicketStatusesRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 	}
 	if payload.StageGroups == nil || len(payload.StageGroups) != 0 {
 		t.Fatalf("expected non-nil empty stage_groups slice, got %+v", payload.StageGroups)
+	}
+}
+
+func TestTicketStageListRouteNullableFieldsAndErrorMappings(t *testing.T) {
+	serverWithoutService := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	unavailableRec := performJSONRequest(t, serverWithoutService, http.MethodGet, "/api/v1/projects/"+uuid.NewString()+"/stages", "")
+	if unavailableRec.Code != http.StatusServiceUnavailable || !strings.Contains(unavailableRec.Body.String(), "SERVICE_UNAVAILABLE") {
+		t.Fatalf("expected unavailable stage list response, got %d: %s", unavailableRec.Code, unavailableRec.Body.String())
+	}
+
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-stage-list").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-stage-list").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if _, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+
+	stagesRec := performJSONRequest(t, server, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/stages", project.ID), "")
+	if stagesRec.Code != http.StatusOK || !strings.Contains(stagesRec.Body.String(), `"stages"`) {
+		t.Fatalf("expected stage list payload, got %d: %s", stagesRec.Code, stagesRec.Body.String())
+	}
+
+	badProjectRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/projects/not-a-uuid/stages", "")
+	if badProjectRec.Code != http.StatusBadRequest || !strings.Contains(badProjectRec.Body.String(), "INVALID_PROJECT_ID") {
+		t.Fatalf("expected invalid project id response, got %d: %s", badProjectRec.Code, badProjectRec.Body.String())
+	}
+
+	for _, tc := range []struct {
+		name       string
+		err        error
+		wantStatus int
+		wantCode   string
+	}{
+		{name: "project", err: ticketstatus.ErrProjectNotFound, wantStatus: http.StatusNotFound, wantCode: "PROJECT_NOT_FOUND"},
+		{name: "stage", err: ticketstatus.ErrStageNotFound, wantStatus: http.StatusNotFound, wantCode: "STAGE_NOT_FOUND"},
+		{name: "status", err: ticketstatus.ErrStatusNotFound, wantStatus: http.StatusNotFound, wantCode: "STATUS_NOT_FOUND"},
+		{name: "duplicate-stage", err: ticketstatus.ErrDuplicateStageKey, wantStatus: http.StatusConflict, wantCode: "STAGE_KEY_CONFLICT"},
+		{name: "duplicate-status", err: ticketstatus.ErrDuplicateStatusName, wantStatus: http.StatusConflict, wantCode: "STATUS_NAME_CONFLICT"},
+		{name: "last-status", err: ticketstatus.ErrCannotDeleteLastStatus, wantStatus: http.StatusConflict, wantCode: "LAST_STATUS_DELETE_FORBIDDEN"},
+		{name: "default-required", err: ticketstatus.ErrDefaultStatusRequired, wantStatus: http.StatusConflict, wantCode: "DEFAULT_STATUS_REQUIRED"},
+		{name: "internal", err: errors.New("boom"), wantStatus: http.StatusInternalServerError, wantCode: "INTERNAL_ERROR"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			echoCtx := e.NewContext(req, rec)
+
+			if err := writeTicketStatusError(echoCtx, tc.err); err != nil {
+				t.Fatalf("writeTicketStatusError() error = %v", err)
+			}
+			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantCode) {
+				t.Fatalf("writeTicketStatusError(%s) = %d %s", tc.name, rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	var stringField nullableStringField
+	if err := json.Unmarshal([]byte(`"stage-id"`), &stringField); err != nil || !stringField.Set || stringField.Value == nil || *stringField.Value != "stage-id" {
+		t.Fatalf("nullableStringField string = %+v, %v", stringField, err)
+	}
+	if err := json.Unmarshal([]byte(`null`), &stringField); err != nil || !stringField.Set || stringField.Value != nil {
+		t.Fatalf("nullableStringField null = %+v, %v", stringField, err)
+	}
+
+	var intField nullableIntField
+	if err := json.Unmarshal([]byte(`3`), &intField); err != nil || !intField.Set || intField.Value == nil || *intField.Value != 3 {
+		t.Fatalf("nullableIntField int = %+v, %v", intField, err)
+	}
+	if err := json.Unmarshal([]byte(`null`), &intField); err != nil || !intField.Set || intField.Value != nil {
+		t.Fatalf("nullableIntField null = %+v, %v", intField, err)
+	}
+	if err := json.Unmarshal([]byte(`"bad"`), &intField); err == nil {
+		t.Fatal("nullableIntField invalid JSON expected error")
+	}
+}
+
+func TestTicketStatusRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
+	serverWithoutService := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	validProjectID := uuid.NewString()
+	validStageID := uuid.NewString()
+	validStatusID := uuid.NewString()
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		target string
+		body   string
+	}{
+		{name: "list stages unavailable", method: http.MethodGet, target: "/api/v1/projects/" + validProjectID + "/stages"},
+		{name: "create stage unavailable", method: http.MethodPost, target: "/api/v1/projects/" + validProjectID + "/stages", body: `{"key":"qa","name":"QA"}`},
+		{name: "update stage unavailable", method: http.MethodPatch, target: "/api/v1/stages/" + validStageID, body: `{"name":"QA"}`},
+		{name: "delete stage unavailable", method: http.MethodDelete, target: "/api/v1/stages/" + validStageID},
+		{name: "list statuses unavailable", method: http.MethodGet, target: "/api/v1/projects/" + validProjectID + "/statuses"},
+		{name: "create status unavailable", method: http.MethodPost, target: "/api/v1/projects/" + validProjectID + "/statuses", body: `{"name":"QA","color":"#fff"}`},
+		{name: "reset statuses unavailable", method: http.MethodPost, target: "/api/v1/projects/" + validProjectID + "/statuses/reset"},
+		{name: "update status unavailable", method: http.MethodPatch, target: "/api/v1/statuses/" + validStatusID, body: `{"name":"QA"}`},
+		{name: "delete status unavailable", method: http.MethodDelete, target: "/api/v1/statuses/" + validStatusID},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := performJSONRequest(t, serverWithoutService, tc.method, tc.target, tc.body)
+			if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "SERVICE_UNAVAILABLE") {
+				t.Fatalf("expected unavailable response, got %d: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-ticketstatus-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE TicketStatus Errors").
+		SetSlug("openase-ticketstatus-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	stage, err := client.TicketStage.Create().
+		SetProjectID(project.ID).
+		SetKey("qa").
+		SetName("QA").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create stage: %v", err)
+	}
+	status, err := client.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("QA Ready").
+		SetColor("#FF00AA").
+		SetStageID(stage.ID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create status: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "list stages invalid project", method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/stages", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create stage invalid project", method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/stages", body: `{"key":"qa","name":"QA"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create stage invalid json", method: http.MethodPost, target: "/api/v1/projects/" + project.ID.String() + "/stages", body: `{"key":`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "create stage invalid request", method: http.MethodPost, target: "/api/v1/projects/" + project.ID.String() + "/stages", body: `{"key":"","name":"QA"}`, wantStatus: http.StatusBadRequest, wantBody: "key must not be empty"},
+		{name: "update stage invalid stage", method: http.MethodPatch, target: "/api/v1/stages/not-a-uuid", body: `{"name":"QA"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_STAGE_ID"},
+		{name: "update stage invalid json", method: http.MethodPatch, target: "/api/v1/stages/" + stage.ID.String(), body: `{"name":`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "update stage invalid request", method: http.MethodPatch, target: "/api/v1/stages/" + stage.ID.String(), body: `{"position":-1}`, wantStatus: http.StatusBadRequest, wantBody: "position must be greater than or equal to 0"},
+		{name: "delete stage invalid stage", method: http.MethodDelete, target: "/api/v1/stages/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_STAGE_ID"},
+		{name: "list statuses invalid project", method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/statuses", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create status invalid project", method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/statuses", body: `{"name":"QA","color":"#fff"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create status invalid json", method: http.MethodPost, target: "/api/v1/projects/" + project.ID.String() + "/statuses", body: `{"name":`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "create status invalid request", method: http.MethodPost, target: "/api/v1/projects/" + project.ID.String() + "/statuses", body: `{"name":"QA"}`, wantStatus: http.StatusBadRequest, wantBody: "color must not be empty"},
+		{name: "update status invalid status", method: http.MethodPatch, target: "/api/v1/statuses/not-a-uuid", body: `{"name":"QA"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_STATUS_ID"},
+		{name: "update status invalid json", method: http.MethodPatch, target: "/api/v1/statuses/" + status.ID.String(), body: `{"name":`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "update status invalid request", method: http.MethodPatch, target: "/api/v1/statuses/" + status.ID.String(), body: `{"stage_id":"not-a-uuid"}`, wantStatus: http.StatusBadRequest, wantBody: "stage_id must be a valid UUID"},
+		{name: "delete status invalid status", method: http.MethodDelete, target: "/api/v1/statuses/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_STATUS_ID"},
+		{name: "reset statuses invalid project", method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/statuses/reset", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := performJSONRequest(t, server, tc.method, tc.target, tc.body)
+			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
+				t.Fatalf("%s %s = %d %s", tc.method, tc.target, rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
 

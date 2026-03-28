@@ -285,9 +285,6 @@ func ParseMachineFullAudit(raw string, collectedAt time.Time) (MachineFullAudit,
 	)
 
 	for index, record := range records {
-		if len(record) == 0 {
-			continue
-		}
 		switch strings.TrimSpace(record[0]) {
 		case "git":
 			if len(record) != 4 {

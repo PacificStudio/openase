@@ -20,6 +20,30 @@ func TestNewPGNotifyBusRequiresDSN(t *testing.T) {
 	}
 }
 
+func TestNewPGNotifyBusDefaultsLoggerAndRejectsConnectionFailures(t *testing.T) {
+	bus, err := NewPGNotifyBus(" postgres://localhost/test ", nil)
+	if err != nil {
+		t.Fatalf("NewPGNotifyBus returned error: %v", err)
+	}
+	if bus.logger == nil {
+		t.Fatal("expected default logger")
+	}
+	if bus.dsn != "postgres://localhost/test" {
+		t.Fatalf("dsn=%q, want trimmed dsn", bus.dsn)
+	}
+
+	invalidBus, err := NewPGNotifyBus("postgres://127.0.0.1:1/openase?sslmode=disable", nil)
+	if err != nil {
+		t.Fatalf("NewPGNotifyBus returned error: %v", err)
+	}
+	if _, err := invalidBus.publisherConn(context.Background()); err == nil || !strings.Contains(err.Error(), "connect pgnotify publisher") {
+		t.Fatalf("expected publisher connect error, got %v", err)
+	}
+	if _, err := invalidBus.Subscribe(context.Background(), provider.MustParseTopic("runtime.events")); err == nil || !strings.Contains(err.Error(), "connect pgnotify subscriber") {
+		t.Fatalf("expected subscriber connect error, got %v", err)
+	}
+}
+
 func TestPGNotifyEncodeDecodeRoundTrip(t *testing.T) {
 	message, err := provider.NewJSONEvent(
 		provider.MustParseTopic("ticket.events"),
@@ -65,6 +89,15 @@ func TestPGNotifyEncodeRejectsOversizedPayload(t *testing.T) {
 
 	if _, err := encodePGNotifyEvent(message); err == nil {
 		t.Fatal("expected oversize payload error")
+	}
+}
+
+func TestPGNotifyDecodeRejectsMalformedPayloads(t *testing.T) {
+	if _, err := decodePGNotifyEvent("{"); err == nil || !strings.Contains(err.Error(), "unmarshal pgnotify event") {
+		t.Fatalf("expected unmarshal error, got %v", err)
+	}
+	if _, err := decodePGNotifyEvent(`{"topic":"","type":"runtime.started","payload":null,"published_at":"2026-03-27T20:00:00Z"}`); err == nil || !strings.Contains(err.Error(), "topic must not be empty") {
+		t.Fatalf("expected provider validation error, got %v", err)
 	}
 }
 
@@ -133,6 +166,19 @@ func TestPGNotifyBusPublishesRuntimeEventsWithLengthSafeChannelNames(t *testing.
 		}
 	case <-ctx.Done():
 		t.Fatalf("timed out waiting for pgnotify delivery: %v", ctx.Err())
+	}
+}
+
+func TestPGNotifyBusCloseIsIdempotent(t *testing.T) {
+	bus, err := NewPGNotifyBus("postgres://localhost/openase", nil)
+	if err != nil {
+		t.Fatalf("NewPGNotifyBus returned error: %v", err)
+	}
+	if err := bus.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+	if err := bus.Close(); err != nil {
+		t.Fatalf("second Close returned error: %v", err)
 	}
 }
 

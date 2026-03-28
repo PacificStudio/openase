@@ -15,6 +15,8 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticketcomment "github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -715,6 +717,188 @@ func TestListTicketsRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 	decodeResponse(t, rec, &payload)
 	if payload.Tickets == nil || len(payload.Tickets) != 0 {
 		t.Fatalf("expected non-nil empty tickets slice, got %+v", payload.Tickets)
+	}
+}
+
+func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
+	serverWithoutService := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	validProjectID := uuid.NewString()
+	validTicketID := uuid.NewString()
+	validCommentID := uuid.NewString()
+	validDependencyID := uuid.NewString()
+	validExternalLinkID := uuid.NewString()
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		target string
+		body   string
+	}{
+		{name: "list tickets unavailable", method: http.MethodGet, target: "/api/v1/projects/" + validProjectID + "/tickets"},
+		{name: "create ticket unavailable", method: http.MethodPost, target: "/api/v1/projects/" + validProjectID + "/tickets", body: `{"title":"x"}`},
+		{name: "get ticket unavailable", method: http.MethodGet, target: "/api/v1/tickets/" + validTicketID},
+		{name: "update ticket unavailable", method: http.MethodPatch, target: "/api/v1/tickets/" + validTicketID, body: `{"title":"x"}`},
+		{name: "create comment unavailable", method: http.MethodPost, target: "/api/v1/tickets/" + validTicketID + "/comments", body: `{"body":"x"}`},
+		{name: "update comment unavailable", method: http.MethodPatch, target: "/api/v1/tickets/" + validTicketID + "/comments/" + validCommentID, body: `{"body":"x"}`},
+		{name: "delete comment unavailable", method: http.MethodDelete, target: "/api/v1/tickets/" + validTicketID + "/comments/" + validCommentID},
+		{name: "add dependency unavailable", method: http.MethodPost, target: "/api/v1/tickets/" + validTicketID + "/dependencies", body: `{"target_ticket_id":"` + validTicketID + `","type":"blocks"}`},
+		{name: "delete dependency unavailable", method: http.MethodDelete, target: "/api/v1/tickets/" + validTicketID + "/dependencies/" + validDependencyID},
+		{name: "add external link unavailable", method: http.MethodPost, target: "/api/v1/tickets/" + validTicketID + "/external-links", body: `{"type":"github_issue","url":"https://example.com","external_id":"repo#1"}`},
+		{name: "delete external link unavailable", method: http.MethodDelete, target: "/api/v1/tickets/" + validTicketID + "/external-links/" + validExternalLinkID},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := performJSONRequest(t, serverWithoutService, tc.method, tc.target, tc.body)
+			if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "SERVICE_UNAVAILABLE") {
+				t.Fatalf("expected unavailable response, got %d: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+	detailServer := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-ticket-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Ticket Errors").
+		SetSlug("openase-ticket-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Ticket errors").
+		SetStatusID(backlogID).
+		SetCreatedBy("user:codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	comment, err := client.TicketComment.Create().
+		SetTicketID(ticketItem.ID).
+		SetBody("first comment").
+		SetCreatedBy("user:codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create comment: %v", err)
+	}
+	dependencyTarget, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-2").
+		SetTitle("Ticket dependency target").
+		SetStatusID(backlogID).
+		SetCreatedBy("user:codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create dependency target: %v", err)
+	}
+	dependency, err := client.TicketDependency.Create().
+		SetSourceTicketID(ticketItem.ID).
+		SetTargetTicketID(dependencyTarget.ID).
+		SetType(entticketdependency.TypeBlocks).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create dependency: %v", err)
+	}
+	externalLink, err := client.TicketExternalLink.Create().
+		SetTicketID(ticketItem.ID).
+		SetLinkType(entticketexternallink.LinkTypeGithubIssue).
+		SetURL("https://github.com/BetterAndBetterII/openase/issues/1").
+		SetExternalID("BetterAndBetterII/openase#1").
+		SetRelation(entticketexternallink.RelationRelated).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create external link: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantBody   string
+		server     *Server
+	}{
+		{name: "list invalid project", method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/tickets", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID", server: server},
+		{name: "list invalid priority", method: http.MethodGet, target: "/api/v1/projects/" + project.ID.String() + "/tickets?priority=unknown", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PRIORITY", server: server},
+		{name: "create invalid project", method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/tickets", body: `{"title":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID", server: server},
+		{name: "create invalid json", method: http.MethodPost, target: "/api/v1/projects/" + project.ID.String() + "/tickets", body: `{"title":"x","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
+		{name: "get invalid ticket", method: http.MethodGet, target: "/api/v1/tickets/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
+		{name: "get missing ticket", method: http.MethodGet, target: "/api/v1/tickets/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "TICKET_NOT_FOUND", server: server},
+		{name: "detail unavailable", method: http.MethodGet, target: "/api/v1/projects/" + project.ID.String() + "/tickets/" + ticketItem.ID.String() + "/detail", wantStatus: http.StatusServiceUnavailable, wantBody: "SERVICE_UNAVAILABLE", server: detailServer},
+		{name: "update invalid ticket", method: http.MethodPatch, target: "/api/v1/tickets/not-a-uuid", body: `{"title":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
+		{name: "update invalid json", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String(), body: `{"title":"x","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
+		{name: "create comment invalid ticket", method: http.MethodPost, target: "/api/v1/tickets/not-a-uuid/comments", body: `{"body":"x","created_by":"user:codex"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
+		{name: "create comment invalid json", method: http.MethodPost, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments", body: `{"body":"x","created_by":"user:codex","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
+		{name: "create comment missing ticket", method: http.MethodPost, target: "/api/v1/tickets/" + uuid.NewString() + "/comments", body: `{"body":"x","created_by":"user:codex"}`, wantStatus: http.StatusNotFound, wantBody: "TICKET_NOT_FOUND", server: server},
+		{name: "update comment invalid comment", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/not-a-uuid", body: `{"body":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_COMMENT_ID", server: server},
+		{name: "update comment missing", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/" + uuid.NewString(), body: `{"body":"x"}`, wantStatus: http.StatusNotFound, wantBody: "COMMENT_NOT_FOUND", server: server},
+		{name: "delete comment invalid comment", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_COMMENT_ID", server: server},
+		{name: "delete comment missing", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "COMMENT_NOT_FOUND", server: server},
+		{name: "add dependency invalid ticket", method: http.MethodPost, target: "/api/v1/tickets/not-a-uuid/dependencies", body: `{"target_ticket_id":"` + dependencyTarget.ID.String() + `","type":"blocks"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
+		{name: "add dependency invalid request", method: http.MethodPost, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/dependencies", body: `{"target_ticket_id":"not-a-uuid","type":"blocks"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST", server: server},
+		{name: "delete dependency invalid dependency", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/dependencies/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_DEPENDENCY_ID", server: server},
+		{name: "delete dependency missing", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/dependencies/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "DEPENDENCY_NOT_FOUND", server: server},
+		{name: "add external link invalid ticket", method: http.MethodPost, target: "/api/v1/tickets/not-a-uuid/external-links", body: `{"type":"github_issue","url":"https://example.com","external_id":"repo#1"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
+		{name: "add external link invalid json", method: http.MethodPost, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/external-links", body: `{"type":"github_issue","url":"https://example.com","external_id":"repo#1","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
+		{name: "delete external link invalid id", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/external-links/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_EXTERNAL_LINK_ID", server: server},
+		{name: "delete external link missing", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/external-links/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "EXTERNAL_LINK_NOT_FOUND", server: server},
+		{name: "delete dependency existing sanity", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/dependencies/" + dependency.ID.String(), wantStatus: http.StatusOK, wantBody: dependency.ID.String(), server: server},
+		{name: "delete external link existing sanity", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/external-links/" + externalLink.ID.String(), wantStatus: http.StatusOK, wantBody: externalLink.ID.String(), server: server},
+		{name: "delete comment existing sanity", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/" + comment.ID.String(), wantStatus: http.StatusOK, wantBody: comment.ID.String(), server: server},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := performJSONRequest(t, tc.server, tc.method, tc.target, tc.body)
+			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
+				t.Fatalf("%s %s = %d %s", tc.method, tc.target, rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
 

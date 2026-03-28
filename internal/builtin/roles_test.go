@@ -92,3 +92,31 @@ func TestEnvProvisionerRoleTemplate(t *testing.T) {
 		}
 	}
 }
+
+func TestRolesHelpers(t *testing.T) {
+	roles := Roles()
+	if len(roles) == 0 {
+		t.Fatal("Roles() expected built-in roles")
+	}
+
+	originalName := roles[0].Name
+	roles[0].Name = "mutated"
+	refreshed := Roles()
+	if len(refreshed) == 0 || refreshed[0].Name != originalName {
+		t.Fatalf("Roles() should clone templates, got %+v", refreshed)
+	}
+
+	if _, ok := RoleBySlug("missing"); ok {
+		t.Fatal("RoleBySlug(missing) expected false")
+	}
+
+	custom := buildRoleTemplate("coding", "Coding", "coding", "Ship code", []string{"write-test", "review-code"}, "Do the work.")
+	if custom.HarnessPath != ".openase/harnesses/roles/coding.md" {
+		t.Fatalf("HarnessPath=%q, want %q", custom.HarnessPath, ".openase/harnesses/roles/coding.md")
+	}
+	for _, want := range []string{`name: "Coding"`, `type: "coding"`, `role: "coding"`, `- write-test`, `- review-code`, "Do the work."} {
+		if !strings.Contains(custom.Content, want) {
+			t.Fatalf("expected generated content to contain %q, got:\n%s", want, custom.Content)
+		}
+	}
+}

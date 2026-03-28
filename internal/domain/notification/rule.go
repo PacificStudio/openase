@@ -248,12 +248,13 @@ func (r Rule) RenderMessage(context map[string]any) (Message, error) {
 }
 
 func normalizeRuleFilter(raw map[string]any) (map[string]any, error) {
+	if raw == nil {
+		return map[string]any{}, nil
+	}
+
 	filter, err := cloneRawConfig(raw)
 	if err != nil {
 		return nil, err
-	}
-	if filter == nil {
-		return map[string]any{}, nil
 	}
 	return filter, nil
 }

@@ -90,3 +90,52 @@ func TestChannelBusCloseStopsNewSubscriptions(t *testing.T) {
 		t.Fatalf("expected closed bus error, got %v", err)
 	}
 }
+
+func TestChannelBusCoversValidationAndClosePaths(t *testing.T) {
+	bus := NewChannelBus()
+
+	if _, err := bus.Subscribe(context.Background()); err == nil || err.Error() != "at least one topic is required" {
+		t.Fatalf("expected missing topics error, got %v", err)
+	}
+	if _, err := bus.Subscribe(context.Background(), provider.Topic("")); err == nil || err.Error() != "topic must not be empty" {
+		t.Fatalf("expected empty topic error, got %v", err)
+	}
+	if err := bus.Publish(context.Background(), provider.Event{}); err == nil || err.Error() != "event topic must not be empty" {
+		t.Fatalf("expected empty event topic error, got %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	topic := provider.MustParseTopic("ticket.events")
+	subscriber, err := bus.Subscribe(ctx, topic)
+	if err != nil {
+		t.Fatalf("Subscribe returned error: %v", err)
+	}
+
+	cancel()
+
+	select {
+	case _, ok := <-subscriber:
+		if ok {
+			t.Fatal("expected subscriber channel to close after cancel")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for subscriber close")
+	}
+
+	if err := bus.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+	if err := bus.Close(); err != nil {
+		t.Fatalf("second Close returned error: %v", err)
+	}
+
+	message, err := provider.NewJSONEvent(topic, provider.MustParseEventType("ticket.updated"), nil, time.Now())
+	if err != nil {
+		t.Fatalf("NewJSONEvent returned error: %v", err)
+	}
+	if err := bus.Publish(context.Background(), message); err == nil || err.Error() != "channel bus is closed" {
+		t.Fatalf("expected closed bus publish error, got %v", err)
+	}
+
+	bus.removeSubscriber(999)
+}
