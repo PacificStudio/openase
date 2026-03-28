@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { preloadCode, preloadData } from '$app/navigation'
   import { buildGlobalNav, buildProjectNav, type SidebarNavItem } from './sidebar-nav'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
@@ -41,6 +42,11 @@
         ? 'bg-warning'
         : 'bg-destructive',
   )
+
+  function warmRoute(href: string) {
+    void preloadCode(href)
+    void preloadData(href)
+  }
 </script>
 
 <nav class="flex h-full flex-col overflow-hidden">
@@ -55,12 +61,15 @@
                 <a
                   href={item.href}
                   {...props}
+                  data-sveltekit-preload-code="hover"
+                  data-sveltekit-preload-data="tap"
                   class={cn(
                     'flex h-8 w-full items-center justify-center rounded-md text-sm transition-colors',
                     item.active
                       ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
                       : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
                   )}
+                  onpointerenter={() => warmRoute(item.href)}
                 >
                   <Icon class="size-4" />
                 </a>
@@ -73,12 +82,15 @@
         {:else}
           <a
             href={item.href}
+            data-sveltekit-preload-code="hover"
+            data-sveltekit-preload-data="tap"
             class={cn(
               'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
               item.active
                 ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
                 : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
             )}
+            onpointerenter={() => warmRoute(item.href)}
           >
             <Icon class="size-4 shrink-0" />
             <span class="truncate">{item.label}</span>
@@ -116,12 +128,15 @@
                   <a
                     href={item.href}
                     {...props}
+                    data-sveltekit-preload-code="hover"
+                    data-sveltekit-preload-data="tap"
                     class={cn(
                       'flex h-8 w-full items-center justify-center rounded-md text-sm transition-colors',
                       item.active
                         ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
                         : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
                     )}
+                    onpointerenter={() => warmRoute(item.href)}
                   >
                     <Icon class="size-4" />
                   </a>
@@ -142,12 +157,15 @@
           {:else}
             <a
               href={item.href}
+              data-sveltekit-preload-code="hover"
+              data-sveltekit-preload-data="tap"
               class={cn(
                 'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
                 item.active
                   ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
                   : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
               )}
+              onpointerenter={() => warmRoute(item.href)}
             >
               <Icon class="size-4 shrink-0" />
               <span class="truncate">{item.label}</span>

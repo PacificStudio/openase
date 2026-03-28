@@ -1,13 +1,14 @@
 <script lang="ts">
-  import { invalidate } from '$app/navigation'
   import { ApiError } from '$lib/api/client'
   import {
     createMachine,
     deleteMachine,
     getMachineResources,
+    listMachines,
     testMachineConnection,
     updateMachine,
   } from '$lib/api/openase'
+  import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import MachinesPageBody from './machines-page-body.svelte'
   import {
@@ -29,12 +30,9 @@
     MachineDraft,
     MachineItem,
     MachineProbeResult,
-    MachinesPageData,
     MachineSnapshot,
     MachineWorkspaceState,
   } from '../types'
-
-  let { data }: { data: MachinesPageData } = $props()
 
   let loading = $state(false)
   let refreshing = $state(false)
@@ -58,40 +56,75 @@
   const filteredMachines = $derived(filterMachines(machines, searchQuery))
 
   $effect(() => {
-    void syncFromRouteData(data)
+    const currentOrg = appStore.currentOrg
+    if (!currentOrg) {
+      editorOpen = false
+      loading = false
+      refreshing = false
+      applyViewState(createNoOrgState())
+      return
+    }
+
+    let cancelled = false
+    void loadMachineList(currentOrg.id, { background: false, cancelled: () => cancelled })
+
+    return () => {
+      cancelled = true
+    }
   })
 
-  async function syncFromRouteData(nextData: MachinesPageData) {
-    loading = false
-    refreshing = false
-
-    if (nextData.orgContext.kind === 'no-org') {
+  async function syncFromMachineList(
+    orgId: string,
+    nextMachines: MachineItem[],
+    nextListError: string | null,
+  ) {
+    if (nextListError) {
       editorOpen = false
-      return applyViewState(createNoOrgState())
+      return applyViewState(createListErrorState(nextListError))
     }
-    if (nextData.orgContext.kind === 'error') {
+    if (nextMachines.length === 0) {
       editorOpen = false
-      return applyViewState(createListErrorState(nextData.orgContext.message))
-    }
-
-    const nextOrgId = nextData.orgContext.org.id
-    if (nextData.initialListError) {
-      editorOpen = false
-      return applyViewState(createListErrorState(nextData.initialListError))
-    }
-    if (nextData.initialMachines.length === 0) {
-      editorOpen = false
-      return applyViewState(createEmptyState(nextOrgId))
+      return applyViewState(createEmptyState(orgId))
     }
 
     const nextMachine =
-      nextData.initialMachines.find((machine) => machine.id === selectedId) ??
-      nextData.initialMachines[0]
+      nextMachines.find((machine) => machine.id === selectedId) ?? nextMachines[0]
     applyViewState({
-      ...createEditorSelectionState(nextOrgId, nextData.initialMachines, nextMachine),
+      ...createEditorSelectionState(orgId, nextMachines, nextMachine),
       searchQuery,
     })
     await loadMachineResources(nextMachine.id)
+  }
+
+  async function loadMachineList(
+    orgId: string,
+    options: {
+      background: boolean
+      cancelled?: () => boolean
+    },
+  ) {
+    loading = !options.background
+    refreshing = options.background
+
+    try {
+      const payload = await listMachines(orgId)
+      if (options.cancelled?.()) return
+      await syncFromMachineList(orgId, payload.machines ?? [], null)
+    } catch (caughtError) {
+      if (options.cancelled?.()) return
+      if (options.background && machines.length > 0) {
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to refresh machines.',
+        )
+      } else {
+        await syncFromMachineList(orgId, [], 'Failed to load machines.')
+      }
+    } finally {
+      if (!options.cancelled?.()) {
+        loading = false
+        refreshing = false
+      }
+    }
   }
 
   function applyViewState(nextState: MachinesPageViewState) {
@@ -152,15 +185,8 @@
 
   async function handleRefresh() {
     if (loading || refreshing) return
-    if (workspaceState === 'error' || workspaceState === 'no-org') loading = true
-    else refreshing = true
-
-    try {
-      await invalidate('openase:machines-page')
-    } finally {
-      loading = false
-      refreshing = false
-    }
+    if (!routeOrgId) return
+    await loadMachineList(routeOrgId, { background: workspaceState === 'ready' })
   }
 
   async function handleSave() {

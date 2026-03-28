@@ -187,6 +187,7 @@
 </script>
 
 <article
+  data-testid={`machine-card-${machine.id}`}
   class={cn(
     'border-border bg-card hover:bg-muted/20 rounded-2xl border p-4 transition-colors',
     selected && 'border-primary bg-primary/5 ring-primary/20 ring-1',
@@ -194,6 +195,7 @@
 >
   <div class="grid gap-4 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] xl:items-center">
     <div
+      data-testid={`machine-open-${machine.id}`}
       class="min-w-0 cursor-pointer space-y-3"
       role="button"
       tabindex="0"
@@ -250,6 +252,7 @@
     </div>
 
     <div
+      data-testid={`machine-resources-${machine.id}`}
       role="button"
       tabindex="0"
       onclick={onOpen}

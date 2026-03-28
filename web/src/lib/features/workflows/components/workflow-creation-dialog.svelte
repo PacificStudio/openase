@@ -34,17 +34,20 @@
   let agentId = $state('')
   let pickupStatusIds = $state<string[]>([])
   let finishStatusIds = $state<string[]>([])
+  let wasOpen = false
 
   const selectedAgentLabel = $derived(
     agentOptions.find((option) => option.id === agentId)?.label ?? 'Select bound agent',
   )
   $effect(() => {
-    if (!open) return
+    if (open && !wasOpen) {
+      name = `Workflow ${existingCount + 1}`
+      agentId = agentOptions[0]?.id ?? ''
+      pickupStatusIds = statuses[0] ? [statuses[0].id] : []
+      finishStatusIds = statuses.at(-1) ? [statuses.at(-1)!.id] : statuses[0] ? [statuses[0].id] : []
+    }
 
-    name = `Workflow ${existingCount + 1}`
-    agentId = agentOptions[0]?.id ?? ''
-    pickupStatusIds = statuses[0] ? [statuses[0].id] : []
-    finishStatusIds = statuses.at(-1) ? [statuses.at(-1)!.id] : statuses[0] ? [statuses[0].id] : []
+    wasOpen = open
   })
 
   async function handleSubmit(event: SubmitEvent) {
