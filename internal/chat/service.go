@@ -31,6 +31,8 @@ var (
 	ErrProviderUnavailable     = errors.New("chat provider is unavailable")
 	ErrSessionNotFound         = errors.New("chat session not found")
 	ErrSessionProviderMismatch = errors.New("chat session cannot resume across providers")
+	ErrSessionTurnLimitReached = errors.New("chat session reached the turn limit; please create a ticket for further work")
+	ErrSessionBudgetExceeded   = errors.New("chat session reached the budget cap; please create a ticket for further work")
 )
 
 type Source string
@@ -96,15 +98,16 @@ type workflowReader interface {
 }
 
 type Service struct {
-	logger           *slog.Logger
-	runtime          Runtime
-	catalog          catalogReader
-	tickets          ticketReader
-	workflows        workflowReader
-	workingDir       provider.AbsolutePath
-	maxTurns         int
-	maxBudgetUSD     float64
-	sessionProviders sessionProviderRegistry
+	logger       *slog.Logger
+	runtime      Runtime
+	catalog      catalogReader
+	tickets      ticketReader
+	workflows    workflowReader
+	workingDir   provider.AbsolutePath
+	maxTurns     int
+	maxBudgetUSD float64
+	sessions     sessionRegistry
+	userLocks    userLockRegistry
 }
 
 type donePayload struct {
@@ -205,18 +208,29 @@ func ParseCloseSessionID(raw string) (SessionID, error) {
 	return ParseSessionID(raw)
 }
 
-func (s *Service) StartTurn(ctx context.Context, input StartInput) (TurnStream, error) {
+func (s *Service) StartTurn(ctx context.Context, userID UserID, input StartInput) (TurnStream, error) {
 	if s == nil || s.runtime == nil || s.catalog == nil || s.tickets == nil || s.workflows == nil {
 		return TurnStream{}, ErrUnavailable
 	}
+
+	unlockUser := s.userLocks.Lock(userID)
+	defer unlockUser()
 
 	project, err := s.catalog.GetProject(ctx, input.Context.ProjectID)
 	if err != nil {
 		return TurnStream{}, fmt.Errorf("get project for chat: %w", err)
 	}
 
+	existingSession, err := s.resolveExistingSession(userID, input.SessionID)
+	if err != nil {
+		return TurnStream{}, err
+	}
+	if input.SessionID == nil {
+		s.closeReplacedSession(userID)
+	}
+
 	sessionID, created := s.resolveSessionID(input.SessionID)
-	providerItem, err := s.resolveProvider(ctx, project, input.ProviderID, input.SessionID, sessionID)
+	providerItem, err := s.resolveProvider(ctx, project, input.ProviderID, existingSession, sessionID)
 	if err != nil {
 		return TurnStream{}, err
 	}
@@ -227,7 +241,7 @@ func (s *Service) StartTurn(ctx context.Context, input StartInput) (TurnStream, 
 	}
 
 	if created {
-		s.sessionProviders.Register(sessionID, providerItem.ID)
+		s.sessions.Register(userID, sessionID, providerItem.ID)
 	}
 
 	stream, err := s.runtime.StartTurn(ctx, RuntimeTurnInput{
@@ -241,9 +255,16 @@ func (s *Service) StartTurn(ctx context.Context, input StartInput) (TurnStream, 
 	})
 	if err != nil {
 		if created {
-			s.sessionProviders.Delete(sessionID)
+			s.sessions.Delete(sessionID)
 		}
 		return TurnStream{}, err
+	}
+
+	if created {
+		if _, ok := s.sessions.ResolveForUser(userID, sessionID); !ok {
+			s.runtime.CloseSession(sessionID)
+			return TurnStream{}, ErrSessionNotFound
+		}
 	}
 
 	events := make(chan StreamEvent, 1)
@@ -257,17 +278,30 @@ func (s *Service) StartTurn(ctx context.Context, input StartInput) (TurnStream, 
 
 		for event := range stream.Events {
 			events <- event
+			s.handleTerminalEvent(sessionID, event)
 		}
 	}()
 
 	return TurnStream{Events: events}, nil
 }
 
-func (s *Service) CloseSession(sessionID SessionID) bool {
+func (s *Service) CloseSession(userID UserID, sessionID SessionID) bool {
 	if s == nil || s.runtime == nil {
 		return false
 	}
-	s.sessionProviders.Delete(sessionID)
+
+	unlockUser := s.userLocks.Lock(userID)
+	defer unlockUser()
+
+	state, ok := s.sessions.ResolveForUser(userID, sessionID)
+	if !ok {
+		return false
+	}
+
+	s.sessions.Delete(sessionID)
+	if state.Released {
+		return true
+	}
 	return s.runtime.CloseSession(sessionID)
 }
 
@@ -283,7 +317,7 @@ func (s *Service) resolveProvider(
 	ctx context.Context,
 	project catalogdomain.Project,
 	rawProviderID *uuid.UUID,
-	rawSessionID *SessionID,
+	existingSession *sessionState,
 	sessionID SessionID,
 ) (catalogdomain.AgentProvider, error) {
 	providers, err := s.catalog.ListAgentProviders(ctx, project.OrganizationID)
@@ -292,11 +326,8 @@ func (s *Service) resolveProvider(
 	}
 
 	resolvedProviderID := rawProviderID
-	if rawSessionID != nil {
-		sessionProviderID, ok := s.sessionProviders.Resolve(*rawSessionID)
-		if !ok {
-			return catalogdomain.AgentProvider{}, ErrSessionNotFound
-		}
+	if existingSession != nil {
+		sessionProviderID := existingSession.ProviderID
 		if resolvedProviderID != nil && *resolvedProviderID != sessionProviderID {
 			return catalogdomain.AgentProvider{}, ErrSessionProviderMismatch
 		}
@@ -330,6 +361,91 @@ func (s *Service) resolveProvider(
 	}
 
 	return catalogdomain.AgentProvider{}, fmt.Errorf("%w: project=%s session=%s", ErrProviderNotFound, project.ID, sessionID)
+}
+
+func (s *Service) resolveExistingSession(userID UserID, rawSessionID *SessionID) (*sessionState, error) {
+	if rawSessionID == nil {
+		return nil, nil
+	}
+
+	state, ok := s.sessions.ResolveForUser(userID, *rawSessionID)
+	if !ok {
+		return nil, ErrSessionNotFound
+	}
+	if err := s.validateSessionBudget(state); err != nil {
+		return nil, err
+	}
+
+	return &state, nil
+}
+
+func (s *Service) validateSessionBudget(state sessionState) error {
+	if state.ExhaustedMessage != "" {
+		if state.HasCostUSD && state.CostUSD >= s.maxBudgetUSD {
+			return ErrSessionBudgetExceeded
+		}
+		return ErrSessionTurnLimitReached
+	}
+	if state.TurnsUsed >= s.maxTurns {
+		return ErrSessionTurnLimitReached
+	}
+	if state.HasCostUSD && state.CostUSD >= s.maxBudgetUSD {
+		return ErrSessionBudgetExceeded
+	}
+
+	return nil
+}
+
+func (s *Service) closeReplacedSession(userID UserID) {
+	if userID == "" {
+		return
+	}
+
+	previousSessionID, ok := s.sessions.ResolveUserSession(userID)
+	if !ok {
+		return
+	}
+
+	state, deleted := s.sessions.Delete(previousSessionID)
+	if !deleted || state.Released {
+		return
+	}
+
+	s.runtime.CloseSession(previousSessionID)
+}
+
+func (s *Service) handleTerminalEvent(sessionID SessionID, event StreamEvent) {
+	if event.Event == "error" {
+		state, ok := s.sessions.Delete(sessionID)
+		if ok && !state.Released {
+			s.runtime.CloseSession(sessionID)
+		}
+		return
+	}
+
+	done, ok := event.Payload.(donePayload)
+	if !ok {
+		return
+	}
+
+	state, tracked := s.sessions.MarkUsage(sessionID, done.TurnsUsed, done.CostUSD)
+	if !tracked {
+		return
+	}
+
+	exhaustedMessage := ""
+	switch {
+	case state.HasCostUSD && state.CostUSD >= s.maxBudgetUSD:
+		exhaustedMessage = ErrSessionBudgetExceeded.Error()
+	case state.TurnsUsed >= s.maxTurns:
+		exhaustedMessage = ErrSessionTurnLimitReached.Error()
+	}
+	if exhaustedMessage == "" {
+		return
+	}
+
+	s.sessions.MarkReleased(sessionID, exhaustedMessage)
+	s.runtime.CloseSession(sessionID)
 }
 
 func findProvider(items []catalogdomain.AgentProvider, want uuid.UUID) (catalogdomain.AgentProvider, bool) {

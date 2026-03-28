@@ -839,7 +839,7 @@ func TestAppContextAggregatesOrganizationsProjectsProvidersAndAgentCount(t *test
 		OrganizationID: orgID,
 		Name:           "OpenASE",
 		Slug:           "openase",
-		Status:         domain.ProjectStatusActive,
+		Status:         domain.ProjectStatusInProgress,
 	}
 	svc.machines[machineID] = domain.Machine{
 		ID:             machineID,

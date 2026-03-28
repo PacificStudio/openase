@@ -149,7 +149,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 	}
 	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, "")
 
-	stream, err := service.StartTurn(context.Background(), StartInput{
+	stream, err := service.StartTurn(context.Background(), UserID("user:test"), StartInput{
 		Message: "Summarize project",
 		Source:  SourceProjectSidebar,
 		Context: Context{ProjectID: projectID},
@@ -202,7 +202,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 	if runtime.lastInput.SessionID == "" {
 		t.Fatal("runtime session id should be assigned")
 	}
-	if service.CloseSession(SessionID("sess-project-1")) {
+	if service.CloseSession(UserID("user:test"), SessionID("sess-project-1")) {
 		t.Fatal("CloseSession() after completion should return false")
 	}
 }
@@ -365,20 +365,215 @@ func TestChatHelperCoverageAndRegistry(t *testing.T) {
 		t.Fatal("isHookActivityEvent() should be false without hook markers")
 	}
 
-	if _, err := NewService(nil, nil, nil, nil, nil, "").StartTurn(context.Background(), StartInput{}); !errors.Is(err, ErrUnavailable) {
+	if _, err := NewService(nil, nil, nil, nil, nil, "").StartTurn(context.Background(), AnonymousUserID, StartInput{}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("StartTurn() unavailable error = %v, want %v", err, ErrUnavailable)
 	}
 
-	var registry sessionProviderRegistry
+	parsedUserID, err := ParseRequestUserID("")
+	if err != nil || parsedUserID != AnonymousUserID {
+		t.Fatalf("ParseRequestUserID(blank) = %q, %v", parsedUserID, err)
+	}
+
+	var registry sessionRegistry
 	providerID := uuid.New()
+	userID := UserID("user:registry")
 	sessionID := SessionID("sess-registry")
-	registry.Register(sessionID, providerID)
-	if got, ok := registry.Resolve(sessionID); !ok || got != providerID {
-		t.Fatalf("Resolve() = %v, %v", got, ok)
+	registry.Register(userID, sessionID, providerID)
+	if got, ok := registry.ResolveForUser(userID, sessionID); !ok || got.ProviderID != providerID {
+		t.Fatalf("ResolveForUser() = %#v, %v", got, ok)
 	}
 	registry.Delete(sessionID)
 	if _, ok := registry.Resolve(sessionID); ok {
 		t.Fatal("Resolve() should fail after deletion")
+	}
+}
+
+func TestStartTurnReplacesExistingSessionForSameUser(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	userID := UserID("user:alice")
+	runtime := &fakeRuntime{
+		closeResult: true,
+		startFn: func(input RuntimeTurnInput) []StreamEvent {
+			return []StreamEvent{
+				{Event: "message", Payload: textPayload{Type: "text", Content: "ready"}},
+				{
+					Event: "done",
+					Payload: donePayload{
+						SessionID:      input.SessionID.String(),
+						TurnsUsed:      1,
+						TurnsRemaining: DefaultMaxTurns - 1,
+					},
+				},
+			}
+		},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
+					OrganizationID: orgID,
+					Name:           "Claude Code",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+					CliCommand:     "claude",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+
+	firstStream, err := service.StartTurn(context.Background(), userID, StartInput{
+		Message: "first",
+		Source:  SourceProjectSidebar,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("first StartTurn() error = %v", err)
+	}
+	firstEvents := collectStreamEvents(firstStream.Events)
+	firstSession := firstEvents[0].Payload.(sessionPayload).SessionID
+
+	secondStream, err := service.StartTurn(context.Background(), userID, StartInput{
+		Message: "second",
+		Source:  SourceProjectSidebar,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("second StartTurn() error = %v", err)
+	}
+	secondEvents := collectStreamEvents(secondStream.Events)
+	secondSession := secondEvents[0].Payload.(sessionPayload).SessionID
+
+	if firstSession == secondSession {
+		t.Fatalf("expected replacement session, got same session id %q", firstSession)
+	}
+	if len(runtime.closeCalls) == 0 || runtime.closeCalls[0] != SessionID(firstSession) {
+		t.Fatalf("expected previous session %q to be closed, got %+v", firstSession, runtime.closeCalls)
+	}
+}
+
+func TestStartTurnRejectsResumeAcrossUsers(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	runtime := &fakeRuntime{
+		startFn: func(input RuntimeTurnInput) []StreamEvent {
+			return []StreamEvent{
+				{
+					Event: "done",
+					Payload: donePayload{
+						SessionID:      input.SessionID.String(),
+						TurnsUsed:      1,
+						TurnsRemaining: DefaultMaxTurns - 1,
+					},
+				},
+			}
+		},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
+					OrganizationID: orgID,
+					Name:           "Claude Code",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+					CliCommand:     "claude",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+
+	stream, err := service.StartTurn(context.Background(), UserID("user:alice"), StartInput{
+		Message: "first",
+		Source:  SourceProjectSidebar,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("seed StartTurn() error = %v", err)
+	}
+	events := collectStreamEvents(stream.Events)
+	sessionID := SessionID(events[0].Payload.(sessionPayload).SessionID)
+
+	if _, err := service.StartTurn(context.Background(), UserID("user:bob"), StartInput{
+		Message:   "resume",
+		Source:    SourceProjectSidebar,
+		Context:   Context{ProjectID: projectID},
+		SessionID: &sessionID,
+	}); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("resume across users error = %v, want %v", err, ErrSessionNotFound)
+	}
+}
+
+func TestStartTurnRejectsExhaustedSession(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	userID := UserID("user:alice")
+	sessionID := SessionID("sess-exhausted")
+	providerID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440000")
+	service := NewService(
+		nil,
+		&fakeRuntime{},
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             providerID,
+					OrganizationID: orgID,
+					Name:           "Claude Code",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+					CliCommand:     "claude",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+
+	service.sessions.Register(userID, sessionID, providerID)
+	service.sessions.MarkUsage(sessionID, DefaultMaxTurns, nil)
+	service.sessions.MarkReleased(sessionID, ErrSessionTurnLimitReached.Error())
+
+	if _, err := service.StartTurn(context.Background(), userID, StartInput{
+		Message:   "resume",
+		Source:    SourceProjectSidebar,
+		Context:   Context{ProjectID: projectID},
+		SessionID: &sessionID,
+	}); !errors.Is(err, ErrSessionTurnLimitReached) {
+		t.Fatalf("StartTurn() exhausted error = %v, want %v", err, ErrSessionTurnLimitReached)
 	}
 }
 
@@ -482,6 +677,8 @@ type fakeRuntime struct {
 	lastInput    RuntimeTurnInput
 	closeResult  bool
 	startErr     error
+	closeCalls   []SessionID
+	startFn      func(RuntimeTurnInput) []StreamEvent
 }
 
 func (r *fakeRuntime) Supports(catalogdomain.AgentProvider) bool {
@@ -493,15 +690,20 @@ func (r *fakeRuntime) StartTurn(_ context.Context, input RuntimeTurnInput) (Turn
 		return TurnStream{}, r.startErr
 	}
 	r.lastInput = input
-	events := make(chan StreamEvent, len(r.streamEvents))
-	for _, event := range r.streamEvents {
+	streamEvents := r.streamEvents
+	if r.startFn != nil {
+		streamEvents = r.startFn(input)
+	}
+	events := make(chan StreamEvent, len(streamEvents))
+	for _, event := range streamEvents {
 		events <- event
 	}
 	close(events)
 	return TurnStream{Events: events}, nil
 }
 
-func (r *fakeRuntime) CloseSession(SessionID) bool {
+func (r *fakeRuntime) CloseSession(sessionID SessionID) bool {
+	r.closeCalls = append(r.closeCalls, sessionID)
 	return r.closeResult
 }
 

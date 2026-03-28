@@ -13,6 +13,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+const chatUserHeader = "X-OpenASE-Chat-User"
+
 func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat", s.handleStartChat)
 	api.DELETE("/chat/:sessionId", s.handleDeleteChat)
@@ -33,7 +35,12 @@ func (s *Server) handleStartChat(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
-	stream, err := s.chatService.StartTurn(c.Request().Context(), input)
+	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
+	}
+
+	stream, err := s.chatService.StartTurn(c.Request().Context(), userID, input)
 	if err != nil {
 		return writeChatError(c, err)
 	}
@@ -74,7 +81,12 @@ func (s *Server) handleDeleteChat(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
 	}
 
-	s.chatService.CloseSession(sessionID)
+	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
+	}
+
+	s.chatService.CloseSession(userID, sessionID)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -86,6 +98,9 @@ func writeChatError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_SOURCE", err.Error())
 	case errors.Is(err, chatservice.ErrSessionProviderMismatch):
 		return writeAPIError(c, http.StatusConflict, "CHAT_SESSION_PROVIDER_MISMATCH", err.Error())
+	case errors.Is(err, chatservice.ErrSessionTurnLimitReached),
+		errors.Is(err, chatservice.ErrSessionBudgetExceeded):
+		return writeAPIError(c, http.StatusConflict, "CHAT_SESSION_LIMIT_REACHED", err.Error())
 	case errors.Is(err, chatservice.ErrProviderNotFound):
 		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_NOT_CONFIGURED", err.Error())
 	case errors.Is(err, chatservice.ErrProviderUnavailable),

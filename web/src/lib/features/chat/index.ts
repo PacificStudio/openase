@@ -5,4 +5,5 @@ export { default as EphemeralChatTranscript } from './ephemeral-chat-transcript.
 export { default as ProjectAssistantSheet } from './project-assistant-sheet.svelte'
 export * from './ephemeral-chat-session-controller.svelte'
 export * from './provider-options'
+export * from './session-policy'
 export * from './transcript'
