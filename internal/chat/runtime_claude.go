@@ -171,22 +171,15 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 
 		items := make([]StreamEvent, 0, len(texts))
 		for _, text := range texts {
-			if proposal, ok := parseActionProposalText(text); ok {
-				items = append(items, StreamEvent{Event: "message", Payload: proposal})
-				continue
-			}
-			items = append(items, StreamEvent{
-				Event:   "message",
-				Payload: textPayload{Type: "text", Content: text},
-			})
+			items = append(items, normalizeAssistantText(text)...)
 		}
 		return items
 	case provider.ClaudeCodeEventKindTaskStart:
-		return []StreamEvent{{Event: "message", Payload: map[string]any{"type": "task_started", "raw": decodeRawJSON(event.Raw)}}}
+		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskStarted, decodeRawJSON(event.Raw))}
 	case provider.ClaudeCodeEventKindTaskProgress:
-		return []StreamEvent{{Event: "message", Payload: map[string]any{"type": "task_progress", "raw": decodeRawJSON(event.Raw)}}}
+		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskProgress, decodeRawJSON(event.Raw))}
 	case provider.ClaudeCodeEventKindTaskNotice:
-		return []StreamEvent{{Event: "message", Payload: map[string]any{"type": "task_notification", "raw": decodeRawJSON(event.Raw)}}}
+		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskNotification, decodeRawJSON(event.Raw))}
 	case provider.ClaudeCodeEventKindUnknown:
 		payload := map[string]any{"type": event.UnknownType}
 		if data := decodeRawJSON(event.Raw); data != nil {

@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +22,12 @@ type codexRuntimeSession struct {
 	session   *codexadapter.Session
 	turnsUsed int
 	running   bool
+}
+
+type codexAssistantItemState struct {
+	text              strings.Builder
+	emittedText       bool
+	waitingOnSnapshot bool
 }
 
 func NewCodexRuntime(adapter *codexadapter.Adapter) *CodexRuntime {
@@ -180,45 +187,43 @@ func (r *CodexRuntime) bridgeTurn(
 		r.mu.Unlock()
 	}()
 
+	assistantItems := make(map[string]*codexAssistantItemState)
+
 	for event := range state.session.Events() {
 		switch event.Type {
+		case codexadapter.EventTypeTurnStarted:
+			if event.Turn == nil || event.Turn.TurnID != turnID {
+				continue
+			}
+			events <- newTaskMessageEvent(chatMessageTypeTaskStarted, map[string]any{
+				"thread_id": event.Turn.ThreadID,
+				"turn_id":   event.Turn.TurnID,
+				"status":    event.Turn.Status,
+			})
 		case codexadapter.EventTypeOutputProduced:
 			if event.Output == nil || event.Output.TurnID != turnID || event.Output.Text == "" {
 				continue
 			}
 			if event.Output.Stream == "assistant" {
-				events <- StreamEvent{
-					Event:   "message",
-					Payload: textPayload{Type: "text", Content: event.Output.Text},
+				for _, item := range mapCodexAssistantOutput(event.Output, assistantItems) {
+					events <- item
 				}
 				continue
 			}
-			events <- StreamEvent{
-				Event: "message",
-				Payload: map[string]any{
-					"type": "task_progress",
-					"raw": map[string]any{
-						"stream":   event.Output.Stream,
-						"text":     event.Output.Text,
-						"phase":    event.Output.Phase,
-						"snapshot": event.Output.Snapshot,
-					},
-				},
-			}
+			events <- newTaskMessageEvent(chatMessageTypeTaskProgress, map[string]any{
+				"stream":   event.Output.Stream,
+				"text":     event.Output.Text,
+				"phase":    event.Output.Phase,
+				"snapshot": event.Output.Snapshot,
+			})
 		case codexadapter.EventTypeToolCallRequested:
 			if event.ToolCall == nil || event.ToolCall.TurnID != turnID {
 				continue
 			}
-			events <- StreamEvent{
-				Event: "message",
-				Payload: map[string]any{
-					"type": "task_notification",
-					"raw": map[string]any{
-						"tool":      event.ToolCall.Tool,
-						"arguments": decodeRawJSON(event.ToolCall.Arguments),
-					},
-				},
-			}
+			events <- newTaskMessageEvent(chatMessageTypeTaskNotification, map[string]any{
+				"tool":      event.ToolCall.Tool,
+				"arguments": decodeRawJSON(event.ToolCall.Arguments),
+			})
 		case codexadapter.EventTypeTurnCompleted:
 			if event.Turn == nil || event.Turn.TurnID != turnID {
 				continue
@@ -262,6 +267,61 @@ func (r *CodexRuntime) bridgeTurn(
 		Event:   "error",
 		Payload: errorPayload{Message: "codex chat session ended unexpectedly"},
 	}
+}
+
+func mapCodexAssistantOutput(
+	output *codexadapter.OutputEvent,
+	items map[string]*codexAssistantItemState,
+) []StreamEvent {
+	if output == nil || strings.TrimSpace(output.Text) == "" {
+		return nil
+	}
+
+	itemID := strings.TrimSpace(output.ItemID)
+	if itemID == "" {
+		return normalizeAssistantText(output.Text)
+	}
+
+	state := items[itemID]
+	if state == nil {
+		state = &codexAssistantItemState{}
+		items[itemID] = state
+	}
+	state.text.WriteString(output.Text)
+	combined := state.text.String()
+
+	if state.waitingOnSnapshot {
+		if !output.Snapshot {
+			return nil
+		}
+		delete(items, itemID)
+		return normalizeAssistantText(combined)
+	}
+
+	if !state.emittedText && shouldDelayCodexAssistantEmission(combined) {
+		state.waitingOnSnapshot = true
+		if !output.Snapshot {
+			return nil
+		}
+		delete(items, itemID)
+		return normalizeAssistantText(combined)
+	}
+
+	if output.Snapshot {
+		delete(items, itemID)
+		if state.emittedText {
+			return nil
+		}
+		return normalizeAssistantText(combined)
+	}
+
+	state.emittedText = true
+	return []StreamEvent{newTextMessageEvent(output.Text)}
+}
+
+func shouldDelayCodexAssistantEmission(text string) bool {
+	trimmed := strings.TrimLeft(text, " \t\r\n")
+	return strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "```")
 }
 
 func boolPointer(value bool) *bool {
