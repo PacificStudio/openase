@@ -107,10 +107,6 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
 
       - name: Verify Generated OpenAPI Artifacts
         run: make openapi-check
@@ -215,10 +211,6 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
 
       - name: Run Backend Formatting, Tests, And Coverage Gates
         run: make check
@@ -260,10 +252,6 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
 
       - name: Fetch Base Branch
         if: github.event_name == 'pull_request'
