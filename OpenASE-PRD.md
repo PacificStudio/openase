@@ -7138,7 +7138,8 @@ OpenASE 内置一个 "HR Advisor" 功能，根据项目当前状态推荐应该"
 
 - 项目描述、状态（`Backlog` / `Planned` / `In Progress` / `Completed` / `Canceled` / `Archived`）
 - 现有工单分布（多少 coding / test / doc / security）
-- 已有角色/Workflow 列表
+- 工单状态分布与各状态的排队压力（例如 `Backlog`、`待测试`、`待文档`）
+- 已有角色/Workflow 列表，以及每个 Workflow 的 `pickup` / `finish` 状态绑定
 - 最近的活动趋势（PR 合并率下降？测试覆盖率低？文档过时？）
 
 **输出：**
@@ -7196,6 +7197,14 @@ func (h *HRAdvisor) Recommend(ctx context.Context, project *project.Project) []R
                 Reason: "科研项目刚启动，建议先招募 Idea 挖掘角色进行文献调研和方向探索。",
             })
         }
+    }
+
+    // 规则 6: 某个状态列积压，但没有 Workflow pickup 该列 → 推荐补齐对应 lane
+    if stats.StatusQueue["待测试"] >= 2 && !stats.HasPickupWorkflow("待测试") {
+        recs = append(recs, RoleRecommendation{
+            Role:   "qa-engineer",
+            Reason: fmt.Sprintf("状态列待测试中有 %d 个工单，但没有任何 Workflow pickup 该列。建议新增 QA Workflow 处理待测试 lane。", stats.StatusQueue["待测试"]),
+        })
     }
 
     return recs

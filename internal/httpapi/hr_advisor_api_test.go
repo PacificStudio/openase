@@ -289,6 +289,161 @@ func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T
 	}
 }
 
+func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetStatus("In Progress").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+
+	fullstackRole, ok := builtin.RoleBySlug("fullstack-developer")
+	if !ok {
+		t.Fatal("expected builtin fullstack-developer role")
+	}
+
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCustom).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent provider: %v", err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("codex-1").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		map[string]any{
+			"name":              "Fullstack Developer",
+			"type":              "coding",
+			"harness_path":      fullstackRole.HarnessPath,
+			"harness_content":   fullstackRole.Content,
+			"agent_id":          agentItem.ID.String(),
+			"pickup_status_ids": []string{todoID.String()},
+			"finish_status_ids": []string{doneID.String()},
+		},
+		http.StatusCreated,
+		nil,
+	)
+
+	for index := 0; index < 11; index++ {
+		if _, err := client.Ticket.Create().
+			SetProjectID(project.ID).
+			SetIdentifier(fmt.Sprintf("ASE-%d", index+1)).
+			SetTitle(fmt.Sprintf("Backlog %d", index+1)).
+			SetStatusID(backlogID).
+			SetPriority(entticket.PriorityHigh).
+			SetType(entticket.TypeFeature).
+			SetCreatedBy("user:test").
+			Save(ctx); err != nil {
+			t.Fatalf("create backlog ticket %d: %v", index+1, err)
+		}
+	}
+
+	resp := struct {
+		Recommendations []hrAdvisorRecommendationResponse `json:"recommendations"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/hr-advisor", project.ID),
+		nil,
+		http.StatusOK,
+		&resp,
+	)
+
+	var dispatcherRecommendation *hrAdvisorRecommendationResponse
+	for index := range resp.Recommendations {
+		recommendation := &resp.Recommendations[index]
+		if recommendation.RoleSlug == "dispatcher" {
+			dispatcherRecommendation = recommendation
+			break
+		}
+	}
+	if dispatcherRecommendation == nil {
+		t.Fatalf("expected dispatcher recommendation, got %+v", resp.Recommendations)
+	}
+	if dispatcherRecommendation.SuggestedWorkflowName != "Dispatcher" {
+		t.Fatalf("expected dispatcher workflow suggestion, got %+v", dispatcherRecommendation)
+	}
+	if !strings.Contains(dispatcherRecommendation.Reason, "Backlog") {
+		t.Fatalf("expected backlog-specific reason, got %+v", dispatcherRecommendation)
+	}
+	if !strings.Contains(strings.Join(dispatcherRecommendation.Evidence, " "), "pick up and finish Backlog") {
+		t.Fatalf("expected backlog lane evidence, got %+v", dispatcherRecommendation.Evidence)
+	}
+}
+
 func parseUUID(t *testing.T, raw string) uuid.UUID {
 	t.Helper()
 
