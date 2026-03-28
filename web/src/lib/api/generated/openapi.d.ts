@@ -579,6 +579,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/hr-advisor/activate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Activate an HR advisor recommendation */
+    post: operations['activateHRRecommendation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/notification-rules': {
     parameters: {
       query?: never
@@ -4793,6 +4810,204 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  activateHRRecommendation: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Activate an HR advisor recommendation request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          create_bootstrap_ticket?: boolean | null
+          role_slug?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Activate an HR advisor recommendation response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent?: {
+              id?: string
+              name?: string
+              project_id?: string
+              provider_id?: string
+              runtime?: {
+                active_run_count?: number
+                current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
+              runtime_control_state?: string
+              total_tickets_completed?: number
+              /** Format: int64 */
+              total_tokens_used?: number
+            }
+            bootstrap_ticket?: {
+              message?: string
+              requested?: boolean
+              status?: string
+              ticket?: {
+                attempt_count?: number
+                /** Format: double */
+                budget_usd?: number
+                children?: {
+                  id?: string
+                  identifier?: string
+                  status_id?: string
+                  status_name?: string
+                  title?: string
+                }[]
+                completed_at?: string | null
+                consecutive_errors?: number
+                /** Format: double */
+                cost_amount?: number
+                /** Format: int64 */
+                cost_tokens_input?: number
+                /** Format: int64 */
+                cost_tokens_output?: number
+                created_at?: string
+                created_by?: string
+                current_run_id?: string | null
+                dependencies?: {
+                  id?: string
+                  target?: {
+                    id?: string
+                    identifier?: string
+                    status_id?: string
+                    status_name?: string
+                    title?: string
+                  }
+                  type?: string
+                }[]
+                description?: string
+                external_links?: {
+                  created_at?: string
+                  external_id?: string
+                  id?: string
+                  relation?: string
+                  status?: string
+                  title?: string
+                  type?: string
+                  url?: string
+                }[]
+                external_ref?: string
+                id?: string
+                identifier?: string
+                next_retry_at?: string | null
+                parent?: {
+                  id?: string
+                  identifier?: string
+                  status_id?: string
+                  status_name?: string
+                  title?: string
+                } | null
+                pause_reason?: string
+                priority?: string
+                project_id?: string
+                retry_paused?: boolean
+                started_at?: string | null
+                status_id?: string
+                status_name?: string
+                target_machine_id?: string | null
+                title?: string
+                type?: string
+                workflow_id?: string | null
+              } | null
+            }
+            project_id?: string
+            role_slug?: string
+            workflow?: {
+              agent_id?: string | null
+              finish_status_ids?: string[]
+              harness_content?: string | null
+              harness_path?: string
+              hooks?: {
+                [key: string]: unknown
+              }
+              id?: string
+              is_active?: boolean
+              max_concurrent?: number
+              max_retry_attempts?: number
+              name?: string
+              pickup_status_ids?: string[]
+              project_id?: string
+              stall_timeout_minutes?: number
+              timeout_minutes?: number
+              type?: string
+              version?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }

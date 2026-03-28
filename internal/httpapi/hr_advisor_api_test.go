@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
@@ -533,6 +534,203 @@ func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *te
 	}
 	if !strings.Contains(strings.Join(dispatcherRecommendation.Evidence, " "), "pick up and finish Backlog") {
 		t.Fatalf("expected backlog lane evidence, got %+v", dispatcherRecommendation.Evidence)
+	}
+}
+
+func TestActivateHRRecommendationRouteCreatesWorkflowAgentAndBootstrapTicket(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"checked_at": time.Now().UTC().Format(time.RFC3339),
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": "logged_in",
+						"auth_mode":   "login",
+						"ready":       true,
+					},
+				},
+			},
+		}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("OpenAI Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent provider: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetStatus("In Progress").
+		SetDefaultAgentProviderID(provider.ID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
+	if _, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+
+	resp := hrAdvisorActivationResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/hr-advisor/activate", project.ID),
+		map[string]any{
+			"role_slug":               "qa-engineer",
+			"create_bootstrap_ticket": true,
+		},
+		http.StatusCreated,
+		&resp,
+	)
+
+	if resp.ProjectID != project.ID.String() || resp.RoleSlug != "qa-engineer" {
+		t.Fatalf("unexpected activation response: %+v", resp)
+	}
+	if resp.Agent.ID == "" || resp.Workflow.ID == "" || resp.Workflow.AgentID == nil || *resp.Workflow.AgentID != resp.Agent.ID {
+		t.Fatalf("expected workflow to bind created agent, got %+v", resp)
+	}
+	if resp.Workflow.HarnessPath != ".openase/harnesses/roles/qa-engineer.md" || !resp.Workflow.IsActive {
+		t.Fatalf("unexpected workflow payload: %+v", resp.Workflow)
+	}
+	if resp.BootstrapTicket.Status != "created" || resp.BootstrapTicket.Ticket == nil || resp.BootstrapTicket.Ticket.WorkflowID == nil || *resp.BootstrapTicket.Ticket.WorkflowID != resp.Workflow.ID {
+		t.Fatalf("unexpected bootstrap ticket payload: %+v", resp.BootstrapTicket)
+	}
+
+	agentCount, err := client.Agent.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count agents: %v", err)
+	}
+	if agentCount != 1 {
+		t.Fatalf("expected one created agent, got %d", agentCount)
+	}
+	workflowCount, err := client.Workflow.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count workflows: %v", err)
+	}
+	if workflowCount != 1 {
+		t.Fatalf("expected one created workflow, got %d", workflowCount)
+	}
+	ticketCount, err := client.Ticket.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count tickets: %v", err)
+	}
+	if ticketCount != 1 {
+		t.Fatalf("expected one created bootstrap ticket, got %d", ticketCount)
+	}
+}
+
+func TestActivateHRRecommendationRouteReturnsConflictWhenNoProviderIsAvailable(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetStatus("In Progress").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
+	if _, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/hr-advisor/activate", project.ID),
+		`{"role_slug":"qa-engineer"}`,
+	)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409 conflict, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"code":"AGENT_PROVIDER_UNAVAILABLE"`) {
+		t.Fatalf("expected provider unavailable code, got %s", rec.Body.String())
 	}
 }
 
