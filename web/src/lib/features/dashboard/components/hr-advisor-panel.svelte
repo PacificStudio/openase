@@ -9,6 +9,7 @@
   import type { HRAdvisorSnapshot } from '../types'
   import HRAdvisorHarnessDialog from './hr-advisor-harness-dialog.svelte'
   import HRAdvisorRecommendationCard from './hr-advisor-recommendation-card.svelte'
+  import HRAdvisorSummaryGrid from './hr-advisor-summary-grid.svelte'
   import {
     activationStatusText,
     applyActivatedRecommendation,
@@ -209,32 +210,7 @@
   </div>
 
   <div class="space-y-4 px-4 py-4">
-    <div class="grid grid-cols-2 gap-3 text-sm">
-      <div class="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-        <div class="text-muted-foreground text-[11px] tracking-wide uppercase">Open tickets</div>
-        <div class="text-foreground mt-1 text-lg font-semibold">
-          {advisorState.summary.open_tickets}
-        </div>
-      </div>
-      <div class="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-        <div class="text-muted-foreground text-[11px] tracking-wide uppercase">Blocked</div>
-        <div class="text-foreground mt-1 text-lg font-semibold">
-          {advisorState.summary.blocked_tickets}
-        </div>
-      </div>
-      <div class="rounded-md border border-sky-500/20 bg-sky-500/5 px-3 py-2">
-        <div class="text-muted-foreground text-[11px] tracking-wide uppercase">Coding</div>
-        <div class="text-foreground mt-1 text-lg font-semibold">
-          {advisorState.summary.coding_tickets}
-        </div>
-      </div>
-      <div class="rounded-md border border-violet-500/20 bg-violet-500/5 px-3 py-2">
-        <div class="text-muted-foreground text-[11px] tracking-wide uppercase">Active agents</div>
-        <div class="text-foreground mt-1 text-lg font-semibold">
-          {advisorState.summary.active_agents}
-        </div>
-      </div>
-    </div>
+    <HRAdvisorSummaryGrid summary={advisorState.summary} />
 
     <div class="space-y-2">
       <div class="text-foreground text-sm font-medium">Suggested staffing</div>
