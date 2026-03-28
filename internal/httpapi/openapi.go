@@ -692,6 +692,26 @@ type OpenAPIHRAdvisorResponse struct {
 	Recommendations []OpenAPIHRAdvisorRecommendation `json:"recommendations"`
 }
 
+type OpenAPIActivateHRRecommendationRequest struct {
+	RoleSlug              string `json:"role_slug"`
+	CreateBootstrapTicket *bool  `json:"create_bootstrap_ticket,omitempty"`
+}
+
+type OpenAPIHRAdvisorActivationResponse struct {
+	ProjectID       string                                `json:"project_id"`
+	RoleSlug        string                                `json:"role_slug"`
+	Agent           OpenAPIAgent                          `json:"agent"`
+	Workflow        OpenAPIWorkflow                       `json:"workflow"`
+	BootstrapTicket OpenAPIHRAdvisorBootstrapTicketResult `json:"bootstrap_ticket"`
+}
+
+type OpenAPIHRAdvisorBootstrapTicketResult struct {
+	Requested bool           `json:"requested"`
+	Status    string         `json:"status"`
+	Message   string         `json:"message"`
+	Ticket    *OpenAPITicket `json:"ticket,omitempty"`
+}
+
 type OpenAPINotificationRuleEventTypesResponse struct {
 	EventTypes []OpenAPINotificationRuleEventType `json:"event_types"`
 }
@@ -1819,6 +1839,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	hrAdvisorGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/hr-advisor", http.MethodGet, hrAdvisorGet)
+
+	hrAdvisorActivate, err := b.jsonOperation(
+		"activateHRRecommendation",
+		"Activate an HR advisor recommendation",
+		[]string{"hr-advisor"},
+		http.StatusCreated,
+		OpenAPIHRAdvisorActivationResponse{},
+		OpenAPIActivateHRRecommendationRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	hrAdvisorActivate.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/hr-advisor/activate", http.MethodPost, hrAdvisorActivate)
 
 	return nil
 }

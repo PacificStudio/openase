@@ -1,14 +1,17 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	hrdomain "github.com/BetterAndBetterII/openase/internal/domain/hradvisor"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	hrservice "github.com/BetterAndBetterII/openase/internal/service/hradvisor"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -50,8 +53,24 @@ type hrAdvisorRecommendationResponse struct {
 	ActiveWorkflowName    *string  `json:"active_workflow_name,omitempty"`
 }
 
+type hrAdvisorActivationResponse struct {
+	ProjectID       string                                   `json:"project_id"`
+	RoleSlug        string                                   `json:"role_slug"`
+	Agent           agentResponse                            `json:"agent"`
+	Workflow        workflowResponse                         `json:"workflow"`
+	BootstrapTicket hrAdvisorBootstrapTicketActivationResult `json:"bootstrap_ticket"`
+}
+
+type hrAdvisorBootstrapTicketActivationResult struct {
+	Requested bool            `json:"requested"`
+	Status    string          `json:"status"`
+	Message   string          `json:"message"`
+	Ticket    *ticketResponse `json:"ticket,omitempty"`
+}
+
 func (s *Server) registerHRAdvisorRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/hr-advisor", s.handleGetHRAdvisor)
+	api.POST("/projects/:projectId/hr-advisor/activate", s.handleActivateHRRecommendation)
 }
 
 func (s *Server) handleGetHRAdvisor(c echo.Context) error {
@@ -241,6 +260,56 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 	})
 }
 
+func (s *Server) handleActivateHRRecommendation(c echo.Context) error {
+	if s.catalog == nil || s.workflowService == nil || s.ticketStatusService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "hr advisor activation is unavailable")
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+
+	var raw hrdomain.ActivateRecommendationRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := hrdomain.ParseActivateRecommendation(projectID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	activationService := hrservice.NewActivationService(
+		s.catalog,
+		s.workflowService,
+		s.ticketStatusService,
+		s.ticketService,
+	)
+	result, err := activationService.Activate(c.Request().Context(), input)
+	if err != nil {
+		return writeHRAdvisorActivationError(c, err)
+	}
+
+	response := hrAdvisorActivationResponse{
+		ProjectID: result.ProjectID.String(),
+		RoleSlug:  result.RoleSlug,
+		Agent:     mapAgentResponse(result.Agent),
+		Workflow:  mapWorkflowDetailResponse(result.Workflow),
+		BootstrapTicket: hrAdvisorBootstrapTicketActivationResult{
+			Requested: result.BootstrapTicket.Requested,
+			Status:    result.BootstrapTicket.Status,
+			Message:   result.BootstrapTicket.Message,
+		},
+	}
+	if result.BootstrapTicket.Ticket != nil {
+		ticketResponse := mapTicketResponse(*result.BootstrapTicket.Ticket)
+		response.BootstrapTicket.Ticket = &ticketResponse
+	}
+
+	return c.JSON(http.StatusCreated, response)
+}
+
 func parseHarnessRoleSlug(content string) string {
 	frontmatter, err := extractHarnessFrontmatter(content)
 	if err != nil {
@@ -278,6 +347,53 @@ func extractHarnessFrontmatter(content string) (string, error) {
 	}
 
 	return "", workflowservice.ErrHarnessInvalid
+}
+
+func writeHRAdvisorActivationError(c echo.Context, err error) error {
+	switch {
+	case errors.Is(err, hrservice.ErrActivationUnavailable):
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
+	case errors.Is(err, hrservice.ErrActivationRoleNotFound):
+		return writeAPIError(c, http.StatusNotFound, "ROLE_TEMPLATE_NOT_FOUND", err.Error())
+	case errors.Is(err, hrservice.ErrActivationWorkflowExists):
+		return writeAPIError(c, http.StatusConflict, "HR_ROLE_ALREADY_ACTIVE", err.Error())
+	case errors.Is(err, hrservice.ErrActivationProviderUnavailable):
+		return writeAPIError(c, http.StatusConflict, "AGENT_PROVIDER_UNAVAILABLE", err.Error())
+	case errors.Is(err, hrservice.ErrActivationStatusNotFound):
+		return writeAPIError(c, http.StatusConflict, "HR_STATUS_NOT_CONFIGURED", err.Error())
+	case errors.Is(err, catalogservice.ErrInvalidInput),
+		errors.Is(err, catalogservice.ErrNotFound),
+		errors.Is(err, catalogservice.ErrConflict),
+		errors.Is(err, catalogservice.ErrMachineProbeFailed),
+		errors.Is(err, catalogservice.ErrMachineTestingUnavailable):
+		return writeCatalogError(c, err)
+	case errors.Is(err, workflowservice.ErrUnavailable),
+		errors.Is(err, workflowservice.ErrProjectNotFound),
+		errors.Is(err, workflowservice.ErrPrimaryRepoUnavailable),
+		errors.Is(err, workflowservice.ErrWorkflowNotFound),
+		errors.Is(err, workflowservice.ErrStatusNotFound),
+		errors.Is(err, workflowservice.ErrAgentNotFound),
+		errors.Is(err, workflowservice.ErrWorkflowConflict),
+		errors.Is(err, workflowservice.ErrHarnessInvalid),
+		errors.Is(err, workflowservice.ErrHookConfigInvalid),
+		errors.Is(err, workflowservice.ErrWorkflowHookBlocked):
+		return writeWorkflowError(c, err)
+	case errors.Is(err, ticketstatus.ErrUnavailable),
+		errors.Is(err, ticketstatus.ErrProjectNotFound),
+		errors.Is(err, ticketstatus.ErrStageNotFound),
+		errors.Is(err, ticketstatus.ErrStatusNotFound),
+		errors.Is(err, ticketstatus.ErrDuplicateStageKey),
+		errors.Is(err, ticketstatus.ErrDuplicateStatusName),
+		errors.Is(err, ticketstatus.ErrCannotDeleteLastStatus),
+		errors.Is(err, ticketstatus.ErrDefaultStatusRequired):
+		return writeTicketStatusError(c, err)
+	case errors.Is(err, ticketservice.ErrUnavailable),
+		errors.Is(err, ticketservice.ErrProjectNotFound),
+		errors.Is(err, ticketservice.ErrStatusNotFound):
+		return writeTicketError(c, err)
+	default:
+		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+	}
 }
 
 func statusNamesFromIDs(statusIDs []uuid.UUID, statusNamesByID map[uuid.UUID]string) []string {

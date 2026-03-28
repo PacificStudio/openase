@@ -6617,6 +6617,495 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/hr-advisor/activate": {
+      "post": {
+        "operationId": "activateHRRecommendation",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "create_bootstrap_ticket": {
+                    "nullable": true,
+                    "type": "boolean"
+                  },
+                  "role_slug": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Activate an HR advisor recommendation request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "agent": {
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "provider_id": {
+                          "type": "string"
+                        },
+                        "runtime": {
+                          "nullable": true,
+                          "properties": {
+                            "active_run_count": {
+                              "type": "integer"
+                            },
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_changed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_status": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_summary": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_ticket_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_error": {
+                              "type": "string"
+                            },
+                            "last_heartbeat_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "runtime_phase": {
+                              "type": "string"
+                            },
+                            "runtime_started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "session_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "runtime_control_state": {
+                          "type": "string"
+                        },
+                        "total_tickets_completed": {
+                          "type": "integer"
+                        },
+                        "total_tokens_used": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "bootstrap_ticket": {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "requested": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "ticket": {
+                          "nullable": true,
+                          "properties": {
+                            "attempt_count": {
+                              "type": "integer"
+                            },
+                            "budget_usd": {
+                              "format": "double",
+                              "type": "number"
+                            },
+                            "children": {
+                              "items": {
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "identifier": {
+                                    "type": "string"
+                                  },
+                                  "status_id": {
+                                    "type": "string"
+                                  },
+                                  "status_name": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "completed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "consecutive_errors": {
+                              "type": "integer"
+                            },
+                            "cost_amount": {
+                              "format": "double",
+                              "type": "number"
+                            },
+                            "cost_tokens_input": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "cost_tokens_output": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "created_by": {
+                              "type": "string"
+                            },
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "dependencies": {
+                              "items": {
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "target": {
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "identifier": {
+                                        "type": "string"
+                                      },
+                                      "status_id": {
+                                        "type": "string"
+                                      },
+                                      "status_name": {
+                                        "type": "string"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "external_links": {
+                              "items": {
+                                "properties": {
+                                  "created_at": {
+                                    "type": "string"
+                                  },
+                                  "external_id": {
+                                    "type": "string"
+                                  },
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "relation": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "external_ref": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "identifier": {
+                              "type": "string"
+                            },
+                            "next_retry_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "parent": {
+                              "nullable": true,
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "identifier": {
+                                  "type": "string"
+                                },
+                                "status_id": {
+                                  "type": "string"
+                                },
+                                "status_name": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "pause_reason": {
+                              "type": "string"
+                            },
+                            "priority": {
+                              "type": "string"
+                            },
+                            "project_id": {
+                              "type": "string"
+                            },
+                            "retry_paused": {
+                              "type": "boolean"
+                            },
+                            "started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "status_id": {
+                              "type": "string"
+                            },
+                            "status_name": {
+                              "type": "string"
+                            },
+                            "target_machine_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "workflow_id": {
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "project_id": {
+                      "type": "string"
+                    },
+                    "role_slug": {
+                      "type": "string"
+                    },
+                    "workflow": {
+                      "properties": {
+                        "agent_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "finish_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "harness_content": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_path": {
+                          "type": "string"
+                        },
+                        "hooks": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "is_active": {
+                          "type": "boolean"
+                        },
+                        "max_concurrent": {
+                          "type": "integer"
+                        },
+                        "max_retry_attempts": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "pickup_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stall_timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Activate an HR advisor recommendation response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Activate an HR advisor recommendation",
+        "tags": [
+          "hr-advisor"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}/notification-rules": {
       "get": {
         "operationId": "listNotificationRules",
