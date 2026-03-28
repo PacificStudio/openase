@@ -96,12 +96,11 @@ jobs:
           job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
           echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
           echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${job_cache_root}/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: |
-          rm -rf "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
-          mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
@@ -200,12 +199,11 @@ jobs:
           job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
           echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
           echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${job_cache_root}/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: |
-          rm -rf "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
-          mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
@@ -241,12 +239,11 @@ jobs:
           job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
           echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
           echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${job_cache_root}/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: |
-          rm -rf "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
-          mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
