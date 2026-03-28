@@ -92,7 +92,8 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: true
+          # Self-hosted runners can stall restoring the shared Go cache.
+          cache: false
           cache-dependency-path: |
             go.mod
             go.sum
