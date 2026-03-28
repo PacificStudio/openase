@@ -102,9 +102,6 @@ func ParseActivationTemplate(roleSlug string, harnessPath string, harnessContent
 	if template.HarnessPath == "" {
 		return ActivationTemplate{}, fmt.Errorf("harness_path must not be empty")
 	}
-	if template.HarnessContent == "" {
-		return ActivationTemplate{}, fmt.Errorf("harness_content must not be empty")
-	}
 	if template.PickupStatusName == "" {
 		return ActivationTemplate{}, fmt.Errorf("status.pickup must not be empty")
 	}
