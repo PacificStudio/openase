@@ -6112,7 +6112,7 @@ describe('createTicketStream', () => {
 
 不追求整体 100%——那会导致为了覆盖率写无意义的测试（比如测试 getter 方法）。用 `go test -coverprofile` 在 CI 中追踪，设 75% 为门槛，domain 层 100% 为硬性要求。
 
-仓库默认通过 `make check` 执行后端覆盖率门禁；CI 与本地 push gate 统一调用 `scripts/ci/backend_coverage.sh`，对全 backend scope 执行总覆盖率与 domain/core 覆盖率阈值检查。
+仓库默认通过 `make check` 执行后端测试与覆盖率门禁；CI 与本地 push gate 统一调用 `scripts/ci/backend_coverage.sh`。默认要求是“全量 backend 测试通过 + domain/core 覆盖率阈值检查通过”；如需额外运行全 backend scope 的总覆盖率检查，必须显式设置 `OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true`。
 
 ### 24.7 Mock 生成与测试工具链
 
@@ -6127,7 +6127,7 @@ test-integration:      ## 运行集成测试（repository + infra + orchestrator
 test-all:              ## 运行全部测试
 	go test ./... -count=1 -coverprofile=coverage-all.out
 
-test-backend-coverage: ## 运行后端覆盖率门禁（overall 75%+ / domain+types 100%）
+test-backend-coverage: ## 运行全量后端测试 + domain+types 100% coverage gate（设置 OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true 时额外要求 overall 75%+）
 	./scripts/ci/backend_coverage.sh
 
 test-coverage:         ## 覆盖率报告
