@@ -26,15 +26,19 @@ type TicketContext struct {
 	Type              string
 	StatusName        string
 	WorkflowType      string
+	HasActiveRun      bool
 	ConsecutiveErrors int
 	RetryPaused       bool
 }
 
 // WorkflowContext summarizes one workflow for staffing analysis.
 type WorkflowContext struct {
-	Name     string
-	Type     string
-	IsActive bool
+	Name              string
+	Type              string
+	RoleSlug          string
+	IsActive          bool
+	PickupStatusNames []string
+	FinishStatusNames []string
 }
 
 // AgentContext summarizes one agent for staffing analysis.

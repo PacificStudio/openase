@@ -95,7 +95,18 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 	}
 
 	workflowTypes := make(map[uuid.UUID]string, len(workflows))
+	statusNamesByID := make(map[uuid.UUID]string)
+	if s.ticketStatusService != nil {
+		statuses, err := s.ticketStatusService.List(ctx, projectID)
+		if err != nil {
+			return writeTicketStatusError(c, err)
+		}
+		for _, statusItem := range statuses.Statuses {
+			statusNamesByID[statusItem.ID] = statusItem.Name
+		}
+	}
 	activeRoleWorkflows := make(map[string]string)
+	workflowRoleSlugs := make(map[uuid.UUID]string)
 	for _, workflowItem := range workflows {
 		workflowTypes[workflowItem.ID] = string(workflowItem.Type)
 		if !workflowItem.IsActive {
@@ -108,6 +119,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		}
 		if roleSlug := parseHarnessRoleSlug(detail.HarnessContent); roleSlug != "" {
 			activeRoleWorkflows[roleSlug] = workflowItem.Name
+			workflowRoleSlugs[workflowItem.ID] = roleSlug
 		}
 	}
 
@@ -140,6 +152,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 			Type:              string(ticketItem.Type),
 			StatusName:        ticketItem.StatusName,
 			WorkflowType:      workflowType,
+			HasActiveRun:      ticketItem.CurrentRunID != nil,
 			ConsecutiveErrors: ticketItem.ConsecutiveErrors,
 			RetryPaused:       ticketItem.RetryPaused,
 		})
@@ -147,9 +160,12 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 
 	for _, workflowItem := range workflows {
 		snapshot.Workflows = append(snapshot.Workflows, hrdomain.WorkflowContext{
-			Name:     workflowItem.Name,
-			Type:     string(workflowItem.Type),
-			IsActive: workflowItem.IsActive,
+			Name:              workflowItem.Name,
+			Type:              string(workflowItem.Type),
+			RoleSlug:          workflowRoleSlugs[workflowItem.ID],
+			IsActive:          workflowItem.IsActive,
+			PickupStatusNames: statusNamesFromIDs(workflowItem.PickupStatusIDs, statusNamesByID),
+			FinishStatusNames: statusNamesFromIDs(workflowItem.FinishStatusIDs, statusNamesByID),
 		})
 	}
 
@@ -269,4 +285,18 @@ func extractHarnessFrontmatter(content string) (string, error) {
 	}
 
 	return "", workflowservice.ErrHarnessInvalid
+}
+
+func statusNamesFromIDs(statusIDs []uuid.UUID, statusNamesByID map[uuid.UUID]string) []string {
+	if len(statusIDs) == 0 || len(statusNamesByID) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(statusIDs))
+	for _, statusID := range statusIDs {
+		if name := strings.TrimSpace(statusNamesByID[statusID]); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
