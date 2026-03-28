@@ -6,9 +6,12 @@ import {
   type ChatStreamEvent,
 } from '$lib/api/chat'
 import type { AgentProvider } from '$lib/api/contracts'
+import { executeActionProposal, type ChatActionExecutionResult } from './action-proposal-executor'
 import { listEphemeralChatProviders, pickDefaultEphemeralChatProvider } from './provider-options'
 import {
+  createTextTranscriptEntry,
   isAbortError,
+  isActionProposalEntry,
   mapChatPayloadToTranscriptEntry,
   type EphemeralChatRole,
   type EphemeralChatTranscriptEntry,
@@ -21,7 +24,7 @@ type EphemeralChatContext = {
 }
 
 type CreateEphemeralChatSessionControllerInput = {
-  source: ChatSource
+  getSource: () => ChatSource
   onError?: (message: string) => void
 }
 
@@ -45,7 +48,12 @@ export function createEphemeralChatSessionController(
 
   function appendEntry(role: EphemeralChatRole, content: string) {
     entryCounter += 1
-    entries = [...entries, { id: `entry-${entryCounter}`, role, content }]
+    entries = [...entries, createTextTranscriptEntry(`entry-${entryCounter}`, role, content)]
+  }
+
+  function appendMappedEntry(event: Extract<ChatStreamEvent, { kind: 'message' }>) {
+    entryCounter += 1
+    entries = [...entries, mapChatPayloadToTranscriptEntry(`entry-${entryCounter}`, event.payload)]
   }
 
   function handleStreamEvent(event: ChatStreamEvent) {
@@ -66,8 +74,7 @@ export function createEphemeralChatSessionController(
       return
     }
 
-    const entry = mapChatPayloadToTranscriptEntry(event.payload)
-    appendEntry(entry.role, entry.content)
+    appendMappedEntry(event)
   }
 
   function reportError(message: string) {
@@ -103,6 +110,26 @@ export function createEphemeralChatSessionController(
     }
   }
 
+  function updateActionProposalEntry(
+    entryId: string,
+    nextState: {
+      status: 'executing' | 'confirmed' | 'cancelled'
+      results: ChatActionExecutionResult[]
+    },
+  ) {
+    entries = entries.map((entry) => {
+      if (!isActionProposalEntry(entry) || entry.id !== entryId) {
+        return entry
+      }
+
+      return {
+        ...entry,
+        status: nextState.status,
+        results: nextState.results,
+      }
+    })
+  }
+
   return {
     get providers() {
       return providers
@@ -121,6 +148,9 @@ export function createEphemeralChatSessionController(
     },
     get entries() {
       return entries
+    },
+    get hasPendingActionProposal() {
+      return entries.some((entry) => isActionProposalEntry(entry) && entry.status === 'pending')
     },
     syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
       providers = listEphemeralChatProviders(nextProviders)
@@ -155,7 +185,7 @@ export function createEphemeralChatSessionController(
         await streamChatTurn(
           {
             message,
-            source: input.source,
+            source: input.getSource(),
             providerId,
             sessionId: sessionId || undefined,
             context: inputContext.context,
@@ -186,6 +216,36 @@ export function createEphemeralChatSessionController(
     async resetConversation() {
       await closeActiveSession({ clearEntries: true })
     },
+    async confirmActionProposal(entryId: string) {
+      const entry = entries.find((item) => item.id === entryId)
+      if (!entry || !isActionProposalEntry(entry) || entry.status !== 'pending') {
+        return
+      }
+
+      updateActionProposalEntry(entryId, {
+        status: 'executing',
+        results: [],
+      })
+
+      const results = await executeActionProposal(entry.proposal)
+      updateActionProposalEntry(entryId, {
+        status: 'confirmed',
+        results,
+      })
+      appendEntry('system', summarizeExecutionResults(results))
+    },
+    cancelActionProposal(entryId: string) {
+      const entry = entries.find((item) => item.id === entryId)
+      if (!entry || !isActionProposalEntry(entry) || entry.status !== 'pending') {
+        return
+      }
+
+      updateActionProposalEntry(entryId, {
+        status: 'cancelled',
+        results: [],
+      })
+      appendEntry('system', 'Cancelled the proposed platform actions.')
+    },
     async selectProvider(nextProviderId: string) {
       if (nextProviderId === providerId) {
         return
@@ -198,4 +258,21 @@ export function createEphemeralChatSessionController(
       await closeActiveSession({ clearEntries: false, suppressError: true })
     },
   }
+}
+
+function summarizeExecutionResults(results: ChatActionExecutionResult[]) {
+  if (results.length === 0) {
+    return 'No platform actions were proposed.'
+  }
+
+  const successCount = results.filter((result) => result.ok).length
+  if (successCount === results.length) {
+    return `Executed ${successCount} proposed platform action${successCount === 1 ? '' : 's'}.`
+  }
+
+  if (successCount === 0) {
+    return `All ${results.length} proposed platform actions failed.`
+  }
+
+  return `Executed ${successCount} of ${results.length} proposed platform actions successfully.`
 }

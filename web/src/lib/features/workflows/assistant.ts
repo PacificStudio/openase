@@ -1,7 +1,4 @@
-type AssistantTranscriptEntry = {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-}
+import type { EphemeralChatTranscriptEntry } from '$lib/features/chat'
 
 export type HarnessSuggestion = {
   content: string
@@ -25,11 +22,11 @@ export type DiffPreview = {
 const fencedBlockPattern = /```(?:markdown|md|yaml|yml|text)?\s*([\s\S]*?)```/gi
 
 export function findLatestHarnessSuggestion(
-  entries: AssistantTranscriptEntry[],
+  entries: EphemeralChatTranscriptEntry[],
 ): HarnessSuggestion | null {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index]
-    if (entry.role !== 'assistant') {
+    if (entry.role !== 'assistant' || entry.kind !== 'text') {
       continue
     }
 
