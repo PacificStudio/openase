@@ -102,14 +102,18 @@ jobs:
           rm -rf "${GOMODCACHE}" "${GOCACHE}"
           mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
-      - name: Set Up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
+      - name: Configure Go Toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cached_go_bin="/home/docker/actions-runner/_work/_tool/go/1.26.1/x64/bin"
+          if [[ -d "${cached_go_bin}" ]]; then
+            echo "${cached_go_bin}" >> "${GITHUB_PATH}"
+          fi
+
+          command -v go
+          go version
 
       - name: Verify Generated OpenAPI Artifacts
         run: make openapi-check
