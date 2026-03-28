@@ -144,7 +144,7 @@ fi
 
 if [[ "${go_changed}" == "true" ]]; then
   ensure_lint_placeholder
-  run_cmd make check
+  run_cmd env OPENASE_BACKEND_TEST_GROUP_SIZE=8 make check
   run_cmd make build
   run_cmd make LINT_BASE_REV="${BASE_REV}" lint
   run_cmd make lint-depguard

@@ -22,6 +22,7 @@ cd "${ROOT_DIR}"
 
 GO_BIN="${GO_BIN:-go}"
 GO_TEST_TIMEOUT="${OPENASE_GO_TEST_TIMEOUT:-20m}"
+GO_TEST_GROUP_SIZE_RAW="${OPENASE_BACKEND_TEST_GROUP_SIZE:-}"
 ENABLE_FULL_BACKEND_COVERAGE="${OPENASE_ENABLE_FULL_BACKEND_COVERAGE:-false}"
 BACKEND_COVERAGE_MIN="${OPENASE_BACKEND_COVERAGE_MIN:-75.0}"
 DOMAIN_COVERAGE_MIN="${OPENASE_DOMAIN_COVERAGE_MIN:-100.0}"
@@ -29,6 +30,32 @@ ORIGINAL_GOPATH="$("${GO_BIN}" env GOPATH)"
 ORIGINAL_GOMODCACHE="$("${GO_BIN}" env GOMODCACHE)"
 ORIGINAL_GOCACHE="$("${GO_BIN}" env GOCACHE)"
 GO_TEST_PROGRESS_MODE="${OPENASE_GO_TEST_PROGRESS_MODE:-}"
+
+parse_optional_positive_int() {
+  local name="$1"
+  local raw="$2"
+
+  if [[ -z "${raw}" ]]; then
+    printf '0\n'
+    return
+  fi
+
+  case "${raw}" in
+    ''|*[!0-9]*)
+      printf '%s must be a positive integer, got %s\n' "${name}" "${raw}" >&2
+      exit 1
+      ;;
+  esac
+
+  if (( raw <= 0 )); then
+    printf '%s must be a positive integer, got %s\n' "${name}" "${raw}" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "${raw}"
+}
+
+GO_TEST_GROUP_SIZE="$(parse_optional_positive_int "OPENASE_BACKEND_TEST_GROUP_SIZE" "${GO_TEST_GROUP_SIZE_RAW}")"
 
 tmp_dir="$(mktemp -d)"
 backend_profile="${tmp_dir}/backend.out"
@@ -90,6 +117,44 @@ run_go_test() {
 
   "${GO_BIN}" test "$@"
 }
+
+run_backend_full_suite() {
+  if (( GO_TEST_GROUP_SIZE == 0 )); then
+    printf 'Running backend full test suite...\n'
+    run_go_test \
+      -count=1 \
+      -timeout="${GO_TEST_TIMEOUT}" \
+      -p 1 \
+      -parallel=1 \
+      "${backend_packages[@]}"
+    return
+  fi
+
+  local total_packages="${#backend_packages[@]}"
+  local total_groups=$(( (total_packages + GO_TEST_GROUP_SIZE - 1) / GO_TEST_GROUP_SIZE ))
+  local offset=0
+  local group_index=1
+
+  printf 'Running backend full test suite in %d groups (%d packages total)...\n' "${total_groups}" "${total_packages}"
+
+  while (( offset < total_packages )); do
+    local -a group_packages=( "${backend_packages[@]:offset:GO_TEST_GROUP_SIZE}" )
+
+    printf '\nRunning backend test group %d/%d (%d packages):\n' "${group_index}" "${total_groups}" "${#group_packages[@]}"
+    printf '  %s\n' "${group_packages[@]}"
+
+    run_go_test \
+      -count=1 \
+      -timeout="${GO_TEST_TIMEOUT}" \
+      -p 1 \
+      -parallel=1 \
+      "${group_packages[@]}"
+
+    offset=$(( offset + GO_TEST_GROUP_SIZE ))
+    group_index=$(( group_index + 1 ))
+  done
+}
+
 enable_full_backend_coverage() {
   case "${ENABLE_FULL_BACKEND_COVERAGE}" in
     1|true|TRUE|yes|YES|on|ON)
@@ -103,14 +168,7 @@ enable_full_backend_coverage() {
   printf 'OPENASE_ENABLE_FULL_BACKEND_COVERAGE must be one of true/false, got %s\n' "${ENABLE_FULL_BACKEND_COVERAGE}" >&2
   exit 1
 }
-
-printf 'Running backend full test suite...\n'
-run_go_test \
-  -count=1 \
-  -timeout="${GO_TEST_TIMEOUT}" \
-  -p 1 \
-  -parallel=1 \
-  "${backend_packages[@]}"
+run_backend_full_suite
 
 backend_pct=""
 if enable_full_backend_coverage; then
