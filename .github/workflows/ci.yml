@@ -19,6 +19,7 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
+          clean: false
           fetch-depth: 0
 
       - name: Detect Changed Paths
@@ -75,6 +76,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -88,14 +91,29 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
-      - name: Set Up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
+
+      - name: Configure Go Toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cached_go_bin="/home/docker/actions-runner/_work/_tool/go/1.26.1/x64/bin"
+          if [[ -d "${cached_go_bin}" ]]; then
+            echo "${cached_go_bin}" >> "${GITHUB_PATH}"
+          fi
+
+          command -v go
+          go version
 
       - name: Verify Generated OpenAPI Artifacts
         run: make openapi-check
@@ -114,6 +132,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -161,6 +181,7 @@ jobs:
   backend:
     name: Backend Checks
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 60
     needs:
       - changes
       - api-contract
@@ -172,6 +193,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Download Embedded Web Assets
         if: needs.changes.outputs.web_changed == 'true'
@@ -180,19 +203,67 @@ jobs:
           name: embedded-web-assets
           path: internal/webui/static
 
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
+
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
+          cache: false
           go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
 
       - name: Run Backend Formatting, Tests, And Coverage Gates
-        run: make check
+        timeout-minutes: 45
+        shell: bash
+        env:
+          OPENASE_BACKEND_TEST_GROUP_SIZE: "8"
+          OPENASE_GO_TEST_PROGRESS_MODE: plain
+        run: |
+          set -euo pipefail
+
+          heartbeat_file="${RUNNER_TEMP}/backend-check-heartbeat.txt"
+
+          heartbeat() {
+            while true; do
+              now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+              printf '%s\n' "${now}" > "${heartbeat_file}"
+              printf '[backend-heartbeat] %s make check still running\n' "${now}"
+              sleep 60
+            done
+          }
+
+          cleanup() {
+            status=$?
+            trap - EXIT
+            kill "${heartbeat_pid}" 2>/dev/null || true
+            wait "${heartbeat_pid}" 2>/dev/null || true
+
+            if [[ -f "${heartbeat_file}" ]]; then
+              printf 'Last backend heartbeat: %s\n' "$(cat "${heartbeat_file}")"
+            else
+              printf 'Last backend heartbeat: unavailable\n'
+            fi
+
+            exit "${status}"
+          }
+
+          trap cleanup EXIT
+
+          heartbeat &
+          heartbeat_pid=$!
+
+          make check
 
       - name: Build OpenASE Binary
+        timeout-minutes: 10
         run: make build
 
   go-lint:
@@ -205,6 +276,7 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
+          clean: false
           fetch-depth: 0
 
       - name: Ensure Embedded Web Placeholder
@@ -212,14 +284,22 @@ jobs:
           mkdir -p internal/webui/static
           printf 'lint placeholder for embedded web assets\n' > internal/webui/static/lint-placeholder.txt
 
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
+
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
+          cache: false
           go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
 
       - name: Fetch Base Branch
         if: github.event_name == 'pull_request'
