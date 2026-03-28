@@ -53,3 +53,100 @@ func TestParseMachineFullAudit(t *testing.T) {
 		t.Fatalf("expected network audit to parse, got %+v", audit.Network)
 	}
 }
+
+func TestParseMachineFullAuditDefaultsMissingGitHubTokenProbe(t *testing.T) {
+	collectedAt := time.Date(2026, 3, 21, 8, 15, 0, 0, time.UTC)
+	raw := "git\ttrue\tOpenASE\topenase@example.com\n" +
+		"gh_cli\tfalse\tlogged_in\n" +
+		"network\ttrue\ttrue\ttrue\n"
+
+	audit, err := ParseMachineFullAudit(raw, collectedAt)
+	if err != nil {
+		t.Fatalf("parse full audit without github token probe: %v", err)
+	}
+	if audit.GitHubTokenProbe.State != "missing" || audit.GitHubTokenProbe.Configured || audit.GitHubTokenProbe.Valid {
+		t.Fatalf("expected missing github token probe, got %+v", audit.GitHubTokenProbe)
+	}
+	if audit.GitHubTokenProbe.CheckedAt == nil || !audit.GitHubTokenProbe.CheckedAt.Equal(collectedAt.UTC()) {
+		t.Fatalf("expected missing probe checked_at to use collection time, got %+v", audit.GitHubTokenProbe.CheckedAt)
+	}
+}
+
+func TestParseMachineFullAuditRejectsInvalidGitHubTokenProbeState(t *testing.T) {
+	collectedAt := time.Date(2026, 3, 21, 8, 30, 0, 0, time.UTC)
+	raw := "git\ttrue\tOpenASE\topenase@example.com\n" +
+		"gh_cli\ttrue\tnot_logged_in\n" +
+		"github_token_probe\ttrue\tbogus\ttrue\trepo\tgranted\t\n" +
+		"network\ttrue\ttrue\ttrue\n"
+
+	_, err := ParseMachineFullAudit(raw, collectedAt)
+	if err == nil || err.Error() != "parse github_token_probe state on row 2: invalid state \"bogus\"" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseMachineFullAuditRejectsInvalidGitHubTokenProbeRepoAccess(t *testing.T) {
+	collectedAt := time.Date(2026, 3, 21, 8, 45, 0, 0, time.UTC)
+	raw := "git\ttrue\tOpenASE\topenase@example.com\n" +
+		"gh_cli\ttrue\tnot_logged_in\n" +
+		"github_token_probe\ttrue\tvalid\ttrue\trepo\tbogus\t\n" +
+		"network\ttrue\ttrue\ttrue\n"
+
+	_, err := ParseMachineFullAudit(raw, collectedAt)
+	if err == nil || err.Error() != "parse github_token_probe repo access on row 2: invalid repo access \"bogus\"" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseMachineFullAuditRejectsInvalidGitHubTokenProbeShape(t *testing.T) {
+	collectedAt := time.Date(2026, 3, 21, 9, 0, 0, 0, time.UTC)
+	raw := "git\ttrue\tOpenASE\topenase@example.com\n" +
+		"gh_cli\ttrue\tnot_logged_in\n" +
+		"github_token_probe\ttrue\tvalid\ttrue\trepo\tgranted\n" +
+		"network\ttrue\ttrue\ttrue\n"
+
+	_, err := ParseMachineFullAudit(raw, collectedAt)
+	if err == nil || err.Error() != "github_token_probe row 2 must have 7 columns" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseMachineFullAuditRejectsInvalidGitHubTokenProbeConfiguredFlag(t *testing.T) {
+	collectedAt := time.Date(2026, 3, 21, 9, 15, 0, 0, time.UTC)
+	raw := "git\ttrue\tOpenASE\topenase@example.com\n" +
+		"gh_cli\ttrue\tnot_logged_in\n" +
+		"github_token_probe\tnope\tvalid\ttrue\trepo\tgranted\t\n" +
+		"network\ttrue\ttrue\ttrue\n"
+
+	_, err := ParseMachineFullAudit(raw, collectedAt)
+	if err == nil || err.Error() != "parse github_token_probe configured on row 2: strconv.ParseBool: parsing \"nope\": invalid syntax" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseMachineFullAuditRejectsInvalidGitHubTokenProbeValidFlag(t *testing.T) {
+	collectedAt := time.Date(2026, 3, 21, 9, 30, 0, 0, time.UTC)
+	raw := "git\ttrue\tOpenASE\topenase@example.com\n" +
+		"gh_cli\ttrue\tnot_logged_in\n" +
+		"github_token_probe\ttrue\tvalid\tnope\trepo\tgranted\t\n" +
+		"network\ttrue\ttrue\ttrue\n"
+
+	_, err := ParseMachineFullAudit(raw, collectedAt)
+	if err == nil || err.Error() != "parse github_token_probe valid on row 2: strconv.ParseBool: parsing \"nope\": invalid syntax" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseDelimitedMachinePermissions(t *testing.T) {
+	if got := parseDelimitedMachinePermissions(""); got != nil {
+		t.Fatalf("expected empty permissions for blank input, got %#v", got)
+	}
+	if got := parseDelimitedMachinePermissions("-"); got != nil {
+		t.Fatalf("expected empty permissions for sentinel input, got %#v", got)
+	}
+
+	got := parseDelimitedMachinePermissions("repo, read:org, , issues:write ")
+	if len(got) != 3 || got[0] != "repo" || got[1] != "read:org" || got[2] != "issues:write" {
+		t.Fatalf("unexpected parsed permissions: %#v", got)
+	}
+}

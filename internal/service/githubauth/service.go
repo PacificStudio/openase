@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
+//nolint:gosec // Algorithm identifier for persisted metadata; not a credential or key.
 const credentialAlgorithm = "aes-256-gcm"
 
 type TokenResolver interface {
