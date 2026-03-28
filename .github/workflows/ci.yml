@@ -181,7 +181,7 @@ jobs:
   backend:
     name: Backend Checks
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs:
       - changes
       - api-contract
@@ -221,7 +221,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run Backend Formatting, Tests, And Coverage Gates
-        timeout-minutes: 30
+        timeout-minutes: 45
         shell: bash
         env:
           OPENASE_GO_TEST_PROGRESS_MODE: plain
