@@ -222,6 +222,10 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
+	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.Database.DSN)
+	if err != nil {
+		return err
+	}
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
 	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, sshinfra.NewMonitorCollector(sshPool))

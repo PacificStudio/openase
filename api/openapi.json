@@ -7995,6 +7995,50 @@
                           },
                           "type": "array"
                         },
+                        "github": {
+                          "properties": {
+                            "probe": {
+                              "properties": {
+                                "checked_at": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "last_error": {
+                                  "type": "string"
+                                },
+                                "permissions": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "repo_access": {
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "valid": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "scope": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            },
+                            "token_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "project_id": {
                           "type": "string"
                         },
