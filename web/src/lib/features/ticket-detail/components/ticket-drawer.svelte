@@ -251,6 +251,7 @@
       </div>
     {:else if drawerState.ticket}
       <TicketDrawerContent
+        projectId={projectId ?? ''}
         ticket={drawerState.ticket}
         hooks={drawerState.hooks}
         comments={drawerState.comments}

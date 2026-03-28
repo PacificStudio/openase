@@ -5,7 +5,7 @@
   import { Badge } from '$ui/badge'
   import { Separator } from '$ui/separator'
   import * as Tooltip from '$ui/tooltip'
-  import { ChevronsLeft, ChevronsRight } from '@lucide/svelte'
+  import { Bot, ChevronsLeft, ChevronsRight } from '@lucide/svelte'
 
   let {
     collapsed = false,
@@ -16,6 +16,7 @@
     projectName = '',
     projectHealth = 'healthy' as 'healthy' | 'degraded' | 'critical',
     agentCount = 0,
+    onOpenProjectAssistant,
     onToggleCollapse,
   }: {
     collapsed?: boolean
@@ -26,6 +27,7 @@
     projectName?: string
     projectHealth?: 'healthy' | 'degraded' | 'critical'
     agentCount?: number
+    onOpenProjectAssistant?: () => void
     onToggleCollapse?: () => void
   } = $props()
 
@@ -101,9 +103,31 @@
           <span class={cn('size-2 shrink-0 rounded-full', healthColor)}></span>
           <span class="text-sidebar-foreground truncate text-xs font-medium">{projectName}</span>
         </div>
+        <div class="mb-3 px-2.5">
+          <Button variant="outline" size="sm" class="w-full" onclick={onOpenProjectAssistant}>
+            <Bot class="size-4" />
+            Ask AI
+          </Button>
+        </div>
       {:else}
-        <div class="mb-2 flex justify-center">
+        <div class="mb-2 flex flex-col items-center gap-2">
           <span class={cn('size-2 rounded-full', healthColor)}></span>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  {...props}
+                  onclick={onOpenProjectAssistant}
+                  aria-label="Ask AI"
+                >
+                  <Bot class="size-4" />
+                </Button>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content side="right" class="text-xs">Ask AI</Tooltip.Content>
+          </Tooltip.Root>
         </div>
       {/if}
       <div class="space-y-0.5">

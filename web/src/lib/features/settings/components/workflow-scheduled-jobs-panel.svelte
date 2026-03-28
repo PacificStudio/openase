@@ -233,6 +233,7 @@
       <WorkflowScheduledJobList {jobs} {selectedJobId} {workflowLabelById} onSelect={selectJob} />
 
       <WorkflowScheduledJobEditor
+        {projectId}
         {draft}
         {selectedJob}
         {workflowOptions}

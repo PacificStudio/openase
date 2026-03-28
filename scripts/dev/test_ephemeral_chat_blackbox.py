@@ -161,11 +161,11 @@ def main() -> int:
     base_url = args.base_url.rstrip("/")
     stamp = time.strftime("%Y%m%d%H%M%S")
 
-    print(f"[1/7] health check against {base_url}")
+    print(f"[1/11] health check against {base_url}")
     request_json(base_url, "GET", "/healthz")
     request_json(base_url, "GET", "/api/v1/healthz")
 
-    print("[2/7] create isolated organization and project")
+    print("[2/11] create isolated organization and project")
     org = request_json(
         base_url,
         "POST",
@@ -188,10 +188,10 @@ def main() -> int:
         },
     )["project"]
 
-    print("[3/9] wait for an available Ephemeral Chat provider")
+    print("[3/11] wait for an available Ephemeral Chat provider")
     chat_provider = wait_for_chat_provider(base_url, org["id"], args.timeout_seconds)
 
-    print("[4/9] set the selected provider as the default project provider")
+    print("[4/11] set the selected provider as the default project provider")
     project = request_json(
         base_url,
         "PATCH",
@@ -201,7 +201,18 @@ def main() -> int:
         },
     )["project"]
 
-    print("[5/9] start project-sidebar chat with explicit provider selection")
+    print("[5/11] create a ticket for ticket-detail chat coverage")
+    ticket = request_json(
+        base_url,
+        "POST",
+        f"/api/v1/projects/{project['id']}/tickets",
+        {
+            "title": "Ephemeral Chat ticket detail verification",
+            "description": "Created by the blackbox test to exercise ticket_detail chat entry.",
+        },
+    )["ticket"]
+
+    print("[6/11] start project-sidebar chat with explicit provider selection")
     explicit_payload = {
         "message": "Reply with one short sentence confirming this project sidebar chat is working.",
         "source": "project_sidebar",
@@ -214,7 +225,7 @@ def main() -> int:
     explicit_first_text, explicit_done_payload = start_chat_turn(base_url, args.timeout_seconds, explicit_payload)
     explicit_session_id = str(explicit_done_payload.get("session_id", "")).strip()
 
-    print("[6/9] close the explicit-provider chat session")
+    print("[7/11] close the explicit-provider chat session")
     close_request = urllib.request.Request(
         base_url + f"/api/v1/chat/{explicit_session_id}",
         headers={"Accept": "application/json"},
@@ -226,7 +237,33 @@ def main() -> int:
                 f"expected DELETE /api/v1/chat/{explicit_session_id} to return 204, got {response.status}"
             )
 
-    print("[7/9] start project-sidebar chat via default-provider fallback")
+    print("[8/11] start ticket-detail chat with explicit provider selection")
+    ticket_payload = {
+        "message": "Reply with one short sentence confirming this ticket-detail chat is working.",
+        "source": "ticket_detail",
+        "provider_id": chat_provider["id"],
+        "context": {
+            "project_id": project["id"],
+            "ticket_id": ticket["id"],
+        },
+        "session_id": None,
+    }
+    ticket_text, ticket_done_payload = start_chat_turn(base_url, args.timeout_seconds, ticket_payload)
+    ticket_session_id = str(ticket_done_payload.get("session_id", "")).strip()
+
+    print("[9/11] close the ticket-detail chat session")
+    close_request = urllib.request.Request(
+        base_url + f"/api/v1/chat/{ticket_session_id}",
+        headers={"Accept": "application/json"},
+        method="DELETE",
+    )
+    with urllib.request.urlopen(close_request, timeout=20) as response:
+        if response.status != 204:
+            raise RuntimeError(
+                f"expected DELETE /api/v1/chat/{ticket_session_id} to return 204, got {response.status}"
+            )
+
+    print("[10/11] start project-sidebar chat via default-provider fallback")
     fallback_payload = {
         "message": "Reply with one short sentence confirming default provider fallback works.",
         "source": "project_sidebar",
@@ -240,7 +277,7 @@ def main() -> int:
     )
     fallback_session_id = str(fallback_done_payload.get("session_id", "")).strip()
 
-    print("[8/9] close the fallback chat session")
+    print("[11/11] close the fallback chat session and summarize results")
     close_request = urllib.request.Request(
         base_url + f"/api/v1/chat/{fallback_session_id}",
         headers={"Accept": "application/json"},
@@ -252,7 +289,6 @@ def main() -> int:
                 f"expected DELETE /api/v1/chat/{fallback_session_id} to return 204, got {response.status}"
             )
 
-    print("[9/9] summarize results")
     print(
         json.dumps(
             {
@@ -260,14 +296,19 @@ def main() -> int:
                 "organization": org,
                 "project": project,
                 "provider": chat_provider,
+                "ticket": ticket,
                 "explicit": {
-                "assistant_text": explicit_first_text,
-                "done": explicit_done_payload,
-            },
-            "fallback": {
-                "assistant_text": fallback_first_text,
-                "done": fallback_done_payload,
-            },
+                    "assistant_text": explicit_first_text,
+                    "done": explicit_done_payload,
+                },
+                "ticket_detail": {
+                    "assistant_text": ticket_text,
+                    "done": ticket_done_payload,
+                },
+                "fallback": {
+                    "assistant_text": fallback_first_text,
+                    "done": fallback_done_payload,
+                },
             },
             indent=2,
             ensure_ascii=False,

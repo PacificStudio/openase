@@ -5,6 +5,7 @@ import {
   projectSections,
   type ProjectSection,
 } from '$lib/stores/app-context'
+import { buildProjectAssistantCommand } from './command-items'
 import type { SearchItem, SearchItemAction, SearchItemGroup, SearchItemKind } from './types'
 import { searchItemGroupOrder } from './types'
 
@@ -85,6 +86,10 @@ function buildCommandItems({
         keywords: ['create ticket issue work item'],
       }),
     )
+  }
+
+  if (currentProject) {
+    items.unshift(buildProjectAssistantCommand(currentProject))
   }
 
   return items

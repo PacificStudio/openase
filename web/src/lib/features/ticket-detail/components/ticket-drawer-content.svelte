@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
+  import { EphemeralChatPanel } from '$lib/features/chat'
   import { Badge } from '$ui/badge'
   import { Separator } from '$ui/separator'
   import Bot from '@lucide/svelte/icons/bot'
@@ -26,6 +28,7 @@
 
   let {
     ticket,
+    projectId,
     hooks,
     comments,
     activities,
@@ -57,6 +60,7 @@
     onDeleteComment,
   }: {
     ticket: TicketDetail
+    projectId: string
     hooks: HookExecution[]
     comments: TicketComment[]
     activities: TicketActivity[]
@@ -118,9 +122,44 @@
     ticket.budgetUsd > 0 ? Math.round((ticket.costAmount / ticket.budgetUsd) * 100) : 0,
   )
   const costOverBudget = $derived(costPercent > 80)
+  let assistantOpen = $state(false)
+  let previousTicketId = ''
+
+  $effect(() => {
+    if (ticket.id === previousTicketId) {
+      return
+    }
+
+    previousTicketId = ticket.id
+    assistantOpen = false
+  })
 </script>
 
-<TicketHeader {ticket} {statuses} {savingFields} {onClose} {onSaveFields} />
+<TicketHeader
+  {ticket}
+  {statuses}
+  {savingFields}
+  {onClose}
+  {onSaveFields}
+  {assistantOpen}
+  onToggleAssistant={() => (assistantOpen = !assistantOpen)}
+/>
+
+{#if assistantOpen}
+  <div class="border-border h-[26rem] border-b">
+    <EphemeralChatPanel
+      source="ticket_detail"
+      organizationId={appStore.currentOrg?.id ?? ''}
+      defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
+      context={{ projectId, ticketId: ticket.id }}
+      title="Ticket AI Analysis"
+      description={`AI context for ${ticket.identifier}.`}
+      placeholder="Ask why this ticket failed, what the agent did, or how to split the work."
+      emptyStateTitle="Ticket context is ready"
+      emptyStateDescription="Ask for failure analysis, execution summaries, or sub-ticket suggestions."
+    />
+  </div>
+{/if}
 
 <div class="flex flex-1 gap-0 overflow-hidden">
   <TicketCommentsThread
