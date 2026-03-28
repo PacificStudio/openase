@@ -224,6 +224,9 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if !strings.Contains(textBody, "event: message\n") {
 		t.Fatalf("expected message event in stream, got %q", textBody)
 	}
+	if !strings.Contains(textBody, "event: session\n") || !strings.Contains(textBody, "\"session_id\":\"") {
+		t.Fatalf("expected session event with session id, got %q", textBody)
+	}
 	if !strings.Contains(textBody, "The ticket failed because") {
 		t.Fatalf("expected assistant message in stream, got %q", textBody)
 	}

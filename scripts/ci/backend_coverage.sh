@@ -91,6 +91,8 @@ printf 'Running backend full test suite...\n'
 "${GO_BIN}" test \
   -count=1 \
   -timeout="${GO_TEST_TIMEOUT}" \
+  -p 1 \
+  -parallel=1 \
   "${backend_packages[@]}"
 
 backend_pct=""

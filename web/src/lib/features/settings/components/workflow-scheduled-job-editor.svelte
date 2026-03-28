@@ -1,9 +1,13 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
+  import { EphemeralChatPanel } from '$lib/features/chat'
+  import * as Dialog from '$ui/dialog'
   import type { ScheduledJob } from '$lib/api/contracts'
   import { formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
+  import Bot from '@lucide/svelte/icons/bot'
   import * as Select from '$ui/select'
   import { Switch } from '$ui/switch'
   import { Textarea } from '$ui/textarea'
@@ -20,6 +24,7 @@
 
   let {
     draft,
+    projectId,
     selectedJob = null,
     workflowOptions,
     saving = false,
@@ -31,6 +36,7 @@
     onTrigger,
   }: {
     draft: ScheduledJobDraft
+    projectId: string
     selectedJob?: ScheduledJob | null
     workflowOptions: WorkflowOption[]
     saving?: boolean
@@ -43,6 +49,22 @@
   } = $props()
 
   const editorTitle = $derived(selectedJob ? 'Edit scheduled job' : 'Create scheduled job')
+  let assistantOpen = $state(false)
+
+  const cronContextNote = $derived(
+    draft.cronExpression.trim()
+      ? `Current cron expression: ${draft.cronExpression.trim()}`
+      : 'Describe the cadence in natural language and the assistant will help turn it into a cron expression.',
+  )
+  const cronMessagePrefix = $derived(
+    draft.cronExpression.trim()
+      ? [
+          'The user is editing a scheduled job for this project.',
+          `Current cron expression: ${draft.cronExpression.trim()}.`,
+          'Help explain, validate, or revise the cron schedule.',
+        ].join('\n')
+      : 'The user is creating a scheduled job for this project and needs help drafting a cron expression.',
+  )
 </script>
 
 <div class="min-w-0 flex-1 px-5 py-5">
@@ -68,14 +90,22 @@
       </div>
 
       <div class="space-y-2">
-        <Label for="scheduled-job-cron">Cron expression</Label>
-        <Input
-          id="scheduled-job-cron"
-          value={draft.cronExpression}
-          placeholder="0 2 * * *"
-          oninput={(event) =>
-            onFieldChange?.('cronExpression', (event.currentTarget as HTMLInputElement).value)}
-        />
+        <div class="flex items-center justify-between gap-3">
+          <Label for="scheduled-job-cron">Cron expression</Label>
+          <Button variant="outline" size="sm" onclick={() => (assistantOpen = true)}>
+            <Bot class="size-4" />
+            AI
+          </Button>
+        </div>
+        <div class="flex items-center gap-2">
+          <Input
+            id="scheduled-job-cron"
+            value={draft.cronExpression}
+            placeholder="0 2 * * *"
+            oninput={(event) =>
+              onFieldChange?.('cronExpression', (event.currentTarget as HTMLInputElement).value)}
+          />
+        </div>
       </div>
     </div>
 
@@ -237,3 +267,31 @@
     </div>
   </div>
 </div>
+
+<Dialog.Root bind:open={assistantOpen}>
+  <Dialog.Content class="flex h-[80vh] max-h-[48rem] max-w-3xl flex-col overflow-hidden p-0">
+    <Dialog.Header class="border-border border-b px-6 py-5">
+      <Dialog.Title>Cron helper</Dialog.Title>
+      <Dialog.Description>
+        Ask AI to translate natural-language schedules, review an existing cron expression, or
+        suggest safer timing.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    {#if assistantOpen}
+      <EphemeralChatPanel
+        source="project_sidebar"
+        organizationId={appStore.currentOrg?.id ?? ''}
+        defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
+        context={{ projectId }}
+        title="Scheduled Job AI"
+        description="Project context plus cron-specific guidance."
+        placeholder="Describe the schedule you want, or ask what the current cron expression means."
+        emptyStateTitle="Cron context is ready"
+        emptyStateDescription="Ask for cron translation, validation, or safer scheduling guidance for this recurring job."
+        contextNote={cronContextNote}
+        messagePrefix={cronMessagePrefix}
+      />
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>

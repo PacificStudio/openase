@@ -20,6 +20,7 @@
     onToggleTheme,
     onNewTicket,
     onOpenTicket,
+    onOpenProjectAssistant,
   }: {
     open?: boolean
     organizations?: Organization[]
@@ -31,6 +32,7 @@
     onToggleTheme?: () => void
     onNewTicket?: () => void
     onOpenTicket?: (ticketId: string) => void
+    onOpenProjectAssistant?: (initialPrompt?: string) => void
   } = $props()
 
   let tickets = $state<Ticket[]>([])
@@ -127,18 +129,22 @@
   })
 
   async function handleSelect(item: SearchItem) {
+    const selectedQuery = commandValue.trim()
     open = false
     commandValue = ''
-    await executeAction(item.action)
+    await executeAction(item.action, selectedQuery)
   }
 
-  async function executeAction(action: SearchItemAction) {
+  async function executeAction(action: SearchItemAction, selectedQuery: string) {
     switch (action.kind) {
       case 'navigate':
         await goto(action.href)
         return
       case 'open_ticket':
         onOpenTicket?.(action.ticketId)
+        return
+      case 'open_project_ai':
+        onOpenProjectAssistant?.(selectedQuery || undefined)
         return
       case 'new_ticket':
         onNewTicket?.()

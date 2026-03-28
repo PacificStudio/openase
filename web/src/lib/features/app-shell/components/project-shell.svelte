@@ -5,6 +5,7 @@
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { capabilityCatalog } from '$lib/features/capabilities'
+  import { ProjectAssistantSheet } from '$lib/features/chat'
   import { GlobalSearchDialog } from '$lib/features/search'
   import { NewTicketDialog } from '$lib/features/tickets'
   import { TicketDrawer } from '$lib/features/ticket-detail'
@@ -28,6 +29,8 @@
     appStore.rightPanelContent?.type === 'ticket' ? appStore.rightPanelContent.id : null,
   )
   let searchOpen = $state(false)
+  let projectAssistantOpen = $state(false)
+  let projectAssistantPrompt = $state('')
   const projectHealth = $derived.by(() => {
     const status = appStore.currentProject?.status?.toLowerCase()
     if (status === 'healthy' || status === 'active') return 'healthy'
@@ -163,6 +166,12 @@
     searchOpen = true
   }
 
+  function handleOpenProjectAssistant(initialPrompt = '') {
+    projectAssistantPrompt = initialPrompt
+    searchOpen = false
+    projectAssistantOpen = true
+  }
+
   function handleNewTicket() {
     appStore.openNewTicketDialog()
   }
@@ -206,6 +215,7 @@
         projectName={appStore.currentProject?.name ?? ''}
         {projectHealth}
         agentCount={appStore.agentCount}
+        onOpenProjectAssistant={() => handleOpenProjectAssistant()}
         onToggleCollapse={() => appStore.toggleSidebar()}
       />
     </aside>
@@ -228,6 +238,15 @@
 
   <NewTicketDialog />
 
+  <ProjectAssistantSheet
+    bind:open={projectAssistantOpen}
+    organizationId={appStore.currentOrg?.id ?? ''}
+    projectId={appStore.currentProject?.id ?? ''}
+    projectName={appStore.currentProject?.name ?? ''}
+    defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
+    initialPrompt={projectAssistantPrompt}
+  />
+
   <GlobalSearchDialog
     bind:open={searchOpen}
     organizations={appStore.organizations}
@@ -238,6 +257,7 @@
     newTicketEnabled={isNewTicketEnabled}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
+    onOpenProjectAssistant={handleOpenProjectAssistant}
     onOpenTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
   />
 </div>
