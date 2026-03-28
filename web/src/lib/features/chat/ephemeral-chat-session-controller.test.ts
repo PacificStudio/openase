@@ -112,6 +112,12 @@ describe('createEphemeralChatSessionController', () => {
   it('closes the active session when the embedding panel is hidden', async () => {
     streamChatTurn.mockImplementation(async (_request, handlers) => {
       handlers.onEvent({
+        kind: 'session',
+        payload: {
+          sessionId: 'session-1',
+        },
+      })
+      handlers.onEvent({
         kind: 'done',
         payload: {
           sessionId: 'session-1',
@@ -139,5 +145,50 @@ describe('createEphemeralChatSessionController', () => {
 
     expect(closeChatSession).toHaveBeenCalledWith('session-1')
     expect(controller.sessionId).toBe('')
+  })
+
+  it('closes a first-turn session before the stream completes when reset is requested', async () => {
+    streamChatTurn.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'session',
+        payload: {
+          sessionId: 'session-1',
+        },
+      })
+
+      await new Promise<void>((resolve) => {
+        handlers.signal?.addEventListener(
+          'abort',
+          () => {
+            resolve()
+          },
+          { once: true },
+        )
+      })
+    })
+    closeChatSession.mockResolvedValue(undefined)
+
+    const controller = createEphemeralChatSessionController({
+      source: 'harness_editor',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    const sendTurn = controller.sendTurn({
+      message: 'Start a new session.',
+      context: {
+        projectId: 'project-1',
+        workflowId: 'workflow-1',
+      },
+    })
+
+    expect(controller.sessionId).toBe('session-1')
+
+    await controller.resetConversation()
+    await sendTurn
+
+    expect(closeChatSession).toHaveBeenCalledWith('session-1')
+    expect(controller.sessionId).toBe('')
+    expect(controller.entries).toEqual([])
+    expect(controller.pending).toBe(false)
   })
 })

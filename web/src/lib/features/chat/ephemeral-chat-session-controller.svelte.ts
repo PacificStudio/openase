@@ -49,6 +49,11 @@ export function createEphemeralChatSessionController(
   }
 
   function handleStreamEvent(event: ChatStreamEvent) {
+    if (event.kind === 'session') {
+      sessionId = event.payload.sessionId
+      return
+    }
+
     if (event.kind === 'done') {
       sessionId = event.payload.sessionId
       pending = false

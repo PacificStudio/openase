@@ -159,16 +159,23 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 	}
 
 	collected := collectStreamEvents(stream.Events)
-	if len(collected) != 3 {
-		t.Fatalf("stream event count = %d, want 3: %+v", len(collected), collected)
+	if len(collected) != 4 {
+		t.Fatalf("stream event count = %d, want 4: %+v", len(collected), collected)
 	}
-	if payload, ok := collected[0].Payload.(map[string]any); !ok || payload["type"] != "task_started" {
-		t.Fatalf("first payload = %#v, want task_started", collected[0].Payload)
+	session, ok := collected[0].Payload.(sessionPayload)
+	if !ok || session.SessionID == "" {
+		t.Fatalf("first payload = %#v, want session payload", collected[0].Payload)
 	}
-	if payload, ok := collected[1].Payload.(textPayload); !ok || payload.Content != "Project summary ready." {
-		t.Fatalf("second payload = %#v, want assistant text", collected[1].Payload)
+	if collected[0].Event != "session" {
+		t.Fatalf("first event = %q, want session", collected[0].Event)
 	}
-	done, ok := collected[2].Payload.(donePayload)
+	if payload, ok := collected[1].Payload.(map[string]any); !ok || payload["type"] != "task_started" {
+		t.Fatalf("second payload = %#v, want task_started", collected[1].Payload)
+	}
+	if payload, ok := collected[2].Payload.(textPayload); !ok || payload.Content != "Project summary ready." {
+		t.Fatalf("third payload = %#v, want assistant text", collected[2].Payload)
+	}
+	done, ok := collected[3].Payload.(donePayload)
 	if !ok || done.SessionID != "sess-project-1" || done.TurnsUsed != 2 || done.TurnsRemaining != 8 {
 		t.Fatalf("done payload = %#v", collected[2].Payload)
 	}

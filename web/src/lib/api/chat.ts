@@ -27,6 +27,10 @@ export type ChatDonePayload = {
   costUSD?: number
 }
 
+export type ChatSessionPayload = {
+  sessionId: string
+}
+
 export type ChatErrorPayload = {
   message: string
 }
@@ -45,6 +49,7 @@ export type ChatTaskPayload = {
 export type ChatMessagePayload = ChatTextPayload | ChatActionProposalPayload | ChatTaskPayload
 
 export type ChatStreamEvent =
+  | { kind: 'session'; payload: ChatSessionPayload }
   | { kind: 'message'; payload: ChatMessagePayload }
   | { kind: 'done'; payload: ChatDonePayload }
   | { kind: 'error'; payload: ChatErrorPayload }
@@ -112,6 +117,8 @@ function parseChatStreamEvent(frame: SSEFrame): ChatStreamEvent | null {
   }
 
   switch (frame.event) {
+    case 'session':
+      return { kind: 'session', payload: parseSessionPayload(payload) }
     case 'message':
       return parseMessageEvent(payload)
     case 'done':
@@ -154,6 +161,13 @@ function parseMessageEvent(payload: unknown): ChatStreamEvent {
       type,
       raw: object.raw,
     },
+  }
+}
+
+function parseSessionPayload(payload: unknown): ChatSessionPayload {
+  const object = parseRequiredObject(payload)
+  return {
+    sessionId: readRequiredString(object, 'session_id'),
   }
 }
 

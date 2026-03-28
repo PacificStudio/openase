@@ -117,6 +117,10 @@ type donePayload struct {
 	TurnsRemaining int      `json:"turns_remaining"`
 }
 
+type sessionPayload struct {
+	SessionID string `json:"session_id"`
+}
+
 type errorPayload struct {
 	Message string `json:"message"`
 }
@@ -245,7 +249,21 @@ func (s *Service) StartTurn(ctx context.Context, input StartInput) (TurnStream, 
 		return TurnStream{}, err
 	}
 
-	return stream, nil
+	events := make(chan StreamEvent, 1)
+	go func() {
+		defer close(events)
+
+		events <- StreamEvent{
+			Event:   "session",
+			Payload: sessionPayload{SessionID: sessionID.String()},
+		}
+
+		for event := range stream.Events {
+			events <- event
+		}
+	}()
+
+	return TurnStream{Events: events}, nil
 }
 
 func (s *Service) CloseSession(sessionID SessionID) bool {
