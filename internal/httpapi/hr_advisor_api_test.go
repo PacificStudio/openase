@@ -289,6 +289,98 @@ func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T
 	}
 }
 
+func TestHRAdvisorRouteIncludesDocumentationDriftTrendEvidence(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetStatus("In Progress").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
+
+	for index := 0; index < 4; index++ {
+		if _, err := client.ActivityEvent.Create().
+			SetProjectID(project.ID).
+			SetEventType("pr.merged").
+			SetMessage(fmt.Sprintf("Merged PR #%d without docs update", index+1)).
+			Save(ctx); err != nil {
+			t.Fatalf("create merged activity event %d: %v", index+1, err)
+		}
+	}
+
+	resp := struct {
+		Summary struct {
+			RecentActivityCount int `json:"recent_activity_count"`
+		} `json:"summary"`
+		Recommendations []hrAdvisorRecommendationResponse `json:"recommendations"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/hr-advisor", project.ID),
+		nil,
+		http.StatusOK,
+		&resp,
+	)
+
+	if resp.Summary.RecentActivityCount != 4 {
+		t.Fatalf("expected recent activity count 4, got %+v", resp.Summary)
+	}
+
+	var writerRecommendation *hrAdvisorRecommendationResponse
+	for index := range resp.Recommendations {
+		recommendation := &resp.Recommendations[index]
+		if recommendation.RoleSlug == "technical-writer" {
+			writerRecommendation = recommendation
+			break
+		}
+	}
+	if writerRecommendation == nil {
+		t.Fatalf("expected technical writer recommendation, got %+v", resp.Recommendations)
+	}
+	evidence := strings.Join(writerRecommendation.Evidence, " ")
+	if !strings.Contains(evidence, "merge-like activity events: 4") || !strings.Contains(evidence, "documentation update events: 0") {
+		t.Fatalf("expected documentation drift evidence, got %+v", writerRecommendation.Evidence)
+	}
+}
+
 func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)

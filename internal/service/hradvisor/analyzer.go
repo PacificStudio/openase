@@ -21,6 +21,9 @@ type snapshotStats struct {
 	securityWorkflowCount int
 	backlogTickets        int
 	hasDispatcherWorkflow bool
+	documentationDrift    int
+	failureBurstCount     int
+	trendEvidenceByKind   map[string][]string
 	statusPressure        []statusPressure
 	activeWorkflowTypes   []string
 }
@@ -122,26 +125,12 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 		}, false)
 	}
 
-	if (stats.openTickets >= 5 || stats.workflowCount >= 3) && stats.docWorkflowCount == 0 {
-		add(domain.Recommendation{
-			RoleSlug:              "technical-writer",
-			Priority:              "medium",
-			Reason:                "The delivery surface is growing without a documentation lane to keep operator guidance and implementation notes current.",
-			Evidence:              []string{fmt.Sprintf("Open tickets: %d.", stats.openTickets), fmt.Sprintf("Configured workflows: %d.", stats.workflowCount), fmt.Sprintf("Active doc workflows: %d.", stats.docWorkflowCount)},
-			SuggestedHeadcount:    1,
-			SuggestedWorkflowName: "Technical Writer",
-		}, false)
+	if recommendation, ok := documentationRecommendation(stats); ok {
+		add(recommendation, false)
 	}
 
-	if (stats.openTickets >= 8 || stats.failingTickets >= 2) && stats.securityWorkflowCount == 0 {
-		add(domain.Recommendation{
-			RoleSlug:              "security-engineer",
-			Priority:              "medium",
-			Reason:                "Load and failure signals are high enough that a dedicated security pass should be added before the project scales further.",
-			Evidence:              []string{fmt.Sprintf("Open tickets: %d.", stats.openTickets), fmt.Sprintf("Failing tickets: %d.", stats.failingTickets), fmt.Sprintf("Active security workflows: %d.", stats.securityWorkflowCount)},
-			SuggestedHeadcount:    1,
-			SuggestedWorkflowName: "Security Engineer",
-		}, false)
+	if recommendation, ok := securityRecommendation(stats); ok {
+		add(recommendation, false)
 	}
 
 	if isResearchProject(snapshot.Project) && stats.workflowCount == 0 {
@@ -165,7 +154,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 			BlockedTickets:      stats.blockedTickets,
 			ActiveAgents:        stats.activeAgents,
 			WorkflowCount:       stats.workflowCount,
-			RecentActivityCount: len(snapshot.RecentActivity),
+			RecentActivityCount: snapshot.RecentActivityCount,
 			ActiveWorkflowTypes: stats.activeWorkflowTypes,
 		},
 		Recommendations: recommendations,
@@ -174,7 +163,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 }
 
 func collectStats(snapshot domain.Snapshot) snapshotStats {
-	stats := snapshotStats{}
+	stats := snapshotStats{trendEvidenceByKind: make(map[string][]string)}
 	activeWorkflowTypes := make(map[string]struct{})
 	queuedTicketsByStatus := make(map[string]int)
 	statusDisplayNames := make(map[string]string)
@@ -252,9 +241,92 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 		}
 	}
 
+	for _, trend := range snapshot.RecentTrends {
+		switch trend.Kind {
+		case domain.ActivityTrendDocumentationDrift:
+			stats.documentationDrift += trend.Count
+		case domain.ActivityTrendFailureBurst:
+			stats.failureBurstCount += trend.Count
+		}
+		if len(trend.Evidence) > 0 {
+			stats.trendEvidenceByKind[trend.Kind] = append(stats.trendEvidenceByKind[trend.Kind], trend.Evidence...)
+		}
+	}
+
 	stats.activeWorkflowTypes = mapKeys(activeWorkflowTypes)
 	stats.statusPressure = buildStatusPressure(queuedTicketsByStatus, statusDisplayNames, pickupWorkflowsByStatus, finishWorkflowsByStatus)
 	return stats
+}
+
+func documentationRecommendation(stats snapshotStats) (domain.Recommendation, bool) {
+	if stats.docWorkflowCount > 0 {
+		return domain.Recommendation{}, false
+	}
+
+	hasStaticPressure := stats.openTickets >= 5 || stats.workflowCount >= 3
+	hasTrendPressure := stats.documentationDrift > 0
+	if !hasStaticPressure && !hasTrendPressure {
+		return domain.Recommendation{}, false
+	}
+
+	reason := "The delivery surface is growing without a documentation lane to keep operator guidance and implementation notes current."
+	if hasTrendPressure {
+		reason = "Recent delivery activity shows merges outpacing documentation updates, and there is no documentation lane to absorb that drift."
+	}
+
+	evidence := make([]string, 0, 5)
+	if hasStaticPressure {
+		evidence = append(evidence,
+			fmt.Sprintf("Open tickets: %d.", stats.openTickets),
+			fmt.Sprintf("Configured workflows: %d.", stats.workflowCount),
+		)
+	}
+	if hasTrendPressure {
+		evidence = append(evidence, stats.trendEvidenceByKind[domain.ActivityTrendDocumentationDrift]...)
+		evidence = append(evidence, fmt.Sprintf("Documentation drift signals: %d.", stats.documentationDrift))
+	}
+	evidence = append(evidence, fmt.Sprintf("Active doc workflows: %d.", stats.docWorkflowCount))
+
+	priority := "medium"
+	if stats.documentationDrift >= 3 {
+		priority = "high"
+	}
+
+	return domain.Recommendation{
+		RoleSlug:              "technical-writer",
+		Priority:              priority,
+		Reason:                reason,
+		Evidence:              evidence,
+		SuggestedHeadcount:    1,
+		SuggestedWorkflowName: "Technical Writer",
+	}, true
+}
+
+func securityRecommendation(stats snapshotStats) (domain.Recommendation, bool) {
+	if stats.securityWorkflowCount > 0 {
+		return domain.Recommendation{}, false
+	}
+	if stats.openTickets < 8 && stats.failingTickets < 2 && stats.failureBurstCount == 0 {
+		return domain.Recommendation{}, false
+	}
+
+	evidence := []string{
+		fmt.Sprintf("Open tickets: %d.", stats.openTickets),
+		fmt.Sprintf("Failing tickets: %d.", stats.failingTickets),
+		fmt.Sprintf("Active security workflows: %d.", stats.securityWorkflowCount),
+	}
+	if stats.failureBurstCount > 0 {
+		evidence = append(evidence, stats.trendEvidenceByKind[domain.ActivityTrendFailureBurst]...)
+	}
+
+	return domain.Recommendation{
+		RoleSlug:              "security-engineer",
+		Priority:              "medium",
+		Reason:                "Load and failure signals are high enough that a dedicated security pass should be added before the project scales further.",
+		Evidence:              evidence,
+		SuggestedHeadcount:    1,
+		SuggestedWorkflowName: "Security Engineer",
+	}, true
 }
 
 func recommendationForPressure(pressure statusPressure, stats snapshotStats) (domain.Recommendation, bool) {
@@ -349,10 +421,10 @@ func buildStaffingPlan(projectStatus projectStatus, stats snapshotStats) domain.
 	if stats.codingTickets >= 3 {
 		plan.QA = max(1, scaleHeadcount(stats.codingTickets, 6))
 	}
-	if stats.openTickets >= 5 || stats.workflowCount >= 3 {
+	if stats.openTickets >= 5 || stats.workflowCount >= 3 || stats.documentationDrift > 0 {
 		plan.Docs = 1
 	}
-	if stats.openTickets >= 8 || stats.failingTickets >= 2 {
+	if stats.openTickets >= 8 || stats.failingTickets >= 2 || stats.failureBurstCount > 0 {
 		plan.Security = 1
 	}
 	if projectStatus == projectStatusPlanned && stats.workflowCount == 0 {

@@ -52,6 +52,48 @@ func TestAnalyzeRecommendsQADocsAndSecurityFromWorkloadShape(t *testing.T) {
 	}
 }
 
+func TestAnalyzeRecommendsTechnicalWriterFromDocumentationDriftTrend(t *testing.T) {
+	analysis := Analyze(domain.Snapshot{
+		Project: domain.ProjectContext{
+			Name:   "OpenASE",
+			Status: "In Progress",
+		},
+		RecentActivityCount: 4,
+		RecentTrends: []domain.ActivityTrendContext{
+			{
+				Kind:  domain.ActivityTrendDocumentationDrift,
+				Count: 4,
+				Evidence: []string{
+					"Recent merge-like activity events: 4.",
+					"Recent documentation update events: 0.",
+				},
+			},
+		},
+	})
+
+	var writerRecommendation *domain.Recommendation
+	for index := range analysis.Recommendations {
+		recommendation := &analysis.Recommendations[index]
+		if recommendation.RoleSlug == "technical-writer" {
+			writerRecommendation = recommendation
+			break
+		}
+	}
+	if writerRecommendation == nil {
+		t.Fatalf("expected technical writer recommendation, got %+v", analysis.Recommendations)
+	}
+	if writerRecommendation.Priority != "high" {
+		t.Fatalf("expected high-priority documentation trend recommendation, got %+v", writerRecommendation)
+	}
+	evidence := strings.Join(writerRecommendation.Evidence, " ")
+	if !strings.Contains(evidence, "merge-like activity events: 4") || !strings.Contains(evidence, "documentation update events: 0") {
+		t.Fatalf("expected documentation drift evidence, got %+v", writerRecommendation.Evidence)
+	}
+	if analysis.Staffing.Docs != 1 {
+		t.Fatalf("expected docs staffing to reflect documentation drift, got %+v", analysis.Staffing)
+	}
+}
+
 func TestAnalyzeSkipsRolesThatAreAlreadyActive(t *testing.T) {
 	analysis := Analyze(domain.Snapshot{
 		Project: domain.ProjectContext{
