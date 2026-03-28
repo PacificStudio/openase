@@ -229,6 +229,7 @@ jobs:
         timeout-minutes: 45
         shell: bash
         env:
+          OPENASE_BACKEND_TEST_GROUP_SIZE: "8"
           OPENASE_GO_TEST_PROGRESS_MODE: plain
         run: |
           set -euo pipefail
