@@ -5,6 +5,7 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+	githubauth "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -24,6 +25,10 @@ func (Project) Fields() []ent.Field {
 		field.Enum("status").
 			Values("planning", "active", "paused", "archived").
 			Default("planning"),
+		field.JSON("github_outbound_credential", &githubauth.StoredCredential{}).
+			Optional(),
+		field.JSON("github_token_probe", &githubauth.TokenProbe{}).
+			Optional(),
 		field.UUID("default_workflow_id", uuidZero()).
 			Optional().
 			Nillable(),

@@ -219,6 +219,26 @@ func StatusNotIn(vs ...Status) predicate.Organization {
 	return predicate.Organization(sql.FieldNotIn(FieldStatus, vs...))
 }
 
+// GithubOutboundCredentialIsNil applies the IsNil predicate on the "github_outbound_credential" field.
+func GithubOutboundCredentialIsNil() predicate.Organization {
+	return predicate.Organization(sql.FieldIsNull(FieldGithubOutboundCredential))
+}
+
+// GithubOutboundCredentialNotNil applies the NotNil predicate on the "github_outbound_credential" field.
+func GithubOutboundCredentialNotNil() predicate.Organization {
+	return predicate.Organization(sql.FieldNotNull(FieldGithubOutboundCredential))
+}
+
+// GithubTokenProbeIsNil applies the IsNil predicate on the "github_token_probe" field.
+func GithubTokenProbeIsNil() predicate.Organization {
+	return predicate.Organization(sql.FieldIsNull(FieldGithubTokenProbe))
+}
+
+// GithubTokenProbeNotNil applies the NotNil predicate on the "github_token_probe" field.
+func GithubTokenProbeNotNil() predicate.Organization {
+	return predicate.Organization(sql.FieldNotNull(FieldGithubTokenProbe))
+}
+
 // DefaultAgentProviderIDEQ applies the EQ predicate on the "default_agent_provider_id" field.
 func DefaultAgentProviderIDEQ(v uuid.UUID) predicate.Organization {
 	return predicate.Organization(sql.FieldEQ(FieldDefaultAgentProviderID, v))

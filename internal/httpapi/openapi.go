@@ -748,9 +748,27 @@ type OpenAPISecuritySecretHygiene struct {
 	NotificationChannelConfigsRedacted bool `json:"notification_channel_configs_redacted"`
 }
 
+type OpenAPIGitHubTokenProbe struct {
+	State       string   `json:"state"`
+	Configured  bool     `json:"configured"`
+	Valid       bool     `json:"valid"`
+	Permissions []string `json:"permissions"`
+	RepoAccess  string   `json:"repo_access"`
+	CheckedAt   *string  `json:"checked_at,omitempty"`
+	LastError   string   `json:"last_error,omitempty"`
+}
+
+type OpenAPIGitHubOutboundCredential struct {
+	Scope        string                  `json:"scope,omitempty"`
+	Source       string                  `json:"source,omitempty"`
+	TokenPreview string                  `json:"token_preview,omitempty"`
+	Probe        OpenAPIGitHubTokenProbe `json:"probe"`
+}
+
 type OpenAPISecuritySettings struct {
 	ProjectID     string                              `json:"project_id"`
 	AgentTokens   OpenAPISecurityAgentTokens          `json:"agent_tokens"`
+	GitHub        OpenAPIGitHubOutboundCredential     `json:"github"`
 	Webhooks      OpenAPISecurityWebhooks             `json:"webhooks"`
 	SecretHygiene OpenAPISecuritySecretHygiene        `json:"secret_hygiene"`
 	Deferred      []OpenAPISecurityDeferredCapability `json:"deferred"`

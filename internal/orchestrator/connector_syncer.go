@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/issueconnector"
 	registrypkg "github.com/BetterAndBetterII/openase/internal/issueconnector"
+	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -42,11 +44,12 @@ type SyncBackRequest struct {
 }
 
 type ConnectorSyncer struct {
-	repo     ConnectorRepository
-	registry *registrypkg.Registry
-	sink     ConnectorSyncSink
-	logger   *slog.Logger
-	now      func() time.Time
+	repo       ConnectorRepository
+	registry   *registrypkg.Registry
+	sink       ConnectorSyncSink
+	logger     *slog.Logger
+	githubAuth githubauthservice.TokenResolver
+	now        func() time.Time
 }
 
 func NewConnectorSyncer(
@@ -66,6 +69,13 @@ func NewConnectorSyncer(
 		logger:   logger.With("component", "connector-syncer"),
 		now:      time.Now,
 	}
+}
+
+func (s *ConnectorSyncer) ConfigureGitHubCredentials(resolver githubauthservice.TokenResolver) {
+	if s == nil {
+		return
+	}
+	s.githubAuth = resolver
 }
 
 func (s *ConnectorSyncer) SyncAll(ctx context.Context) (ConnectorSyncReport, error) {
@@ -190,7 +200,11 @@ func (s *ConnectorSyncer) SyncBack(ctx context.Context, request SyncBackRequest)
 	if err != nil {
 		return s.recordFailure(ctx, connector, err)
 	}
-	if err := impl.SyncBack(ctx, connector.Config, request.Update); err != nil {
+	cfg, err := s.resolveConnectorConfig(ctx, connector)
+	if err != nil {
+		return s.recordFailure(ctx, connector, err)
+	}
+	if err := impl.SyncBack(ctx, cfg, request.Update); err != nil {
 		return s.recordFailure(ctx, connector, err)
 	}
 
@@ -224,7 +238,12 @@ func (s *ConnectorSyncer) syncPull(
 		return 0, s.recordFailure(ctx, connector, err)
 	}
 
-	issues, err := impl.PullIssues(ctx, connector.Config, connector.LastSyncCursor())
+	cfg, err := s.resolveConnectorConfig(ctx, connector)
+	if err != nil {
+		return 0, s.recordFailure(ctx, connector, err)
+	}
+
+	issues, err := impl.PullIssues(ctx, cfg, connector.LastSyncCursor())
 	if err != nil {
 		return 0, s.recordFailure(ctx, connector, err)
 	}
@@ -255,4 +274,18 @@ func (s *ConnectorSyncer) recordFailure(ctx context.Context, connector domain.Is
 	}
 
 	return failure
+}
+
+func (s *ConnectorSyncer) resolveConnectorConfig(ctx context.Context, connector domain.IssueConnector) (domain.Config, error) {
+	cfg := connector.Config
+	if connector.Type != domain.TypeGitHub || strings.TrimSpace(cfg.AuthToken) != "" || s.githubAuth == nil {
+		return cfg, nil
+	}
+
+	resolved, err := s.githubAuth.ResolveProjectCredential(ctx, connector.ProjectID)
+	if err != nil {
+		return domain.Config{}, fmt.Errorf("resolve GitHub outbound credential: %w", err)
+	}
+	cfg.AuthToken = strings.TrimSpace(resolved.Token)
+	return cfg, nil
 }

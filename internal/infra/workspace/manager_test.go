@@ -232,8 +232,23 @@ func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
 	if err := os.WriteFile(notDirPath, []byte("not a directory"), 0o600); err != nil {
 		t.Fatalf("WriteFile(notDirPath) error = %v", err)
 	}
-	if _, err := cloneOrOpenRepository(context.Background(), notDirPath, "https://example.invalid/repo.git"); err == nil || !strings.Contains(err.Error(), "is not a directory") {
+	if _, err := cloneOrOpenRepository(context.Background(), notDirPath, "https://example.invalid/repo.git", ""); err == nil || !strings.Contains(err.Error(), "is not a directory") {
 		t.Fatalf("cloneOrOpenRepository(file path) error = %v", err)
+	}
+}
+
+func TestGitAuthMethodOnlyAppliesToGitHubHTTPSRepos(t *testing.T) {
+	if auth := gitAuthMethod("https://github.com/GrandCX/openase.git", "ghu_test_token"); auth == nil {
+		t.Fatal("expected GitHub HTTPS repo auth to be configured")
+	}
+	if auth := gitAuthMethod("git@github.com:GrandCX/openase.git", "ghu_test_token"); auth != nil {
+		t.Fatalf("expected SSH repo auth to stay nil, got %+v", auth)
+	}
+	if auth := gitAuthMethod("/tmp/openase", "ghu_test_token"); auth != nil {
+		t.Fatalf("expected local repo auth to stay nil, got %+v", auth)
+	}
+	if auth := gitAuthMethod("https://github.com/GrandCX/openase.git", " "); auth != nil {
+		t.Fatalf("expected blank token auth to stay nil, got %+v", auth)
 	}
 }
 

@@ -543,6 +543,8 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "slug", Type: field.TypeString},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "archived"}, Default: "active"},
+		{Name: "github_outbound_credential", Type: field.TypeJSON, Nullable: true},
+		{Name: "github_token_probe", Type: field.TypeJSON, Nullable: true},
 		{Name: "default_agent_provider_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// OrganizationsTable holds the schema information for the "organizations" table.
@@ -553,7 +555,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "organizations_agent_providers_default_agent_provider",
-				Columns:    []*schema.Column{OrganizationsColumns[4]},
+				Columns:    []*schema.Column{OrganizationsColumns[6]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -573,6 +575,8 @@ var (
 		{Name: "slug", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"planning", "active", "paused", "archived"}, Default: "planning"},
+		{Name: "github_outbound_credential", Type: field.TypeJSON, Nullable: true},
+		{Name: "github_token_probe", Type: field.TypeJSON, Nullable: true},
 		{Name: "accessible_machine_ids", Type: field.TypeJSON},
 		{Name: "max_concurrent_agents", Type: field.TypeInt, Default: 5},
 		{Name: "organization_id", Type: field.TypeUUID},
@@ -587,19 +591,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "projects_organizations_projects",
-				Columns:    []*schema.Column{ProjectsColumns[7]},
+				Columns:    []*schema.Column{ProjectsColumns[9]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "projects_workflows_default_workflow",
-				Columns:    []*schema.Column{ProjectsColumns[8]},
+				Columns:    []*schema.Column{ProjectsColumns[10]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "projects_agent_providers_default_agent_provider",
-				Columns:    []*schema.Column{ProjectsColumns[9]},
+				Columns:    []*schema.Column{ProjectsColumns[11]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -608,7 +612,7 @@ var (
 			{
 				Name:    "project_organization_id_slug",
 				Unique:  true,
-				Columns: []*schema.Column{ProjectsColumns[7], ProjectsColumns[2]},
+				Columns: []*schema.Column{ProjectsColumns[9], ProjectsColumns[2]},
 			},
 		},
 	}

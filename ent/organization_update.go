@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -71,6 +72,30 @@ func (_u *OrganizationUpdate) SetNillableStatus(v *organization.Status) *Organiz
 	if v != nil {
 		_u.SetStatus(*v)
 	}
+	return _u
+}
+
+// SetGithubOutboundCredential sets the "github_outbound_credential" field.
+func (_u *OrganizationUpdate) SetGithubOutboundCredential(v *githubauth.StoredCredential) *OrganizationUpdate {
+	_u.mutation.SetGithubOutboundCredential(v)
+	return _u
+}
+
+// ClearGithubOutboundCredential clears the value of the "github_outbound_credential" field.
+func (_u *OrganizationUpdate) ClearGithubOutboundCredential() *OrganizationUpdate {
+	_u.mutation.ClearGithubOutboundCredential()
+	return _u
+}
+
+// SetGithubTokenProbe sets the "github_token_probe" field.
+func (_u *OrganizationUpdate) SetGithubTokenProbe(v *githubauth.TokenProbe) *OrganizationUpdate {
+	_u.mutation.SetGithubTokenProbe(v)
+	return _u
+}
+
+// ClearGithubTokenProbe clears the value of the "github_token_probe" field.
+func (_u *OrganizationUpdate) ClearGithubTokenProbe() *OrganizationUpdate {
+	_u.mutation.ClearGithubTokenProbe()
 	return _u
 }
 
@@ -321,6 +346,18 @@ func (_u *OrganizationUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(organization.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.GithubOutboundCredential(); ok {
+		_spec.SetField(organization.FieldGithubOutboundCredential, field.TypeJSON, value)
+	}
+	if _u.mutation.GithubOutboundCredentialCleared() {
+		_spec.ClearField(organization.FieldGithubOutboundCredential, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.GithubTokenProbe(); ok {
+		_spec.SetField(organization.FieldGithubTokenProbe, field.TypeJSON, value)
+	}
+	if _u.mutation.GithubTokenProbeCleared() {
+		_spec.ClearField(organization.FieldGithubTokenProbe, field.TypeJSON)
 	}
 	if _u.mutation.ProjectsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -590,6 +627,30 @@ func (_u *OrganizationUpdateOne) SetNillableStatus(v *organization.Status) *Orga
 	if v != nil {
 		_u.SetStatus(*v)
 	}
+	return _u
+}
+
+// SetGithubOutboundCredential sets the "github_outbound_credential" field.
+func (_u *OrganizationUpdateOne) SetGithubOutboundCredential(v *githubauth.StoredCredential) *OrganizationUpdateOne {
+	_u.mutation.SetGithubOutboundCredential(v)
+	return _u
+}
+
+// ClearGithubOutboundCredential clears the value of the "github_outbound_credential" field.
+func (_u *OrganizationUpdateOne) ClearGithubOutboundCredential() *OrganizationUpdateOne {
+	_u.mutation.ClearGithubOutboundCredential()
+	return _u
+}
+
+// SetGithubTokenProbe sets the "github_token_probe" field.
+func (_u *OrganizationUpdateOne) SetGithubTokenProbe(v *githubauth.TokenProbe) *OrganizationUpdateOne {
+	_u.mutation.SetGithubTokenProbe(v)
+	return _u
+}
+
+// ClearGithubTokenProbe clears the value of the "github_token_probe" field.
+func (_u *OrganizationUpdateOne) ClearGithubTokenProbe() *OrganizationUpdateOne {
+	_u.mutation.ClearGithubTokenProbe()
 	return _u
 }
 
@@ -870,6 +931,18 @@ func (_u *OrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Organizati
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(organization.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.GithubOutboundCredential(); ok {
+		_spec.SetField(organization.FieldGithubOutboundCredential, field.TypeJSON, value)
+	}
+	if _u.mutation.GithubOutboundCredentialCleared() {
+		_spec.ClearField(organization.FieldGithubOutboundCredential, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.GithubTokenProbe(); ok {
+		_spec.SetField(organization.FieldGithubTokenProbe, field.TypeJSON, value)
+	}
+	if _u.mutation.GithubTokenProbeCleared() {
+		_spec.ClearField(organization.FieldGithubTokenProbe, field.TypeJSON)
 	}
 	if _u.mutation.ProjectsCleared() {
 		edge := &sqlgraph.EdgeSpec{

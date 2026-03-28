@@ -5,6 +5,7 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+	githubauth "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 )
 
 // Organization defines the ent schema for organizations.
@@ -21,6 +22,10 @@ func (Organization) Fields() []ent.Field {
 		field.Enum("status").
 			Values("active", "archived").
 			Default("active"),
+		field.JSON("github_outbound_credential", &githubauth.StoredCredential{}).
+			Optional(),
+		field.JSON("github_token_probe", &githubauth.TokenProbe{}).
+			Optional(),
 		field.UUID("default_agent_provider_id", uuidZero()).
 			Optional().
 			Nillable(),

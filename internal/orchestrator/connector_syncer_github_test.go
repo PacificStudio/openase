@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/issueconnector"
 	githubconnector "github.com/BetterAndBetterII/openase/internal/infra/issueconnector/github"
 	registrypkg "github.com/BetterAndBetterII/openase/internal/issueconnector"
@@ -115,4 +116,67 @@ func TestConnectorSyncerUsesGitHubConnectorForPullAndSyncBack(t *testing.T) {
 	if patchedState != "closed" {
 		t.Fatalf("patchedState = %q, want closed", patchedState)
 	}
+}
+
+func TestConnectorSyncerFallsBackToUnifiedGitHubCredentialWhenAuthTokenBlank(t *testing.T) {
+	projectID := uuid.New()
+	connectorID := uuid.New()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer ghu_platform_token" {
+			t.Fatalf("Authorization header = %q, want unified platform token", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := io.WriteString(w, `[]`); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	repo := &stubConnectorRepo{
+		connectors: map[uuid.UUID]domain.IssueConnector{
+			connectorID: {
+				ID:        connectorID,
+				ProjectID: projectID,
+				Type:      domain.TypeGitHub,
+				Name:      "GitHub Issues",
+				Status:    domain.StatusActive,
+				Config: domain.Config{
+					Type:          domain.TypeGitHub,
+					BaseURL:       server.URL,
+					ProjectRef:    "acme/backend",
+					PollInterval:  5 * time.Minute,
+					SyncDirection: domain.SyncDirectionPullOnly,
+				},
+			},
+		},
+	}
+	registry, err := registrypkg.NewRegistry(githubconnector.New(server.Client()))
+	if err != nil {
+		t.Fatalf("NewRegistry returned error: %v", err)
+	}
+
+	syncer := NewConnectorSyncer(repo, registry, &stubConnectorSink{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	syncer.ConfigureGitHubCredentials(stubTokenResolver{
+		projectID: projectID,
+		resolved: githubauthdomain.ResolvedCredential{
+			Scope: githubauthdomain.ScopeProject,
+			Token: "ghu_platform_token",
+		},
+	})
+
+	if _, err := syncer.SyncConnector(context.Background(), connectorID); err != nil {
+		t.Fatalf("SyncConnector returned error: %v", err)
+	}
+}
+
+type stubTokenResolver struct {
+	projectID uuid.UUID
+	resolved  githubauthdomain.ResolvedCredential
+}
+
+func (s stubTokenResolver) ResolveProjectCredential(_ context.Context, projectID uuid.UUID) (githubauthdomain.ResolvedCredential, error) {
+	if projectID != s.projectID {
+		return githubauthdomain.ResolvedCredential{}, nil
+	}
+	return s.resolved, nil
 }

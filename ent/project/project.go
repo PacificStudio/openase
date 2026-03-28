@@ -25,6 +25,10 @@ const (
 	FieldDescription = "description"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldGithubOutboundCredential holds the string denoting the github_outbound_credential field in the database.
+	FieldGithubOutboundCredential = "github_outbound_credential"
+	// FieldGithubTokenProbe holds the string denoting the github_token_probe field in the database.
+	FieldGithubTokenProbe = "github_token_probe"
 	// FieldDefaultWorkflowID holds the string denoting the default_workflow_id field in the database.
 	FieldDefaultWorkflowID = "default_workflow_id"
 	// FieldDefaultAgentProviderID holds the string denoting the default_agent_provider_id field in the database.
@@ -180,6 +184,8 @@ var Columns = []string{
 	FieldSlug,
 	FieldDescription,
 	FieldStatus,
+	FieldGithubOutboundCredential,
+	FieldGithubTokenProbe,
 	FieldDefaultWorkflowID,
 	FieldDefaultAgentProviderID,
 	FieldAccessibleMachineIds,

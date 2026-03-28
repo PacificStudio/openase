@@ -1,17 +1,21 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -29,6 +33,21 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 		nil,
 		catalog,
 		nil,
+		WithGitHubAuthService(stubGitHubAuthReader{
+			security: githubauthservice.ProjectSecurity{
+				Scope:        githubauthdomain.ScopeOrganization,
+				Source:       githubauthdomain.SourceGHCLIImport,
+				TokenPreview: "ghu_test...1234",
+				Probe: githubauthdomain.TokenProbe{
+					State:       githubauthdomain.ProbeStateValid,
+					Configured:  true,
+					Valid:       true,
+					Permissions: []string{"read:org", "repo"},
+					RepoAccess:  githubauthdomain.RepoAccessGranted,
+					CheckedAt:   timePtr(time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)),
+				},
+			},
+		}),
 	)
 
 	req := httptest.NewRequest(
@@ -56,6 +75,12 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	}
 	if payload.Security.AgentTokens.TokenPrefix != agentplatform.TokenPrefix {
 		t.Fatalf("expected token prefix %q, got %q", agentplatform.TokenPrefix, payload.Security.AgentTokens.TokenPrefix)
+	}
+	if payload.Security.GitHub.Scope != "organization" || payload.Security.GitHub.Source != "gh_cli_import" {
+		t.Fatalf("expected GitHub credential metadata, got %+v", payload.Security.GitHub)
+	}
+	if !payload.Security.GitHub.Probe.Configured || !payload.Security.GitHub.Probe.Valid || payload.Security.GitHub.Probe.RepoAccess != "granted" {
+		t.Fatalf("expected GitHub token probe details, got %+v", payload.Security.GitHub.Probe)
 	}
 	if !payload.Security.Webhooks.LegacyGitHubSignatureRequired {
 		t.Fatal("expected legacy GitHub signature to be required when webhook secret is configured")
@@ -120,4 +145,18 @@ func TestSecuritySettingsRouteRejectsInvalidProjectID(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
+}
+
+type stubGitHubAuthReader struct {
+	security githubauthservice.ProjectSecurity
+	err      error
+}
+
+func (s stubGitHubAuthReader) ReadProjectSecurity(context.Context, uuid.UUID) (githubauthservice.ProjectSecurity, error) {
+	return s.security, s.err
+}
+
+func timePtr(value time.Time) *time.Time {
+	copied := value.UTC()
+	return &copied
 }

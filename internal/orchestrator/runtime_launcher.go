@@ -23,10 +23,12 @@ import (
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
@@ -41,6 +43,7 @@ type RuntimeLauncher struct {
 	workflow       *workflowservice.Service
 	agentPlatform  runtimeAgentPlatform
 	platformAPIURL string
+	githubAuth     githubauthservice.TokenResolver
 	now            func() time.Time
 
 	sessionsMu sync.Mutex
@@ -95,6 +98,13 @@ func (l *RuntimeLauncher) ConfigurePlatformEnvironment(apiURL string, agentPlatf
 
 	l.platformAPIURL = strings.TrimSpace(apiURL)
 	l.agentPlatform = agentPlatform
+}
+
+func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.TokenResolver) {
+	if l == nil {
+		return
+	}
+	l.githubAuth = resolver
 }
 
 func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
@@ -511,7 +521,12 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 		}
 	}
 
-	workspaceRequest, err := buildWorkspaceRequest(launchContext, machine, remote)
+	resolvedGitHubToken, err := l.resolveProjectGitHubToken(ctx, launchContext)
+	if err != nil {
+		return nil, err
+	}
+
+	workspaceRequest, err := buildWorkspaceRequest(launchContext, machine, remote, resolvedGitHubToken)
 	if err != nil {
 		return nil, err
 	}
@@ -809,7 +824,12 @@ func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContex
 	return catalogdomain.Machine{}, false, fmt.Errorf("provider %s bound machine %s not found", providerItem.ID, providerItem.MachineID)
 }
 
-func buildWorkspaceRequest(launchContext runtimeLaunchContext, machine catalogdomain.Machine, remote bool) (workspaceinfra.SetupRequest, error) {
+func buildWorkspaceRequest(
+	launchContext runtimeLaunchContext,
+	machine catalogdomain.Machine,
+	remote bool,
+	githubToken string,
+) (workspaceinfra.SetupRequest, error) {
 	if launchContext.project == nil || launchContext.project.Edges.Organization == nil {
 		return workspaceinfra.SetupRequest{}, fmt.Errorf("project organization must be loaded for ticket workspace derivation")
 	}
@@ -819,7 +839,7 @@ func buildWorkspaceRequest(launchContext runtimeLaunchContext, machine catalogdo
 		return workspaceinfra.SetupRequest{}, err
 	}
 
-	repoInputs := buildWorkspaceRepoInputs(launchContext.projectRepos, launchContext.ticketScopes)
+	repoInputs := buildWorkspaceRepoInputs(launchContext.projectRepos, launchContext.ticketScopes, githubToken)
 	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
 		WorkspaceRoot:    workspaceRoot,
 		OrganizationSlug: launchContext.project.Edges.Organization.Slug,
@@ -851,7 +871,7 @@ func resolveWorkspaceRoot(machine catalogdomain.Machine, remote bool) (string, e
 }
 
 func buildWorkspacePath(launchContext runtimeLaunchContext, machine catalogdomain.Machine, remote bool) (string, error) {
-	request, err := buildWorkspaceRequest(launchContext, machine, remote)
+	request, err := buildWorkspaceRequest(launchContext, machine, remote, "")
 	if err != nil {
 		return "", err
 	}
@@ -869,7 +889,11 @@ func buildWorkspacePath(launchContext runtimeLaunchContext, machine catalogdomai
 	return workspacePath, nil
 }
 
-func buildWorkspaceRepoInputs(projectRepos []*ent.ProjectRepo, ticketScopes []*ent.TicketRepoScope) []workspaceinfra.RepoInput {
+func buildWorkspaceRepoInputs(
+	projectRepos []*ent.ProjectRepo,
+	ticketScopes []*ent.TicketRepoScope,
+	githubToken string,
+) []workspaceinfra.RepoInput {
 	scopeByRepoID := make(map[uuid.UUID]*ent.TicketRepoScope, len(ticketScopes))
 	for _, scope := range ticketScopes {
 		scopeByRepoID[scope.RepoID] = scope
@@ -892,6 +916,12 @@ func buildWorkspaceRepoInputs(projectRepos []*ent.ProjectRepo, ticketScopes []*e
 			RepositoryURL: repo.RepositoryURL,
 			DefaultBranch: repo.DefaultBranch,
 		}
+		if githubToken != "" {
+			if _, ok := githubauthdomain.ParseGitHubRepositoryURL(repo.RepositoryURL); ok {
+				token := githubToken
+				input.GitHubToken = &token
+			}
+		}
 		if clonePath := strings.TrimSpace(repo.ClonePath); clonePath != "" {
 			input.ClonePath = &clonePath
 		}
@@ -903,6 +933,18 @@ func buildWorkspaceRepoInputs(projectRepos []*ent.ProjectRepo, ticketScopes []*e
 	}
 
 	return inputs
+}
+
+func (l *RuntimeLauncher) resolveProjectGitHubToken(ctx context.Context, launchContext runtimeLaunchContext) (string, error) {
+	if l == nil || l.githubAuth == nil || launchContext.project == nil {
+		return "", nil
+	}
+
+	resolved, err := l.githubAuth.ResolveProjectCredential(ctx, launchContext.project.ID)
+	if err != nil {
+		return "", fmt.Errorf("resolve GitHub outbound credential for project %s: %w", launchContext.project.ID, err)
+	}
+	return resolved.Token, nil
 }
 
 func resolveAgentWorkingDirectory(launchContext runtimeLaunchContext, workspaceItem workspaceinfra.Workspace) string {

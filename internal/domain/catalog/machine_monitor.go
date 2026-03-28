@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 )
 
 type MachineReachability struct {
@@ -93,10 +95,11 @@ type MachineNetworkAudit struct {
 }
 
 type MachineFullAudit struct {
-	CollectedAt time.Time
-	Git         MachineGitAudit
-	GitHubCLI   MachineGitHubCLIAudit
-	Network     MachineNetworkAudit
+	CollectedAt      time.Time
+	Git              MachineGitAudit
+	GitHubCLI        MachineGitHubCLIAudit
+	GitHubTokenProbe githubauthdomain.TokenProbe
+	Network          MachineNetworkAudit
 }
 
 func ParseMachineSystemResources(raw string, collectedAt time.Time) (MachineSystemResources, error) {
@@ -278,10 +281,11 @@ func ParseMachineFullAudit(raw string, collectedAt time.Time) (MachineFullAudit,
 	}
 
 	var (
-		gitFound     bool
-		ghFound      bool
-		networkFound bool
-		audit        = MachineFullAudit{CollectedAt: collectedAt.UTC()}
+		gitFound         bool
+		ghFound          bool
+		githubProbeFound bool
+		networkFound     bool
+		audit            = MachineFullAudit{CollectedAt: collectedAt.UTC(), GitHubTokenProbe: githubauthdomain.MissingProbe()}
 	)
 
 	for index, record := range records {
@@ -339,6 +343,38 @@ func ParseMachineFullAudit(raw string, collectedAt time.Time) (MachineFullAudit,
 				NPMReachable:    npmReachable,
 			}
 			networkFound = true
+		case "github_token_probe":
+			if len(record) != 7 {
+				return MachineFullAudit{}, fmt.Errorf("github_token_probe row %d must have 7 columns", index)
+			}
+			configured, err := strconv.ParseBool(strings.TrimSpace(record[1]))
+			if err != nil {
+				return MachineFullAudit{}, fmt.Errorf("parse github_token_probe configured on row %d: %w", index, err)
+			}
+			valid, err := strconv.ParseBool(strings.TrimSpace(record[3]))
+			if err != nil {
+				return MachineFullAudit{}, fmt.Errorf("parse github_token_probe valid on row %d: %w", index, err)
+			}
+			state := githubauthdomain.ProbeState(strings.TrimSpace(record[2]))
+			if !state.IsValid() {
+				return MachineFullAudit{}, fmt.Errorf("parse github_token_probe state on row %d: invalid state %q", index, strings.TrimSpace(record[2]))
+			}
+			repoAccess := githubauthdomain.RepoAccess(strings.TrimSpace(record[5]))
+			if !repoAccess.IsValid() {
+				return MachineFullAudit{}, fmt.Errorf("parse github_token_probe repo access on row %d: invalid repo access %q", index, strings.TrimSpace(record[5]))
+			}
+			permissions := parseDelimitedMachinePermissions(record[4])
+			checkedAt := collectedAt.UTC()
+			audit.GitHubTokenProbe = githubauthdomain.TokenProbe{
+				State:       state,
+				Configured:  configured,
+				Valid:       valid,
+				Permissions: permissions,
+				RepoAccess:  repoAccess,
+				CheckedAt:   &checkedAt,
+				LastError:   strings.TrimSpace(record[6]),
+			}
+			githubProbeFound = true
 		default:
 			return MachineFullAudit{}, fmt.Errorf("unknown machine audit row %q", strings.TrimSpace(record[0]))
 		}
@@ -353,8 +389,30 @@ func ParseMachineFullAudit(raw string, collectedAt time.Time) (MachineFullAudit,
 	if !networkFound {
 		return MachineFullAudit{}, fmt.Errorf("missing machine full audit entry %q", "network")
 	}
+	if !githubProbeFound {
+		audit.GitHubTokenProbe = githubauthdomain.MissingProbe()
+		checkedAt := collectedAt.UTC()
+		audit.GitHubTokenProbe.CheckedAt = &checkedAt
+	}
 
 	return audit, nil
+}
+
+func parseDelimitedMachinePermissions(raw string) []string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || trimmed == "-" {
+		return nil
+	}
+	parts := strings.Split(trimmed, ",")
+	permissions := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item == "" {
+			continue
+		}
+		permissions = append(permissions, item)
+	}
+	return permissions
 }
 
 func parseMachineMetricLines(raw string) (map[string]string, error) {

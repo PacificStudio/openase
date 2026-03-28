@@ -5560,6 +5560,20 @@ export interface operations {
                 summary?: string
                 title?: string
               }[]
+              github?: {
+                probe?: {
+                  checked_at?: string | null
+                  configured?: boolean
+                  last_error?: string
+                  permissions?: string[]
+                  repo_access?: string
+                  state?: string
+                  valid?: boolean
+                }
+                scope?: string
+                source?: string
+                token_preview?: string
+              }
               project_id?: string
               secret_hygiene?: {
                 notification_channel_configs_redacted?: boolean
