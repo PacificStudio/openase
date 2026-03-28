@@ -62,7 +62,7 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
 		SetSlug("openase").
-		SetStatus("active").
+		SetStatus("In Progress").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project: %v", err)
@@ -253,7 +253,7 @@ func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
 		SetSlug("openase").
-		SetStatus("planning").
+		SetStatus("Planned").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project: %v", err)

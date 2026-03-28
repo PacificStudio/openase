@@ -22,9 +22,22 @@ type snapshotStats struct {
 	activeWorkflowTypes   []string
 }
 
+type projectStatus string
+
+const (
+	projectStatusBacklog    projectStatus = "Backlog"
+	projectStatusPlanned    projectStatus = "Planned"
+	projectStatusInProgress projectStatus = "In Progress"
+	projectStatusCompleted  projectStatus = "Completed"
+	projectStatusCanceled   projectStatus = "Canceled"
+	projectStatusArchived   projectStatus = "Archived"
+	projectStatusUnknown    projectStatus = ""
+)
+
 // Analyze recommends role coverage from the current project snapshot.
 func Analyze(snapshot domain.Snapshot) domain.Analysis {
 	stats := collectStats(snapshot)
+	status := parseProjectStatus(snapshot.Project.Status)
 	activeRoles := make(map[string]struct{}, len(snapshot.ActiveRoleSlugs))
 	for _, slug := range snapshot.ActiveRoleSlugs {
 		if trimmed := strings.TrimSpace(slug); trimmed != "" {
@@ -40,23 +53,23 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 		recommendations = append(recommendations, recommendation)
 	}
 
-	if snapshot.Project.Status == "planning" && stats.openTickets == 0 && stats.workflowCount == 0 {
+	if status == projectStatusPlanned && stats.openTickets == 0 && stats.workflowCount == 0 {
 		add(domain.Recommendation{
 			RoleSlug:              "product-manager",
 			Priority:              "high",
-			Reason:                "Planning projects with no active ticket lane need a role to turn scope into executable work.",
-			Evidence:              []string{"Project status is planning.", "No workflows are configured yet.", "No open tickets are currently staged."},
+			Reason:                "Planned projects with no active ticket lane need a role to turn scope into executable work.",
+			Evidence:              []string{"Project status is Planned.", "No workflows are configured yet.", "No open tickets are currently staged."},
 			SuggestedHeadcount:    1,
 			SuggestedWorkflowName: "Product Manager",
 		})
 	}
 
-	if snapshot.Project.Status == "active" && stats.activeAgents == 0 {
+	if status == projectStatusInProgress && stats.activeAgents == 0 {
 		add(domain.Recommendation{
 			RoleSlug:              "fullstack-developer",
 			Priority:              "high",
-			Reason:                "The project is active but there is no agent currently able to pick up implementation work.",
-			Evidence:              []string{fmt.Sprintf("Project status is %s.", snapshot.Project.Status), fmt.Sprintf("Open tickets: %d.", stats.openTickets), "No active agents are attached."},
+			Reason:                "The project is In Progress but there is no agent currently able to pick up implementation work.",
+			Evidence:              []string{"Project status is In Progress.", fmt.Sprintf("Open tickets: %d.", stats.openTickets), "No active agents are attached."},
 			SuggestedHeadcount:    max(1, scaleHeadcount(stats.codingTickets, 4)),
 			SuggestedWorkflowName: "Fullstack Developer",
 		})
@@ -120,7 +133,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 			ActiveWorkflowTypes: stats.activeWorkflowTypes,
 		},
 		Recommendations: recommendations,
-		Staffing:        buildStaffingPlan(snapshot.Project.Status, stats),
+		Staffing:        buildStaffingPlan(status, stats),
 	}
 }
 
@@ -185,7 +198,26 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 	return stats
 }
 
-func buildStaffingPlan(projectStatus string, stats snapshotStats) domain.StaffingPlan {
+func parseProjectStatus(raw string) projectStatus {
+	switch strings.TrimSpace(raw) {
+	case string(projectStatusBacklog):
+		return projectStatusBacklog
+	case string(projectStatusPlanned):
+		return projectStatusPlanned
+	case string(projectStatusInProgress):
+		return projectStatusInProgress
+	case string(projectStatusCompleted):
+		return projectStatusCompleted
+	case string(projectStatusCanceled):
+		return projectStatusCanceled
+	case string(projectStatusArchived):
+		return projectStatusArchived
+	default:
+		return projectStatusUnknown
+	}
+}
+
+func buildStaffingPlan(projectStatus projectStatus, stats snapshotStats) domain.StaffingPlan {
 	plan := domain.StaffingPlan{
 		Developers: max(0, scaleHeadcount(stats.codingTickets, 4)),
 		QA:         0,
@@ -195,7 +227,7 @@ func buildStaffingPlan(projectStatus string, stats snapshotStats) domain.Staffin
 		Research:   0,
 	}
 
-	if projectStatus == "active" && plan.Developers == 0 && stats.workflowCount == 0 {
+	if projectStatus == projectStatusInProgress && plan.Developers == 0 && stats.workflowCount == 0 {
 		plan.Developers = 1
 	}
 	if stats.codingTickets >= 3 {
@@ -207,7 +239,7 @@ func buildStaffingPlan(projectStatus string, stats snapshotStats) domain.Staffin
 	if stats.openTickets >= 8 || stats.failingTickets >= 2 {
 		plan.Security = 1
 	}
-	if projectStatus == "planning" && stats.workflowCount == 0 {
+	if projectStatus == projectStatusPlanned && stats.workflowCount == 0 {
 		plan.Product = 1
 	}
 	if plan.Product == 0 && stats.workflowCount == 0 && stats.openTickets == 0 {
