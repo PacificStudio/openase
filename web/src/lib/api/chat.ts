@@ -93,6 +93,18 @@ export async function streamChatTurn(
   })
 }
 
+export async function closeChatSession(sessionId: string) {
+  const response = await fetch(`/api/v1/chat/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+  })
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText)
+    throw new ApiError(response.status, detail)
+  }
+}
+
 function parseChatStreamEvent(frame: SSEFrame): ChatStreamEvent | null {
   const payload = parseJSONObject(frame.data)
   if (payload == null) {
