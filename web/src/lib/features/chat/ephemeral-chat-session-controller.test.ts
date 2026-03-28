@@ -99,7 +99,10 @@ describe('createEphemeralChatSessionController', () => {
     expect(controller.sessionId).toBe('session-1')
     expect(
       controller.entries.filter((entry) => entry.kind === 'text').map((entry) => entry.content),
-    ).toEqual(['Help me tighten this harness.'])
+    ).toEqual([
+      'Help me tighten this harness.',
+      'Session budget: 1/10 turns used, 9 remaining. Spend unavailable for this provider; the chat budget cap remains $2.00.',
+    ])
 
     await controller.selectProvider('provider-2')
 
@@ -190,5 +193,38 @@ describe('createEphemeralChatSessionController', () => {
     expect(controller.sessionId).toBe('')
     expect(controller.entries).toEqual([])
     expect(controller.pending).toBe(false)
+  })
+
+  it('records provider-reported spend in the usage summary after each completed turn', async () => {
+    streamChatTurn.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'done',
+        payload: {
+          sessionId: 'session-1',
+          turnsUsed: 2,
+          turnsRemaining: 8,
+          costUSD: 0.37,
+        },
+      })
+    })
+
+    const controller = createEphemeralChatSessionController({
+      getSource: () => 'project_sidebar',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn({
+      message: 'Summarize the project state.',
+      context: {
+        projectId: 'project-1',
+      },
+    })
+
+    expect(
+      controller.entries.filter((entry) => entry.kind === 'text').map((entry) => entry.content),
+    ).toEqual([
+      'Summarize the project state.',
+      'Session budget: 2/10 turns used, 8 remaining. Current spend $0.37 of $2.00.',
+    ])
   })
 })

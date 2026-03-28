@@ -287,8 +287,7 @@ func mapCodexAssistantOutput(
 		state = &codexAssistantItemState{}
 		items[itemID] = state
 	}
-	state.text.WriteString(output.Text)
-	combined := state.text.String()
+	combined := state.append(output.Text, output.Snapshot)
 
 	if state.waitingOnSnapshot {
 		if !output.Snapshot {
@@ -322,6 +321,23 @@ func mapCodexAssistantOutput(
 func shouldDelayCodexAssistantEmission(text string) bool {
 	trimmed := strings.TrimLeft(text, " \t\r\n")
 	return strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "```")
+}
+
+func (s *codexAssistantItemState) append(text string, snapshot bool) string {
+	if snapshot {
+		existing := s.text.String()
+		switch {
+		case existing == "":
+			return text
+		case strings.HasPrefix(text, existing):
+			return text
+		default:
+			return existing + text
+		}
+	}
+
+	s.text.WriteString(text)
+	return s.text.String()
 }
 
 func boolPointer(value bool) *bool {

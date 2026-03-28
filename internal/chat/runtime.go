@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	"github.com/google/uuid"
 )
 
 type SessionID string
@@ -106,50 +104,4 @@ func (r *compositeRuntime) CloseSession(sessionID SessionID) bool {
 	}
 
 	return closed
-}
-
-type sessionProviderRegistry struct {
-	mu       sync.Mutex
-	provider map[SessionID]uuid.UUID
-}
-
-func (r *sessionProviderRegistry) Register(sessionID SessionID, providerID uuid.UUID) {
-	if sessionID == "" || providerID == uuid.Nil {
-		return
-	}
-
-	r.mu.Lock()
-	if r.provider == nil {
-		r.provider = make(map[SessionID]uuid.UUID)
-	}
-	r.provider[sessionID] = providerID
-	r.mu.Unlock()
-}
-
-func (r *sessionProviderRegistry) Resolve(sessionID SessionID) (uuid.UUID, bool) {
-	if sessionID == "" {
-		return uuid.UUID{}, false
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.provider == nil {
-		return uuid.UUID{}, false
-	}
-
-	providerID, ok := r.provider[sessionID]
-	return providerID, ok
-}
-
-func (r *sessionProviderRegistry) Delete(sessionID SessionID) {
-	if sessionID == "" {
-		return
-	}
-
-	r.mu.Lock()
-	if r.provider != nil {
-		delete(r.provider, sessionID)
-	}
-	r.mu.Unlock()
 }

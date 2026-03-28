@@ -321,6 +321,8 @@ func TestChatDeleteRouteAndErrorMappings(t *testing.T) {
 		{name: "unavailable", err: chatservice.ErrUnavailable, wantStatus: http.StatusServiceUnavailable, wantCode: "SERVICE_UNAVAILABLE"},
 		{name: "source", err: chatservice.ErrSourceUnsupported, wantStatus: http.StatusBadRequest, wantCode: "INVALID_CHAT_SOURCE"},
 		{name: "session provider mismatch", err: chatservice.ErrSessionProviderMismatch, wantStatus: http.StatusConflict, wantCode: "CHAT_SESSION_PROVIDER_MISMATCH"},
+		{name: "session turn limit", err: chatservice.ErrSessionTurnLimitReached, wantStatus: http.StatusConflict, wantCode: "CHAT_SESSION_LIMIT_REACHED"},
+		{name: "session budget limit", err: chatservice.ErrSessionBudgetExceeded, wantStatus: http.StatusConflict, wantCode: "CHAT_SESSION_LIMIT_REACHED"},
 		{name: "provider", err: chatservice.ErrProviderNotFound, wantStatus: http.StatusConflict, wantCode: "CHAT_PROVIDER_NOT_CONFIGURED"},
 		{name: "provider unavailable", err: chatservice.ErrProviderUnavailable, wantStatus: http.StatusConflict, wantCode: "CHAT_PROVIDER_UNAVAILABLE"},
 		{name: "provider unsupported", err: chatservice.ErrProviderUnsupported, wantStatus: http.StatusConflict, wantCode: "CHAT_PROVIDER_UNAVAILABLE"},

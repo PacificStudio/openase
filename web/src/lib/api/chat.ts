@@ -1,6 +1,11 @@
 import { ApiError } from './client'
 import { consumeEventStream, type SSEFrame } from './sse'
 
+const chatUserHeader = 'X-OpenASE-Chat-User'
+const chatUserStorageKey = 'openase.ephemeral-chat-user-id'
+
+let cachedChatUserId = ''
+
 export type ChatSource = 'harness_editor' | 'project_sidebar' | 'ticket_detail'
 
 export type ChatTurnRequest = {
@@ -74,6 +79,7 @@ export async function streamChatTurn(
     headers: {
       accept: 'text/event-stream',
       'Content-Type': 'application/json',
+      [chatUserHeader]: resolveEphemeralChatUserId(),
     },
     body: JSON.stringify({
       message: request.message,
@@ -109,6 +115,9 @@ export async function streamChatTurn(
 export async function closeChatSession(sessionId: string) {
   const response = await fetch(`/api/v1/chat/${encodeURIComponent(sessionId)}`, {
     method: 'DELETE',
+    headers: {
+      [chatUserHeader]: resolveEphemeralChatUserId(),
+    },
     credentials: 'same-origin',
   })
 
@@ -116,6 +125,41 @@ export async function closeChatSession(sessionId: string) {
     const detail = await response.text().catch(() => response.statusText)
     throw new ApiError(response.status, detail)
   }
+}
+
+function resolveEphemeralChatUserId() {
+  if (cachedChatUserId) {
+    return cachedChatUserId
+  }
+
+  if (typeof window === 'undefined') {
+    cachedChatUserId = 'anonymous-browser'
+    return cachedChatUserId
+  }
+
+  try {
+    const stored = window.localStorage.getItem(chatUserStorageKey)?.trim()
+    if (stored) {
+      cachedChatUserId = stored
+      return cachedChatUserId
+    }
+  } catch {
+    // Ignore storage access failures and fall back to an in-memory identifier.
+  }
+
+  const generated =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `chat-user-${Date.now().toString(36)}`
+  cachedChatUserId = generated
+
+  try {
+    window.localStorage.setItem(chatUserStorageKey, generated)
+  } catch {
+    // Ignore storage write failures and keep the in-memory identifier.
+  }
+
+  return cachedChatUserId
 }
 
 function parseChatStreamEvent(frame: SSEFrame): ChatStreamEvent | null {
