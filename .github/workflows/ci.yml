@@ -19,6 +19,7 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
+          clean: false
           fetch-depth: 0
 
       - name: Detect Changed Paths
@@ -75,6 +76,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -90,12 +93,15 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
-          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${job_cache_root}/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
-        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
@@ -123,6 +129,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -181,6 +189,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Download Embedded Web Assets
         if: needs.changes.outputs.web_changed == 'true'
@@ -191,12 +201,15 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
-          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${job_cache_root}/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
-        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
@@ -223,6 +236,7 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
+          clean: false
           fetch-depth: 0
 
       - name: Ensure Embedded Web Placeholder
@@ -232,12 +246,15 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
-          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${job_cache_root}/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
-        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
