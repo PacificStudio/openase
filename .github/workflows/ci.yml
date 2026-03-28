@@ -19,6 +19,7 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
+          clean: false
           fetch-depth: 0
 
       - name: Detect Changed Paths
@@ -75,6 +76,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -123,6 +126,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -184,6 +189,8 @@ jobs:
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Download Embedded Web Assets
         if: needs.changes.outputs.web_changed == 'true'
@@ -226,6 +233,7 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
+          clean: false
           fetch-depth: 0
 
       - name: Ensure Embedded Web Placeholder
