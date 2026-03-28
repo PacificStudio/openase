@@ -54,6 +54,7 @@ import type {
   TicketExternalLinkDeleteResponse,
   TicketExternalLinkResponse,
   TicketPayload,
+  HRAdvisorActivationResponse,
   HRAdvisorResponse,
   Organization,
   OrganizationArchiveResponse,
@@ -193,6 +194,21 @@ export function getSecuritySettings(projectId: string) {
 
 export function getHRAdvisor(projectId: string) {
   return api.get<HRAdvisorResponse>(`/api/v1/projects/${projectId}/hr-advisor`)
+}
+
+export function activateHRRecommendation(
+  projectId: string,
+  body: {
+    role_slug: string
+    create_bootstrap_ticket?: boolean | null
+  },
+) {
+  return api.post<HRAdvisorActivationResponse>(
+    `/api/v1/projects/${projectId}/hr-advisor/activate`,
+    {
+      body,
+    },
+  )
 }
 
 export function updateProject(
