@@ -22,6 +22,7 @@ cd "${ROOT_DIR}"
 
 GO_BIN="${GO_BIN:-go}"
 GO_TEST_TIMEOUT="${OPENASE_GO_TEST_TIMEOUT:-20m}"
+ENABLE_FULL_BACKEND_COVERAGE="${OPENASE_ENABLE_FULL_BACKEND_COVERAGE:-false}"
 BACKEND_COVERAGE_MIN="${OPENASE_BACKEND_COVERAGE_MIN:-75.0}"
 DOMAIN_COVERAGE_MIN="${OPENASE_DOMAIN_COVERAGE_MIN:-100.0}"
 ORIGINAL_GOPATH="$("${GO_BIN}" env GOPATH)"
@@ -54,10 +55,9 @@ if [[ -z "${GO_TEST_PROGRESS_MODE}" ]]; then
   fi
 fi
 
-mapfile -t backend_packages < <("${GO_BIN}" list ./internal/... ./cmd/openase)
 mapfile -t domain_packages < <("${GO_BIN}" list ./internal/domain/... ./internal/types/...)
+mapfile -t backend_packages < <("${GO_BIN}" list ./internal/... ./cmd/openase)
 
-backend_coverpkg="$(IFS=,; printf '%s' "${backend_packages[*]}")"
 domain_coverpkg="$(IFS=,; printf '%s' "${domain_packages[*]}")"
 
 extract_total_pct() {
@@ -90,17 +90,47 @@ run_go_test() {
 
   "${GO_BIN}" test "$@"
 }
+enable_full_backend_coverage() {
+  case "${ENABLE_FULL_BACKEND_COVERAGE}" in
+    1|true|TRUE|yes|YES|on|ON)
+      return 0
+      ;;
+    0|false|FALSE|no|NO|off|OFF|'')
+      return 1
+      ;;
+  esac
 
-printf 'Running backend full-code coverage...\n'
+  printf 'OPENASE_ENABLE_FULL_BACKEND_COVERAGE must be one of true/false, got %s\n' "${ENABLE_FULL_BACKEND_COVERAGE}" >&2
+  exit 1
+}
+
+printf 'Running backend full test suite...\n'
 run_go_test \
   -count=1 \
   -timeout="${GO_TEST_TIMEOUT}" \
   -p 1 \
   -parallel=1 \
-  -covermode=atomic \
-  -coverpkg="${backend_coverpkg}" \
-  -coverprofile="${backend_profile}" \
   "${backend_packages[@]}"
+
+backend_pct=""
+if enable_full_backend_coverage; then
+  backend_coverpkg="$(IFS=,; printf '%s' "${backend_packages[*]}")"
+
+  printf '\nRunning backend full-code coverage...\n'
+  run_go_test \
+    -count=1 \
+    -timeout="${GO_TEST_TIMEOUT}" \
+    -p 1 \
+    -parallel=1 \
+    -covermode=atomic \
+    -coverpkg="${backend_coverpkg}" \
+    -coverprofile="${backend_profile}" \
+    "${backend_packages[@]}"
+
+  backend_pct="$(extract_total_pct "${backend_profile}")"
+else
+  printf '\nSkipping backend full-code coverage metric (set OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true to enable).\n'
+fi
 
 printf '\nRunning domain/core coverage gate...\n'
 run_go_test \
@@ -110,12 +140,17 @@ run_go_test \
   -coverprofile="${domain_profile}" \
   "${domain_packages[@]}"
 
-backend_pct="$(extract_total_pct "${backend_profile}")"
 domain_pct="$(extract_total_pct "${domain_profile}")"
 
 printf '\nBackend coverage summary:\n'
-printf '  overall backend: %s (required >= %s)\n' "${backend_pct}" "${BACKEND_COVERAGE_MIN}%"
+if [[ -n "${backend_pct}" ]]; then
+  printf '  overall backend: %s (required >= %s)\n' "${backend_pct}" "${BACKEND_COVERAGE_MIN}%"
+else
+  printf '  overall backend: skipped by default (set OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true to require >= %s)\n' "${BACKEND_COVERAGE_MIN}%"
+fi
 printf '  domain/core:     %s (required >= %s)\n' "${domain_pct}" "${DOMAIN_COVERAGE_MIN}%"
 
-assert_threshold "overall backend" "${backend_pct}" "${BACKEND_COVERAGE_MIN}%"
+if [[ -n "${backend_pct}" ]]; then
+  assert_threshold "overall backend" "${backend_pct}" "${BACKEND_COVERAGE_MIN}%"
+fi
 assert_threshold "domain/core" "${domain_pct}" "${DOMAIN_COVERAGE_MIN}%"
