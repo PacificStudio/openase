@@ -42,6 +42,37 @@ func TestMapCodexAssistantOutputPromotesActionProposalFromSnapshot(t *testing.T)
 	}
 }
 
+func TestMapCodexAssistantOutputPrefersSnapshotTextForJSONResponses(t *testing.T) {
+	items := make(map[string]*codexAssistantItemState)
+
+	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID: "item-1",
+		Stream: "assistant",
+		Text:   "{\"type\":\"action_proposal\",\"summary\":\"Create child ticket\",\"actions\":[{\"method\":\"POST\",\"path\":\"/api/v1/projects/p/tickets\"}]}",
+	}, items)
+	if len(events) != 0 {
+		t.Fatalf("first assistant delta should be buffered, got %+v", events)
+	}
+
+	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID:   "item-1",
+		Stream:   "assistant",
+		Text:     "{\"type\":\"action_proposal\",\"summary\":\"Create child ticket\",\"actions\":[{\"method\":\"POST\",\"path\":\"/api/v1/projects/p/tickets\"}]}",
+		Snapshot: true,
+	}, items)
+	if len(events) != 1 {
+		t.Fatalf("snapshot should emit one normalized event, got %d", len(events))
+	}
+
+	payload, ok := events[0].Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("payload = %#v, want action proposal payload map", events[0].Payload)
+	}
+	if payload["type"] != chatMessageTypeActionProposal || payload["summary"] != "Create child ticket" {
+		t.Fatalf("unexpected action proposal payload: %#v", payload)
+	}
+}
+
 func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	manager := &fakeAgentCLIProcessManager{
 		process: &fakeAgentCLIProcess{

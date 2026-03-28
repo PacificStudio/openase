@@ -8,6 +8,7 @@ import {
 import type { AgentProvider } from '$lib/api/contracts'
 import { executeActionProposal, type ChatActionExecutionResult } from './action-proposal-executor'
 import { listEphemeralChatProviders, pickDefaultEphemeralChatProvider } from './provider-options'
+import { formatEphemeralChatUsageSummary } from './session-policy'
 import {
   createTextTranscriptEntry,
   isAbortError,
@@ -64,6 +65,7 @@ export function createEphemeralChatSessionController(
 
     if (event.kind === 'done') {
       sessionId = event.payload.sessionId
+      appendEntry('system', formatEphemeralChatUsageSummary(event.payload))
       pending = false
       return
     }

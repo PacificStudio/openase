@@ -6,6 +6,7 @@
     EphemeralChatActionProposalCard,
     EphemeralChatProviderSelect,
   } from '$lib/features/chat'
+  import { EPHEMERAL_CHAT_MAX_BUDGET_USD, EPHEMERAL_CHAT_MAX_TURNS } from '$lib/features/chat/session-policy'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
@@ -237,8 +238,8 @@
     <div class="mt-3 flex items-center justify-between gap-3">
       <p class="text-muted-foreground text-[11px] leading-4">
         {sessionId
-          ? 'Follow-up prompts reuse the current chat context.'
-          : 'The first reply starts a new ephemeral chat session.'}
+          ? `Session cap: ${EPHEMERAL_CHAT_MAX_TURNS} turns / $${EPHEMERAL_CHAT_MAX_BUDGET_USD.toFixed(2)}. Follow-up prompts reuse the current chat context until you close the panel, switch providers, or hit the limit.`
+          : `Session cap: ${EPHEMERAL_CHAT_MAX_TURNS} turns / $${EPHEMERAL_CHAT_MAX_BUDGET_USD.toFixed(2)}. The first reply starts a new ephemeral chat session.`}
       </p>
       <Button
         size="sm"
