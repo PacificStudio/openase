@@ -27,6 +27,7 @@ DOMAIN_COVERAGE_MIN="${OPENASE_DOMAIN_COVERAGE_MIN:-100.0}"
 ORIGINAL_GOPATH="$("${GO_BIN}" env GOPATH)"
 ORIGINAL_GOMODCACHE="$("${GO_BIN}" env GOMODCACHE)"
 ORIGINAL_GOCACHE="$("${GO_BIN}" env GOCACHE)"
+GO_TEST_PROGRESS_MODE="${OPENASE_GO_TEST_PROGRESS_MODE:-}"
 
 tmp_dir="$(mktemp -d)"
 backend_profile="${tmp_dir}/backend.out"
@@ -44,6 +45,14 @@ export HOME="${tmp_home}"
 export GOPATH="${ORIGINAL_GOPATH}"
 export GOMODCACHE="${ORIGINAL_GOMODCACHE}"
 export GOCACHE="${ORIGINAL_GOCACHE}"
+
+if [[ -z "${GO_TEST_PROGRESS_MODE}" ]]; then
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    GO_TEST_PROGRESS_MODE="json"
+  else
+    GO_TEST_PROGRESS_MODE="plain"
+  fi
+fi
 
 mapfile -t backend_packages < <("${GO_BIN}" list ./internal/... ./cmd/openase)
 mapfile -t domain_packages < <("${GO_BIN}" list ./internal/domain/... ./internal/types/...)
@@ -73,8 +82,17 @@ if actual + 1e-9 < minimum:
 PY
 }
 
+run_go_test() {
+  if [[ "${GO_TEST_PROGRESS_MODE}" == "json" ]]; then
+    "${GO_BIN}" test -json "$@"
+    return
+  fi
+
+  "${GO_BIN}" test "$@"
+}
+
 printf 'Running backend full-code coverage...\n'
-"${GO_BIN}" test \
+run_go_test \
   -count=1 \
   -timeout="${GO_TEST_TIMEOUT}" \
   -p 1 \
@@ -85,7 +103,7 @@ printf 'Running backend full-code coverage...\n'
   "${backend_packages[@]}"
 
 printf '\nRunning domain/core coverage gate...\n'
-"${GO_BIN}" test \
+run_go_test \
   -count=1 \
   -covermode=atomic \
   -coverpkg="${domain_coverpkg}" \
