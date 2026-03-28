@@ -230,9 +230,8 @@ func (r *GeminiRuntime) collectTurn(
 
 	responseText := strings.TrimSpace(payload.Response)
 	if responseText != "" {
-		events <- StreamEvent{
-			Event:   "message",
-			Payload: textPayload{Type: "text", Content: responseText},
+		for _, item := range normalizeAssistantText(responseText) {
+			events <- item
 		}
 	}
 
