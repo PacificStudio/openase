@@ -232,8 +232,10 @@
         <MemorySnapshotPanel {memory} />
       </div>
 
-      {#if hrAdvisor}
-        <HRAdvisorPanel advisor={hrAdvisor} />
+      {#if hrAdvisor && appStore.currentProject}
+        {#key appStore.currentProject.id}
+          <HRAdvisorPanel projectId={appStore.currentProject.id} advisor={hrAdvisor} />
+        {/key}
       {/if}
     {/if}
   </div>

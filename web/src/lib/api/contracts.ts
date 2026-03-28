@@ -225,6 +225,9 @@ export type HRAdvisorResponse = DeepRequired<
 export type HRAdvisorSummary = HRAdvisorResponse['summary']
 export type HRAdvisorStaffing = HRAdvisorResponse['staffing']
 export type HRAdvisorRecommendation = ItemOf<HRAdvisorResponse['recommendations']>
+export type HRAdvisorActivationResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/hr-advisor/activate', 'post'>
+>
 
 export type TicketDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/detail', 'get'>
