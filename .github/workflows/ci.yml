@@ -211,6 +211,8 @@ jobs:
           go-version-file: go.mod
 
       - name: Run Backend Formatting, Tests, And Coverage Gates
+        env:
+          OPENASE_GO_TEST_PROGRESS_MODE: plain
         run: make check
 
       - name: Build OpenASE Binary
