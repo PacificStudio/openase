@@ -9,10 +9,7 @@ export function readHashSelection<T extends string>(
   return allowed.includes(value as T) ? (value as T) : fallback
 }
 
-export function currentHashSelection<T extends string>(
-  allowed: readonly T[],
-  fallback: T,
-): T {
+export function currentHashSelection<T extends string>(allowed: readonly T[], fallback: T): T {
   if (!browser) {
     return fallback
   }

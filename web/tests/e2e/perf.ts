@@ -11,7 +11,10 @@ export type PerfMeasurement = {
 
 // Keep perf artifacts outside the Vite project root so result writes do not trigger HMR reloads
 // mid-test and collapse drawers/dialogs that we are measuring.
-const perfResultsPath = path.resolve(process.cwd(), '../.playwright-artifacts/web-perf-results.json')
+const perfResultsPath = path.resolve(
+  process.cwd(),
+  '../.playwright-artifacts/web-perf-results.json',
+)
 const enforceBudgets = process.env.PLAYWRIGHT_ENFORCE_BUDGETS === '1'
 
 export async function resetPerfResults() {

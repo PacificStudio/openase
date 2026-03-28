@@ -47,7 +47,6 @@
 
     writeHashSelection(activeSection)
   })
-
 </script>
 
 <PageScaffold title="Settings">

@@ -23,15 +23,21 @@ export async function loadAgentsPageData(
   orgId: string,
   defaultProviderId: string | null,
 ): Promise<AgentsPageData> {
-  const [providersPayload, ticketsPayload, workflowsPayload, agentsPayload, agentRunsPayload, machinesPayload] =
-    await Promise.all([
-      listProviders(orgId),
-      listTickets(projectId),
-      listWorkflows(projectId),
-      listAgents(projectId),
-      listAgentRuns(projectId),
-      listMachines(orgId),
-    ])
+  const [
+    providersPayload,
+    ticketsPayload,
+    workflowsPayload,
+    agentsPayload,
+    agentRunsPayload,
+    machinesPayload,
+  ] = await Promise.all([
+    listProviders(orgId),
+    listTickets(projectId),
+    listWorkflows(projectId),
+    listAgents(projectId),
+    listAgentRuns(projectId),
+    listMachines(orgId),
+  ])
 
   return {
     agentRuns: buildAgentRunRows(
@@ -43,7 +49,15 @@ export async function loadAgentsPageData(
     ),
     providerItems: providersPayload.providers,
     machineItems: machinesPayload.machines,
-    providers: buildProviderCards(providersPayload.providers, agentsPayload.agents, defaultProviderId),
-    agents: buildAgentRows(providersPayload.providers, ticketsPayload.tickets, agentsPayload.agents),
+    providers: buildProviderCards(
+      providersPayload.providers,
+      agentsPayload.agents,
+      defaultProviderId,
+    ),
+    agents: buildAgentRows(
+      providersPayload.providers,
+      ticketsPayload.tickets,
+      agentsPayload.agents,
+    ),
   }
 }

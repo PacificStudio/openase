@@ -16,11 +16,7 @@ function createProvisionalOrganization(id: string, previous: Organization | null
   }
 }
 
-function createProvisionalProject(
-  orgId: string,
-  id: string,
-  previous: Project | null,
-): Project {
+function createProvisionalProject(orgId: string, id: string, previous: Project | null): Project {
   return {
     id,
     organization_id: previous?.organization_id ?? orgId,
@@ -148,7 +144,9 @@ function createAppStore() {
 
       return (
         projects.find((project) => project.id === id) ??
-        (currentProject?.id === id ? currentProject : createProvisionalProject(orgId, id, currentProject))
+        (currentProject?.id === id
+          ? currentProject
+          : createProvisionalProject(orgId, id, currentProject))
       )
     },
     get sidebarCollapsed() {

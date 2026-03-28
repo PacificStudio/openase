@@ -87,8 +87,7 @@
       return applyViewState(createEmptyState(orgId))
     }
 
-    const nextMachine =
-      nextMachines.find((machine) => machine.id === selectedId) ?? nextMachines[0]
+    const nextMachine = nextMachines.find((machine) => machine.id === selectedId) ?? nextMachines[0]
     applyViewState({
       ...createEditorSelectionState(orgId, nextMachines, nextMachine),
       searchQuery,

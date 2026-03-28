@@ -44,7 +44,11 @@
       name = `Workflow ${existingCount + 1}`
       agentId = agentOptions[0]?.id ?? ''
       pickupStatusIds = statuses[0] ? [statuses[0].id] : []
-      finishStatusIds = statuses.at(-1) ? [statuses.at(-1)!.id] : statuses[0] ? [statuses[0].id] : []
+      finishStatusIds = statuses.at(-1)
+        ? [statuses.at(-1)!.id]
+        : statuses[0]
+          ? [statuses[0].id]
+          : []
     }
 
     wasOpen = open
