@@ -71,12 +71,6 @@ jobs:
   api-contract:
     name: API Contract Checks
     runs-on: [self-hosted, Linux, X64]
-    env:
-      # Keep Go caches outside the checkout so self-hosted jobs avoid both the
-      # shared ~/go tree and actions/checkout cleanup conflicts.
-      GOMODCACHE: ${{ runner.temp }}/openase-go/pkg/mod
-      GOCACHE: ${{ runner.temp }}/openase-go/build
-      GOTMPDIR: ${{ runner.temp }}/openase-go/tmp
 
     steps:
       - name: Check Out Repository
@@ -93,6 +87,12 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
@@ -174,10 +174,6 @@ jobs:
       - changes
       - api-contract
       - frontend
-    env:
-      GOMODCACHE: ${{ runner.temp }}/openase-go/pkg/mod
-      GOCACHE: ${{ runner.temp }}/openase-go/build
-      GOTMPDIR: ${{ runner.temp }}/openase-go/tmp
     if: |
       needs.changes.outputs.go_changed == 'true' &&
       (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
@@ -192,6 +188,12 @@ jobs:
         with:
           name: embedded-web-assets
           path: internal/webui/static
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
@@ -215,10 +217,6 @@ jobs:
     name: Go Lint
     runs-on: [self-hosted, Linux, X64]
     needs: changes
-    env:
-      GOMODCACHE: ${{ runner.temp }}/openase-go/pkg/mod
-      GOCACHE: ${{ runner.temp }}/openase-go/build
-      GOTMPDIR: ${{ runner.temp }}/openase-go/tmp
     if: needs.changes.outputs.go_changed == 'true'
 
     steps:
@@ -231,6 +229,12 @@ jobs:
         run: |
           mkdir -p internal/webui/static
           printf 'lint placeholder for embedded web assets\n' > internal/webui/static/lint-placeholder.txt
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
+          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
