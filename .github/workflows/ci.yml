@@ -93,13 +93,14 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          job_cache_root="${GITHUB_WORKSPACE}/.cache/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "OPENASE_GO_CACHE_ROOT=${job_cache_root}" >> "${GITHUB_ENV}"
           echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
           echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: |
-          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          rm -rf "${OPENASE_GO_CACHE_ROOT}"
           mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Configure Go Toolchain
@@ -208,13 +209,14 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          job_cache_root="${GITHUB_WORKSPACE}/.cache/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "OPENASE_GO_CACHE_ROOT=${job_cache_root}" >> "${GITHUB_ENV}"
           echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
           echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: |
-          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          rm -rf "${OPENASE_GO_CACHE_ROOT}"
           mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Set Up Go
@@ -231,7 +233,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          heartbeat_file="${RUNNER_TEMP}/backend-check-heartbeat.txt"
+          heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
 
           heartbeat() {
             while true; do
@@ -288,13 +290,14 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          job_cache_root="${GITHUB_WORKSPACE}/.cache/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "OPENASE_GO_CACHE_ROOT=${job_cache_root}" >> "${GITHUB_ENV}"
           echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
           echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
         run: |
-          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          rm -rf "${OPENASE_GO_CACHE_ROOT}"
           mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Set Up Go
