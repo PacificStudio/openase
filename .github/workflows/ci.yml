@@ -181,6 +181,7 @@ jobs:
   backend:
     name: Backend Checks
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 45
     needs:
       - changes
       - api-contract
@@ -219,11 +220,48 @@ jobs:
           go-version-file: go.mod
 
       - name: Run Backend Formatting, Tests, And Coverage Gates
+        timeout-minutes: 30
+        shell: bash
         env:
           OPENASE_GO_TEST_PROGRESS_MODE: plain
-        run: make check
+        run: |
+          set -euo pipefail
+
+          heartbeat_file="${RUNNER_TEMP}/backend-check-heartbeat.txt"
+
+          heartbeat() {
+            while true; do
+              now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+              printf '%s\n' "${now}" > "${heartbeat_file}"
+              printf '[backend-heartbeat] %s make check still running\n' "${now}"
+              sleep 60
+            done
+          }
+
+          cleanup() {
+            status=$?
+            trap - EXIT
+            kill "${heartbeat_pid}" 2>/dev/null || true
+            wait "${heartbeat_pid}" 2>/dev/null || true
+
+            if [[ -f "${heartbeat_file}" ]]; then
+              printf 'Last backend heartbeat: %s\n' "$(cat "${heartbeat_file}")"
+            else
+              printf 'Last backend heartbeat: unavailable\n'
+            fi
+
+            exit "${status}"
+          }
+
+          trap cleanup EXIT
+
+          heartbeat &
+          heartbeat_pid=$!
+
+          make check
 
       - name: Build OpenASE Binary
+        timeout-minutes: 10
         run: make build
 
   go-lint:
