@@ -6,12 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	hrdomain "github.com/BetterAndBetterII/openase/internal/domain/hradvisor"
-	"github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 
@@ -34,40 +30,36 @@ func TestActivateCreatesWorkflowAgentAndBootstrapTicket(t *testing.T) {
 		createdAgent: catalogdomain.Agent{ID: agentID, ProjectID: projectID, ProviderID: providerID, Name: "QA Engineer Agent"},
 	}
 	workflowStub := &stubActivationWorkflows{
-		createdWorkflow: workflow.WorkflowDetail{
-			Workflow: workflow.Workflow{
-				ID:              workflowID,
-				ProjectID:       projectID,
-				AgentID:         &agentID,
-				Name:            "QA Engineer",
-				Type:            "test",
-				HarnessPath:     ".openase/harnesses/roles/qa-engineer.md",
-				Version:         1,
-				IsActive:        true,
-				PickupStatusIDs: []uuid.UUID{todoID},
-				FinishStatusIDs: []uuid.UUID{doneID},
-			},
-			HarnessContent: "content",
+		createdWorkflow: ActivationWorkflow{
+			ID:              workflowID,
+			ProjectID:       projectID,
+			AgentID:         &agentID,
+			Name:            "QA Engineer",
+			Type:            "test",
+			HarnessPath:     ".openase/harnesses/roles/qa-engineer.md",
+			HarnessContent:  "content",
+			Version:         1,
+			IsActive:        true,
+			PickupStatusIDs: []uuid.UUID{todoID},
+			FinishStatusIDs: []uuid.UUID{doneID},
 		},
 	}
 	statusStub := &stubActivationStatuses{
-		list: ticketstatus.ListResult{
-			Statuses: []ticketstatus.Status{
-				{ID: todoID, Name: "Todo"},
-				{ID: doneID, Name: "Done"},
-			},
+		list: []ActivationStatus{
+			{ID: todoID, Name: "Todo"},
+			{ID: doneID, Name: "Done"},
 		},
 	}
 	ticketStub := &stubActivationTickets{
-		createdTicket: ticket.Ticket{
+		createdTicket: ActivationTicket{
 			ID:         ticketID,
 			ProjectID:  projectID,
 			Identifier: "ASE-1",
 			Title:      "Bootstrap QA regression coverage",
 			StatusID:   todoID,
 			StatusName: "Todo",
-			Priority:   entticket.PriorityMedium,
-			Type:       entticket.TypeChore,
+			Priority:   "medium",
+			Type:       "chore",
 			WorkflowID: &workflowID,
 			CreatedBy:  "system:hr-advisor",
 		},
@@ -88,7 +80,7 @@ func TestActivateCreatesWorkflowAgentAndBootstrapTicket(t *testing.T) {
 	if workflowStub.createInput.Name != "QA Engineer" || workflowStub.createInput.Type != "test" {
 		t.Fatalf("unexpected workflow create input: %+v", workflowStub.createInput)
 	}
-	if workflowStub.createInput.HarnessPath == nil || *workflowStub.createInput.HarnessPath != ".openase/harnesses/roles/qa-engineer.md" {
+	if workflowStub.createInput.HarnessPath != ".openase/harnesses/roles/qa-engineer.md" {
 		t.Fatalf("expected role harness path, got %+v", workflowStub.createInput.HarnessPath)
 	}
 	if ticketStub.createInput == nil || ticketStub.createInput.WorkflowID == nil || *ticketStub.createInput.WorkflowID != workflowID {
@@ -114,9 +106,7 @@ func TestActivateFailsWhenRequiredStatusMissing(t *testing.T) {
 		},
 		&stubActivationWorkflows{},
 		&stubActivationStatuses{
-			list: ticketstatus.ListResult{
-				Statuses: []ticketstatus.Status{{ID: uuid.New(), Name: "Todo"}},
-			},
+			list: []ActivationStatus{{ID: uuid.New(), Name: "Todo"}},
 		},
 		nil,
 	)
@@ -148,11 +138,9 @@ func TestActivateRollsBackAgentWhenWorkflowCreateFails(t *testing.T) {
 		catalogStub,
 		&stubActivationWorkflows{createErr: errors.New("workflow create failed")},
 		&stubActivationStatuses{
-			list: ticketstatus.ListResult{
-				Statuses: []ticketstatus.Status{
-					{ID: todoID, Name: "Todo"},
-					{ID: doneID, Name: "Done"},
-				},
+			list: []ActivationStatus{
+				{ID: todoID, Name: "Todo"},
+				{ID: doneID, Name: "Done"},
 			},
 		},
 		nil,
@@ -218,38 +206,38 @@ func (s *stubActivationCatalog) DeleteAgent(_ context.Context, id uuid.UUID) (ca
 }
 
 type stubActivationWorkflows struct {
-	listed          []workflow.Workflow
-	createInput     *workflow.CreateInput
-	createdWorkflow workflow.WorkflowDetail
+	listed          []ActivationWorkflow
+	createInput     *ActivateWorkflowInput
+	createdWorkflow ActivationWorkflow
 	createErr       error
 }
 
-func (s *stubActivationWorkflows) List(context.Context, uuid.UUID) ([]workflow.Workflow, error) {
-	return append([]workflow.Workflow(nil), s.listed...), nil
+func (s *stubActivationWorkflows) List(context.Context, uuid.UUID) ([]ActivationWorkflow, error) {
+	return append([]ActivationWorkflow(nil), s.listed...), nil
 }
 
-func (s *stubActivationWorkflows) Create(_ context.Context, input workflow.CreateInput) (workflow.WorkflowDetail, error) {
+func (s *stubActivationWorkflows) Create(_ context.Context, input ActivateWorkflowInput) (ActivationWorkflow, error) {
 	s.createInput = &input
 	if s.createErr != nil {
-		return workflow.WorkflowDetail{}, s.createErr
+		return ActivationWorkflow{}, s.createErr
 	}
 	return s.createdWorkflow, nil
 }
 
 type stubActivationStatuses struct {
-	list ticketstatus.ListResult
+	list []ActivationStatus
 }
 
-func (s *stubActivationStatuses) List(context.Context, uuid.UUID) (ticketstatus.ListResult, error) {
-	return s.list, nil
+func (s *stubActivationStatuses) List(context.Context, uuid.UUID) ([]ActivationStatus, error) {
+	return append([]ActivationStatus(nil), s.list...), nil
 }
 
 type stubActivationTickets struct {
-	createInput   *ticket.CreateInput
-	createdTicket ticket.Ticket
+	createInput   *CreateActivationTicketInput
+	createdTicket ActivationTicket
 }
 
-func (s *stubActivationTickets) Create(_ context.Context, input ticket.CreateInput) (ticket.Ticket, error) {
+func (s *stubActivationTickets) Create(_ context.Context, input CreateActivationTicketInput) (ActivationTicket, error) {
 	s.createInput = &input
 	return s.createdTicket, nil
 }

@@ -7,14 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	hrdomain "github.com/BetterAndBetterII/openase/internal/domain/hradvisor"
-	"github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 
@@ -34,17 +29,81 @@ type activationCatalog interface {
 	DeleteAgent(ctx context.Context, id uuid.UUID) (catalogdomain.Agent, error)
 }
 
+type ActivationStatus struct {
+	ID   uuid.UUID
+	Name string
+}
+
+type ActivationWorkflow struct {
+	ID                  uuid.UUID
+	ProjectID           uuid.UUID
+	AgentID             *uuid.UUID
+	Name                string
+	Type                string
+	HarnessPath         string
+	HarnessContent      string
+	MaxConcurrent       int
+	MaxRetryAttempts    int
+	TimeoutMinutes      int
+	StallTimeoutMinutes int
+	Version             int
+	IsActive            bool
+	PickupStatusIDs     []uuid.UUID
+	FinishStatusIDs     []uuid.UUID
+}
+
+type ActivateWorkflowInput struct {
+	ProjectID           uuid.UUID
+	AgentID             uuid.UUID
+	Name                string
+	Type                string
+	HarnessPath         string
+	HarnessContent      string
+	MaxConcurrent       int
+	MaxRetryAttempts    int
+	TimeoutMinutes      int
+	StallTimeoutMinutes int
+	IsActive            bool
+	PickupStatusIDs     []uuid.UUID
+	FinishStatusIDs     []uuid.UUID
+}
+
+type ActivationTicket struct {
+	ID          uuid.UUID
+	ProjectID   uuid.UUID
+	Identifier  string
+	Title       string
+	StatusID    uuid.UUID
+	StatusName  string
+	WorkflowID  *uuid.UUID
+	CreatedBy   string
+	Priority    string
+	Type        string
+	Description string
+}
+
+type CreateActivationTicketInput struct {
+	ProjectID   uuid.UUID
+	Title       string
+	Description string
+	StatusID    *uuid.UUID
+	Priority    string
+	Type        string
+	WorkflowID  *uuid.UUID
+	CreatedBy   string
+}
+
 type activationWorkflows interface {
-	List(ctx context.Context, projectID uuid.UUID) ([]workflow.Workflow, error)
-	Create(ctx context.Context, input workflow.CreateInput) (workflow.WorkflowDetail, error)
+	List(ctx context.Context, projectID uuid.UUID) ([]ActivationWorkflow, error)
+	Create(ctx context.Context, input ActivateWorkflowInput) (ActivationWorkflow, error)
 }
 
 type activationStatuses interface {
-	List(ctx context.Context, projectID uuid.UUID) (ticketstatus.ListResult, error)
+	List(ctx context.Context, projectID uuid.UUID) ([]ActivationStatus, error)
 }
 
 type activationTickets interface {
-	Create(ctx context.Context, input ticket.CreateInput) (ticket.Ticket, error)
+	Create(ctx context.Context, input CreateActivationTicketInput) (ActivationTicket, error)
 }
 
 type ActivationService struct {
@@ -58,7 +117,7 @@ type ActivationResult struct {
 	ProjectID       uuid.UUID
 	RoleSlug        string
 	Agent           catalogdomain.Agent
-	Workflow        workflow.WorkflowDetail
+	Workflow        ActivationWorkflow
 	BootstrapTicket BootstrapTicketResult
 }
 
@@ -66,7 +125,7 @@ type BootstrapTicketResult struct {
 	Requested bool
 	Status    string
 	Message   string
-	Ticket    *ticket.Ticket
+	Ticket    *ActivationTicket
 }
 
 func NewActivationService(
@@ -119,11 +178,11 @@ func (s *ActivationService) Activate(
 		return ActivationResult{}, fmt.Errorf("%w: %s", ErrActivationWorkflowExists, template.HarnessPath)
 	}
 
-	statusList, err := s.statuses.List(ctx, input.ProjectID)
+	statuses, err := s.statuses.List(ctx, input.ProjectID)
 	if err != nil {
 		return ActivationResult{}, err
 	}
-	pickupStatusID, finishStatusID, err := resolveActivationStatusIDs(statusList, template)
+	pickupStatusID, finishStatusID, err := resolveActivationStatusIDs(statuses, template)
 	if err != nil {
 		return ActivationResult{}, err
 	}
@@ -151,20 +210,20 @@ func (s *ActivationService) Activate(
 		return ActivationResult{}, err
 	}
 
-	createdWorkflow, err := s.workflows.Create(ctx, workflow.CreateInput{
+	createdWorkflow, err := s.workflows.Create(ctx, ActivateWorkflowInput{
 		ProjectID:           input.ProjectID,
 		AgentID:             createdAgent.ID,
 		Name:                template.WorkflowName,
-		Type:                normalizeActivationWorkflowType(template.WorkflowType),
-		HarnessPath:         stringPointer(template.HarnessPath),
+		Type:                strings.TrimSpace(strings.ToLower(template.WorkflowType)),
+		HarnessPath:         template.HarnessPath,
 		HarnessContent:      template.HarnessContent,
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
 		TimeoutMinutes:      30,
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
-		PickupStatusIDs:     mustParseStatusBindingSet(pickupStatusID),
-		FinishStatusIDs:     mustParseStatusBindingSet(finishStatusID),
+		PickupStatusIDs:     []uuid.UUID{pickupStatusID},
+		FinishStatusIDs:     []uuid.UUID{finishStatusID},
 	})
 	if err != nil {
 		if _, rollbackErr := s.catalog.DeleteAgent(ctx, createdAgent.ID); rollbackErr != nil {
@@ -188,7 +247,6 @@ func (s *ActivationService) Activate(
 	if !input.CreateBootstrapTicket {
 		return result, nil
 	}
-
 	if s.tickets == nil {
 		result.BootstrapTicket.Status = "failed"
 		result.BootstrapTicket.Message = "ticket service unavailable for bootstrap ticket creation"
@@ -196,7 +254,7 @@ func (s *ActivationService) Activate(
 	}
 
 	draft := activationBootstrapTicketDraft(template)
-	createdTicket, err := s.tickets.Create(ctx, ticket.CreateInput{
+	createdTicket, err := s.tickets.Create(ctx, CreateActivationTicketInput{
 		ProjectID:   input.ProjectID,
 		Title:       draft.Title,
 		Description: draft.Description,
@@ -221,8 +279,8 @@ func (s *ActivationService) Activate(
 type activationBootstrapDraft struct {
 	Title       string
 	Description string
-	Priority    entticket.Priority
-	Type        entticket.Type
+	Priority    string
+	Type        string
 }
 
 func activationBootstrapTicketDraft(template hrdomain.ActivationTemplate) activationBootstrapDraft {
@@ -245,12 +303,12 @@ func activationBootstrapTicketDraft(template hrdomain.ActivationTemplate) activa
 	return activationBootstrapDraft{
 		Title:       title,
 		Description: description,
-		Priority:    entticket.PriorityMedium,
-		Type:        entticket.TypeChore,
+		Priority:    "medium",
+		Type:        "chore",
 	}
 }
 
-func activationWorkflowExists(items []workflow.Workflow, harnessPath string) bool {
+func activationWorkflowExists(items []ActivationWorkflow, harnessPath string) bool {
 	normalizedPath := strings.TrimSpace(harnessPath)
 	for _, item := range items {
 		if strings.TrimSpace(item.HarnessPath) == normalizedPath {
@@ -262,11 +320,11 @@ func activationWorkflowExists(items []workflow.Workflow, harnessPath string) boo
 }
 
 func resolveActivationStatusIDs(
-	statusList ticketstatus.ListResult,
+	statuses []ActivationStatus,
 	template hrdomain.ActivationTemplate,
 ) (uuid.UUID, uuid.UUID, error) {
-	statusesByName := make(map[string]uuid.UUID, len(statusList.Statuses))
-	for _, statusItem := range statusList.Statuses {
+	statusesByName := make(map[string]uuid.UUID, len(statuses))
+	for _, statusItem := range statuses {
 		statusesByName[strings.TrimSpace(statusItem.Name)] = statusItem.ID
 	}
 
@@ -354,20 +412,4 @@ func preferredActivationProvider(items []catalogdomain.AgentProvider) (catalogdo
 
 func activationAgentName(template hrdomain.ActivationTemplate) string {
 	return fmt.Sprintf("%s Agent", template.WorkflowName)
-}
-
-func normalizeActivationWorkflowType(raw string) entworkflow.Type {
-	return entworkflow.Type(strings.TrimSpace(strings.ToLower(raw)))
-}
-
-func mustParseStatusBindingSet(id uuid.UUID) workflow.StatusBindingSet {
-	set, err := workflow.ParseStatusBindingSet("status_ids", []uuid.UUID{id})
-	if err != nil {
-		panic(err)
-	}
-	return set
-}
-
-func stringPointer(value string) *string {
-	return &value
 }
