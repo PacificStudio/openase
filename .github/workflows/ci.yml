@@ -93,12 +93,14 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
-          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
-        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
@@ -175,6 +177,7 @@ jobs:
   backend:
     name: Backend Checks
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 60
     needs:
       - changes
       - api-contract
@@ -201,26 +204,64 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
-          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
-        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
+          cache: false
           go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
 
       - name: Run Backend Formatting, Tests, And Coverage Gates
-        run: make check
+        timeout-minutes: 45
+        shell: bash
+        env:
+          OPENASE_GO_TEST_PROGRESS_MODE: plain
+        run: |
+          set -euo pipefail
+
+          heartbeat_file="${RUNNER_TEMP}/backend-check-heartbeat.txt"
+
+          heartbeat() {
+            while true; do
+              now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+              printf '%s\n' "${now}" > "${heartbeat_file}"
+              printf '[backend-heartbeat] %s make check still running\n' "${now}"
+              sleep 60
+            done
+          }
+
+          cleanup() {
+            status=$?
+            trap - EXIT
+            kill "${heartbeat_pid}" 2>/dev/null || true
+            wait "${heartbeat_pid}" 2>/dev/null || true
+
+            if [[ -f "${heartbeat_file}" ]]; then
+              printf 'Last backend heartbeat: %s\n' "$(cat "${heartbeat_file}")"
+            else
+              printf 'Last backend heartbeat: unavailable\n'
+            fi
+
+            exit "${status}"
+          }
+
+          trap cleanup EXIT
+
+          heartbeat &
+          heartbeat_pid=$!
+
+          make check
 
       - name: Build OpenASE Binary
+        timeout-minutes: 10
         run: make build
 
   go-lint:
@@ -243,21 +284,20 @@ jobs:
 
       - name: Configure Isolated Go Cache Directories
         run: |
-          echo "GOMODCACHE=${RUNNER_TEMP}/openase-go/pkg/mod" >> "${GITHUB_ENV}"
-          echo "GOCACHE=${RUNNER_TEMP}/openase-go/build" >> "${GITHUB_ENV}"
-          echo "GOTMPDIR=${RUNNER_TEMP}/openase-go/tmp" >> "${GITHUB_ENV}"
+          job_cache_root="${RUNNER_TEMP}/openase-go/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_JOB}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
 
       - name: Prepare Isolated Go Cache Directories
-        run: mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+        run: |
+          rm -rf "${GOMODCACHE}" "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}" "${GOCACHE}"
 
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
+          cache: false
           go-version-file: go.mod
-          cache: true
-          cache-dependency-path: |
-            go.mod
-            go.sum
 
       - name: Fetch Base Branch
         if: github.event_name == 'pull_request'
