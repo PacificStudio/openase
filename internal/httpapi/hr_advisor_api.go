@@ -130,11 +130,12 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 			Status:              string(project.Status),
 			MaxConcurrentAgents: project.MaxConcurrentAgents,
 		},
-		Tickets:         make([]hrdomain.TicketContext, 0, len(tickets)),
-		Workflows:       make([]hrdomain.WorkflowContext, 0, len(workflows)),
-		Agents:          make([]hrdomain.AgentContext, 0, len(agents)),
-		RecentActivity:  make([]hrdomain.ActivityContext, 0, len(activityItems)),
-		ActiveRoleSlugs: make([]string, 0, len(activeRoleWorkflows)),
+		Tickets:             make([]hrdomain.TicketContext, 0, len(tickets)),
+		Workflows:           make([]hrdomain.WorkflowContext, 0, len(workflows)),
+		Agents:              make([]hrdomain.AgentContext, 0, len(agents)),
+		RecentActivityCount: len(activityItems),
+		RecentTrends:        parseHRActivityTrends(activityItems),
+		ActiveRoleSlugs:     make([]string, 0, len(activeRoleWorkflows)),
 	}
 
 	for roleSlug := range activeRoleWorkflows {
@@ -176,14 +177,6 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		}
 		snapshot.Agents = append(snapshot.Agents, hrdomain.AgentContext{
 			Status: status,
-		})
-	}
-
-	for _, activityItem := range activityItems {
-		snapshot.RecentActivity = append(snapshot.RecentActivity, hrdomain.ActivityContext{
-			EventType: activityItem.EventType,
-			Message:   activityItem.Message,
-			CreatedAt: activityItem.CreatedAt,
 		})
 	}
 

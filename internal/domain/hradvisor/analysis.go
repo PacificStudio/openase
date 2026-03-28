@@ -4,12 +4,13 @@ import "time"
 
 // Snapshot is the project state analyzed by the HR advisor.
 type Snapshot struct {
-	Project         ProjectContext
-	Tickets         []TicketContext
-	Workflows       []WorkflowContext
-	Agents          []AgentContext
-	RecentActivity  []ActivityContext
-	ActiveRoleSlugs []string
+	Project             ProjectContext
+	Tickets             []TicketContext
+	Workflows           []WorkflowContext
+	Agents              []AgentContext
+	RecentActivityCount int
+	RecentTrends        []ActivityTrendContext
+	ActiveRoleSlugs     []string
 }
 
 // ProjectContext summarizes the project-level planning signals.
@@ -46,11 +47,17 @@ type AgentContext struct {
 	Status string
 }
 
-// ActivityContext summarizes recent activity for staffing analysis.
-type ActivityContext struct {
-	EventType string
-	Message   string
-	CreatedAt time.Time
+const (
+	ActivityTrendDocumentationDrift = "documentation_drift"
+	ActivityTrendFailureBurst       = "failure_burst"
+)
+
+// ActivityTrendContext summarizes one parsed recent-activity trend.
+type ActivityTrendContext struct {
+	Kind     string
+	Count    int
+	Evidence []string
+	LastSeen time.Time
 }
 
 // Analysis is the staffing recommendation result produced by the advisor.
