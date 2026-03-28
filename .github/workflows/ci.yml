@@ -166,6 +166,9 @@ jobs:
       - api-contract
       - frontend
     if: |
+      always() &&
+      needs.changes.result == 'success' &&
+      needs['api-contract'].result == 'success' &&
       needs.changes.outputs.go_changed == 'true' &&
       (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
 
