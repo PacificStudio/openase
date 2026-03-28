@@ -1,15 +1,5 @@
-import {
-  parseAppRouteContext,
-  projectSectionFromPathname,
-  type AppRouteContext,
-  type ProjectSection,
-} from '$lib/stores/app-context'
+import { parseAppRouteContext, projectSectionFromPathname } from '$lib/stores/app-context'
 import type { LayoutLoad } from './$types'
-
-type AppLayoutData = {
-  routeContext: AppRouteContext
-  currentSection: ProjectSection
-}
 
 export const load: LayoutLoad = async ({ params, url }) => {
   const routeContext = parseAppRouteContext(params)

@@ -146,7 +146,7 @@ async function handleOrgRoutes(request: Request, segments: string[]) {
   return notFound('Mock org route not found.')
 }
 
-async function handleProjectRoutes(request: Request, segments: string[], url: URL) {
+async function handleProjectRoutes(request: Request, segments: string[], _url: URL) {
   const projectId = segments[1]
   if (projectId !== PROJECT_ID) {
     return notFound('Project not found.')
@@ -333,38 +333,6 @@ function buildAppContextPayload(url: URL) {
         ? mockState.agents.filter((agent) => agent.project_id === projectId).length
         : 0,
   }
-}
-
-function defaultStageSnapshot() {
-  return [
-    {
-      id: 'stage-backlog',
-      project_id: PROJECT_ID,
-      key: 'backlog',
-      name: 'Backlog',
-      position: 0,
-      max_active_runs: null,
-      active_runs: 1,
-    },
-    {
-      id: 'stage-review',
-      project_id: PROJECT_ID,
-      key: 'review',
-      name: 'Review',
-      position: 1,
-      max_active_runs: 2,
-      active_runs: 0,
-    },
-    {
-      id: 'stage-done',
-      project_id: PROJECT_ID,
-      key: 'done',
-      name: 'Done',
-      position: 2,
-      max_active_runs: null,
-      active_runs: 0,
-    },
-  ]
 }
 
 async function handleMachineRoutes(request: Request, segments: string[]) {

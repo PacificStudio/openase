@@ -4,7 +4,7 @@ type E2EFixtures = {
 }
 
 export const test = base.extend<E2EFixtures>({
-  projectPath: async ({}, use) => {
+  projectPath: async ({ page: _page }, use) => {
     const builder = (section: string) => `/orgs/org-e2e/projects/project-e2e/${section}`
     await use(builder)
   },

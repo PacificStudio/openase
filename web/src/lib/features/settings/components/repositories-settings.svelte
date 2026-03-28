@@ -26,7 +26,6 @@
   import RepositoryEditorSheet from './repository-editor-sheet.svelte'
 
   const repositoriesCapability = getSettingsSectionCapability('repositories')
-  let {} = $props()
 
   let repos = $state<ProjectRepoRecord[]>([])
   let loading = $state(false)

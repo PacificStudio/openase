@@ -18,7 +18,6 @@
   import { Separator } from '$ui/separator'
 
   const generalCapability = getSettingsSectionCapability('general')
-  let {} = $props()
 
   let projectName = $state('')
   let description = $state('')
