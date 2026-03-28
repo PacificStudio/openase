@@ -3,8 +3,11 @@
   import { ApiError } from '$lib/api/client'
   import { listStatuses, listWorkflows } from '$lib/api/openase'
   import { WorkflowScheduledJobsPanel } from '$lib/features/settings'
-  import { mapStatusOptions, mapWorkflowSummary } from '$lib/features/workflows/data'
-  import type { WorkflowSummary } from '$lib/features/workflows'
+  import {
+    mapStatusOptions,
+    mapWorkflowSummary,
+    type WorkflowSummary,
+  } from '$lib/features/workflows'
   import { projectPath } from '$lib/stores/app-context'
   import { Button } from '$ui/button'
 

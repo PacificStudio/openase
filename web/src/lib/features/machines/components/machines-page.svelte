@@ -1,22 +1,20 @@
 <script lang="ts">
-  import { ApiError } from '$lib/api/client'
-  import {
-    createMachine,
-    deleteMachine,
-    getMachineResources,
-    listMachines,
-    testMachineConnection,
-    updateMachine,
-  } from '$lib/api/openase'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import MachinesPageBody from './machines-page-body.svelte'
+  import {
+    loadMachineSnapshot,
+    loadMachines,
+    machineErrorMessage,
+    removeMachine,
+    runMachineConnectionTest,
+    saveMachine,
+  } from './machines-page-api'
   import {
     createEmptyMachineDraft,
     filterMachines,
     machineToDraft,
     parseMachineDraft,
-    parseMachineSnapshot,
   } from '../model'
   import {
     createEditorSelectionState,
@@ -106,15 +104,13 @@
     refreshing = options.background
 
     try {
-      const payload = await listMachines(orgId)
+      const nextMachines = await loadMachines(orgId)
       if (options.cancelled?.()) return
-      await syncFromMachineList(orgId, payload.machines ?? [], null)
+      await syncFromMachineList(orgId, nextMachines, null)
     } catch (caughtError) {
       if (options.cancelled?.()) return
       if (options.background && machines.length > 0) {
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to refresh machines.',
-        )
+        toastStore.error(machineErrorMessage(caughtError, 'Failed to refresh machines.'))
       } else {
         await syncFromMachineList(orgId, [], 'Failed to load machines.')
       }
@@ -152,12 +148,9 @@
     loadingHealth = true
 
     try {
-      const payload = await getMachineResources(machineId)
-      snapshot = parseMachineSnapshot(payload.resources)
+      snapshot = await loadMachineSnapshot(machineId)
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load machine resources.',
-      )
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to load machine resources.'))
     } finally {
       loadingHealth = false
     }
@@ -198,23 +191,15 @@
     saving = true
 
     try {
-      if (mode === 'create') {
-        const payload = await createMachine(routeOrgId, parsed.value)
-        machines = [payload.machine, ...machines]
-        await openMachine(payload.machine, true)
-        toastStore.success('Machine created.')
-      } else if (selectedMachine) {
-        const payload = await updateMachine(selectedMachine.id, parsed.value)
-        machines = machines.map((machine) =>
-          machine.id === payload.machine.id ? payload.machine : machine,
-        )
-        await openMachine(payload.machine, true)
-        toastStore.success('Machine updated.')
-      }
+      const result = await saveMachine(routeOrgId, selectedMachine, mode, parsed.value)
+      machines =
+        mode === 'create'
+          ? [result.machine, ...machines]
+          : machines.map((machine) => (machine.id === result.machine.id ? result.machine : machine))
+      await openMachine(result.machine, true)
+      toastStore.success(result.feedback)
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save machine.',
-      )
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to save machine.'))
     } finally {
       saving = false
     }
@@ -226,19 +211,17 @@
     testingMachineId = machineId
 
     try {
-      const payload = await testMachineConnection(machineId)
+      const payload = await runMachineConnectionTest(machineId)
       machines = machines.map((machine) =>
         machine.id === payload.machine.id ? payload.machine : machine,
       )
       if (selectedId === machineId) {
-        snapshot = parseMachineSnapshot(payload.machine.resources)
+        snapshot = payload.snapshot
         probe = payload.probe
       }
       toastStore.success('Connection test completed.')
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to run connection test.',
-      )
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to run connection test.'))
     } finally {
       testingMachineId = ''
     }
@@ -250,7 +233,7 @@
     deletingMachineId = machineId
 
     try {
-      await deleteMachine(machineId)
+      await removeMachine(machineId)
       const nextMachines = machines.filter((item) => item.id !== machineId)
       machines = nextMachines
       toastStore.success('Machine deleted.')
@@ -271,9 +254,7 @@
         }
       }
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete machine.',
-      )
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to delete machine.'))
     } finally {
       deletingMachineId = ''
     }
@@ -301,16 +282,12 @@
   bind:editorOpen
   onRefresh={() => void handleRefresh()}
   onCreate={startCreate}
-  onSearchChange={(value) => {
-    searchQuery = value
-  }}
+  onSearchChange={(value) => (searchQuery = value)}
   onSelectMachine={(machineId) => {
     const nextMachine = machines.find((machine) => machine.id === machineId)
     if (nextMachine) void openMachine(nextMachine)
   }}
-  onDraftChange={(field, value) => {
-    draft = { ...draft, [field]: value }
-  }}
+  onDraftChange={(field, value) => (draft = { ...draft, [field]: value })}
   onRetry={() => void handleRefresh()}
   onSave={() => void handleSave()}
   onTest={(machineId) => void handleTest(machineId)}
