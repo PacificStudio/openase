@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { AgentProvider } from '$lib/api/contracts'
-  import { ApiError } from '$lib/api/client'
-  import { streamChatTurn, type ChatStreamEvent } from '$lib/api/chat'
+  import {
+    createEphemeralChatSessionController,
+    EphemeralChatProviderSelect,
+  } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
@@ -14,12 +16,8 @@
     buildDiffPreview,
     findLatestHarnessSuggestion,
     fingerprintSuggestion,
-    isAbortError,
-    mapChatPayloadToTranscriptEntry,
-    type AssistantTranscriptEntry,
   } from '../assistant'
   import HarnessChatEmptyState from './harness-chat-empty-state.svelte'
-  import HarnessChatProviderSelect from './harness-chat-provider-select.svelte'
   import HarnessSuggestionCard from './harness-suggestion-card.svelte'
 
   let {
@@ -39,25 +37,19 @@
   } = $props()
 
   let prompt = $state('')
-  let pending = $state(false)
-  let sessionId = $state('')
-  let providerId = $state('')
-  let entries = $state<AssistantTranscriptEntry[]>([])
   let appliedFingerprint = $state('')
-  let entryCounter = 0
   let previousContextKey = ''
-  let abortController: AbortController | null = null
+  const chatController = createEphemeralChatSessionController({
+    source: 'harness_editor',
+    onError: (message) => toastStore.error(message),
+  })
 
-  const chatProviders = $derived(
-    providers.filter(
-      (provider) =>
-        provider.available &&
-        ['claude-code-cli', 'codex-app-server', 'gemini-cli'].includes(provider.adapter_type),
-    ),
-  )
-  const selectedProvider = $derived(
-    chatProviders.find((provider) => provider.id === providerId) ?? null,
-  )
+  const chatProviders = $derived(chatController.providers)
+  const providerId = $derived(chatController.providerId)
+  const selectedProvider = $derived(chatController.selectedProvider)
+  const pending = $derived(chatController.pending)
+  const sessionId = $derived(chatController.sessionId)
+  const entries = $derived(chatController.entries)
   const suggestion = $derived(findLatestHarnessSuggestion(entries))
   const preview = $derived(suggestion ? buildDiffPreview(draftContent, suggestion.content) : null)
   const currentFingerprint = $derived(suggestion ? fingerprintSuggestion(suggestion.content) : '')
@@ -71,88 +63,43 @@
       return
     }
     previousContextKey = contextKey
-    resetConversation()
+    prompt = ''
+    appliedFingerprint = ''
+    void chatController.resetConversation()
   })
 
   $effect(() => {
-    if (providerId && chatProviders.some((provider) => provider.id === providerId)) {
-      return
-    }
-
-    const defaultProviderId = appStore.currentProject?.default_agent_provider_id ?? ''
-    if (defaultProviderId && chatProviders.some((provider) => provider.id === defaultProviderId)) {
-      providerId = defaultProviderId
-      return
-    }
-
-    providerId = chatProviders[0]?.id ?? ''
+    chatController.syncProviders(
+      providers,
+      appStore.currentProject?.default_agent_provider_id ?? '',
+    )
   })
 
   $effect(() => {
     return () => {
-      abortController?.abort()
+      void chatController.dispose()
     }
   })
 
   async function handleSend() {
+    if (!projectId || !workflowId) {
+      return
+    }
+
     const message = prompt.trim()
-    if (!message || !projectId || !workflowId || !providerId || pending) {
+    if (!message) {
       return
     }
 
-    appendEntry('user', message)
     prompt = ''
-    pending = true
 
-    const controller = new AbortController()
-    abortController = controller
-
-    try {
-      await streamChatTurn(
-        {
-          message,
-          source: 'harness_editor',
-          providerId: providerId || undefined,
-          sessionId: sessionId || undefined,
-          context: {
-            projectId,
-            workflowId,
-          },
-        },
-        {
-          signal: controller.signal,
-          onEvent: handleStreamEvent,
-        },
-      )
-    } catch (caughtError) {
-      if (!isAbortError(caughtError)) {
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Harness AI request failed.',
-        )
-      }
-    } finally {
-      if (abortController === controller) {
-        abortController = null
-        pending = false
-      }
-    }
-  }
-
-  function handleStreamEvent(event: ChatStreamEvent) {
-    if (event.kind === 'done') {
-      sessionId = event.payload.sessionId
-      pending = false
-      return
-    }
-
-    if (event.kind === 'error') {
-      toastStore.error(event.payload.message)
-      pending = false
-      return
-    }
-
-    const entry = mapChatPayloadToTranscriptEntry(event.payload)
-    appendEntry(entry.role, entry.content)
+    await chatController.sendTurn({
+      message,
+      context: {
+        projectId,
+        workflowId,
+      },
+    })
   }
 
   function handleApply() {
@@ -169,25 +116,16 @@
     void handleSend()
   }
 
-  function resetConversation() {
-    abortController?.abort()
-    abortController = null
+  async function resetConversation() {
     prompt = ''
-    pending = false
-    sessionId = ''
-    entries = []
     appliedFingerprint = ''
+    await chatController.resetConversation()
   }
 
-  function appendEntry(role: AssistantTranscriptEntry['role'], content: string) {
-    entryCounter += 1
-    entries = [...entries, { id: `entry-${entryCounter}`, role, content }]
-  }
-
-  function handleProviderChange(nextProviderId: string) {
-    if (nextProviderId === providerId) return
-    providerId = nextProviderId
-    resetConversation()
+  async function handleProviderChange(nextProviderId: string) {
+    prompt = ''
+    appliedFingerprint = ''
+    await chatController.selectProvider(nextProviderId)
   }
 </script>
 
@@ -212,7 +150,7 @@
     <Button
       variant="ghost"
       size="sm"
-      onclick={resetConversation}
+      onclick={() => void resetConversation()}
       disabled={entries.length === 0 && !pending}
     >
       <RefreshCcw class="size-4" />
@@ -262,10 +200,10 @@
   </ScrollArea>
 
   <div class="border-border border-t px-4 py-3">
-    <HarnessChatProviderSelect
+    <EphemeralChatProviderSelect
       providers={chatProviders}
       {providerId}
-      onProviderChange={handleProviderChange}
+      onProviderChange={(nextProviderId) => void handleProviderChange(nextProviderId)}
     />
 
     <Textarea
@@ -285,7 +223,7 @@
       </p>
       <Button
         size="sm"
-        onclick={handleSend}
+        onclick={() => void handleSend()}
         disabled={!prompt.trim() || !projectId || !workflowId || !providerId || pending}
       >
         <Send class="size-4" />
