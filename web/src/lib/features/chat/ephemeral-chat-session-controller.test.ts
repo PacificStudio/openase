@@ -83,7 +83,7 @@ describe('createEphemeralChatSessionController', () => {
     closeChatSession.mockResolvedValue(undefined)
 
     const controller = createEphemeralChatSessionController({
-      source: 'harness_editor',
+      getSource: () => 'harness_editor',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
 
@@ -97,9 +97,9 @@ describe('createEphemeralChatSessionController', () => {
 
     expect(controller.providerId).toBe('provider-1')
     expect(controller.sessionId).toBe('session-1')
-    expect(controller.entries.map((entry) => entry.content)).toEqual([
-      'Help me tighten this harness.',
-    ])
+    expect(
+      controller.entries.filter((entry) => entry.kind === 'text').map((entry) => entry.content),
+    ).toEqual(['Help me tighten this harness.'])
 
     await controller.selectProvider('provider-2')
 
@@ -129,7 +129,7 @@ describe('createEphemeralChatSessionController', () => {
     closeChatSession.mockResolvedValue(undefined)
 
     const controller = createEphemeralChatSessionController({
-      source: 'harness_editor',
+      getSource: () => 'harness_editor',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
 
@@ -169,7 +169,7 @@ describe('createEphemeralChatSessionController', () => {
     closeChatSession.mockResolvedValue(undefined)
 
     const controller = createEphemeralChatSessionController({
-      source: 'harness_editor',
+      getSource: () => 'harness_editor',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
 

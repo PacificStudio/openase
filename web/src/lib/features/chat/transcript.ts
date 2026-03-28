@@ -1,34 +1,81 @@
-import type { ChatMessagePayload } from '$lib/api/chat'
+import type { ChatActionProposalPayload, ChatMessagePayload } from '$lib/api/chat'
+import type { ChatActionExecutionResult } from './action-proposal-executor'
 
 export type EphemeralChatRole = 'user' | 'assistant' | 'system'
 
-export type EphemeralChatTranscriptEntry = {
+export type EphemeralChatTextEntry = {
   id: string
   role: EphemeralChatRole
+  kind: 'text'
   content: string
 }
 
+export type EphemeralChatActionProposalEntry = {
+  id: string
+  role: 'assistant'
+  kind: 'action_proposal'
+  proposal: ChatActionProposalPayload
+  status: 'pending' | 'executing' | 'confirmed' | 'cancelled'
+  results: ChatActionExecutionResult[]
+}
+
+export type EphemeralChatTranscriptEntry = EphemeralChatTextEntry | EphemeralChatActionProposalEntry
+
 export function mapChatPayloadToTranscriptEntry(
+  id: string,
   payload: ChatMessagePayload,
-): Omit<EphemeralChatTranscriptEntry, 'id'> {
+): EphemeralChatTranscriptEntry {
   if (isTextPayload(payload)) {
     return {
+      id,
       role: 'assistant',
+      kind: 'text',
       content: payload.content,
     }
   }
 
   if (isActionProposalPayload(payload)) {
     return {
-      role: 'system',
-      content: `Action proposal: ${payload.summary ?? 'Awaiting confirmation.'}`,
+      id,
+      role: 'assistant',
+      kind: 'action_proposal',
+      proposal: payload,
+      status: 'pending',
+      results: [],
     }
   }
 
   return {
+    id,
     role: 'system',
+    kind: 'text',
     content: describeSystemMessage(payload.type),
   }
+}
+
+export function createTextTranscriptEntry(
+  id: string,
+  role: EphemeralChatRole,
+  content: string,
+): EphemeralChatTextEntry {
+  return {
+    id,
+    role,
+    kind: 'text',
+    content,
+  }
+}
+
+export function isActionProposalEntry(
+  entry: EphemeralChatTranscriptEntry,
+): entry is EphemeralChatActionProposalEntry {
+  return entry.kind === 'action_proposal'
+}
+
+export function isTextTranscriptEntry(
+  entry: EphemeralChatTranscriptEntry,
+): entry is EphemeralChatTextEntry {
+  return entry.kind === 'text'
 }
 
 export function isAbortError(error: unknown) {

@@ -38,7 +38,7 @@ export type ChatErrorPayload = {
 export type ChatActionProposalPayload = {
   type: 'action_proposal'
   summary?: string
-  actions?: unknown[]
+  actions: ChatActionProposalAction[]
 }
 
 export type ChatTaskPayload = {
@@ -47,6 +47,14 @@ export type ChatTaskPayload = {
 }
 
 export type ChatMessagePayload = ChatTextPayload | ChatActionProposalPayload | ChatTaskPayload
+
+export type ChatActionMethod = 'POST' | 'PATCH' | 'PUT' | 'DELETE'
+
+export type ChatActionProposalAction = {
+  method: ChatActionMethod
+  path: string
+  body?: Record<string, unknown>
+}
 
 export type ChatStreamEvent =
   | { kind: 'session'; payload: ChatSessionPayload }
@@ -150,7 +158,7 @@ function parseMessageEvent(payload: unknown): ChatStreamEvent {
       payload: {
         type,
         summary: readOptionalString(object, 'summary'),
-        actions: Array.isArray(object.actions) ? object.actions : undefined,
+        actions: readActionProposalActions(object),
       },
     }
   }
@@ -228,4 +236,36 @@ function readRequiredNumber(object: Record<string, unknown>, key: string): numbe
 function readOptionalNumber(object: Record<string, unknown>, key: string): number | undefined {
   const value = object[key]
   return typeof value === 'number' && !Number.isNaN(value) ? value : undefined
+}
+
+function readActionProposalActions(object: Record<string, unknown>): ChatActionProposalAction[] {
+  const actions = object.actions
+  if (!Array.isArray(actions)) {
+    throw new Error('chat stream action_proposal actions must be an array')
+  }
+
+  return actions.map((action, index) => parseActionProposalAction(action, index))
+}
+
+function parseActionProposalAction(value: unknown, index: number): ChatActionProposalAction {
+  const object = parseRequiredObject(value)
+  const method = readRequiredString(object, 'method').toUpperCase()
+  if (!isActionMethod(method)) {
+    throw new Error(`chat stream action_proposal action ${index} method is unsupported`)
+  }
+
+  const body = object.body
+  if (body !== undefined && (body == null || typeof body !== 'object' || Array.isArray(body))) {
+    throw new Error(`chat stream action_proposal action ${index} body must be an object`)
+  }
+
+  return {
+    method,
+    path: readRequiredString(object, 'path'),
+    body: body as Record<string, unknown> | undefined,
+  }
+}
+
+function isActionMethod(value: string): value is ChatActionMethod {
+  return value === 'POST' || value === 'PATCH' || value === 'PUT' || value === 'DELETE'
 }

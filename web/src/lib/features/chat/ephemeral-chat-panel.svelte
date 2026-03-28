@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
   import { listProviders } from '$lib/api/openase'
@@ -7,11 +8,11 @@
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { Bot, LoaderCircle, RefreshCcw, Send } from '@lucide/svelte'
+  import { Bot, RefreshCcw, Send } from '@lucide/svelte'
   import { createEphemeralChatSessionController } from './ephemeral-chat-session-controller.svelte'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
+  import EphemeralChatTranscript from './ephemeral-chat-transcript.svelte'
   import type { ChatSource } from '$lib/api/chat'
-  import { cn } from '$lib/utils'
 
   type EphemeralChatPanelContext = {
     projectId: string
@@ -56,7 +57,7 @@
   let previousContextKey = ''
 
   const chatController = createEphemeralChatSessionController({
-    source,
+    getSource: () => source,
     onError: (message) => toastStore.error(message),
   })
 
@@ -134,7 +135,11 @@
   })
 
   $effect(() => {
-    chatController.syncProviders(activeProviders, defaultProviderId)
+    const nextProviders = activeProviders
+    const nextDefaultProviderId = defaultProviderId
+    untrack(() => {
+      chatController.syncProviders(nextProviders, nextDefaultProviderId)
+    })
   })
 
   $effect(() => {
@@ -176,6 +181,14 @@
     await chatController.resetConversation()
   }
 
+  async function handleConfirmActionProposal(entryId: string) {
+    await chatController.confirmActionProposal(entryId)
+  }
+
+  function handleCancelActionProposal(entryId: string) {
+    chatController.cancelActionProposal(entryId)
+  }
+
   function handlePromptKeydown(event: KeyboardEvent) {
     if (event.key !== 'Enter' || event.shiftKey) {
       return
@@ -215,37 +228,14 @@
   </div>
 
   <ScrollArea class="min-h-0 flex-1 px-4 py-4">
-    <div class="space-y-3">
-      {#if entries.length === 0}
-        <div class="border-border bg-muted/20 rounded-2xl border px-4 py-3">
-          <div class="text-sm font-medium">{emptyStateTitle}</div>
-          <p class="text-muted-foreground mt-1 text-xs leading-5">{emptyStateDescription}</p>
-        </div>
-      {/if}
-      {#each entries as entry (entry.id)}
-        <div
-          class={cn(
-            'rounded-2xl border px-3 py-2.5 text-sm leading-6',
-            entry.role === 'user' && 'bg-primary text-primary-foreground',
-            entry.role === 'assistant' && 'border-border bg-muted/40 text-foreground',
-            entry.role === 'system' && 'border-border text-foreground bg-amber-500/10',
-          )}
-        >
-          <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">
-            {entry.role}
-          </div>
-          <div class="break-words whitespace-pre-wrap">{entry.content}</div>
-        </div>
-      {/each}
-      {#if pending}
-        <div
-          class="border-border bg-muted/30 flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm"
-        >
-          <LoaderCircle class="size-4 animate-spin" />
-          Thinking…
-        </div>
-      {/if}
-    </div>
+    <EphemeralChatTranscript
+      {entries}
+      {pending}
+      {emptyStateTitle}
+      {emptyStateDescription}
+      onConfirmActionProposal={handleConfirmActionProposal}
+      onCancelActionProposal={handleCancelActionProposal}
+    />
   </ScrollArea>
 
   <div class="border-border space-y-3 border-t px-4 py-3">

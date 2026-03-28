@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import type { AgentProvider } from '$lib/api/contracts'
   import {
     createEphemeralChatSessionController,
+    EphemeralChatActionProposalCard,
     EphemeralChatProviderSelect,
   } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
@@ -40,7 +42,7 @@
   let appliedFingerprint = $state('')
   let previousContextKey = ''
   const chatController = createEphemeralChatSessionController({
-    source: 'harness_editor',
+    getSource: () => 'harness_editor',
     onError: (message) => toastStore.error(message),
   })
 
@@ -69,10 +71,11 @@
   })
 
   $effect(() => {
-    chatController.syncProviders(
-      providers,
-      appStore.currentProject?.default_agent_provider_id ?? '',
-    )
+    const nextProviders = providers
+    const nextDefaultProviderId = appStore.currentProject?.default_agent_provider_id ?? ''
+    untrack(() => {
+      chatController.syncProviders(nextProviders, nextDefaultProviderId)
+    })
   })
 
   $effect(() => {
@@ -127,6 +130,14 @@
     appliedFingerprint = ''
     await chatController.selectProvider(nextProviderId)
   }
+
+  async function handleConfirmActionProposal(entryId: string) {
+    await chatController.confirmActionProposal(entryId)
+  }
+
+  function handleCancelActionProposal(entryId: string) {
+    chatController.cancelActionProposal(entryId)
+  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
@@ -164,19 +175,27 @@
       {/if}
 
       {#each entries as entry (entry.id)}
-        <div
-          class={cn(
-            'rounded-2xl border px-3 py-2.5 text-sm leading-6',
-            entry.role === 'user' && 'bg-primary text-primary-foreground',
-            entry.role === 'assistant' && 'border-border bg-muted/40 text-foreground',
-            entry.role === 'system' && 'border-border text-foreground bg-amber-500/10',
-          )}
-        >
-          <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">
-            {entry.role}
+        {#if entry.kind === 'action_proposal'}
+          <EphemeralChatActionProposalCard
+            {entry}
+            onConfirm={handleConfirmActionProposal}
+            onCancel={handleCancelActionProposal}
+          />
+        {:else}
+          <div
+            class={cn(
+              'rounded-2xl border px-3 py-2.5 text-sm leading-6',
+              entry.role === 'user' && 'bg-primary text-primary-foreground',
+              entry.role === 'assistant' && 'border-border bg-muted/40 text-foreground',
+              entry.role === 'system' && 'border-border text-foreground bg-amber-500/10',
+            )}
+          >
+            <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">
+              {entry.role}
+            </div>
+            <div class="break-words whitespace-pre-wrap">{entry.content}</div>
           </div>
-          <div class="break-words whitespace-pre-wrap">{entry.content}</div>
-        </div>
+        {/if}
       {/each}
 
       {#if pending}
