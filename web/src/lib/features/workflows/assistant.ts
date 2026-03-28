@@ -1,10 +1,5 @@
-import type { ChatMessagePayload } from '$lib/api/chat'
-
-export type AssistantRole = 'user' | 'assistant' | 'system'
-
-export type AssistantTranscriptEntry = {
-  id: string
-  role: AssistantRole
+type AssistantTranscriptEntry = {
+  role: 'user' | 'assistant' | 'system'
   content: string
 }
 
@@ -127,33 +122,6 @@ export function fingerprintSuggestion(content: string) {
   return `${content.length}:${content.slice(0, 120)}`
 }
 
-export function mapChatPayloadToTranscriptEntry(
-  payload: ChatMessagePayload,
-): Omit<AssistantTranscriptEntry, 'id'> {
-  if (isTextPayload(payload)) {
-    return {
-      role: 'assistant',
-      content: payload.content,
-    }
-  }
-
-  if (isActionProposalPayload(payload)) {
-    return {
-      role: 'system',
-      content: `Action proposal: ${payload.summary ?? 'Awaiting confirmation.'}`,
-    }
-  }
-
-  return {
-    role: 'system',
-    content: describeSystemMessage(payload.type),
-  }
-}
-
-export function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
-
 function parseHarnessDocumentCandidate(raw: string): string | null {
   const normalized = normalizeDocument(raw)
   if (!normalized.startsWith('---\n')) {
@@ -179,31 +147,6 @@ function stripCodeBlocks(text: string) {
 function normalizeSuggestionSummary(summary: string) {
   const trimmed = summary.trim()
   return trimmed || 'Suggested harness update.'
-}
-
-function describeSystemMessage(type: string) {
-  switch (type) {
-    case 'task_started':
-      return 'Assistant started a background task.'
-    case 'task_progress':
-      return 'Assistant reported task progress.'
-    case 'task_notification':
-      return 'Assistant emitted a task notification.'
-    default:
-      return `Assistant emitted ${type}.`
-  }
-}
-
-function isTextPayload(
-  payload: ChatMessagePayload,
-): payload is Extract<ChatMessagePayload, { type: 'text' }> {
-  return payload.type === 'text'
-}
-
-function isActionProposalPayload(
-  payload: ChatMessagePayload,
-): payload is Extract<ChatMessagePayload, { type: 'action_proposal' }> {
-  return payload.type === 'action_proposal'
 }
 
 function buildDiffOperations(before: string[], after: string[]) {

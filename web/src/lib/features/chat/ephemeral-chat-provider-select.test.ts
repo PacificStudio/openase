@@ -1,0 +1,93 @@
+import { cleanup, fireEvent, render } from '@testing-library/svelte'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+
+import type { AgentProvider } from '$lib/api/contracts'
+import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
+
+const providerFixtures: AgentProvider[] = [
+  {
+    id: 'provider-1',
+    organization_id: 'org-1',
+    machine_id: 'machine-1',
+    machine_name: 'Localhost',
+    machine_host: '127.0.0.1',
+    machine_status: 'online',
+    machine_ssh_user: null,
+    machine_workspace_root: '/workspace',
+    name: 'Codex',
+    adapter_type: 'codex-app-server',
+    availability_state: 'available',
+    available: true,
+    availability_checked_at: '2026-03-28T12:00:00Z',
+    availability_reason: null,
+    cli_command: 'codex',
+    cli_args: [],
+    auth_config: {},
+    model_name: 'gpt-5.4',
+    model_temperature: 0,
+    model_max_tokens: 4096,
+    cost_per_input_token: 0,
+    cost_per_output_token: 0,
+  },
+  {
+    id: 'provider-2',
+    organization_id: 'org-1',
+    machine_id: 'machine-1',
+    machine_name: 'Localhost',
+    machine_host: '127.0.0.1',
+    machine_status: 'offline',
+    machine_ssh_user: null,
+    machine_workspace_root: '/workspace',
+    name: 'Gemini',
+    adapter_type: 'gemini-cli',
+    availability_state: 'unavailable',
+    available: false,
+    availability_checked_at: '2026-03-28T12:00:00Z',
+    availability_reason: 'machine_offline',
+    cli_command: 'gemini',
+    cli_args: [],
+    auth_config: {},
+    model_name: 'gemini-2.5-pro',
+    model_temperature: 0,
+    model_max_tokens: 4096,
+    cost_per_input_token: 0,
+    cost_per_output_token: 0,
+  },
+]
+
+describe('EphemeralChatProviderSelect', () => {
+  beforeAll(() => {
+    HTMLElement.prototype.scrollIntoView ??= vi.fn()
+    HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
+    HTMLElement.prototype.releasePointerCapture ??= vi.fn()
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('shows provider contract details and keeps unavailable providers visible but disabled', async () => {
+    const { getByLabelText, getByText } = render(EphemeralChatProviderSelect, {
+      props: {
+        providers: providerFixtures,
+        providerId: 'provider-1',
+      },
+    })
+
+    expect(getByText('Codex · codex-app-server · gpt-5.4 · Ready')).toBeTruthy()
+
+    const trigger = getByLabelText('Ephemeral Chat Provider')
+    await fireEvent.pointerDown(trigger)
+    await fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+
+    expect(getByText('Codex')).toBeTruthy()
+    expect(getByText('codex-app-server · gpt-5.4')).toBeTruthy()
+    expect(getByText('Gemini')).toBeTruthy()
+    expect(getByText('gemini-cli · gemini-2.5-pro')).toBeTruthy()
+    expect(getByText('Unavailable')).toBeTruthy()
+    expect(getByText('Host machine is offline.')).toBeTruthy()
+
+    const unavailableOption = getByText('Gemini').closest('[data-slot="select-item"]')
+    expect(unavailableOption?.hasAttribute('data-disabled')).toBe(true)
+  })
+})
