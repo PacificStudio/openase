@@ -3,10 +3,11 @@
   import type { AgentProvider } from '$lib/api/contracts'
   import {
     createEphemeralChatSessionController,
+    EPHEMERAL_CHAT_MAX_BUDGET_USD,
+    EPHEMERAL_CHAT_MAX_TURNS,
     EphemeralChatActionProposalCard,
     EphemeralChatProviderSelect,
   } from '$lib/features/chat'
-  import { EPHEMERAL_CHAT_MAX_BUDGET_USD, EPHEMERAL_CHAT_MAX_TURNS } from '$lib/features/chat/session-policy'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'

@@ -158,7 +158,11 @@ describe('EphemeralChatPanel', () => {
       },
     })
 
-    expect(await findByText('Session cap: 10 turns / $2.00. The first reply starts a new ephemeral chat session.')).toBeTruthy()
+    expect(
+      await findByText(
+        'Session cap: 10 turns / $2.00. The first reply starts a new ephemeral chat session.',
+      ),
+    ).toBeTruthy()
 
     const prompt = getByPlaceholderText('Ask a question about this project.')
     await fireEvent.input(prompt, { target: { value: 'Split this work into a child ticket.' } })
