@@ -115,6 +115,42 @@ else
   printf 'gh_cli\tfalse\tunknown\n'
 fi
 
+github_token_configured=false
+github_token_state=missing
+github_token_valid=false
+github_token_permissions=-
+github_token_repo_access=not_checked
+github_token_error=
+if [ -n "${GH_TOKEN:-}" ]; then
+  github_token_configured=true
+  headers_file=$(mktemp)
+  body_file=$(mktemp)
+  http_code=$(curl -sS -D "$headers_file" -o "$body_file" -w '%{http_code}' \
+    -H 'Accept: application/vnd.github+json' \
+    -H "Authorization: Bearer ${GH_TOKEN}" \
+    https://api.github.com/user || printf 'curl_error')
+  if [ "$http_code" = "200" ]; then
+    github_token_state=valid
+    github_token_valid=true
+    github_token_permissions=$(awk 'BEGIN{IGNORECASE=1} /^x-oauth-scopes:/ {sub(/^[^:]+:[[:space:]]*/, ""); gsub(/[[:space:]]+/, "", $0); print; exit}' "$headers_file")
+    if [ -z "$github_token_permissions" ]; then
+      github_token_permissions=-
+    fi
+  elif [ "$http_code" = "401" ]; then
+    github_token_state=revoked
+    github_token_error=unauthorized
+  elif [ "$http_code" = "curl_error" ]; then
+    github_token_state=error
+    github_token_error=probe_request_failed
+  else
+    github_token_state=error
+    github_token_error="status_${http_code}"
+  fi
+  rm -f "$headers_file" "$body_file"
+fi
+printf 'github_token_probe\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+  "$github_token_configured" "$github_token_state" "$github_token_valid" "$github_token_permissions" "$github_token_repo_access" "$github_token_error"
+
 github_reachable=false
 if curl -fsS --max-time 5 https://api.github.com >/dev/null 2>&1; then
   github_reachable=true

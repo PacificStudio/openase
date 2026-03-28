@@ -34,6 +34,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -11233,6 +11234,8 @@ type OrganizationMutation struct {
 	name                          *string
 	slug                          *string
 	status                        *organization.Status
+	github_outbound_credential    **githubauth.StoredCredential
+	github_token_probe            **githubauth.TokenProbe
 	clearedFields                 map[string]struct{}
 	projects                      map[uuid.UUID]struct{}
 	removedprojects               map[uuid.UUID]struct{}
@@ -11463,6 +11466,104 @@ func (m *OrganizationMutation) OldStatus(ctx context.Context) (v organization.St
 // ResetStatus resets all changes to the "status" field.
 func (m *OrganizationMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetGithubOutboundCredential sets the "github_outbound_credential" field.
+func (m *OrganizationMutation) SetGithubOutboundCredential(gc *githubauth.StoredCredential) {
+	m.github_outbound_credential = &gc
+}
+
+// GithubOutboundCredential returns the value of the "github_outbound_credential" field in the mutation.
+func (m *OrganizationMutation) GithubOutboundCredential() (r *githubauth.StoredCredential, exists bool) {
+	v := m.github_outbound_credential
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGithubOutboundCredential returns the old "github_outbound_credential" field's value of the Organization entity.
+// If the Organization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMutation) OldGithubOutboundCredential(ctx context.Context) (v *githubauth.StoredCredential, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGithubOutboundCredential is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGithubOutboundCredential requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGithubOutboundCredential: %w", err)
+	}
+	return oldValue.GithubOutboundCredential, nil
+}
+
+// ClearGithubOutboundCredential clears the value of the "github_outbound_credential" field.
+func (m *OrganizationMutation) ClearGithubOutboundCredential() {
+	m.github_outbound_credential = nil
+	m.clearedFields[organization.FieldGithubOutboundCredential] = struct{}{}
+}
+
+// GithubOutboundCredentialCleared returns if the "github_outbound_credential" field was cleared in this mutation.
+func (m *OrganizationMutation) GithubOutboundCredentialCleared() bool {
+	_, ok := m.clearedFields[organization.FieldGithubOutboundCredential]
+	return ok
+}
+
+// ResetGithubOutboundCredential resets all changes to the "github_outbound_credential" field.
+func (m *OrganizationMutation) ResetGithubOutboundCredential() {
+	m.github_outbound_credential = nil
+	delete(m.clearedFields, organization.FieldGithubOutboundCredential)
+}
+
+// SetGithubTokenProbe sets the "github_token_probe" field.
+func (m *OrganizationMutation) SetGithubTokenProbe(gp *githubauth.TokenProbe) {
+	m.github_token_probe = &gp
+}
+
+// GithubTokenProbe returns the value of the "github_token_probe" field in the mutation.
+func (m *OrganizationMutation) GithubTokenProbe() (r *githubauth.TokenProbe, exists bool) {
+	v := m.github_token_probe
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGithubTokenProbe returns the old "github_token_probe" field's value of the Organization entity.
+// If the Organization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMutation) OldGithubTokenProbe(ctx context.Context) (v *githubauth.TokenProbe, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGithubTokenProbe is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGithubTokenProbe requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGithubTokenProbe: %w", err)
+	}
+	return oldValue.GithubTokenProbe, nil
+}
+
+// ClearGithubTokenProbe clears the value of the "github_token_probe" field.
+func (m *OrganizationMutation) ClearGithubTokenProbe() {
+	m.github_token_probe = nil
+	m.clearedFields[organization.FieldGithubTokenProbe] = struct{}{}
+}
+
+// GithubTokenProbeCleared returns if the "github_token_probe" field was cleared in this mutation.
+func (m *OrganizationMutation) GithubTokenProbeCleared() bool {
+	_, ok := m.clearedFields[organization.FieldGithubTokenProbe]
+	return ok
+}
+
+// ResetGithubTokenProbe resets all changes to the "github_token_probe" field.
+func (m *OrganizationMutation) ResetGithubTokenProbe() {
+	m.github_token_probe = nil
+	delete(m.clearedFields, organization.FieldGithubTokenProbe)
 }
 
 // SetDefaultAgentProviderID sets the "default_agent_provider_id" field.
@@ -11791,7 +11892,7 @@ func (m *OrganizationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *OrganizationMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 6)
 	if m.name != nil {
 		fields = append(fields, organization.FieldName)
 	}
@@ -11800,6 +11901,12 @@ func (m *OrganizationMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, organization.FieldStatus)
+	}
+	if m.github_outbound_credential != nil {
+		fields = append(fields, organization.FieldGithubOutboundCredential)
+	}
+	if m.github_token_probe != nil {
+		fields = append(fields, organization.FieldGithubTokenProbe)
 	}
 	if m.default_agent_provider != nil {
 		fields = append(fields, organization.FieldDefaultAgentProviderID)
@@ -11818,6 +11925,10 @@ func (m *OrganizationMutation) Field(name string) (ent.Value, bool) {
 		return m.Slug()
 	case organization.FieldStatus:
 		return m.Status()
+	case organization.FieldGithubOutboundCredential:
+		return m.GithubOutboundCredential()
+	case organization.FieldGithubTokenProbe:
+		return m.GithubTokenProbe()
 	case organization.FieldDefaultAgentProviderID:
 		return m.DefaultAgentProviderID()
 	}
@@ -11835,6 +11946,10 @@ func (m *OrganizationMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldSlug(ctx)
 	case organization.FieldStatus:
 		return m.OldStatus(ctx)
+	case organization.FieldGithubOutboundCredential:
+		return m.OldGithubOutboundCredential(ctx)
+	case organization.FieldGithubTokenProbe:
+		return m.OldGithubTokenProbe(ctx)
 	case organization.FieldDefaultAgentProviderID:
 		return m.OldDefaultAgentProviderID(ctx)
 	}
@@ -11866,6 +11981,20 @@ func (m *OrganizationMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case organization.FieldGithubOutboundCredential:
+		v, ok := value.(*githubauth.StoredCredential)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGithubOutboundCredential(v)
+		return nil
+	case organization.FieldGithubTokenProbe:
+		v, ok := value.(*githubauth.TokenProbe)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGithubTokenProbe(v)
 		return nil
 	case organization.FieldDefaultAgentProviderID:
 		v, ok := value.(uuid.UUID)
@@ -11904,6 +12033,12 @@ func (m *OrganizationMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *OrganizationMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(organization.FieldGithubOutboundCredential) {
+		fields = append(fields, organization.FieldGithubOutboundCredential)
+	}
+	if m.FieldCleared(organization.FieldGithubTokenProbe) {
+		fields = append(fields, organization.FieldGithubTokenProbe)
+	}
 	if m.FieldCleared(organization.FieldDefaultAgentProviderID) {
 		fields = append(fields, organization.FieldDefaultAgentProviderID)
 	}
@@ -11921,6 +12056,12 @@ func (m *OrganizationMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *OrganizationMutation) ClearField(name string) error {
 	switch name {
+	case organization.FieldGithubOutboundCredential:
+		m.ClearGithubOutboundCredential()
+		return nil
+	case organization.FieldGithubTokenProbe:
+		m.ClearGithubTokenProbe()
+		return nil
 	case organization.FieldDefaultAgentProviderID:
 		m.ClearDefaultAgentProviderID()
 		return nil
@@ -11940,6 +12081,12 @@ func (m *OrganizationMutation) ResetField(name string) error {
 		return nil
 	case organization.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case organization.FieldGithubOutboundCredential:
+		m.ResetGithubOutboundCredential()
+		return nil
+	case organization.FieldGithubTokenProbe:
+		m.ResetGithubTokenProbe()
 		return nil
 	case organization.FieldDefaultAgentProviderID:
 		m.ResetDefaultAgentProviderID()
@@ -12138,6 +12285,8 @@ type ProjectMutation struct {
 	slug                          *string
 	description                   *string
 	status                        *project.Status
+	github_outbound_credential    **githubauth.StoredCredential
+	github_token_probe            **githubauth.TokenProbe
 	accessible_machine_ids        *[]uuid.UUID
 	appendaccessible_machine_ids  []uuid.UUID
 	max_concurrent_agents         *int
@@ -12485,6 +12634,104 @@ func (m *ProjectMutation) OldStatus(ctx context.Context) (v project.Status, err 
 // ResetStatus resets all changes to the "status" field.
 func (m *ProjectMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetGithubOutboundCredential sets the "github_outbound_credential" field.
+func (m *ProjectMutation) SetGithubOutboundCredential(gc *githubauth.StoredCredential) {
+	m.github_outbound_credential = &gc
+}
+
+// GithubOutboundCredential returns the value of the "github_outbound_credential" field in the mutation.
+func (m *ProjectMutation) GithubOutboundCredential() (r *githubauth.StoredCredential, exists bool) {
+	v := m.github_outbound_credential
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGithubOutboundCredential returns the old "github_outbound_credential" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGithubOutboundCredential(ctx context.Context) (v *githubauth.StoredCredential, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGithubOutboundCredential is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGithubOutboundCredential requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGithubOutboundCredential: %w", err)
+	}
+	return oldValue.GithubOutboundCredential, nil
+}
+
+// ClearGithubOutboundCredential clears the value of the "github_outbound_credential" field.
+func (m *ProjectMutation) ClearGithubOutboundCredential() {
+	m.github_outbound_credential = nil
+	m.clearedFields[project.FieldGithubOutboundCredential] = struct{}{}
+}
+
+// GithubOutboundCredentialCleared returns if the "github_outbound_credential" field was cleared in this mutation.
+func (m *ProjectMutation) GithubOutboundCredentialCleared() bool {
+	_, ok := m.clearedFields[project.FieldGithubOutboundCredential]
+	return ok
+}
+
+// ResetGithubOutboundCredential resets all changes to the "github_outbound_credential" field.
+func (m *ProjectMutation) ResetGithubOutboundCredential() {
+	m.github_outbound_credential = nil
+	delete(m.clearedFields, project.FieldGithubOutboundCredential)
+}
+
+// SetGithubTokenProbe sets the "github_token_probe" field.
+func (m *ProjectMutation) SetGithubTokenProbe(gp *githubauth.TokenProbe) {
+	m.github_token_probe = &gp
+}
+
+// GithubTokenProbe returns the value of the "github_token_probe" field in the mutation.
+func (m *ProjectMutation) GithubTokenProbe() (r *githubauth.TokenProbe, exists bool) {
+	v := m.github_token_probe
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGithubTokenProbe returns the old "github_token_probe" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGithubTokenProbe(ctx context.Context) (v *githubauth.TokenProbe, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGithubTokenProbe is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGithubTokenProbe requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGithubTokenProbe: %w", err)
+	}
+	return oldValue.GithubTokenProbe, nil
+}
+
+// ClearGithubTokenProbe clears the value of the "github_token_probe" field.
+func (m *ProjectMutation) ClearGithubTokenProbe() {
+	m.github_token_probe = nil
+	m.clearedFields[project.FieldGithubTokenProbe] = struct{}{}
+}
+
+// GithubTokenProbeCleared returns if the "github_token_probe" field was cleared in this mutation.
+func (m *ProjectMutation) GithubTokenProbeCleared() bool {
+	_, ok := m.clearedFields[project.FieldGithubTokenProbe]
+	return ok
+}
+
+// ResetGithubTokenProbe resets all changes to the "github_token_probe" field.
+func (m *ProjectMutation) ResetGithubTokenProbe() {
+	m.github_token_probe = nil
+	delete(m.clearedFields, project.FieldGithubTokenProbe)
 }
 
 // SetDefaultWorkflowID sets the "default_workflow_id" field.
@@ -13455,7 +13702,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 11)
 	if m.organization != nil {
 		fields = append(fields, project.FieldOrganizationID)
 	}
@@ -13470,6 +13717,12 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, project.FieldStatus)
+	}
+	if m.github_outbound_credential != nil {
+		fields = append(fields, project.FieldGithubOutboundCredential)
+	}
+	if m.github_token_probe != nil {
+		fields = append(fields, project.FieldGithubTokenProbe)
 	}
 	if m.default_workflow != nil {
 		fields = append(fields, project.FieldDefaultWorkflowID)
@@ -13501,6 +13754,10 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case project.FieldStatus:
 		return m.Status()
+	case project.FieldGithubOutboundCredential:
+		return m.GithubOutboundCredential()
+	case project.FieldGithubTokenProbe:
+		return m.GithubTokenProbe()
 	case project.FieldDefaultWorkflowID:
 		return m.DefaultWorkflowID()
 	case project.FieldDefaultAgentProviderID:
@@ -13528,6 +13785,10 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldDescription(ctx)
 	case project.FieldStatus:
 		return m.OldStatus(ctx)
+	case project.FieldGithubOutboundCredential:
+		return m.OldGithubOutboundCredential(ctx)
+	case project.FieldGithubTokenProbe:
+		return m.OldGithubTokenProbe(ctx)
 	case project.FieldDefaultWorkflowID:
 		return m.OldDefaultWorkflowID(ctx)
 	case project.FieldDefaultAgentProviderID:
@@ -13579,6 +13840,20 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case project.FieldGithubOutboundCredential:
+		v, ok := value.(*githubauth.StoredCredential)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGithubOutboundCredential(v)
+		return nil
+	case project.FieldGithubTokenProbe:
+		v, ok := value.(*githubauth.TokenProbe)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGithubTokenProbe(v)
 		return nil
 	case project.FieldDefaultWorkflowID:
 		v, ok := value.(uuid.UUID)
@@ -13656,6 +13931,12 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldDescription) {
 		fields = append(fields, project.FieldDescription)
 	}
+	if m.FieldCleared(project.FieldGithubOutboundCredential) {
+		fields = append(fields, project.FieldGithubOutboundCredential)
+	}
+	if m.FieldCleared(project.FieldGithubTokenProbe) {
+		fields = append(fields, project.FieldGithubTokenProbe)
+	}
 	if m.FieldCleared(project.FieldDefaultWorkflowID) {
 		fields = append(fields, project.FieldDefaultWorkflowID)
 	}
@@ -13678,6 +13959,12 @@ func (m *ProjectMutation) ClearField(name string) error {
 	switch name {
 	case project.FieldDescription:
 		m.ClearDescription()
+		return nil
+	case project.FieldGithubOutboundCredential:
+		m.ClearGithubOutboundCredential()
+		return nil
+	case project.FieldGithubTokenProbe:
+		m.ClearGithubTokenProbe()
 		return nil
 	case project.FieldDefaultWorkflowID:
 		m.ClearDefaultWorkflowID()
@@ -13707,6 +13994,12 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case project.FieldGithubOutboundCredential:
+		m.ResetGithubOutboundCredential()
+		return nil
+	case project.FieldGithubTokenProbe:
+		m.ResetGithubTokenProbe()
 		return nil
 	case project.FieldDefaultWorkflowID:
 		m.ResetDefaultWorkflowID()

@@ -451,6 +451,17 @@ func updateL5Resources(resources map[string]any, fullAudit domain.MachineFullAud
 		"installed":   fullAudit.GitHubCLI.Installed,
 		"auth_status": string(fullAudit.GitHubCLI.AuthStatus),
 	}
+	githubTokenProbe := map[string]any{
+		"state":       string(fullAudit.GitHubTokenProbe.State),
+		"configured":  fullAudit.GitHubTokenProbe.Configured,
+		"valid":       fullAudit.GitHubTokenProbe.Valid,
+		"permissions": append([]string(nil), fullAudit.GitHubTokenProbe.Permissions...),
+		"repo_access": string(fullAudit.GitHubTokenProbe.RepoAccess),
+		"last_error":  fullAudit.GitHubTokenProbe.LastError,
+	}
+	if fullAudit.GitHubTokenProbe.CheckedAt != nil {
+		githubTokenProbe["checked_at"] = fullAudit.GitHubTokenProbe.CheckedAt.UTC().Format(time.RFC3339)
+	}
 	networkSummary := map[string]any{
 		"github_reachable": fullAudit.Network.GitHubReachable,
 		"pypi_reachable":   fullAudit.Network.PyPIReachable,
@@ -459,12 +470,14 @@ func updateL5Resources(resources map[string]any, fullAudit domain.MachineFullAud
 
 	levelMap["git"] = cloneResourceMap(gitSummary)
 	levelMap["gh_cli"] = cloneResourceMap(ghSummary)
+	levelMap["github_token_probe"] = cloneResourceMap(githubTokenProbe)
 	levelMap["network"] = cloneResourceMap(networkSummary)
 	resources["full_audit"] = map[string]any{
-		"checked_at": fullAudit.CollectedAt.UTC().Format(time.RFC3339),
-		"git":        gitSummary,
-		"gh_cli":     ghSummary,
-		"network":    networkSummary,
+		"checked_at":         fullAudit.CollectedAt.UTC().Format(time.RFC3339),
+		"git":                gitSummary,
+		"gh_cli":             ghSummary,
+		"github_token_probe": githubTokenProbe,
+		"network":            networkSummary,
 	}
 }
 

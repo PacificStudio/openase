@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -47,6 +48,18 @@ func (_c *OrganizationCreate) SetNillableStatus(v *organization.Status) *Organiz
 	if v != nil {
 		_c.SetStatus(*v)
 	}
+	return _c
+}
+
+// SetGithubOutboundCredential sets the "github_outbound_credential" field.
+func (_c *OrganizationCreate) SetGithubOutboundCredential(v *githubauth.StoredCredential) *OrganizationCreate {
+	_c.mutation.SetGithubOutboundCredential(v)
+	return _c
+}
+
+// SetGithubTokenProbe sets the "github_token_probe" field.
+func (_c *OrganizationCreate) SetGithubTokenProbe(v *githubauth.TokenProbe) *OrganizationCreate {
+	_c.mutation.SetGithubTokenProbe(v)
 	return _c
 }
 
@@ -260,6 +273,14 @@ func (_c *OrganizationCreate) createSpec() (*Organization, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(organization.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.GithubOutboundCredential(); ok {
+		_spec.SetField(organization.FieldGithubOutboundCredential, field.TypeJSON, value)
+		_node.GithubOutboundCredential = value
+	}
+	if value, ok := _c.mutation.GithubTokenProbe(); ok {
+		_spec.SetField(organization.FieldGithubTokenProbe, field.TypeJSON, value)
+		_node.GithubTokenProbe = value
 	}
 	if nodes := _c.mutation.ProjectsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

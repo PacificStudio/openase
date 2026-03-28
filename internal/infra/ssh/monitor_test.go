@@ -103,3 +103,32 @@ func TestBuildAgentEnvironmentScriptUsesRelaxedCodexLoginMatch(t *testing.T) {
 		t.Fatalf("expected codex login match to inspect stderr output, got %q", script)
 	}
 }
+
+func TestMonitorCollectorCollectFullAuditIncludesGitHubTokenProbe(t *testing.T) {
+	collector := &MonitorCollector{
+		now: func() time.Time { return time.Date(2026, 3, 28, 12, 30, 0, 0, time.UTC) },
+		runLocal: func(_ context.Context, script string) ([]byte, error) {
+			if !strings.Contains(script, "export GH_TOKEN='ghu_probe_token'") {
+				t.Fatalf("expected GH_TOKEN to be projected into audit script, got %q", script)
+			}
+			return []byte(
+				"git\ttrue\tOpenASE\topenase@example.com\n" +
+					"gh_cli\ttrue\tlogged_in\n" +
+					"github_token_probe\ttrue\tvalid\ttrue\trepo\tgranted\t\n" +
+					"network\ttrue\ttrue\ttrue\n",
+			), nil
+		},
+	}
+
+	audit, err := collector.CollectFullAudit(context.Background(), domain.Machine{
+		Name:    domain.LocalMachineName,
+		Host:    domain.LocalMachineHost,
+		EnvVars: []string{"GH_TOKEN=ghu_probe_token"},
+	})
+	if err != nil {
+		t.Fatalf("CollectFullAudit() error = %v", err)
+	}
+	if audit.GitHubTokenProbe.State != "valid" || !audit.GitHubTokenProbe.Valid {
+		t.Fatalf("expected github token probe in full audit, got %+v", audit.GitHubTokenProbe)
+	}
+}

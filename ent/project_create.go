@@ -24,6 +24,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -77,6 +78,18 @@ func (_c *ProjectCreate) SetNillableStatus(v *project.Status) *ProjectCreate {
 	if v != nil {
 		_c.SetStatus(*v)
 	}
+	return _c
+}
+
+// SetGithubOutboundCredential sets the "github_outbound_credential" field.
+func (_c *ProjectCreate) SetGithubOutboundCredential(v *githubauth.StoredCredential) *ProjectCreate {
+	_c.mutation.SetGithubOutboundCredential(v)
+	return _c
+}
+
+// SetGithubTokenProbe sets the "github_token_probe" field.
+func (_c *ProjectCreate) SetGithubTokenProbe(v *githubauth.TokenProbe) *ProjectCreate {
+	_c.mutation.SetGithubTokenProbe(v)
 	return _c
 }
 
@@ -478,6 +491,14 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.GithubOutboundCredential(); ok {
+		_spec.SetField(project.FieldGithubOutboundCredential, field.TypeJSON, value)
+		_node.GithubOutboundCredential = value
+	}
+	if value, ok := _c.mutation.GithubTokenProbe(); ok {
+		_spec.SetField(project.FieldGithubTokenProbe, field.TypeJSON, value)
+		_node.GithubTokenProbe = value
 	}
 	if value, ok := _c.mutation.AccessibleMachineIds(); ok {
 		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)

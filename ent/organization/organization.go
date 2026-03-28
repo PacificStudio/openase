@@ -21,6 +21,10 @@ const (
 	FieldSlug = "slug"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldGithubOutboundCredential holds the string denoting the github_outbound_credential field in the database.
+	FieldGithubOutboundCredential = "github_outbound_credential"
+	// FieldGithubTokenProbe holds the string denoting the github_token_probe field in the database.
+	FieldGithubTokenProbe = "github_token_probe"
 	// FieldDefaultAgentProviderID holds the string denoting the default_agent_provider_id field in the database.
 	FieldDefaultAgentProviderID = "default_agent_provider_id"
 	// EdgeProjects holds the string denoting the projects edge name in mutations.
@@ -78,6 +82,8 @@ var Columns = []string{
 	FieldName,
 	FieldSlug,
 	FieldStatus,
+	FieldGithubOutboundCredential,
+	FieldGithubTokenProbe,
 	FieldDefaultAgentProviderID,
 }
 

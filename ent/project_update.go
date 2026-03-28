@@ -27,6 +27,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -116,6 +117,30 @@ func (_u *ProjectUpdate) SetNillableStatus(v *project.Status) *ProjectUpdate {
 	if v != nil {
 		_u.SetStatus(*v)
 	}
+	return _u
+}
+
+// SetGithubOutboundCredential sets the "github_outbound_credential" field.
+func (_u *ProjectUpdate) SetGithubOutboundCredential(v *githubauth.StoredCredential) *ProjectUpdate {
+	_u.mutation.SetGithubOutboundCredential(v)
+	return _u
+}
+
+// ClearGithubOutboundCredential clears the value of the "github_outbound_credential" field.
+func (_u *ProjectUpdate) ClearGithubOutboundCredential() *ProjectUpdate {
+	_u.mutation.ClearGithubOutboundCredential()
+	return _u
+}
+
+// SetGithubTokenProbe sets the "github_token_probe" field.
+func (_u *ProjectUpdate) SetGithubTokenProbe(v *githubauth.TokenProbe) *ProjectUpdate {
+	_u.mutation.SetGithubTokenProbe(v)
+	return _u
+}
+
+// ClearGithubTokenProbe clears the value of the "github_token_probe" field.
+func (_u *ProjectUpdate) ClearGithubTokenProbe() *ProjectUpdate {
+	_u.mutation.ClearGithubTokenProbe()
 	return _u
 }
 
@@ -738,6 +763,18 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.GithubOutboundCredential(); ok {
+		_spec.SetField(project.FieldGithubOutboundCredential, field.TypeJSON, value)
+	}
+	if _u.mutation.GithubOutboundCredentialCleared() {
+		_spec.ClearField(project.FieldGithubOutboundCredential, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.GithubTokenProbe(); ok {
+		_spec.SetField(project.FieldGithubTokenProbe, field.TypeJSON, value)
+	}
+	if _u.mutation.GithubTokenProbeCleared() {
+		_spec.ClearField(project.FieldGithubTokenProbe, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.AccessibleMachineIds(); ok {
 		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)
@@ -1476,6 +1513,30 @@ func (_u *ProjectUpdateOne) SetNillableStatus(v *project.Status) *ProjectUpdateO
 	return _u
 }
 
+// SetGithubOutboundCredential sets the "github_outbound_credential" field.
+func (_u *ProjectUpdateOne) SetGithubOutboundCredential(v *githubauth.StoredCredential) *ProjectUpdateOne {
+	_u.mutation.SetGithubOutboundCredential(v)
+	return _u
+}
+
+// ClearGithubOutboundCredential clears the value of the "github_outbound_credential" field.
+func (_u *ProjectUpdateOne) ClearGithubOutboundCredential() *ProjectUpdateOne {
+	_u.mutation.ClearGithubOutboundCredential()
+	return _u
+}
+
+// SetGithubTokenProbe sets the "github_token_probe" field.
+func (_u *ProjectUpdateOne) SetGithubTokenProbe(v *githubauth.TokenProbe) *ProjectUpdateOne {
+	_u.mutation.SetGithubTokenProbe(v)
+	return _u
+}
+
+// ClearGithubTokenProbe clears the value of the "github_token_probe" field.
+func (_u *ProjectUpdateOne) ClearGithubTokenProbe() *ProjectUpdateOne {
+	_u.mutation.ClearGithubTokenProbe()
+	return _u
+}
+
 // SetDefaultWorkflowID sets the "default_workflow_id" field.
 func (_u *ProjectUpdateOne) SetDefaultWorkflowID(v uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.SetDefaultWorkflowID(v)
@@ -2125,6 +2186,18 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(project.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.GithubOutboundCredential(); ok {
+		_spec.SetField(project.FieldGithubOutboundCredential, field.TypeJSON, value)
+	}
+	if _u.mutation.GithubOutboundCredentialCleared() {
+		_spec.ClearField(project.FieldGithubOutboundCredential, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.GithubTokenProbe(); ok {
+		_spec.SetField(project.FieldGithubTokenProbe, field.TypeJSON, value)
+	}
+	if _u.mutation.GithubTokenProbeCleared() {
+		_spec.ClearField(project.FieldGithubTokenProbe, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.AccessibleMachineIds(); ok {
 		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)

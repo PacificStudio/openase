@@ -26,10 +26,12 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -111,6 +113,10 @@ func (a *App) RunServe(ctx context.Context) error {
 	}()
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
+	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.Database.DSN)
+	if err != nil {
+		return err
+	}
 	ticketSvc := ticketservice.NewService(client)
 	ticketStatusSvc := ticketstatus.NewService(client)
 	catalogSvc := catalogservice.New(
@@ -167,6 +173,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
+		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithMetricsProvider(a.metrics),
 		httpapi.WithMetricsHandler(a.metricsHandler),
@@ -226,6 +233,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		sshPool,
 		workflowSvc,
 	)
+	runtimeLauncher.ConfigureGitHubCredentials(githubAuthSvc)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

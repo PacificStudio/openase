@@ -334,6 +334,26 @@ func StatusNotIn(vs ...Status) predicate.Project {
 	return predicate.Project(sql.FieldNotIn(FieldStatus, vs...))
 }
 
+// GithubOutboundCredentialIsNil applies the IsNil predicate on the "github_outbound_credential" field.
+func GithubOutboundCredentialIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGithubOutboundCredential))
+}
+
+// GithubOutboundCredentialNotNil applies the NotNil predicate on the "github_outbound_credential" field.
+func GithubOutboundCredentialNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGithubOutboundCredential))
+}
+
+// GithubTokenProbeIsNil applies the IsNil predicate on the "github_token_probe" field.
+func GithubTokenProbeIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGithubTokenProbe))
+}
+
+// GithubTokenProbeNotNil applies the NotNil predicate on the "github_token_probe" field.
+func GithubTokenProbeNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGithubTokenProbe))
+}
+
 // DefaultWorkflowIDEQ applies the EQ predicate on the "default_workflow_id" field.
 func DefaultWorkflowIDEQ(v uuid.UUID) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldDefaultWorkflowID, v))

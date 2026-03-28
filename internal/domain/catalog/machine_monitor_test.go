@@ -33,6 +33,7 @@ func TestParseMachineFullAudit(t *testing.T) {
 	collectedAt := time.Date(2026, 3, 20, 18, 45, 0, 0, time.UTC)
 	raw := "git\ttrue\tOpenASE\topenase@example.com\n" +
 		"gh_cli\ttrue\tnot_logged_in\n" +
+		"github_token_probe\ttrue\tvalid\ttrue\trepo,read:org\tgranted\t\n" +
 		"network\ttrue\tfalse\ttrue\n"
 
 	audit, err := ParseMachineFullAudit(raw, collectedAt)
@@ -44,6 +45,9 @@ func TestParseMachineFullAudit(t *testing.T) {
 	}
 	if audit.GitHubCLI.AuthStatus != MachineAgentAuthStatusNotLoggedIn {
 		t.Fatalf("expected gh auth status to parse, got %+v", audit.GitHubCLI)
+	}
+	if audit.GitHubTokenProbe.State != "valid" || !audit.GitHubTokenProbe.Valid || audit.GitHubTokenProbe.RepoAccess != "granted" {
+		t.Fatalf("expected github token probe to parse, got %+v", audit.GitHubTokenProbe)
 	}
 	if !audit.Network.GitHubReachable || audit.Network.PyPIReachable || !audit.Network.NPMReachable {
 		t.Fatalf("expected network audit to parse, got %+v", audit.Network)

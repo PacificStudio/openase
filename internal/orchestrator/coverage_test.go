@@ -439,7 +439,7 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 		WorkspaceRoot: &remoteRoot,
 	}
 
-	request, err := buildWorkspaceRequest(launchContext, remoteMachine, true)
+	request, err := buildWorkspaceRequest(launchContext, remoteMachine, true, "")
 	if err != nil {
 		t.Fatalf("buildWorkspaceRequest() error = %v", err)
 	}
@@ -458,7 +458,7 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 		t.Fatalf("buildWorkspacePath() = %q", workspacePath)
 	}
 
-	if _, err := buildWorkspaceRequest(runtimeLaunchContext{project: &ent.Project{}}, remoteMachine, true); err == nil || err.Error() == "" {
+	if _, err := buildWorkspaceRequest(runtimeLaunchContext{project: &ent.Project{}}, remoteMachine, true, ""); err == nil || err.Error() == "" {
 		t.Fatalf("buildWorkspaceRequest(missing org) error = %v", err)
 	}
 	if _, err := resolveWorkspaceRoot(catalogdomain.Machine{Name: "builder", Host: "10.0.0.12"}, true); err == nil || err.Error() == "" {

@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -31,6 +32,10 @@ type Project struct {
 	Description string `json:"description,omitempty"`
 	// Status holds the value of the "status" field.
 	Status project.Status `json:"status,omitempty"`
+	// GithubOutboundCredential holds the value of the "github_outbound_credential" field.
+	GithubOutboundCredential *githubauth.StoredCredential `json:"github_outbound_credential,omitempty"`
+	// GithubTokenProbe holds the value of the "github_token_probe" field.
+	GithubTokenProbe *githubauth.TokenProbe `json:"github_token_probe,omitempty"`
 	// DefaultWorkflowID holds the value of the "default_workflow_id" field.
 	DefaultWorkflowID *uuid.UUID `json:"default_workflow_id,omitempty"`
 	// DefaultAgentProviderID holds the value of the "default_agent_provider_id" field.
@@ -230,7 +235,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case project.FieldDefaultWorkflowID, project.FieldDefaultAgentProviderID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case project.FieldAccessibleMachineIds:
+		case project.FieldGithubOutboundCredential, project.FieldGithubTokenProbe, project.FieldAccessibleMachineIds:
 			values[i] = new([]byte)
 		case project.FieldMaxConcurrentAgents:
 			values[i] = new(sql.NullInt64)
@@ -288,6 +293,22 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = project.Status(value.String)
+			}
+		case project.FieldGithubOutboundCredential:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field github_outbound_credential", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.GithubOutboundCredential); err != nil {
+					return fmt.Errorf("unmarshal field github_outbound_credential: %w", err)
+				}
+			}
+		case project.FieldGithubTokenProbe:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field github_token_probe", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.GithubTokenProbe); err != nil {
+					return fmt.Errorf("unmarshal field github_token_probe: %w", err)
+				}
 			}
 		case project.FieldDefaultWorkflowID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -442,6 +463,12 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))
+	builder.WriteString(", ")
+	builder.WriteString("github_outbound_credential=")
+	builder.WriteString(fmt.Sprintf("%v", _m.GithubOutboundCredential))
+	builder.WriteString(", ")
+	builder.WriteString("github_token_probe=")
+	builder.WriteString(fmt.Sprintf("%v", _m.GithubTokenProbe))
 	builder.WriteString(", ")
 	if v := _m.DefaultWorkflowID; v != nil {
 		builder.WriteString("default_workflow_id=")

@@ -52,6 +52,37 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 	}
 }
 
+func TestBuildPrepareWorkspaceCommandProjectsGitHubTokenIntoSessionScript(t *testing.T) {
+	request := SetupRequest{
+		WorkspaceRoot:    "/srv/openase/workspaces",
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		TicketIdentifier: "ASE-104",
+		BranchName:       "agent/codex-01/ASE-104",
+		Repos: []RepoRequest{
+			{
+				Name:          "backend",
+				RepositoryURL: "https://github.com/acme/backend.git",
+				DefaultBranch: "main",
+				ClonePath:     "backend",
+				BranchName:    "agent/codex-01/ASE-104",
+				GitHubToken:   "ghu_session_token",
+			},
+		},
+	}
+
+	command := buildPrepareWorkspaceCommand(request)
+	if !strings.Contains(command, "export GH_TOKEN='ghu_session_token'") {
+		t.Fatalf("expected GH_TOKEN export, got %q", command)
+	}
+	if !strings.Contains(command, "openase_git clone --branch 'main' --single-branch 'https://github.com/acme/backend.git'") {
+		t.Fatalf("expected openase_git clone for GitHub transport, got %q", command)
+	}
+	if !strings.Contains(command, "credential.helper=!f()") {
+		t.Fatalf("expected session-scoped credential helper, got %q", command)
+	}
+}
+
 type remoteTestDialer struct {
 	client sshinfra.Client
 }
