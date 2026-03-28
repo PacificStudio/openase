@@ -275,6 +275,10 @@ func init() {
 	projectDescSlug := projectFields[3].Descriptor()
 	// project.SlugValidator is a validator for the "slug" field. It is called by the builders before save.
 	project.SlugValidator = projectDescSlug.Validators[0].(func(string) error)
+	// projectDescStatus is the schema descriptor for status field.
+	projectDescStatus := projectFields[5].Descriptor()
+	// project.DefaultStatus holds the default value on creation for the status field.
+	project.DefaultStatus = projectDescStatus.Default.(string)
 	// projectDescAccessibleMachineIds is the schema descriptor for accessible_machine_ids field.
 	projectDescAccessibleMachineIds := projectFields[10].Descriptor()
 	// project.DefaultAccessibleMachineIds holds the default value on creation for the accessible_machine_ids field.

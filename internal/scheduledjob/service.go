@@ -436,7 +436,7 @@ func (s *Service) RunDue(ctx context.Context) (RunDueReport, error) {
 			entscheduledjob.IsEnabled(true),
 			entscheduledjob.NextRunAtNotNil(),
 			entscheduledjob.NextRunAtLTE(now),
-			entscheduledjob.HasProjectWith(entproject.StatusEQ(entproject.StatusActive)),
+			entscheduledjob.HasProjectWith(entproject.StatusEQ("In Progress")),
 		).
 		WithWorkflow().
 		Order(ent.Asc(entscheduledjob.FieldNextRunAt), ent.Asc(entscheduledjob.FieldName)).

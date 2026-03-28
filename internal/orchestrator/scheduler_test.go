@@ -17,7 +17,6 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
@@ -1435,7 +1434,7 @@ func seedProjectFixtureAt(ctx context.Context, t *testing.T, client *ent.Client,
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
 		SetSlug("openase").
-		SetStatus(entproject.StatusActive).
+		SetStatus("In Progress").
 		SetMaxConcurrentAgents(2).
 		Save(ctx)
 	if err != nil {

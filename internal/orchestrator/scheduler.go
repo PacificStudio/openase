@@ -92,7 +92,7 @@ func (s *Scheduler) RunTick(ctx context.Context) (TickReport, error) {
 	workflows, err := s.client.Workflow.Query().
 		Where(
 			entworkflow.IsActive(true),
-			entworkflow.HasProjectWith(entproject.StatusEQ(entproject.StatusActive)),
+			entworkflow.HasProjectWith(entproject.StatusEQ("In Progress")),
 		).
 		WithProject().
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {

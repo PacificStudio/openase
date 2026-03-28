@@ -234,7 +234,7 @@ func TestServiceCreateOrganizationAndProjectFallbackPaths(t *testing.T) {
 			OrganizationID: uuid.New(),
 			Name:           "OpenASE",
 			Slug:           "openase",
-			Status:         "active",
+			Status:         "In Progress",
 		},
 	}
 	bootstrapErr := errors.New("seed failed")
@@ -245,7 +245,7 @@ func TestServiceCreateOrganizationAndProjectFallbackPaths(t *testing.T) {
 		OrganizationID: projectRepo.createdProject.OrganizationID,
 		Name:           "OpenASE",
 		Slug:           "openase",
-		Status:         "active",
+		Status:         "In Progress",
 	}); err == nil || !errors.Is(err, bootstrapErr) {
 		t.Fatalf("CreateProject(bootstrap failure) error = %v", err)
 	}

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -338,7 +337,7 @@ func seedScheduledJobFixture(ctx context.Context, t *testing.T, client *ent.Clie
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
 		SetSlug("openase").
-		SetStatus(entproject.StatusActive).
+		SetStatus("In Progress").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project: %v", err)

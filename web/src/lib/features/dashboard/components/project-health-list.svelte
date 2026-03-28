@@ -16,21 +16,32 @@
     class?: string
   } = $props()
 
-  const projectStatusOptions: ProjectStatus[] = ['planning', 'active', 'paused', 'archived']
+  const projectStatusOptions: ProjectStatus[] = [
+    'Backlog',
+    'Planned',
+    'In Progress',
+    'Completed',
+    'Canceled',
+    'Archived',
+  ]
 
   const statusClassName: Record<ProjectStatus, string> = {
-    planning:
-      'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200',
-    active:
-      'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200',
-    paused:
+    Backlog:
       'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200',
-    archived:
+    Planned:
+      'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200',
+    'In Progress':
+      'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200',
+    Completed:
+      'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-200',
+    Canceled:
+      'border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200',
+    Archived:
       'border-border bg-background text-muted-foreground hover:bg-muted dark:hover:bg-muted/60',
   }
 
   function statusLabel(status: ProjectStatus) {
-    return status.charAt(0).toUpperCase() + status.slice(1)
+    return status
   }
 </script>
 
@@ -61,7 +72,7 @@
           >
             <Select.Trigger
               class={cn(
-                'h-auto min-h-5 w-auto rounded-4xl border px-2 py-0.5 text-xs font-medium capitalize shadow-none',
+                'h-auto min-h-5 w-auto rounded-4xl border px-2 py-0.5 text-xs font-medium shadow-none',
                 statusClassName[project.status],
               )}
               disabled={savingProjectStatusId === project.id}
@@ -70,7 +81,7 @@
             </Select.Trigger>
             <Select.Content>
               {#each projectStatusOptions as status (status)}
-                <Select.Item value={status} class="capitalize">{statusLabel(status)}</Select.Item>
+                <Select.Item value={status}>{statusLabel(status)}</Select.Item>
               {/each}
             </Select.Content>
           </Select.Root>

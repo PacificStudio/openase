@@ -92,7 +92,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/projects",
-		`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"active","max_concurrent_agents":8}`,
+		`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"In Progress","max_concurrent_agents":8}`,
 	)
 	if projectRec.Code != http.StatusCreated {
 		t.Fatalf("expected project create 201, got %d: %s", projectRec.Code, projectRec.Body.String())
@@ -186,7 +186,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/projects",
-		`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"active","max_concurrent_agents":8}`,
+		`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"In Progress","max_concurrent_agents":8}`,
 	)
 	if projectRec.Code != http.StatusCreated {
 		t.Fatalf("expected project create 201, got %d: %s", projectRec.Code, projectRec.Body.String())

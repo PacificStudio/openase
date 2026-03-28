@@ -590,7 +590,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 		Name:                   " Coverage Rollout ",
 		Slug:                   " Coverage-Rollout ",
 		Description:            " Raise backend coverage ",
-		Status:                 " active ",
+		Status:                 ProjectStatusInProgress.String(),
 		DefaultWorkflowID:      stringPtr(workflowID.String()),
 		DefaultAgentProviderID: stringPtr(defaultProviderID.String()),
 		AccessibleMachineIDs:   []string{accessibleA.String(), accessibleA.String(), accessibleB.String()},
@@ -599,7 +599,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseCreateProject() error = %v", err)
 	}
-	if createProject.Description != "Raise backend coverage" || createProject.Status != ProjectStatusActive || len(createProject.AccessibleMachineIDs) != 2 {
+	if createProject.Description != "Raise backend coverage" || createProject.Status != ProjectStatusInProgress || len(createProject.AccessibleMachineIDs) != 2 {
 		t.Fatalf("ParseCreateProject() = %+v", createProject)
 	}
 	updateProject, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p"})
@@ -609,11 +609,11 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if updateProject.Status != DefaultProjectStatus || updateProject.MaxConcurrentAgents != DefaultProjectMaxConcurrentAgents {
 		t.Fatalf("ParseUpdateProject() defaults = %+v", updateProject)
 	}
-	updateProject, err = ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "Project", Slug: "project", Status: ProjectStatusActive.String()})
+	updateProject, err = ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "Project", Slug: "project", Status: ProjectStatusCompleted.String()})
 	if err != nil {
 		t.Fatalf("ParseUpdateProject(success) error = %v", err)
 	}
-	if updateProject.Status != ProjectStatusActive {
+	if updateProject.Status != ProjectStatusCompleted {
 		t.Fatalf("ParseUpdateProject(success) = %+v", updateProject)
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", DefaultWorkflowID: stringPtr("bad")}); err == nil {
@@ -633,6 +633,15 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: "bad"}); err == nil {
 		t.Fatal("ParseCreateProject() expected status validation error")
+	}
+	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: "planning"}); err == nil {
+		t.Fatal("ParseCreateProject() expected legacy status validation error")
+	}
+	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: " Planned "}); err == nil {
+		t.Fatal("ParseCreateProject() expected whitespace status validation error")
+	}
+	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: "planned"}); err == nil {
+		t.Fatal("ParseCreateProject() expected lowercase status validation error")
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", MaxConcurrentAgents: intPtr(0)}); err == nil {
 		t.Fatal("ParseCreateProject() expected max_concurrent_agents validation error")
@@ -761,6 +770,12 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := parseProjectStatus("invalid"); err == nil {
 		t.Fatal("parseProjectStatus() expected validation error")
+	}
+	if got, err := parseProjectStatus(ProjectStatusBacklog.String()); err != nil || got != ProjectStatusBacklog {
+		t.Fatalf("parseProjectStatus(canonical) = %q, %v", got, err)
+	}
+	if _, err := parseProjectStatus(" In Progress "); err == nil {
+		t.Fatal("parseProjectStatus() expected exact-match validation error")
 	}
 	if _, err := parseMaxConcurrentAgents(intPtr(0)); err == nil {
 		t.Fatal("parseMaxConcurrentAgents() expected validation error")
@@ -1413,7 +1428,7 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 		wantValue string
 	}{
 		{"org", OrganizationStatusActive, OrganizationStatusActive.IsValid, "active"},
-		{"project", ProjectStatusPaused, ProjectStatusPaused.IsValid, "paused"},
+		{"project", ProjectStatusCanceled, ProjectStatusCanceled.IsValid, "Canceled"},
 		{"repo_pr", TicketRepoScopePRStatusMerged, TicketRepoScopePRStatusMerged.IsValid, "merged"},
 		{"repo_ci", TicketRepoScopeCIStatusPassing, TicketRepoScopeCIStatusPassing.IsValid, "passing"},
 		{"machine", MachineStatusOffline, MachineStatusOffline.IsValid, "offline"},

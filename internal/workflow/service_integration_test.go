@@ -19,7 +19,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
@@ -1053,7 +1052,7 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 		SetOrganizationID(org.ID).
 		SetName("OpenASE").
 		SetSlug("openase").
-		SetStatus(entproject.StatusActive).
+		SetStatus("In Progress").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project: %v", err)
@@ -1062,7 +1061,7 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 		SetOrganizationID(org.ID).
 		SetName("Repo Less").
 		SetSlug("repo-less").
-		SetStatus(entproject.StatusActive).
+		SetStatus("In Progress").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create projectWithoutRepo: %v", err)

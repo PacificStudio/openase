@@ -255,7 +255,7 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		OrganizationID:         org.ID,
 		Name:                   "OpenASE",
 		Slug:                   "openase",
-		Status:                 domain.ProjectStatusActive,
+		Status:                 domain.ProjectStatusInProgress,
 		DefaultAgentProviderID: &agentProvider.ID,
 		AccessibleMachineIDs:   []uuid.UUID{localMachineID, remoteMachine.ID},
 		MaxConcurrentAgents:    3,

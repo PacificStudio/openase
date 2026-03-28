@@ -704,7 +704,7 @@ More detail.
 			Name:          "OpenASE",
 			Slug:          "openase",
 			Description:   "Automation",
-			Status:        "active",
+			Status:        "In Progress",
 			DefaultBranch: "main",
 			Workflows: []HarnessProjectWorkflowData{{
 				Name:            "Coding",

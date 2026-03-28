@@ -3,8 +3,6 @@
 package project
 
 import (
-	"fmt"
-
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
@@ -207,6 +205,8 @@ var (
 	NameValidator func(string) error
 	// SlugValidator is a validator for the "slug" field. It is called by the builders before save.
 	SlugValidator func(string) error
+	// DefaultStatus holds the default value on creation for the "status" field.
+	DefaultStatus string
 	// DefaultAccessibleMachineIds holds the default value on creation for the "accessible_machine_ids" field.
 	DefaultAccessibleMachineIds func() []uuid.UUID
 	// DefaultMaxConcurrentAgents holds the default value on creation for the "max_concurrent_agents" field.
@@ -214,34 +214,6 @@ var (
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
-
-// Status defines the type for the "status" enum field.
-type Status string
-
-// StatusPlanning is the default value of the Status enum.
-const DefaultStatus = StatusPlanning
-
-// Status values.
-const (
-	StatusPlanning Status = "planning"
-	StatusActive   Status = "active"
-	StatusPaused   Status = "paused"
-	StatusArchived Status = "archived"
-)
-
-func (s Status) String() string {
-	return string(s)
-}
-
-// StatusValidator is a validator for the "status" field enum values. It is called by the builders before save.
-func StatusValidator(s Status) error {
-	switch s {
-	case StatusPlanning, StatusActive, StatusPaused, StatusArchived:
-		return nil
-	default:
-		return fmt.Errorf("project: invalid enum value for status field: %q", s)
-	}
-}
 
 // OrderOption defines the ordering options for the Project queries.
 type OrderOption func(*sql.Selector)

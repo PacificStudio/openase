@@ -128,7 +128,7 @@ func (r *EntRepository) ArchiveOrganization(ctx context.Context, id uuid.UUID) (
 	if _, err := tx.Project.Update().
 		Where(
 			entproject.OrganizationID(id),
-			entproject.StatusNEQ(entproject.StatusArchived),
+			entproject.StatusNEQ(string(domain.ProjectStatusArchived)),
 		).
 		SetStatus(toEntProjectStatus(domain.ProjectStatusArchived)).
 		Save(ctx); err != nil {

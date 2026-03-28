@@ -22,7 +22,14 @@ export type ProjectCreationDraft = {
   defaultAgentProviderId: string
 }
 
-export const projectStatusOptions = ['planning', 'active', 'paused', 'archived'] as const
+export const projectStatusOptions = [
+  'Backlog',
+  'Planned',
+  'In Progress',
+  'Completed',
+  'Canceled',
+  'Archived',
+] as const
 
 export function createOrganizationDraft(): OrganizationCreationDraft {
   return {
@@ -38,7 +45,7 @@ export function createProjectDraft(
     name: '',
     slug: '',
     description: '',
-    status: 'planning',
+    status: 'Planned',
     maxConcurrentAgents: '',
     defaultAgentProviderId: defaultAgentProviderId ?? '',
   }
@@ -85,7 +92,7 @@ export function parseProjectDraft(draft: ProjectCreationDraft): DraftParseResult
     return slug
   }
 
-  const status = draft.status.trim().toLowerCase()
+  const status = draft.status
   if (!projectStatusOptions.includes(status as (typeof projectStatusOptions)[number])) {
     return {
       ok: false,

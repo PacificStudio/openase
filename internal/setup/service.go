@@ -459,7 +459,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	projectCreate, err := catalogdomain.ParseCreateProject(org.ID, catalogdomain.ProjectInput{
 		Name:                   input.Project.Name,
 		Slug:                   safeSlug(input.Project.Name),
-		Status:                 "active",
+		Status:                 "In Progress",
 		MaxConcurrentAgents:    intPtr(5),
 		DefaultAgentProviderID: defaultProviderID,
 	})

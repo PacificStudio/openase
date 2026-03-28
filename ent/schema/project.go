@@ -22,9 +22,7 @@ func (Project) Fields() []ent.Field {
 		field.String("name").NotEmpty(),
 		field.String("slug").NotEmpty(),
 		field.Text("description").Optional(),
-		field.Enum("status").
-			Values("planning", "active", "paused", "archived").
-			Default("planning"),
+		field.String("status").Default("Planned"),
 		field.JSON("github_outbound_credential", &githubauth.StoredCredential{}).
 			Optional(),
 		field.JSON("github_token_probe", &githubauth.TokenProbe{}).
