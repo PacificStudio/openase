@@ -6066,7 +6066,66 @@ Agent 启动 → 5 分钟无事件 → HealthChecker 标记 Stall → Kill Worke
 | 组件单元测试 | vitest + @testing-library/svelte | UI 组件渲染、props 行为、事件触发 | 80% |
 | Store 逻辑测试 | vitest | Svelte store 的状态管理、SSE 事件处理 | 90% |
 | API 客户端测试 | vitest + msw (Mock Service Worker) | fetch wrapper 的请求构造、错误处理、重试 | 90% |
-| E2E 测试 | Playwright | 关键用户路径（登录→创建工单→看板查看→审批） | 关键路径覆盖 |
+| UX smoke / perf regression | Playwright | 6 条关键交互路径的轻量回归；固定 fixture + mock 数据；记录关键步骤时延并断言预算 | 关键路径覆盖；PR 必跑 |
+
+#### 24.5.1 前端交互流畅度回归（非功能性需求）
+
+OpenASE 前端必须把“交互是否顺手”视为明确的非功能性需求，而不是上线后凭主观感觉判断。为避免 Playwright 套件膨胀为笨重且不稳定的端到端测试，PR 阶段只保留一套**轻量 UX smoke / perf regression** 套件，目标如下：
+
+- 每个前端相关 PR 必跑
+- 运行时间短、结果稳定、失败信号清晰
+- 仅覆盖固定的高频关键路径，不依赖真实外部服务
+- 使用 mock / fixture / 稳定测试数据，不要求完整后端编排链路
+- 既验证功能可用，也验证关键交互没有明显变钝
+
+这套 Playwright 回归当前只覆盖以下 6 条路径：
+
+1. 项目主导航切换：项目页内 `Board / Machines / Agents / Settings / Scheduled Jobs / Workflows` 等主导航切换后，主内容应快速进入可交互状态
+2. Machines 列表查看与编辑：打开 Machines 页面、点击横条卡片、打开 drawer、编辑并保存
+3. Machines 快捷操作：触发 `Test connection`，验证即时反馈、完成反馈和资源信息稳定性
+4. Repositories 列表查看与编辑：打开仓库列表、打开 drawer、编辑并保存
+5. Agents 页面核心交互：打开 provider / registration 等关键 sheet 或 drawer，验证主要操作流
+6. Scheduled Jobs / Workflows 操作：打开定时任务或 Workflow 管理页，进入创建或编辑流程并完成提交
+
+Playwright 在 OpenASE 中承担的是“交互回归预算守卫”，而不是完整的真实环境压测。它必须记录并断言以下指标：
+
+| 指标 | 定义 | 用途 |
+|------|------|------|
+| `route_to_interactive_ms` | 从导航点击或 `goto` 开始，到新页面主交互元素可见且可操作 | 衡量页面切换是否拖沓 |
+| `action_feedback_ms` | 从点击开始，到用户看到首个明确反馈（drawer 打开、loading、toast、状态变化） | 衡量“有没有马上响应” |
+| `action_complete_ms` | 从动作开始，到操作真正完成且界面稳定 | 衡量完整操作链路耗时 |
+| `stability_assertions` | 操作前后关键 UI 是否保持一致，不出现元素消失、状态错乱、无意义跳动 | 衡量交互稳定性 |
+| `continuation_ready` | 当前动作完成后，用户是否能立即继续下一步操作 | 衡量流程连续性 |
+
+首批默认预算如下，作为 PR 回归阈值：
+
+| 场景 | 预算 |
+|------|------|
+| 主导航切换到页面主内容可交互 | `p75 < 800ms` |
+| 点击卡片到 drawer 可见 | `p75 < 150ms` |
+| drawer 打开到首个输入可编辑 | `p75 < 250ms` |
+| 点击 Save 到出现 loading / disabled / 首反馈 | `p75 < 100ms` |
+| 点击 Save 到成功 toast 或成功状态出现 | 本地/CI 固定夹具环境 `p75 < 1500ms` |
+| 本地筛选或轻量列表更新 | `p75 < 150ms` |
+| Test connection 首反馈 | `p75 < 150ms` |
+
+为了保证结果稳定，PR 阶段的 Playwright 套件必须满足这些约束：
+
+- 不依赖真实 GitHub、真实 SSH、真实 Agent CLI、真实外部网络
+- 不依赖大型预置数据库或长启动链路
+- 优先读取前端埋点的 `performance.mark/measure`，而不是用脆弱的睡眠或肉眼等待近似估计
+- 默认只做 smoke + regression，不做全量真实环境业务验收
+- 失败报告必须指出是路由切换、drawer 打开、保存反馈还是列表更新超预算，避免“只知道红了，不知道哪里慢了”
+
+推荐的前端埋点命名约定如下，Playwright 和线上 RUM 应共享同一口径：
+
+- `nav:start` / `nav:interactive`
+- `drawer:start` / `drawer:visible` / `drawer:ready`
+- `save:start` / `save:feedback` / `save:success` / `save:error`
+- `filter:start` / `filter:applied`
+- `test_connection:start` / `test_connection:feedback` / `test_connection:done`
+
+这条要求属于非功能性需求：**如果某次变更让关键交互路径虽然“功能仍然正确”，但明显变慢、变卡、变得不可预期，则该变更不应视为完成。**
 
 ```typescript
 // web/src/lib/api/sse.test.ts — SSE store 测试
@@ -6112,7 +6171,7 @@ describe('createTicketStream', () => {
 
 不追求整体 100%——那会导致为了覆盖率写无意义的测试（比如测试 getter 方法）。用 `go test -coverprofile` 在 CI 中追踪，设 75% 为门槛，domain 层 100% 为硬性要求。
 
-仓库默认通过 `make check` 执行后端覆盖率门禁；CI 与本地 push gate 统一调用 `scripts/ci/backend_coverage.sh`，对全 backend scope 执行总覆盖率与 domain/core 覆盖率阈值检查。
+仓库默认通过 `make check` 执行后端测试与覆盖率门禁；CI 与本地 push gate 统一调用 `scripts/ci/backend_coverage.sh`。默认要求是“全量 backend 测试通过 + domain/core 覆盖率阈值检查通过”；如需额外运行全 backend scope 的总覆盖率检查，必须显式设置 `OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true`。
 
 ### 24.7 Mock 生成与测试工具链
 
@@ -6127,7 +6186,7 @@ test-integration:      ## 运行集成测试（repository + infra + orchestrator
 test-all:              ## 运行全部测试
 	go test ./... -count=1 -coverprofile=coverage-all.out
 
-test-backend-coverage: ## 运行后端覆盖率门禁（overall 75%+ / domain+types 100%）
+test-backend-coverage: ## 运行全量后端测试 + domain+types 100% coverage gate（设置 OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true 时额外要求 overall 75%+）
 	./scripts/ci/backend_coverage.sh
 
 test-coverage:         ## 覆盖率报告
@@ -6142,7 +6201,7 @@ mock-generate:         ## 生成 mock（mockery）
 test-frontend:         ## 前端测试
 	cd web && pnpm run test
 
-test-e2e:              ## E2E 测试（需要完整服务运行）
+test-e2e:              ## Playwright UX smoke / perf regression（PR 必跑，轻量固定夹具）
 	cd web && pnpm exec playwright test
 ```
 
@@ -6209,9 +6268,13 @@ openase/
     │   └── components/ticket/
     │       └── TicketCard.test.ts         # 组件测试
     └── tests/
-        └── e2e/                          # Playwright E2E
-            ├── ticket-crud.spec.ts
-            └── kanban-board.spec.ts
+        └── e2e/                          # Playwright UX smoke / perf regression
+            ├── navigation.spec.ts
+            ├── machines.spec.ts
+            ├── repositories.spec.ts
+            ├── agents.spec.ts
+            ├── workflows.spec.ts
+            └── perf.ts
 ```
 
 ---

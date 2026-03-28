@@ -804,6 +804,99 @@ func TestCreateProjectSeedsDefaultTicketStatuses(t *testing.T) {
 	}
 }
 
+func TestAppContextAggregatesOrganizationsProjectsProvidersAndAgentCount(t *testing.T) {
+	svc := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		svc,
+		nil,
+	)
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	machineID := uuid.New()
+	providerID := uuid.New()
+	agentID := uuid.New()
+
+	svc.organizations[orgID] = domain.Organization{
+		ID:     orgID,
+		Name:   "Acme Platform",
+		Slug:   "acme-platform",
+		Status: domain.OrganizationStatusActive,
+	}
+	svc.projects[projectID] = domain.Project{
+		ID:             projectID,
+		OrganizationID: orgID,
+		Name:           "OpenASE",
+		Slug:           "openase",
+		Status:         domain.ProjectStatusActive,
+	}
+	svc.machines[machineID] = domain.Machine{
+		ID:             machineID,
+		OrganizationID: orgID,
+		Name:           "runner-1",
+		Host:           "runner-1.internal",
+		Port:           22,
+		Status:         domain.MachineStatusOnline,
+	}
+	svc.providers[providerID] = domain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: orgID,
+		MachineID:      machineID,
+		MachineName:    "runner-1",
+		MachineHost:    "runner-1.internal",
+		MachineStatus:  domain.MachineStatusOnline,
+		Name:           "OpenAI Codex",
+		AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:     "/usr/bin/codex",
+		ModelName:      "gpt-5.4",
+	}
+	svc.agents[agentID] = domain.Agent{
+		ID:         agentID,
+		ProviderID: providerID,
+		ProjectID:  projectID,
+		Name:       "Primary Agent",
+	}
+
+	contextPayload := struct {
+		Organizations []organizationResponse  `json:"organizations"`
+		Projects      []projectResponse       `json:"projects"`
+		Providers     []agentProviderResponse `json:"providers"`
+		AgentCount    int                     `json:"agent_count"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf(
+			"/api/v1/app-context?org_id=%s&project_id=%s",
+			orgID,
+			projectID,
+		),
+		nil,
+		http.StatusOK,
+		&contextPayload,
+	)
+	if len(contextPayload.Organizations) != 1 {
+		t.Fatalf("expected 1 organization in app context, got %d", len(contextPayload.Organizations))
+	}
+	if len(contextPayload.Projects) != 1 || contextPayload.Projects[0].ID != projectID.String() {
+		t.Fatalf("expected project in app context, got %+v", contextPayload.Projects)
+	}
+	if len(contextPayload.Providers) != 1 || contextPayload.Providers[0].ID != providerID.String() {
+		t.Fatalf("expected provider in app context, got %+v", contextPayload.Providers)
+	}
+	if contextPayload.AgentCount != 1 {
+		t.Fatalf("expected aggregated agent count to be 1, got %d", contextPayload.AgentCount)
+	}
+}
+
 func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
