@@ -217,6 +217,7 @@ jobs:
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
+          cache: false
           go-version-file: go.mod
 
       - name: Run Backend Formatting, Tests, And Coverage Gates
@@ -296,6 +297,7 @@ jobs:
       - name: Set Up Go
         uses: actions/setup-go@v6
         with:
+          cache: false
           go-version-file: go.mod
 
       - name: Fetch Base Branch
