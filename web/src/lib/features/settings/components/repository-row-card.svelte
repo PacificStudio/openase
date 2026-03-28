@@ -10,13 +10,13 @@
     repo,
     selected = false,
     deleting = false,
-    onOpen,
+    handleOpenRepo,
     onDelete,
   }: {
     repo: ProjectRepoRecord
     selected?: boolean
     deleting?: boolean
-    onOpen?: () => void
+    handleOpenRepo?: () => void
     onDelete?: () => void
   } = $props()
 
@@ -24,13 +24,19 @@
 </script>
 
 <article
+  data-testid={`repository-card-${repo.id}`}
   class={cn(
     'border-border bg-card hover:bg-muted/20 rounded-2xl border p-4 transition-colors',
     selected && 'border-primary bg-primary/5 ring-primary/20 ring-1',
   )}
 >
   <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-    <button type="button" class="min-w-0 text-left" onclick={onOpen}>
+    <button
+      type="button"
+      class="min-w-0 text-left"
+      onclick={() => handleOpenRepo?.()}
+      data-testid={`repository-open-${repo.id}`}
+    >
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
@@ -68,7 +74,7 @@
         class="gap-1.5"
         onclick={(event) => {
           event.stopPropagation()
-          onOpen?.()
+          handleOpenRepo?.()
         }}
       >
         <Pencil class="size-3.5" />

@@ -11,13 +11,10 @@
   import { organizationPath } from '$lib/stores/app-context'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import type { PageData } from './$types'
 
-  let { data }: { data: PageData } = $props()
-
-  const currentOrg = $derived(appStore.currentOrg ?? data.currentOrg),
-    projects = $derived(data.projects),
-    providers = $derived(data.providers)
+  const currentOrg = $derived(appStore.currentOrg),
+    projects = $derived(appStore.projects),
+    providers = $derived(appStore.providers)
 
   let showProjectDialog = $state(false)
   let showProviderDialog = $state(false)
@@ -166,4 +163,10 @@
   />
 
   <ProviderCreationDialog orgId={currentOrg.id} bind:open={showProviderDialog} />
+{/if}
+
+{#if !currentOrg && appStore.appContextLoading}
+  <div class="mx-auto w-full max-w-6xl px-6 pb-6">
+    <div class="text-muted-foreground text-sm">Loading organization…</div>
+  </div>
 {/if}

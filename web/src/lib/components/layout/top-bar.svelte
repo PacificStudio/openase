@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto } from '$app/navigation'
+  import { goto, preloadCode, preloadData } from '$app/navigation'
   import type { Organization, Project } from '$lib/api/contracts'
   import { organizationPath, projectPath, type ProjectSection } from '$lib/stores/app-context'
   import { Button } from '$ui/button'
@@ -56,6 +56,11 @@
   function handleOpenSearchClick() {
     onOpenSearch?.()
   }
+
+  function warmRoute(href: string) {
+    void preloadCode(href)
+    void preloadData(href)
+  }
 </script>
 
 <header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
@@ -84,7 +89,10 @@
       <DropdownMenu.Label>Organizations</DropdownMenu.Label>
       {#if organizations.length > 0}
         {#each organizations as organization (organization.id)}
-          <DropdownMenu.Item onclick={() => void handleOrgSelect(organization.id)}>
+          <DropdownMenu.Item
+            onclick={() => void handleOrgSelect(organization.id)}
+            onpointerenter={() => warmRoute(organizationPath(organization.id))}
+          >
             <span class="flex w-full items-center gap-2">
               {#if organization.id === currentOrgId}
                 <Check class="size-4" />
@@ -120,7 +128,13 @@
         <DropdownMenu.Label>Projects</DropdownMenu.Label>
         {#if projects.length > 0}
           {#each projects as project (project.id)}
-            <DropdownMenu.Item onclick={() => void handleProjectSelect(project.id)}>
+            <DropdownMenu.Item
+              onclick={() => void handleProjectSelect(project.id)}
+              onpointerenter={() => {
+                if (!currentOrgId) return
+                warmRoute(projectPath(currentOrgId, project.id, currentSection))
+              }}
+            >
               <span class="flex w-full items-center gap-2">
                 {#if project.id === currentProjectId}
                   <Check class="size-4" />

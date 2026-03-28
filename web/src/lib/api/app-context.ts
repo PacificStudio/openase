@@ -1,4 +1,4 @@
-import type { AgentProvider, Organization, Project } from './contracts'
+import type { AgentProvider, AppContextPayload, Organization, Project } from './contracts'
 
 type OrgResponse = {
   organizations?: Organization[]
@@ -26,6 +26,37 @@ export async function loadOrganizations(fetch: AppFetch) {
 
   const orgData = (await orgResponse.json()) as OrgResponse
   return orgData.organizations ?? []
+}
+
+export async function loadAppContext(
+  fetch: AppFetch,
+  input?: {
+    orgId?: string | null
+    projectId?: string | null
+  },
+) {
+  const response = await fetch(
+    withQuery('/api/v1/app-context', {
+      org_id: input?.orgId ?? undefined,
+      project_id: input?.projectId ?? undefined,
+    }),
+  )
+  if (!response.ok) {
+    return {
+      organizations: [] as Organization[],
+      projects: [] as Project[],
+      providers: [] as AgentProvider[],
+      agentCount: 0,
+    }
+  }
+
+  const payload = (await response.json()) as AppContextPayload
+  return {
+    organizations: payload.organizations ?? [],
+    projects: payload.projects ?? [],
+    providers: payload.providers ?? [],
+    agentCount: payload.agent_count ?? 0,
+  }
 }
 
 export async function loadOrganizationProjects(fetch: AppFetch, orgId: string) {
@@ -65,4 +96,13 @@ async function loadOrganizationProviders(fetch: AppFetch, orgId: string) {
 
   const providerData = (await providerResponse.json()) as ProviderResponse
   return providerData.providers ?? []
+}
+
+function withQuery(path: string, params: Record<string, string | undefined>) {
+  const url = new URL(path, 'http://openase.local')
+  for (const [key, value] of Object.entries(params)) {
+    if (!value) continue
+    url.searchParams.set(key, value)
+  }
+  return `${url.pathname}${url.search}`
 }

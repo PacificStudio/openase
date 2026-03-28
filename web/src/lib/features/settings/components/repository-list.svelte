@@ -9,7 +9,7 @@
     selectedId = '',
     deletingId = '',
     onCreate,
-    onSelect,
+    onOpenRepo,
     onDelete,
   }: {
     loading?: boolean
@@ -17,7 +17,7 @@
     selectedId?: string
     deletingId?: string
     onCreate?: () => void
-    onSelect?: (repo: ProjectRepoRecord) => void
+    onOpenRepo?: (repo: ProjectRepoRecord) => void
     onDelete?: (repo: ProjectRepoRecord) => void
   } = $props()
 </script>
@@ -54,7 +54,7 @@
           {repo}
           selected={repo.id === selectedId}
           deleting={deletingId === repo.id}
-          onOpen={() => onSelect?.(repo)}
+          handleOpenRepo={() => onOpenRepo?.(repo)}
           onDelete={() => onDelete?.(repo)}
         />
       {/each}

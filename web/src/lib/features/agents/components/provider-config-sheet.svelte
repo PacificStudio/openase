@@ -42,7 +42,11 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+  <SheetContent
+    side="right"
+    class="flex w-full flex-col gap-0 p-0 sm:max-w-xl"
+    data-testid="provider-config-sheet"
+  >
     <SheetHeader class="border-border border-b px-6 py-5 text-left">
       <div class="flex items-center gap-2">
         <SheetTitle>{provider?.name ?? 'Provider configuration'}</SheetTitle>

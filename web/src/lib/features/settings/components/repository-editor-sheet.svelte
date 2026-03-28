@@ -28,7 +28,11 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+  <SheetContent
+    side="right"
+    class="flex w-full flex-col gap-0 p-0 sm:max-w-xl"
+    data-testid="repository-editor-sheet"
+  >
     <SheetHeader class="border-border border-b px-6 py-5 text-left">
       <div class="flex items-start justify-between gap-4 pr-10">
         <div class="min-w-0 space-y-2">
@@ -42,11 +46,11 @@
           </div>
           <SheetDescription>
             Configure repository metadata that ticket repo scopes, workflows, and workspace
-            bootstrap logic consume.
+            preparation consume.
           </SheetDescription>
         </div>
 
-        <Button size="sm" onclick={onSave} disabled={saving}>
+        <Button size="sm" onclick={onSave} disabled={saving} data-testid="repository-save-button">
           {saving ? 'Saving…' : mode === 'create' ? 'Create repository' : 'Save changes'}
         </Button>
       </div>

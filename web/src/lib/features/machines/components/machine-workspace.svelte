@@ -80,7 +80,7 @@
   )
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col px-6 pb-6">
+<div class="flex min-h-0 flex-1 flex-col px-6 pb-6" data-testid="machines-workspace">
   {#if state === 'no-org'}
     <div
       class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"

@@ -21,9 +21,14 @@ func (s *Server) registerRoleLibraryRoutes(api *echo.Group) {
 }
 
 func (s *Server) handleListBuiltinRoles(c echo.Context) error {
-	roles := builtin.Roles()
-	response := make([]builtinRoleResponse, 0, len(roles))
-	for _, item := range roles {
+	return c.JSON(http.StatusOK, map[string]any{
+		"roles": mapBuiltinRoleResponses(builtin.Roles()),
+	})
+}
+
+func mapBuiltinRoleResponses(items []builtin.RoleTemplate) []builtinRoleResponse {
+	response := make([]builtinRoleResponse, 0, len(items))
+	for _, item := range items {
 		response = append(response, builtinRoleResponse{
 			Slug:         item.Slug,
 			Name:         item.Name,
@@ -34,7 +39,5 @@ func (s *Server) handleListBuiltinRoles(c echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, map[string]any{
-		"roles": response,
-	})
+	return response
 }

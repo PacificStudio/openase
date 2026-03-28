@@ -4,14 +4,24 @@ import argparse
 import json
 import os
 import re
+import secrets
+import shutil
 import subprocess
-import sys
 import textwrap
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 from pathlib import Path
+
+FIXED_GITHUB_REPO = "BetterAndBetterII/TodoApp"
+FIXED_GITHUB_REPO_URL = "https://github.com/BetterAndBetterII/TodoApp.git"
+FIXED_GITHUB_SSH_URL = "git@github.com:BetterAndBetterII/TodoApp.git"
+GIT_AUTHOR_NAME = "Codex"
+GIT_AUTHOR_EMAIL = "codex@openai.com"
+README_BASELINE = (
+    "# TodoApp\n\n"
+    "OpenASE validation repository baseline.\n"
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,14 +43,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Display name for the created OpenASE project.",
     )
     parser.add_argument(
-        "--workspace-path",
-        default="",
-        help="Absolute workspace path passed into the created agent. Defaults to a fresh local Todo app git repo.",
-    )
-    parser.add_argument(
         "--workspace-parent",
         default=str(repo_root.parent),
-        help="Parent directory used when creating a fresh local Todo app repo.",
+        help="Parent directory used for temporary GitHub checkout preparation.",
     )
     parser.add_argument(
         "--provider-mode",
@@ -66,17 +71,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--skip-github",
         action="store_true",
-        help="Skip GitHub project and issue creation; only create OpenASE resources.",
+        help=(
+            "Skip GitHub Project and issue creation. The validation still prepares "
+            f"the fixed repository {FIXED_GITHUB_REPO_URL} and links every ticket to a PR."
+        ),
     )
     parser.add_argument(
         "--github-owner",
         default="@me",
         help='Owner for the GitHub Project. Use "@me" for the authenticated user.',
-    )
-    parser.add_argument(
-        "--github-repo",
-        default="",
-        help="Repository used for GitHub issues, in OWNER/REPO form. Defaults to origin when possible.",
     )
     parser.add_argument(
         "--platform-skill-timeout-seconds",
@@ -179,34 +182,6 @@ def slugify(raw: str) -> str:
     return slug or "item"
 
 
-def parse_github_repo(raw: str) -> str:
-    trimmed = raw.strip()
-    if not trimmed:
-        raise RuntimeError("github repo must not be empty")
-    if trimmed.endswith(".git"):
-        trimmed = trimmed[:-4]
-    if trimmed.startswith("https://github.com/"):
-        trimmed = trimmed.removeprefix("https://github.com/")
-    if trimmed.startswith("git@github.com:"):
-        trimmed = trimmed.removeprefix("git@github.com:")
-    if len(trimmed.split("/")) != 2:
-        raise RuntimeError(f"expected OWNER/REPO GitHub repo, got {raw!r}")
-    return trimmed
-
-
-def detect_origin_github_repo(repo_root: Path) -> str | None:
-    result = run_cli(["git", "config", "--get", "remote.origin.url"], cwd=repo_root, check=False)
-    if result.returncode != 0:
-        return None
-    raw = result.stdout.strip()
-    if "github.com" not in raw:
-        return None
-    try:
-        return parse_github_repo(raw)
-    except RuntimeError:
-        return None
-
-
 def create_github_project(owner: str, title: str) -> dict:
     run_cli(["gh", "project", "create", "--owner", owner, "--title", title], check=True)
     return get_github_project_by_title(owner, title)
@@ -236,6 +211,141 @@ def create_github_issue(repo: str, title: str, body: str, project_title: str | N
     }
 
 
+def ensure_git_identity(repo_dir: Path) -> None:
+    run_cli(["git", "config", "user.name", GIT_AUTHOR_NAME], cwd=repo_dir, check=True)
+    run_cli(["git", "config", "user.email", GIT_AUTHOR_EMAIL], cwd=repo_dir, check=True)
+
+
+def ensure_main_checkout(repo_dir: Path) -> None:
+    branch_result = run_cli(["git", "rev-parse", "--verify", "main"], cwd=repo_dir, check=False)
+    if branch_result.returncode == 0:
+        run_cli(["git", "checkout", "main"], cwd=repo_dir, check=True)
+        return
+    run_cli(["git", "checkout", "-b", "main"], cwd=repo_dir, check=True)
+
+
+def ensure_repo_readme(repo_dir: Path) -> None:
+    readme_path = repo_dir / "README.md"
+    if not readme_path.exists():
+        write_text(readme_path, README_BASELINE)
+
+
+def random_suffix(length: int = 6) -> str:
+    alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def build_validation_branch_prefix() -> str:
+    return f"main-{random_suffix()}"
+
+
+def build_ticket_branch_name(prefix: str, ticket_identifier: str) -> str:
+    return f"{prefix}-{slugify(ticket_identifier)}"
+
+
+def derive_ticket_workspace_repo_path(org_slug: str, project_slug: str, ticket_identifier: str, repo_name: str) -> Path:
+    return Path.home() / ".openase" / "workspace" / org_slug / project_slug / ticket_identifier / repo_name
+
+
+def prepare_github_validation_repository(repo: str, checkout_parent: Path, stamp: str) -> dict:
+    repo_meta = run_cli_json(["gh", "api", f"repos/{repo}"])
+    checkout_dir = checkout_parent / f"todoapp-github-validation-{stamp}"
+    repo_dir = checkout_dir / "repo"
+    checkout_dir.mkdir(parents=True, exist_ok=False)
+
+    if repo_meta.get("size", 0) == 0:
+        repo_dir.mkdir(parents=True, exist_ok=False)
+        run_cli(["git", "init", "-b", "main"], cwd=repo_dir, check=True)
+        ensure_git_identity(repo_dir)
+        ensure_repo_readme(repo_dir)
+        run_cli(["git", "add", "README.md"], cwd=repo_dir, check=True)
+        run_cli(["git", "commit", "-m", "docs: bootstrap todoapp readme"], cwd=repo_dir, check=True)
+        run_cli(["git", "remote", "add", "origin", FIXED_GITHUB_SSH_URL], cwd=repo_dir, check=True)
+        run_cli(["git", "push", "-u", "origin", "HEAD:main"], cwd=repo_dir, check=True)
+    else:
+        run_cli(["git", "clone", FIXED_GITHUB_SSH_URL, str(repo_dir)], cwd=checkout_dir, check=True)
+        ensure_git_identity(repo_dir)
+        ensure_main_checkout(repo_dir)
+        run_cli(["git", "pull", "--ff-only", "origin", "main"], cwd=repo_dir, check=True)
+
+    ensure_repo_readme(repo_dir)
+    run_cli(["git", "add", "README.md"], cwd=repo_dir, check=True)
+    run_cli(
+        ["git", "commit", "--allow-empty", "-m", f"docs: baseline readme checkpoint {stamp}"],
+        cwd=repo_dir,
+        check=True,
+    )
+    run_cli(["git", "push", "origin", "HEAD:main"], cwd=repo_dir, check=True)
+    baseline_head = run_cli(["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True).stdout.strip()
+    return {
+        "checkout_dir": checkout_dir,
+        "repo_dir": repo_dir,
+        "baseline_head": baseline_head,
+        "default_branch": repo_meta.get("default_branch") or "main",
+        "clone_url": repo_meta.get("clone_url") or FIXED_GITHUB_REPO_URL,
+        "ssh_url": repo_meta.get("ssh_url") or FIXED_GITHUB_SSH_URL,
+    }
+
+
+def create_github_pull_request(
+    repo: str,
+    repo_dir: Path,
+    branch_name: str,
+    base_sha: str,
+    title: str,
+    body: str,
+) -> dict:
+    ensure_main_checkout(repo_dir)
+    run_cli(["git", "checkout", "-b", branch_name, base_sha], cwd=repo_dir, check=True)
+    seed_rel_path = Path(".openase") / "pr-seeds" / f"{branch_name}.md"
+    write_text(
+        repo_dir / seed_rel_path,
+        textwrap.dedent(
+            f"""\
+            # OpenASE Validation PR Seed
+
+            Branch: `{branch_name}`
+
+            This commit exists so the validation script can open a deterministic pull request
+            for the matching OpenASE ticket.
+            """
+        ),
+    )
+    run_cli(["git", "add", str(seed_rel_path)], cwd=repo_dir, check=True)
+    run_cli(["git", "commit", "-m", f"chore: seed validation pr for {branch_name}"], cwd=repo_dir, check=True)
+    run_cli(["git", "push", "-u", "origin", branch_name], cwd=repo_dir, check=True)
+    result = run_cli(
+        [
+            "gh",
+            "pr",
+            "create",
+            "-R",
+            repo,
+            "--base",
+            "main",
+            "--head",
+            branch_name,
+            "--title",
+            title,
+            "--body",
+            body,
+            "--draft",
+        ],
+        cwd=repo_dir,
+        check=True,
+    )
+    pr_url = result.stdout.strip().splitlines()[-1].strip()
+    if not pr_url.startswith("https://github.com/"):
+        raise RuntimeError(f"unexpected pull request create output: {result.stdout!r}")
+    pr_number = int(pr_url.rstrip("/").rsplit("/", 1)[-1])
+    return {
+        "number": pr_number,
+        "url": pr_url,
+        "external_id": f"{repo}#{pr_number}",
+        "branch_name": branch_name,
+    }
+
+
 def wait_for_agent_claim(base_url: str, project_id: str, agent_id: str, timeout_seconds: int) -> dict | None:
     deadline = time.time() + timeout_seconds
     last_seen = None
@@ -257,117 +367,6 @@ def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def create_local_todo_repo(project_name: str, workspace_parent: Path, stamp: str) -> tuple[Path, str]:
-    repo_dir = workspace_parent / f"{slugify(project_name)}-runtime-{stamp}"
-    repo_dir.mkdir(parents=True, exist_ok=False)
-
-    package_name = slugify(project_name)
-    files = {
-        repo_dir / ".gitignore": "node_modules/\ncoverage/\n.DS_Store\n",
-        repo_dir / "README.md": (
-            f"# {project_name}\n\n"
-            "Local validation repo created by OpenASE.\n\n"
-            "Commands:\n"
-            "- `python3 -m http.server 4173`\n"
-            "- `npm test`\n"
-        ),
-        repo_dir / "package.json": (
-            "{\n"
-            f'  "name": "{package_name}",\n'
-            '  "private": true,\n'
-            '  "type": "module",\n'
-            '  "scripts": {\n'
-            '    "test": "node --test"\n'
-            "  }\n"
-            "}\n"
-        ),
-        repo_dir / "index.html": (
-            "<!doctype html>\n"
-            '<html lang="en">\n'
-            "  <head>\n"
-            '    <meta charset="UTF-8" />\n'
-            '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n'
-            f"    <title>{project_name}</title>\n"
-            '    <link rel="stylesheet" href="./src/styles.css" />\n'
-            "  </head>\n"
-            "  <body>\n"
-            '    <div id="app"></div>\n'
-            '    <script type="module" src="./src/main.js"></script>\n'
-            "  </body>\n"
-            "</html>\n"
-        ),
-        repo_dir / "src" / "main.js": (
-            'import { appTitle, renderApp } from "./todo-app.js";\n\n'
-            'document.title = appTitle;\n'
-            'const root = document.querySelector("#app");\n'
-            "if (!root) {\n"
-            '  throw new Error("Missing #app root");\n'
-            "}\n"
-            "renderApp(root);\n"
-        ),
-        repo_dir / "src" / "todo-app.js": (
-            f'export const appTitle = "{project_name}";\n\n'
-            "export function renderApp(root) {\n"
-            '  root.innerHTML = `\n'
-            '    <main class="shell">\n'
-            f'      <h1>{project_name}</h1>\n'
-            '      <p class="lede">Your coding agent will turn this placeholder into a real Todo app.</p>\n'
-            '      <section class="todo-card">\n'
-            '        <strong>No todos yet.</strong>\n'
-            '        <p>Implement add, toggle, delete, filtering, and counters.</p>\n'
-            "      </section>\n"
-            "    </main>\n"
-            "  `;\n"
-            "}\n"
-        ),
-        repo_dir / "src" / "styles.css": (
-            ":root {\n"
-            "  color-scheme: light;\n"
-            "  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;\n"
-            "  background: #f6f3ee;\n"
-            "  color: #1f2933;\n"
-            "}\n\n"
-            "body {\n"
-            "  margin: 0;\n"
-            "}\n\n"
-            ".shell {\n"
-            "  max-width: 720px;\n"
-            "  margin: 0 auto;\n"
-            "  padding: 48px 24px 72px;\n"
-            "}\n\n"
-            ".lede {\n"
-            "  color: #52606d;\n"
-            "}\n\n"
-            ".todo-card {\n"
-            "  margin-top: 24px;\n"
-            "  padding: 24px;\n"
-            "  border-radius: 16px;\n"
-            "  background: #ffffff;\n"
-            "  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);\n"
-            "}\n"
-        ),
-        repo_dir / "test" / "todo-app.test.js": (
-            'import test from "node:test";\n'
-            'import assert from "node:assert/strict";\n'
-            'import { appTitle } from "../src/todo-app.js";\n\n'
-            'test("app title stays stable", () => {\n'
-            f'  assert.equal(appTitle, "{project_name}");\n'
-            "});\n"
-        ),
-    }
-
-    for path, content in files.items():
-        write_text(path, content)
-
-    run_cli(["git", "init", "-b", "main"], cwd=repo_dir, check=True)
-    run_cli(["git", "config", "user.name", "Codex"], cwd=repo_dir, check=True)
-    run_cli(["git", "config", "user.email", "codex@openai.com"], cwd=repo_dir, check=True)
-    run_cli(["git", "add", "."], cwd=repo_dir, check=True)
-    run_cli(["git", "commit", "-m", "chore: bootstrap todo app scaffold"], cwd=repo_dir, check=True)
-    baseline_head = run_cli(["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True).stdout.strip()
-    return repo_dir, baseline_head
-
-
 def wait_for_agent_execution(base_url: str, project_id: str, agent_id: str, timeout_seconds: int) -> dict | None:
     deadline = time.time() + timeout_seconds
     last_seen = None
@@ -385,6 +384,9 @@ def wait_for_agent_execution(base_url: str, project_id: str, agent_id: str, time
 def wait_for_workspace_activity(workspace_path: Path, baseline_head: str, timeout_seconds: int) -> dict | None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
+        if not workspace_path.exists() or not (workspace_path / ".git").exists():
+            time.sleep(5)
+            continue
         status_output = run_cli(["git", "status", "--short"], cwd=workspace_path, check=True).stdout.strip()
         current_head = run_cli(["git", "rev-parse", "HEAD"], cwd=workspace_path, check=True).stdout.strip()
         if status_output or current_head != baseline_head:
@@ -568,38 +570,21 @@ def build_validation_workflow_harness(project_name: str) -> str:
 
 def main() -> int:
     args = build_parser().parse_args()
-    repo_root = Path(__file__).resolve().parents[2]
-
     stamp = time.strftime("%Y%m%d%H%M%S")
     base_url = args.base_url.rstrip("/")
     project_name = args.project_name.strip() or "Todo App"
     org_slug = f"{slugify(project_name)}-validation-{stamp}"
     project_slug = f"{slugify(project_name)}-{stamp}"
     workflow_name = f"{project_name} Coding Workflow"
-    github_repo = ""
+    github_repo = FIXED_GITHUB_REPO
     github_project = None
     github_items = []
-    workspace_created = False
-    workspace_baseline_head = ""
+    github_repo_preparation = None
+    github_pull_requests = []
     require_platform_skill = args.require_platform_skill or args.provider_mode == "real-codex"
-
-    if args.workspace_path.strip():
-        workspace_path = Path(args.workspace_path).resolve()
-        if not workspace_path.is_absolute():
-            raise RuntimeError("--workspace-path must be absolute")
-        if not (workspace_path / ".git").exists():
-            raise RuntimeError("--workspace-path must point at an existing git repo")
-        workspace_baseline_head = run_cli(["git", "rev-parse", "HEAD"], cwd=workspace_path, check=True).stdout.strip()
-    else:
-        workspace_parent = Path(args.workspace_parent).resolve()
-        workspace_path, workspace_baseline_head = create_local_todo_repo(project_name, workspace_parent, stamp)
-        workspace_created = True
-
-    if not args.skip_github:
-        github_repo = args.github_repo.strip() or detect_origin_github_repo(repo_root) or ""
-        if not github_repo:
-            raise RuntimeError("unable to determine --github-repo from origin; pass --github-repo explicitly")
-        github_repo = parse_github_repo(github_repo)
+    workspace_parent = Path(args.workspace_parent).resolve()
+    if not workspace_parent.is_absolute():
+        raise RuntimeError("--workspace-parent must be absolute")
 
     todo_issue_specs = [
         {
@@ -628,165 +613,221 @@ def main() -> int:
         },
     ]
 
-    print(f"[1/11] health check against {base_url}")
-    request_json(base_url, "GET", "/healthz")
-    request_json(base_url, "GET", "/api/v1/healthz")
+    try:
+        print(f"[1/12] health check against {base_url}")
+        request_json(base_url, "GET", "/healthz")
+        request_json(base_url, "GET", "/api/v1/healthz")
 
-    if not args.skip_github:
-        print("[2/11] verify GitHub CLI auth and create a dedicated GitHub Project")
+        print(f"[2/12] prepare fixed GitHub repository {FIXED_GITHUB_REPO_URL}")
         run_cli(["gh", "auth", "status"], check=True)
-        github_project_title = f"OpenASE {project_name} Validation {stamp}"
-        github_project = create_github_project(args.github_owner, github_project_title)
-        for spec in todo_issue_specs:
-            body = (
-                spec["body"]
-                + "\n\n"
-                + "Created by `scripts/dev/create_todo_app_realistic_workflow.py` for end-to-end "
-                + "OpenASE workflow validation."
-            )
-            github_issue = create_github_issue(github_repo, spec["title"], body, github_project_title)
-            github_items.append(github_issue)
-        github_project = get_github_project_by_title(args.github_owner, github_project_title)
-    else:
-        print("[2/11] skip GitHub project and issue creation")
+        github_repo_preparation = prepare_github_validation_repository(github_repo, workspace_parent, stamp)
+        validation_branch_prefix = build_validation_branch_prefix()
 
-    print("[3/11] prepare the Todo app workspace repo")
-    print(f"workspace={workspace_path}")
+        if not args.skip_github:
+            print("[3/12] create a dedicated GitHub Project and linked issues")
+            run_cli(["gh", "auth", "status"], check=True)
+            github_project_title = f"OpenASE {project_name} Validation {stamp}"
+            github_project = create_github_project(args.github_owner, github_project_title)
+            for spec in todo_issue_specs:
+                body = (
+                    spec["body"]
+                    + "\n\n"
+                    + "Created by `scripts/dev/create_todo_app_realistic_workflow.py` for end-to-end "
+                    + "OpenASE workflow validation."
+                )
+                github_issue = create_github_issue(github_repo, spec["title"], body, github_project_title)
+                github_items.append(github_issue)
+            github_project = get_github_project_by_title(args.github_owner, github_project_title)
+        else:
+            print("[3/12] skip GitHub Project and issue creation")
 
-    print("[4/11] create isolated OpenASE organization and project")
-    org = request_json(
-        base_url,
-        "POST",
-        "/api/v1/orgs",
-        {
-            "name": f"{project_name} Validation {stamp}",
-            "slug": org_slug,
-        },
-    )["organization"]
-    project = request_json(
-        base_url,
-        "POST",
-        f"/api/v1/orgs/{org['id']}/projects",
-        {
-            "name": project_name,
-            "slug": project_slug,
-            "description": "Realistic Todo app workflow validation created by the dev seed script.",
-            "status": "active",
-            "max_concurrent_agents": 1,
-        },
-    )["project"]
+        print("[4/12] using fixed GitHub repository as the project primary repo")
+        print(f"repository={FIXED_GITHUB_REPO_URL}")
 
-    print("[5/11] seed default statuses, verify local machine, then create provider/agent/workflow")
-    statuses = request_json(base_url, "POST", f"/api/v1/projects/{project['id']}/statuses/reset")["statuses"]
-    todo = require_by_name(statuses, "name", "Todo")
-    done = require_by_name(statuses, "name", "Done")
-    local_machine = require_single_local_machine(base_url, org["id"])
-    if args.provider_mode == "fake-codex":
-        fake_codex_path = repo_root / "scripts" / "dev" / "fake_codex_app_server.py"
-        provider_payload = {
-            "machine_id": local_machine["id"],
-            "name": "Fake Codex Validation Provider",
-            "adapter_type": "codex-app-server",
-            "cli_command": os.environ.get("PYTHON", "python3"),
-            "cli_args": [str(fake_codex_path)],
-            "auth_config": {},
-            "model_name": "gpt-5.4",
-        }
-    else:
-        provider_payload = {
-            "machine_id": local_machine["id"],
-            "name": "Codex Validation Provider",
-            "adapter_type": "codex-app-server",
-            "cli_command": "codex",
-            "cli_args": ["app-server", "--listen", "stdio://"],
-            "auth_config": {},
-            "model_name": "gpt-5.4",
-        }
-
-    provider = request_json(
-        base_url,
-        "POST",
-        f"/api/v1/orgs/{org['id']}/providers",
-        provider_payload,
-    )["provider"]
-    agent = request_json(
-        base_url,
-        "POST",
-        f"/api/v1/projects/{project['id']}/agents",
-        {
-            "provider_id": provider["id"],
-            "name": f"{slugify(project_name)}-coding-01",
-        },
-    )["agent"]
-    project_repo = request_json(
-        base_url,
-        "POST",
-        f"/api/v1/projects/{project['id']}/repos",
-        {
-            "name": slugify(project_name),
-            "repository_url": workspace_path.as_uri(),
-            "default_branch": "main",
-            "is_primary": True,
-            "labels": ["todo-app", "validation"],
-        },
-    )["repo"]
-    workflow = request_json(
-        base_url,
-        "POST",
-        f"/api/v1/projects/{project['id']}/workflows",
-        {
-            "agent_id": agent["id"],
-            "name": workflow_name,
-            "type": "coding",
-            "pickup_status_ids": [todo["id"]],
-            "finish_status_ids": [done["id"]],
-            "harness_content": build_validation_workflow_harness(project_name),
-        },
-    )["workflow"]
-
-    print("[6/11] set project defaults after creating the primary workspace repo")
-    request_json(
-        base_url,
-        "PATCH",
-        f"/api/v1/projects/{project['id']}",
-        {
-            "default_agent_provider_id": provider["id"],
-            "default_workflow_id": workflow["id"],
-        },
-    )
-    print("[7/11] create linked OpenASE tickets")
-    tickets = []
-    for index, spec in enumerate(todo_issue_specs):
-        github_issue = github_items[index] if index < len(github_items) else None
-        description = spec["body"]
-        if github_issue is not None:
-            description += f"\n\nLinked GitHub issue: {github_issue['url']}"
-        ticket = request_json(
+        print("[5/12] create isolated OpenASE organization and project")
+        org = request_json(
             base_url,
             "POST",
-            f"/api/v1/projects/{project['id']}/tickets",
+            "/api/v1/orgs",
             {
-                "title": spec["title"],
-                "description": description,
-                "status_id": todo["id"],
-                "priority": spec["priority"],
-                "workflow_id": workflow["id"],
-                "created_by": "user:workflow-seed",
-                "external_ref": github_issue["external_id"] if github_issue else None,
+                "name": f"{project_name} Validation {stamp}",
+                "slug": org_slug,
             },
-        )["ticket"]
-        tickets.append(ticket)
+        )["organization"]
+        project = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/orgs/{org['id']}/projects",
+            {
+                "name": project_name,
+                "slug": project_slug,
+                "description": "Realistic Todo app workflow validation created by the dev seed script.",
+                "status": "active",
+                "max_concurrent_agents": 1,
+            },
+        )["project"]
 
-        if github_issue is not None:
+        print("[6/12] seed default statuses, verify local machine, then create provider/agent/workflow")
+        statuses = request_json(base_url, "POST", f"/api/v1/projects/{project['id']}/statuses/reset")["statuses"]
+        todo = require_by_name(statuses, "name", "Todo")
+        done = require_by_name(statuses, "name", "Done")
+        local_machine = require_single_local_machine(base_url, org["id"])
+        if args.provider_mode == "fake-codex":
+            repo_root = Path(__file__).resolve().parents[2]
+            fake_codex_path = repo_root / "scripts" / "dev" / "fake_codex_app_server.py"
+            provider_payload = {
+                "machine_id": local_machine["id"],
+                "name": "Fake Codex Validation Provider",
+                "adapter_type": "codex-app-server",
+                "cli_command": os.environ.get("PYTHON", "python3"),
+                "cli_args": [str(fake_codex_path)],
+                "auth_config": {},
+                "model_name": "gpt-5.4",
+            }
+        else:
+            provider_payload = {
+                "machine_id": local_machine["id"],
+                "name": "Codex Validation Provider",
+                "adapter_type": "codex-app-server",
+                "cli_command": "codex",
+                "cli_args": ["app-server", "--listen", "stdio://"],
+                "auth_config": {},
+                "model_name": "gpt-5.4",
+            }
+
+        provider = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/orgs/{org['id']}/providers",
+            provider_payload,
+        )["provider"]
+        agent = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/projects/{project['id']}/agents",
+            {
+                "provider_id": provider["id"],
+                "name": f"{slugify(project_name)}-coding-01",
+            },
+        )["agent"]
+        project_repo = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/projects/{project['id']}/repos",
+            {
+                "name": slugify(project_name),
+                "repository_url": FIXED_GITHUB_REPO_URL,
+                "default_branch": "main",
+                "is_primary": True,
+                "labels": ["todo-app", "validation", "github"],
+            },
+        )["repo"]
+        workflow = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/projects/{project['id']}/workflows",
+            {
+                "agent_id": agent["id"],
+                "name": workflow_name,
+                "type": "coding",
+                "pickup_status_ids": [todo["id"]],
+                "finish_status_ids": [done["id"]],
+                "harness_content": build_validation_workflow_harness(project_name),
+            },
+        )["workflow"]
+
+        print("[7/12] set project defaults after creating the primary workspace repo")
+        request_json(
+            base_url,
+            "PATCH",
+            f"/api/v1/projects/{project['id']}",
+            {
+                "default_agent_provider_id": provider["id"],
+                "default_workflow_id": workflow["id"],
+            },
+        )
+        print("[8/12] create linked OpenASE tickets, repo scopes, and draft PRs")
+        tickets = []
+        ticket_workspace_paths: dict[str, str] = {}
+        for index, spec in enumerate(todo_issue_specs):
+            github_issue = github_items[index] if index < len(github_items) else None
+            description = spec["body"]
+            if github_issue is not None:
+                description += f"\n\nLinked GitHub issue: {github_issue['url']}"
+            ticket = request_json(
+                base_url,
+                "POST",
+                f"/api/v1/projects/{project['id']}/tickets",
+                {
+                    "title": spec["title"],
+                    "description": description,
+                    "status_id": todo["id"],
+                    "priority": spec["priority"],
+                    "workflow_id": workflow["id"],
+                    "created_by": "user:workflow-seed",
+                    "external_ref": github_issue["external_id"] if github_issue else None,
+                },
+            )["ticket"]
+            tickets.append(ticket)
+            ticket_workspace_paths[ticket["id"]] = str(
+                derive_ticket_workspace_repo_path(org_slug, project_slug, ticket["identifier"], project_repo["name"])
+            )
+
+            if github_issue is not None:
+                request_json(
+                    base_url,
+                    "POST",
+                    f"/api/v1/tickets/{ticket['id']}/external-links",
+                    {
+                        "type": "github_issue",
+                        "url": github_issue["url"],
+                        "external_id": github_issue["external_id"],
+                        "title": spec["title"],
+                        "status": "open",
+                        "relation": "related",
+                    },
+                )
+            branch_name = build_ticket_branch_name(validation_branch_prefix, ticket["identifier"])
+            pr_body = textwrap.dedent(
+                f"""\
+                Validation PR seeded by `scripts/dev/create_todo_app_realistic_workflow.py`.
+
+                OpenASE project: {project_name}
+                OpenASE ticket: {ticket["identifier"]} {ticket["title"]}
+                Linked GitHub issue: {github_issue["url"] if github_issue else "none"}
+                """
+            )
+            github_pr = create_github_pull_request(
+                github_repo,
+                github_repo_preparation["repo_dir"],
+                branch_name,
+                github_repo_preparation["baseline_head"],
+                f"{ticket['identifier']}: {ticket['title']}",
+                pr_body,
+            )
+            github_pull_requests.append(github_pr)
+            request_json(
+                base_url,
+                "POST",
+                f"/api/v1/projects/{project['id']}/tickets/{ticket['id']}/repo-scopes",
+                {
+                    "repo_id": project_repo["id"],
+                    "branch_name": github_pr["branch_name"],
+                    "pull_request_url": github_pr["url"],
+                    "pr_status": "open",
+                    "ci_status": "pending",
+                    "is_primary_scope": True,
+                },
+            )
             request_json(
                 base_url,
                 "POST",
                 f"/api/v1/tickets/{ticket['id']}/external-links",
                 {
-                    "type": "github_issue",
-                    "url": github_issue["url"],
-                    "external_id": github_issue["external_id"],
-                    "title": spec["title"],
+                    "type": "github_pr",
+                    "url": github_pr["url"],
+                    "external_id": github_pr["external_id"],
+                    "title": ticket["title"],
                     "status": "open",
                     "relation": "related",
                 },
@@ -794,118 +835,135 @@ def main() -> int:
             ticket = request_json(base_url, "GET", f"/api/v1/tickets/{ticket['id']}")["ticket"]
             tickets[-1] = ticket
 
-    print("[8/11] add one realistic dependency edge")
-    request_json(
-        base_url,
-        "POST",
-        f"/api/v1/tickets/{tickets[0]['id']}/dependencies",
-        {
-            "target_ticket_id": tickets[1]["id"],
-            "type": "blocks",
-        },
-    )
+        print("[9/12] add one realistic dependency edge")
+        request_json(
+            base_url,
+            "POST",
+            f"/api/v1/tickets/{tickets[0]['id']}/dependencies",
+            {
+                "target_ticket_id": tickets[1]["id"],
+                "type": "blocks",
+            },
+        )
 
-    print("[9/11] wait for the scheduler to claim work")
-    agent_after_claim = wait_for_agent_claim(base_url, project["id"], agent["id"], args.wait_seconds)
+        print("[10/12] wait for the scheduler to claim work")
+        agent_after_claim = wait_for_agent_claim(base_url, project["id"], agent["id"], args.wait_seconds)
 
-    print("[10/11] wait for runtime execution, workspace activity, and platform skill completion")
-    agent_after_execution = wait_for_agent_execution(base_url, project["id"], agent["id"], args.wait_seconds)
-    workspace_activity = wait_for_workspace_activity(workspace_path, workspace_baseline_head, args.wait_for_workspace_seconds)
-    platform_skill_result = None
-    claimed_ticket_id = None
-    if isinstance(agent_after_claim, dict):
-        runtime = agent_after_claim.get("runtime") if isinstance(agent_after_claim.get("runtime"), dict) else {}
-        claimed_ticket_id = runtime.get("current_ticket_id") or agent_after_claim.get("current_ticket_id")
-    if claimed_ticket_id:
-        if args.provider_mode == "fake-codex" and not args.require_platform_skill:
-            platform_skill_result = {
-                "detected": False,
-                "required": False,
-                "skipped": True,
-                "reason": "fake-codex mode does not execute workspace commands or platform skills",
-                "ticket_id": claimed_ticket_id,
-            }
-        else:
-            platform_skill_result = wait_for_ticket_finished_by_agent(
-                base_url,
-                claimed_ticket_id,
-                done["id"],
-                f"agent:{agent['name']}",
-                args.platform_skill_timeout_seconds,
-            )
-            if platform_skill_result is None:
+        print("[11/12] wait for runtime execution, workspace activity, and platform skill completion")
+        agent_after_execution = wait_for_agent_execution(base_url, project["id"], agent["id"], args.wait_seconds)
+        workspace_activity = None
+        platform_skill_result = None
+        claimed_ticket_id = None
+        claimed_ticket_workspace_path = None
+        if isinstance(agent_after_claim, dict):
+            runtime = agent_after_claim.get("runtime") if isinstance(agent_after_claim.get("runtime"), dict) else {}
+            claimed_ticket_id = runtime.get("current_ticket_id") or agent_after_claim.get("current_ticket_id")
+        if claimed_ticket_id:
+            claimed_ticket_workspace_path = ticket_workspace_paths.get(claimed_ticket_id)
+            if claimed_ticket_workspace_path:
+                workspace_activity = wait_for_workspace_activity(
+                    Path(claimed_ticket_workspace_path),
+                    github_repo_preparation["baseline_head"],
+                    args.wait_for_workspace_seconds,
+                )
+            if args.provider_mode == "fake-codex" and not args.require_platform_skill:
                 platform_skill_result = {
                     "detected": False,
-                    "required": require_platform_skill,
-                    "skipped": False,
-                    "reason": "ticket lookup did not return a usable payload",
+                    "required": False,
+                    "skipped": True,
+                    "reason": "fake-codex mode does not execute workspace commands or platform skills",
                     "ticket_id": claimed_ticket_id,
                 }
             else:
-                platform_skill_result["required"] = require_platform_skill
-                platform_skill_result["skipped"] = False
-                platform_skill_result["ticket_id"] = claimed_ticket_id
-                if not platform_skill_result["detected"]:
-                    ticket = platform_skill_result.get("ticket", {})
-                    platform_skill_result["reason"] = (
-                        "claimed ticket did not reach the workflow finish status via agent-owned platform update"
-                    )
-                    platform_skill_result["observed_status_id"] = ticket.get("status_id")
-                    platform_skill_result["observed_status_name"] = ticket.get("status_name")
-                    platform_skill_result["observed_created_by"] = ticket.get("created_by")
-    else:
-        platform_skill_result = {
-            "detected": False,
-            "required": require_platform_skill,
-            "skipped": False,
-            "reason": "agent never exposed a claimed current_ticket_id",
-            "ticket_id": None,
+                platform_skill_result = wait_for_ticket_finished_by_agent(
+                    base_url,
+                    claimed_ticket_id,
+                    done["id"],
+                    f"agent:{agent['name']}",
+                    args.platform_skill_timeout_seconds,
+                )
+                if platform_skill_result is None:
+                    platform_skill_result = {
+                        "detected": False,
+                        "required": require_platform_skill,
+                        "skipped": False,
+                        "reason": "ticket lookup did not return a usable payload",
+                        "ticket_id": claimed_ticket_id,
+                    }
+                else:
+                    platform_skill_result["required"] = require_platform_skill
+                    platform_skill_result["skipped"] = False
+                    platform_skill_result["ticket_id"] = claimed_ticket_id
+                    if not platform_skill_result["detected"]:
+                        ticket = platform_skill_result.get("ticket", {})
+                        platform_skill_result["reason"] = (
+                            "claimed ticket did not reach the workflow finish status via agent-owned platform update"
+                        )
+                        platform_skill_result["observed_status_id"] = ticket.get("status_id")
+                        platform_skill_result["observed_status_name"] = ticket.get("status_name")
+                        platform_skill_result["observed_created_by"] = ticket.get("created_by")
+        else:
+            platform_skill_result = {
+                "detected": False,
+                "required": require_platform_skill,
+                "skipped": False,
+                "reason": "agent never exposed a claimed current_ticket_id",
+                "ticket_id": None,
+            }
+
+        if require_platform_skill and not platform_skill_result.get("detected", False):
+            raise RuntimeError(
+                "expected the agent to finish its claimed ticket via openase-platform skill, "
+                f"but no qualifying ticket status transition was observed: {json.dumps(platform_skill_result, ensure_ascii=False)}"
+            )
+
+        print("[12/12] summarize created resources")
+        summary = {
+            "openase": {
+                "base_url": base_url,
+                "organization": org,
+                "project": project,
+                "project_repo": project_repo,
+                "workflow": workflow,
+                "provider": provider,
+                "agent": agent,
+                "agent_after_wait": agent_after_claim,
+                "agent_after_execution": agent_after_execution,
+                "tickets": tickets,
+                "platform_skill": platform_skill_result,
+            },
+            "github": {
+                "repo_prepared": True,
+                "owner": args.github_owner,
+                "repo": github_repo,
+                "repo_url": FIXED_GITHUB_REPO_URL,
+                "baseline_head": github_repo_preparation["baseline_head"],
+                "validation_branch_prefix": validation_branch_prefix,
+                "project": github_project,
+                "issues": github_items,
+                "pull_requests": github_pull_requests,
+            },
+            "workspace": {
+                "root": str(Path.home() / ".openase" / "workspace"),
+                "claimed_ticket_repo_path": claimed_ticket_workspace_path,
+                "ticket_repo_paths": ticket_workspace_paths,
+                "baseline_head": github_repo_preparation["baseline_head"],
+                "activity": workspace_activity,
+            },
+            "notes": [
+                "OpenASE project-facing connector CRUD is not exported yet.",
+                f"The primary repository is always {FIXED_GITHUB_REPO_URL}.",
+                "The script creates a fresh empty baseline checkpoint on main before opening ticket PRs.",
+                "Each ticket gets a GitHub draft PR, a repo scope branch binding, and a github_pr external link.",
+                f"Provider mode: {args.provider_mode}",
+                "Platform skill detection is based on the claimed ticket reaching the workflow finish status with created_by=agent:<agent-name>.",
+            ],
         }
-
-    if require_platform_skill and not platform_skill_result.get("detected", False):
-        raise RuntimeError(
-            "expected the agent to finish its claimed ticket via openase-platform skill, "
-            f"but no qualifying ticket status transition was observed: {json.dumps(platform_skill_result, ensure_ascii=False)}"
-        )
-
-    print("[11/11] summarize created resources")
-    summary = {
-        "openase": {
-            "base_url": base_url,
-            "organization": org,
-            "project": project,
-            "project_repo": project_repo,
-            "workflow": workflow,
-            "provider": provider,
-            "agent": agent,
-            "agent_after_wait": agent_after_claim,
-            "agent_after_execution": agent_after_execution,
-            "tickets": tickets,
-            "platform_skill": platform_skill_result,
-        },
-        "github": {
-            "enabled": not args.skip_github,
-            "owner": args.github_owner,
-            "repo": github_repo or None,
-            "project": github_project,
-            "issues": github_items,
-        },
-        "workspace": {
-            "path": str(workspace_path),
-            "created": workspace_created,
-            "baseline_head": workspace_baseline_head,
-            "activity": workspace_activity,
-        },
-        "notes": [
-            "OpenASE project-facing connector CRUD is not exported yet.",
-            "This script creates a dedicated local Todo app git repo, then points the coding agent workspace at that repo.",
-            "GitHub project/issues are still created separately and linked back to OpenASE tickets through external links.",
-            f"Provider mode: {args.provider_mode}",
-            "Platform skill detection is based on the claimed ticket reaching the workflow finish status with created_by=agent:<agent-name>.",
-        ],
-    }
-    print(json.dumps(summary, indent=2))
-    return 0
+        print(json.dumps(summary, indent=2))
+        return 0
+    finally:
+        if github_repo_preparation is not None:
+            shutil.rmtree(github_repo_preparation["checkout_dir"], ignore_errors=True)
 
 
 if __name__ == "__main__":

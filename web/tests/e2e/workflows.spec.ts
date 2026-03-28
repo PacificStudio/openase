@@ -1,0 +1,70 @@
+import { measureCompletion, measureFeedback, measureNavigation } from './perf'
+import { expect, test } from './fixtures'
+
+test('workflow creation dialog stays responsive', async ({ page, projectPath }, testInfo) => {
+  await measureNavigation({
+    page,
+    scenario: 'workflows_page_ready',
+    budgetMs: 800,
+    ready: page.getByRole('heading', { name: 'Workflows' }),
+    testInfo,
+    action: async () => {
+      await page.goto(projectPath('workflows'))
+    },
+  })
+
+  await measureFeedback({
+    scenario: 'workflow_create_dialog_open',
+    budgetMs: 150,
+    ready: page.getByRole('heading', { name: 'Create Workflow' }),
+    testInfo,
+    action: async () => {
+      await page.getByRole('button', { name: 'New Workflow' }).click()
+    },
+  })
+
+  await page.locator('#workflow-create-name').fill('Workflow E2E')
+
+  await measureCompletion({
+    scenario: 'workflow_create_complete',
+    budgetMs: 1500,
+    ready: page.getByText('Workflow created.'),
+    testInfo,
+    action: async () => {
+      await page.getByRole('button', { name: 'Create workflow' }).click()
+    },
+  })
+
+  await expect(page.getByRole('heading', { name: 'Workflow E2E' })).toBeVisible()
+})
+
+test('scheduled jobs creation remains responsive', async ({ page, projectPath }, testInfo) => {
+  await measureNavigation({
+    page,
+    scenario: 'scheduled_jobs_page_ready',
+    budgetMs: 800,
+    ready: page.getByRole('heading', { name: 'Scheduled Jobs' }),
+    testInfo,
+    action: async () => {
+      await page.goto(projectPath('scheduled-jobs'))
+    },
+  })
+
+  await page.getByRole('button', { name: 'New job' }).click()
+  await page.getByLabel('Job name').fill('Morning sync')
+  await page.getByLabel('Cron expression').fill('0 9 * * 1-5')
+  await page.getByLabel('Ticket title').fill('Run morning sync')
+  await page.getByLabel('Created by').fill('playwright')
+
+  await measureCompletion({
+    scenario: 'scheduled_job_create_complete',
+    budgetMs: 1500,
+    ready: page.getByText('Scheduled job created.'),
+    testInfo,
+    action: async () => {
+      await page.getByRole('button', { name: 'Create job' }).click()
+    },
+  })
+
+  await expect(page.getByText('Morning sync')).toBeVisible()
+})
