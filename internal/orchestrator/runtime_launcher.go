@@ -46,6 +46,7 @@ type RuntimeLauncher struct {
 	platformAPIURL string
 	githubAuth     githubauthservice.TokenResolver
 	now            func() time.Time
+	launchTimeout  time.Duration
 
 	sessionsMu sync.Mutex
 	sessions   map[uuid.UUID]*codex.Session
@@ -65,6 +66,8 @@ type runtimeAssignment struct {
 	agent  *ent.Agent
 	run    *ent.AgentRun
 }
+
+const defaultRuntimeLaunchTimeout = 30 * time.Second
 
 func NewRuntimeLauncher(
 	client *ent.Client,
@@ -86,6 +89,7 @@ func NewRuntimeLauncher(
 		sshPool:        sshPool,
 		workflow:       workflow,
 		now:            time.Now,
+		launchTimeout:  defaultRuntimeLaunchTimeout,
 		sessions:       map[uuid.UUID]*codex.Session{},
 		executions:     map[uuid.UUID]struct{}{},
 		tickets:        ticketservice.NewService(client),
@@ -139,11 +143,18 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return fmt.Errorf("list current runs awaiting launch: %w", err)
 	}
 
+	var launches sync.WaitGroup
 	for _, assignment := range assignments {
-		if err := l.launchAgent(ctx, assignment); err != nil {
-			l.logger.Error("launch current run", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
-		}
+		launches.Add(1)
+		assignment := assignment
+		go func() {
+			defer launches.Done()
+			if err := l.launchAgent(ctx, assignment); err != nil {
+				l.logger.Error("launch current run", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
+			}
+		}()
 	}
+	launches.Wait()
 
 	return nil
 }
@@ -271,7 +282,7 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		return err
 	}
 
-	session, launchErr := l.startCodexSession(ctx, assignment)
+	session, launchErr := l.startCodexSessionWithTimeout(ctx, assignment)
 	if launchErr != nil {
 		return l.markLaunchFailed(ctx, assignment.agent.ID, assignment.run.ID, launchErr)
 	}
@@ -331,6 +342,48 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 	}
 
 	return nil
+}
+
+func (l *RuntimeLauncher) startCodexSessionWithTimeout(ctx context.Context, assignment runtimeAssignment) (*codex.Session, error) {
+	timeout := l.launchTimeout
+	if timeout <= 0 {
+		return l.startCodexSession(ctx, assignment)
+	}
+
+	launchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	type launchResult struct {
+		session *codex.Session
+		err     error
+	}
+
+	resultCh := make(chan launchResult)
+	//nolint:gosec // launch timeout cleanup needs a detached stop context to reclaim late sessions safely.
+	go func() {
+		session, err := l.startCodexSession(launchCtx, assignment)
+		select {
+		case resultCh <- launchResult{session: session, err: err}:
+		case <-launchCtx.Done():
+			stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			defer stopCancel()
+			stopSession(stopCtx, session)
+		}
+	}()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case result := <-resultCh:
+		return result.session, result.err
+	case <-timer.C:
+		cancel()
+		return nil, fmt.Errorf("start codex session timed out after %s", timeout)
+	case <-ctx.Done():
+		cancel()
+		return nil, ctx.Err()
+	}
 }
 
 func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUID, runID uuid.UUID, launchErr error) error {

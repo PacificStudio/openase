@@ -421,6 +421,297 @@ workflow:
 	}
 }
 
+func TestRuntimeLauncherRunTickBlockedStartStarvesLaterAssignments(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 29, 10, 0, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Blocked launch should not starve later assignments.
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-blocked-start-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	ticketOne, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-330A").
+		SetTitle("Launch blocked run").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create first ticket: %v", err)
+	}
+	ticketTwo, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-330B").
+		SetTitle("Launch later run").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create second ticket: %v", err)
+	}
+
+	runOne := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketOne.ID, entagentrun.StatusLaunching, time.Time{})
+	runTwo := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketTwo.ID, entagentrun.StatusLaunching, time.Time{})
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetWorkspaceRoot("/srv/openase/workspaces").
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine workspace root: %v", err)
+	}
+
+	manager := &runtimeBlockingStartProcessManager{
+		releaseFirstStart: make(chan struct{}),
+		firstStartSeen:    make(chan struct{}, 1),
+		laterStartSeen:    make(chan struct{}, 1),
+	}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	launcher.now = func() time.Time {
+		return now
+	}
+	t.Cleanup(func() {
+		manager.release()
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- launcher.RunTick(ctx)
+	}()
+
+	select {
+	case <-manager.firstStartSeen:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first blocked start to begin")
+	}
+
+	select {
+	case <-manager.laterStartSeen:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for later launch attempt while first start was blocked")
+	}
+
+	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+		runOneAfter, err := client.AgentRun.Get(ctx, runOne.ID)
+		if err != nil {
+			return false
+		}
+		runTwoAfter, err := client.AgentRun.Get(ctx, runTwo.ID)
+		if err != nil {
+			return false
+		}
+
+		readyCount := 0
+		launchingCount := 0
+		for _, status := range []entagentrun.Status{runOneAfter.Status, runTwoAfter.Status} {
+			switch status {
+			case entagentrun.StatusReady:
+				readyCount++
+			case entagentrun.StatusLaunching:
+				launchingCount++
+			}
+		}
+		return readyCount == 1 && launchingCount == 1
+	})
+
+	manager.release()
+
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Fatalf("run launcher tick: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for launcher tick to finish after releasing blocked start")
+	}
+
+	runOneAfter, err := client.AgentRun.Get(ctx, runOne.ID)
+	if err != nil {
+		t.Fatalf("reload first run: %v", err)
+	}
+	runTwoAfter, err := client.AgentRun.Get(ctx, runTwo.ID)
+	if err != nil {
+		t.Fatalf("reload second run: %v", err)
+	}
+	if runOneAfter.Status != entagentrun.StatusReady || runTwoAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected both runs ready after release, got first=%+v second=%+v", runOneAfter, runTwoAfter)
+	}
+}
+
+func TestRuntimeLauncherRunTickLaunchTimeoutMarksRunErrored(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Blocked launch should time out cleanly.
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-330C").
+		SetTitle("Time out blocked launch").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-timeout-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetWorkspaceRoot("/srv/openase/workspaces").
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine workspace root: %v", err)
+	}
+
+	manager := &runtimeBlockingStartProcessManager{
+		releaseFirstStart: make(chan struct{}),
+		firstStartSeen:    make(chan struct{}, 1),
+		laterStartSeen:    make(chan struct{}, 1),
+	}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	launcher.launchTimeout = 50 * time.Millisecond
+	t.Cleanup(func() {
+		manager.release()
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run after launch timeout, got %+v", runAfter)
+	}
+	if !strings.Contains(runAfter.LastError, "timed out after 50ms") {
+		t.Fatalf("expected launch timeout in last error, got %q", runAfter.LastError)
+	}
+
+	manager.release()
+}
+
 func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -2034,6 +2325,48 @@ type runtimeFakeProcessManager struct {
 	failTurn           int
 	releaseTurn        chan struct{}
 	executionDone      chan struct{}
+}
+
+type runtimeBlockingStartProcessManager struct {
+	runtimeFakeProcessManager
+	startMu           sync.Mutex
+	startCount        int
+	releaseFirstStart chan struct{}
+	firstStartSeen    chan struct{}
+	laterStartSeen    chan struct{}
+	releaseOnce       sync.Once
+}
+
+func (m *runtimeBlockingStartProcessManager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
+	m.startMu.Lock()
+	m.startCount++
+	startCount := m.startCount
+	m.startMu.Unlock()
+
+	if startCount == 1 {
+		signalRuntimeStart(m.firstStartSeen)
+		<-m.releaseFirstStart
+	} else {
+		signalRuntimeStart(m.laterStartSeen)
+	}
+
+	return m.runtimeFakeProcessManager.Start(ctx, spec)
+}
+
+func (m *runtimeBlockingStartProcessManager) release() {
+	m.releaseOnce.Do(func() {
+		close(m.releaseFirstStart)
+	})
+}
+
+func signalRuntimeStart(ch chan struct{}) {
+	if ch == nil {
+		return
+	}
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
 }
 
 func (m *runtimeFakeProcessManager) Start(_ context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
