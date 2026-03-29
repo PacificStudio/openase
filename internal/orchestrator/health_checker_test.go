@@ -162,11 +162,65 @@ func TestHealthCheckerLeavesHealthyClaimUntouched(t *testing.T) {
 	}
 }
 
+func TestHealthCheckerLeavesFreshMissingHeartbeatLaunchUntouched(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 14, 30, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		SetStallTimeoutMinutes(5).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "coding-02b", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetWorkflowID(workflow.ID).
+		SetIdentifier("ASE-402B").
+		SetTitle("Fresh missing heartbeat launch").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityMedium).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	checker := newTestHealthChecker(client, now)
+	report, err := checker.Run(ctx)
+	if err != nil {
+		t.Fatalf("run health checker: %v", err)
+	}
+
+	if report.ClaimsChecked != 1 || report.StalledClaims != 0 || report.AgentsReleased != 0 {
+		t.Fatalf("unexpected health report: %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.CurrentRunID == nil || *ticketAfter.CurrentRunID != runItem.ID {
+		t.Fatalf("expected current run to stay %s, got %+v", runItem.ID, ticketAfter.CurrentRunID)
+	}
+}
+
 func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
-	now := time.Date(2026, 3, 20, 15, 0, 0, 0, time.UTC)
+	now := time.Now().UTC().Add(2 * time.Minute)
 
 	workflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).

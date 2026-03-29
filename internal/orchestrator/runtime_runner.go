@@ -623,16 +623,15 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 	if err != nil {
 		return err
 	}
-	return publishAgentLifecycleEvent(
+	l.publishLifecycleEvent(
 		ctx,
-		l.client,
-		l.events,
 		agentTerminatedType,
 		agentItem,
 		lifecycleMessage(agentTerminatedType, agentItem.agent.Name),
 		runtimeEventMetadataForState(agentItem),
 		now,
 	)
+	return nil
 }
 
 func resolveWorkflowFinishStatus(ticket *ent.Ticket) (uuid.UUID, error) {
@@ -671,10 +670,8 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 		SetLastError(strings.TrimSpace(failure.Error())).
 		Save(ctx); err == nil {
 		if failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID); err == nil {
-			_ = publishAgentLifecycleEvent(
+			l.publishLifecycleEvent(
 				ctx,
-				l.client,
-				l.events,
 				agentFailedType,
 				failedAgent,
 				lifecycleMessage(agentFailedType, failedAgent.agent.Name),
@@ -735,16 +732,15 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.U
 	if err != nil {
 		return err
 	}
-	return publishAgentLifecycleEvent(
+	l.publishLifecycleEvent(
 		ctx,
-		l.client,
-		l.events,
 		agentTerminatedType,
 		reloaded,
 		lifecycleMessage(agentTerminatedType, reloaded.agent.Name),
 		runtimeEventMetadataForState(reloaded),
 		l.now().UTC(),
 	)
+	return nil
 }
 
 func (l *RuntimeLauncher) markTicketStarted(ctx context.Context, ticketID uuid.UUID) error {
