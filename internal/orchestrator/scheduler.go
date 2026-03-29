@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -13,8 +14,11 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
+	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	domaincatalog "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -31,6 +35,7 @@ const (
 	skipReasonProviderUnknown     = "provider_unknown"
 	skipReasonProviderUnavailable = "provider_unavailable"
 	skipReasonProviderStale       = "provider_stale"
+	skipReasonMirrorNotReady      = "mirror_not_ready"
 	skipReasonMaxConcurrency      = "max_concurrency"
 	skipReasonStageCapacity       = "stage_capacity"
 )
@@ -192,6 +197,13 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 	if machine == nil {
 		return false, reason, nil
 	}
+	ready, reason, err := s.requiredRepoMirrorsReady(ctx, workflow.ProjectID, ticket.ID, machine.ID)
+	if err != nil {
+		return false, "", fmt.Errorf("check repo mirrors for dispatch: %w", err)
+	}
+	if !ready {
+		return false, reason, nil
+	}
 
 	outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, machine, agent, project.MaxConcurrentAgents, now)
 	if err != nil {
@@ -208,6 +220,44 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 	}
 
 	return false, outcome, nil
+}
+
+func (s *Scheduler) requiredRepoMirrorsReady(
+	ctx context.Context,
+	projectID uuid.UUID,
+	ticketID uuid.UUID,
+	machineID uuid.UUID,
+) (bool, string, error) {
+	projectRepos, err := s.client.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectIDEQ(projectID)).
+		Order(entprojectrepo.ByName()).
+		WithMirrors(func(query *ent.ProjectRepoMirrorQuery) {
+			query.Where(entprojectrepomirror.MachineIDEQ(machineID))
+		}).
+		All(ctx)
+	if err != nil {
+		return false, "", fmt.Errorf("list project repos: %w", err)
+	}
+
+	ticketScopes, err := s.client.TicketRepoScope.Query().
+		Where(entticketreposcope.TicketIDEQ(ticketID)).
+		Order(
+			entticketreposcope.ByIsPrimaryScope(),
+			entticketreposcope.ByRepoID(),
+		).
+		All(ctx)
+	if err != nil {
+		return false, "", fmt.Errorf("list ticket repo scopes: %w", err)
+	}
+
+	if _, err := buildWorkspaceRepoPlans(projectRepos, ticketScopes, machineID); err != nil {
+		if errors.Is(err, errNoReadyMirrorForMachine) {
+			return false, skipReasonMirrorNotReady, nil
+		}
+		return false, "", err
+	}
+
+	return true, "", nil
 }
 
 func (s *Scheduler) resolveWorkflowAgent(ctx context.Context, workflow *ent.Workflow) (*ent.Agent, error) {

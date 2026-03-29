@@ -1963,6 +1963,130 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	}
 }
 
+func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIsMissing(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-404").
+		SetTitle("Remote launch without ssh pool").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	projectRepo, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("openase").
+		SetRepositoryURL("https://github.com/GrandCX/openase.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("openase").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-03.pem"
+	workspaceRoot := "/srv/openase/workspaces"
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("gpu-03").
+		SetHost("10.0.1.12").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetWorkspaceRoot(workspaceRoot).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx); err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	remoteMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("gpu-03"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load remote machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider machine: %v", err)
+	}
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(projectRepo.ID).
+		SetMachineID(remoteMachine.ID).
+		SetLocalPath("/srv/openase/mirrors/openase").
+		SetState(entprojectrepomirror.StateReady).
+		SetHeadCommit("abc123remote").
+		Save(ctx); err != nil {
+		t.Fatalf("create ready remote mirror: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-03").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run, got %+v", runAfter)
+	}
+
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateFailed {
+		t.Fatalf("expected failed repo workspace, got %+v", repoWorkspace)
+	}
+	if !strings.Contains(repoWorkspace.LastError, "ssh pool unavailable for remote machine gpu-03") {
+		t.Fatalf("expected ssh pool failure in last_error, got %+v", repoWorkspace)
+	}
+}
+
 func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightForNonCodexCommand(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)

@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -39,6 +40,11 @@ const (
 	defaultLaunchTimeout           = 30 * time.Second
 	defaultLaunchCleanupTimeout    = 5 * time.Second
 	defaultLifecyclePublishTimeout = 2 * time.Second
+)
+
+var (
+	errNoReadyMirrorForMachine     = errors.New("no ready ProjectRepoMirror is available on machine")
+	errReadyMirrorMissingLocalPath = errors.New("ready ProjectRepoMirror is missing local_path")
 )
 
 type RuntimeLauncher struct {
@@ -1027,12 +1033,12 @@ func selectReadyMirrorForMachine(mirrors []*ent.ProjectRepoMirror, machineID uui
 			continue
 		}
 		if strings.TrimSpace(mirror.LocalPath) == "" {
-			return nil, fmt.Errorf("ready mirror %s is missing local_path", mirror.ID)
+			return nil, fmt.Errorf("%w: %s", errReadyMirrorMissingLocalPath, mirror.ID)
 		}
 		return mirror, nil
 	}
 
-	return nil, fmt.Errorf("no ready ProjectRepoMirror is available on machine %s", machineID)
+	return nil, fmt.Errorf("%w: %s", errNoReadyMirrorForMachine, machineID)
 }
 
 func resolvedWorkspaceDirname(repo *ent.ProjectRepo) string {
@@ -1066,9 +1072,10 @@ func (l *RuntimeLauncher) prepareTicketWorkspace(
 	var workspaceItem workspaceinfra.Workspace
 	if remote {
 		if l.sshPool == nil {
-			return workspaceinfra.Workspace{}, fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+			err = fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+		} else {
+			workspaceItem, err = workspaceinfra.NewRemoteManager(l.sshPool).Prepare(ctx, machine, request)
 		}
-		workspaceItem, err = workspaceinfra.NewRemoteManager(l.sshPool).Prepare(ctx, machine, request)
 	} else {
 		workspaceItem, err = workspaceinfra.NewManager().Prepare(ctx, request)
 	}
