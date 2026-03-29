@@ -131,11 +131,30 @@ func evaluateClaimHealth(ticket *ent.Ticket, now time.Time) claimHealthState {
 
 	timeout := stallTimeoutForWorkflow(ticket.Edges.Workflow)
 	run := ticket.Edges.CurrentRun
-	if run == nil || run.LastHeartbeatAt == nil {
+	if run == nil {
+		return claimHealthState{
+			stalled: true,
+			reason:  "missing_run",
+			timeout: timeout,
+		}
+	}
+	if run.LastHeartbeatAt == nil {
+		reference := run.CreatedAt.UTC()
+		if run.RuntimeStartedAt != nil {
+			reference = run.RuntimeStartedAt.UTC()
+		}
+		age := now.Sub(reference)
+		if age < 0 {
+			age = 0
+		}
+		if age <= timeout {
+			return claimHealthState{}
+		}
 		return claimHealthState{
 			stalled: true,
 			reason:  "missing_heartbeat",
 			timeout: timeout,
+			age:     age,
 		}
 	}
 

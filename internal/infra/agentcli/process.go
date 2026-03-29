@@ -44,11 +44,13 @@ func (m *Manager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) 
 		return nil, fmt.Errorf("agent cli command must not be empty")
 	}
 
-	//nolint:gosec // command and arguments come from validated agent provider configuration
-	cmd := exec.CommandContext(ctx, spec.Command.String(), spec.Args...)
-	cmd.Cancel = func() error {
-		return interruptProcess(cmd.Process)
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
+
+	//nolint:gosec // command and arguments come from validated agent provider configuration
+	cmd := exec.Command(spec.Command.String(), spec.Args...)
+	configureProcessGroup(cmd)
 	cmd.WaitDelay = m.stopGracePeriod
 	if spec.WorkingDirectory != nil {
 		cmd.Dir = spec.WorkingDirectory.String()
@@ -92,6 +94,18 @@ func (m *Manager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) 
 		_ = stdoutBuffer.Close()
 		_ = stderrBuffer.Close()
 		return nil, fmt.Errorf("start agent cli process: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		_ = interruptProcess(cmd.Process)
+		_ = cmd.Wait()
+		_ = stdin.Close()
+		_ = stdoutReader.Close()
+		_ = stdoutWriter.Close()
+		_ = stderrReader.Close()
+		_ = stderrWriter.Close()
+		_ = stdoutBuffer.Close()
+		_ = stderrBuffer.Close()
+		return nil, err
 	}
 	_ = stdoutWriter.Close()
 	_ = stderrWriter.Close()
@@ -308,31 +322,4 @@ func isProcessPipeClosedError(err error) bool {
 	}
 
 	return strings.Contains(err.Error(), "file already closed")
-}
-
-func interruptProcess(process *os.Process) error {
-	if process == nil {
-		return fmt.Errorf("process not started")
-	}
-
-	if err := process.Signal(os.Interrupt); err != nil {
-		if errors.Is(err, os.ErrProcessDone) {
-			return nil
-		}
-		return killProcess(process)
-	}
-
-	return nil
-}
-
-func killProcess(process *os.Process) error {
-	if process == nil {
-		return fmt.Errorf("process not started")
-	}
-
-	if err := process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return fmt.Errorf("kill process: %w", err)
-	}
-
-	return nil
 }
