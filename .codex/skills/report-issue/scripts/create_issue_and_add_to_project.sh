@@ -10,6 +10,7 @@ todo_option_id="1d2e5cb6"
 title=""
 body_file=""
 status_name="Todo"
+declare -a blocked_by_issue_numbers=()
 
 status_option_id_for() {
   case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
@@ -49,10 +50,11 @@ status_option_id_for() {
 usage() {
   cat <<'EOF'
 Usage:
-  create_issue_and_add_to_project.sh --title "<title>" --body-file <path> [--status "<status>"]
+  create_issue_and_add_to_project.sh --title "<title>" --body-file <path> [--status "<status>"] [--blocked-by <issue-number> ...]
 
-Creates a GitHub issue in the current repo, adds it to the OpenASE Automation
-project, and sets project status.
+Creates a GitHub issue in the current repo, optionally wires blocked-by issue
+dependencies, then adds it to the OpenASE Automation project and sets project
+status.
 
 Supported statuses:
   Backlog
@@ -66,7 +68,40 @@ Supported statuses:
   Duplicated
 
 Defaults to `Todo` when --status is omitted.
+
+Examples:
+  create_issue_and_add_to_project.sh --title "Example" --body-file /tmp/body.md
+  create_issue_and_add_to_project.sh --title "Example" --body-file /tmp/body.md --blocked-by 322 --blocked-by 323
 EOF
+}
+
+repo_slug() {
+  gh repo view --json nameWithOwner -q .nameWithOwner
+}
+
+issue_node_id_for() {
+  local issue_number="$1"
+  local repo_full_name="$2"
+
+  gh issue view "$issue_number" --repo "$repo_full_name" --json id -q .id
+}
+
+issue_number_from_url() {
+  local issue_url="$1"
+  printf '%s\n' "${issue_url##*/}"
+}
+
+add_blocked_by_dependency() {
+  local issue_id="$1"
+  local blocking_issue_id="$2"
+
+  gh api graphql -f query='
+mutation($issueId: ID!, $blockingIssueId: ID!) {
+  addBlockedBy(input: {issueId: $issueId, blockingIssueId: $blockingIssueId}) {
+    issue { id }
+  }
+}
+' -F issueId="$issue_id" -F blockingIssueId="$blocking_issue_id" >/dev/null
 }
 
 while [[ $# -gt 0 ]]; do
@@ -81,6 +116,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --status)
       status_name="${2:-}"
+      shift 2
+      ;;
+    --blocked-by)
+      blocked_by_issue_numbers+=("${2:-}")
       shift 2
       ;;
     -h|--help)
@@ -116,7 +155,23 @@ if ! status_option_id="$(status_option_id_for "$status_name")"; then
   exit 1
 fi
 
+for blocked_by_issue_number in "${blocked_by_issue_numbers[@]}"; do
+  if [[ ! "$blocked_by_issue_number" =~ ^[0-9]+$ ]]; then
+    echo "invalid --blocked-by issue number: $blocked_by_issue_number" >&2
+    exit 1
+  fi
+done
+
+repo_full_name="$(repo_slug)"
 issue_url="$(gh issue create --title "$title" --body-file "$body_file")"
+issue_number="$(issue_number_from_url "$issue_url")"
+issue_id="$(issue_node_id_for "$issue_number" "$repo_full_name")"
+
+for blocked_by_issue_number in "${blocked_by_issue_numbers[@]}"; do
+  blocking_issue_id="$(issue_node_id_for "$blocked_by_issue_number" "$repo_full_name")"
+  add_blocked_by_dependency "$issue_id" "$blocking_issue_id"
+done
+
 item_id="$(
   gh project item-add "$project_number" --owner "$owner" --url "$issue_url" --format json |
     python3 -c 'import json, sys; print(json.load(sys.stdin)["id"])'
@@ -128,4 +183,5 @@ gh project item-edit \
   --single-select-option-id "$status_option_id" \
   >/dev/null
 
-printf 'ISSUE_URL=%s\nITEM_ID=%s\nSTATUS=%s\n' "$issue_url" "$item_id" "$status_name"
+printf 'ISSUE_URL=%s\nISSUE_NUMBER=%s\nITEM_ID=%s\nSTATUS=%s\n' \
+  "$issue_url" "$issue_number" "$item_id" "$status_name"
