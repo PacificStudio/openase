@@ -462,9 +462,7 @@ func selectRepresentativeWorkflowMirror(mirrors []*ent.ProjectRepoMirror) *ent.P
 	}
 
 	ordered := append([]*ent.ProjectRepoMirror(nil), mirrors...)
-	slices.SortStableFunc(ordered, func(left *ent.ProjectRepoMirror, right *ent.ProjectRepoMirror) int {
-		return compareWorkflowMirrorPriority(left, right)
-	})
+	slices.SortStableFunc(ordered, compareWorkflowMirrorPriority)
 
 	for _, mirror := range ordered {
 		if mirror != nil {
@@ -585,17 +583,6 @@ func toWorkflowMirrorState(value entprojectrepomirror.State) catalogdomain.Proje
 	default:
 		return catalogdomain.ProjectRepoMirrorStateMissing
 	}
-}
-
-func cloneStringPointer(value *string) *string {
-	if value == nil {
-		return nil
-	}
-	trimmed := strings.TrimSpace(*value)
-	if trimmed == "" {
-		return nil
-	}
-	return &trimmed
 }
 
 func stringPointer(value string) *string {
