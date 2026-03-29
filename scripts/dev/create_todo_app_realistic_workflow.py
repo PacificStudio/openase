@@ -4,8 +4,6 @@ import argparse
 import json
 import os
 import re
-import secrets
-import shutil
 import subprocess
 import textwrap
 import time
@@ -22,6 +20,7 @@ README_BASELINE = (
     "# TodoApp\n\n"
     "OpenASE validation repository baseline.\n"
 )
+PROJECT_STATUS_IN_PROGRESS = "In Progress"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -230,17 +229,8 @@ def ensure_repo_readme(repo_dir: Path) -> None:
         write_text(readme_path, README_BASELINE)
 
 
-def random_suffix(length: int = 6) -> str:
-    alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
-    return "".join(secrets.choice(alphabet) for _ in range(length))
-
-
-def build_validation_branch_prefix() -> str:
-    return f"main-{random_suffix()}"
-
-
-def build_ticket_branch_name(prefix: str, ticket_identifier: str) -> str:
-    return f"{prefix}-{slugify(ticket_identifier)}"
+def build_ticket_branch_name(agent_name: str, ticket_identifier: str) -> str:
+    return f"agent/{agent_name}/{ticket_identifier}"
 
 
 def derive_ticket_workspace_repo_path(org_slug: str, project_slug: str, ticket_identifier: str, repo_name: str) -> Path:
@@ -251,22 +241,28 @@ def prepare_github_validation_repository(repo: str, checkout_parent: Path, stamp
     repo_meta = run_cli_json(["gh", "api", f"repos/{repo}"])
     checkout_dir = checkout_parent / f"todoapp-github-validation-{stamp}"
     repo_dir = checkout_dir / "repo"
+    default_branch = repo_meta.get("default_branch") or "main"
     checkout_dir.mkdir(parents=True, exist_ok=False)
+    remote_default_branch = run_cli(
+        ["git", "ls-remote", "--heads", FIXED_GITHUB_SSH_URL, default_branch],
+        check=False,
+    )
+    remote_has_default_branch = bool(remote_default_branch.stdout.strip())
 
-    if repo_meta.get("size", 0) == 0:
+    if not remote_has_default_branch:
         repo_dir.mkdir(parents=True, exist_ok=False)
-        run_cli(["git", "init", "-b", "main"], cwd=repo_dir, check=True)
+        run_cli(["git", "init", "-b", default_branch], cwd=repo_dir, check=True)
         ensure_git_identity(repo_dir)
         ensure_repo_readme(repo_dir)
         run_cli(["git", "add", "README.md"], cwd=repo_dir, check=True)
         run_cli(["git", "commit", "-m", "docs: bootstrap todoapp readme"], cwd=repo_dir, check=True)
         run_cli(["git", "remote", "add", "origin", FIXED_GITHUB_SSH_URL], cwd=repo_dir, check=True)
-        run_cli(["git", "push", "-u", "origin", "HEAD:main"], cwd=repo_dir, check=True)
+        run_cli(["git", "push", "-u", "origin", f"HEAD:{default_branch}"], cwd=repo_dir, check=True)
     else:
         run_cli(["git", "clone", FIXED_GITHUB_SSH_URL, str(repo_dir)], cwd=checkout_dir, check=True)
         ensure_git_identity(repo_dir)
         ensure_main_checkout(repo_dir)
-        run_cli(["git", "pull", "--ff-only", "origin", "main"], cwd=repo_dir, check=True)
+        run_cli(["git", "pull", "--ff-only", "origin", default_branch], cwd=repo_dir, check=True)
 
     ensure_repo_readme(repo_dir)
     run_cli(["git", "add", "README.md"], cwd=repo_dir, check=True)
@@ -275,13 +271,13 @@ def prepare_github_validation_repository(repo: str, checkout_parent: Path, stamp
         cwd=repo_dir,
         check=True,
     )
-    run_cli(["git", "push", "origin", "HEAD:main"], cwd=repo_dir, check=True)
+    run_cli(["git", "push", "origin", f"HEAD:{default_branch}"], cwd=repo_dir, check=True)
     baseline_head = run_cli(["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True).stdout.strip()
     return {
         "checkout_dir": checkout_dir,
         "repo_dir": repo_dir,
         "baseline_head": baseline_head,
-        "default_branch": repo_meta.get("default_branch") or "main",
+        "default_branch": default_branch,
         "clone_url": repo_meta.get("clone_url") or FIXED_GITHUB_REPO_URL,
         "ssh_url": repo_meta.get("ssh_url") or FIXED_GITHUB_SSH_URL,
     }
@@ -296,7 +292,7 @@ def create_github_pull_request(
     body: str,
 ) -> dict:
     ensure_main_checkout(repo_dir)
-    run_cli(["git", "checkout", "-b", branch_name, base_sha], cwd=repo_dir, check=True)
+    run_cli(["git", "checkout", "-B", branch_name, base_sha], cwd=repo_dir, check=True)
     seed_rel_path = Path(".openase") / "pr-seeds" / f"{branch_name}.md"
     write_text(
         repo_dir / seed_rel_path,
@@ -313,7 +309,19 @@ def create_github_pull_request(
     )
     run_cli(["git", "add", str(seed_rel_path)], cwd=repo_dir, check=True)
     run_cli(["git", "commit", "-m", f"chore: seed validation pr for {branch_name}"], cwd=repo_dir, check=True)
-    run_cli(["git", "push", "-u", "origin", branch_name], cwd=repo_dir, check=True)
+    run_cli(["git", "push", "--force-with-lease", "-u", "origin", branch_name], cwd=repo_dir, check=True)
+    existing_pull_requests = run_cli_json(
+        ["gh", "pr", "list", "-R", repo, "--head", branch_name, "--state", "open", "--json", "number,url"],
+        cwd=repo_dir,
+    )
+    if existing_pull_requests:
+        existing = existing_pull_requests[0]
+        return {
+            "number": existing["number"],
+            "url": existing["url"],
+            "external_id": f"{repo}#{existing['number']}",
+            "branch_name": branch_name,
+        }
     result = run_cli(
         [
             "gh",
@@ -621,8 +629,6 @@ def main() -> int:
         print(f"[2/12] prepare fixed GitHub repository {FIXED_GITHUB_REPO_URL}")
         run_cli(["gh", "auth", "status"], check=True)
         github_repo_preparation = prepare_github_validation_repository(github_repo, workspace_parent, stamp)
-        validation_branch_prefix = build_validation_branch_prefix()
-
         if not args.skip_github:
             print("[3/12] create a dedicated GitHub Project and linked issues")
             run_cli(["gh", "auth", "status"], check=True)
@@ -641,7 +647,7 @@ def main() -> int:
         else:
             print("[3/12] skip GitHub Project and issue creation")
 
-        print("[4/12] using fixed GitHub repository as the project primary repo")
+        print("[4/12] using the fixed GitHub repository and a local seed clone for the project primary repo")
         print(f"repository={FIXED_GITHUB_REPO_URL}")
 
         print("[5/12] create isolated OpenASE organization and project")
@@ -662,7 +668,7 @@ def main() -> int:
                 "name": project_name,
                 "slug": project_slug,
                 "description": "Realistic Todo app workflow validation created by the dev seed script.",
-                "status": "active",
+                "status": PROJECT_STATUS_IN_PROGRESS,
                 "max_concurrent_agents": 1,
             },
         )["project"]
@@ -716,8 +722,9 @@ def main() -> int:
             f"/api/v1/projects/{project['id']}/repos",
             {
                 "name": slugify(project_name),
-                "repository_url": FIXED_GITHUB_REPO_URL,
+                "repository_url": str(github_repo_preparation["repo_dir"]),
                 "default_branch": "main",
+                "clone_path": str(github_repo_preparation["repo_dir"]),
                 "is_primary": True,
                 "labels": ["todo-app", "validation", "github"],
             },
@@ -735,6 +742,14 @@ def main() -> int:
                 "harness_content": build_validation_workflow_harness(project_name),
             },
         )["workflow"]
+        request_json(
+            base_url,
+            "PATCH",
+            f"/api/v1/projects/{project['id']}/repos/{project_repo['id']}",
+            {
+                "clone_path": project_repo["name"],
+            },
+        )["repo"]
 
         print("[7/12] set project defaults after creating the primary workspace repo")
         request_json(
@@ -787,7 +802,7 @@ def main() -> int:
                         "relation": "related",
                     },
                 )
-            branch_name = build_ticket_branch_name(validation_branch_prefix, ticket["identifier"])
+            branch_name = build_ticket_branch_name(agent["name"], ticket["identifier"])
             pr_body = textwrap.dedent(
                 f"""\
                 Validation PR seeded by `scripts/dev/create_todo_app_realistic_workflow.py`.
@@ -938,7 +953,8 @@ def main() -> int:
                 "repo": github_repo,
                 "repo_url": FIXED_GITHUB_REPO_URL,
                 "baseline_head": github_repo_preparation["baseline_head"],
-                "validation_branch_prefix": validation_branch_prefix,
+                "validation_branch_prefix": f"agent/{agent['name']}",
+                "seed_repo_path": str(github_repo_preparation["repo_dir"]),
                 "project": github_project,
                 "issues": github_items,
                 "pull_requests": github_pull_requests,
@@ -952,7 +968,7 @@ def main() -> int:
             },
             "notes": [
                 "OpenASE project-facing connector CRUD is not exported yet.",
-                f"The primary repository is always {FIXED_GITHUB_REPO_URL}.",
+                "The OpenASE project repo points at the local seed clone, while GitHub issues and PRs still target BetterAndBetterII/TodoApp.",
                 "The script creates a fresh empty baseline checkpoint on main before opening ticket PRs.",
                 "Each ticket gets a GitHub draft PR, a repo scope branch binding, and a github_pr external link.",
                 f"Provider mode: {args.provider_mode}",
@@ -962,9 +978,7 @@ def main() -> int:
         print(json.dumps(summary, indent=2))
         return 0
     finally:
-        if github_repo_preparation is not None:
-            shutil.rmtree(github_repo_preparation["checkout_dir"], ignore_errors=True)
-
+        pass
 
 if __name__ == "__main__":
     raise SystemExit(main())
