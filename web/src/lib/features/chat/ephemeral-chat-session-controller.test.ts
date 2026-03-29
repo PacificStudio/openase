@@ -202,7 +202,6 @@ describe('createEphemeralChatSessionController', () => {
         payload: {
           sessionId: 'session-1',
           turnsUsed: 2,
-          turnsRemaining: 8,
           costUSD: 0.37,
         },
       })
@@ -224,7 +223,61 @@ describe('createEphemeralChatSessionController', () => {
       controller.entries.filter((entry) => entry.kind === 'text').map((entry) => entry.content),
     ).toEqual([
       'Summarize the project state.',
-      'Session budget: 2/10 turns used, 8 remaining. Current spend $0.37 of $2.00.',
+      'Project conversation: 2 turns so far. Current spend $0.37.',
     ])
+  })
+
+  it('groups streamed assistant text into one mutable transcript entry', async () => {
+    streamChatTurn.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'message',
+        payload: {
+          type: 'text',
+          content: '## Summary\n\n',
+        },
+      })
+      handlers.onEvent({
+        kind: 'message',
+        payload: {
+          type: 'text',
+          content: '- Item one\n',
+        },
+      })
+      handlers.onEvent({
+        kind: 'message',
+        payload: {
+          type: 'text',
+          content: '- Item two',
+        },
+      })
+      handlers.onEvent({
+        kind: 'done',
+        payload: {
+          sessionId: 'session-1',
+          turnsUsed: 1,
+        },
+      })
+    })
+
+    const controller = createEphemeralChatSessionController({
+      getSource: () => 'project_sidebar',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn({
+      message: 'Summarize the project state.',
+      context: {
+        projectId: 'project-1',
+      },
+    })
+
+    const assistantEntries = controller.entries.filter(
+      (entry) => entry.kind === 'text' && entry.role === 'assistant',
+    )
+    expect(assistantEntries).toHaveLength(1)
+    expect(assistantEntries[0]).toMatchObject({
+      content: '## Summary\n\n- Item one\n- Item two',
+      streaming: false,
+    })
   })
 })

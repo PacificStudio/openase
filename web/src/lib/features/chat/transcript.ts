@@ -8,6 +8,7 @@ export type EphemeralChatTextEntry = {
   role: EphemeralChatRole
   kind: 'text'
   content: string
+  streaming: boolean
 }
 
 export type EphemeralChatActionProposalEntry = {
@@ -31,6 +32,7 @@ export function mapChatPayloadToTranscriptEntry(
       role: 'assistant',
       kind: 'text',
       content: payload.content,
+      streaming: false,
     }
   }
 
@@ -50,6 +52,7 @@ export function mapChatPayloadToTranscriptEntry(
     role: 'system',
     kind: 'text',
     content: describeSystemMessage(payload.type),
+    streaming: false,
   }
 }
 
@@ -57,12 +60,16 @@ export function createTextTranscriptEntry(
   id: string,
   role: EphemeralChatRole,
   content: string,
+  options?: {
+    streaming?: boolean
+  },
 ): EphemeralChatTextEntry {
   return {
     id,
     role,
     kind: 'text',
     content,
+    streaming: options?.streaming ?? false,
   }
 }
 

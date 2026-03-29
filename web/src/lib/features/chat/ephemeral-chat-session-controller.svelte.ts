@@ -13,6 +13,7 @@ import {
   createTextTranscriptEntry,
   isAbortError,
   isActionProposalEntry,
+  isTextTranscriptEntry,
   mapChatPayloadToTranscriptEntry,
   type EphemeralChatRole,
   type EphemeralChatTranscriptEntry,
@@ -46,10 +47,70 @@ export function createEphemeralChatSessionController(
   let entryCounter = 0
   let requestId = 0
   let abortController: AbortController | null = null
+  let activeAssistantEntryId = ''
 
-  function appendEntry(role: EphemeralChatRole, content: string) {
+  function appendEntry(
+    role: EphemeralChatRole,
+    content: string,
+    options?: { streaming?: boolean },
+  ) {
     entryCounter += 1
-    entries = [...entries, createTextTranscriptEntry(`entry-${entryCounter}`, role, content)]
+    entries = [
+      ...entries,
+      createTextTranscriptEntry(`entry-${entryCounter}`, role, content, options),
+    ]
+  }
+
+  function updateEntry(
+    entryId: string,
+    update: (entry: EphemeralChatTranscriptEntry) => EphemeralChatTranscriptEntry,
+  ) {
+    entries = entries.map((entry) => (entry.id === entryId ? update(entry) : entry))
+  }
+
+  function appendAssistantText(content: string) {
+    if (!activeAssistantEntryId) {
+      entryCounter += 1
+      activeAssistantEntryId = `entry-${entryCounter}`
+      entries = [
+        ...entries,
+        createTextTranscriptEntry(activeAssistantEntryId, 'assistant', content, {
+          streaming: true,
+        }),
+      ]
+      return
+    }
+
+    updateEntry(activeAssistantEntryId, (entry) => {
+      if (!isTextTranscriptEntry(entry) || entry.role !== 'assistant') {
+        return entry
+      }
+
+      return {
+        ...entry,
+        content: `${entry.content}${content}`,
+        streaming: true,
+      }
+    })
+  }
+
+  function finalizeAssistantTextEntry() {
+    if (!activeAssistantEntryId) {
+      return
+    }
+
+    const entryId = activeAssistantEntryId
+    activeAssistantEntryId = ''
+    updateEntry(entryId, (entry) => {
+      if (!isTextTranscriptEntry(entry) || entry.role !== 'assistant') {
+        return entry
+      }
+
+      return {
+        ...entry,
+        streaming: false,
+      }
+    })
   }
 
   function appendMappedEntry(event: Extract<ChatStreamEvent, { kind: 'message' }>) {
@@ -65,18 +126,27 @@ export function createEphemeralChatSessionController(
 
     if (event.kind === 'done') {
       sessionId = event.payload.sessionId
-      appendEntry('system', formatEphemeralChatUsageSummary(event.payload))
+      finalizeAssistantTextEntry()
+      appendEntry('system', formatEphemeralChatUsageSummary(input.getSource(), event.payload))
       pending = false
       return
     }
 
     if (event.kind === 'error') {
+      finalizeAssistantTextEntry()
       reportError(event.payload.message)
       pending = false
       return
     }
 
-    appendMappedEntry(event)
+    const messageEvent = event as Extract<ChatStreamEvent, { kind: 'message' }>
+    const payload = messageEvent.payload
+    if (payload.type === 'text') {
+      appendAssistantText((payload as Extract<typeof payload, { type: 'text' }>).content)
+      return
+    }
+
+    appendMappedEntry(messageEvent)
   }
 
   function reportError(message: string) {
@@ -89,6 +159,7 @@ export function createEphemeralChatSessionController(
 
     abortController?.abort()
     abortController = null
+    activeAssistantEntryId = ''
     pending = false
     sessionId = ''
 
@@ -177,6 +248,7 @@ export function createEphemeralChatSessionController(
       }
 
       appendEntry('user', message)
+      activeAssistantEntryId = ''
       pending = true
 
       const controller = new AbortController()
