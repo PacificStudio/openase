@@ -66,13 +66,15 @@ type AgentRunEdges struct {
 	Provider *AgentProvider `json:"provider,omitempty"`
 	// CurrentForTicket holds the value of the current_for_ticket edge.
 	CurrentForTicket []*Ticket `json:"current_for_ticket,omitempty"`
+	// TicketRepoWorkspaces holds the value of the ticket_repo_workspaces edge.
+	TicketRepoWorkspaces []*TicketRepoWorkspace `json:"ticket_repo_workspaces,omitempty"`
 	// AgentTraceEvents holds the value of the agent_trace_events edge.
 	AgentTraceEvents []*AgentTraceEvent `json:"agent_trace_events,omitempty"`
 	// AgentStepEvents holds the value of the agent_step_events edge.
 	AgentStepEvents []*AgentStepEvent `json:"agent_step_events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [8]bool
 }
 
 // AgentOrErr returns the Agent value or an error if the edge
@@ -128,10 +130,19 @@ func (e AgentRunEdges) CurrentForTicketOrErr() ([]*Ticket, error) {
 	return nil, &NotLoadedError{edge: "current_for_ticket"}
 }
 
+// TicketRepoWorkspacesOrErr returns the TicketRepoWorkspaces value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentRunEdges) TicketRepoWorkspacesOrErr() ([]*TicketRepoWorkspace, error) {
+	if e.loadedTypes[5] {
+		return e.TicketRepoWorkspaces, nil
+	}
+	return nil, &NotLoadedError{edge: "ticket_repo_workspaces"}
+}
+
 // AgentTraceEventsOrErr returns the AgentTraceEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentRunEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.AgentTraceEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_trace_events"}
@@ -140,7 +151,7 @@ func (e AgentRunEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
 // AgentStepEventsOrErr returns the AgentStepEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentRunEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.AgentStepEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_step_events"}
@@ -297,6 +308,11 @@ func (_m *AgentRun) QueryProvider() *AgentProviderQuery {
 // QueryCurrentForTicket queries the "current_for_ticket" edge of the AgentRun entity.
 func (_m *AgentRun) QueryCurrentForTicket() *TicketQuery {
 	return NewAgentRunClient(_m.config).QueryCurrentForTicket(_m)
+}
+
+// QueryTicketRepoWorkspaces queries the "ticket_repo_workspaces" edge of the AgentRun entity.
+func (_m *AgentRun) QueryTicketRepoWorkspaces() *TicketRepoWorkspaceQuery {
+	return NewAgentRunClient(_m.config).QueryTicketRepoWorkspaces(_m)
 }
 
 // QueryAgentTraceEvents queries the "agent_trace_events" edge of the AgentRun entity.

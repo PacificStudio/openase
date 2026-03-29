@@ -57,6 +57,7 @@ func (AgentRun) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("current_for_ticket", Ticket.Type),
+		edge.To("ticket_repo_workspaces", TicketRepoWorkspace.Type),
 		edge.To("agent_trace_events", AgentTraceEvent.Type),
 		edge.To("agent_step_events", AgentStepEvent.Type),
 	}

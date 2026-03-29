@@ -1050,6 +1050,73 @@ var (
 			},
 		},
 	}
+	// TicketRepoWorkspacesColumns holds the columns for the "ticket_repo_workspaces" table.
+	TicketRepoWorkspacesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "workspace_root", Type: field.TypeString},
+		{Name: "repo_path", Type: field.TypeString},
+		{Name: "branch_name", Type: field.TypeString},
+		{Name: "state", Type: field.TypeEnum, Enums: []string{"planned", "materializing", "ready", "dirty", "verifying", "completed", "failed", "cleaning", "cleaned"}, Default: "planned"},
+		{Name: "head_commit", Type: field.TypeString, Nullable: true},
+		{Name: "last_error", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "prepared_at", Type: field.TypeTime, Nullable: true},
+		{Name: "cleaned_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "agent_run_id", Type: field.TypeUUID},
+		{Name: "repo_id", Type: field.TypeUUID},
+		{Name: "mirror_id", Type: field.TypeUUID},
+		{Name: "ticket_id", Type: field.TypeUUID},
+	}
+	// TicketRepoWorkspacesTable holds the schema information for the "ticket_repo_workspaces" table.
+	TicketRepoWorkspacesTable = &schema.Table{
+		Name:       "ticket_repo_workspaces",
+		Columns:    TicketRepoWorkspacesColumns,
+		PrimaryKey: []*schema.Column{TicketRepoWorkspacesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "ticket_repo_workspaces_agent_runs_ticket_repo_workspaces",
+				Columns:    []*schema.Column{TicketRepoWorkspacesColumns[11]},
+				RefColumns: []*schema.Column{AgentRunsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "ticket_repo_workspaces_project_repos_ticket_repo_workspaces",
+				Columns:    []*schema.Column{TicketRepoWorkspacesColumns[12]},
+				RefColumns: []*schema.Column{ProjectReposColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "ticket_repo_workspaces_project_repo_mirrors_ticket_repo_workspaces",
+				Columns:    []*schema.Column{TicketRepoWorkspacesColumns[13]},
+				RefColumns: []*schema.Column{ProjectRepoMirrorsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "ticket_repo_workspaces_tickets_repo_workspaces",
+				Columns:    []*schema.Column{TicketRepoWorkspacesColumns[14]},
+				RefColumns: []*schema.Column{TicketsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "ticketrepoworkspace_agent_run_id_repo_id",
+				Unique:  true,
+				Columns: []*schema.Column{TicketRepoWorkspacesColumns[11], TicketRepoWorkspacesColumns[12]},
+			},
+			{
+				Name:    "ticketrepoworkspace_ticket_id_state",
+				Unique:  false,
+				Columns: []*schema.Column{TicketRepoWorkspacesColumns[14], TicketRepoWorkspacesColumns[4]},
+			},
+			{
+				Name:    "ticketrepoworkspace_mirror_id_state",
+				Unique:  false,
+				Columns: []*schema.Column{TicketRepoWorkspacesColumns[13], TicketRepoWorkspacesColumns[4]},
+			},
+		},
+	}
 	// TicketStagesColumns holds the columns for the "ticket_stages" table.
 	TicketStagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1256,6 +1323,7 @@ var (
 		TicketDependenciesTable,
 		TicketExternalLinksTable,
 		TicketRepoScopesTable,
+		TicketRepoWorkspacesTable,
 		TicketStagesTable,
 		TicketStatusTable,
 		WorkflowsTable,
@@ -1314,6 +1382,10 @@ func init() {
 	TicketExternalLinksTable.ForeignKeys[0].RefTable = TicketsTable
 	TicketRepoScopesTable.ForeignKeys[0].RefTable = ProjectReposTable
 	TicketRepoScopesTable.ForeignKeys[1].RefTable = TicketsTable
+	TicketRepoWorkspacesTable.ForeignKeys[0].RefTable = AgentRunsTable
+	TicketRepoWorkspacesTable.ForeignKeys[1].RefTable = ProjectReposTable
+	TicketRepoWorkspacesTable.ForeignKeys[2].RefTable = ProjectRepoMirrorsTable
+	TicketRepoWorkspacesTable.ForeignKeys[3].RefTable = TicketsTable
 	TicketStagesTable.ForeignKeys[0].RefTable = ProjectsTable
 	TicketStatusTable.ForeignKeys[0].RefTable = ProjectsTable
 	TicketStatusTable.ForeignKeys[1].RefTable = TicketStagesTable

@@ -25,6 +25,7 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -265,6 +266,18 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_REAL_BIN="+currentExecutable) {
 		t.Fatalf("expected OPENASE_REAL_BIN in process environment, got %+v", processEnvironment)
+	}
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateReady {
+		t.Fatalf("expected ready ticket repo workspace, got %+v", repoWorkspace)
+	}
+	if repoWorkspace.MirrorID == uuid.Nil || repoWorkspace.PreparedAt == nil {
+		t.Fatalf("expected persisted ticket repo workspace metadata, got %+v", repoWorkspace)
 	}
 }
 
@@ -1767,6 +1780,15 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(repoItem.ID).
+		SetMachineID(remoteMachine.ID).
+		SetLocalPath("/srv/openase/mirrors/backend").
+		SetState(entprojectrepomirror.StateReady).
+		SetHeadCommit("abc123remote").
+		Save(ctx); err != nil {
+		t.Fatalf("create ready remote mirror: %v", err)
+	}
 
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
@@ -1806,7 +1828,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if runAfter.SessionID != "thread-runtime-1" {
 		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
+	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch '/srv/openase/mirrors/backend' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
 	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
@@ -1814,6 +1836,15 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	}
 	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
 		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
+	}
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load remote ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.HeadCommit != "abc123remote" {
+		t.Fatalf("unexpected remote ticket repo workspace %+v", repoWorkspace)
 	}
 }
 

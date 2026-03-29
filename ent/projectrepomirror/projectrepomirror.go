@@ -40,6 +40,8 @@ const (
 	EdgeProjectRepo = "project_repo"
 	// EdgeMachine holds the string denoting the machine edge name in mutations.
 	EdgeMachine = "machine"
+	// EdgeTicketRepoWorkspaces holds the string denoting the ticket_repo_workspaces edge name in mutations.
+	EdgeTicketRepoWorkspaces = "ticket_repo_workspaces"
 	// Table holds the table name of the projectrepomirror in the database.
 	Table = "project_repo_mirrors"
 	// ProjectRepoTable is the table that holds the project_repo relation/edge.
@@ -56,6 +58,13 @@ const (
 	MachineInverseTable = "machines"
 	// MachineColumn is the table column denoting the machine relation/edge.
 	MachineColumn = "machine_id"
+	// TicketRepoWorkspacesTable is the table that holds the ticket_repo_workspaces relation/edge.
+	TicketRepoWorkspacesTable = "ticket_repo_workspaces"
+	// TicketRepoWorkspacesInverseTable is the table name for the TicketRepoWorkspace entity.
+	// It exists in this package in order to avoid circular dependency with the "ticketrepoworkspace" package.
+	TicketRepoWorkspacesInverseTable = "ticket_repo_workspaces"
+	// TicketRepoWorkspacesColumn is the table column denoting the ticket_repo_workspaces relation/edge.
+	TicketRepoWorkspacesColumn = "mirror_id"
 )
 
 // Columns holds all SQL columns for projectrepomirror fields.
@@ -198,6 +207,20 @@ func ByMachineField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newMachineStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByTicketRepoWorkspacesCount orders the results by ticket_repo_workspaces count.
+func ByTicketRepoWorkspacesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newTicketRepoWorkspacesStep(), opts...)
+	}
+}
+
+// ByTicketRepoWorkspaces orders the results by ticket_repo_workspaces terms.
+func ByTicketRepoWorkspaces(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newTicketRepoWorkspacesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newProjectRepoStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -210,5 +233,12 @@ func newMachineStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(MachineInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, MachineTable, MachineColumn),
+	)
+}
+func newTicketRepoWorkspacesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(TicketRepoWorkspacesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, TicketRepoWorkspacesTable, TicketRepoWorkspacesColumn),
 	)
 }

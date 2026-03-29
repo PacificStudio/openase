@@ -33,6 +33,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -71,6 +72,7 @@ const (
 	TypeTicketDependency      = "TicketDependency"
 	TypeTicketExternalLink    = "TicketExternalLink"
 	TypeTicketRepoScope       = "TicketRepoScope"
+	TypeTicketRepoWorkspace   = "TicketRepoWorkspace"
 	TypeTicketStage           = "TicketStage"
 	TypeTicketStatus          = "TicketStatus"
 	TypeWorkflow              = "Workflow"
@@ -3563,39 +3565,42 @@ func (m *AgentProviderMutation) ResetEdge(name string) error {
 // AgentRunMutation represents an operation that mutates the AgentRun nodes in the graph.
 type AgentRunMutation struct {
 	config
-	op                        Op
-	typ                       string
-	id                        *uuid.UUID
-	status                    *agentrun.Status
-	session_id                *string
-	runtime_started_at        *time.Time
-	last_error                *string
-	last_heartbeat_at         *time.Time
-	current_step_status       *string
-	current_step_summary      *string
-	current_step_changed_at   *time.Time
-	created_at                *time.Time
-	clearedFields             map[string]struct{}
-	agent                     *uuid.UUID
-	clearedagent              bool
-	workflow                  *uuid.UUID
-	clearedworkflow           bool
-	ticket                    *uuid.UUID
-	clearedticket             bool
-	provider                  *uuid.UUID
-	clearedprovider           bool
-	current_for_ticket        map[uuid.UUID]struct{}
-	removedcurrent_for_ticket map[uuid.UUID]struct{}
-	clearedcurrent_for_ticket bool
-	agent_trace_events        map[uuid.UUID]struct{}
-	removedagent_trace_events map[uuid.UUID]struct{}
-	clearedagent_trace_events bool
-	agent_step_events         map[uuid.UUID]struct{}
-	removedagent_step_events  map[uuid.UUID]struct{}
-	clearedagent_step_events  bool
-	done                      bool
-	oldValue                  func(context.Context) (*AgentRun, error)
-	predicates                []predicate.AgentRun
+	op                            Op
+	typ                           string
+	id                            *uuid.UUID
+	status                        *agentrun.Status
+	session_id                    *string
+	runtime_started_at            *time.Time
+	last_error                    *string
+	last_heartbeat_at             *time.Time
+	current_step_status           *string
+	current_step_summary          *string
+	current_step_changed_at       *time.Time
+	created_at                    *time.Time
+	clearedFields                 map[string]struct{}
+	agent                         *uuid.UUID
+	clearedagent                  bool
+	workflow                      *uuid.UUID
+	clearedworkflow               bool
+	ticket                        *uuid.UUID
+	clearedticket                 bool
+	provider                      *uuid.UUID
+	clearedprovider               bool
+	current_for_ticket            map[uuid.UUID]struct{}
+	removedcurrent_for_ticket     map[uuid.UUID]struct{}
+	clearedcurrent_for_ticket     bool
+	ticket_repo_workspaces        map[uuid.UUID]struct{}
+	removedticket_repo_workspaces map[uuid.UUID]struct{}
+	clearedticket_repo_workspaces bool
+	agent_trace_events            map[uuid.UUID]struct{}
+	removedagent_trace_events     map[uuid.UUID]struct{}
+	clearedagent_trace_events     bool
+	agent_step_events             map[uuid.UUID]struct{}
+	removedagent_step_events      map[uuid.UUID]struct{}
+	clearedagent_step_events      bool
+	done                          bool
+	oldValue                      func(context.Context) (*AgentRun, error)
+	predicates                    []predicate.AgentRun
 }
 
 var _ ent.Mutation = (*AgentRunMutation)(nil)
@@ -4423,6 +4428,60 @@ func (m *AgentRunMutation) ResetCurrentForTicket() {
 	m.removedcurrent_for_ticket = nil
 }
 
+// AddTicketRepoWorkspaceIDs adds the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by ids.
+func (m *AgentRunMutation) AddTicketRepoWorkspaceIDs(ids ...uuid.UUID) {
+	if m.ticket_repo_workspaces == nil {
+		m.ticket_repo_workspaces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.ticket_repo_workspaces[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTicketRepoWorkspaces clears the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity.
+func (m *AgentRunMutation) ClearTicketRepoWorkspaces() {
+	m.clearedticket_repo_workspaces = true
+}
+
+// TicketRepoWorkspacesCleared reports if the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity was cleared.
+func (m *AgentRunMutation) TicketRepoWorkspacesCleared() bool {
+	return m.clearedticket_repo_workspaces
+}
+
+// RemoveTicketRepoWorkspaceIDs removes the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (m *AgentRunMutation) RemoveTicketRepoWorkspaceIDs(ids ...uuid.UUID) {
+	if m.removedticket_repo_workspaces == nil {
+		m.removedticket_repo_workspaces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.ticket_repo_workspaces, ids[i])
+		m.removedticket_repo_workspaces[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTicketRepoWorkspaces returns the removed IDs of the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity.
+func (m *AgentRunMutation) RemovedTicketRepoWorkspacesIDs() (ids []uuid.UUID) {
+	for id := range m.removedticket_repo_workspaces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TicketRepoWorkspacesIDs returns the "ticket_repo_workspaces" edge IDs in the mutation.
+func (m *AgentRunMutation) TicketRepoWorkspacesIDs() (ids []uuid.UUID) {
+	for id := range m.ticket_repo_workspaces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTicketRepoWorkspaces resets all changes to the "ticket_repo_workspaces" edge.
+func (m *AgentRunMutation) ResetTicketRepoWorkspaces() {
+	m.ticket_repo_workspaces = nil
+	m.clearedticket_repo_workspaces = false
+	m.removedticket_repo_workspaces = nil
+}
+
 // AddAgentTraceEventIDs adds the "agent_trace_events" edge to the AgentTraceEvent entity by ids.
 func (m *AgentRunMutation) AddAgentTraceEventIDs(ids ...uuid.UUID) {
 	if m.agent_trace_events == nil {
@@ -4913,7 +4972,7 @@ func (m *AgentRunMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentRunMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.agent != nil {
 		edges = append(edges, agentrun.EdgeAgent)
 	}
@@ -4928,6 +4987,9 @@ func (m *AgentRunMutation) AddedEdges() []string {
 	}
 	if m.current_for_ticket != nil {
 		edges = append(edges, agentrun.EdgeCurrentForTicket)
+	}
+	if m.ticket_repo_workspaces != nil {
+		edges = append(edges, agentrun.EdgeTicketRepoWorkspaces)
 	}
 	if m.agent_trace_events != nil {
 		edges = append(edges, agentrun.EdgeAgentTraceEvents)
@@ -4964,6 +5026,12 @@ func (m *AgentRunMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agentrun.EdgeTicketRepoWorkspaces:
+		ids := make([]ent.Value, 0, len(m.ticket_repo_workspaces))
+		for id := range m.ticket_repo_workspaces {
+			ids = append(ids, id)
+		}
+		return ids
 	case agentrun.EdgeAgentTraceEvents:
 		ids := make([]ent.Value, 0, len(m.agent_trace_events))
 		for id := range m.agent_trace_events {
@@ -4982,9 +5050,12 @@ func (m *AgentRunMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentRunMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.removedcurrent_for_ticket != nil {
 		edges = append(edges, agentrun.EdgeCurrentForTicket)
+	}
+	if m.removedticket_repo_workspaces != nil {
+		edges = append(edges, agentrun.EdgeTicketRepoWorkspaces)
 	}
 	if m.removedagent_trace_events != nil {
 		edges = append(edges, agentrun.EdgeAgentTraceEvents)
@@ -5002,6 +5073,12 @@ func (m *AgentRunMutation) RemovedIDs(name string) []ent.Value {
 	case agentrun.EdgeCurrentForTicket:
 		ids := make([]ent.Value, 0, len(m.removedcurrent_for_ticket))
 		for id := range m.removedcurrent_for_ticket {
+			ids = append(ids, id)
+		}
+		return ids
+	case agentrun.EdgeTicketRepoWorkspaces:
+		ids := make([]ent.Value, 0, len(m.removedticket_repo_workspaces))
+		for id := range m.removedticket_repo_workspaces {
 			ids = append(ids, id)
 		}
 		return ids
@@ -5023,7 +5100,7 @@ func (m *AgentRunMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentRunMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.clearedagent {
 		edges = append(edges, agentrun.EdgeAgent)
 	}
@@ -5038,6 +5115,9 @@ func (m *AgentRunMutation) ClearedEdges() []string {
 	}
 	if m.clearedcurrent_for_ticket {
 		edges = append(edges, agentrun.EdgeCurrentForTicket)
+	}
+	if m.clearedticket_repo_workspaces {
+		edges = append(edges, agentrun.EdgeTicketRepoWorkspaces)
 	}
 	if m.clearedagent_trace_events {
 		edges = append(edges, agentrun.EdgeAgentTraceEvents)
@@ -5062,6 +5142,8 @@ func (m *AgentRunMutation) EdgeCleared(name string) bool {
 		return m.clearedprovider
 	case agentrun.EdgeCurrentForTicket:
 		return m.clearedcurrent_for_ticket
+	case agentrun.EdgeTicketRepoWorkspaces:
+		return m.clearedticket_repo_workspaces
 	case agentrun.EdgeAgentTraceEvents:
 		return m.clearedagent_trace_events
 	case agentrun.EdgeAgentStepEvents:
@@ -5108,6 +5190,9 @@ func (m *AgentRunMutation) ResetEdge(name string) error {
 		return nil
 	case agentrun.EdgeCurrentForTicket:
 		m.ResetCurrentForTicket()
+		return nil
+	case agentrun.EdgeTicketRepoWorkspaces:
+		m.ResetTicketRepoWorkspaces()
 		return nil
 	case agentrun.EdgeAgentTraceEvents:
 		m.ResetAgentTraceEvents()
@@ -14531,27 +14616,30 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 // ProjectRepoMutation represents an operation that mutates the ProjectRepo nodes in the graph.
 type ProjectRepoMutation struct {
 	config
-	op                   Op
-	typ                  string
-	id                   *uuid.UUID
-	name                 *string
-	repository_url       *string
-	default_branch       *string
-	workspace_dirname    *string
-	is_primary           *bool
-	labels               *pgarray.StringArray
-	clearedFields        map[string]struct{}
-	project              *uuid.UUID
-	clearedproject       bool
-	ticket_scopes        map[uuid.UUID]struct{}
-	removedticket_scopes map[uuid.UUID]struct{}
-	clearedticket_scopes bool
-	mirrors              map[uuid.UUID]struct{}
-	removedmirrors       map[uuid.UUID]struct{}
-	clearedmirrors       bool
-	done                 bool
-	oldValue             func(context.Context) (*ProjectRepo, error)
-	predicates           []predicate.ProjectRepo
+	op                            Op
+	typ                           string
+	id                            *uuid.UUID
+	name                          *string
+	repository_url                *string
+	default_branch                *string
+	workspace_dirname             *string
+	is_primary                    *bool
+	labels                        *pgarray.StringArray
+	clearedFields                 map[string]struct{}
+	project                       *uuid.UUID
+	clearedproject                bool
+	ticket_scopes                 map[uuid.UUID]struct{}
+	removedticket_scopes          map[uuid.UUID]struct{}
+	clearedticket_scopes          bool
+	ticket_repo_workspaces        map[uuid.UUID]struct{}
+	removedticket_repo_workspaces map[uuid.UUID]struct{}
+	clearedticket_repo_workspaces bool
+	mirrors                       map[uuid.UUID]struct{}
+	removedmirrors                map[uuid.UUID]struct{}
+	clearedmirrors                bool
+	done                          bool
+	oldValue                      func(context.Context) (*ProjectRepo, error)
+	predicates                    []predicate.ProjectRepo
 }
 
 var _ ent.Mutation = (*ProjectRepoMutation)(nil)
@@ -15004,6 +15092,60 @@ func (m *ProjectRepoMutation) ResetTicketScopes() {
 	m.removedticket_scopes = nil
 }
 
+// AddTicketRepoWorkspaceIDs adds the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by ids.
+func (m *ProjectRepoMutation) AddTicketRepoWorkspaceIDs(ids ...uuid.UUID) {
+	if m.ticket_repo_workspaces == nil {
+		m.ticket_repo_workspaces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.ticket_repo_workspaces[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTicketRepoWorkspaces clears the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity.
+func (m *ProjectRepoMutation) ClearTicketRepoWorkspaces() {
+	m.clearedticket_repo_workspaces = true
+}
+
+// TicketRepoWorkspacesCleared reports if the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity was cleared.
+func (m *ProjectRepoMutation) TicketRepoWorkspacesCleared() bool {
+	return m.clearedticket_repo_workspaces
+}
+
+// RemoveTicketRepoWorkspaceIDs removes the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (m *ProjectRepoMutation) RemoveTicketRepoWorkspaceIDs(ids ...uuid.UUID) {
+	if m.removedticket_repo_workspaces == nil {
+		m.removedticket_repo_workspaces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.ticket_repo_workspaces, ids[i])
+		m.removedticket_repo_workspaces[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTicketRepoWorkspaces returns the removed IDs of the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity.
+func (m *ProjectRepoMutation) RemovedTicketRepoWorkspacesIDs() (ids []uuid.UUID) {
+	for id := range m.removedticket_repo_workspaces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TicketRepoWorkspacesIDs returns the "ticket_repo_workspaces" edge IDs in the mutation.
+func (m *ProjectRepoMutation) TicketRepoWorkspacesIDs() (ids []uuid.UUID) {
+	for id := range m.ticket_repo_workspaces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTicketRepoWorkspaces resets all changes to the "ticket_repo_workspaces" edge.
+func (m *ProjectRepoMutation) ResetTicketRepoWorkspaces() {
+	m.ticket_repo_workspaces = nil
+	m.clearedticket_repo_workspaces = false
+	m.removedticket_repo_workspaces = nil
+}
+
 // AddMirrorIDs adds the "mirrors" edge to the ProjectRepoMirror entity by ids.
 func (m *ProjectRepoMutation) AddMirrorIDs(ids ...uuid.UUID) {
 	if m.mirrors == nil {
@@ -15302,12 +15444,15 @@ func (m *ProjectRepoMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectRepoMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.project != nil {
 		edges = append(edges, projectrepo.EdgeProject)
 	}
 	if m.ticket_scopes != nil {
 		edges = append(edges, projectrepo.EdgeTicketScopes)
+	}
+	if m.ticket_repo_workspaces != nil {
+		edges = append(edges, projectrepo.EdgeTicketRepoWorkspaces)
 	}
 	if m.mirrors != nil {
 		edges = append(edges, projectrepo.EdgeMirrors)
@@ -15329,6 +15474,12 @@ func (m *ProjectRepoMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case projectrepo.EdgeTicketRepoWorkspaces:
+		ids := make([]ent.Value, 0, len(m.ticket_repo_workspaces))
+		for id := range m.ticket_repo_workspaces {
+			ids = append(ids, id)
+		}
+		return ids
 	case projectrepo.EdgeMirrors:
 		ids := make([]ent.Value, 0, len(m.mirrors))
 		for id := range m.mirrors {
@@ -15341,9 +15492,12 @@ func (m *ProjectRepoMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectRepoMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedticket_scopes != nil {
 		edges = append(edges, projectrepo.EdgeTicketScopes)
+	}
+	if m.removedticket_repo_workspaces != nil {
+		edges = append(edges, projectrepo.EdgeTicketRepoWorkspaces)
 	}
 	if m.removedmirrors != nil {
 		edges = append(edges, projectrepo.EdgeMirrors)
@@ -15361,6 +15515,12 @@ func (m *ProjectRepoMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case projectrepo.EdgeTicketRepoWorkspaces:
+		ids := make([]ent.Value, 0, len(m.removedticket_repo_workspaces))
+		for id := range m.removedticket_repo_workspaces {
+			ids = append(ids, id)
+		}
+		return ids
 	case projectrepo.EdgeMirrors:
 		ids := make([]ent.Value, 0, len(m.removedmirrors))
 		for id := range m.removedmirrors {
@@ -15373,12 +15533,15 @@ func (m *ProjectRepoMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectRepoMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedproject {
 		edges = append(edges, projectrepo.EdgeProject)
 	}
 	if m.clearedticket_scopes {
 		edges = append(edges, projectrepo.EdgeTicketScopes)
+	}
+	if m.clearedticket_repo_workspaces {
+		edges = append(edges, projectrepo.EdgeTicketRepoWorkspaces)
 	}
 	if m.clearedmirrors {
 		edges = append(edges, projectrepo.EdgeMirrors)
@@ -15394,6 +15557,8 @@ func (m *ProjectRepoMutation) EdgeCleared(name string) bool {
 		return m.clearedproject
 	case projectrepo.EdgeTicketScopes:
 		return m.clearedticket_scopes
+	case projectrepo.EdgeTicketRepoWorkspaces:
+		return m.clearedticket_repo_workspaces
 	case projectrepo.EdgeMirrors:
 		return m.clearedmirrors
 	}
@@ -15421,6 +15586,9 @@ func (m *ProjectRepoMutation) ResetEdge(name string) error {
 	case projectrepo.EdgeTicketScopes:
 		m.ResetTicketScopes()
 		return nil
+	case projectrepo.EdgeTicketRepoWorkspaces:
+		m.ResetTicketRepoWorkspaces()
+		return nil
 	case projectrepo.EdgeMirrors:
 		m.ResetMirrors()
 		return nil
@@ -15431,25 +15599,28 @@ func (m *ProjectRepoMutation) ResetEdge(name string) error {
 // ProjectRepoMirrorMutation represents an operation that mutates the ProjectRepoMirror nodes in the graph.
 type ProjectRepoMirrorMutation struct {
 	config
-	op                  Op
-	typ                 string
-	id                  *uuid.UUID
-	local_path          *string
-	state               *projectrepomirror.State
-	head_commit         *string
-	last_synced_at      *time.Time
-	last_verified_at    *time.Time
-	last_error          *string
-	created_at          *time.Time
-	updated_at          *time.Time
-	clearedFields       map[string]struct{}
-	project_repo        *uuid.UUID
-	clearedproject_repo bool
-	machine             *uuid.UUID
-	clearedmachine      bool
-	done                bool
-	oldValue            func(context.Context) (*ProjectRepoMirror, error)
-	predicates          []predicate.ProjectRepoMirror
+	op                            Op
+	typ                           string
+	id                            *uuid.UUID
+	local_path                    *string
+	state                         *projectrepomirror.State
+	head_commit                   *string
+	last_synced_at                *time.Time
+	last_verified_at              *time.Time
+	last_error                    *string
+	created_at                    *time.Time
+	updated_at                    *time.Time
+	clearedFields                 map[string]struct{}
+	project_repo                  *uuid.UUID
+	clearedproject_repo           bool
+	machine                       *uuid.UUID
+	clearedmachine                bool
+	ticket_repo_workspaces        map[uuid.UUID]struct{}
+	removedticket_repo_workspaces map[uuid.UUID]struct{}
+	clearedticket_repo_workspaces bool
+	done                          bool
+	oldValue                      func(context.Context) (*ProjectRepoMirror, error)
+	predicates                    []predicate.ProjectRepoMirror
 }
 
 var _ ent.Mutation = (*ProjectRepoMirrorMutation)(nil)
@@ -16022,6 +16193,60 @@ func (m *ProjectRepoMirrorMutation) ResetMachine() {
 	m.clearedmachine = false
 }
 
+// AddTicketRepoWorkspaceIDs adds the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by ids.
+func (m *ProjectRepoMirrorMutation) AddTicketRepoWorkspaceIDs(ids ...uuid.UUID) {
+	if m.ticket_repo_workspaces == nil {
+		m.ticket_repo_workspaces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.ticket_repo_workspaces[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTicketRepoWorkspaces clears the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity.
+func (m *ProjectRepoMirrorMutation) ClearTicketRepoWorkspaces() {
+	m.clearedticket_repo_workspaces = true
+}
+
+// TicketRepoWorkspacesCleared reports if the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity was cleared.
+func (m *ProjectRepoMirrorMutation) TicketRepoWorkspacesCleared() bool {
+	return m.clearedticket_repo_workspaces
+}
+
+// RemoveTicketRepoWorkspaceIDs removes the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (m *ProjectRepoMirrorMutation) RemoveTicketRepoWorkspaceIDs(ids ...uuid.UUID) {
+	if m.removedticket_repo_workspaces == nil {
+		m.removedticket_repo_workspaces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.ticket_repo_workspaces, ids[i])
+		m.removedticket_repo_workspaces[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTicketRepoWorkspaces returns the removed IDs of the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity.
+func (m *ProjectRepoMirrorMutation) RemovedTicketRepoWorkspacesIDs() (ids []uuid.UUID) {
+	for id := range m.removedticket_repo_workspaces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TicketRepoWorkspacesIDs returns the "ticket_repo_workspaces" edge IDs in the mutation.
+func (m *ProjectRepoMirrorMutation) TicketRepoWorkspacesIDs() (ids []uuid.UUID) {
+	for id := range m.ticket_repo_workspaces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTicketRepoWorkspaces resets all changes to the "ticket_repo_workspaces" edge.
+func (m *ProjectRepoMirrorMutation) ResetTicketRepoWorkspaces() {
+	m.ticket_repo_workspaces = nil
+	m.clearedticket_repo_workspaces = false
+	m.removedticket_repo_workspaces = nil
+}
+
 // Where appends a list predicates to the ProjectRepoMirrorMutation builder.
 func (m *ProjectRepoMirrorMutation) Where(ps ...predicate.ProjectRepoMirror) {
 	m.predicates = append(m.predicates, ps...)
@@ -16335,12 +16560,15 @@ func (m *ProjectRepoMirrorMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectRepoMirrorMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.project_repo != nil {
 		edges = append(edges, projectrepomirror.EdgeProjectRepo)
 	}
 	if m.machine != nil {
 		edges = append(edges, projectrepomirror.EdgeMachine)
+	}
+	if m.ticket_repo_workspaces != nil {
+		edges = append(edges, projectrepomirror.EdgeTicketRepoWorkspaces)
 	}
 	return edges
 }
@@ -16357,30 +16585,50 @@ func (m *ProjectRepoMirrorMutation) AddedIDs(name string) []ent.Value {
 		if id := m.machine; id != nil {
 			return []ent.Value{*id}
 		}
+	case projectrepomirror.EdgeTicketRepoWorkspaces:
+		ids := make([]ent.Value, 0, len(m.ticket_repo_workspaces))
+		for id := range m.ticket_repo_workspaces {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectRepoMirrorMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
+	if m.removedticket_repo_workspaces != nil {
+		edges = append(edges, projectrepomirror.EdgeTicketRepoWorkspaces)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *ProjectRepoMirrorMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case projectrepomirror.EdgeTicketRepoWorkspaces:
+		ids := make([]ent.Value, 0, len(m.removedticket_repo_workspaces))
+		for id := range m.removedticket_repo_workspaces {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectRepoMirrorMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedproject_repo {
 		edges = append(edges, projectrepomirror.EdgeProjectRepo)
 	}
 	if m.clearedmachine {
 		edges = append(edges, projectrepomirror.EdgeMachine)
+	}
+	if m.clearedticket_repo_workspaces {
+		edges = append(edges, projectrepomirror.EdgeTicketRepoWorkspaces)
 	}
 	return edges
 }
@@ -16393,6 +16641,8 @@ func (m *ProjectRepoMirrorMutation) EdgeCleared(name string) bool {
 		return m.clearedproject_repo
 	case projectrepomirror.EdgeMachine:
 		return m.clearedmachine
+	case projectrepomirror.EdgeTicketRepoWorkspaces:
+		return m.clearedticket_repo_workspaces
 	}
 	return false
 }
@@ -16420,6 +16670,9 @@ func (m *ProjectRepoMirrorMutation) ResetEdge(name string) error {
 		return nil
 	case projectrepomirror.EdgeMachine:
 		m.ResetMachine()
+		return nil
+	case projectrepomirror.EdgeTicketRepoWorkspaces:
+		m.ResetTicketRepoWorkspaces()
 		return nil
 	}
 	return fmt.Errorf("unknown ProjectRepoMirror edge %s", name)
@@ -17353,6 +17606,9 @@ type TicketMutation struct {
 	agent_runs                   map[uuid.UUID]struct{}
 	removedagent_runs            map[uuid.UUID]struct{}
 	clearedagent_runs            bool
+	repo_workspaces              map[uuid.UUID]struct{}
+	removedrepo_workspaces       map[uuid.UUID]struct{}
+	clearedrepo_workspaces       bool
 	outgoing_dependencies        map[uuid.UUID]struct{}
 	removedoutgoing_dependencies map[uuid.UUID]struct{}
 	clearedoutgoing_dependencies bool
@@ -19476,6 +19732,60 @@ func (m *TicketMutation) ResetAgentRuns() {
 	m.removedagent_runs = nil
 }
 
+// AddRepoWorkspaceIDs adds the "repo_workspaces" edge to the TicketRepoWorkspace entity by ids.
+func (m *TicketMutation) AddRepoWorkspaceIDs(ids ...uuid.UUID) {
+	if m.repo_workspaces == nil {
+		m.repo_workspaces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.repo_workspaces[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRepoWorkspaces clears the "repo_workspaces" edge to the TicketRepoWorkspace entity.
+func (m *TicketMutation) ClearRepoWorkspaces() {
+	m.clearedrepo_workspaces = true
+}
+
+// RepoWorkspacesCleared reports if the "repo_workspaces" edge to the TicketRepoWorkspace entity was cleared.
+func (m *TicketMutation) RepoWorkspacesCleared() bool {
+	return m.clearedrepo_workspaces
+}
+
+// RemoveRepoWorkspaceIDs removes the "repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (m *TicketMutation) RemoveRepoWorkspaceIDs(ids ...uuid.UUID) {
+	if m.removedrepo_workspaces == nil {
+		m.removedrepo_workspaces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.repo_workspaces, ids[i])
+		m.removedrepo_workspaces[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRepoWorkspaces returns the removed IDs of the "repo_workspaces" edge to the TicketRepoWorkspace entity.
+func (m *TicketMutation) RemovedRepoWorkspacesIDs() (ids []uuid.UUID) {
+	for id := range m.removedrepo_workspaces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RepoWorkspacesIDs returns the "repo_workspaces" edge IDs in the mutation.
+func (m *TicketMutation) RepoWorkspacesIDs() (ids []uuid.UUID) {
+	for id := range m.repo_workspaces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRepoWorkspaces resets all changes to the "repo_workspaces" edge.
+func (m *TicketMutation) ResetRepoWorkspaces() {
+	m.repo_workspaces = nil
+	m.clearedrepo_workspaces = false
+	m.removedrepo_workspaces = nil
+}
+
 // AddOutgoingDependencyIDs adds the "outgoing_dependencies" edge to the TicketDependency entity by ids.
 func (m *TicketMutation) AddOutgoingDependencyIDs(ids ...uuid.UUID) {
 	if m.outgoing_dependencies == nil {
@@ -20361,7 +20671,7 @@ func (m *TicketMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TicketMutation) AddedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.project != nil {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -20406,6 +20716,9 @@ func (m *TicketMutation) AddedEdges() []string {
 	}
 	if m.agent_runs != nil {
 		edges = append(edges, ticket.EdgeAgentRuns)
+	}
+	if m.repo_workspaces != nil {
+		edges = append(edges, ticket.EdgeRepoWorkspaces)
 	}
 	if m.outgoing_dependencies != nil {
 		edges = append(edges, ticket.EdgeOutgoingDependencies)
@@ -20498,6 +20811,12 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case ticket.EdgeRepoWorkspaces:
+		ids := make([]ent.Value, 0, len(m.repo_workspaces))
+		for id := range m.repo_workspaces {
+			ids = append(ids, id)
+		}
+		return ids
 	case ticket.EdgeOutgoingDependencies:
 		ids := make([]ent.Value, 0, len(m.outgoing_dependencies))
 		for id := range m.outgoing_dependencies {
@@ -20516,7 +20835,7 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TicketMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.removedchildren != nil {
 		edges = append(edges, ticket.EdgeChildren)
 	}
@@ -20543,6 +20862,9 @@ func (m *TicketMutation) RemovedEdges() []string {
 	}
 	if m.removedagent_runs != nil {
 		edges = append(edges, ticket.EdgeAgentRuns)
+	}
+	if m.removedrepo_workspaces != nil {
+		edges = append(edges, ticket.EdgeRepoWorkspaces)
 	}
 	if m.removedoutgoing_dependencies != nil {
 		edges = append(edges, ticket.EdgeOutgoingDependencies)
@@ -20611,6 +20933,12 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case ticket.EdgeRepoWorkspaces:
+		ids := make([]ent.Value, 0, len(m.removedrepo_workspaces))
+		for id := range m.removedrepo_workspaces {
+			ids = append(ids, id)
+		}
+		return ids
 	case ticket.EdgeOutgoingDependencies:
 		ids := make([]ent.Value, 0, len(m.removedoutgoing_dependencies))
 		for id := range m.removedoutgoing_dependencies {
@@ -20629,7 +20957,7 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TicketMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.clearedproject {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -20675,6 +21003,9 @@ func (m *TicketMutation) ClearedEdges() []string {
 	if m.clearedagent_runs {
 		edges = append(edges, ticket.EdgeAgentRuns)
 	}
+	if m.clearedrepo_workspaces {
+		edges = append(edges, ticket.EdgeRepoWorkspaces)
+	}
 	if m.clearedoutgoing_dependencies {
 		edges = append(edges, ticket.EdgeOutgoingDependencies)
 	}
@@ -20718,6 +21049,8 @@ func (m *TicketMutation) EdgeCleared(name string) bool {
 		return m.clearedactivity_events
 	case ticket.EdgeAgentRuns:
 		return m.clearedagent_runs
+	case ticket.EdgeRepoWorkspaces:
+		return m.clearedrepo_workspaces
 	case ticket.EdgeOutgoingDependencies:
 		return m.clearedoutgoing_dependencies
 	case ticket.EdgeIncomingDependencies:
@@ -20800,6 +21133,9 @@ func (m *TicketMutation) ResetEdge(name string) error {
 		return nil
 	case ticket.EdgeAgentRuns:
 		m.ResetAgentRuns()
+		return nil
+	case ticket.EdgeRepoWorkspaces:
+		m.ResetRepoWorkspaces()
 		return nil
 	case ticket.EdgeOutgoingDependencies:
 		m.ResetOutgoingDependencies()
@@ -24772,6 +25108,1311 @@ func (m *TicketRepoScopeMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown TicketRepoScope edge %s", name)
+}
+
+// TicketRepoWorkspaceMutation represents an operation that mutates the TicketRepoWorkspace nodes in the graph.
+type TicketRepoWorkspaceMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	workspace_root   *string
+	repo_path        *string
+	branch_name      *string
+	state            *ticketrepoworkspace.State
+	head_commit      *string
+	last_error       *string
+	prepared_at      *time.Time
+	cleaned_at       *time.Time
+	created_at       *time.Time
+	updated_at       *time.Time
+	clearedFields    map[string]struct{}
+	ticket           *uuid.UUID
+	clearedticket    bool
+	agent_run        *uuid.UUID
+	clearedagent_run bool
+	repo             *uuid.UUID
+	clearedrepo      bool
+	mirror           *uuid.UUID
+	clearedmirror    bool
+	done             bool
+	oldValue         func(context.Context) (*TicketRepoWorkspace, error)
+	predicates       []predicate.TicketRepoWorkspace
+}
+
+var _ ent.Mutation = (*TicketRepoWorkspaceMutation)(nil)
+
+// ticketrepoworkspaceOption allows management of the mutation configuration using functional options.
+type ticketrepoworkspaceOption func(*TicketRepoWorkspaceMutation)
+
+// newTicketRepoWorkspaceMutation creates new mutation for the TicketRepoWorkspace entity.
+func newTicketRepoWorkspaceMutation(c config, op Op, opts ...ticketrepoworkspaceOption) *TicketRepoWorkspaceMutation {
+	m := &TicketRepoWorkspaceMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTicketRepoWorkspace,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTicketRepoWorkspaceID sets the ID field of the mutation.
+func withTicketRepoWorkspaceID(id uuid.UUID) ticketrepoworkspaceOption {
+	return func(m *TicketRepoWorkspaceMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TicketRepoWorkspace
+		)
+		m.oldValue = func(ctx context.Context) (*TicketRepoWorkspace, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TicketRepoWorkspace.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTicketRepoWorkspace sets the old TicketRepoWorkspace of the mutation.
+func withTicketRepoWorkspace(node *TicketRepoWorkspace) ticketrepoworkspaceOption {
+	return func(m *TicketRepoWorkspaceMutation) {
+		m.oldValue = func(context.Context) (*TicketRepoWorkspace, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TicketRepoWorkspaceMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TicketRepoWorkspaceMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of TicketRepoWorkspace entities.
+func (m *TicketRepoWorkspaceMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TicketRepoWorkspaceMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TicketRepoWorkspaceMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TicketRepoWorkspace.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTicketID sets the "ticket_id" field.
+func (m *TicketRepoWorkspaceMutation) SetTicketID(u uuid.UUID) {
+	m.ticket = &u
+}
+
+// TicketID returns the value of the "ticket_id" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) TicketID() (r uuid.UUID, exists bool) {
+	v := m.ticket
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTicketID returns the old "ticket_id" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldTicketID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTicketID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTicketID: %w", err)
+	}
+	return oldValue.TicketID, nil
+}
+
+// ResetTicketID resets all changes to the "ticket_id" field.
+func (m *TicketRepoWorkspaceMutation) ResetTicketID() {
+	m.ticket = nil
+}
+
+// SetAgentRunID sets the "agent_run_id" field.
+func (m *TicketRepoWorkspaceMutation) SetAgentRunID(u uuid.UUID) {
+	m.agent_run = &u
+}
+
+// AgentRunID returns the value of the "agent_run_id" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) AgentRunID() (r uuid.UUID, exists bool) {
+	v := m.agent_run
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentRunID returns the old "agent_run_id" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldAgentRunID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentRunID: %w", err)
+	}
+	return oldValue.AgentRunID, nil
+}
+
+// ResetAgentRunID resets all changes to the "agent_run_id" field.
+func (m *TicketRepoWorkspaceMutation) ResetAgentRunID() {
+	m.agent_run = nil
+}
+
+// SetRepoID sets the "repo_id" field.
+func (m *TicketRepoWorkspaceMutation) SetRepoID(u uuid.UUID) {
+	m.repo = &u
+}
+
+// RepoID returns the value of the "repo_id" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) RepoID() (r uuid.UUID, exists bool) {
+	v := m.repo
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRepoID returns the old "repo_id" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldRepoID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRepoID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRepoID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRepoID: %w", err)
+	}
+	return oldValue.RepoID, nil
+}
+
+// ResetRepoID resets all changes to the "repo_id" field.
+func (m *TicketRepoWorkspaceMutation) ResetRepoID() {
+	m.repo = nil
+}
+
+// SetMirrorID sets the "mirror_id" field.
+func (m *TicketRepoWorkspaceMutation) SetMirrorID(u uuid.UUID) {
+	m.mirror = &u
+}
+
+// MirrorID returns the value of the "mirror_id" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) MirrorID() (r uuid.UUID, exists bool) {
+	v := m.mirror
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMirrorID returns the old "mirror_id" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldMirrorID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMirrorID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMirrorID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMirrorID: %w", err)
+	}
+	return oldValue.MirrorID, nil
+}
+
+// ResetMirrorID resets all changes to the "mirror_id" field.
+func (m *TicketRepoWorkspaceMutation) ResetMirrorID() {
+	m.mirror = nil
+}
+
+// SetWorkspaceRoot sets the "workspace_root" field.
+func (m *TicketRepoWorkspaceMutation) SetWorkspaceRoot(s string) {
+	m.workspace_root = &s
+}
+
+// WorkspaceRoot returns the value of the "workspace_root" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) WorkspaceRoot() (r string, exists bool) {
+	v := m.workspace_root
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWorkspaceRoot returns the old "workspace_root" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldWorkspaceRoot(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWorkspaceRoot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWorkspaceRoot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWorkspaceRoot: %w", err)
+	}
+	return oldValue.WorkspaceRoot, nil
+}
+
+// ResetWorkspaceRoot resets all changes to the "workspace_root" field.
+func (m *TicketRepoWorkspaceMutation) ResetWorkspaceRoot() {
+	m.workspace_root = nil
+}
+
+// SetRepoPath sets the "repo_path" field.
+func (m *TicketRepoWorkspaceMutation) SetRepoPath(s string) {
+	m.repo_path = &s
+}
+
+// RepoPath returns the value of the "repo_path" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) RepoPath() (r string, exists bool) {
+	v := m.repo_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRepoPath returns the old "repo_path" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldRepoPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRepoPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRepoPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRepoPath: %w", err)
+	}
+	return oldValue.RepoPath, nil
+}
+
+// ResetRepoPath resets all changes to the "repo_path" field.
+func (m *TicketRepoWorkspaceMutation) ResetRepoPath() {
+	m.repo_path = nil
+}
+
+// SetBranchName sets the "branch_name" field.
+func (m *TicketRepoWorkspaceMutation) SetBranchName(s string) {
+	m.branch_name = &s
+}
+
+// BranchName returns the value of the "branch_name" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) BranchName() (r string, exists bool) {
+	v := m.branch_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBranchName returns the old "branch_name" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldBranchName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBranchName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBranchName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBranchName: %w", err)
+	}
+	return oldValue.BranchName, nil
+}
+
+// ResetBranchName resets all changes to the "branch_name" field.
+func (m *TicketRepoWorkspaceMutation) ResetBranchName() {
+	m.branch_name = nil
+}
+
+// SetState sets the "state" field.
+func (m *TicketRepoWorkspaceMutation) SetState(t ticketrepoworkspace.State) {
+	m.state = &t
+}
+
+// State returns the value of the "state" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) State() (r ticketrepoworkspace.State, exists bool) {
+	v := m.state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldState returns the old "state" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldState(ctx context.Context) (v ticketrepoworkspace.State, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldState: %w", err)
+	}
+	return oldValue.State, nil
+}
+
+// ResetState resets all changes to the "state" field.
+func (m *TicketRepoWorkspaceMutation) ResetState() {
+	m.state = nil
+}
+
+// SetHeadCommit sets the "head_commit" field.
+func (m *TicketRepoWorkspaceMutation) SetHeadCommit(s string) {
+	m.head_commit = &s
+}
+
+// HeadCommit returns the value of the "head_commit" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) HeadCommit() (r string, exists bool) {
+	v := m.head_commit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHeadCommit returns the old "head_commit" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldHeadCommit(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHeadCommit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHeadCommit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHeadCommit: %w", err)
+	}
+	return oldValue.HeadCommit, nil
+}
+
+// ClearHeadCommit clears the value of the "head_commit" field.
+func (m *TicketRepoWorkspaceMutation) ClearHeadCommit() {
+	m.head_commit = nil
+	m.clearedFields[ticketrepoworkspace.FieldHeadCommit] = struct{}{}
+}
+
+// HeadCommitCleared returns if the "head_commit" field was cleared in this mutation.
+func (m *TicketRepoWorkspaceMutation) HeadCommitCleared() bool {
+	_, ok := m.clearedFields[ticketrepoworkspace.FieldHeadCommit]
+	return ok
+}
+
+// ResetHeadCommit resets all changes to the "head_commit" field.
+func (m *TicketRepoWorkspaceMutation) ResetHeadCommit() {
+	m.head_commit = nil
+	delete(m.clearedFields, ticketrepoworkspace.FieldHeadCommit)
+}
+
+// SetLastError sets the "last_error" field.
+func (m *TicketRepoWorkspaceMutation) SetLastError(s string) {
+	m.last_error = &s
+}
+
+// LastError returns the value of the "last_error" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) LastError() (r string, exists bool) {
+	v := m.last_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastError returns the old "last_error" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldLastError(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastError: %w", err)
+	}
+	return oldValue.LastError, nil
+}
+
+// ClearLastError clears the value of the "last_error" field.
+func (m *TicketRepoWorkspaceMutation) ClearLastError() {
+	m.last_error = nil
+	m.clearedFields[ticketrepoworkspace.FieldLastError] = struct{}{}
+}
+
+// LastErrorCleared returns if the "last_error" field was cleared in this mutation.
+func (m *TicketRepoWorkspaceMutation) LastErrorCleared() bool {
+	_, ok := m.clearedFields[ticketrepoworkspace.FieldLastError]
+	return ok
+}
+
+// ResetLastError resets all changes to the "last_error" field.
+func (m *TicketRepoWorkspaceMutation) ResetLastError() {
+	m.last_error = nil
+	delete(m.clearedFields, ticketrepoworkspace.FieldLastError)
+}
+
+// SetPreparedAt sets the "prepared_at" field.
+func (m *TicketRepoWorkspaceMutation) SetPreparedAt(t time.Time) {
+	m.prepared_at = &t
+}
+
+// PreparedAt returns the value of the "prepared_at" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) PreparedAt() (r time.Time, exists bool) {
+	v := m.prepared_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPreparedAt returns the old "prepared_at" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldPreparedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPreparedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPreparedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPreparedAt: %w", err)
+	}
+	return oldValue.PreparedAt, nil
+}
+
+// ClearPreparedAt clears the value of the "prepared_at" field.
+func (m *TicketRepoWorkspaceMutation) ClearPreparedAt() {
+	m.prepared_at = nil
+	m.clearedFields[ticketrepoworkspace.FieldPreparedAt] = struct{}{}
+}
+
+// PreparedAtCleared returns if the "prepared_at" field was cleared in this mutation.
+func (m *TicketRepoWorkspaceMutation) PreparedAtCleared() bool {
+	_, ok := m.clearedFields[ticketrepoworkspace.FieldPreparedAt]
+	return ok
+}
+
+// ResetPreparedAt resets all changes to the "prepared_at" field.
+func (m *TicketRepoWorkspaceMutation) ResetPreparedAt() {
+	m.prepared_at = nil
+	delete(m.clearedFields, ticketrepoworkspace.FieldPreparedAt)
+}
+
+// SetCleanedAt sets the "cleaned_at" field.
+func (m *TicketRepoWorkspaceMutation) SetCleanedAt(t time.Time) {
+	m.cleaned_at = &t
+}
+
+// CleanedAt returns the value of the "cleaned_at" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) CleanedAt() (r time.Time, exists bool) {
+	v := m.cleaned_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCleanedAt returns the old "cleaned_at" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldCleanedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCleanedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCleanedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCleanedAt: %w", err)
+	}
+	return oldValue.CleanedAt, nil
+}
+
+// ClearCleanedAt clears the value of the "cleaned_at" field.
+func (m *TicketRepoWorkspaceMutation) ClearCleanedAt() {
+	m.cleaned_at = nil
+	m.clearedFields[ticketrepoworkspace.FieldCleanedAt] = struct{}{}
+}
+
+// CleanedAtCleared returns if the "cleaned_at" field was cleared in this mutation.
+func (m *TicketRepoWorkspaceMutation) CleanedAtCleared() bool {
+	_, ok := m.clearedFields[ticketrepoworkspace.FieldCleanedAt]
+	return ok
+}
+
+// ResetCleanedAt resets all changes to the "cleaned_at" field.
+func (m *TicketRepoWorkspaceMutation) ResetCleanedAt() {
+	m.cleaned_at = nil
+	delete(m.clearedFields, ticketrepoworkspace.FieldCleanedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *TicketRepoWorkspaceMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *TicketRepoWorkspaceMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *TicketRepoWorkspaceMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *TicketRepoWorkspaceMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the TicketRepoWorkspace entity.
+// If the TicketRepoWorkspace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketRepoWorkspaceMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *TicketRepoWorkspaceMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearTicket clears the "ticket" edge to the Ticket entity.
+func (m *TicketRepoWorkspaceMutation) ClearTicket() {
+	m.clearedticket = true
+	m.clearedFields[ticketrepoworkspace.FieldTicketID] = struct{}{}
+}
+
+// TicketCleared reports if the "ticket" edge to the Ticket entity was cleared.
+func (m *TicketRepoWorkspaceMutation) TicketCleared() bool {
+	return m.clearedticket
+}
+
+// TicketIDs returns the "ticket" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TicketID instead. It exists only for internal usage by the builders.
+func (m *TicketRepoWorkspaceMutation) TicketIDs() (ids []uuid.UUID) {
+	if id := m.ticket; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTicket resets all changes to the "ticket" edge.
+func (m *TicketRepoWorkspaceMutation) ResetTicket() {
+	m.ticket = nil
+	m.clearedticket = false
+}
+
+// ClearAgentRun clears the "agent_run" edge to the AgentRun entity.
+func (m *TicketRepoWorkspaceMutation) ClearAgentRun() {
+	m.clearedagent_run = true
+	m.clearedFields[ticketrepoworkspace.FieldAgentRunID] = struct{}{}
+}
+
+// AgentRunCleared reports if the "agent_run" edge to the AgentRun entity was cleared.
+func (m *TicketRepoWorkspaceMutation) AgentRunCleared() bool {
+	return m.clearedagent_run
+}
+
+// AgentRunIDs returns the "agent_run" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentRunID instead. It exists only for internal usage by the builders.
+func (m *TicketRepoWorkspaceMutation) AgentRunIDs() (ids []uuid.UUID) {
+	if id := m.agent_run; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgentRun resets all changes to the "agent_run" edge.
+func (m *TicketRepoWorkspaceMutation) ResetAgentRun() {
+	m.agent_run = nil
+	m.clearedagent_run = false
+}
+
+// ClearRepo clears the "repo" edge to the ProjectRepo entity.
+func (m *TicketRepoWorkspaceMutation) ClearRepo() {
+	m.clearedrepo = true
+	m.clearedFields[ticketrepoworkspace.FieldRepoID] = struct{}{}
+}
+
+// RepoCleared reports if the "repo" edge to the ProjectRepo entity was cleared.
+func (m *TicketRepoWorkspaceMutation) RepoCleared() bool {
+	return m.clearedrepo
+}
+
+// RepoIDs returns the "repo" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// RepoID instead. It exists only for internal usage by the builders.
+func (m *TicketRepoWorkspaceMutation) RepoIDs() (ids []uuid.UUID) {
+	if id := m.repo; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetRepo resets all changes to the "repo" edge.
+func (m *TicketRepoWorkspaceMutation) ResetRepo() {
+	m.repo = nil
+	m.clearedrepo = false
+}
+
+// ClearMirror clears the "mirror" edge to the ProjectRepoMirror entity.
+func (m *TicketRepoWorkspaceMutation) ClearMirror() {
+	m.clearedmirror = true
+	m.clearedFields[ticketrepoworkspace.FieldMirrorID] = struct{}{}
+}
+
+// MirrorCleared reports if the "mirror" edge to the ProjectRepoMirror entity was cleared.
+func (m *TicketRepoWorkspaceMutation) MirrorCleared() bool {
+	return m.clearedmirror
+}
+
+// MirrorIDs returns the "mirror" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MirrorID instead. It exists only for internal usage by the builders.
+func (m *TicketRepoWorkspaceMutation) MirrorIDs() (ids []uuid.UUID) {
+	if id := m.mirror; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMirror resets all changes to the "mirror" edge.
+func (m *TicketRepoWorkspaceMutation) ResetMirror() {
+	m.mirror = nil
+	m.clearedmirror = false
+}
+
+// Where appends a list predicates to the TicketRepoWorkspaceMutation builder.
+func (m *TicketRepoWorkspaceMutation) Where(ps ...predicate.TicketRepoWorkspace) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TicketRepoWorkspaceMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TicketRepoWorkspaceMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TicketRepoWorkspace, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TicketRepoWorkspaceMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TicketRepoWorkspaceMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TicketRepoWorkspace).
+func (m *TicketRepoWorkspaceMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TicketRepoWorkspaceMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.ticket != nil {
+		fields = append(fields, ticketrepoworkspace.FieldTicketID)
+	}
+	if m.agent_run != nil {
+		fields = append(fields, ticketrepoworkspace.FieldAgentRunID)
+	}
+	if m.repo != nil {
+		fields = append(fields, ticketrepoworkspace.FieldRepoID)
+	}
+	if m.mirror != nil {
+		fields = append(fields, ticketrepoworkspace.FieldMirrorID)
+	}
+	if m.workspace_root != nil {
+		fields = append(fields, ticketrepoworkspace.FieldWorkspaceRoot)
+	}
+	if m.repo_path != nil {
+		fields = append(fields, ticketrepoworkspace.FieldRepoPath)
+	}
+	if m.branch_name != nil {
+		fields = append(fields, ticketrepoworkspace.FieldBranchName)
+	}
+	if m.state != nil {
+		fields = append(fields, ticketrepoworkspace.FieldState)
+	}
+	if m.head_commit != nil {
+		fields = append(fields, ticketrepoworkspace.FieldHeadCommit)
+	}
+	if m.last_error != nil {
+		fields = append(fields, ticketrepoworkspace.FieldLastError)
+	}
+	if m.prepared_at != nil {
+		fields = append(fields, ticketrepoworkspace.FieldPreparedAt)
+	}
+	if m.cleaned_at != nil {
+		fields = append(fields, ticketrepoworkspace.FieldCleanedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, ticketrepoworkspace.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, ticketrepoworkspace.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TicketRepoWorkspaceMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case ticketrepoworkspace.FieldTicketID:
+		return m.TicketID()
+	case ticketrepoworkspace.FieldAgentRunID:
+		return m.AgentRunID()
+	case ticketrepoworkspace.FieldRepoID:
+		return m.RepoID()
+	case ticketrepoworkspace.FieldMirrorID:
+		return m.MirrorID()
+	case ticketrepoworkspace.FieldWorkspaceRoot:
+		return m.WorkspaceRoot()
+	case ticketrepoworkspace.FieldRepoPath:
+		return m.RepoPath()
+	case ticketrepoworkspace.FieldBranchName:
+		return m.BranchName()
+	case ticketrepoworkspace.FieldState:
+		return m.State()
+	case ticketrepoworkspace.FieldHeadCommit:
+		return m.HeadCommit()
+	case ticketrepoworkspace.FieldLastError:
+		return m.LastError()
+	case ticketrepoworkspace.FieldPreparedAt:
+		return m.PreparedAt()
+	case ticketrepoworkspace.FieldCleanedAt:
+		return m.CleanedAt()
+	case ticketrepoworkspace.FieldCreatedAt:
+		return m.CreatedAt()
+	case ticketrepoworkspace.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TicketRepoWorkspaceMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case ticketrepoworkspace.FieldTicketID:
+		return m.OldTicketID(ctx)
+	case ticketrepoworkspace.FieldAgentRunID:
+		return m.OldAgentRunID(ctx)
+	case ticketrepoworkspace.FieldRepoID:
+		return m.OldRepoID(ctx)
+	case ticketrepoworkspace.FieldMirrorID:
+		return m.OldMirrorID(ctx)
+	case ticketrepoworkspace.FieldWorkspaceRoot:
+		return m.OldWorkspaceRoot(ctx)
+	case ticketrepoworkspace.FieldRepoPath:
+		return m.OldRepoPath(ctx)
+	case ticketrepoworkspace.FieldBranchName:
+		return m.OldBranchName(ctx)
+	case ticketrepoworkspace.FieldState:
+		return m.OldState(ctx)
+	case ticketrepoworkspace.FieldHeadCommit:
+		return m.OldHeadCommit(ctx)
+	case ticketrepoworkspace.FieldLastError:
+		return m.OldLastError(ctx)
+	case ticketrepoworkspace.FieldPreparedAt:
+		return m.OldPreparedAt(ctx)
+	case ticketrepoworkspace.FieldCleanedAt:
+		return m.OldCleanedAt(ctx)
+	case ticketrepoworkspace.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case ticketrepoworkspace.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown TicketRepoWorkspace field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TicketRepoWorkspaceMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case ticketrepoworkspace.FieldTicketID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTicketID(v)
+		return nil
+	case ticketrepoworkspace.FieldAgentRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentRunID(v)
+		return nil
+	case ticketrepoworkspace.FieldRepoID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRepoID(v)
+		return nil
+	case ticketrepoworkspace.FieldMirrorID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMirrorID(v)
+		return nil
+	case ticketrepoworkspace.FieldWorkspaceRoot:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWorkspaceRoot(v)
+		return nil
+	case ticketrepoworkspace.FieldRepoPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRepoPath(v)
+		return nil
+	case ticketrepoworkspace.FieldBranchName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBranchName(v)
+		return nil
+	case ticketrepoworkspace.FieldState:
+		v, ok := value.(ticketrepoworkspace.State)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetState(v)
+		return nil
+	case ticketrepoworkspace.FieldHeadCommit:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHeadCommit(v)
+		return nil
+	case ticketrepoworkspace.FieldLastError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastError(v)
+		return nil
+	case ticketrepoworkspace.FieldPreparedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPreparedAt(v)
+		return nil
+	case ticketrepoworkspace.FieldCleanedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCleanedAt(v)
+		return nil
+	case ticketrepoworkspace.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case ticketrepoworkspace.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TicketRepoWorkspace field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TicketRepoWorkspaceMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TicketRepoWorkspaceMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TicketRepoWorkspaceMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown TicketRepoWorkspace numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TicketRepoWorkspaceMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(ticketrepoworkspace.FieldHeadCommit) {
+		fields = append(fields, ticketrepoworkspace.FieldHeadCommit)
+	}
+	if m.FieldCleared(ticketrepoworkspace.FieldLastError) {
+		fields = append(fields, ticketrepoworkspace.FieldLastError)
+	}
+	if m.FieldCleared(ticketrepoworkspace.FieldPreparedAt) {
+		fields = append(fields, ticketrepoworkspace.FieldPreparedAt)
+	}
+	if m.FieldCleared(ticketrepoworkspace.FieldCleanedAt) {
+		fields = append(fields, ticketrepoworkspace.FieldCleanedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TicketRepoWorkspaceMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TicketRepoWorkspaceMutation) ClearField(name string) error {
+	switch name {
+	case ticketrepoworkspace.FieldHeadCommit:
+		m.ClearHeadCommit()
+		return nil
+	case ticketrepoworkspace.FieldLastError:
+		m.ClearLastError()
+		return nil
+	case ticketrepoworkspace.FieldPreparedAt:
+		m.ClearPreparedAt()
+		return nil
+	case ticketrepoworkspace.FieldCleanedAt:
+		m.ClearCleanedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown TicketRepoWorkspace nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TicketRepoWorkspaceMutation) ResetField(name string) error {
+	switch name {
+	case ticketrepoworkspace.FieldTicketID:
+		m.ResetTicketID()
+		return nil
+	case ticketrepoworkspace.FieldAgentRunID:
+		m.ResetAgentRunID()
+		return nil
+	case ticketrepoworkspace.FieldRepoID:
+		m.ResetRepoID()
+		return nil
+	case ticketrepoworkspace.FieldMirrorID:
+		m.ResetMirrorID()
+		return nil
+	case ticketrepoworkspace.FieldWorkspaceRoot:
+		m.ResetWorkspaceRoot()
+		return nil
+	case ticketrepoworkspace.FieldRepoPath:
+		m.ResetRepoPath()
+		return nil
+	case ticketrepoworkspace.FieldBranchName:
+		m.ResetBranchName()
+		return nil
+	case ticketrepoworkspace.FieldState:
+		m.ResetState()
+		return nil
+	case ticketrepoworkspace.FieldHeadCommit:
+		m.ResetHeadCommit()
+		return nil
+	case ticketrepoworkspace.FieldLastError:
+		m.ResetLastError()
+		return nil
+	case ticketrepoworkspace.FieldPreparedAt:
+		m.ResetPreparedAt()
+		return nil
+	case ticketrepoworkspace.FieldCleanedAt:
+		m.ResetCleanedAt()
+		return nil
+	case ticketrepoworkspace.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case ticketrepoworkspace.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown TicketRepoWorkspace field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TicketRepoWorkspaceMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.ticket != nil {
+		edges = append(edges, ticketrepoworkspace.EdgeTicket)
+	}
+	if m.agent_run != nil {
+		edges = append(edges, ticketrepoworkspace.EdgeAgentRun)
+	}
+	if m.repo != nil {
+		edges = append(edges, ticketrepoworkspace.EdgeRepo)
+	}
+	if m.mirror != nil {
+		edges = append(edges, ticketrepoworkspace.EdgeMirror)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TicketRepoWorkspaceMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case ticketrepoworkspace.EdgeTicket:
+		if id := m.ticket; id != nil {
+			return []ent.Value{*id}
+		}
+	case ticketrepoworkspace.EdgeAgentRun:
+		if id := m.agent_run; id != nil {
+			return []ent.Value{*id}
+		}
+	case ticketrepoworkspace.EdgeRepo:
+		if id := m.repo; id != nil {
+			return []ent.Value{*id}
+		}
+	case ticketrepoworkspace.EdgeMirror:
+		if id := m.mirror; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TicketRepoWorkspaceMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TicketRepoWorkspaceMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TicketRepoWorkspaceMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedticket {
+		edges = append(edges, ticketrepoworkspace.EdgeTicket)
+	}
+	if m.clearedagent_run {
+		edges = append(edges, ticketrepoworkspace.EdgeAgentRun)
+	}
+	if m.clearedrepo {
+		edges = append(edges, ticketrepoworkspace.EdgeRepo)
+	}
+	if m.clearedmirror {
+		edges = append(edges, ticketrepoworkspace.EdgeMirror)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TicketRepoWorkspaceMutation) EdgeCleared(name string) bool {
+	switch name {
+	case ticketrepoworkspace.EdgeTicket:
+		return m.clearedticket
+	case ticketrepoworkspace.EdgeAgentRun:
+		return m.clearedagent_run
+	case ticketrepoworkspace.EdgeRepo:
+		return m.clearedrepo
+	case ticketrepoworkspace.EdgeMirror:
+		return m.clearedmirror
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TicketRepoWorkspaceMutation) ClearEdge(name string) error {
+	switch name {
+	case ticketrepoworkspace.EdgeTicket:
+		m.ClearTicket()
+		return nil
+	case ticketrepoworkspace.EdgeAgentRun:
+		m.ClearAgentRun()
+		return nil
+	case ticketrepoworkspace.EdgeRepo:
+		m.ClearRepo()
+		return nil
+	case ticketrepoworkspace.EdgeMirror:
+		m.ClearMirror()
+		return nil
+	}
+	return fmt.Errorf("unknown TicketRepoWorkspace unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TicketRepoWorkspaceMutation) ResetEdge(name string) error {
+	switch name {
+	case ticketrepoworkspace.EdgeTicket:
+		m.ResetTicket()
+		return nil
+	case ticketrepoworkspace.EdgeAgentRun:
+		m.ResetAgentRun()
+		return nil
+	case ticketrepoworkspace.EdgeRepo:
+		m.ResetRepo()
+		return nil
+	case ticketrepoworkspace.EdgeMirror:
+		m.ResetMirror()
+		return nil
+	}
+	return fmt.Errorf("unknown TicketRepoWorkspace edge %s", name)
 }
 
 // TicketStageMutation represents an operation that mutates the TicketStage nodes in the graph.

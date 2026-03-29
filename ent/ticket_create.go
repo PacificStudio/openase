@@ -22,6 +22,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -583,6 +584,21 @@ func (_c *TicketCreate) AddAgentRuns(v ...*AgentRun) *TicketCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddAgentRunIDs(ids...)
+}
+
+// AddRepoWorkspaceIDs adds the "repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (_c *TicketCreate) AddRepoWorkspaceIDs(ids ...uuid.UUID) *TicketCreate {
+	_c.mutation.AddRepoWorkspaceIDs(ids...)
+	return _c
+}
+
+// AddRepoWorkspaces adds the "repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_c *TicketCreate) AddRepoWorkspaces(v ...*TicketRepoWorkspace) *TicketCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRepoWorkspaceIDs(ids...)
 }
 
 // AddOutgoingDependencyIDs adds the "outgoing_dependencies" edge to the TicketDependency entity by IDs.
@@ -1161,6 +1177,22 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RepoWorkspacesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.RepoWorkspacesTable,
+			Columns: []string{ticket.RepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
