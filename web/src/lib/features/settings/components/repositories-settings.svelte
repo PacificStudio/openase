@@ -22,12 +22,9 @@
     type RepositoryDraft,
     type RepositoryEditorMode,
   } from '../repositories-model'
-  import {
-    derivePrimaryRepositoryReadiness,
-    formatMirrorTimestamp,
-    repositoryMirrorToneClasses,
-  } from '../repositories-readiness'
+  import { derivePrimaryRepositoryReadiness } from '../repositories-readiness'
   import RepositoriesList from './repository-list.svelte'
+  import RepositoryReadinessBanner from './repository-readiness-banner.svelte'
   import RepositoryEditorSheet from './repository-editor-sheet.svelte'
 
   const repositoriesCapability = getSettingsSectionCapability('repositories')
@@ -224,86 +221,7 @@
   </div>
 
   {#if repos.length > 0}
-    <section
-      class={`rounded-2xl border px-4 py-4 ${repositoryMirrorToneClasses(primaryReadiness.kind === 'missing_primary_repo' ? 'missing' : primaryReadiness.mirrorState)}`}
-    >
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="space-y-1">
-          <h3 class="text-sm font-semibold">
-            {#if primaryReadiness.kind === 'missing_primary_repo'}
-              Primary repository not configured
-            {:else if primaryReadiness.kind === 'ready'}
-              Primary mirror ready
-            {:else}
-              Primary mirror needs attention
-            {/if}
-          </h3>
-          <p class="text-sm">
-            {#if primaryReadiness.kind === 'missing_primary_repo'}
-              This project has repository bindings, but none of them is marked primary. Mark one
-              repository as primary before configuring workflows or harness files.
-            {:else if primaryReadiness.action === 'prepare_mirror'}
-              <span class="font-medium">{primaryReadiness.primaryRepoName}</span> is bound as the primary
-              repository, but no mirror is ready yet. Prepare a mirror on the target machine before editing
-              workflows or harness files.
-            {:else if primaryReadiness.action === 'wait_for_mirror'}
-              <span class="font-medium">{primaryReadiness.primaryRepoName}</span> is bound as the
-              primary repository, but its mirror is currently
-              <span class="font-medium">{primaryReadiness.mirrorState}</span>. Wait for the mirror
-              lifecycle to finish before continuing.
-            {:else if primaryReadiness.action === 'sync_mirror'}
-              <span class="font-medium">{primaryReadiness.primaryRepoName}</span> is bound as the
-              primary repository, but its mirror is
-              <span class="font-medium">{primaryReadiness.mirrorState}</span>. Repair or resync the
-              mirror before using it for workflows.
-            {:else}
-              <span class="font-medium">{primaryReadiness.primaryRepoName}</span> has a ready primary
-              mirror for workflow and harness operations.
-            {/if}
-          </p>
-        </div>
-
-        {#if primaryReadiness.kind !== 'missing_primary_repo'}
-          <dl class="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
-            <div>
-              <dt class="opacity-70">Mirror state</dt>
-              <dd class="font-medium">{primaryReadiness.mirrorState}</dd>
-            </div>
-            <div>
-              <dt class="opacity-70">Known mirrors</dt>
-              <dd class="font-medium">{primaryReadiness.mirrorCount}</dd>
-            </div>
-            {#if primaryReadiness.mirrorMachineId}
-              <div>
-                <dt class="opacity-70">Target machine</dt>
-                <dd class="font-medium break-all">{primaryReadiness.mirrorMachineId}</dd>
-              </div>
-            {/if}
-            {#if formatMirrorTimestamp(primaryReadiness.lastSyncedAt)}
-              <div>
-                <dt class="opacity-70">Last synced</dt>
-                <dd class="font-medium">{formatMirrorTimestamp(primaryReadiness.lastSyncedAt)}</dd>
-              </div>
-            {/if}
-            {#if formatMirrorTimestamp(primaryReadiness.lastVerifiedAt)}
-              <div>
-                <dt class="opacity-70">Last verified</dt>
-                <dd class="font-medium">
-                  {formatMirrorTimestamp(primaryReadiness.lastVerifiedAt)}
-                </dd>
-              </div>
-            {/if}
-          </dl>
-        {/if}
-      </div>
-
-      {#if primaryReadiness.kind !== 'missing_primary_repo' && primaryReadiness.lastError}
-        <div class="bg-background/70 mt-3 rounded-xl border border-current/20 px-3 py-2 text-sm">
-          <p class="font-medium">Last mirror error</p>
-          <p class="mt-1 break-words opacity-80">{primaryReadiness.lastError}</p>
-        </div>
-      {/if}
-    </section>
+    <RepositoryReadinessBanner readiness={primaryReadiness} />
   {/if}
 
   <RepositoriesList
