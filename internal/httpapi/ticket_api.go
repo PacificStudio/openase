@@ -3,7 +3,9 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -40,12 +42,46 @@ type ticketExternalLinkResponse struct {
 }
 
 type ticketCommentResponse struct {
-	ID        string  `json:"id"`
-	TicketID  string  `json:"ticket_id"`
-	Body      string  `json:"body"`
-	CreatedBy string  `json:"created_by"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt *string `json:"updated_at,omitempty"`
+	ID           string  `json:"id"`
+	TicketID     string  `json:"ticket_id"`
+	Body         string  `json:"body,omitempty"`
+	BodyMarkdown string  `json:"body_markdown"`
+	CreatedBy    string  `json:"created_by"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    *string `json:"updated_at,omitempty"`
+	EditedAt     *string `json:"edited_at,omitempty"`
+	EditCount    int     `json:"edit_count"`
+	LastEditedBy *string `json:"last_edited_by,omitempty"`
+	IsDeleted    bool    `json:"is_deleted"`
+	DeletedAt    *string `json:"deleted_at,omitempty"`
+	DeletedBy    *string `json:"deleted_by,omitempty"`
+}
+
+type ticketCommentRevisionResponse struct {
+	ID             string  `json:"id"`
+	CommentID      string  `json:"comment_id"`
+	RevisionNumber int     `json:"revision_number"`
+	BodyMarkdown   string  `json:"body_markdown"`
+	EditedBy       string  `json:"edited_by"`
+	EditedAt       string  `json:"edited_at"`
+	EditReason     *string `json:"edit_reason,omitempty"`
+}
+
+type ticketTimelineItemResponse struct {
+	ID            string         `json:"id"`
+	TicketID      string         `json:"ticket_id"`
+	ItemType      string         `json:"item_type"`
+	ActorName     string         `json:"actor_name"`
+	ActorType     string         `json:"actor_type"`
+	Title         *string        `json:"title,omitempty"`
+	BodyMarkdown  *string        `json:"body_markdown,omitempty"`
+	BodyText      *string        `json:"body_text,omitempty"`
+	CreatedAt     string         `json:"created_at"`
+	UpdatedAt     string         `json:"updated_at"`
+	EditedAt      *string        `json:"edited_at,omitempty"`
+	IsCollapsible bool           `json:"is_collapsible"`
+	IsDeleted     bool           `json:"is_deleted"`
+	Metadata      map[string]any `json:"metadata"`
 }
 
 type ticketResponse struct {
@@ -112,6 +148,7 @@ func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.POST("/tickets/:ticketId/comments", s.handleCreateTicketComment)
 	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleUpdateTicketComment)
 	api.DELETE("/tickets/:ticketId/comments/:commentId", s.handleDeleteTicketComment)
+	api.GET("/tickets/:ticketId/comments/:commentId/revisions", s.handleListTicketCommentRevisions)
 	api.POST("/tickets/:ticketId/dependencies", s.handleAddTicketDependency)
 	api.DELETE("/tickets/:ticketId/dependencies/:dependencyId", s.handleDeleteTicketDependency)
 	api.POST("/tickets/:ticketId/external-links", s.handleAddTicketExternalLink)
@@ -254,6 +291,7 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	activity := filterNonCommentActivityEvents(activityItems)
 
 	assignedAgent, err := s.loadTicketAssignedAgent(c.Request().Context(), item)
 	if err != nil {
@@ -265,8 +303,9 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 		"ticket":         mapTicketResponse(item),
 		"repo_scopes":    mapTicketRepoScopeDetailResponses(repoScopes, indexProjectRepoResponses(projectRepos)),
 		"comments":       mapTicketCommentResponses(comments),
-		"activity":       mapActivityEventResponses(filterNonCommentActivityEvents(activityItems)),
-		"hook_history":   mapActivityEventResponses(filterHookActivityEvents(filterNonCommentActivityEvents(activityItems))),
+		"timeline":       buildTicketTimeline(item, comments, activity),
+		"activity":       mapActivityEventResponses(activity),
+		"hook_history":   mapActivityEventResponses(filterHookActivityEvents(activity)),
 	})
 }
 
@@ -400,6 +439,30 @@ func (s *Server) handleDeleteTicketComment(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, result)
+}
+
+func (s *Server) handleListTicketCommentRevisions(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	commentID, err := parseCommentID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_COMMENT_ID", err.Error())
+	}
+
+	revisions, err := s.ticketService.ListCommentRevisions(c.Request().Context(), ticketID, commentID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"revisions": mapTicketCommentRevisionResponses(revisions),
+	})
 }
 
 func (s *Server) handleAddTicketDependency(c echo.Context) error {
@@ -598,20 +661,221 @@ func mapTicketCommentResponses(items []ticketservice.Comment) []ticketCommentRes
 }
 
 func mapTicketCommentResponse(item ticketservice.Comment) ticketCommentResponse {
-	var updatedAt *string
-	if !item.UpdatedAt.IsZero() && !item.UpdatedAt.Equal(item.CreatedAt) {
-		formatted := item.UpdatedAt.UTC().Format(time.RFC3339)
-		updatedAt = &formatted
+	return ticketCommentResponse{
+		ID:           item.ID.String(),
+		TicketID:     item.TicketID.String(),
+		Body:         displayCommentBody(item),
+		BodyMarkdown: displayCommentBody(item),
+		CreatedBy:    item.CreatedBy,
+		CreatedAt:    item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:    optionalUpdatedAt(item.CreatedAt, item.UpdatedAt),
+		EditedAt:     formatOptionalTime(item.EditedAt),
+		EditCount:    item.EditCount,
+		LastEditedBy: item.LastEditedBy,
+		IsDeleted:    item.IsDeleted,
+		DeletedAt:    formatOptionalTime(item.DeletedAt),
+		DeletedBy:    item.DeletedBy,
+	}
+}
+
+func mapTicketCommentRevisionResponses(items []ticketservice.CommentRevision) []ticketCommentRevisionResponse {
+	response := make([]ticketCommentRevisionResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapTicketCommentRevisionResponse(item))
 	}
 
-	return ticketCommentResponse{
-		ID:        item.ID.String(),
-		TicketID:  item.TicketID.String(),
-		Body:      item.Body,
-		CreatedBy: item.CreatedBy,
-		CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt: updatedAt,
+	return response
+}
+
+func mapTicketCommentRevisionResponse(item ticketservice.CommentRevision) ticketCommentRevisionResponse {
+	return ticketCommentRevisionResponse{
+		ID:             item.ID.String(),
+		CommentID:      item.CommentID.String(),
+		RevisionNumber: item.RevisionNumber,
+		BodyMarkdown:   item.BodyMarkdown,
+		EditedBy:       item.EditedBy,
+		EditedAt:       item.EditedAt.UTC().Format(time.RFC3339),
+		EditReason:     item.EditReason,
 	}
+}
+
+func buildTicketTimeline(
+	item ticketservice.Ticket,
+	comments []ticketservice.Comment,
+	activity []domain.ActivityEvent,
+) []ticketTimelineItemResponse {
+	timeline := []ticketTimelineItemResponse{buildTicketDescriptionTimelineItem(item)}
+	for _, comment := range comments {
+		timeline = append(timeline, buildTicketCommentTimelineItem(comment))
+	}
+	for _, entry := range activity {
+		timeline = append(timeline, buildTicketActivityTimelineItem(item.ID, entry))
+	}
+
+	if len(timeline) <= 2 {
+		return timeline
+	}
+
+	head := timeline[0]
+	rest := append([]ticketTimelineItemResponse(nil), timeline[1:]...)
+	sort.SliceStable(rest, func(left, right int) bool {
+		if rest[left].CreatedAt == rest[right].CreatedAt {
+			return rest[left].ID < rest[right].ID
+		}
+		return rest[left].CreatedAt < rest[right].CreatedAt
+	})
+
+	return append([]ticketTimelineItemResponse{head}, rest...)
+}
+
+func buildTicketDescriptionTimelineItem(item ticketservice.Ticket) ticketTimelineItemResponse {
+	actor := parseStoredActor(item.CreatedBy)
+	title := fmt.Sprintf("%s opened this ticket", actor.Name)
+	bodyMarkdown := item.Description
+	metadata := map[string]any{
+		"identifier": item.Identifier,
+	}
+
+	return ticketTimelineItemResponse{
+		ID:            fmt.Sprintf("description:%s", item.ID),
+		TicketID:      item.ID.String(),
+		ItemType:      "description",
+		ActorName:     actor.Name,
+		ActorType:     actor.Type,
+		Title:         &title,
+		BodyMarkdown:  &bodyMarkdown,
+		CreatedAt:     item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:     item.CreatedAt.UTC().Format(time.RFC3339),
+		IsCollapsible: false,
+		IsDeleted:     false,
+		Metadata:      metadata,
+	}
+}
+
+func buildTicketCommentTimelineItem(item ticketservice.Comment) ticketTimelineItemResponse {
+	actor := parseStoredActor(item.CreatedBy)
+	metadata := map[string]any{
+		"edit_count":     item.EditCount,
+		"revision_count": item.EditCount + 1,
+	}
+	if item.LastEditedBy != nil {
+		metadata["last_edited_by"] = *item.LastEditedBy
+	}
+	bodyMarkdown := displayCommentBody(item)
+
+	return ticketTimelineItemResponse{
+		ID:            fmt.Sprintf("comment:%s", item.ID),
+		TicketID:      item.TicketID.String(),
+		ItemType:      "comment",
+		ActorName:     actor.Name,
+		ActorType:     actor.Type,
+		BodyMarkdown:  &bodyMarkdown,
+		CreatedAt:     item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:     item.UpdatedAt.UTC().Format(time.RFC3339),
+		EditedAt:      formatOptionalTime(item.EditedAt),
+		IsCollapsible: true,
+		IsDeleted:     item.IsDeleted,
+		Metadata:      metadata,
+	}
+}
+
+func buildTicketActivityTimelineItem(ticketID uuid.UUID, item domain.ActivityEvent) ticketTimelineItemResponse {
+	actorName, actorType := activityTimelineActor(item)
+	title := item.EventType
+	bodyText := item.Message
+	metadata := cloneMap(item.Metadata)
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	metadata["event_type"] = item.EventType
+
+	return ticketTimelineItemResponse{
+		ID:            fmt.Sprintf("activity:%s", item.ID),
+		TicketID:      ticketID.String(),
+		ItemType:      "activity",
+		ActorName:     actorName,
+		ActorType:     actorType,
+		Title:         &title,
+		BodyText:      &bodyText,
+		CreatedAt:     item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:     item.CreatedAt.UTC().Format(time.RFC3339),
+		IsCollapsible: true,
+		IsDeleted:     false,
+		Metadata:      metadata,
+	}
+}
+
+func displayCommentBody(item ticketservice.Comment) string {
+	if item.IsDeleted {
+		return "Comment deleted"
+	}
+
+	return item.BodyMarkdown
+}
+
+func optionalUpdatedAt(createdAt time.Time, updatedAt time.Time) *string {
+	if updatedAt.IsZero() || updatedAt.Equal(createdAt) {
+		return nil
+	}
+
+	formatted := updatedAt.UTC().Format(time.RFC3339)
+	return &formatted
+}
+
+func formatOptionalTime(value *time.Time) *string {
+	if value == nil || value.IsZero() {
+		return nil
+	}
+
+	formatted := value.UTC().Format(time.RFC3339)
+	return &formatted
+}
+
+type storedActor struct {
+	Name string
+	Type string
+	ID   string
+}
+
+func parseStoredActor(raw string) storedActor {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return storedActor{Name: "api", Type: "user", ID: "api"}
+	}
+
+	prefix, suffix, ok := strings.Cut(trimmed, ":")
+	if !ok || strings.TrimSpace(suffix) == "" {
+		return storedActor{Name: trimmed, Type: "user", ID: trimmed}
+	}
+
+	actorType := prefix
+	switch prefix {
+	case "user", "agent", "system_proxy":
+	default:
+		actorType = "user"
+	}
+
+	return storedActor{
+		Name: suffix,
+		Type: actorType,
+		ID:   suffix,
+	}
+}
+
+func activityTimelineActor(item domain.ActivityEvent) (string, string) {
+	for _, key := range []string{"actor_name", "agent_name"} {
+		if value, ok := item.Metadata[key].(string); ok && strings.TrimSpace(value) != "" {
+			if key == "agent_name" || item.AgentID != nil {
+				return value, "agent"
+			}
+			return value, "system"
+		}
+	}
+	if item.AgentID != nil {
+		return item.AgentID.String(), "agent"
+	}
+
+	return "System", "system"
 }
 
 func filterHookActivityEvents(items []domain.ActivityEvent) []domain.ActivityEvent {

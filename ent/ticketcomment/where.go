@@ -81,6 +81,36 @@ func UpdatedAt(v time.Time) predicate.TicketComment {
 	return predicate.TicketComment(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
+// EditedAt applies equality check predicate on the "edited_at" field. It's identical to EditedAtEQ.
+func EditedAt(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldEditedAt, v))
+}
+
+// EditCount applies equality check predicate on the "edit_count" field. It's identical to EditCountEQ.
+func EditCount(v int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldEditCount, v))
+}
+
+// LastEditedBy applies equality check predicate on the "last_edited_by" field. It's identical to LastEditedByEQ.
+func LastEditedBy(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldLastEditedBy, v))
+}
+
+// IsDeleted applies equality check predicate on the "is_deleted" field. It's identical to IsDeletedEQ.
+func IsDeleted(v bool) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldIsDeleted, v))
+}
+
+// DeletedAt applies equality check predicate on the "deleted_at" field. It's identical to DeletedAtEQ.
+func DeletedAt(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldDeletedAt, v))
+}
+
+// DeletedBy applies equality check predicate on the "deleted_by" field. It's identical to DeletedByEQ.
+func DeletedBy(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldDeletedBy, v))
+}
+
 // TicketIDEQ applies the EQ predicate on the "ticket_id" field.
 func TicketIDEQ(v uuid.UUID) predicate.TicketComment {
 	return predicate.TicketComment(sql.FieldEQ(FieldTicketID, v))
@@ -311,6 +341,306 @@ func UpdatedAtLTE(v time.Time) predicate.TicketComment {
 	return predicate.TicketComment(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
+// EditedAtEQ applies the EQ predicate on the "edited_at" field.
+func EditedAtEQ(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldEditedAt, v))
+}
+
+// EditedAtNEQ applies the NEQ predicate on the "edited_at" field.
+func EditedAtNEQ(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNEQ(FieldEditedAt, v))
+}
+
+// EditedAtIn applies the In predicate on the "edited_at" field.
+func EditedAtIn(vs ...time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIn(FieldEditedAt, vs...))
+}
+
+// EditedAtNotIn applies the NotIn predicate on the "edited_at" field.
+func EditedAtNotIn(vs ...time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotIn(FieldEditedAt, vs...))
+}
+
+// EditedAtGT applies the GT predicate on the "edited_at" field.
+func EditedAtGT(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGT(FieldEditedAt, v))
+}
+
+// EditedAtGTE applies the GTE predicate on the "edited_at" field.
+func EditedAtGTE(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGTE(FieldEditedAt, v))
+}
+
+// EditedAtLT applies the LT predicate on the "edited_at" field.
+func EditedAtLT(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLT(FieldEditedAt, v))
+}
+
+// EditedAtLTE applies the LTE predicate on the "edited_at" field.
+func EditedAtLTE(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLTE(FieldEditedAt, v))
+}
+
+// EditedAtIsNil applies the IsNil predicate on the "edited_at" field.
+func EditedAtIsNil() predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIsNull(FieldEditedAt))
+}
+
+// EditedAtNotNil applies the NotNil predicate on the "edited_at" field.
+func EditedAtNotNil() predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotNull(FieldEditedAt))
+}
+
+// EditCountEQ applies the EQ predicate on the "edit_count" field.
+func EditCountEQ(v int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldEditCount, v))
+}
+
+// EditCountNEQ applies the NEQ predicate on the "edit_count" field.
+func EditCountNEQ(v int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNEQ(FieldEditCount, v))
+}
+
+// EditCountIn applies the In predicate on the "edit_count" field.
+func EditCountIn(vs ...int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIn(FieldEditCount, vs...))
+}
+
+// EditCountNotIn applies the NotIn predicate on the "edit_count" field.
+func EditCountNotIn(vs ...int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotIn(FieldEditCount, vs...))
+}
+
+// EditCountGT applies the GT predicate on the "edit_count" field.
+func EditCountGT(v int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGT(FieldEditCount, v))
+}
+
+// EditCountGTE applies the GTE predicate on the "edit_count" field.
+func EditCountGTE(v int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGTE(FieldEditCount, v))
+}
+
+// EditCountLT applies the LT predicate on the "edit_count" field.
+func EditCountLT(v int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLT(FieldEditCount, v))
+}
+
+// EditCountLTE applies the LTE predicate on the "edit_count" field.
+func EditCountLTE(v int) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLTE(FieldEditCount, v))
+}
+
+// LastEditedByEQ applies the EQ predicate on the "last_edited_by" field.
+func LastEditedByEQ(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldLastEditedBy, v))
+}
+
+// LastEditedByNEQ applies the NEQ predicate on the "last_edited_by" field.
+func LastEditedByNEQ(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNEQ(FieldLastEditedBy, v))
+}
+
+// LastEditedByIn applies the In predicate on the "last_edited_by" field.
+func LastEditedByIn(vs ...string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIn(FieldLastEditedBy, vs...))
+}
+
+// LastEditedByNotIn applies the NotIn predicate on the "last_edited_by" field.
+func LastEditedByNotIn(vs ...string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotIn(FieldLastEditedBy, vs...))
+}
+
+// LastEditedByGT applies the GT predicate on the "last_edited_by" field.
+func LastEditedByGT(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGT(FieldLastEditedBy, v))
+}
+
+// LastEditedByGTE applies the GTE predicate on the "last_edited_by" field.
+func LastEditedByGTE(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGTE(FieldLastEditedBy, v))
+}
+
+// LastEditedByLT applies the LT predicate on the "last_edited_by" field.
+func LastEditedByLT(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLT(FieldLastEditedBy, v))
+}
+
+// LastEditedByLTE applies the LTE predicate on the "last_edited_by" field.
+func LastEditedByLTE(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLTE(FieldLastEditedBy, v))
+}
+
+// LastEditedByContains applies the Contains predicate on the "last_edited_by" field.
+func LastEditedByContains(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldContains(FieldLastEditedBy, v))
+}
+
+// LastEditedByHasPrefix applies the HasPrefix predicate on the "last_edited_by" field.
+func LastEditedByHasPrefix(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldHasPrefix(FieldLastEditedBy, v))
+}
+
+// LastEditedByHasSuffix applies the HasSuffix predicate on the "last_edited_by" field.
+func LastEditedByHasSuffix(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldHasSuffix(FieldLastEditedBy, v))
+}
+
+// LastEditedByIsNil applies the IsNil predicate on the "last_edited_by" field.
+func LastEditedByIsNil() predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIsNull(FieldLastEditedBy))
+}
+
+// LastEditedByNotNil applies the NotNil predicate on the "last_edited_by" field.
+func LastEditedByNotNil() predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotNull(FieldLastEditedBy))
+}
+
+// LastEditedByEqualFold applies the EqualFold predicate on the "last_edited_by" field.
+func LastEditedByEqualFold(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEqualFold(FieldLastEditedBy, v))
+}
+
+// LastEditedByContainsFold applies the ContainsFold predicate on the "last_edited_by" field.
+func LastEditedByContainsFold(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldContainsFold(FieldLastEditedBy, v))
+}
+
+// IsDeletedEQ applies the EQ predicate on the "is_deleted" field.
+func IsDeletedEQ(v bool) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldIsDeleted, v))
+}
+
+// IsDeletedNEQ applies the NEQ predicate on the "is_deleted" field.
+func IsDeletedNEQ(v bool) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNEQ(FieldIsDeleted, v))
+}
+
+// DeletedAtEQ applies the EQ predicate on the "deleted_at" field.
+func DeletedAtEQ(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldDeletedAt, v))
+}
+
+// DeletedAtNEQ applies the NEQ predicate on the "deleted_at" field.
+func DeletedAtNEQ(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNEQ(FieldDeletedAt, v))
+}
+
+// DeletedAtIn applies the In predicate on the "deleted_at" field.
+func DeletedAtIn(vs ...time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIn(FieldDeletedAt, vs...))
+}
+
+// DeletedAtNotIn applies the NotIn predicate on the "deleted_at" field.
+func DeletedAtNotIn(vs ...time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotIn(FieldDeletedAt, vs...))
+}
+
+// DeletedAtGT applies the GT predicate on the "deleted_at" field.
+func DeletedAtGT(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGT(FieldDeletedAt, v))
+}
+
+// DeletedAtGTE applies the GTE predicate on the "deleted_at" field.
+func DeletedAtGTE(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGTE(FieldDeletedAt, v))
+}
+
+// DeletedAtLT applies the LT predicate on the "deleted_at" field.
+func DeletedAtLT(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLT(FieldDeletedAt, v))
+}
+
+// DeletedAtLTE applies the LTE predicate on the "deleted_at" field.
+func DeletedAtLTE(v time.Time) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLTE(FieldDeletedAt, v))
+}
+
+// DeletedAtIsNil applies the IsNil predicate on the "deleted_at" field.
+func DeletedAtIsNil() predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIsNull(FieldDeletedAt))
+}
+
+// DeletedAtNotNil applies the NotNil predicate on the "deleted_at" field.
+func DeletedAtNotNil() predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotNull(FieldDeletedAt))
+}
+
+// DeletedByEQ applies the EQ predicate on the "deleted_by" field.
+func DeletedByEQ(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEQ(FieldDeletedBy, v))
+}
+
+// DeletedByNEQ applies the NEQ predicate on the "deleted_by" field.
+func DeletedByNEQ(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNEQ(FieldDeletedBy, v))
+}
+
+// DeletedByIn applies the In predicate on the "deleted_by" field.
+func DeletedByIn(vs ...string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIn(FieldDeletedBy, vs...))
+}
+
+// DeletedByNotIn applies the NotIn predicate on the "deleted_by" field.
+func DeletedByNotIn(vs ...string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotIn(FieldDeletedBy, vs...))
+}
+
+// DeletedByGT applies the GT predicate on the "deleted_by" field.
+func DeletedByGT(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGT(FieldDeletedBy, v))
+}
+
+// DeletedByGTE applies the GTE predicate on the "deleted_by" field.
+func DeletedByGTE(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldGTE(FieldDeletedBy, v))
+}
+
+// DeletedByLT applies the LT predicate on the "deleted_by" field.
+func DeletedByLT(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLT(FieldDeletedBy, v))
+}
+
+// DeletedByLTE applies the LTE predicate on the "deleted_by" field.
+func DeletedByLTE(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldLTE(FieldDeletedBy, v))
+}
+
+// DeletedByContains applies the Contains predicate on the "deleted_by" field.
+func DeletedByContains(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldContains(FieldDeletedBy, v))
+}
+
+// DeletedByHasPrefix applies the HasPrefix predicate on the "deleted_by" field.
+func DeletedByHasPrefix(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldHasPrefix(FieldDeletedBy, v))
+}
+
+// DeletedByHasSuffix applies the HasSuffix predicate on the "deleted_by" field.
+func DeletedByHasSuffix(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldHasSuffix(FieldDeletedBy, v))
+}
+
+// DeletedByIsNil applies the IsNil predicate on the "deleted_by" field.
+func DeletedByIsNil() predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldIsNull(FieldDeletedBy))
+}
+
+// DeletedByNotNil applies the NotNil predicate on the "deleted_by" field.
+func DeletedByNotNil() predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldNotNull(FieldDeletedBy))
+}
+
+// DeletedByEqualFold applies the EqualFold predicate on the "deleted_by" field.
+func DeletedByEqualFold(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldEqualFold(FieldDeletedBy, v))
+}
+
+// DeletedByContainsFold applies the ContainsFold predicate on the "deleted_by" field.
+func DeletedByContainsFold(v string) predicate.TicketComment {
+	return predicate.TicketComment(sql.FieldContainsFold(FieldDeletedBy, v))
+}
+
 // HasTicket applies the HasEdge predicate on the "ticket" edge.
 func HasTicket() predicate.TicketComment {
 	return predicate.TicketComment(func(s *sql.Selector) {
@@ -326,6 +656,29 @@ func HasTicket() predicate.TicketComment {
 func HasTicketWith(preds ...predicate.Ticket) predicate.TicketComment {
 	return predicate.TicketComment(func(s *sql.Selector) {
 		step := newTicketStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRevisions applies the HasEdge predicate on the "revisions" edge.
+func HasRevisions() predicate.TicketComment {
+	return predicate.TicketComment(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RevisionsTable, RevisionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRevisionsWith applies the HasEdge predicate on the "revisions" edge with a given conditions (other predicates).
+func HasRevisionsWith(preds ...predicate.TicketCommentRevision) predicate.TicketComment {
+	return predicate.TicketComment(func(s *sql.Selector) {
+		step := newRevisionsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

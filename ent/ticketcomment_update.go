@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	"github.com/google/uuid"
 )
 
@@ -78,9 +79,139 @@ func (_u *TicketCommentUpdate) SetUpdatedAt(v time.Time) *TicketCommentUpdate {
 	return _u
 }
 
+// SetEditedAt sets the "edited_at" field.
+func (_u *TicketCommentUpdate) SetEditedAt(v time.Time) *TicketCommentUpdate {
+	_u.mutation.SetEditedAt(v)
+	return _u
+}
+
+// SetNillableEditedAt sets the "edited_at" field if the given value is not nil.
+func (_u *TicketCommentUpdate) SetNillableEditedAt(v *time.Time) *TicketCommentUpdate {
+	if v != nil {
+		_u.SetEditedAt(*v)
+	}
+	return _u
+}
+
+// ClearEditedAt clears the value of the "edited_at" field.
+func (_u *TicketCommentUpdate) ClearEditedAt() *TicketCommentUpdate {
+	_u.mutation.ClearEditedAt()
+	return _u
+}
+
+// SetEditCount sets the "edit_count" field.
+func (_u *TicketCommentUpdate) SetEditCount(v int) *TicketCommentUpdate {
+	_u.mutation.ResetEditCount()
+	_u.mutation.SetEditCount(v)
+	return _u
+}
+
+// SetNillableEditCount sets the "edit_count" field if the given value is not nil.
+func (_u *TicketCommentUpdate) SetNillableEditCount(v *int) *TicketCommentUpdate {
+	if v != nil {
+		_u.SetEditCount(*v)
+	}
+	return _u
+}
+
+// AddEditCount adds value to the "edit_count" field.
+func (_u *TicketCommentUpdate) AddEditCount(v int) *TicketCommentUpdate {
+	_u.mutation.AddEditCount(v)
+	return _u
+}
+
+// SetLastEditedBy sets the "last_edited_by" field.
+func (_u *TicketCommentUpdate) SetLastEditedBy(v string) *TicketCommentUpdate {
+	_u.mutation.SetLastEditedBy(v)
+	return _u
+}
+
+// SetNillableLastEditedBy sets the "last_edited_by" field if the given value is not nil.
+func (_u *TicketCommentUpdate) SetNillableLastEditedBy(v *string) *TicketCommentUpdate {
+	if v != nil {
+		_u.SetLastEditedBy(*v)
+	}
+	return _u
+}
+
+// ClearLastEditedBy clears the value of the "last_edited_by" field.
+func (_u *TicketCommentUpdate) ClearLastEditedBy() *TicketCommentUpdate {
+	_u.mutation.ClearLastEditedBy()
+	return _u
+}
+
+// SetIsDeleted sets the "is_deleted" field.
+func (_u *TicketCommentUpdate) SetIsDeleted(v bool) *TicketCommentUpdate {
+	_u.mutation.SetIsDeleted(v)
+	return _u
+}
+
+// SetNillableIsDeleted sets the "is_deleted" field if the given value is not nil.
+func (_u *TicketCommentUpdate) SetNillableIsDeleted(v *bool) *TicketCommentUpdate {
+	if v != nil {
+		_u.SetIsDeleted(*v)
+	}
+	return _u
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (_u *TicketCommentUpdate) SetDeletedAt(v time.Time) *TicketCommentUpdate {
+	_u.mutation.SetDeletedAt(v)
+	return _u
+}
+
+// SetNillableDeletedAt sets the "deleted_at" field if the given value is not nil.
+func (_u *TicketCommentUpdate) SetNillableDeletedAt(v *time.Time) *TicketCommentUpdate {
+	if v != nil {
+		_u.SetDeletedAt(*v)
+	}
+	return _u
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (_u *TicketCommentUpdate) ClearDeletedAt() *TicketCommentUpdate {
+	_u.mutation.ClearDeletedAt()
+	return _u
+}
+
+// SetDeletedBy sets the "deleted_by" field.
+func (_u *TicketCommentUpdate) SetDeletedBy(v string) *TicketCommentUpdate {
+	_u.mutation.SetDeletedBy(v)
+	return _u
+}
+
+// SetNillableDeletedBy sets the "deleted_by" field if the given value is not nil.
+func (_u *TicketCommentUpdate) SetNillableDeletedBy(v *string) *TicketCommentUpdate {
+	if v != nil {
+		_u.SetDeletedBy(*v)
+	}
+	return _u
+}
+
+// ClearDeletedBy clears the value of the "deleted_by" field.
+func (_u *TicketCommentUpdate) ClearDeletedBy() *TicketCommentUpdate {
+	_u.mutation.ClearDeletedBy()
+	return _u
+}
+
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_u *TicketCommentUpdate) SetTicket(v *Ticket) *TicketCommentUpdate {
 	return _u.SetTicketID(v.ID)
+}
+
+// AddRevisionIDs adds the "revisions" edge to the TicketCommentRevision entity by IDs.
+func (_u *TicketCommentUpdate) AddRevisionIDs(ids ...uuid.UUID) *TicketCommentUpdate {
+	_u.mutation.AddRevisionIDs(ids...)
+	return _u
+}
+
+// AddRevisions adds the "revisions" edges to the TicketCommentRevision entity.
+func (_u *TicketCommentUpdate) AddRevisions(v ...*TicketCommentRevision) *TicketCommentUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRevisionIDs(ids...)
 }
 
 // Mutation returns the TicketCommentMutation object of the builder.
@@ -92,6 +223,27 @@ func (_u *TicketCommentUpdate) Mutation() *TicketCommentMutation {
 func (_u *TicketCommentUpdate) ClearTicket() *TicketCommentUpdate {
 	_u.mutation.ClearTicket()
 	return _u
+}
+
+// ClearRevisions clears all "revisions" edges to the TicketCommentRevision entity.
+func (_u *TicketCommentUpdate) ClearRevisions() *TicketCommentUpdate {
+	_u.mutation.ClearRevisions()
+	return _u
+}
+
+// RemoveRevisionIDs removes the "revisions" edge to TicketCommentRevision entities by IDs.
+func (_u *TicketCommentUpdate) RemoveRevisionIDs(ids ...uuid.UUID) *TicketCommentUpdate {
+	_u.mutation.RemoveRevisionIDs(ids...)
+	return _u
+}
+
+// RemoveRevisions removes "revisions" edges to TicketCommentRevision entities.
+func (_u *TicketCommentUpdate) RemoveRevisions(v ...*TicketCommentRevision) *TicketCommentUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRevisionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -169,6 +321,39 @@ func (_u *TicketCommentUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(ticketcomment.FieldUpdatedAt, field.TypeTime, value)
 	}
+	if value, ok := _u.mutation.EditedAt(); ok {
+		_spec.SetField(ticketcomment.FieldEditedAt, field.TypeTime, value)
+	}
+	if _u.mutation.EditedAtCleared() {
+		_spec.ClearField(ticketcomment.FieldEditedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EditCount(); ok {
+		_spec.SetField(ticketcomment.FieldEditCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedEditCount(); ok {
+		_spec.AddField(ticketcomment.FieldEditCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LastEditedBy(); ok {
+		_spec.SetField(ticketcomment.FieldLastEditedBy, field.TypeString, value)
+	}
+	if _u.mutation.LastEditedByCleared() {
+		_spec.ClearField(ticketcomment.FieldLastEditedBy, field.TypeString)
+	}
+	if value, ok := _u.mutation.IsDeleted(); ok {
+		_spec.SetField(ticketcomment.FieldIsDeleted, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.DeletedAt(); ok {
+		_spec.SetField(ticketcomment.FieldDeletedAt, field.TypeTime, value)
+	}
+	if _u.mutation.DeletedAtCleared() {
+		_spec.ClearField(ticketcomment.FieldDeletedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DeletedBy(); ok {
+		_spec.SetField(ticketcomment.FieldDeletedBy, field.TypeString, value)
+	}
+	if _u.mutation.DeletedByCleared() {
+		_spec.ClearField(ticketcomment.FieldDeletedBy, field.TypeString)
+	}
 	if _u.mutation.TicketCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -191,6 +376,51 @@ func (_u *TicketCommentUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RevisionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticketcomment.RevisionsTable,
+			Columns: []string{ticketcomment.RevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcommentrevision.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRevisionsIDs(); len(nodes) > 0 && !_u.mutation.RevisionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticketcomment.RevisionsTable,
+			Columns: []string{ticketcomment.RevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcommentrevision.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RevisionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticketcomment.RevisionsTable,
+			Columns: []string{ticketcomment.RevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcommentrevision.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -266,9 +496,139 @@ func (_u *TicketCommentUpdateOne) SetUpdatedAt(v time.Time) *TicketCommentUpdate
 	return _u
 }
 
+// SetEditedAt sets the "edited_at" field.
+func (_u *TicketCommentUpdateOne) SetEditedAt(v time.Time) *TicketCommentUpdateOne {
+	_u.mutation.SetEditedAt(v)
+	return _u
+}
+
+// SetNillableEditedAt sets the "edited_at" field if the given value is not nil.
+func (_u *TicketCommentUpdateOne) SetNillableEditedAt(v *time.Time) *TicketCommentUpdateOne {
+	if v != nil {
+		_u.SetEditedAt(*v)
+	}
+	return _u
+}
+
+// ClearEditedAt clears the value of the "edited_at" field.
+func (_u *TicketCommentUpdateOne) ClearEditedAt() *TicketCommentUpdateOne {
+	_u.mutation.ClearEditedAt()
+	return _u
+}
+
+// SetEditCount sets the "edit_count" field.
+func (_u *TicketCommentUpdateOne) SetEditCount(v int) *TicketCommentUpdateOne {
+	_u.mutation.ResetEditCount()
+	_u.mutation.SetEditCount(v)
+	return _u
+}
+
+// SetNillableEditCount sets the "edit_count" field if the given value is not nil.
+func (_u *TicketCommentUpdateOne) SetNillableEditCount(v *int) *TicketCommentUpdateOne {
+	if v != nil {
+		_u.SetEditCount(*v)
+	}
+	return _u
+}
+
+// AddEditCount adds value to the "edit_count" field.
+func (_u *TicketCommentUpdateOne) AddEditCount(v int) *TicketCommentUpdateOne {
+	_u.mutation.AddEditCount(v)
+	return _u
+}
+
+// SetLastEditedBy sets the "last_edited_by" field.
+func (_u *TicketCommentUpdateOne) SetLastEditedBy(v string) *TicketCommentUpdateOne {
+	_u.mutation.SetLastEditedBy(v)
+	return _u
+}
+
+// SetNillableLastEditedBy sets the "last_edited_by" field if the given value is not nil.
+func (_u *TicketCommentUpdateOne) SetNillableLastEditedBy(v *string) *TicketCommentUpdateOne {
+	if v != nil {
+		_u.SetLastEditedBy(*v)
+	}
+	return _u
+}
+
+// ClearLastEditedBy clears the value of the "last_edited_by" field.
+func (_u *TicketCommentUpdateOne) ClearLastEditedBy() *TicketCommentUpdateOne {
+	_u.mutation.ClearLastEditedBy()
+	return _u
+}
+
+// SetIsDeleted sets the "is_deleted" field.
+func (_u *TicketCommentUpdateOne) SetIsDeleted(v bool) *TicketCommentUpdateOne {
+	_u.mutation.SetIsDeleted(v)
+	return _u
+}
+
+// SetNillableIsDeleted sets the "is_deleted" field if the given value is not nil.
+func (_u *TicketCommentUpdateOne) SetNillableIsDeleted(v *bool) *TicketCommentUpdateOne {
+	if v != nil {
+		_u.SetIsDeleted(*v)
+	}
+	return _u
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (_u *TicketCommentUpdateOne) SetDeletedAt(v time.Time) *TicketCommentUpdateOne {
+	_u.mutation.SetDeletedAt(v)
+	return _u
+}
+
+// SetNillableDeletedAt sets the "deleted_at" field if the given value is not nil.
+func (_u *TicketCommentUpdateOne) SetNillableDeletedAt(v *time.Time) *TicketCommentUpdateOne {
+	if v != nil {
+		_u.SetDeletedAt(*v)
+	}
+	return _u
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (_u *TicketCommentUpdateOne) ClearDeletedAt() *TicketCommentUpdateOne {
+	_u.mutation.ClearDeletedAt()
+	return _u
+}
+
+// SetDeletedBy sets the "deleted_by" field.
+func (_u *TicketCommentUpdateOne) SetDeletedBy(v string) *TicketCommentUpdateOne {
+	_u.mutation.SetDeletedBy(v)
+	return _u
+}
+
+// SetNillableDeletedBy sets the "deleted_by" field if the given value is not nil.
+func (_u *TicketCommentUpdateOne) SetNillableDeletedBy(v *string) *TicketCommentUpdateOne {
+	if v != nil {
+		_u.SetDeletedBy(*v)
+	}
+	return _u
+}
+
+// ClearDeletedBy clears the value of the "deleted_by" field.
+func (_u *TicketCommentUpdateOne) ClearDeletedBy() *TicketCommentUpdateOne {
+	_u.mutation.ClearDeletedBy()
+	return _u
+}
+
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_u *TicketCommentUpdateOne) SetTicket(v *Ticket) *TicketCommentUpdateOne {
 	return _u.SetTicketID(v.ID)
+}
+
+// AddRevisionIDs adds the "revisions" edge to the TicketCommentRevision entity by IDs.
+func (_u *TicketCommentUpdateOne) AddRevisionIDs(ids ...uuid.UUID) *TicketCommentUpdateOne {
+	_u.mutation.AddRevisionIDs(ids...)
+	return _u
+}
+
+// AddRevisions adds the "revisions" edges to the TicketCommentRevision entity.
+func (_u *TicketCommentUpdateOne) AddRevisions(v ...*TicketCommentRevision) *TicketCommentUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRevisionIDs(ids...)
 }
 
 // Mutation returns the TicketCommentMutation object of the builder.
@@ -280,6 +640,27 @@ func (_u *TicketCommentUpdateOne) Mutation() *TicketCommentMutation {
 func (_u *TicketCommentUpdateOne) ClearTicket() *TicketCommentUpdateOne {
 	_u.mutation.ClearTicket()
 	return _u
+}
+
+// ClearRevisions clears all "revisions" edges to the TicketCommentRevision entity.
+func (_u *TicketCommentUpdateOne) ClearRevisions() *TicketCommentUpdateOne {
+	_u.mutation.ClearRevisions()
+	return _u
+}
+
+// RemoveRevisionIDs removes the "revisions" edge to TicketCommentRevision entities by IDs.
+func (_u *TicketCommentUpdateOne) RemoveRevisionIDs(ids ...uuid.UUID) *TicketCommentUpdateOne {
+	_u.mutation.RemoveRevisionIDs(ids...)
+	return _u
+}
+
+// RemoveRevisions removes "revisions" edges to TicketCommentRevision entities.
+func (_u *TicketCommentUpdateOne) RemoveRevisions(v ...*TicketCommentRevision) *TicketCommentUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRevisionIDs(ids...)
 }
 
 // Where appends a list predicates to the TicketCommentUpdate builder.
@@ -387,6 +768,39 @@ func (_u *TicketCommentUpdateOne) sqlSave(ctx context.Context) (_node *TicketCom
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(ticketcomment.FieldUpdatedAt, field.TypeTime, value)
 	}
+	if value, ok := _u.mutation.EditedAt(); ok {
+		_spec.SetField(ticketcomment.FieldEditedAt, field.TypeTime, value)
+	}
+	if _u.mutation.EditedAtCleared() {
+		_spec.ClearField(ticketcomment.FieldEditedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EditCount(); ok {
+		_spec.SetField(ticketcomment.FieldEditCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedEditCount(); ok {
+		_spec.AddField(ticketcomment.FieldEditCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LastEditedBy(); ok {
+		_spec.SetField(ticketcomment.FieldLastEditedBy, field.TypeString, value)
+	}
+	if _u.mutation.LastEditedByCleared() {
+		_spec.ClearField(ticketcomment.FieldLastEditedBy, field.TypeString)
+	}
+	if value, ok := _u.mutation.IsDeleted(); ok {
+		_spec.SetField(ticketcomment.FieldIsDeleted, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.DeletedAt(); ok {
+		_spec.SetField(ticketcomment.FieldDeletedAt, field.TypeTime, value)
+	}
+	if _u.mutation.DeletedAtCleared() {
+		_spec.ClearField(ticketcomment.FieldDeletedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DeletedBy(); ok {
+		_spec.SetField(ticketcomment.FieldDeletedBy, field.TypeString, value)
+	}
+	if _u.mutation.DeletedByCleared() {
+		_spec.ClearField(ticketcomment.FieldDeletedBy, field.TypeString)
+	}
 	if _u.mutation.TicketCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -409,6 +823,51 @@ func (_u *TicketCommentUpdateOne) sqlSave(ctx context.Context) (_node *TicketCom
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RevisionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticketcomment.RevisionsTable,
+			Columns: []string{ticketcomment.RevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcommentrevision.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRevisionsIDs(); len(nodes) > 0 && !_u.mutation.RevisionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticketcomment.RevisionsTable,
+			Columns: []string{ticketcomment.RevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcommentrevision.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RevisionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticketcomment.RevisionsTable,
+			Columns: []string{ticketcomment.RevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcommentrevision.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -23,6 +23,12 @@ func (TicketComment) Fields() []ent.Field {
 		field.String("created_by").NotEmpty(),
 		createdAtField(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
+		field.Time("edited_at").Optional().Nillable(),
+		field.Int("edit_count").Default(0),
+		field.String("last_edited_by").Optional().Nillable(),
+		field.Bool("is_deleted").Default(false),
+		field.Time("deleted_at").Optional().Nillable(),
+		field.String("deleted_by").Optional().Nillable(),
 	}
 }
 
@@ -34,6 +40,7 @@ func (TicketComment) Edges() []ent.Edge {
 			Field("ticket_id").
 			Unique().
 			Required(),
+		edge.To("revisions", TicketCommentRevision.Type),
 	}
 }
 

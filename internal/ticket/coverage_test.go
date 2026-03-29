@@ -61,6 +61,9 @@ func TestTicketServiceNilClientGuards(t *testing.T) {
 	if _, err := service.UpdateComment(ctx, UpdateCommentInput{TicketID: ticketID, CommentID: commentID}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("UpdateComment error = %v, want %v", err, ErrUnavailable)
 	}
+	if _, err := service.ListCommentRevisions(ctx, ticketID, commentID); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("ListCommentRevisions error = %v, want %v", err, ErrUnavailable)
+	}
 	if _, err := service.RemoveExternalLink(ctx, ticketID, externalLinkID); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("RemoveExternalLink error = %v, want %v", err, ErrUnavailable)
 	}
@@ -133,12 +136,27 @@ func TestTicketHelperFunctions(t *testing.T) {
 		CreatedAt:  now,
 	}
 	comment := &ent.TicketComment{
-		ID:        uuid.New(),
-		TicketID:  childID,
-		Body:      "ship it",
-		CreatedBy: "user:codex",
-		CreatedAt: now,
-		UpdatedAt: now.Add(5 * time.Minute),
+		ID:           uuid.New(),
+		TicketID:     childID,
+		Body:         "ship it",
+		CreatedBy:    "user:codex",
+		CreatedAt:    now,
+		UpdatedAt:    now.Add(5 * time.Minute),
+		EditedAt:     &now,
+		EditCount:    1,
+		LastEditedBy: stringPtr("user:reviewer"),
+		IsDeleted:    true,
+		DeletedAt:    &now,
+		DeletedBy:    stringPtr("user:reviewer"),
+	}
+	revision := &ent.TicketCommentRevision{
+		ID:             uuid.New(),
+		CommentID:      comment.ID,
+		RevisionNumber: 2,
+		BodyMarkdown:   "ship it v2",
+		EditedBy:       "user:reviewer",
+		EditedAt:       now.Add(10 * time.Minute),
+		EditReason:     stringPtr("clarified"),
 	}
 	ticketItem := &ent.Ticket{
 		ID:                childID,
@@ -188,8 +206,11 @@ func TestTicketHelperFunctions(t *testing.T) {
 	if mapped := mapExternalLink(externalLink); mapped.URL != externalLink.URL || mapped.CreatedAt != now {
 		t.Fatalf("mapExternalLink() = %+v", mapped)
 	}
-	if mapped := mapComment(comment); mapped.CreatedBy != "user:codex" || mapped.UpdatedAt != comment.UpdatedAt {
+	if mapped := mapComment(comment); mapped.CreatedBy != "user:codex" || mapped.BodyMarkdown != "ship it" || mapped.EditCount != 1 || !mapped.IsDeleted || mapped.UpdatedAt != comment.UpdatedAt {
 		t.Fatalf("mapComment() = %+v", mapped)
+	}
+	if mapped := mapCommentRevision(revision); mapped.RevisionNumber != 2 || mapped.BodyMarkdown != "ship it v2" || mapped.EditReason == nil || *mapped.EditReason != "clarified" {
+		t.Fatalf("mapCommentRevision() = %+v", mapped)
 	}
 	if mapped := mapTicketReference(parentTicket); mapped.StatusName != "Backlog" {
 		t.Fatalf("mapTicketReference() = %+v", mapped)
@@ -410,3 +431,7 @@ func (ticketGaugeRecorder) Set(float64) {}
 var _ = entagentprovider.FieldID
 var _ = entagentrun.FieldID
 var _ = entticketcomment.FieldID
+
+func stringPtr(value string) *string {
+	return &value
+}
