@@ -45,7 +45,7 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CreateRemote(origin) error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("setup integration\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("setup integration\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile(README.md) error = %v", err)
 	}
 	worktree, err := repository.Worktree()

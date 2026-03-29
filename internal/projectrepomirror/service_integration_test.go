@@ -25,7 +25,7 @@ func TestServicePrepareMarkStaleVerifyAndDelete(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 
-	project, machine, projectRepo := createMirrorTestFixtures(t, ctx, client)
+	project, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
 	sourceRepoPath, headCommit := createGitRepository(t)
 	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
 		SetRepositoryURL(sourceRepoPath).
@@ -105,7 +105,7 @@ func TestServiceRegisterExisting(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 
-	project, machine, projectRepo := createMirrorTestFixtures(t, ctx, client)
+	project, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
 	sourceRepoPath, headCommit := createGitRepository(t)
 	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
 		SetRepositoryURL(sourceRepoPath).
@@ -134,7 +134,7 @@ func TestServiceRegisterExisting(t *testing.T) {
 	}
 }
 
-func createMirrorTestFixtures(t *testing.T, ctx context.Context, client *ent.Client) (*ent.Project, *ent.Machine, *ent.ProjectRepo) {
+func createMirrorTestFixtures(ctx context.Context, t *testing.T, client *ent.Client) (*ent.Project, *ent.Machine, *ent.ProjectRepo) {
 	t.Helper()
 
 	org, err := client.Organization.Create().
@@ -188,7 +188,7 @@ func createGitRepository(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatalf("git init: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(repoPath, "README.md"), []byte("mirror test\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repoPath, "README.md"), []byte("mirror test\n"), 0o600); err != nil {
 		t.Fatalf("write git file: %v", err)
 	}
 
