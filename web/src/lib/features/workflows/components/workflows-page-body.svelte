@@ -80,11 +80,10 @@
   } = $props()
 </script>
 
-{#if loading || prerequisite?.kind === 'missing_primary_repo' || (loadError && workflows.length === 0)}
+{#if loading || (prerequisite && prerequisite.kind !== 'ready') || (loadError && workflows.length === 0)}
   <WorkflowsPageState
     {loading}
-    missingPrimaryRepo={prerequisite?.kind === 'missing_primary_repo'}
-    repoCount={prerequisite?.kind === 'missing_primary_repo' ? prerequisite.repoCount : 0}
+    {prerequisite}
     {settingsHref}
     loadError={workflows.length === 0 ? loadError : ''}
   />

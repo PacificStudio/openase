@@ -1,10 +1,10 @@
 import {
   createWorkflow,
+  getWorkflowRepositoryPrerequisite,
   getWorkflowHarness,
   listAgents,
   listHarnessVariables,
   listBuiltinRoles,
-  listProjectRepos,
   listProviders,
   listSkills,
   listStatuses,
@@ -22,14 +22,38 @@ import type {
 export type WorkflowRepositoryPrerequisite =
   | {
       kind: 'ready'
+      repoCount: number
       primaryRepoId: string
       primaryRepoName: string
-      repoCount: number
+      mirrorCount: number
+      mirrorState: 'ready'
+      action: 'none'
     }
   | {
       kind: 'missing_primary_repo'
       repoCount: number
+      action: 'bind_primary_repo'
     }
+  | {
+      kind: 'primary_mirror_not_ready'
+      repoCount: number
+      primaryRepoId: string
+      primaryRepoName: string
+      mirrorCount: number
+      mirrorState: 'missing' | 'provisioning' | 'ready' | 'stale' | 'syncing' | 'error' | 'deleting'
+      mirrorMachineId: string | null
+      mirrorLastError: string | null
+      action: 'prepare_primary_mirror' | 'wait_for_primary_mirror' | 'sync_primary_mirror'
+    }
+
+type WorkflowMirrorState = Extract<
+  WorkflowRepositoryPrerequisite,
+  { kind: 'primary_mirror_not_ready' }
+>['mirrorState']
+type WorkflowMirrorAction = Extract<
+  WorkflowRepositoryPrerequisite,
+  { kind: 'primary_mirror_not_ready' }
+>['action']
 
 export function mapWorkflowSummary(
   workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
@@ -100,41 +124,39 @@ export function mapStatusOptions(
 export async function loadWorkflowRepositoryPrerequisite(
   projectId: string,
 ): Promise<WorkflowRepositoryPrerequisite> {
-  const payload = await listProjectRepos(projectId)
-  const primaryRepo = payload.repos.find((repo) => repo.is_primary)
+  const payload = await getWorkflowRepositoryPrerequisite(projectId)
+  const prerequisite = payload.prerequisite
 
-  if (!primaryRepo) {
+  if (prerequisite.kind === 'missing_primary_repo') {
     return {
       kind: 'missing_primary_repo',
-      repoCount: payload.repos.length,
+      repoCount: prerequisite.repo_count,
+      action: 'bind_primary_repo',
+    }
+  }
+
+  if (prerequisite.kind === 'ready') {
+    return {
+      kind: 'ready',
+      repoCount: prerequisite.repo_count,
+      primaryRepoId: prerequisite.primary_repo_id ?? '',
+      primaryRepoName: prerequisite.primary_repo_name ?? '',
+      mirrorCount: prerequisite.mirror_count,
+      mirrorState: 'ready',
+      action: 'none',
     }
   }
 
   return {
-    kind: 'ready',
-    primaryRepoId: primaryRepo.id,
-    primaryRepoName: primaryRepo.name,
-    repoCount: payload.repos.length,
-  }
-}
-
-export function mapWorkflowRepositoryPrerequisiteFromRepos(
-  repos: Array<{ id: string; name: string; is_primary: boolean }>,
-): WorkflowRepositoryPrerequisite {
-  const primaryRepo = repos.find((repo) => repo.is_primary)
-
-  if (!primaryRepo) {
-    return {
-      kind: 'missing_primary_repo',
-      repoCount: repos.length,
-    }
-  }
-
-  return {
-    kind: 'ready',
-    primaryRepoId: primaryRepo.id,
-    primaryRepoName: primaryRepo.name,
-    repoCount: repos.length,
+    kind: 'primary_mirror_not_ready',
+    repoCount: prerequisite.repo_count,
+    primaryRepoId: prerequisite.primary_repo_id ?? '',
+    primaryRepoName: prerequisite.primary_repo_name ?? '',
+    mirrorCount: prerequisite.mirror_count,
+    mirrorState: (prerequisite.mirror_state ?? 'missing') as WorkflowMirrorState,
+    mirrorMachineId: prerequisite.mirror_machine_id ?? null,
+    mirrorLastError: prerequisite.mirror_last_error ?? null,
+    action: (prerequisite.action ?? 'prepare_primary_mirror') as WorkflowMirrorAction,
   }
 }
 

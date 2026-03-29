@@ -556,6 +556,22 @@ export function listWorkflows(projectId: string) {
   return api.get<WorkflowListPayload>(`/api/v1/projects/${projectId}/workflows`)
 }
 
+export function getWorkflowRepositoryPrerequisite(projectId: string) {
+  return api.get<{
+    prerequisite: {
+      kind: string
+      repo_count: number
+      primary_repo_id?: string
+      primary_repo_name?: string
+      mirror_count: number
+      mirror_state?: string
+      mirror_machine_id?: string
+      mirror_last_error?: string
+      action: string
+    }
+  }>(`/api/v1/projects/${projectId}/workflows/prerequisite`)
+}
+
 export function createWorkflow(
   projectId: string,
   body: {
