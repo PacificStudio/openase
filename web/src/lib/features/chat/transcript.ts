@@ -22,6 +22,12 @@ export type EphemeralChatActionProposalEntry = {
 
 export type EphemeralChatTranscriptEntry = EphemeralChatTextEntry | EphemeralChatActionProposalEntry
 
+type AssistantTextUpdate = {
+  entries: EphemeralChatTranscriptEntry[]
+  activeAssistantEntryId: string
+  entryCounter: number
+}
+
 export function mapChatPayloadToTranscriptEntry(
   id: string,
   payload: ChatMessagePayload,
@@ -83,6 +89,69 @@ export function isTextTranscriptEntry(
   entry: EphemeralChatTranscriptEntry,
 ): entry is EphemeralChatTextEntry {
   return entry.kind === 'text'
+}
+
+export function appendAssistantTextChunk(input: {
+  entries: EphemeralChatTranscriptEntry[]
+  activeAssistantEntryId: string
+  entryCounter: number
+  content: string
+}): AssistantTextUpdate {
+  if (!input.activeAssistantEntryId) {
+    const nextEntryCounter = input.entryCounter + 1
+    const entryId = `entry-${nextEntryCounter}`
+    return {
+      entries: [
+        ...input.entries,
+        createTextTranscriptEntry(entryId, 'assistant', input.content, {
+          streaming: true,
+        }),
+      ],
+      activeAssistantEntryId: entryId,
+      entryCounter: nextEntryCounter,
+    }
+  }
+
+  return {
+    entries: input.entries.map((entry) => {
+      if (!isTextTranscriptEntry(entry) || entry.id !== input.activeAssistantEntryId) {
+        return entry
+      }
+
+      return {
+        ...entry,
+        content: `${entry.content}${input.content}`,
+        streaming: true,
+      }
+    }),
+    activeAssistantEntryId: input.activeAssistantEntryId,
+    entryCounter: input.entryCounter,
+  }
+}
+
+export function finalizeAssistantTextChunk(input: {
+  entries: EphemeralChatTranscriptEntry[]
+  activeAssistantEntryId: string
+  entryCounter: number
+}): AssistantTextUpdate {
+  if (!input.activeAssistantEntryId) {
+    return input
+  }
+
+  return {
+    entries: input.entries.map((entry) => {
+      if (!isTextTranscriptEntry(entry) || entry.id !== input.activeAssistantEntryId) {
+        return entry
+      }
+
+      return {
+        ...entry,
+        streaming: false,
+      }
+    }),
+    activeAssistantEntryId: '',
+    entryCounter: input.entryCounter,
+  }
 }
 
 export function isAbortError(error: unknown) {
