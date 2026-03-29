@@ -23,6 +23,7 @@ import (
 	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -1945,14 +1946,38 @@ func createRuntimeLauncherPrimaryRepo(
 	t.Helper()
 
 	repoName := "repo-" + strings.ReplaceAll(projectID.String(), "-", "")[:8]
-	if _, err := client.ProjectRepo.Create().
+	projectRepo, err := client.ProjectRepo.Create().
 		SetProjectID(projectID).
 		SetName(repoName).
-		SetRepositoryURL(repoRoot).
+		SetRepositoryURL(fmt.Sprintf("https://github.com/acme/%s.git", repoName)).
 		SetDefaultBranch("main").
+		SetWorkspaceDirname(repoName).
 		SetIsPrimary(true).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create primary project repo: %v", err)
+	}
+
+	project, err := client.Project.Get(ctx, projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(project.OrganizationID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(projectRepo.ID).
+		SetMachineID(localMachine.ID).
+		SetLocalPath(repoRoot).
+		SetState(entprojectrepomirror.StateReady).
+		Save(ctx); err != nil {
+		t.Fatalf("create ready project repo mirror: %v", err)
 	}
 }
 

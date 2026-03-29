@@ -19,6 +19,7 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -723,6 +724,10 @@ func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UU
 			query.WithOrganization()
 			query.WithRepos(func(repoQuery *ent.ProjectRepoQuery) {
 				repoQuery.Order(entprojectrepo.ByName())
+				repoQuery.WithMirrors(func(mirrorQuery *ent.ProjectRepoMirrorQuery) {
+					mirrorQuery.Where(entprojectrepomirror.StateEQ(entprojectrepomirror.StateReady))
+					mirrorQuery.WithMachine()
+				})
 			})
 		}).
 		Only(ctx)
@@ -839,7 +844,10 @@ func buildWorkspaceRequest(
 		return workspaceinfra.SetupRequest{}, err
 	}
 
-	repoInputs := buildWorkspaceRepoInputs(launchContext.projectRepos, launchContext.ticketScopes, githubToken)
+	repoInputs, err := buildWorkspaceRepoInputs(launchContext.projectRepos, launchContext.ticketScopes, remote, githubToken)
+	if err != nil {
+		return workspaceinfra.SetupRequest{}, err
+	}
 	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
 		WorkspaceRoot:    workspaceRoot,
 		OrganizationSlug: launchContext.project.Edges.Organization.Slug,
@@ -892,8 +900,9 @@ func buildWorkspacePath(launchContext runtimeLaunchContext, machine catalogdomai
 func buildWorkspaceRepoInputs(
 	projectRepos []*ent.ProjectRepo,
 	ticketScopes []*ent.TicketRepoScope,
+	remote bool,
 	githubToken string,
-) []workspaceinfra.RepoInput {
+) ([]workspaceinfra.RepoInput, error) {
 	scopeByRepoID := make(map[uuid.UUID]*ent.TicketRepoScope, len(ticketScopes))
 	for _, scope := range ticketScopes {
 		scopeByRepoID[scope.RepoID] = scope
@@ -911,13 +920,21 @@ func buildWorkspaceRepoInputs(
 
 	inputs := make([]workspaceinfra.RepoInput, 0, len(selectedRepos))
 	for _, repo := range selectedRepos {
+		repositoryURL := strings.TrimSpace(repo.RepositoryURL)
+		if !remote {
+			resolvedRepositoryURL, err := workflowservice.ResolveReadyMirrorRepoRoot(repo.Edges.Mirrors)
+			if err != nil {
+				return nil, fmt.Errorf("resolve local repo source for %s: %w", repo.Name, err)
+			}
+			repositoryURL = resolvedRepositoryURL
+		}
 		input := workspaceinfra.RepoInput{
 			Name:          repo.Name,
-			RepositoryURL: repo.RepositoryURL,
+			RepositoryURL: repositoryURL,
 			DefaultBranch: repo.DefaultBranch,
 		}
 		if githubToken != "" {
-			if _, ok := githubauthdomain.ParseGitHubRepositoryURL(repo.RepositoryURL); ok {
+			if _, ok := githubauthdomain.ParseGitHubRepositoryURL(repositoryURL); ok {
 				token := githubToken
 				input.GitHubToken = &token
 			}
@@ -932,7 +949,7 @@ func buildWorkspaceRepoInputs(
 		inputs = append(inputs, input)
 	}
 
-	return inputs
+	return inputs, nil
 }
 
 func (l *RuntimeLauncher) resolveProjectGitHubToken(ctx context.Context, launchContext runtimeLaunchContext) (string, error) {

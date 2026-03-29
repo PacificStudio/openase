@@ -414,11 +414,11 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	if detected, err := DetectRepoRoot(childDir); err != nil || detected != repoRoot {
 		t.Fatalf("DetectRepoRoot() = %q, %v", detected, err)
 	}
-	if detected, err := resolveReadyMirrorRepoRoot([]*ent.ProjectRepoMirror{{LocalPath: repoRoot}}); err != nil || detected != repoRoot {
-		t.Fatalf("resolveReadyMirrorRepoRoot(abs) = %q, %v", detected, err)
+	if detected, err := ResolveReadyMirrorRepoRoot([]*ent.ProjectRepoMirror{{LocalPath: repoRoot}}); err != nil || detected != repoRoot {
+		t.Fatalf("ResolveReadyMirrorRepoRoot(abs) = %q, %v", detected, err)
 	}
-	if _, err := resolveReadyMirrorRepoRoot([]*ent.ProjectRepoMirror{{LocalPath: "https://example.com/repo.git"}}); err == nil {
-		t.Fatal("resolveReadyMirrorRepoRoot(https) expected error")
+	if _, err := ResolveReadyMirrorRepoRoot([]*ent.ProjectRepoMirror{{LocalPath: "https://example.com/repo.git"}}); err == nil {
+		t.Fatal("ResolveReadyMirrorRepoRoot(https) expected error")
 	}
 
 	if _, err := service.List(ctx, uuid.New()); !errors.Is(err, ErrProjectNotFound) {

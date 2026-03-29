@@ -252,14 +252,14 @@ func (s *Service) resolvePrimaryRepoRoot(ctx context.Context, projectID uuid.UUI
 		return "", fmt.Errorf("list primary project repo mirrors: %w", err)
 	}
 
-	repoRoot, err := resolveReadyMirrorRepoRoot(mirrors)
+	repoRoot, err := ResolveReadyMirrorRepoRoot(mirrors)
 	if err != nil {
 		return "", fmt.Errorf("%w: %s", ErrPrimaryRepoUnavailable, err)
 	}
 	return repoRoot, nil
 }
 
-func resolveReadyMirrorRepoRoot(mirrors []*ent.ProjectRepoMirror) (string, error) {
+func ResolveReadyMirrorRepoRoot(mirrors []*ent.ProjectRepoMirror) (string, error) {
 	if len(mirrors) == 0 {
 		return "", errors.New("no ready ProjectRepoMirror.local_path is available")
 	}
