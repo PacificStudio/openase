@@ -8,7 +8,7 @@
   } from '../types'
   import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
   import type { SkillState } from '../model'
-  import type { WorkflowRepositoryPrerequisite } from '../data'
+  import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
   import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
@@ -80,11 +80,10 @@
   } = $props()
 </script>
 
-{#if loading || prerequisite?.kind === 'missing_primary_repo' || (loadError && workflows.length === 0)}
+{#if loading || (prerequisite && prerequisite.kind !== 'ready') || (loadError && workflows.length === 0)}
   <WorkflowsPageState
     {loading}
-    missingPrimaryRepo={prerequisite?.kind === 'missing_primary_repo'}
-    repoCount={prerequisite?.kind === 'missing_primary_repo' ? prerequisite.repoCount : 0}
+    {prerequisite}
     {settingsHref}
     loadError={workflows.length === 0 ? loadError : ''}
   />

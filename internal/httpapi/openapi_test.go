@@ -31,6 +31,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/projects/{projectId}/statuses/reset",
 		"/api/v1/stages/{stageId}",
 		"/api/v1/projects/{projectId}/workflows",
+		"/api/v1/projects/{projectId}/workflows/prerequisite",
 		"/api/v1/tickets/{ticketId}/external-links",
 		"/api/v1/projects/{projectId}/scheduled-jobs",
 		"/api/v1/projects/{projectId}/notification-rules",

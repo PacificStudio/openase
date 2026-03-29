@@ -261,3 +261,14 @@ func writeAPIError(c echo.Context, statusCode int, code string, message string) 
 		"message": message,
 	})
 }
+
+func writeAPIErrorWithDetails(c echo.Context, statusCode int, code string, message string, details any) error {
+	payload := map[string]any{
+		"code":    code,
+		"message": message,
+	}
+	if details != nil {
+		payload["details"] = details
+	}
+	return c.JSON(statusCode, payload)
+}

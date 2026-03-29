@@ -142,9 +142,9 @@
 
   {#if loading}
     <div class="text-muted-foreground text-sm">Loading workflows…</div>
-  {:else if prerequisite?.kind === 'missing_primary_repo'}
+  {:else if prerequisite && prerequisite.kind !== 'ready'}
     <WorkflowRepositoryPrerequisiteCard
-      repoCount={prerequisite.repoCount}
+      {prerequisite}
       onOpenRepositories={props.onOpenRepositories}
     />
   {:else if error && workflows.length === 0}

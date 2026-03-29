@@ -151,7 +151,8 @@ func TestHTTPAPIErrorMappings(t *testing.T) {
 		}{
 			{name: "unavailable", err: workflowservice.ErrUnavailable, wantStatus: http.StatusServiceUnavailable, wantCode: "SERVICE_UNAVAILABLE"},
 			{name: "project missing", err: workflowservice.ErrProjectNotFound, wantStatus: http.StatusNotFound, wantCode: "PROJECT_NOT_FOUND"},
-			{name: "primary repo missing", err: workflowservice.ErrPrimaryRepoUnavailable, wantStatus: http.StatusConflict, wantCode: "PRIMARY_REPO_UNAVAILABLE"},
+			{name: "primary repo missing", err: workflowservice.ErrPrimaryRepoRequired, wantStatus: http.StatusConflict, wantCode: "PRIMARY_REPO_REQUIRED"},
+			{name: "primary mirror not ready", err: workflowservice.ErrPrimaryMirrorNotReady, wantStatus: http.StatusConflict, wantCode: "PRIMARY_MIRROR_NOT_READY"},
 			{name: "workflow missing", err: workflowservice.ErrWorkflowNotFound, wantStatus: http.StatusNotFound, wantCode: "WORKFLOW_NOT_FOUND"},
 			{name: "status missing", err: workflowservice.ErrStatusNotFound, wantStatus: http.StatusBadRequest, wantCode: "STATUS_NOT_FOUND"},
 			{name: "agent missing", err: workflowservice.ErrAgentNotFound, wantStatus: http.StatusBadRequest, wantCode: "AGENT_NOT_FOUND"},

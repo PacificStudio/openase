@@ -26,20 +26,82 @@ import (
 )
 
 var (
-	ErrUnavailable            = errors.New("workflow service unavailable")
-	ErrProjectNotFound        = errors.New("project not found")
-	ErrPrimaryRepoUnavailable = errors.New("project primary repo is unavailable")
-	ErrWorkflowNotFound       = errors.New("workflow not found")
-	ErrStatusNotFound         = errors.New("workflow status not found in project")
-	ErrAgentNotFound          = errors.New("workflow agent not found in project")
-	ErrWorkflowConflict       = errors.New("workflow conflict")
-	ErrWorkflowInUse          = errors.New("workflow is still referenced by project or tickets")
-	ErrHarnessInvalid         = errors.New("workflow harness is invalid")
-	ErrHookConfigInvalid      = errors.New("workflow hook config is invalid")
-	ErrWorkflowHookBlocked    = errors.New("workflow hook blocked the lifecycle operation")
+	ErrUnavailable           = errors.New("workflow service unavailable")
+	ErrProjectNotFound       = errors.New("project not found")
+	ErrPrimaryRepoRequired   = errors.New("workflow primary repo is required")
+	ErrPrimaryMirrorNotReady = errors.New("workflow primary repo mirror is not ready")
+	ErrWorkflowNotFound      = errors.New("workflow not found")
+	ErrStatusNotFound        = errors.New("workflow status not found in project")
+	ErrAgentNotFound         = errors.New("workflow agent not found in project")
+	ErrWorkflowConflict      = errors.New("workflow conflict")
+	ErrWorkflowInUse         = errors.New("workflow is still referenced by project or tickets")
+	ErrHarnessInvalid        = errors.New("workflow harness is invalid")
+	ErrHookConfigInvalid     = errors.New("workflow hook config is invalid")
+	ErrWorkflowHookBlocked   = errors.New("workflow hook blocked the lifecycle operation")
 )
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
+
+type WorkflowRepositoryPrerequisiteKind string
+
+const (
+	WorkflowRepositoryPrerequisiteKindMissingPrimaryRepo    WorkflowRepositoryPrerequisiteKind = "missing_primary_repo"
+	WorkflowRepositoryPrerequisiteKindPrimaryMirrorNotReady WorkflowRepositoryPrerequisiteKind = "primary_mirror_not_ready"
+	WorkflowRepositoryPrerequisiteKindReady                 WorkflowRepositoryPrerequisiteKind = "ready"
+)
+
+type WorkflowRepositoryPrerequisiteAction string
+
+const (
+	WorkflowRepositoryPrerequisiteActionNone            WorkflowRepositoryPrerequisiteAction = "none"
+	WorkflowRepositoryPrerequisiteActionBindPrimaryRepo WorkflowRepositoryPrerequisiteAction = "bind_primary_repo"
+	WorkflowRepositoryPrerequisiteActionPrepareMirror   WorkflowRepositoryPrerequisiteAction = "prepare_primary_mirror"
+	WorkflowRepositoryPrerequisiteActionWaitForMirror   WorkflowRepositoryPrerequisiteAction = "wait_for_primary_mirror"
+	WorkflowRepositoryPrerequisiteActionSyncMirror      WorkflowRepositoryPrerequisiteAction = "sync_primary_mirror"
+)
+
+type WorkflowRepositoryPrerequisite struct {
+	Kind            WorkflowRepositoryPrerequisiteKind
+	RepoCount       int
+	PrimaryRepoID   *uuid.UUID
+	PrimaryRepoName string
+	MirrorCount     int
+	MirrorState     *catalogdomain.ProjectRepoMirrorState
+	MirrorMachineID *uuid.UUID
+	MirrorLastError *string
+	Action          WorkflowRepositoryPrerequisiteAction
+}
+
+func (p WorkflowRepositoryPrerequisite) Ready() bool {
+	return p.Kind == WorkflowRepositoryPrerequisiteKindReady
+}
+
+type WorkflowRepositoryPrerequisiteError struct {
+	prerequisite WorkflowRepositoryPrerequisite
+	cause        error
+	message      string
+}
+
+func (e *WorkflowRepositoryPrerequisiteError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.message
+}
+
+func (e *WorkflowRepositoryPrerequisiteError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
+func (e *WorkflowRepositoryPrerequisiteError) Prerequisite() WorkflowRepositoryPrerequisite {
+	if e == nil {
+		return WorkflowRepositoryPrerequisite{}
+	}
+	return e.prerequisite
+}
 
 type Optional[T any] struct {
 	Set   bool
@@ -227,36 +289,107 @@ func (s *Service) storageForProject(ctx context.Context, projectID uuid.UUID) (*
 	return storage, nil
 }
 
+func (s *Service) GetRepositoryPrerequisite(ctx context.Context, projectID uuid.UUID) (WorkflowRepositoryPrerequisite, error) {
+	if s.client == nil {
+		return WorkflowRepositoryPrerequisite{}, ErrUnavailable
+	}
+	prerequisite, _, err := s.loadRepositoryPrerequisite(ctx, projectID)
+	return prerequisite, err
+}
+
 func (s *Service) resolvePrimaryRepoRoot(ctx context.Context, projectID uuid.UUID) (string, error) {
-	repoItem, err := s.client.ProjectRepo.Query().
-		Where(
-			entprojectrepo.ProjectID(projectID),
-			entprojectrepo.IsPrimary(true),
-		).
-		Only(ctx)
+	prerequisite, repoRoot, err := s.loadRepositoryPrerequisite(ctx, projectID)
 	if err != nil {
-		if ent.IsNotFound(err) {
-			return "", ErrPrimaryRepoUnavailable
-		}
-		return "", fmt.Errorf("get primary project repo: %w", err)
+		return "", err
+	}
+	if prerequisite.Ready() {
+		return repoRoot, nil
+	}
+	return "", newWorkflowRepositoryPrerequisiteError(prerequisite)
+}
+
+func (s *Service) loadRepositoryPrerequisite(ctx context.Context, projectID uuid.UUID) (WorkflowRepositoryPrerequisite, string, error) {
+	if err := s.ensureProjectExists(ctx, projectID); err != nil {
+		return WorkflowRepositoryPrerequisite{}, "", err
 	}
 
+	repos, err := s.client.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectID(projectID)).
+		All(ctx)
+	if err != nil {
+		return WorkflowRepositoryPrerequisite{}, "", fmt.Errorf("list project repos for workflow prerequisite: %w", err)
+	}
+
+	prerequisite := WorkflowRepositoryPrerequisite{
+		Kind:      WorkflowRepositoryPrerequisiteKindMissingPrimaryRepo,
+		RepoCount: len(repos),
+		Action:    WorkflowRepositoryPrerequisiteActionBindPrimaryRepo,
+	}
+
+	var primaryRepo *ent.ProjectRepo
+	for _, repoItem := range repos {
+		if repoItem != nil && repoItem.IsPrimary {
+			primaryRepo = repoItem
+			break
+		}
+	}
+	if primaryRepo == nil {
+		return prerequisite, "", nil
+	}
+
+	prerequisite.PrimaryRepoID = &primaryRepo.ID
+	prerequisite.PrimaryRepoName = primaryRepo.Name
+
 	mirrors, err := s.client.ProjectRepoMirror.Query().
-		Where(
-			entprojectrepomirror.ProjectRepoID(repoItem.ID),
-			entprojectrepomirror.StateEQ(entprojectrepomirror.StateReady),
-		).
+		Where(entprojectrepomirror.ProjectRepoID(primaryRepo.ID)).
 		WithMachine().
 		All(ctx)
 	if err != nil {
-		return "", fmt.Errorf("list primary project repo mirrors: %w", err)
+		return WorkflowRepositoryPrerequisite{}, "", fmt.Errorf("list primary project repo mirrors: %w", err)
+	}
+	prerequisite.MirrorCount = len(mirrors)
+
+	readyMirrors := make([]*ent.ProjectRepoMirror, 0, len(mirrors))
+	for _, mirror := range mirrors {
+		if mirror != nil && mirror.State == entprojectrepomirror.StateReady {
+			readyMirrors = append(readyMirrors, mirror)
+		}
 	}
 
-	repoRoot, err := ResolveReadyMirrorRepoRoot(mirrors)
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrPrimaryRepoUnavailable, err)
+	repoRoot, readyErr := ResolveReadyMirrorRepoRoot(readyMirrors)
+	if readyErr == nil {
+		readyState := catalogdomain.ProjectRepoMirrorStateReady
+		prerequisite.Kind = WorkflowRepositoryPrerequisiteKindReady
+		prerequisite.MirrorState = &readyState
+		prerequisite.Action = WorkflowRepositoryPrerequisiteActionNone
+		return prerequisite, repoRoot, nil
 	}
-	return repoRoot, nil
+
+	selectedMirror := selectRepresentativeWorkflowMirror(mirrors)
+	if len(readyMirrors) > 0 {
+		errorState := catalogdomain.ProjectRepoMirrorStateError
+		prerequisite.Kind = WorkflowRepositoryPrerequisiteKindPrimaryMirrorNotReady
+		prerequisite.MirrorState = &errorState
+		prerequisite.Action = WorkflowRepositoryPrerequisiteActionSyncMirror
+		prerequisite.MirrorLastError = stringPointer(strings.TrimSpace(readyErr.Error()))
+		return prerequisite, "", nil
+	}
+	if selectedMirror == nil {
+		missingState := catalogdomain.ProjectRepoMirrorStateMissing
+		prerequisite.Kind = WorkflowRepositoryPrerequisiteKindPrimaryMirrorNotReady
+		prerequisite.MirrorState = &missingState
+		prerequisite.Action = WorkflowRepositoryPrerequisiteActionPrepareMirror
+		return prerequisite, "", nil
+	}
+
+	mirrorState := toWorkflowMirrorState(selectedMirror.State)
+	prerequisite.Kind = WorkflowRepositoryPrerequisiteKindPrimaryMirrorNotReady
+	prerequisite.MirrorState = &mirrorState
+	prerequisite.MirrorMachineID = &selectedMirror.MachineID
+	prerequisite.MirrorLastError = stringPointer(selectedMirror.LastError)
+	prerequisite.Action = workflowRepositoryPrerequisiteActionForState(mirrorState)
+
+	return prerequisite, "", nil
 }
 
 func ResolveReadyMirrorRepoRoot(mirrors []*ent.ProjectRepoMirror) (string, error) {
@@ -292,6 +425,16 @@ func ResolveReadyMirrorRepoRoot(mirrors []*ent.ProjectRepoMirror) (string, error
 }
 
 func compareMirrorLocality(left *ent.ProjectRepoMirror, right *ent.ProjectRepoMirror) int {
+	if left == nil && right == nil {
+		return 0
+	}
+	if left == nil {
+		return 1
+	}
+	if right == nil {
+		return -1
+	}
+
 	leftLocal := projectRepoMirrorIsLocal(left)
 	rightLocal := projectRepoMirrorIsLocal(right)
 	switch {
@@ -311,6 +454,143 @@ func projectRepoMirrorIsLocal(mirror *ent.ProjectRepoMirror) bool {
 
 	return mirror.Edges.Machine.Name == catalogdomain.LocalMachineName ||
 		mirror.Edges.Machine.Host == catalogdomain.LocalMachineHost
+}
+
+func selectRepresentativeWorkflowMirror(mirrors []*ent.ProjectRepoMirror) *ent.ProjectRepoMirror {
+	if len(mirrors) == 0 {
+		return nil
+	}
+
+	ordered := append([]*ent.ProjectRepoMirror(nil), mirrors...)
+	slices.SortStableFunc(ordered, compareWorkflowMirrorPriority)
+
+	for _, mirror := range ordered {
+		if mirror != nil {
+			return mirror
+		}
+	}
+	return nil
+}
+
+func compareWorkflowMirrorPriority(left *ent.ProjectRepoMirror, right *ent.ProjectRepoMirror) int {
+	leftPriority := workflowMirrorPriority(left)
+	rightPriority := workflowMirrorPriority(right)
+	switch {
+	case leftPriority < rightPriority:
+		return -1
+	case leftPriority > rightPriority:
+		return 1
+	default:
+		return compareMirrorLocality(left, right)
+	}
+}
+
+func workflowMirrorPriority(mirror *ent.ProjectRepoMirror) int {
+	if mirror == nil {
+		return 99
+	}
+
+	switch mirror.State {
+	case entprojectrepomirror.StateError, entprojectrepomirror.StateStale:
+		return 0
+	case entprojectrepomirror.StateSyncing, entprojectrepomirror.StateProvisioning:
+		return 1
+	case entprojectrepomirror.StateDeleting:
+		return 2
+	case entprojectrepomirror.StateMissing:
+		return 3
+	case entprojectrepomirror.StateReady:
+		return 4
+	default:
+		return 5
+	}
+}
+
+func workflowRepositoryPrerequisiteActionForState(state catalogdomain.ProjectRepoMirrorState) WorkflowRepositoryPrerequisiteAction {
+	switch state {
+	case catalogdomain.ProjectRepoMirrorStateProvisioning, catalogdomain.ProjectRepoMirrorStateSyncing, catalogdomain.ProjectRepoMirrorStateDeleting:
+		return WorkflowRepositoryPrerequisiteActionWaitForMirror
+	case catalogdomain.ProjectRepoMirrorStateError, catalogdomain.ProjectRepoMirrorStateStale:
+		return WorkflowRepositoryPrerequisiteActionSyncMirror
+	case catalogdomain.ProjectRepoMirrorStateMissing:
+		return WorkflowRepositoryPrerequisiteActionPrepareMirror
+	default:
+		return WorkflowRepositoryPrerequisiteActionNone
+	}
+}
+
+func newWorkflowRepositoryPrerequisiteError(prerequisite WorkflowRepositoryPrerequisite) error {
+	switch prerequisite.Kind {
+	case WorkflowRepositoryPrerequisiteKindMissingPrimaryRepo:
+		return &WorkflowRepositoryPrerequisiteError{
+			prerequisite: prerequisite,
+			cause:        ErrPrimaryRepoRequired,
+			message:      "workflow operations require a primary project repo to be bound first",
+		}
+	case WorkflowRepositoryPrerequisiteKindPrimaryMirrorNotReady:
+		return &WorkflowRepositoryPrerequisiteError{
+			prerequisite: prerequisite,
+			cause:        ErrPrimaryMirrorNotReady,
+			message:      formatPrimaryMirrorNotReadyMessage(prerequisite),
+		}
+	default:
+		return ErrPrimaryMirrorNotReady
+	}
+}
+
+func formatPrimaryMirrorNotReadyMessage(prerequisite WorkflowRepositoryPrerequisite) string {
+	repoName := strings.TrimSpace(prerequisite.PrimaryRepoName)
+	if repoName == "" {
+		repoName = "primary repo"
+	}
+
+	mirrorState := catalogdomain.ProjectRepoMirrorStateMissing
+	if prerequisite.MirrorState != nil {
+		mirrorState = *prerequisite.MirrorState
+	}
+
+	switch prerequisite.Action {
+	case WorkflowRepositoryPrerequisiteActionPrepareMirror:
+		return fmt.Sprintf("workflow operations require a ready primary repo mirror: primary repo %q has no ready mirror (state=%s); prepare a mirror first", repoName, mirrorState)
+	case WorkflowRepositoryPrerequisiteActionWaitForMirror:
+		return fmt.Sprintf("workflow operations require a ready primary repo mirror: primary repo %q mirror is %s; wait for mirror preparation to finish", repoName, mirrorState)
+	case WorkflowRepositoryPrerequisiteActionSyncMirror:
+		if prerequisite.MirrorLastError != nil && strings.TrimSpace(*prerequisite.MirrorLastError) != "" {
+			return fmt.Sprintf("workflow operations require a ready primary repo mirror: primary repo %q mirror is %s; retry mirror sync or repair the mirror (%s)", repoName, mirrorState, strings.TrimSpace(*prerequisite.MirrorLastError))
+		}
+		return fmt.Sprintf("workflow operations require a ready primary repo mirror: primary repo %q mirror is %s; retry mirror sync or repair the mirror", repoName, mirrorState)
+	default:
+		return fmt.Sprintf("workflow operations require a ready primary repo mirror: primary repo %q mirror is %s", repoName, mirrorState)
+	}
+}
+
+func toWorkflowMirrorState(value entprojectrepomirror.State) catalogdomain.ProjectRepoMirrorState {
+	switch value {
+	case entprojectrepomirror.StateMissing:
+		return catalogdomain.ProjectRepoMirrorStateMissing
+	case entprojectrepomirror.StateProvisioning:
+		return catalogdomain.ProjectRepoMirrorStateProvisioning
+	case entprojectrepomirror.StateReady:
+		return catalogdomain.ProjectRepoMirrorStateReady
+	case entprojectrepomirror.StateStale:
+		return catalogdomain.ProjectRepoMirrorStateStale
+	case entprojectrepomirror.StateSyncing:
+		return catalogdomain.ProjectRepoMirrorStateSyncing
+	case entprojectrepomirror.StateError:
+		return catalogdomain.ProjectRepoMirrorStateError
+	case entprojectrepomirror.StateDeleting:
+		return catalogdomain.ProjectRepoMirrorStateDeleting
+	default:
+		return catalogdomain.ProjectRepoMirrorStateMissing
+	}
+}
+
+func stringPointer(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func (s *Service) Close() error {
