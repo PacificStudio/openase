@@ -660,7 +660,8 @@ export interface paths {
     /** List project repository mirrors */
     get: operations['listProjectRepoMirrors']
     put?: never
-    post?: never
+    /** Register or prepare a project repository mirror */
+    post: operations['materializeProjectRepoMirror']
     delete?: never
     options?: never
     head?: never
@@ -5683,6 +5684,115 @@ export interface operations {
               state?: string
               updated_at?: string
             }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  materializeProjectRepoMirror: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Repository ID. */
+        repoId: string
+      }
+      cookie?: never
+    }
+    /** @description Register or prepare a project repository mirror request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          local_path?: string
+          machine_id?: string
+          mode?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Register or prepare a project repository mirror response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            mirror?: {
+              created_at?: string
+              head_commit?: string | null
+              id?: string
+              last_error?: string | null
+              last_synced_at?: string | null
+              last_verified_at?: string | null
+              local_path?: string
+              machine_id?: string
+              project_id?: string
+              project_repo_id?: string
+              state?: string
+              updated_at?: string
+            }
           }
         }
       }

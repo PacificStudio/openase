@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticketstage "github.com/BetterAndBetterII/openase/ent/ticketstage"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
@@ -288,6 +290,153 @@ func TestOpenBackfillsNullProjectAccessibleMachineIDsBeforeMigration(t *testing.
 	}
 	if len(projectAfter.AccessibleMachineIds) != 0 {
 		t.Fatalf("expected empty accessible machine ids after backfill, got %+v", projectAfter.AccessibleMachineIds)
+	}
+}
+
+func TestOpenReconcilesLegacyProjectRepoClonePathSemantics(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-repo-reconcile").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := bootstrapClient.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName(catalogdomain.LocalMachineName).
+		SetHost("127.0.0.1").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	projectItem, err := bootstrapClient.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-repo-reconcile").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	mirrorRepo, err := bootstrapClient.ProjectRepo.Create().
+		SetProjectID(projectItem.ID).
+		SetName("mirror-repo").
+		SetRepositoryURL("https://github.com/acme/mirror-repo.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("mirror-repo").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create mirror project repo: %v", err)
+	}
+	workspaceRepo, err := bootstrapClient.ProjectRepo.Create().
+		SetProjectID(projectItem.ID).
+		SetName("workspace-repo").
+		SetRepositoryURL("https://github.com/acme/workspace-repo.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("workspace-repo").
+		SetIsPrimary(false).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workspace project repo: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "project_repos" ADD COLUMN "clone_path" TEXT`); err != nil {
+		t.Fatalf("add legacy clone_path column: %v", err)
+	}
+
+	legacyMirrorPath := filepath.Join(t.TempDir(), "legacy-mirror")
+	if _, err := db.ExecContext(
+		ctx,
+		`UPDATE "project_repos" SET "clone_path" = $1 WHERE "id" = $2`,
+		legacyMirrorPath,
+		mirrorRepo.ID,
+	); err != nil {
+		t.Fatalf("set mirror clone_path: %v", err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`UPDATE "project_repos" SET "clone_path" = $1 WHERE "id" = $2`,
+		"services/backend",
+		workspaceRepo.ID,
+	); err != nil {
+		t.Fatalf("set workspace clone_path: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open runtime database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	mirrorRepoAfter, err := client.ProjectRepo.Get(ctx, mirrorRepo.ID)
+	if err != nil {
+		t.Fatalf("reload mirror repo: %v", err)
+	}
+	if mirrorRepoAfter.WorkspaceDirname != "mirror-repo" {
+		t.Fatalf("mirror repo workspace_dirname = %q, want %q", mirrorRepoAfter.WorkspaceDirname, "mirror-repo")
+	}
+
+	workspaceRepoAfter, err := client.ProjectRepo.Get(ctx, workspaceRepo.ID)
+	if err != nil {
+		t.Fatalf("reload workspace repo: %v", err)
+	}
+	if workspaceRepoAfter.WorkspaceDirname != "services/backend" {
+		t.Fatalf("workspace repo workspace_dirname = %q, want %q", workspaceRepoAfter.WorkspaceDirname, "services/backend")
+	}
+
+	mirrors, err := client.ProjectRepoMirror.Query().
+		Where(entprojectrepomirror.ProjectRepoID(mirrorRepo.ID)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query backfilled mirrors: %v", err)
+	}
+	if len(mirrors) != 1 {
+		t.Fatalf("expected 1 backfilled mirror, got %+v", mirrors)
+	}
+	if mirrors[0].MachineID != localMachine.ID || mirrors[0].LocalPath != legacyMirrorPath || mirrors[0].State != "ready" {
+		t.Fatalf("backfilled mirror = %+v", mirrors[0])
+	}
+
+	workspaceMirrors, err := client.ProjectRepoMirror.Query().
+		Where(entprojectrepomirror.ProjectRepoID(workspaceRepo.ID)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query workspace mirrors: %v", err)
+	}
+	if len(workspaceMirrors) != 0 {
+		t.Fatalf("expected no backfilled mirrors for workspace clone_path, got %+v", workspaceMirrors)
 	}
 }
 
