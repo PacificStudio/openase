@@ -207,12 +207,46 @@ type OpenAPITicketExternalLink struct {
 }
 
 type OpenAPITicketComment struct {
-	ID        string  `json:"id"`
-	TicketID  string  `json:"ticket_id"`
-	Body      string  `json:"body"`
-	CreatedBy string  `json:"created_by"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt *string `json:"updated_at,omitempty"`
+	ID           string  `json:"id"`
+	TicketID     string  `json:"ticket_id"`
+	Body         string  `json:"body,omitempty"`
+	BodyMarkdown string  `json:"body_markdown"`
+	CreatedBy    string  `json:"created_by"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    *string `json:"updated_at,omitempty"`
+	EditedAt     *string `json:"edited_at,omitempty"`
+	EditCount    int     `json:"edit_count"`
+	LastEditedBy *string `json:"last_edited_by,omitempty"`
+	IsDeleted    bool    `json:"is_deleted"`
+	DeletedAt    *string `json:"deleted_at,omitempty"`
+	DeletedBy    *string `json:"deleted_by,omitempty"`
+}
+
+type OpenAPITicketCommentRevision struct {
+	ID             string  `json:"id"`
+	CommentID      string  `json:"comment_id"`
+	RevisionNumber int     `json:"revision_number"`
+	BodyMarkdown   string  `json:"body_markdown"`
+	EditedBy       string  `json:"edited_by"`
+	EditedAt       string  `json:"edited_at"`
+	EditReason     *string `json:"edit_reason,omitempty"`
+}
+
+type OpenAPITicketTimelineItem struct {
+	ID            string         `json:"id"`
+	TicketID      string         `json:"ticket_id"`
+	ItemType      string         `json:"item_type"`
+	ActorName     string         `json:"actor_name"`
+	ActorType     string         `json:"actor_type"`
+	Title         *string        `json:"title,omitempty"`
+	BodyMarkdown  *string        `json:"body_markdown,omitempty"`
+	BodyText      *string        `json:"body_text,omitempty"`
+	CreatedAt     string         `json:"created_at"`
+	UpdatedAt     string         `json:"updated_at"`
+	EditedAt      *string        `json:"edited_at,omitempty"`
+	IsCollapsible bool           `json:"is_collapsible"`
+	IsDeleted     bool           `json:"is_deleted"`
+	Metadata      map[string]any `json:"metadata"`
 }
 
 type OpenAPITicket struct {
@@ -632,6 +666,10 @@ type OpenAPITicketCommentResponse struct {
 	Comment OpenAPITicketComment `json:"comment"`
 }
 
+type OpenAPITicketCommentRevisionsResponse struct {
+	Revisions []OpenAPITicketCommentRevision `json:"revisions"`
+}
+
 type OpenAPITicketCommentDeleteResponse struct {
 	DeletedCommentID string `json:"deleted_comment_id"`
 }
@@ -803,6 +841,7 @@ type OpenAPITicketDetailResponse struct {
 	Ticket        OpenAPITicket                  `json:"ticket"`
 	RepoScopes    []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
 	Comments      []OpenAPITicketComment         `json:"comments"`
+	Timeline      []OpenAPITicketTimelineItem    `json:"timeline"`
 	Activity      []OpenAPIActivityEvent         `json:"activity"`
 	HookHistory   []OpenAPIActivityEvent         `json:"hook_history"`
 }
@@ -2285,6 +2324,24 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	commentDelete.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	commentDelete.AddParameter(uuidPathParameter("commentId", "Comment ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}/comments/{commentId}", http.MethodDelete, commentDelete)
+
+	commentRevisionsGet, err := b.jsonOperation(
+		"listTicketCommentRevisions",
+		"List ticket comment revisions",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketCommentRevisionsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	commentRevisionsGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	commentRevisionsGet.AddParameter(uuidPathParameter("commentId", "Comment ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/comments/{commentId}/revisions", http.MethodGet, commentRevisionsGet)
 
 	dependencyPost, err := b.jsonOperation(
 		"addTicketDependency",

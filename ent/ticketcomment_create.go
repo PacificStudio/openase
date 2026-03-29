@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	"github.com/google/uuid"
 )
 
@@ -68,6 +69,90 @@ func (_c *TicketCommentCreate) SetNillableUpdatedAt(v *time.Time) *TicketComment
 	return _c
 }
 
+// SetEditedAt sets the "edited_at" field.
+func (_c *TicketCommentCreate) SetEditedAt(v time.Time) *TicketCommentCreate {
+	_c.mutation.SetEditedAt(v)
+	return _c
+}
+
+// SetNillableEditedAt sets the "edited_at" field if the given value is not nil.
+func (_c *TicketCommentCreate) SetNillableEditedAt(v *time.Time) *TicketCommentCreate {
+	if v != nil {
+		_c.SetEditedAt(*v)
+	}
+	return _c
+}
+
+// SetEditCount sets the "edit_count" field.
+func (_c *TicketCommentCreate) SetEditCount(v int) *TicketCommentCreate {
+	_c.mutation.SetEditCount(v)
+	return _c
+}
+
+// SetNillableEditCount sets the "edit_count" field if the given value is not nil.
+func (_c *TicketCommentCreate) SetNillableEditCount(v *int) *TicketCommentCreate {
+	if v != nil {
+		_c.SetEditCount(*v)
+	}
+	return _c
+}
+
+// SetLastEditedBy sets the "last_edited_by" field.
+func (_c *TicketCommentCreate) SetLastEditedBy(v string) *TicketCommentCreate {
+	_c.mutation.SetLastEditedBy(v)
+	return _c
+}
+
+// SetNillableLastEditedBy sets the "last_edited_by" field if the given value is not nil.
+func (_c *TicketCommentCreate) SetNillableLastEditedBy(v *string) *TicketCommentCreate {
+	if v != nil {
+		_c.SetLastEditedBy(*v)
+	}
+	return _c
+}
+
+// SetIsDeleted sets the "is_deleted" field.
+func (_c *TicketCommentCreate) SetIsDeleted(v bool) *TicketCommentCreate {
+	_c.mutation.SetIsDeleted(v)
+	return _c
+}
+
+// SetNillableIsDeleted sets the "is_deleted" field if the given value is not nil.
+func (_c *TicketCommentCreate) SetNillableIsDeleted(v *bool) *TicketCommentCreate {
+	if v != nil {
+		_c.SetIsDeleted(*v)
+	}
+	return _c
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (_c *TicketCommentCreate) SetDeletedAt(v time.Time) *TicketCommentCreate {
+	_c.mutation.SetDeletedAt(v)
+	return _c
+}
+
+// SetNillableDeletedAt sets the "deleted_at" field if the given value is not nil.
+func (_c *TicketCommentCreate) SetNillableDeletedAt(v *time.Time) *TicketCommentCreate {
+	if v != nil {
+		_c.SetDeletedAt(*v)
+	}
+	return _c
+}
+
+// SetDeletedBy sets the "deleted_by" field.
+func (_c *TicketCommentCreate) SetDeletedBy(v string) *TicketCommentCreate {
+	_c.mutation.SetDeletedBy(v)
+	return _c
+}
+
+// SetNillableDeletedBy sets the "deleted_by" field if the given value is not nil.
+func (_c *TicketCommentCreate) SetNillableDeletedBy(v *string) *TicketCommentCreate {
+	if v != nil {
+		_c.SetDeletedBy(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *TicketCommentCreate) SetID(v uuid.UUID) *TicketCommentCreate {
 	_c.mutation.SetID(v)
@@ -85,6 +170,21 @@ func (_c *TicketCommentCreate) SetNillableID(v *uuid.UUID) *TicketCommentCreate 
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_c *TicketCommentCreate) SetTicket(v *Ticket) *TicketCommentCreate {
 	return _c.SetTicketID(v.ID)
+}
+
+// AddRevisionIDs adds the "revisions" edge to the TicketCommentRevision entity by IDs.
+func (_c *TicketCommentCreate) AddRevisionIDs(ids ...uuid.UUID) *TicketCommentCreate {
+	_c.mutation.AddRevisionIDs(ids...)
+	return _c
+}
+
+// AddRevisions adds the "revisions" edges to the TicketCommentRevision entity.
+func (_c *TicketCommentCreate) AddRevisions(v ...*TicketCommentRevision) *TicketCommentCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRevisionIDs(ids...)
 }
 
 // Mutation returns the TicketCommentMutation object of the builder.
@@ -130,6 +230,14 @@ func (_c *TicketCommentCreate) defaults() {
 		v := ticketcomment.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.EditCount(); !ok {
+		v := ticketcomment.DefaultEditCount
+		_c.mutation.SetEditCount(v)
+	}
+	if _, ok := _c.mutation.IsDeleted(); !ok {
+		v := ticketcomment.DefaultIsDeleted
+		_c.mutation.SetIsDeleted(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := ticketcomment.DefaultID()
 		_c.mutation.SetID(v)
@@ -162,6 +270,12 @@ func (_c *TicketCommentCreate) check() error {
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "TicketComment.updated_at"`)}
+	}
+	if _, ok := _c.mutation.EditCount(); !ok {
+		return &ValidationError{Name: "edit_count", err: errors.New(`ent: missing required field "TicketComment.edit_count"`)}
+	}
+	if _, ok := _c.mutation.IsDeleted(); !ok {
+		return &ValidationError{Name: "is_deleted", err: errors.New(`ent: missing required field "TicketComment.is_deleted"`)}
 	}
 	if len(_c.mutation.TicketIDs()) == 0 {
 		return &ValidationError{Name: "ticket", err: errors.New(`ent: missing required edge "TicketComment.ticket"`)}
@@ -217,6 +331,30 @@ func (_c *TicketCommentCreate) createSpec() (*TicketComment, *sqlgraph.CreateSpe
 		_spec.SetField(ticketcomment.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
 	}
+	if value, ok := _c.mutation.EditedAt(); ok {
+		_spec.SetField(ticketcomment.FieldEditedAt, field.TypeTime, value)
+		_node.EditedAt = &value
+	}
+	if value, ok := _c.mutation.EditCount(); ok {
+		_spec.SetField(ticketcomment.FieldEditCount, field.TypeInt, value)
+		_node.EditCount = value
+	}
+	if value, ok := _c.mutation.LastEditedBy(); ok {
+		_spec.SetField(ticketcomment.FieldLastEditedBy, field.TypeString, value)
+		_node.LastEditedBy = &value
+	}
+	if value, ok := _c.mutation.IsDeleted(); ok {
+		_spec.SetField(ticketcomment.FieldIsDeleted, field.TypeBool, value)
+		_node.IsDeleted = value
+	}
+	if value, ok := _c.mutation.DeletedAt(); ok {
+		_spec.SetField(ticketcomment.FieldDeletedAt, field.TypeTime, value)
+		_node.DeletedAt = &value
+	}
+	if value, ok := _c.mutation.DeletedBy(); ok {
+		_spec.SetField(ticketcomment.FieldDeletedBy, field.TypeString, value)
+		_node.DeletedBy = &value
+	}
 	if nodes := _c.mutation.TicketIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -232,6 +370,22 @@ func (_c *TicketCommentCreate) createSpec() (*TicketComment, *sqlgraph.CreateSpe
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.TicketID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RevisionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticketcomment.RevisionsTable,
+			Columns: []string{ticketcomment.RevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketcommentrevision.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

@@ -23,6 +23,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/schema"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
@@ -442,10 +443,40 @@ func init() {
 	ticketcomment.DefaultUpdatedAt = ticketcommentDescUpdatedAt.Default.(func() time.Time)
 	// ticketcomment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	ticketcomment.UpdateDefaultUpdatedAt = ticketcommentDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// ticketcommentDescEditCount is the schema descriptor for edit_count field.
+	ticketcommentDescEditCount := ticketcommentFields[7].Descriptor()
+	// ticketcomment.DefaultEditCount holds the default value on creation for the edit_count field.
+	ticketcomment.DefaultEditCount = ticketcommentDescEditCount.Default.(int)
+	// ticketcommentDescIsDeleted is the schema descriptor for is_deleted field.
+	ticketcommentDescIsDeleted := ticketcommentFields[9].Descriptor()
+	// ticketcomment.DefaultIsDeleted holds the default value on creation for the is_deleted field.
+	ticketcomment.DefaultIsDeleted = ticketcommentDescIsDeleted.Default.(bool)
 	// ticketcommentDescID is the schema descriptor for id field.
 	ticketcommentDescID := ticketcommentFields[0].Descriptor()
 	// ticketcomment.DefaultID holds the default value on creation for the id field.
 	ticketcomment.DefaultID = ticketcommentDescID.Default.(func() uuid.UUID)
+	ticketcommentrevisionFields := schema.TicketCommentRevision{}.Fields()
+	_ = ticketcommentrevisionFields
+	// ticketcommentrevisionDescRevisionNumber is the schema descriptor for revision_number field.
+	ticketcommentrevisionDescRevisionNumber := ticketcommentrevisionFields[2].Descriptor()
+	// ticketcommentrevision.RevisionNumberValidator is a validator for the "revision_number" field. It is called by the builders before save.
+	ticketcommentrevision.RevisionNumberValidator = ticketcommentrevisionDescRevisionNumber.Validators[0].(func(int) error)
+	// ticketcommentrevisionDescBodyMarkdown is the schema descriptor for body_markdown field.
+	ticketcommentrevisionDescBodyMarkdown := ticketcommentrevisionFields[3].Descriptor()
+	// ticketcommentrevision.BodyMarkdownValidator is a validator for the "body_markdown" field. It is called by the builders before save.
+	ticketcommentrevision.BodyMarkdownValidator = ticketcommentrevisionDescBodyMarkdown.Validators[0].(func(string) error)
+	// ticketcommentrevisionDescEditedBy is the schema descriptor for edited_by field.
+	ticketcommentrevisionDescEditedBy := ticketcommentrevisionFields[4].Descriptor()
+	// ticketcommentrevision.EditedByValidator is a validator for the "edited_by" field. It is called by the builders before save.
+	ticketcommentrevision.EditedByValidator = ticketcommentrevisionDescEditedBy.Validators[0].(func(string) error)
+	// ticketcommentrevisionDescEditedAt is the schema descriptor for edited_at field.
+	ticketcommentrevisionDescEditedAt := ticketcommentrevisionFields[5].Descriptor()
+	// ticketcommentrevision.DefaultEditedAt holds the default value on creation for the edited_at field.
+	ticketcommentrevision.DefaultEditedAt = ticketcommentrevisionDescEditedAt.Default.(func() time.Time)
+	// ticketcommentrevisionDescID is the schema descriptor for id field.
+	ticketcommentrevisionDescID := ticketcommentrevisionFields[0].Descriptor()
+	// ticketcommentrevision.DefaultID holds the default value on creation for the id field.
+	ticketcommentrevision.DefaultID = ticketcommentrevisionDescID.Default.(func() uuid.UUID)
 	ticketdependencyFields := schema.TicketDependency{}.Fields()
 	_ = ticketdependencyFields
 	// ticketdependencyDescID is the schema descriptor for id field.

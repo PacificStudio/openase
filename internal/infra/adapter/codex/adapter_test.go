@@ -756,6 +756,77 @@ func TestAdapterEmitsOutputEventsFromRuntimeNotifications(t *testing.T) {
 	}
 }
 
+func TestSessionStopAddsDefaultTimeoutWhenDeadlineIsMissing(t *testing.T) {
+	process := newFakeProcess()
+	timeoutCh := make(chan time.Duration, 1)
+	process.stopFn = func(ctx context.Context) error {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			return errors.New("expected stop context deadline")
+		}
+		timeoutCh <- time.Until(deadline)
+		process.finish(nil)
+		return nil
+	}
+
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: &fakeProcessManager{process: process}})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			if err := completeHandshake(decoder, encoder); err != nil {
+				return err
+			}
+			<-process.stopOnce.ch
+			return nil
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Initialize: InitializeParams{
+			ClientName:    "openase",
+			ClientVersion: "0.1.0",
+		},
+		Thread: ThreadStartParams{
+			WorkingDirectory: "/tmp/openase",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+
+	select {
+	case observed := <-timeoutCh:
+		if observed < defaultShutdownTimeout-time.Second || observed > defaultShutdownTimeout+time.Second {
+			t.Fatalf("expected stop timeout near %s, got %s", defaultShutdownTimeout, observed)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for stop timeout observation")
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
 type fakeProcessManager struct {
 	process   *fakeProcess
 	startSpec provider.AgentCLIProcessSpec
@@ -780,6 +851,7 @@ type fakeProcess struct {
 
 	done     chan error
 	stopOnce syncOnce
+	stopFn   func(context.Context) error
 }
 
 type syncOnce struct {
@@ -804,12 +876,18 @@ func newFakeProcess() *fakeProcess {
 	}
 }
 
-func (p *fakeProcess) PID() int                   { return p.pid }
-func (p *fakeProcess) Stdin() io.WriteCloser      { return p.stdinWrite }
-func (p *fakeProcess) Stdout() io.ReadCloser      { return p.stdoutRead }
-func (p *fakeProcess) Stderr() io.ReadCloser      { return p.stderrRead }
-func (p *fakeProcess) Wait() error                { return <-p.done }
-func (p *fakeProcess) Stop(context.Context) error { p.finish(nil); return nil }
+func (p *fakeProcess) PID() int              { return p.pid }
+func (p *fakeProcess) Stdin() io.WriteCloser { return p.stdinWrite }
+func (p *fakeProcess) Stdout() io.ReadCloser { return p.stdoutRead }
+func (p *fakeProcess) Stderr() io.ReadCloser { return p.stderrRead }
+func (p *fakeProcess) Wait() error           { return <-p.done }
+func (p *fakeProcess) Stop(ctx context.Context) error {
+	if p.stopFn != nil {
+		return p.stopFn(ctx)
+	}
+	p.finish(nil)
+	return nil
+}
 
 func (p *fakeProcess) finish(err error) {
 	select {

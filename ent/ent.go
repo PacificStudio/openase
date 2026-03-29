@@ -29,6 +29,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
@@ -95,29 +96,30 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			activityevent.Table:       activityevent.ValidColumn,
-			agent.Table:               agent.ValidColumn,
-			agentprovider.Table:       agentprovider.ValidColumn,
-			agentrun.Table:            agentrun.ValidColumn,
-			agentstepevent.Table:      agentstepevent.ValidColumn,
-			agenttoken.Table:          agenttoken.ValidColumn,
-			agenttraceevent.Table:     agenttraceevent.ValidColumn,
-			machine.Table:             machine.ValidColumn,
-			notificationchannel.Table: notificationchannel.ValidColumn,
-			notificationrule.Table:    notificationrule.ValidColumn,
-			organization.Table:        organization.ValidColumn,
-			project.Table:             project.ValidColumn,
-			projectrepo.Table:         projectrepo.ValidColumn,
-			projectrepomirror.Table:   projectrepomirror.ValidColumn,
-			scheduledjob.Table:        scheduledjob.ValidColumn,
-			ticket.Table:              ticket.ValidColumn,
-			ticketcomment.Table:       ticketcomment.ValidColumn,
-			ticketdependency.Table:    ticketdependency.ValidColumn,
-			ticketexternallink.Table:  ticketexternallink.ValidColumn,
-			ticketreposcope.Table:     ticketreposcope.ValidColumn,
-			ticketstage.Table:         ticketstage.ValidColumn,
-			ticketstatus.Table:        ticketstatus.ValidColumn,
-			workflow.Table:            workflow.ValidColumn,
+			activityevent.Table:         activityevent.ValidColumn,
+			agent.Table:                 agent.ValidColumn,
+			agentprovider.Table:         agentprovider.ValidColumn,
+			agentrun.Table:              agentrun.ValidColumn,
+			agentstepevent.Table:        agentstepevent.ValidColumn,
+			agenttoken.Table:            agenttoken.ValidColumn,
+			agenttraceevent.Table:       agenttraceevent.ValidColumn,
+			machine.Table:               machine.ValidColumn,
+			notificationchannel.Table:   notificationchannel.ValidColumn,
+			notificationrule.Table:      notificationrule.ValidColumn,
+			organization.Table:          organization.ValidColumn,
+			project.Table:               project.ValidColumn,
+			projectrepo.Table:           projectrepo.ValidColumn,
+			projectrepomirror.Table:     projectrepomirror.ValidColumn,
+			scheduledjob.Table:          scheduledjob.ValidColumn,
+			ticket.Table:                ticket.ValidColumn,
+			ticketcomment.Table:         ticketcomment.ValidColumn,
+			ticketcommentrevision.Table: ticketcommentrevision.ValidColumn,
+			ticketdependency.Table:      ticketdependency.ValidColumn,
+			ticketexternallink.Table:    ticketexternallink.ValidColumn,
+			ticketreposcope.Table:       ticketreposcope.ValidColumn,
+			ticketstage.Table:           ticketstage.ValidColumn,
+			ticketstatus.Table:          ticketstatus.ValidColumn,
+			workflow.Table:              workflow.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

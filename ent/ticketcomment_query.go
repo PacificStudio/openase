@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -14,17 +15,19 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	"github.com/google/uuid"
 )
 
 // TicketCommentQuery is the builder for querying TicketComment entities.
 type TicketCommentQuery struct {
 	config
-	ctx        *QueryContext
-	order      []ticketcomment.OrderOption
-	inters     []Interceptor
-	predicates []predicate.TicketComment
-	withTicket *TicketQuery
+	ctx           *QueryContext
+	order         []ticketcomment.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.TicketComment
+	withTicket    *TicketQuery
+	withRevisions *TicketCommentRevisionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +79,28 @@ func (_q *TicketCommentQuery) QueryTicket() *TicketQuery {
 			sqlgraph.From(ticketcomment.Table, ticketcomment.FieldID, selector),
 			sqlgraph.To(ticket.Table, ticket.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, ticketcomment.TicketTable, ticketcomment.TicketColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRevisions chains the current query on the "revisions" edge.
+func (_q *TicketCommentQuery) QueryRevisions() *TicketCommentRevisionQuery {
+	query := (&TicketCommentRevisionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketcomment.Table, ticketcomment.FieldID, selector),
+			sqlgraph.To(ticketcommentrevision.Table, ticketcommentrevision.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticketcomment.RevisionsTable, ticketcomment.RevisionsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -270,12 +295,13 @@ func (_q *TicketCommentQuery) Clone() *TicketCommentQuery {
 		return nil
 	}
 	return &TicketCommentQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]ticketcomment.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.TicketComment{}, _q.predicates...),
-		withTicket: _q.withTicket.Clone(),
+		config:        _q.config,
+		ctx:           _q.ctx.Clone(),
+		order:         append([]ticketcomment.OrderOption{}, _q.order...),
+		inters:        append([]Interceptor{}, _q.inters...),
+		predicates:    append([]predicate.TicketComment{}, _q.predicates...),
+		withTicket:    _q.withTicket.Clone(),
+		withRevisions: _q.withRevisions.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -290,6 +316,17 @@ func (_q *TicketCommentQuery) WithTicket(opts ...func(*TicketQuery)) *TicketComm
 		opt(query)
 	}
 	_q.withTicket = query
+	return _q
+}
+
+// WithRevisions tells the query-builder to eager-load the nodes that are connected to
+// the "revisions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TicketCommentQuery) WithRevisions(opts ...func(*TicketCommentRevisionQuery)) *TicketCommentQuery {
+	query := (&TicketCommentRevisionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRevisions = query
 	return _q
 }
 
@@ -371,8 +408,9 @@ func (_q *TicketCommentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	var (
 		nodes       = []*TicketComment{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			_q.withTicket != nil,
+			_q.withRevisions != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -396,6 +434,13 @@ func (_q *TicketCommentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	if query := _q.withTicket; query != nil {
 		if err := _q.loadTicket(ctx, query, nodes, nil,
 			func(n *TicketComment, e *Ticket) { n.Edges.Ticket = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRevisions; query != nil {
+		if err := _q.loadRevisions(ctx, query, nodes,
+			func(n *TicketComment) { n.Edges.Revisions = []*TicketCommentRevision{} },
+			func(n *TicketComment, e *TicketCommentRevision) { n.Edges.Revisions = append(n.Edges.Revisions, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -428,6 +473,36 @@ func (_q *TicketCommentQuery) loadTicket(ctx context.Context, query *TicketQuery
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *TicketCommentQuery) loadRevisions(ctx context.Context, query *TicketCommentRevisionQuery, nodes []*TicketComment, init func(*TicketComment), assign func(*TicketComment, *TicketCommentRevision)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*TicketComment)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(ticketcommentrevision.FieldCommentID)
+	}
+	query.Where(predicate.TicketCommentRevision(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(ticketcomment.RevisionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.CommentID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "comment_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

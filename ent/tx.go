@@ -46,6 +46,8 @@ type Tx struct {
 	Ticket *TicketClient
 	// TicketComment is the client for interacting with the TicketComment builders.
 	TicketComment *TicketCommentClient
+	// TicketCommentRevision is the client for interacting with the TicketCommentRevision builders.
+	TicketCommentRevision *TicketCommentRevisionClient
 	// TicketDependency is the client for interacting with the TicketDependency builders.
 	TicketDependency *TicketDependencyClient
 	// TicketExternalLink is the client for interacting with the TicketExternalLink builders.
@@ -206,6 +208,7 @@ func (tx *Tx) init() {
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
 	tx.Ticket = NewTicketClient(tx.config)
 	tx.TicketComment = NewTicketCommentClient(tx.config)
+	tx.TicketCommentRevision = NewTicketCommentRevisionClient(tx.config)
 	tx.TicketDependency = NewTicketDependencyClient(tx.config)
 	tx.TicketExternalLink = NewTicketExternalLinkClient(tx.config)
 	tx.TicketRepoScope = NewTicketRepoScopeClient(tx.config)

@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketcomment "github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	entticketcommentrevision "github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -89,12 +90,29 @@ type ExternalLink struct {
 
 // Comment describes a first-class user discussion item on a ticket.
 type Comment struct {
-	ID        uuid.UUID `json:"id"`
-	TicketID  uuid.UUID `json:"ticket_id"`
-	Body      string    `json:"body"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID           uuid.UUID  `json:"id"`
+	TicketID     uuid.UUID  `json:"ticket_id"`
+	BodyMarkdown string     `json:"body_markdown"`
+	CreatedBy    string     `json:"created_by"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	EditedAt     *time.Time `json:"edited_at,omitempty"`
+	EditCount    int        `json:"edit_count"`
+	LastEditedBy *string    `json:"last_edited_by,omitempty"`
+	IsDeleted    bool       `json:"is_deleted"`
+	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
+	DeletedBy    *string    `json:"deleted_by,omitempty"`
+}
+
+// CommentRevision describes an immutable snapshot in a comment's edit history.
+type CommentRevision struct {
+	ID             uuid.UUID `json:"id"`
+	CommentID      uuid.UUID `json:"comment_id"`
+	RevisionNumber int       `json:"revision_number"`
+	BodyMarkdown   string    `json:"body_markdown"`
+	EditedBy       string    `json:"edited_by"`
+	EditedAt       time.Time `json:"edited_at"`
+	EditReason     *string   `json:"edit_reason,omitempty"`
 }
 
 // Ticket is the API-facing ticket aggregate returned by the service layer.
@@ -209,9 +227,11 @@ type AddCommentInput struct {
 
 // UpdateCommentInput updates an existing ticket comment body.
 type UpdateCommentInput struct {
-	TicketID  uuid.UUID
-	CommentID uuid.UUID
-	Body      string
+	TicketID   uuid.UUID
+	CommentID  uuid.UUID
+	Body       string
+	EditedBy   string
+	EditReason string
 }
 
 // DeleteCommentResult reports which comment was removed.
@@ -695,6 +715,44 @@ func (s *Service) ListComments(ctx context.Context, ticketID uuid.UUID) ([]Comme
 	return comments, nil
 }
 
+// ListCommentRevisions returns immutable comment history oldest-first.
+func (s *Service) ListCommentRevisions(ctx context.Context, ticketID uuid.UUID, commentID uuid.UUID) ([]CommentRevision, error) {
+	if s.client == nil {
+		return nil, ErrUnavailable
+	}
+
+	comment, err := s.client.TicketComment.Query().
+		Where(
+			entticketcomment.IDEQ(commentID),
+			entticketcomment.TicketIDEQ(ticketID),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, ErrCommentNotFound
+		}
+		return nil, fmt.Errorf("get ticket comment for revisions: %w", err)
+	}
+
+	revisions, err := s.client.TicketCommentRevision.Query().
+		Where(entticketcommentrevision.CommentIDEQ(comment.ID)).
+		Order(ent.Asc(entticketcommentrevision.FieldRevisionNumber), ent.Asc(entticketcommentrevision.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list ticket comment revisions: %w", err)
+	}
+	if len(revisions) == 0 {
+		return []CommentRevision{s.syntheticInitialRevision(comment)}, nil
+	}
+
+	items := make([]CommentRevision, 0, len(revisions))
+	for _, item := range revisions {
+		items = append(items, mapCommentRevision(item))
+	}
+
+	return items, nil
+}
+
 // AddComment creates a new user discussion comment on a ticket.
 func (s *Service) AddComment(ctx context.Context, input AddCommentInput) (Comment, error) {
 	if s.client == nil {
@@ -711,13 +769,20 @@ func (s *Service) AddComment(ctx context.Context, input AddCommentInput) (Commen
 		return Comment{}, s.mapTicketReadError("get ticket for comment create", err)
 	}
 
+	now := timeNowUTC()
+	createdBy := resolveCreatedBy(input.CreatedBy)
 	item, err := tx.TicketComment.Create().
 		SetTicketID(input.TicketID).
 		SetBody(input.Body).
-		SetCreatedBy(resolveCreatedBy(input.CreatedBy)).
+		SetCreatedBy(createdBy).
+		SetCreatedAt(now).
+		SetUpdatedAt(now).
 		Save(ctx)
 	if err != nil {
 		return Comment{}, s.mapTicketWriteError("create ticket comment", err)
+	}
+	if err := s.appendCommentRevisionTx(ctx, tx, item.ID, 1, item.Body, createdBy, now, ""); err != nil {
+		return Comment{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return Comment{}, fmt.Errorf("commit add ticket comment tx: %w", err)
@@ -732,10 +797,17 @@ func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (
 		return Comment{}, ErrUnavailable
 	}
 
-	existing, err := s.client.TicketComment.Query().
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Comment{}, fmt.Errorf("start update ticket comment tx: %w", err)
+	}
+	defer rollback(tx)
+
+	existing, err := tx.TicketComment.Query().
 		Where(
 			entticketcomment.IDEQ(input.CommentID),
 			entticketcomment.TicketIDEQ(input.TicketID),
+			entticketcomment.IsDeleted(false),
 		).
 		Only(ctx)
 	if err != nil {
@@ -745,11 +817,29 @@ func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (
 		return Comment{}, fmt.Errorf("get ticket comment for update: %w", err)
 	}
 
-	item, err := s.client.TicketComment.UpdateOneID(existing.ID).
+	now := timeNowUTC()
+	revisionNumber, err := s.ensureInitialRevisionTx(ctx, tx, existing)
+	if err != nil {
+		return Comment{}, err
+	}
+	editor := resolveCreatedBy(input.EditedBy)
+	revisionNumber++
+
+	item, err := tx.TicketComment.UpdateOneID(existing.ID).
 		SetBody(input.Body).
+		SetUpdatedAt(now).
+		SetEditedAt(now).
+		SetEditCount(revisionNumber - 1).
+		SetLastEditedBy(editor).
 		Save(ctx)
 	if err != nil {
 		return Comment{}, s.mapTicketWriteError("update ticket comment", err)
+	}
+	if err := s.appendCommentRevisionTx(ctx, tx, existing.ID, revisionNumber, input.Body, editor, now, input.EditReason); err != nil {
+		return Comment{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Comment{}, fmt.Errorf("commit update ticket comment tx: %w", err)
 	}
 
 	return mapComment(item), nil
@@ -821,20 +911,82 @@ func (s *Service) RemoveComment(ctx context.Context, ticketID uuid.UUID, comment
 		return DeleteCommentResult{}, ErrUnavailable
 	}
 
-	deleted, err := s.client.TicketComment.Delete().
+	now := timeNowUTC()
+	deleted, err := s.client.TicketComment.Update().
 		Where(
 			entticketcomment.IDEQ(commentID),
 			entticketcomment.TicketIDEQ(ticketID),
+			entticketcomment.IsDeleted(false),
 		).
-		Exec(ctx)
+		SetIsDeleted(true).
+		SetDeletedAt(now).
+		SetDeletedBy(defaultCreatedBy).
+		SetUpdatedAt(now).
+		Save(ctx)
 	if err != nil {
-		return DeleteCommentResult{}, fmt.Errorf("delete ticket comment: %w", err)
+		return DeleteCommentResult{}, fmt.Errorf("soft delete ticket comment: %w", err)
 	}
 	if deleted == 0 {
 		return DeleteCommentResult{}, ErrCommentNotFound
 	}
 
 	return DeleteCommentResult{DeletedCommentID: commentID}, nil
+}
+
+func (s *Service) ensureInitialRevisionTx(ctx context.Context, tx *ent.Tx, comment *ent.TicketComment) (int, error) {
+	latest, err := tx.TicketCommentRevision.Query().
+		Where(entticketcommentrevision.CommentIDEQ(comment.ID)).
+		Order(ent.Desc(entticketcommentrevision.FieldRevisionNumber), ent.Desc(entticketcommentrevision.FieldID)).
+		First(ctx)
+	switch {
+	case err == nil:
+		return latest.RevisionNumber, nil
+	case !ent.IsNotFound(err):
+		return 0, fmt.Errorf("load latest ticket comment revision: %w", err)
+	}
+
+	if err := s.appendCommentRevisionTx(ctx, tx, comment.ID, 1, comment.Body, comment.CreatedBy, comment.CreatedAt, ""); err != nil {
+		return 0, err
+	}
+
+	return 1, nil
+}
+
+func (s *Service) appendCommentRevisionTx(
+	ctx context.Context,
+	tx *ent.Tx,
+	commentID uuid.UUID,
+	revisionNumber int,
+	bodyMarkdown string,
+	editedBy string,
+	editedAt time.Time,
+	editReason string,
+) error {
+	create := tx.TicketCommentRevision.Create().
+		SetCommentID(commentID).
+		SetRevisionNumber(revisionNumber).
+		SetBodyMarkdown(bodyMarkdown).
+		SetEditedBy(resolveCreatedBy(editedBy)).
+		SetEditedAt(editedAt)
+	if trimmed := strings.TrimSpace(editReason); trimmed != "" {
+		create.SetEditReason(trimmed)
+	}
+	if _, err := create.Save(ctx); err != nil {
+		return s.mapTicketWriteError("create ticket comment revision", err)
+	}
+
+	return nil
+}
+
+func (s *Service) syntheticInitialRevision(comment *ent.TicketComment) CommentRevision {
+	return CommentRevision{
+		ID:             uuid.Nil,
+		CommentID:      comment.ID,
+		RevisionNumber: 1,
+		BodyMarkdown:   comment.Body,
+		EditedBy:       comment.CreatedBy,
+		EditedAt:       comment.CreatedAt,
+	}
 }
 
 func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) error {
@@ -1266,12 +1418,30 @@ func mapExternalLink(item *ent.TicketExternalLink) ExternalLink {
 
 func mapComment(item *ent.TicketComment) Comment {
 	return Comment{
-		ID:        item.ID,
-		TicketID:  item.TicketID,
-		Body:      item.Body,
-		CreatedBy: item.CreatedBy,
-		CreatedAt: item.CreatedAt,
-		UpdatedAt: item.UpdatedAt,
+		ID:           item.ID,
+		TicketID:     item.TicketID,
+		BodyMarkdown: item.Body,
+		CreatedBy:    item.CreatedBy,
+		CreatedAt:    item.CreatedAt,
+		UpdatedAt:    item.UpdatedAt,
+		EditedAt:     item.EditedAt,
+		EditCount:    item.EditCount,
+		LastEditedBy: item.LastEditedBy,
+		IsDeleted:    item.IsDeleted,
+		DeletedAt:    item.DeletedAt,
+		DeletedBy:    item.DeletedBy,
+	}
+}
+
+func mapCommentRevision(item *ent.TicketCommentRevision) CommentRevision {
+	return CommentRevision{
+		ID:             item.ID,
+		CommentID:      item.CommentID,
+		RevisionNumber: item.RevisionNumber,
+		BodyMarkdown:   item.BodyMarkdown,
+		EditedBy:       item.EditedBy,
+		EditedAt:       item.EditedAt,
+		EditReason:     item.EditReason,
 	}
 }
 

@@ -855,6 +855,12 @@ var (
 		{Name: "created_by", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "edited_at", Type: field.TypeTime, Nullable: true},
+		{Name: "edit_count", Type: field.TypeInt, Default: 0},
+		{Name: "last_edited_by", Type: field.TypeString, Nullable: true},
+		{Name: "is_deleted", Type: field.TypeBool, Default: false},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "deleted_by", Type: field.TypeString, Nullable: true},
 		{Name: "ticket_id", Type: field.TypeUUID},
 	}
 	// TicketCommentsTable holds the schema information for the "ticket_comments" table.
@@ -865,7 +871,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "ticket_comments_tickets_comments",
-				Columns:    []*schema.Column{TicketCommentsColumns[5]},
+				Columns:    []*schema.Column{TicketCommentsColumns[11]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -874,7 +880,43 @@ var (
 			{
 				Name:    "ticketcomment_ticket_id_created_at_id",
 				Unique:  false,
-				Columns: []*schema.Column{TicketCommentsColumns[5], TicketCommentsColumns[3], TicketCommentsColumns[0]},
+				Columns: []*schema.Column{TicketCommentsColumns[11], TicketCommentsColumns[3], TicketCommentsColumns[0]},
+			},
+		},
+	}
+	// TicketCommentRevisionsColumns holds the columns for the "ticket_comment_revisions" table.
+	TicketCommentRevisionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "revision_number", Type: field.TypeInt},
+		{Name: "body_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "edited_by", Type: field.TypeString},
+		{Name: "edited_at", Type: field.TypeTime},
+		{Name: "edit_reason", Type: field.TypeString, Nullable: true},
+		{Name: "comment_id", Type: field.TypeUUID},
+	}
+	// TicketCommentRevisionsTable holds the schema information for the "ticket_comment_revisions" table.
+	TicketCommentRevisionsTable = &schema.Table{
+		Name:       "ticket_comment_revisions",
+		Columns:    TicketCommentRevisionsColumns,
+		PrimaryKey: []*schema.Column{TicketCommentRevisionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "ticket_comment_revisions_ticket_comments_revisions",
+				Columns:    []*schema.Column{TicketCommentRevisionsColumns[6]},
+				RefColumns: []*schema.Column{TicketCommentsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "ticketcommentrevision_comment_id_revision_number",
+				Unique:  true,
+				Columns: []*schema.Column{TicketCommentRevisionsColumns[6], TicketCommentRevisionsColumns[1]},
+			},
+			{
+				Name:    "ticketcommentrevision_comment_id_edited_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{TicketCommentRevisionsColumns[6], TicketCommentRevisionsColumns[4], TicketCommentRevisionsColumns[0]},
 			},
 		},
 	}
@@ -1210,6 +1252,7 @@ var (
 		ScheduledJobsTable,
 		TicketsTable,
 		TicketCommentsTable,
+		TicketCommentRevisionsTable,
 		TicketDependenciesTable,
 		TicketExternalLinksTable,
 		TicketRepoScopesTable,
@@ -1265,6 +1308,7 @@ func init() {
 	TicketsTable.ForeignKeys[4].RefTable = TicketStatusTable
 	TicketsTable.ForeignKeys[5].RefTable = WorkflowsTable
 	TicketCommentsTable.ForeignKeys[0].RefTable = TicketsTable
+	TicketCommentRevisionsTable.ForeignKeys[0].RefTable = TicketCommentsTable
 	TicketDependenciesTable.ForeignKeys[0].RefTable = TicketsTable
 	TicketDependenciesTable.ForeignKeys[1].RefTable = TicketsTable
 	TicketExternalLinksTable.ForeignKeys[0].RefTable = TicketsTable

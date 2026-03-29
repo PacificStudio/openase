@@ -29,6 +29,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
@@ -49,29 +50,30 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeActivityEvent       = "ActivityEvent"
-	TypeAgent               = "Agent"
-	TypeAgentProvider       = "AgentProvider"
-	TypeAgentRun            = "AgentRun"
-	TypeAgentStepEvent      = "AgentStepEvent"
-	TypeAgentToken          = "AgentToken"
-	TypeAgentTraceEvent     = "AgentTraceEvent"
-	TypeMachine             = "Machine"
-	TypeNotificationChannel = "NotificationChannel"
-	TypeNotificationRule    = "NotificationRule"
-	TypeOrganization        = "Organization"
-	TypeProject             = "Project"
-	TypeProjectRepo         = "ProjectRepo"
-	TypeProjectRepoMirror   = "ProjectRepoMirror"
-	TypeScheduledJob        = "ScheduledJob"
-	TypeTicket              = "Ticket"
-	TypeTicketComment       = "TicketComment"
-	TypeTicketDependency    = "TicketDependency"
-	TypeTicketExternalLink  = "TicketExternalLink"
-	TypeTicketRepoScope     = "TicketRepoScope"
-	TypeTicketStage         = "TicketStage"
-	TypeTicketStatus        = "TicketStatus"
-	TypeWorkflow            = "Workflow"
+	TypeActivityEvent         = "ActivityEvent"
+	TypeAgent                 = "Agent"
+	TypeAgentProvider         = "AgentProvider"
+	TypeAgentRun              = "AgentRun"
+	TypeAgentStepEvent        = "AgentStepEvent"
+	TypeAgentToken            = "AgentToken"
+	TypeAgentTraceEvent       = "AgentTraceEvent"
+	TypeMachine               = "Machine"
+	TypeNotificationChannel   = "NotificationChannel"
+	TypeNotificationRule      = "NotificationRule"
+	TypeOrganization          = "Organization"
+	TypeProject               = "Project"
+	TypeProjectRepo           = "ProjectRepo"
+	TypeProjectRepoMirror     = "ProjectRepoMirror"
+	TypeScheduledJob          = "ScheduledJob"
+	TypeTicket                = "Ticket"
+	TypeTicketComment         = "TicketComment"
+	TypeTicketCommentRevision = "TicketCommentRevision"
+	TypeTicketDependency      = "TicketDependency"
+	TypeTicketExternalLink    = "TicketExternalLink"
+	TypeTicketRepoScope       = "TicketRepoScope"
+	TypeTicketStage           = "TicketStage"
+	TypeTicketStatus          = "TicketStatus"
+	TypeWorkflow              = "Workflow"
 )
 
 // ActivityEventMutation represents an operation that mutates the ActivityEvent nodes in the graph.
@@ -20812,19 +20814,29 @@ func (m *TicketMutation) ResetEdge(name string) error {
 // TicketCommentMutation represents an operation that mutates the TicketComment nodes in the graph.
 type TicketCommentMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *uuid.UUID
-	body          *string
-	created_by    *string
-	created_at    *time.Time
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	ticket        *uuid.UUID
-	clearedticket bool
-	done          bool
-	oldValue      func(context.Context) (*TicketComment, error)
-	predicates    []predicate.TicketComment
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	body             *string
+	created_by       *string
+	created_at       *time.Time
+	updated_at       *time.Time
+	edited_at        *time.Time
+	edit_count       *int
+	addedit_count    *int
+	last_edited_by   *string
+	is_deleted       *bool
+	deleted_at       *time.Time
+	deleted_by       *string
+	clearedFields    map[string]struct{}
+	ticket           *uuid.UUID
+	clearedticket    bool
+	revisions        map[uuid.UUID]struct{}
+	removedrevisions map[uuid.UUID]struct{}
+	clearedrevisions bool
+	done             bool
+	oldValue         func(context.Context) (*TicketComment, error)
+	predicates       []predicate.TicketComment
 }
 
 var _ ent.Mutation = (*TicketCommentMutation)(nil)
@@ -21111,6 +21123,294 @@ func (m *TicketCommentMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
+// SetEditedAt sets the "edited_at" field.
+func (m *TicketCommentMutation) SetEditedAt(t time.Time) {
+	m.edited_at = &t
+}
+
+// EditedAt returns the value of the "edited_at" field in the mutation.
+func (m *TicketCommentMutation) EditedAt() (r time.Time, exists bool) {
+	v := m.edited_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedAt returns the old "edited_at" field's value of the TicketComment entity.
+// If the TicketComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentMutation) OldEditedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedAt: %w", err)
+	}
+	return oldValue.EditedAt, nil
+}
+
+// ClearEditedAt clears the value of the "edited_at" field.
+func (m *TicketCommentMutation) ClearEditedAt() {
+	m.edited_at = nil
+	m.clearedFields[ticketcomment.FieldEditedAt] = struct{}{}
+}
+
+// EditedAtCleared returns if the "edited_at" field was cleared in this mutation.
+func (m *TicketCommentMutation) EditedAtCleared() bool {
+	_, ok := m.clearedFields[ticketcomment.FieldEditedAt]
+	return ok
+}
+
+// ResetEditedAt resets all changes to the "edited_at" field.
+func (m *TicketCommentMutation) ResetEditedAt() {
+	m.edited_at = nil
+	delete(m.clearedFields, ticketcomment.FieldEditedAt)
+}
+
+// SetEditCount sets the "edit_count" field.
+func (m *TicketCommentMutation) SetEditCount(i int) {
+	m.edit_count = &i
+	m.addedit_count = nil
+}
+
+// EditCount returns the value of the "edit_count" field in the mutation.
+func (m *TicketCommentMutation) EditCount() (r int, exists bool) {
+	v := m.edit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditCount returns the old "edit_count" field's value of the TicketComment entity.
+// If the TicketComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentMutation) OldEditCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditCount: %w", err)
+	}
+	return oldValue.EditCount, nil
+}
+
+// AddEditCount adds i to the "edit_count" field.
+func (m *TicketCommentMutation) AddEditCount(i int) {
+	if m.addedit_count != nil {
+		*m.addedit_count += i
+	} else {
+		m.addedit_count = &i
+	}
+}
+
+// AddedEditCount returns the value that was added to the "edit_count" field in this mutation.
+func (m *TicketCommentMutation) AddedEditCount() (r int, exists bool) {
+	v := m.addedit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEditCount resets all changes to the "edit_count" field.
+func (m *TicketCommentMutation) ResetEditCount() {
+	m.edit_count = nil
+	m.addedit_count = nil
+}
+
+// SetLastEditedBy sets the "last_edited_by" field.
+func (m *TicketCommentMutation) SetLastEditedBy(s string) {
+	m.last_edited_by = &s
+}
+
+// LastEditedBy returns the value of the "last_edited_by" field in the mutation.
+func (m *TicketCommentMutation) LastEditedBy() (r string, exists bool) {
+	v := m.last_edited_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastEditedBy returns the old "last_edited_by" field's value of the TicketComment entity.
+// If the TicketComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentMutation) OldLastEditedBy(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastEditedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastEditedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastEditedBy: %w", err)
+	}
+	return oldValue.LastEditedBy, nil
+}
+
+// ClearLastEditedBy clears the value of the "last_edited_by" field.
+func (m *TicketCommentMutation) ClearLastEditedBy() {
+	m.last_edited_by = nil
+	m.clearedFields[ticketcomment.FieldLastEditedBy] = struct{}{}
+}
+
+// LastEditedByCleared returns if the "last_edited_by" field was cleared in this mutation.
+func (m *TicketCommentMutation) LastEditedByCleared() bool {
+	_, ok := m.clearedFields[ticketcomment.FieldLastEditedBy]
+	return ok
+}
+
+// ResetLastEditedBy resets all changes to the "last_edited_by" field.
+func (m *TicketCommentMutation) ResetLastEditedBy() {
+	m.last_edited_by = nil
+	delete(m.clearedFields, ticketcomment.FieldLastEditedBy)
+}
+
+// SetIsDeleted sets the "is_deleted" field.
+func (m *TicketCommentMutation) SetIsDeleted(b bool) {
+	m.is_deleted = &b
+}
+
+// IsDeleted returns the value of the "is_deleted" field in the mutation.
+func (m *TicketCommentMutation) IsDeleted() (r bool, exists bool) {
+	v := m.is_deleted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsDeleted returns the old "is_deleted" field's value of the TicketComment entity.
+// If the TicketComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentMutation) OldIsDeleted(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsDeleted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsDeleted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsDeleted: %w", err)
+	}
+	return oldValue.IsDeleted, nil
+}
+
+// ResetIsDeleted resets all changes to the "is_deleted" field.
+func (m *TicketCommentMutation) ResetIsDeleted() {
+	m.is_deleted = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *TicketCommentMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *TicketCommentMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the TicketComment entity.
+// If the TicketComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *TicketCommentMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[ticketcomment.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *TicketCommentMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[ticketcomment.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *TicketCommentMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, ticketcomment.FieldDeletedAt)
+}
+
+// SetDeletedBy sets the "deleted_by" field.
+func (m *TicketCommentMutation) SetDeletedBy(s string) {
+	m.deleted_by = &s
+}
+
+// DeletedBy returns the value of the "deleted_by" field in the mutation.
+func (m *TicketCommentMutation) DeletedBy() (r string, exists bool) {
+	v := m.deleted_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedBy returns the old "deleted_by" field's value of the TicketComment entity.
+// If the TicketComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentMutation) OldDeletedBy(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedBy: %w", err)
+	}
+	return oldValue.DeletedBy, nil
+}
+
+// ClearDeletedBy clears the value of the "deleted_by" field.
+func (m *TicketCommentMutation) ClearDeletedBy() {
+	m.deleted_by = nil
+	m.clearedFields[ticketcomment.FieldDeletedBy] = struct{}{}
+}
+
+// DeletedByCleared returns if the "deleted_by" field was cleared in this mutation.
+func (m *TicketCommentMutation) DeletedByCleared() bool {
+	_, ok := m.clearedFields[ticketcomment.FieldDeletedBy]
+	return ok
+}
+
+// ResetDeletedBy resets all changes to the "deleted_by" field.
+func (m *TicketCommentMutation) ResetDeletedBy() {
+	m.deleted_by = nil
+	delete(m.clearedFields, ticketcomment.FieldDeletedBy)
+}
+
 // ClearTicket clears the "ticket" edge to the Ticket entity.
 func (m *TicketCommentMutation) ClearTicket() {
 	m.clearedticket = true
@@ -21136,6 +21436,60 @@ func (m *TicketCommentMutation) TicketIDs() (ids []uuid.UUID) {
 func (m *TicketCommentMutation) ResetTicket() {
 	m.ticket = nil
 	m.clearedticket = false
+}
+
+// AddRevisionIDs adds the "revisions" edge to the TicketCommentRevision entity by ids.
+func (m *TicketCommentMutation) AddRevisionIDs(ids ...uuid.UUID) {
+	if m.revisions == nil {
+		m.revisions = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.revisions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRevisions clears the "revisions" edge to the TicketCommentRevision entity.
+func (m *TicketCommentMutation) ClearRevisions() {
+	m.clearedrevisions = true
+}
+
+// RevisionsCleared reports if the "revisions" edge to the TicketCommentRevision entity was cleared.
+func (m *TicketCommentMutation) RevisionsCleared() bool {
+	return m.clearedrevisions
+}
+
+// RemoveRevisionIDs removes the "revisions" edge to the TicketCommentRevision entity by IDs.
+func (m *TicketCommentMutation) RemoveRevisionIDs(ids ...uuid.UUID) {
+	if m.removedrevisions == nil {
+		m.removedrevisions = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.revisions, ids[i])
+		m.removedrevisions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRevisions returns the removed IDs of the "revisions" edge to the TicketCommentRevision entity.
+func (m *TicketCommentMutation) RemovedRevisionsIDs() (ids []uuid.UUID) {
+	for id := range m.removedrevisions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RevisionsIDs returns the "revisions" edge IDs in the mutation.
+func (m *TicketCommentMutation) RevisionsIDs() (ids []uuid.UUID) {
+	for id := range m.revisions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRevisions resets all changes to the "revisions" edge.
+func (m *TicketCommentMutation) ResetRevisions() {
+	m.revisions = nil
+	m.clearedrevisions = false
+	m.removedrevisions = nil
 }
 
 // Where appends a list predicates to the TicketCommentMutation builder.
@@ -21172,7 +21526,7 @@ func (m *TicketCommentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TicketCommentMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 11)
 	if m.ticket != nil {
 		fields = append(fields, ticketcomment.FieldTicketID)
 	}
@@ -21187,6 +21541,24 @@ func (m *TicketCommentMutation) Fields() []string {
 	}
 	if m.updated_at != nil {
 		fields = append(fields, ticketcomment.FieldUpdatedAt)
+	}
+	if m.edited_at != nil {
+		fields = append(fields, ticketcomment.FieldEditedAt)
+	}
+	if m.edit_count != nil {
+		fields = append(fields, ticketcomment.FieldEditCount)
+	}
+	if m.last_edited_by != nil {
+		fields = append(fields, ticketcomment.FieldLastEditedBy)
+	}
+	if m.is_deleted != nil {
+		fields = append(fields, ticketcomment.FieldIsDeleted)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, ticketcomment.FieldDeletedAt)
+	}
+	if m.deleted_by != nil {
+		fields = append(fields, ticketcomment.FieldDeletedBy)
 	}
 	return fields
 }
@@ -21206,6 +21578,18 @@ func (m *TicketCommentMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case ticketcomment.FieldUpdatedAt:
 		return m.UpdatedAt()
+	case ticketcomment.FieldEditedAt:
+		return m.EditedAt()
+	case ticketcomment.FieldEditCount:
+		return m.EditCount()
+	case ticketcomment.FieldLastEditedBy:
+		return m.LastEditedBy()
+	case ticketcomment.FieldIsDeleted:
+		return m.IsDeleted()
+	case ticketcomment.FieldDeletedAt:
+		return m.DeletedAt()
+	case ticketcomment.FieldDeletedBy:
+		return m.DeletedBy()
 	}
 	return nil, false
 }
@@ -21225,6 +21609,18 @@ func (m *TicketCommentMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldCreatedAt(ctx)
 	case ticketcomment.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
+	case ticketcomment.FieldEditedAt:
+		return m.OldEditedAt(ctx)
+	case ticketcomment.FieldEditCount:
+		return m.OldEditCount(ctx)
+	case ticketcomment.FieldLastEditedBy:
+		return m.OldLastEditedBy(ctx)
+	case ticketcomment.FieldIsDeleted:
+		return m.OldIsDeleted(ctx)
+	case ticketcomment.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case ticketcomment.FieldDeletedBy:
+		return m.OldDeletedBy(ctx)
 	}
 	return nil, fmt.Errorf("unknown TicketComment field %s", name)
 }
@@ -21269,6 +21665,48 @@ func (m *TicketCommentMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUpdatedAt(v)
 		return nil
+	case ticketcomment.FieldEditedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedAt(v)
+		return nil
+	case ticketcomment.FieldEditCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditCount(v)
+		return nil
+	case ticketcomment.FieldLastEditedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastEditedBy(v)
+		return nil
+	case ticketcomment.FieldIsDeleted:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsDeleted(v)
+		return nil
+	case ticketcomment.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case ticketcomment.FieldDeletedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedBy(v)
+		return nil
 	}
 	return fmt.Errorf("unknown TicketComment field %s", name)
 }
@@ -21276,13 +21714,21 @@ func (m *TicketCommentMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *TicketCommentMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addedit_count != nil {
+		fields = append(fields, ticketcomment.FieldEditCount)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *TicketCommentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case ticketcomment.FieldEditCount:
+		return m.AddedEditCount()
+	}
 	return nil, false
 }
 
@@ -21291,6 +21737,13 @@ func (m *TicketCommentMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *TicketCommentMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case ticketcomment.FieldEditCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEditCount(v)
+		return nil
 	}
 	return fmt.Errorf("unknown TicketComment numeric field %s", name)
 }
@@ -21298,7 +21751,20 @@ func (m *TicketCommentMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *TicketCommentMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(ticketcomment.FieldEditedAt) {
+		fields = append(fields, ticketcomment.FieldEditedAt)
+	}
+	if m.FieldCleared(ticketcomment.FieldLastEditedBy) {
+		fields = append(fields, ticketcomment.FieldLastEditedBy)
+	}
+	if m.FieldCleared(ticketcomment.FieldDeletedAt) {
+		fields = append(fields, ticketcomment.FieldDeletedAt)
+	}
+	if m.FieldCleared(ticketcomment.FieldDeletedBy) {
+		fields = append(fields, ticketcomment.FieldDeletedBy)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -21311,6 +21777,20 @@ func (m *TicketCommentMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *TicketCommentMutation) ClearField(name string) error {
+	switch name {
+	case ticketcomment.FieldEditedAt:
+		m.ClearEditedAt()
+		return nil
+	case ticketcomment.FieldLastEditedBy:
+		m.ClearLastEditedBy()
+		return nil
+	case ticketcomment.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case ticketcomment.FieldDeletedBy:
+		m.ClearDeletedBy()
+		return nil
+	}
 	return fmt.Errorf("unknown TicketComment nullable field %s", name)
 }
 
@@ -21333,15 +21813,36 @@ func (m *TicketCommentMutation) ResetField(name string) error {
 	case ticketcomment.FieldUpdatedAt:
 		m.ResetUpdatedAt()
 		return nil
+	case ticketcomment.FieldEditedAt:
+		m.ResetEditedAt()
+		return nil
+	case ticketcomment.FieldEditCount:
+		m.ResetEditCount()
+		return nil
+	case ticketcomment.FieldLastEditedBy:
+		m.ResetLastEditedBy()
+		return nil
+	case ticketcomment.FieldIsDeleted:
+		m.ResetIsDeleted()
+		return nil
+	case ticketcomment.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case ticketcomment.FieldDeletedBy:
+		m.ResetDeletedBy()
+		return nil
 	}
 	return fmt.Errorf("unknown TicketComment field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TicketCommentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.ticket != nil {
 		edges = append(edges, ticketcomment.EdgeTicket)
+	}
+	if m.revisions != nil {
+		edges = append(edges, ticketcomment.EdgeRevisions)
 	}
 	return edges
 }
@@ -21354,27 +21855,47 @@ func (m *TicketCommentMutation) AddedIDs(name string) []ent.Value {
 		if id := m.ticket; id != nil {
 			return []ent.Value{*id}
 		}
+	case ticketcomment.EdgeRevisions:
+		ids := make([]ent.Value, 0, len(m.revisions))
+		for id := range m.revisions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TicketCommentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedrevisions != nil {
+		edges = append(edges, ticketcomment.EdgeRevisions)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *TicketCommentMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case ticketcomment.EdgeRevisions:
+		ids := make([]ent.Value, 0, len(m.removedrevisions))
+		for id := range m.removedrevisions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TicketCommentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedticket {
 		edges = append(edges, ticketcomment.EdgeTicket)
+	}
+	if m.clearedrevisions {
+		edges = append(edges, ticketcomment.EdgeRevisions)
 	}
 	return edges
 }
@@ -21385,6 +21906,8 @@ func (m *TicketCommentMutation) EdgeCleared(name string) bool {
 	switch name {
 	case ticketcomment.EdgeTicket:
 		return m.clearedticket
+	case ticketcomment.EdgeRevisions:
+		return m.clearedrevisions
 	}
 	return false
 }
@@ -21407,8 +21930,725 @@ func (m *TicketCommentMutation) ResetEdge(name string) error {
 	case ticketcomment.EdgeTicket:
 		m.ResetTicket()
 		return nil
+	case ticketcomment.EdgeRevisions:
+		m.ResetRevisions()
+		return nil
 	}
 	return fmt.Errorf("unknown TicketComment edge %s", name)
+}
+
+// TicketCommentRevisionMutation represents an operation that mutates the TicketCommentRevision nodes in the graph.
+type TicketCommentRevisionMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *uuid.UUID
+	revision_number    *int
+	addrevision_number *int
+	body_markdown      *string
+	edited_by          *string
+	edited_at          *time.Time
+	edit_reason        *string
+	clearedFields      map[string]struct{}
+	comment            *uuid.UUID
+	clearedcomment     bool
+	done               bool
+	oldValue           func(context.Context) (*TicketCommentRevision, error)
+	predicates         []predicate.TicketCommentRevision
+}
+
+var _ ent.Mutation = (*TicketCommentRevisionMutation)(nil)
+
+// ticketcommentrevisionOption allows management of the mutation configuration using functional options.
+type ticketcommentrevisionOption func(*TicketCommentRevisionMutation)
+
+// newTicketCommentRevisionMutation creates new mutation for the TicketCommentRevision entity.
+func newTicketCommentRevisionMutation(c config, op Op, opts ...ticketcommentrevisionOption) *TicketCommentRevisionMutation {
+	m := &TicketCommentRevisionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTicketCommentRevision,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTicketCommentRevisionID sets the ID field of the mutation.
+func withTicketCommentRevisionID(id uuid.UUID) ticketcommentrevisionOption {
+	return func(m *TicketCommentRevisionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TicketCommentRevision
+		)
+		m.oldValue = func(ctx context.Context) (*TicketCommentRevision, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TicketCommentRevision.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTicketCommentRevision sets the old TicketCommentRevision of the mutation.
+func withTicketCommentRevision(node *TicketCommentRevision) ticketcommentrevisionOption {
+	return func(m *TicketCommentRevisionMutation) {
+		m.oldValue = func(context.Context) (*TicketCommentRevision, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TicketCommentRevisionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TicketCommentRevisionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of TicketCommentRevision entities.
+func (m *TicketCommentRevisionMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TicketCommentRevisionMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TicketCommentRevisionMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TicketCommentRevision.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCommentID sets the "comment_id" field.
+func (m *TicketCommentRevisionMutation) SetCommentID(u uuid.UUID) {
+	m.comment = &u
+}
+
+// CommentID returns the value of the "comment_id" field in the mutation.
+func (m *TicketCommentRevisionMutation) CommentID() (r uuid.UUID, exists bool) {
+	v := m.comment
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommentID returns the old "comment_id" field's value of the TicketCommentRevision entity.
+// If the TicketCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentRevisionMutation) OldCommentID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommentID: %w", err)
+	}
+	return oldValue.CommentID, nil
+}
+
+// ResetCommentID resets all changes to the "comment_id" field.
+func (m *TicketCommentRevisionMutation) ResetCommentID() {
+	m.comment = nil
+}
+
+// SetRevisionNumber sets the "revision_number" field.
+func (m *TicketCommentRevisionMutation) SetRevisionNumber(i int) {
+	m.revision_number = &i
+	m.addrevision_number = nil
+}
+
+// RevisionNumber returns the value of the "revision_number" field in the mutation.
+func (m *TicketCommentRevisionMutation) RevisionNumber() (r int, exists bool) {
+	v := m.revision_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevisionNumber returns the old "revision_number" field's value of the TicketCommentRevision entity.
+// If the TicketCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentRevisionMutation) OldRevisionNumber(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevisionNumber is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevisionNumber requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevisionNumber: %w", err)
+	}
+	return oldValue.RevisionNumber, nil
+}
+
+// AddRevisionNumber adds i to the "revision_number" field.
+func (m *TicketCommentRevisionMutation) AddRevisionNumber(i int) {
+	if m.addrevision_number != nil {
+		*m.addrevision_number += i
+	} else {
+		m.addrevision_number = &i
+	}
+}
+
+// AddedRevisionNumber returns the value that was added to the "revision_number" field in this mutation.
+func (m *TicketCommentRevisionMutation) AddedRevisionNumber() (r int, exists bool) {
+	v := m.addrevision_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevisionNumber resets all changes to the "revision_number" field.
+func (m *TicketCommentRevisionMutation) ResetRevisionNumber() {
+	m.revision_number = nil
+	m.addrevision_number = nil
+}
+
+// SetBodyMarkdown sets the "body_markdown" field.
+func (m *TicketCommentRevisionMutation) SetBodyMarkdown(s string) {
+	m.body_markdown = &s
+}
+
+// BodyMarkdown returns the value of the "body_markdown" field in the mutation.
+func (m *TicketCommentRevisionMutation) BodyMarkdown() (r string, exists bool) {
+	v := m.body_markdown
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBodyMarkdown returns the old "body_markdown" field's value of the TicketCommentRevision entity.
+// If the TicketCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentRevisionMutation) OldBodyMarkdown(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBodyMarkdown is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBodyMarkdown requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBodyMarkdown: %w", err)
+	}
+	return oldValue.BodyMarkdown, nil
+}
+
+// ResetBodyMarkdown resets all changes to the "body_markdown" field.
+func (m *TicketCommentRevisionMutation) ResetBodyMarkdown() {
+	m.body_markdown = nil
+}
+
+// SetEditedBy sets the "edited_by" field.
+func (m *TicketCommentRevisionMutation) SetEditedBy(s string) {
+	m.edited_by = &s
+}
+
+// EditedBy returns the value of the "edited_by" field in the mutation.
+func (m *TicketCommentRevisionMutation) EditedBy() (r string, exists bool) {
+	v := m.edited_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedBy returns the old "edited_by" field's value of the TicketCommentRevision entity.
+// If the TicketCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentRevisionMutation) OldEditedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedBy: %w", err)
+	}
+	return oldValue.EditedBy, nil
+}
+
+// ResetEditedBy resets all changes to the "edited_by" field.
+func (m *TicketCommentRevisionMutation) ResetEditedBy() {
+	m.edited_by = nil
+}
+
+// SetEditedAt sets the "edited_at" field.
+func (m *TicketCommentRevisionMutation) SetEditedAt(t time.Time) {
+	m.edited_at = &t
+}
+
+// EditedAt returns the value of the "edited_at" field in the mutation.
+func (m *TicketCommentRevisionMutation) EditedAt() (r time.Time, exists bool) {
+	v := m.edited_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedAt returns the old "edited_at" field's value of the TicketCommentRevision entity.
+// If the TicketCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentRevisionMutation) OldEditedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedAt: %w", err)
+	}
+	return oldValue.EditedAt, nil
+}
+
+// ResetEditedAt resets all changes to the "edited_at" field.
+func (m *TicketCommentRevisionMutation) ResetEditedAt() {
+	m.edited_at = nil
+}
+
+// SetEditReason sets the "edit_reason" field.
+func (m *TicketCommentRevisionMutation) SetEditReason(s string) {
+	m.edit_reason = &s
+}
+
+// EditReason returns the value of the "edit_reason" field in the mutation.
+func (m *TicketCommentRevisionMutation) EditReason() (r string, exists bool) {
+	v := m.edit_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditReason returns the old "edit_reason" field's value of the TicketCommentRevision entity.
+// If the TicketCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketCommentRevisionMutation) OldEditReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditReason: %w", err)
+	}
+	return oldValue.EditReason, nil
+}
+
+// ClearEditReason clears the value of the "edit_reason" field.
+func (m *TicketCommentRevisionMutation) ClearEditReason() {
+	m.edit_reason = nil
+	m.clearedFields[ticketcommentrevision.FieldEditReason] = struct{}{}
+}
+
+// EditReasonCleared returns if the "edit_reason" field was cleared in this mutation.
+func (m *TicketCommentRevisionMutation) EditReasonCleared() bool {
+	_, ok := m.clearedFields[ticketcommentrevision.FieldEditReason]
+	return ok
+}
+
+// ResetEditReason resets all changes to the "edit_reason" field.
+func (m *TicketCommentRevisionMutation) ResetEditReason() {
+	m.edit_reason = nil
+	delete(m.clearedFields, ticketcommentrevision.FieldEditReason)
+}
+
+// ClearComment clears the "comment" edge to the TicketComment entity.
+func (m *TicketCommentRevisionMutation) ClearComment() {
+	m.clearedcomment = true
+	m.clearedFields[ticketcommentrevision.FieldCommentID] = struct{}{}
+}
+
+// CommentCleared reports if the "comment" edge to the TicketComment entity was cleared.
+func (m *TicketCommentRevisionMutation) CommentCleared() bool {
+	return m.clearedcomment
+}
+
+// CommentIDs returns the "comment" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CommentID instead. It exists only for internal usage by the builders.
+func (m *TicketCommentRevisionMutation) CommentIDs() (ids []uuid.UUID) {
+	if id := m.comment; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetComment resets all changes to the "comment" edge.
+func (m *TicketCommentRevisionMutation) ResetComment() {
+	m.comment = nil
+	m.clearedcomment = false
+}
+
+// Where appends a list predicates to the TicketCommentRevisionMutation builder.
+func (m *TicketCommentRevisionMutation) Where(ps ...predicate.TicketCommentRevision) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TicketCommentRevisionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TicketCommentRevisionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TicketCommentRevision, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TicketCommentRevisionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TicketCommentRevisionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TicketCommentRevision).
+func (m *TicketCommentRevisionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TicketCommentRevisionMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.comment != nil {
+		fields = append(fields, ticketcommentrevision.FieldCommentID)
+	}
+	if m.revision_number != nil {
+		fields = append(fields, ticketcommentrevision.FieldRevisionNumber)
+	}
+	if m.body_markdown != nil {
+		fields = append(fields, ticketcommentrevision.FieldBodyMarkdown)
+	}
+	if m.edited_by != nil {
+		fields = append(fields, ticketcommentrevision.FieldEditedBy)
+	}
+	if m.edited_at != nil {
+		fields = append(fields, ticketcommentrevision.FieldEditedAt)
+	}
+	if m.edit_reason != nil {
+		fields = append(fields, ticketcommentrevision.FieldEditReason)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TicketCommentRevisionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case ticketcommentrevision.FieldCommentID:
+		return m.CommentID()
+	case ticketcommentrevision.FieldRevisionNumber:
+		return m.RevisionNumber()
+	case ticketcommentrevision.FieldBodyMarkdown:
+		return m.BodyMarkdown()
+	case ticketcommentrevision.FieldEditedBy:
+		return m.EditedBy()
+	case ticketcommentrevision.FieldEditedAt:
+		return m.EditedAt()
+	case ticketcommentrevision.FieldEditReason:
+		return m.EditReason()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TicketCommentRevisionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case ticketcommentrevision.FieldCommentID:
+		return m.OldCommentID(ctx)
+	case ticketcommentrevision.FieldRevisionNumber:
+		return m.OldRevisionNumber(ctx)
+	case ticketcommentrevision.FieldBodyMarkdown:
+		return m.OldBodyMarkdown(ctx)
+	case ticketcommentrevision.FieldEditedBy:
+		return m.OldEditedBy(ctx)
+	case ticketcommentrevision.FieldEditedAt:
+		return m.OldEditedAt(ctx)
+	case ticketcommentrevision.FieldEditReason:
+		return m.OldEditReason(ctx)
+	}
+	return nil, fmt.Errorf("unknown TicketCommentRevision field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TicketCommentRevisionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case ticketcommentrevision.FieldCommentID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommentID(v)
+		return nil
+	case ticketcommentrevision.FieldRevisionNumber:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevisionNumber(v)
+		return nil
+	case ticketcommentrevision.FieldBodyMarkdown:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBodyMarkdown(v)
+		return nil
+	case ticketcommentrevision.FieldEditedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedBy(v)
+		return nil
+	case ticketcommentrevision.FieldEditedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedAt(v)
+		return nil
+	case ticketcommentrevision.FieldEditReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditReason(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TicketCommentRevision field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TicketCommentRevisionMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision_number != nil {
+		fields = append(fields, ticketcommentrevision.FieldRevisionNumber)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TicketCommentRevisionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case ticketcommentrevision.FieldRevisionNumber:
+		return m.AddedRevisionNumber()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TicketCommentRevisionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case ticketcommentrevision.FieldRevisionNumber:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevisionNumber(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TicketCommentRevision numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TicketCommentRevisionMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(ticketcommentrevision.FieldEditReason) {
+		fields = append(fields, ticketcommentrevision.FieldEditReason)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TicketCommentRevisionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TicketCommentRevisionMutation) ClearField(name string) error {
+	switch name {
+	case ticketcommentrevision.FieldEditReason:
+		m.ClearEditReason()
+		return nil
+	}
+	return fmt.Errorf("unknown TicketCommentRevision nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TicketCommentRevisionMutation) ResetField(name string) error {
+	switch name {
+	case ticketcommentrevision.FieldCommentID:
+		m.ResetCommentID()
+		return nil
+	case ticketcommentrevision.FieldRevisionNumber:
+		m.ResetRevisionNumber()
+		return nil
+	case ticketcommentrevision.FieldBodyMarkdown:
+		m.ResetBodyMarkdown()
+		return nil
+	case ticketcommentrevision.FieldEditedBy:
+		m.ResetEditedBy()
+		return nil
+	case ticketcommentrevision.FieldEditedAt:
+		m.ResetEditedAt()
+		return nil
+	case ticketcommentrevision.FieldEditReason:
+		m.ResetEditReason()
+		return nil
+	}
+	return fmt.Errorf("unknown TicketCommentRevision field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TicketCommentRevisionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.comment != nil {
+		edges = append(edges, ticketcommentrevision.EdgeComment)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TicketCommentRevisionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case ticketcommentrevision.EdgeComment:
+		if id := m.comment; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TicketCommentRevisionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TicketCommentRevisionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TicketCommentRevisionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedcomment {
+		edges = append(edges, ticketcommentrevision.EdgeComment)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TicketCommentRevisionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case ticketcommentrevision.EdgeComment:
+		return m.clearedcomment
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TicketCommentRevisionMutation) ClearEdge(name string) error {
+	switch name {
+	case ticketcommentrevision.EdgeComment:
+		m.ClearComment()
+		return nil
+	}
+	return fmt.Errorf("unknown TicketCommentRevision unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TicketCommentRevisionMutation) ResetEdge(name string) error {
+	switch name {
+	case ticketcommentrevision.EdgeComment:
+		m.ResetComment()
+		return nil
+	}
+	return fmt.Errorf("unknown TicketCommentRevision edge %s", name)
 }
 
 // TicketDependencyMutation represents an operation that mutates the TicketDependency nodes in the graph.

@@ -33,6 +33,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
@@ -80,6 +81,8 @@ type Client struct {
 	Ticket *TicketClient
 	// TicketComment is the client for interacting with the TicketComment builders.
 	TicketComment *TicketCommentClient
+	// TicketCommentRevision is the client for interacting with the TicketCommentRevision builders.
+	TicketCommentRevision *TicketCommentRevisionClient
 	// TicketDependency is the client for interacting with the TicketDependency builders.
 	TicketDependency *TicketDependencyClient
 	// TicketExternalLink is the client for interacting with the TicketExternalLink builders.
@@ -120,6 +123,7 @@ func (c *Client) init() {
 	c.ScheduledJob = NewScheduledJobClient(c.config)
 	c.Ticket = NewTicketClient(c.config)
 	c.TicketComment = NewTicketCommentClient(c.config)
+	c.TicketCommentRevision = NewTicketCommentRevisionClient(c.config)
 	c.TicketDependency = NewTicketDependencyClient(c.config)
 	c.TicketExternalLink = NewTicketExternalLinkClient(c.config)
 	c.TicketRepoScope = NewTicketRepoScopeClient(c.config)
@@ -216,31 +220,32 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                 ctx,
-		config:              cfg,
-		ActivityEvent:       NewActivityEventClient(cfg),
-		Agent:               NewAgentClient(cfg),
-		AgentProvider:       NewAgentProviderClient(cfg),
-		AgentRun:            NewAgentRunClient(cfg),
-		AgentStepEvent:      NewAgentStepEventClient(cfg),
-		AgentToken:          NewAgentTokenClient(cfg),
-		AgentTraceEvent:     NewAgentTraceEventClient(cfg),
-		Machine:             NewMachineClient(cfg),
-		NotificationChannel: NewNotificationChannelClient(cfg),
-		NotificationRule:    NewNotificationRuleClient(cfg),
-		Organization:        NewOrganizationClient(cfg),
-		Project:             NewProjectClient(cfg),
-		ProjectRepo:         NewProjectRepoClient(cfg),
-		ProjectRepoMirror:   NewProjectRepoMirrorClient(cfg),
-		ScheduledJob:        NewScheduledJobClient(cfg),
-		Ticket:              NewTicketClient(cfg),
-		TicketComment:       NewTicketCommentClient(cfg),
-		TicketDependency:    NewTicketDependencyClient(cfg),
-		TicketExternalLink:  NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:     NewTicketRepoScopeClient(cfg),
-		TicketStage:         NewTicketStageClient(cfg),
-		TicketStatus:        NewTicketStatusClient(cfg),
-		Workflow:            NewWorkflowClient(cfg),
+		ctx:                   ctx,
+		config:                cfg,
+		ActivityEvent:         NewActivityEventClient(cfg),
+		Agent:                 NewAgentClient(cfg),
+		AgentProvider:         NewAgentProviderClient(cfg),
+		AgentRun:              NewAgentRunClient(cfg),
+		AgentStepEvent:        NewAgentStepEventClient(cfg),
+		AgentToken:            NewAgentTokenClient(cfg),
+		AgentTraceEvent:       NewAgentTraceEventClient(cfg),
+		Machine:               NewMachineClient(cfg),
+		NotificationChannel:   NewNotificationChannelClient(cfg),
+		NotificationRule:      NewNotificationRuleClient(cfg),
+		Organization:          NewOrganizationClient(cfg),
+		Project:               NewProjectClient(cfg),
+		ProjectRepo:           NewProjectRepoClient(cfg),
+		ProjectRepoMirror:     NewProjectRepoMirrorClient(cfg),
+		ScheduledJob:          NewScheduledJobClient(cfg),
+		Ticket:                NewTicketClient(cfg),
+		TicketComment:         NewTicketCommentClient(cfg),
+		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
+		TicketDependency:      NewTicketDependencyClient(cfg),
+		TicketExternalLink:    NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:       NewTicketRepoScopeClient(cfg),
+		TicketStage:           NewTicketStageClient(cfg),
+		TicketStatus:          NewTicketStatusClient(cfg),
+		Workflow:              NewWorkflowClient(cfg),
 	}, nil
 }
 
@@ -258,31 +263,32 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                 ctx,
-		config:              cfg,
-		ActivityEvent:       NewActivityEventClient(cfg),
-		Agent:               NewAgentClient(cfg),
-		AgentProvider:       NewAgentProviderClient(cfg),
-		AgentRun:            NewAgentRunClient(cfg),
-		AgentStepEvent:      NewAgentStepEventClient(cfg),
-		AgentToken:          NewAgentTokenClient(cfg),
-		AgentTraceEvent:     NewAgentTraceEventClient(cfg),
-		Machine:             NewMachineClient(cfg),
-		NotificationChannel: NewNotificationChannelClient(cfg),
-		NotificationRule:    NewNotificationRuleClient(cfg),
-		Organization:        NewOrganizationClient(cfg),
-		Project:             NewProjectClient(cfg),
-		ProjectRepo:         NewProjectRepoClient(cfg),
-		ProjectRepoMirror:   NewProjectRepoMirrorClient(cfg),
-		ScheduledJob:        NewScheduledJobClient(cfg),
-		Ticket:              NewTicketClient(cfg),
-		TicketComment:       NewTicketCommentClient(cfg),
-		TicketDependency:    NewTicketDependencyClient(cfg),
-		TicketExternalLink:  NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:     NewTicketRepoScopeClient(cfg),
-		TicketStage:         NewTicketStageClient(cfg),
-		TicketStatus:        NewTicketStatusClient(cfg),
-		Workflow:            NewWorkflowClient(cfg),
+		ctx:                   ctx,
+		config:                cfg,
+		ActivityEvent:         NewActivityEventClient(cfg),
+		Agent:                 NewAgentClient(cfg),
+		AgentProvider:         NewAgentProviderClient(cfg),
+		AgentRun:              NewAgentRunClient(cfg),
+		AgentStepEvent:        NewAgentStepEventClient(cfg),
+		AgentToken:            NewAgentTokenClient(cfg),
+		AgentTraceEvent:       NewAgentTraceEventClient(cfg),
+		Machine:               NewMachineClient(cfg),
+		NotificationChannel:   NewNotificationChannelClient(cfg),
+		NotificationRule:      NewNotificationRuleClient(cfg),
+		Organization:          NewOrganizationClient(cfg),
+		Project:               NewProjectClient(cfg),
+		ProjectRepo:           NewProjectRepoClient(cfg),
+		ProjectRepoMirror:     NewProjectRepoMirrorClient(cfg),
+		ScheduledJob:          NewScheduledJobClient(cfg),
+		Ticket:                NewTicketClient(cfg),
+		TicketComment:         NewTicketCommentClient(cfg),
+		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
+		TicketDependency:      NewTicketDependencyClient(cfg),
+		TicketExternalLink:    NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:       NewTicketRepoScopeClient(cfg),
+		TicketStage:           NewTicketStageClient(cfg),
+		TicketStatus:          NewTicketStatusClient(cfg),
+		Workflow:              NewWorkflowClient(cfg),
 	}, nil
 }
 
@@ -316,8 +322,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AgentToken, c.AgentTraceEvent, c.Machine, c.NotificationChannel,
 		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo,
 		c.ProjectRepoMirror, c.ScheduledJob, c.Ticket, c.TicketComment,
-		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope, c.TicketStage,
-		c.TicketStatus, c.Workflow,
+		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
+		c.TicketRepoScope, c.TicketStage, c.TicketStatus, c.Workflow,
 	} {
 		n.Use(hooks...)
 	}
@@ -331,8 +337,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AgentToken, c.AgentTraceEvent, c.Machine, c.NotificationChannel,
 		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo,
 		c.ProjectRepoMirror, c.ScheduledJob, c.Ticket, c.TicketComment,
-		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope, c.TicketStage,
-		c.TicketStatus, c.Workflow,
+		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
+		c.TicketRepoScope, c.TicketStage, c.TicketStatus, c.Workflow,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -375,6 +381,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Ticket.mutate(ctx, m)
 	case *TicketCommentMutation:
 		return c.TicketComment.mutate(ctx, m)
+	case *TicketCommentRevisionMutation:
+		return c.TicketCommentRevision.mutate(ctx, m)
 	case *TicketDependencyMutation:
 		return c.TicketDependency.mutate(ctx, m)
 	case *TicketExternalLinkMutation:
@@ -4036,6 +4044,22 @@ func (c *TicketCommentClient) QueryTicket(_m *TicketComment) *TicketQuery {
 	return query
 }
 
+// QueryRevisions queries the revisions edge of a TicketComment.
+func (c *TicketCommentClient) QueryRevisions(_m *TicketComment) *TicketCommentRevisionQuery {
+	query := (&TicketCommentRevisionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketcomment.Table, ticketcomment.FieldID, id),
+			sqlgraph.To(ticketcommentrevision.Table, ticketcommentrevision.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticketcomment.RevisionsTable, ticketcomment.RevisionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *TicketCommentClient) Hooks() []Hook {
 	return c.hooks.TicketComment
@@ -4058,6 +4082,155 @@ func (c *TicketCommentClient) mutate(ctx context.Context, m *TicketCommentMutati
 		return (&TicketCommentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown TicketComment mutation op: %q", m.Op())
+	}
+}
+
+// TicketCommentRevisionClient is a client for the TicketCommentRevision schema.
+type TicketCommentRevisionClient struct {
+	config
+}
+
+// NewTicketCommentRevisionClient returns a client for the TicketCommentRevision from the given config.
+func NewTicketCommentRevisionClient(c config) *TicketCommentRevisionClient {
+	return &TicketCommentRevisionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `ticketcommentrevision.Hooks(f(g(h())))`.
+func (c *TicketCommentRevisionClient) Use(hooks ...Hook) {
+	c.hooks.TicketCommentRevision = append(c.hooks.TicketCommentRevision, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `ticketcommentrevision.Intercept(f(g(h())))`.
+func (c *TicketCommentRevisionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TicketCommentRevision = append(c.inters.TicketCommentRevision, interceptors...)
+}
+
+// Create returns a builder for creating a TicketCommentRevision entity.
+func (c *TicketCommentRevisionClient) Create() *TicketCommentRevisionCreate {
+	mutation := newTicketCommentRevisionMutation(c.config, OpCreate)
+	return &TicketCommentRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TicketCommentRevision entities.
+func (c *TicketCommentRevisionClient) CreateBulk(builders ...*TicketCommentRevisionCreate) *TicketCommentRevisionCreateBulk {
+	return &TicketCommentRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TicketCommentRevisionClient) MapCreateBulk(slice any, setFunc func(*TicketCommentRevisionCreate, int)) *TicketCommentRevisionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TicketCommentRevisionCreateBulk{err: fmt.Errorf("calling to TicketCommentRevisionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TicketCommentRevisionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TicketCommentRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TicketCommentRevision.
+func (c *TicketCommentRevisionClient) Update() *TicketCommentRevisionUpdate {
+	mutation := newTicketCommentRevisionMutation(c.config, OpUpdate)
+	return &TicketCommentRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TicketCommentRevisionClient) UpdateOne(_m *TicketCommentRevision) *TicketCommentRevisionUpdateOne {
+	mutation := newTicketCommentRevisionMutation(c.config, OpUpdateOne, withTicketCommentRevision(_m))
+	return &TicketCommentRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TicketCommentRevisionClient) UpdateOneID(id uuid.UUID) *TicketCommentRevisionUpdateOne {
+	mutation := newTicketCommentRevisionMutation(c.config, OpUpdateOne, withTicketCommentRevisionID(id))
+	return &TicketCommentRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TicketCommentRevision.
+func (c *TicketCommentRevisionClient) Delete() *TicketCommentRevisionDelete {
+	mutation := newTicketCommentRevisionMutation(c.config, OpDelete)
+	return &TicketCommentRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TicketCommentRevisionClient) DeleteOne(_m *TicketCommentRevision) *TicketCommentRevisionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TicketCommentRevisionClient) DeleteOneID(id uuid.UUID) *TicketCommentRevisionDeleteOne {
+	builder := c.Delete().Where(ticketcommentrevision.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TicketCommentRevisionDeleteOne{builder}
+}
+
+// Query returns a query builder for TicketCommentRevision.
+func (c *TicketCommentRevisionClient) Query() *TicketCommentRevisionQuery {
+	return &TicketCommentRevisionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTicketCommentRevision},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TicketCommentRevision entity by its id.
+func (c *TicketCommentRevisionClient) Get(ctx context.Context, id uuid.UUID) (*TicketCommentRevision, error) {
+	return c.Query().Where(ticketcommentrevision.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TicketCommentRevisionClient) GetX(ctx context.Context, id uuid.UUID) *TicketCommentRevision {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryComment queries the comment edge of a TicketCommentRevision.
+func (c *TicketCommentRevisionClient) QueryComment(_m *TicketCommentRevision) *TicketCommentQuery {
+	query := (&TicketCommentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketcommentrevision.Table, ticketcommentrevision.FieldID, id),
+			sqlgraph.To(ticketcomment.Table, ticketcomment.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticketcommentrevision.CommentTable, ticketcommentrevision.CommentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TicketCommentRevisionClient) Hooks() []Hook {
+	return c.hooks.TicketCommentRevision
+}
+
+// Interceptors returns the client interceptors.
+func (c *TicketCommentRevisionClient) Interceptors() []Interceptor {
+	return c.inters.TicketCommentRevision
+}
+
+func (c *TicketCommentRevisionClient) mutate(ctx context.Context, m *TicketCommentRevisionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TicketCommentRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TicketCommentRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TicketCommentRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TicketCommentRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TicketCommentRevision mutation op: %q", m.Op())
 	}
 }
 
@@ -5169,14 +5342,14 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, Machine, NotificationChannel, NotificationRule, Organization,
 		Project, ProjectRepo, ProjectRepoMirror, ScheduledJob, Ticket, TicketComment,
-		TicketDependency, TicketExternalLink, TicketRepoScope, TicketStage,
-		TicketStatus, Workflow []ent.Hook
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketStage, TicketStatus, Workflow []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, Machine, NotificationChannel, NotificationRule, Organization,
 		Project, ProjectRepo, ProjectRepoMirror, ScheduledJob, Ticket, TicketComment,
-		TicketDependency, TicketExternalLink, TicketRepoScope, TicketStage,
-		TicketStatus, Workflow []ent.Interceptor
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketStage, TicketStatus, Workflow []ent.Interceptor
 	}
 )

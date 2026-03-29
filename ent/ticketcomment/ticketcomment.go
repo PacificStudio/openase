@@ -25,8 +25,22 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// FieldEditedAt holds the string denoting the edited_at field in the database.
+	FieldEditedAt = "edited_at"
+	// FieldEditCount holds the string denoting the edit_count field in the database.
+	FieldEditCount = "edit_count"
+	// FieldLastEditedBy holds the string denoting the last_edited_by field in the database.
+	FieldLastEditedBy = "last_edited_by"
+	// FieldIsDeleted holds the string denoting the is_deleted field in the database.
+	FieldIsDeleted = "is_deleted"
+	// FieldDeletedAt holds the string denoting the deleted_at field in the database.
+	FieldDeletedAt = "deleted_at"
+	// FieldDeletedBy holds the string denoting the deleted_by field in the database.
+	FieldDeletedBy = "deleted_by"
 	// EdgeTicket holds the string denoting the ticket edge name in mutations.
 	EdgeTicket = "ticket"
+	// EdgeRevisions holds the string denoting the revisions edge name in mutations.
+	EdgeRevisions = "revisions"
 	// Table holds the table name of the ticketcomment in the database.
 	Table = "ticket_comments"
 	// TicketTable is the table that holds the ticket relation/edge.
@@ -36,6 +50,13 @@ const (
 	TicketInverseTable = "tickets"
 	// TicketColumn is the table column denoting the ticket relation/edge.
 	TicketColumn = "ticket_id"
+	// RevisionsTable is the table that holds the revisions relation/edge.
+	RevisionsTable = "ticket_comment_revisions"
+	// RevisionsInverseTable is the table name for the TicketCommentRevision entity.
+	// It exists in this package in order to avoid circular dependency with the "ticketcommentrevision" package.
+	RevisionsInverseTable = "ticket_comment_revisions"
+	// RevisionsColumn is the table column denoting the revisions relation/edge.
+	RevisionsColumn = "comment_id"
 )
 
 // Columns holds all SQL columns for ticketcomment fields.
@@ -46,6 +67,12 @@ var Columns = []string{
 	FieldCreatedBy,
 	FieldCreatedAt,
 	FieldUpdatedAt,
+	FieldEditedAt,
+	FieldEditCount,
+	FieldLastEditedBy,
+	FieldIsDeleted,
+	FieldDeletedAt,
+	FieldDeletedBy,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -69,6 +96,10 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultEditCount holds the default value on creation for the "edit_count" field.
+	DefaultEditCount int
+	// DefaultIsDeleted holds the default value on creation for the "is_deleted" field.
+	DefaultIsDeleted bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -106,10 +137,54 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
+// ByEditedAt orders the results by the edited_at field.
+func ByEditedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEditedAt, opts...).ToFunc()
+}
+
+// ByEditCount orders the results by the edit_count field.
+func ByEditCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEditCount, opts...).ToFunc()
+}
+
+// ByLastEditedBy orders the results by the last_edited_by field.
+func ByLastEditedBy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastEditedBy, opts...).ToFunc()
+}
+
+// ByIsDeleted orders the results by the is_deleted field.
+func ByIsDeleted(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsDeleted, opts...).ToFunc()
+}
+
+// ByDeletedAt orders the results by the deleted_at field.
+func ByDeletedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeletedAt, opts...).ToFunc()
+}
+
+// ByDeletedBy orders the results by the deleted_by field.
+func ByDeletedBy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeletedBy, opts...).ToFunc()
+}
+
 // ByTicketField orders the results by ticket field.
 func ByTicketField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newTicketStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByRevisionsCount orders the results by revisions count.
+func ByRevisionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRevisionsStep(), opts...)
+	}
+}
+
+// ByRevisions orders the results by revisions terms.
+func ByRevisions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRevisionsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 func newTicketStep() *sqlgraph.Step {
@@ -117,5 +192,12 @@ func newTicketStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TicketInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, TicketTable, TicketColumn),
+	)
+}
+func newRevisionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RevisionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RevisionsTable, RevisionsColumn),
 	)
 }

@@ -213,6 +213,18 @@ func (f TicketCommentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TicketCommentMutation", m)
 }
 
+// The TicketCommentRevisionFunc type is an adapter to allow the use of ordinary
+// function as TicketCommentRevision mutator.
+type TicketCommentRevisionFunc func(context.Context, *ent.TicketCommentRevisionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TicketCommentRevisionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.TicketCommentRevisionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TicketCommentRevisionMutation", m)
+}
+
 // The TicketDependencyFunc type is an adapter to allow the use of ordinary
 // function as TicketDependency mutator.
 type TicketDependencyFunc func(context.Context, *ent.TicketDependencyMutation) (ent.Value, error)
