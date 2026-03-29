@@ -731,7 +731,7 @@ func buildTicketTimeline(
 
 func buildTicketDescriptionTimelineItem(item ticketservice.Ticket) ticketTimelineItemResponse {
 	actor := parseStoredActor(item.CreatedBy)
-	title := fmt.Sprintf("%s opened this ticket", actor.Name)
+	title := item.Title
 	bodyMarkdown := item.Description
 	metadata := map[string]any{
 		"identifier": item.Identifier,
@@ -841,7 +841,7 @@ type storedActor struct {
 func parseStoredActor(raw string) storedActor {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return storedActor{Name: "api", Type: "user", ID: "api"}
+		return storedActor{Name: "api", Type: "system", ID: "api"}
 	}
 
 	prefix, suffix, ok := strings.Cut(trimmed, ":")
@@ -849,17 +849,25 @@ func parseStoredActor(raw string) storedActor {
 		return storedActor{Name: trimmed, Type: "user", ID: trimmed}
 	}
 
-	actorType := prefix
-	switch prefix {
-	case "user", "agent", "system_proxy":
-	default:
-		actorType = "user"
-	}
+	actorType := normalizeTimelineActorType(prefix)
 
 	return storedActor{
 		Name: suffix,
 		Type: actorType,
 		ID:   suffix,
+	}
+}
+
+func normalizeTimelineActorType(raw string) string {
+	switch strings.TrimSpace(raw) {
+	case "agent":
+		return "agent"
+	case "system", "system_proxy":
+		return "system"
+	case "user":
+		return "user"
+	default:
+		return "user"
 	}
 }
 
