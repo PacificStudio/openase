@@ -235,13 +235,15 @@ jobs:
           set -euo pipefail
 
           heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
+          heartbeat_interval_seconds=15
 
           heartbeat() {
             while true; do
               now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
               printf '%s\n' "${now}" > "${heartbeat_file}"
               printf '[backend-heartbeat] %s make check still running\n' "${now}"
-              sleep 60
+              # Long plain `go test` groups can stay quiet long enough to trip runner watchdogs.
+              sleep "${heartbeat_interval_seconds}"
             done
           }
 
