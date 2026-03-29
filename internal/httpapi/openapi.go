@@ -390,6 +390,18 @@ type OpenAPIWorkflow struct {
 	FinishStatusIDs     []string       `json:"finish_status_ids"`
 }
 
+type OpenAPIWorkflowRepositoryPrerequisite struct {
+	Kind            string  `json:"kind"`
+	RepoCount       int     `json:"repo_count"`
+	PrimaryRepoID   *string `json:"primary_repo_id,omitempty"`
+	PrimaryRepoName string  `json:"primary_repo_name,omitempty"`
+	MirrorCount     int     `json:"mirror_count"`
+	MirrorState     *string `json:"mirror_state,omitempty"`
+	MirrorMachineID *string `json:"mirror_machine_id,omitempty"`
+	MirrorLastError *string `json:"mirror_last_error,omitempty"`
+	Action          string  `json:"action"`
+}
+
 type OpenAPIHarnessDocument struct {
 	WorkflowID string `json:"workflow_id"`
 	Path       string `json:"path"`
@@ -715,6 +727,10 @@ type OpenAPIWorkflowsResponse struct {
 
 type OpenAPIWorkflowResponse struct {
 	Workflow OpenAPIWorkflow `json:"workflow"`
+}
+
+type OpenAPIWorkflowRepositoryPrerequisiteResponse struct {
+	Prerequisite OpenAPIWorkflowRepositoryPrerequisite `json:"prerequisite"`
 }
 
 type OpenAPIScheduledJobsResponse struct {
@@ -1957,6 +1973,23 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	workflowsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/workflows", http.MethodGet, workflowsGet)
+
+	workflowPrerequisiteGet, err := b.jsonOperation(
+		"getWorkflowRepositoryPrerequisite",
+		"Get workflow repository prerequisite",
+		[]string{"workflow"},
+		http.StatusOK,
+		OpenAPIWorkflowRepositoryPrerequisiteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	workflowPrerequisiteGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/workflows/prerequisite", http.MethodGet, workflowPrerequisiteGet)
 
 	workflowsPost, err := b.jsonOperation(
 		"createWorkflow",

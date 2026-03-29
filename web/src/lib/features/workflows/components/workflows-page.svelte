@@ -18,11 +18,8 @@
     WorkflowSummary,
   } from '../types'
   import { type SkillState, toHarnessContent } from '../model'
-  import {
-    loadWorkflowPageData,
-    loadWorkflowHarness,
-    type WorkflowRepositoryPrerequisite,
-  } from '../data'
+  import { loadWorkflowPageData, loadWorkflowHarness } from '../data'
+  import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import WorkflowsPageBody from './workflows-page-body.svelte'
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
   let showDetail = $state(true)

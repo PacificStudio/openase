@@ -349,6 +349,180 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 }
 
+func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.T) {
+	client := openTestEntClient(t)
+	serviceRepoRoot := createTestGitRepo(t)
+	primaryRepoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+
+	projectWithoutRepo, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Repo Less").
+		SetSlug("repo-less").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create projectWithoutRepo: %v", err)
+	}
+	projectWithoutMirror, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Mirror Pending").
+		SetSlug("mirror-pending").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create projectWithoutMirror: %v", err)
+	}
+	projectReady, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Ready Project").
+		SetSlug("ready-project").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create projectReady: %v", err)
+	}
+
+	createPrimaryProjectRepo(ctx, t, client, projectWithoutMirror.ID, createTestGitRepo(t))
+	createPrimaryProjectRepoWithMirror(ctx, t, client, projectReady.ID, localMachine.ID, primaryRepoRoot)
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectWithoutMirror.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses for projectWithoutMirror: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(projectWithoutMirror.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	missingResp := workflowRepositoryPrerequisiteResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/workflows/prerequisite", projectWithoutRepo.ID),
+		nil,
+		http.StatusOK,
+		&missingResp,
+	)
+	if missingResp.Prerequisite.Kind != "missing_primary_repo" || missingResp.Prerequisite.Action != "bind_primary_repo" {
+		t.Fatalf("missing prerequisite = %+v", missingResp.Prerequisite)
+	}
+
+	pendingResp := workflowRepositoryPrerequisiteResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/workflows/prerequisite", projectWithoutMirror.ID),
+		nil,
+		http.StatusOK,
+		&pendingResp,
+	)
+	if pendingResp.Prerequisite.Kind != "primary_mirror_not_ready" ||
+		pendingResp.Prerequisite.PrimaryRepoID == nil ||
+		pendingResp.Prerequisite.MirrorState == nil ||
+		*pendingResp.Prerequisite.MirrorState != "missing" ||
+		pendingResp.Prerequisite.Action != "prepare_primary_mirror" {
+		t.Fatalf("pending prerequisite = %+v", pendingResp.Prerequisite)
+	}
+
+	readyResp := workflowRepositoryPrerequisiteResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/workflows/prerequisite", projectReady.ID),
+		nil,
+		http.StatusOK,
+		&readyResp,
+	)
+	if readyResp.Prerequisite.Kind != "ready" || readyResp.Prerequisite.MirrorState == nil || *readyResp.Prerequisite.MirrorState != "ready" {
+		t.Fatalf("ready prerequisite = %+v", readyResp.Prerequisite)
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", projectWithoutMirror.ID),
+		fmt.Sprintf(`{"agent_id":"%s","name":"Coding Workflow","type":"coding","pickup_status_ids":["%s"],"finish_status_ids":["%s"],"harness_content":"---\nworkflow:\n  role: coding\n---\n\n# Coding\n"}`, agent.ID, todoID, doneID),
+	)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("create workflow without ready mirror status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var errorPayload struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+		Details struct {
+			Prerequisite workflowRepositoryPrerequisite `json:"prerequisite"`
+		} `json:"details"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &errorPayload); err != nil {
+		t.Fatalf("decode mirror readiness error: %v", err)
+	}
+	if errorPayload.Code != "PRIMARY_MIRROR_NOT_READY" ||
+		errorPayload.Details.Prerequisite.Kind != "primary_mirror_not_ready" ||
+		errorPayload.Details.Prerequisite.Action != "prepare_primary_mirror" {
+		t.Fatalf("mirror readiness error payload = %+v", errorPayload)
+	}
+}
+
 func TestValidateHarnessRoute(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},

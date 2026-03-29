@@ -1,10 +1,10 @@
 import {
   createWorkflow,
+  getWorkflowRepositoryPrerequisite,
   getWorkflowHarness,
   listAgents,
   listHarnessVariables,
   listBuiltinRoles,
-  listProjectRepos,
   listProviders,
   listSkills,
   listStatuses,
@@ -12,24 +12,14 @@ import {
 } from '$lib/api/openase'
 import { defaultHarnessTemplate, normalizeWorkflowType, toHarnessContent } from './model'
 import type { SkillState } from './model'
+import { mapWorkflowRepositoryPrerequisite } from './repository-prerequisite'
+import type { WorkflowRepositoryPrerequisite } from './repository-prerequisite'
 import type {
   HarnessVariableGroup,
   WorkflowAgentOption,
   WorkflowStatusOption,
   WorkflowSummary,
 } from './types'
-
-export type WorkflowRepositoryPrerequisite =
-  | {
-      kind: 'ready'
-      primaryRepoId: string
-      primaryRepoName: string
-      repoCount: number
-    }
-  | {
-      kind: 'missing_primary_repo'
-      repoCount: number
-    }
 
 export function mapWorkflowSummary(
   workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
@@ -100,42 +90,7 @@ export function mapStatusOptions(
 export async function loadWorkflowRepositoryPrerequisite(
   projectId: string,
 ): Promise<WorkflowRepositoryPrerequisite> {
-  const payload = await listProjectRepos(projectId)
-  const primaryRepo = payload.repos.find((repo) => repo.is_primary)
-
-  if (!primaryRepo) {
-    return {
-      kind: 'missing_primary_repo',
-      repoCount: payload.repos.length,
-    }
-  }
-
-  return {
-    kind: 'ready',
-    primaryRepoId: primaryRepo.id,
-    primaryRepoName: primaryRepo.name,
-    repoCount: payload.repos.length,
-  }
-}
-
-export function mapWorkflowRepositoryPrerequisiteFromRepos(
-  repos: Array<{ id: string; name: string; is_primary: boolean }>,
-): WorkflowRepositoryPrerequisite {
-  const primaryRepo = repos.find((repo) => repo.is_primary)
-
-  if (!primaryRepo) {
-    return {
-      kind: 'missing_primary_repo',
-      repoCount: repos.length,
-    }
-  }
-
-  return {
-    kind: 'ready',
-    primaryRepoId: primaryRepo.id,
-    primaryRepoName: primaryRepo.name,
-    repoCount: repos.length,
-  }
+  return mapWorkflowRepositoryPrerequisite(await getWorkflowRepositoryPrerequisite(projectId))
 }
 
 export async function loadWorkflowCatalog(projectId: string, orgId: string) {

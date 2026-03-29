@@ -8,5 +8,5 @@ export {
   mapStatusOptions,
   mapWorkflowSummary,
 } from './data'
-export type { WorkflowRepositoryPrerequisite } from './data'
+export type { WorkflowRepositoryPrerequisite } from './repository-prerequisite'
 export type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from './types'

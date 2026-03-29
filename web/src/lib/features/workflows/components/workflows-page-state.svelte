@@ -1,16 +1,15 @@
 <script lang="ts">
+  import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import WorkflowRepositoryPrerequisiteCard from './workflow-repository-prerequisite-card.svelte'
 
   let {
     loading = false,
-    missingPrimaryRepo = false,
-    repoCount = 0,
+    prerequisite = null,
     settingsHref = null,
     loadError = '',
   }: {
     loading?: boolean
-    missingPrimaryRepo?: boolean
-    repoCount?: number
+    prerequisite?: WorkflowRepositoryPrerequisite | null
     settingsHref?: string | null
     loadError?: string
   } = $props()
@@ -20,9 +19,9 @@
   <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
     Loading workflows…
   </div>
-{:else if missingPrimaryRepo}
+{:else if prerequisite && prerequisite.kind !== 'ready'}
   <div class="flex flex-1 p-4">
-    <WorkflowRepositoryPrerequisiteCard {repoCount} {settingsHref} />
+    <WorkflowRepositoryPrerequisiteCard {prerequisite} {settingsHref} />
   </div>
 {:else if loadError}
   <div

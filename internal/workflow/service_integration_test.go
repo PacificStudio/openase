@@ -22,6 +22,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/fsnotify/fsnotify"
@@ -421,6 +422,57 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		t.Fatal("ResolveReadyMirrorRepoRoot(https) expected error")
 	}
 
+	readyPrerequisite, err := service.GetRepositoryPrerequisite(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("GetRepositoryPrerequisite() ready error = %v", err)
+	}
+	if !readyPrerequisite.Ready() || readyPrerequisite.PrimaryRepoID == nil || readyPrerequisite.MirrorState == nil || *readyPrerequisite.MirrorState != catalogdomain.ProjectRepoMirrorStateReady {
+		t.Fatalf("GetRepositoryPrerequisite() ready = %+v", readyPrerequisite)
+	}
+
+	missingPrerequisite, err := service.GetRepositoryPrerequisite(ctx, fixture.projectWithoutRepoID)
+	if err != nil {
+		t.Fatalf("GetRepositoryPrerequisite() missing repo error = %v", err)
+	}
+	if missingPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindMissingPrimaryRepo || missingPrerequisite.Action != WorkflowRepositoryPrerequisiteActionBindPrimaryRepo {
+		t.Fatalf("GetRepositoryPrerequisite() missing repo = %+v", missingPrerequisite)
+	}
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project for no-mirror fixture: %v", err)
+	}
+	projectWithoutMirror, err := client.Project.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("Mirror Pending").
+		SetSlug("mirror-pending").
+		SetStatus("In Progress").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create projectWithoutMirror: %v", err)
+	}
+	if _, err := client.ProjectRepo.Create().
+		SetProjectID(projectWithoutMirror.ID).
+		SetName("pending-repo").
+		SetRepositoryURL("https://github.com/acme/pending.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("pending-repo").
+		SetIsPrimary(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create primary repo without mirror: %v", err)
+	}
+
+	notReadyPrerequisite, err := service.GetRepositoryPrerequisite(ctx, projectWithoutMirror.ID)
+	if err != nil {
+		t.Fatalf("GetRepositoryPrerequisite() mirror pending error = %v", err)
+	}
+	if notReadyPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindPrimaryMirrorNotReady ||
+		notReadyPrerequisite.MirrorState == nil ||
+		*notReadyPrerequisite.MirrorState != catalogdomain.ProjectRepoMirrorStateMissing ||
+		notReadyPrerequisite.Action != WorkflowRepositoryPrerequisiteActionPrepareMirror {
+		t.Fatalf("GetRepositoryPrerequisite() mirror pending = %+v", notReadyPrerequisite)
+	}
+
 	if _, err := service.List(ctx, uuid.New()); !errors.Is(err, ErrProjectNotFound) {
 		t.Fatalf("List() missing project error = %v, want %v", err, ErrProjectNotFound)
 	}
@@ -449,8 +501,11 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		t.Fatalf("UpdateHarness() invalid content error = %v, want %v", err, ErrHarnessInvalid)
 	}
 
-	if _, err := service.storageForProject(ctx, fixture.projectWithoutRepoID); !errors.Is(err, ErrPrimaryRepoUnavailable) {
-		t.Fatalf("storageForProject() missing repo error = %v, want %v", err, ErrPrimaryRepoUnavailable)
+	if _, err := service.storageForProject(ctx, fixture.projectWithoutRepoID); !errors.Is(err, ErrPrimaryRepoRequired) {
+		t.Fatalf("storageForProject() missing repo error = %v, want %v", err, ErrPrimaryRepoRequired)
+	}
+	if _, err := service.storageForProject(ctx, projectWithoutMirror.ID); !errors.Is(err, ErrPrimaryMirrorNotReady) {
+		t.Fatalf("storageForProject() mirror pending error = %v, want %v", err, ErrPrimaryMirrorNotReady)
 	}
 
 	if _, err := service.Create(ctx, CreateInput{
