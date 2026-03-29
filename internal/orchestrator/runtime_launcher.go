@@ -261,10 +261,7 @@ func (l *RuntimeLauncher) startLaunch(ctx context.Context, assignment runtimeAss
 func (l *RuntimeLauncher) runLaunch(ctx context.Context, assignment runtimeAssignment) {
 	defer l.finishLaunch(assignment.run.ID)
 
-	launchCtx, cancel := l.launchContext(ctx, l.launchTimeout)
-	defer cancel()
-
-	err := l.launchAgent(launchCtx, assignment)
+	err := l.launchAgent(ctx, assignment)
 	if err == nil {
 		return
 	}
@@ -318,7 +315,7 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		now,
 	)
 
-	session, launchErr := l.startCodexSession(ctx, assignment)
+	session, launchErr := l.startCodexSessionWithTimeout(ctx, assignment)
 	if launchErr != nil {
 		return launchErr
 	}
@@ -370,6 +367,48 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 	)
 
 	return nil
+}
+
+func (l *RuntimeLauncher) startCodexSessionWithTimeout(ctx context.Context, assignment runtimeAssignment) (*codex.Session, error) {
+	timeout := l.launchTimeout
+	if timeout <= 0 {
+		return l.startCodexSession(ctx, assignment)
+	}
+
+	launchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	type launchResult struct {
+		session *codex.Session
+		err     error
+	}
+
+	resultCh := make(chan launchResult)
+	//nolint:gosec // launch timeout cleanup needs a detached stop context to reclaim late sessions safely.
+	go func() {
+		session, err := l.startCodexSession(launchCtx, assignment)
+		select {
+		case resultCh <- launchResult{session: session, err: err}:
+		case <-launchCtx.Done():
+			stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			defer stopCancel()
+			stopSession(stopCtx, session)
+		}
+	}()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case result := <-resultCh:
+		return result.session, result.err
+	case <-timer.C:
+		cancel()
+		return nil, fmt.Errorf("start codex session timed out after %s", timeout)
+	case <-ctx.Done():
+		cancel()
+		return nil, ctx.Err()
+	}
 }
 
 func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUID, ticketID uuid.UUID, runID uuid.UUID, launchErr error) error {

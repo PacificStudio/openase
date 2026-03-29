@@ -605,6 +605,20 @@ Launch starvation regression test.
 	}
 	runOne := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketOne.ID, entagentrun.StatusLaunching, time.Time{})
 	runTwo := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketTwo.ID, entagentrun.StatusLaunching, time.Time{})
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetWorkspaceRoot("/srv/openase/workspaces").
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine workspace root: %v", err)
+	}
 
 	baseManager := &runtimeFakeProcessManager{}
 	manager := newRuntimeSequencedProcessManager(baseManager)
@@ -641,6 +655,118 @@ Launch starvation regression test.
 			runOneAfter.Status == entagentrun.StatusReady &&
 			runTwoAfter.Status == entagentrun.StatusReady
 	})
+}
+
+func TestRuntimeLauncherRunTickLaunchTimeoutMarksRunErrored(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Blocked launch should time out cleanly.
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-330C").
+		SetTitle("Time out blocked launch").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-timeout-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetWorkspaceRoot("/srv/openase/workspaces").
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine workspace root: %v", err)
+	}
+
+	manager := &runtimeBlockingStartProcessManager{
+		releaseFirstStart: make(chan struct{}),
+		firstStartSeen:    make(chan struct{}, 1),
+		laterStartSeen:    make(chan struct{}, 1),
+	}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	launcher.launchTimeout = 50 * time.Millisecond
+	t.Cleanup(func() {
+		manager.release()
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run after launch timeout, got %+v", runAfter)
+	}
+	if !strings.Contains(runAfter.LastError, "timed out after 50ms") {
+		t.Fatalf("expected launch timeout in last error, got %q", runAfter.LastError)
+	}
 }
 
 func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing.T) {
@@ -2354,6 +2480,47 @@ func (m *runtimeSequencedProcessManager) SecondStarted() <-chan struct{} {
 	return m.secondStarted
 }
 
+type runtimeBlockingStartProcessManager struct {
+	runtimeFakeProcessManager
+	startMu           sync.Mutex
+	startCount        int
+	releaseFirstStart chan struct{}
+	firstStartSeen    chan struct{}
+	laterStartSeen    chan struct{}
+	releaseOnce       sync.Once
+}
+
+func (m *runtimeBlockingStartProcessManager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
+	m.startMu.Lock()
+	m.startCount++
+	startCount := m.startCount
+	m.startMu.Unlock()
+
+	if startCount == 1 {
+		signalRuntimeStart(m.firstStartSeen)
+		<-m.releaseFirstStart
+	} else {
+		signalRuntimeStart(m.laterStartSeen)
+	}
+
+	return m.runtimeFakeProcessManager.Start(ctx, spec)
+}
+
+func (m *runtimeBlockingStartProcessManager) release() {
+	m.releaseOnce.Do(func() {
+		close(m.releaseFirstStart)
+	})
+}
+
+func signalRuntimeStart(ch chan struct{}) {
+	if ch == nil {
+		return
+	}
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
+}
 func (m *runtimeFakeProcessManager) Start(_ context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
 	process := newRuntimeFakeProcess()
 	if m != nil {
