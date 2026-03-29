@@ -5,6 +5,12 @@
   import * as Dialog from '$ui/dialog'
   import { cn } from '$lib/utils'
   import { Pencil, Trash2 } from '@lucide/svelte'
+  import {
+    formatMirrorTimestamp,
+    projectRepoMirrorProjection,
+    repositoryMirrorStateLabel,
+    repositoryMirrorToneClasses,
+  } from '../repositories-readiness'
 
   let {
     repo,
@@ -21,6 +27,7 @@
   } = $props()
 
   let confirmDeleteOpen = $state(false)
+  const mirror = $derived(projectRepoMirrorProjection(repo))
 </script>
 
 <article
@@ -44,6 +51,11 @@
             {#if repo.is_primary}
               <Badge variant="secondary">Primary</Badge>
             {/if}
+            <span
+              class={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${repositoryMirrorToneClasses(mirror.mirrorState)}`}
+            >
+              {repositoryMirrorStateLabel(mirror.mirrorState)}
+            </span>
           </div>
           <p class="text-muted-foreground mt-1 truncate text-sm">{repo.repository_url}</p>
         </div>
@@ -52,9 +64,25 @@
 
       <div class="text-muted-foreground mt-4 flex flex-wrap items-center gap-3 text-xs">
         <span>
+          Mirrors:
+          <span class="text-foreground">{mirror.mirrorCount}</span>
+        </span>
+        <span>
           Workspace dirname:
           <span class="text-foreground">{repo.workspace_dirname || repo.name}</span>
         </span>
+        {#if mirror.mirrorMachineId}
+          <span>
+            Target machine:
+            <span class="text-foreground">{mirror.mirrorMachineId}</span>
+          </span>
+        {/if}
+        {#if formatMirrorTimestamp(mirror.lastSyncedAt)}
+          <span>
+            Last synced:
+            <span class="text-foreground">{formatMirrorTimestamp(mirror.lastSyncedAt)}</span>
+          </span>
+        {/if}
 
         {#if repo.labels.length === 0}
           <span>No labels</span>
@@ -66,6 +94,15 @@
           </div>
         {/if}
       </div>
+
+      {#if mirror.lastError}
+        <div
+          class="border-destructive/20 bg-destructive/5 mt-3 rounded-xl border px-3 py-2 text-xs"
+        >
+          <p class="text-foreground font-medium">Last mirror error</p>
+          <p class="text-muted-foreground mt-1 break-words">{mirror.lastError}</p>
+        </div>
+      {/if}
     </button>
 
     <div class="flex flex-wrap items-center justify-end gap-2 xl:flex-col xl:items-stretch">

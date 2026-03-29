@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -72,6 +74,12 @@ type projectRepoResponse struct {
 	WorkspaceDirname string   `json:"workspace_dirname"`
 	IsPrimary        bool     `json:"is_primary"`
 	Labels           []string `json:"labels"`
+	MirrorCount      *int     `json:"mirror_count,omitempty"`
+	MirrorState      *string  `json:"mirror_state,omitempty"`
+	MirrorMachineID  *string  `json:"mirror_machine_id,omitempty"`
+	LastSyncedAt     *string  `json:"last_synced_at,omitempty"`
+	LastVerifiedAt   *string  `json:"last_verified_at,omitempty"`
+	LastError        *string  `json:"last_error,omitempty"`
 }
 
 type projectRepoMirrorResponse struct {
@@ -641,8 +649,13 @@ func (s *Server) listProjectRepos(c echo.Context) error {
 		return writeCatalogError(c, err)
 	}
 
+	response, err := s.mapProjectRepoResponsesWithMirrorSummary(c.Request().Context(), items)
+	if err != nil {
+		return writeProjectRepoMirrorError(c, err)
+	}
+
 	return c.JSON(http.StatusOK, map[string]any{
-		"repos": mapProjectRepoResponses(items),
+		"repos": response,
 	})
 }
 
@@ -1109,13 +1122,13 @@ func mapMachineProbeResponse(item domain.MachineProbe) machineProbeResponse {
 func mapProjectRepoResponses(items []domain.ProjectRepo) []projectRepoResponse {
 	response := make([]projectRepoResponse, 0, len(items))
 	for _, item := range items {
-		response = append(response, mapProjectRepoResponse(item))
+		response = append(response, baseProjectRepoResponse(item))
 	}
 
 	return response
 }
 
-func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
+func baseProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 	return projectRepoResponse{
 		ID:               item.ID.String(),
 		ProjectID:        item.ProjectID.String(),
@@ -1126,6 +1139,164 @@ func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 		IsPrimary:        item.IsPrimary,
 		Labels:           cloneStringSlice(item.Labels),
 	}
+}
+
+func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
+	return baseProjectRepoResponse(item)
+}
+
+type projectRepoMirrorSummary struct {
+	MirrorCount    *int
+	MirrorState    *string
+	MirrorMachine  *string
+	LastSyncedAt   *string
+	LastVerifiedAt *string
+	LastError      *string
+}
+
+func (s *Server) mapProjectRepoResponsesWithMirrorSummary(ctx context.Context, items []domain.ProjectRepo) ([]projectRepoResponse, error) {
+	response := make([]projectRepoResponse, 0, len(items))
+	for _, item := range items {
+		mapped, err := s.mapProjectRepoResponseWithMirrorSummary(ctx, item)
+		if err != nil {
+			return nil, err
+		}
+		response = append(response, mapped)
+	}
+
+	return response, nil
+}
+
+func (s *Server) mapProjectRepoResponseWithMirrorSummary(ctx context.Context, item domain.ProjectRepo) (projectRepoResponse, error) {
+	response := baseProjectRepoResponse(item)
+	if s.projectRepoMirrors == nil {
+		return response, nil
+	}
+
+	summary, err := s.summarizeProjectRepoMirror(ctx, item)
+	if err != nil {
+		return projectRepoResponse{}, err
+	}
+	response.MirrorCount = summary.MirrorCount
+	response.MirrorState = summary.MirrorState
+	response.MirrorMachineID = summary.MirrorMachine
+	response.LastSyncedAt = summary.LastSyncedAt
+	response.LastVerifiedAt = summary.LastVerifiedAt
+	response.LastError = summary.LastError
+	return response, nil
+}
+
+func (s *Server) summarizeProjectRepoMirror(ctx context.Context, item domain.ProjectRepo) (projectRepoMirrorSummary, error) {
+	summary := projectRepoMirrorSummary{}
+	if s.projectRepoMirrors == nil {
+		return summary, nil
+	}
+
+	mirrors, err := s.projectRepoMirrors.List(ctx, projectrepomirrorsvc.ListFilter{
+		ProjectID:     item.ProjectID,
+		ProjectRepoID: item.ID,
+	})
+	if err != nil {
+		if errors.Is(err, projectrepomirrorsvc.ErrNotFound) {
+			return summary, nil
+		}
+		return projectRepoMirrorSummary{}, err
+	}
+
+	summary.MirrorCount = intPointer(len(mirrors))
+	selected := selectRepresentativeProjectRepoMirror(mirrors)
+	if selected == nil {
+		missing := domain.ProjectRepoMirrorStateMissing.String()
+		summary.MirrorState = &missing
+		return summary, nil
+	}
+
+	state := selected.State.String()
+	summary.MirrorState = &state
+	summary.LastSyncedAt = timeStringPointer(selected.LastSyncedAt)
+	summary.LastVerifiedAt = timeStringPointer(selected.LastVerifiedAt)
+	summary.LastError = cloneStringPointerValue(selected.LastError)
+
+	machineID := selected.MachineID.String()
+	summary.MirrorMachine = &machineID
+
+	return summary, nil
+}
+
+func selectRepresentativeProjectRepoMirror(mirrors []domain.ProjectRepoMirror) *domain.ProjectRepoMirror {
+	if len(mirrors) == 0 {
+		return nil
+	}
+
+	readyMirrors := make([]domain.ProjectRepoMirror, 0, len(mirrors))
+	for _, mirror := range mirrors {
+		if mirror.State == domain.ProjectRepoMirrorStateReady {
+			readyMirrors = append(readyMirrors, mirror)
+		}
+	}
+
+	ordered := append([]domain.ProjectRepoMirror(nil), mirrors...)
+	if len(readyMirrors) > 0 {
+		ordered = readyMirrors
+		slices.SortStableFunc(ordered, compareProjectRepoMirrorRecency)
+		return &ordered[0]
+	}
+
+	slices.SortStableFunc(ordered, compareProjectRepoMirrorSummaryPriority)
+	return &ordered[0]
+}
+
+func compareProjectRepoMirrorSummaryPriority(left domain.ProjectRepoMirror, right domain.ProjectRepoMirror) int {
+	leftPriority := projectRepoMirrorSummaryPriority(left.State)
+	rightPriority := projectRepoMirrorSummaryPriority(right.State)
+	switch {
+	case leftPriority < rightPriority:
+		return -1
+	case leftPriority > rightPriority:
+		return 1
+	default:
+		return compareProjectRepoMirrorRecency(left, right)
+	}
+}
+
+func projectRepoMirrorSummaryPriority(state domain.ProjectRepoMirrorState) int {
+	switch state {
+	case domain.ProjectRepoMirrorStateError, domain.ProjectRepoMirrorStateStale:
+		return 0
+	case domain.ProjectRepoMirrorStateSyncing, domain.ProjectRepoMirrorStateProvisioning:
+		return 1
+	case domain.ProjectRepoMirrorStateDeleting:
+		return 2
+	case domain.ProjectRepoMirrorStateMissing:
+		return 3
+	case domain.ProjectRepoMirrorStateReady:
+		return 4
+	default:
+		return 5
+	}
+}
+
+func compareProjectRepoMirrorRecency(left domain.ProjectRepoMirror, right domain.ProjectRepoMirror) int {
+	leftTime := projectRepoMirrorSummaryTime(left)
+	rightTime := projectRepoMirrorSummaryTime(right)
+	switch {
+	case leftTime.After(rightTime):
+		return -1
+	case leftTime.Before(rightTime):
+		return 1
+	default:
+		return strings.Compare(left.MachineID.String(), right.MachineID.String())
+	}
+}
+
+func projectRepoMirrorSummaryTime(mirror domain.ProjectRepoMirror) time.Time {
+	if mirror.LastVerifiedAt != nil {
+		return mirror.LastVerifiedAt.UTC()
+	}
+	if mirror.LastSyncedAt != nil {
+		return mirror.LastSyncedAt.UTC()
+	}
+	return mirror.UpdatedAt.UTC()
 }
 
 func mapProjectRepoMirrorResponses(items []domain.ProjectRepoMirror) []projectRepoMirrorResponse {
