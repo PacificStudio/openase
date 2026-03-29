@@ -704,7 +704,8 @@ func buildTicketTimeline(
 	comments []ticketservice.Comment,
 	activity []domain.ActivityEvent,
 ) []ticketTimelineItemResponse {
-	timeline := []ticketTimelineItemResponse{buildTicketDescriptionTimelineItem(item)}
+	timeline := make([]ticketTimelineItemResponse, 0, 1+len(comments)+len(activity))
+	timeline = append(timeline, buildTicketDescriptionTimelineItem(item))
 	for _, comment := range comments {
 		timeline = append(timeline, buildTicketCommentTimelineItem(comment))
 	}
