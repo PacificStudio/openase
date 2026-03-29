@@ -18,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -305,6 +306,10 @@ func init() {
 	projectrepoDescDefaultBranch := projectrepoFields[4].Descriptor()
 	// projectrepo.DefaultDefaultBranch holds the default value on creation for the default_branch field.
 	projectrepo.DefaultDefaultBranch = projectrepoDescDefaultBranch.Default.(string)
+	// projectrepoDescWorkspaceDirname is the schema descriptor for workspace_dirname field.
+	projectrepoDescWorkspaceDirname := projectrepoFields[5].Descriptor()
+	// projectrepo.DefaultWorkspaceDirname holds the default value on creation for the workspace_dirname field.
+	projectrepo.DefaultWorkspaceDirname = projectrepoDescWorkspaceDirname.Default.(string)
 	// projectrepoDescIsPrimary is the schema descriptor for is_primary field.
 	projectrepoDescIsPrimary := projectrepoFields[6].Descriptor()
 	// projectrepo.DefaultIsPrimary holds the default value on creation for the is_primary field.
@@ -313,6 +318,26 @@ func init() {
 	projectrepoDescID := projectrepoFields[0].Descriptor()
 	// projectrepo.DefaultID holds the default value on creation for the id field.
 	projectrepo.DefaultID = projectrepoDescID.Default.(func() uuid.UUID)
+	projectrepomirrorFields := schema.ProjectRepoMirror{}.Fields()
+	_ = projectrepomirrorFields
+	// projectrepomirrorDescLocalPath is the schema descriptor for local_path field.
+	projectrepomirrorDescLocalPath := projectrepomirrorFields[3].Descriptor()
+	// projectrepomirror.LocalPathValidator is a validator for the "local_path" field. It is called by the builders before save.
+	projectrepomirror.LocalPathValidator = projectrepomirrorDescLocalPath.Validators[0].(func(string) error)
+	// projectrepomirrorDescCreatedAt is the schema descriptor for created_at field.
+	projectrepomirrorDescCreatedAt := projectrepomirrorFields[9].Descriptor()
+	// projectrepomirror.DefaultCreatedAt holds the default value on creation for the created_at field.
+	projectrepomirror.DefaultCreatedAt = projectrepomirrorDescCreatedAt.Default.(func() time.Time)
+	// projectrepomirrorDescUpdatedAt is the schema descriptor for updated_at field.
+	projectrepomirrorDescUpdatedAt := projectrepomirrorFields[10].Descriptor()
+	// projectrepomirror.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	projectrepomirror.DefaultUpdatedAt = projectrepomirrorDescUpdatedAt.Default.(func() time.Time)
+	// projectrepomirror.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	projectrepomirror.UpdateDefaultUpdatedAt = projectrepomirrorDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// projectrepomirrorDescID is the schema descriptor for id field.
+	projectrepomirrorDescID := projectrepomirrorFields[0].Descriptor()
+	// projectrepomirror.DefaultID holds the default value on creation for the id field.
+	projectrepomirror.DefaultID = projectrepomirrorDescID.Default.(func() uuid.UUID)
 	scheduledjobFields := schema.ScheduledJob{}.Fields()
 	_ = scheduledjobFields
 	// scheduledjobDescName is the schema descriptor for name field.

@@ -25,6 +25,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
@@ -61,6 +62,7 @@ const (
 	TypeOrganization        = "Organization"
 	TypeProject             = "Project"
 	TypeProjectRepo         = "ProjectRepo"
+	TypeProjectRepoMirror   = "ProjectRepoMirror"
 	TypeScheduledJob        = "ScheduledJob"
 	TypeTicket              = "Ticket"
 	TypeTicketComment       = "TicketComment"
@@ -8208,35 +8210,38 @@ func (m *AgentTraceEventMutation) ResetEdge(name string) error {
 // MachineMutation represents an operation that mutates the Machine nodes in the graph.
 type MachineMutation struct {
 	config
-	op                    Op
-	typ                   string
-	id                    *uuid.UUID
-	name                  *string
-	host                  *string
-	port                  *int
-	addport               *int
-	ssh_user              *string
-	ssh_key_path          *string
-	description           *string
-	labels                *pgarray.StringArray
-	status                *machine.Status
-	workspace_root        *string
-	agent_cli_path        *string
-	env_vars              *pgarray.StringArray
-	last_heartbeat_at     *time.Time
-	resources             *map[string]interface{}
-	clearedFields         map[string]struct{}
-	organization          *uuid.UUID
-	clearedorganization   bool
-	providers             map[uuid.UUID]struct{}
-	removedproviders      map[uuid.UUID]struct{}
-	clearedproviders      bool
-	target_tickets        map[uuid.UUID]struct{}
-	removedtarget_tickets map[uuid.UUID]struct{}
-	clearedtarget_tickets bool
-	done                  bool
-	oldValue              func(context.Context) (*Machine, error)
-	predicates            []predicate.Machine
+	op                          Op
+	typ                         string
+	id                          *uuid.UUID
+	name                        *string
+	host                        *string
+	port                        *int
+	addport                     *int
+	ssh_user                    *string
+	ssh_key_path                *string
+	description                 *string
+	labels                      *pgarray.StringArray
+	status                      *machine.Status
+	workspace_root              *string
+	agent_cli_path              *string
+	env_vars                    *pgarray.StringArray
+	last_heartbeat_at           *time.Time
+	resources                   *map[string]interface{}
+	clearedFields               map[string]struct{}
+	organization                *uuid.UUID
+	clearedorganization         bool
+	providers                   map[uuid.UUID]struct{}
+	removedproviders            map[uuid.UUID]struct{}
+	clearedproviders            bool
+	project_repo_mirrors        map[uuid.UUID]struct{}
+	removedproject_repo_mirrors map[uuid.UUID]struct{}
+	clearedproject_repo_mirrors bool
+	target_tickets              map[uuid.UUID]struct{}
+	removedtarget_tickets       map[uuid.UUID]struct{}
+	clearedtarget_tickets       bool
+	done                        bool
+	oldValue                    func(context.Context) (*Machine, error)
+	predicates                  []predicate.Machine
 }
 
 var _ ent.Mutation = (*MachineMutation)(nil)
@@ -9052,6 +9057,60 @@ func (m *MachineMutation) ResetProviders() {
 	m.removedproviders = nil
 }
 
+// AddProjectRepoMirrorIDs adds the "project_repo_mirrors" edge to the ProjectRepoMirror entity by ids.
+func (m *MachineMutation) AddProjectRepoMirrorIDs(ids ...uuid.UUID) {
+	if m.project_repo_mirrors == nil {
+		m.project_repo_mirrors = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.project_repo_mirrors[ids[i]] = struct{}{}
+	}
+}
+
+// ClearProjectRepoMirrors clears the "project_repo_mirrors" edge to the ProjectRepoMirror entity.
+func (m *MachineMutation) ClearProjectRepoMirrors() {
+	m.clearedproject_repo_mirrors = true
+}
+
+// ProjectRepoMirrorsCleared reports if the "project_repo_mirrors" edge to the ProjectRepoMirror entity was cleared.
+func (m *MachineMutation) ProjectRepoMirrorsCleared() bool {
+	return m.clearedproject_repo_mirrors
+}
+
+// RemoveProjectRepoMirrorIDs removes the "project_repo_mirrors" edge to the ProjectRepoMirror entity by IDs.
+func (m *MachineMutation) RemoveProjectRepoMirrorIDs(ids ...uuid.UUID) {
+	if m.removedproject_repo_mirrors == nil {
+		m.removedproject_repo_mirrors = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.project_repo_mirrors, ids[i])
+		m.removedproject_repo_mirrors[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedProjectRepoMirrors returns the removed IDs of the "project_repo_mirrors" edge to the ProjectRepoMirror entity.
+func (m *MachineMutation) RemovedProjectRepoMirrorsIDs() (ids []uuid.UUID) {
+	for id := range m.removedproject_repo_mirrors {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ProjectRepoMirrorsIDs returns the "project_repo_mirrors" edge IDs in the mutation.
+func (m *MachineMutation) ProjectRepoMirrorsIDs() (ids []uuid.UUID) {
+	for id := range m.project_repo_mirrors {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetProjectRepoMirrors resets all changes to the "project_repo_mirrors" edge.
+func (m *MachineMutation) ResetProjectRepoMirrors() {
+	m.project_repo_mirrors = nil
+	m.clearedproject_repo_mirrors = false
+	m.removedproject_repo_mirrors = nil
+}
+
 // AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by ids.
 func (m *MachineMutation) AddTargetTicketIDs(ids ...uuid.UUID) {
 	if m.target_tickets == nil {
@@ -9526,12 +9585,15 @@ func (m *MachineMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *MachineMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.organization != nil {
 		edges = append(edges, machine.EdgeOrganization)
 	}
 	if m.providers != nil {
 		edges = append(edges, machine.EdgeProviders)
+	}
+	if m.project_repo_mirrors != nil {
+		edges = append(edges, machine.EdgeProjectRepoMirrors)
 	}
 	if m.target_tickets != nil {
 		edges = append(edges, machine.EdgeTargetTickets)
@@ -9553,6 +9615,12 @@ func (m *MachineMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case machine.EdgeProjectRepoMirrors:
+		ids := make([]ent.Value, 0, len(m.project_repo_mirrors))
+		for id := range m.project_repo_mirrors {
+			ids = append(ids, id)
+		}
+		return ids
 	case machine.EdgeTargetTickets:
 		ids := make([]ent.Value, 0, len(m.target_tickets))
 		for id := range m.target_tickets {
@@ -9565,9 +9633,12 @@ func (m *MachineMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *MachineMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedproviders != nil {
 		edges = append(edges, machine.EdgeProviders)
+	}
+	if m.removedproject_repo_mirrors != nil {
+		edges = append(edges, machine.EdgeProjectRepoMirrors)
 	}
 	if m.removedtarget_tickets != nil {
 		edges = append(edges, machine.EdgeTargetTickets)
@@ -9585,6 +9656,12 @@ func (m *MachineMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case machine.EdgeProjectRepoMirrors:
+		ids := make([]ent.Value, 0, len(m.removedproject_repo_mirrors))
+		for id := range m.removedproject_repo_mirrors {
+			ids = append(ids, id)
+		}
+		return ids
 	case machine.EdgeTargetTickets:
 		ids := make([]ent.Value, 0, len(m.removedtarget_tickets))
 		for id := range m.removedtarget_tickets {
@@ -9597,12 +9674,15 @@ func (m *MachineMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *MachineMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedorganization {
 		edges = append(edges, machine.EdgeOrganization)
 	}
 	if m.clearedproviders {
 		edges = append(edges, machine.EdgeProviders)
+	}
+	if m.clearedproject_repo_mirrors {
+		edges = append(edges, machine.EdgeProjectRepoMirrors)
 	}
 	if m.clearedtarget_tickets {
 		edges = append(edges, machine.EdgeTargetTickets)
@@ -9618,6 +9698,8 @@ func (m *MachineMutation) EdgeCleared(name string) bool {
 		return m.clearedorganization
 	case machine.EdgeProviders:
 		return m.clearedproviders
+	case machine.EdgeProjectRepoMirrors:
+		return m.clearedproject_repo_mirrors
 	case machine.EdgeTargetTickets:
 		return m.clearedtarget_tickets
 	}
@@ -9644,6 +9726,9 @@ func (m *MachineMutation) ResetEdge(name string) error {
 		return nil
 	case machine.EdgeProviders:
 		m.ResetProviders()
+		return nil
+	case machine.EdgeProjectRepoMirrors:
+		m.ResetProjectRepoMirrors()
 		return nil
 	case machine.EdgeTargetTickets:
 		m.ResetTargetTickets()
@@ -14450,7 +14535,7 @@ type ProjectRepoMutation struct {
 	name                 *string
 	repository_url       *string
 	default_branch       *string
-	clone_path           *string
+	workspace_dirname    *string
 	is_primary           *bool
 	labels               *pgarray.StringArray
 	clearedFields        map[string]struct{}
@@ -14459,6 +14544,9 @@ type ProjectRepoMutation struct {
 	ticket_scopes        map[uuid.UUID]struct{}
 	removedticket_scopes map[uuid.UUID]struct{}
 	clearedticket_scopes bool
+	mirrors              map[uuid.UUID]struct{}
+	removedmirrors       map[uuid.UUID]struct{}
+	clearedmirrors       bool
 	done                 bool
 	oldValue             func(context.Context) (*ProjectRepo, error)
 	predicates           []predicate.ProjectRepo
@@ -14712,53 +14800,40 @@ func (m *ProjectRepoMutation) ResetDefaultBranch() {
 	m.default_branch = nil
 }
 
-// SetClonePath sets the "clone_path" field.
-func (m *ProjectRepoMutation) SetClonePath(s string) {
-	m.clone_path = &s
+// SetWorkspaceDirname sets the "workspace_dirname" field.
+func (m *ProjectRepoMutation) SetWorkspaceDirname(s string) {
+	m.workspace_dirname = &s
 }
 
-// ClonePath returns the value of the "clone_path" field in the mutation.
-func (m *ProjectRepoMutation) ClonePath() (r string, exists bool) {
-	v := m.clone_path
+// WorkspaceDirname returns the value of the "workspace_dirname" field in the mutation.
+func (m *ProjectRepoMutation) WorkspaceDirname() (r string, exists bool) {
+	v := m.workspace_dirname
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldClonePath returns the old "clone_path" field's value of the ProjectRepo entity.
+// OldWorkspaceDirname returns the old "workspace_dirname" field's value of the ProjectRepo entity.
 // If the ProjectRepo object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectRepoMutation) OldClonePath(ctx context.Context) (v string, err error) {
+func (m *ProjectRepoMutation) OldWorkspaceDirname(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldClonePath is only allowed on UpdateOne operations")
+		return v, errors.New("OldWorkspaceDirname is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldClonePath requires an ID field in the mutation")
+		return v, errors.New("OldWorkspaceDirname requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldClonePath: %w", err)
+		return v, fmt.Errorf("querying old value for OldWorkspaceDirname: %w", err)
 	}
-	return oldValue.ClonePath, nil
+	return oldValue.WorkspaceDirname, nil
 }
 
-// ClearClonePath clears the value of the "clone_path" field.
-func (m *ProjectRepoMutation) ClearClonePath() {
-	m.clone_path = nil
-	m.clearedFields[projectrepo.FieldClonePath] = struct{}{}
-}
-
-// ClonePathCleared returns if the "clone_path" field was cleared in this mutation.
-func (m *ProjectRepoMutation) ClonePathCleared() bool {
-	_, ok := m.clearedFields[projectrepo.FieldClonePath]
-	return ok
-}
-
-// ResetClonePath resets all changes to the "clone_path" field.
-func (m *ProjectRepoMutation) ResetClonePath() {
-	m.clone_path = nil
-	delete(m.clearedFields, projectrepo.FieldClonePath)
+// ResetWorkspaceDirname resets all changes to the "workspace_dirname" field.
+func (m *ProjectRepoMutation) ResetWorkspaceDirname() {
+	m.workspace_dirname = nil
 }
 
 // SetIsPrimary sets the "is_primary" field.
@@ -14927,6 +15002,60 @@ func (m *ProjectRepoMutation) ResetTicketScopes() {
 	m.removedticket_scopes = nil
 }
 
+// AddMirrorIDs adds the "mirrors" edge to the ProjectRepoMirror entity by ids.
+func (m *ProjectRepoMutation) AddMirrorIDs(ids ...uuid.UUID) {
+	if m.mirrors == nil {
+		m.mirrors = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.mirrors[ids[i]] = struct{}{}
+	}
+}
+
+// ClearMirrors clears the "mirrors" edge to the ProjectRepoMirror entity.
+func (m *ProjectRepoMutation) ClearMirrors() {
+	m.clearedmirrors = true
+}
+
+// MirrorsCleared reports if the "mirrors" edge to the ProjectRepoMirror entity was cleared.
+func (m *ProjectRepoMutation) MirrorsCleared() bool {
+	return m.clearedmirrors
+}
+
+// RemoveMirrorIDs removes the "mirrors" edge to the ProjectRepoMirror entity by IDs.
+func (m *ProjectRepoMutation) RemoveMirrorIDs(ids ...uuid.UUID) {
+	if m.removedmirrors == nil {
+		m.removedmirrors = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.mirrors, ids[i])
+		m.removedmirrors[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedMirrors returns the removed IDs of the "mirrors" edge to the ProjectRepoMirror entity.
+func (m *ProjectRepoMutation) RemovedMirrorsIDs() (ids []uuid.UUID) {
+	for id := range m.removedmirrors {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// MirrorsIDs returns the "mirrors" edge IDs in the mutation.
+func (m *ProjectRepoMutation) MirrorsIDs() (ids []uuid.UUID) {
+	for id := range m.mirrors {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetMirrors resets all changes to the "mirrors" edge.
+func (m *ProjectRepoMutation) ResetMirrors() {
+	m.mirrors = nil
+	m.clearedmirrors = false
+	m.removedmirrors = nil
+}
+
 // Where appends a list predicates to the ProjectRepoMutation builder.
 func (m *ProjectRepoMutation) Where(ps ...predicate.ProjectRepo) {
 	m.predicates = append(m.predicates, ps...)
@@ -14974,8 +15103,8 @@ func (m *ProjectRepoMutation) Fields() []string {
 	if m.default_branch != nil {
 		fields = append(fields, projectrepo.FieldDefaultBranch)
 	}
-	if m.clone_path != nil {
-		fields = append(fields, projectrepo.FieldClonePath)
+	if m.workspace_dirname != nil {
+		fields = append(fields, projectrepo.FieldWorkspaceDirname)
 	}
 	if m.is_primary != nil {
 		fields = append(fields, projectrepo.FieldIsPrimary)
@@ -14999,8 +15128,8 @@ func (m *ProjectRepoMutation) Field(name string) (ent.Value, bool) {
 		return m.RepositoryURL()
 	case projectrepo.FieldDefaultBranch:
 		return m.DefaultBranch()
-	case projectrepo.FieldClonePath:
-		return m.ClonePath()
+	case projectrepo.FieldWorkspaceDirname:
+		return m.WorkspaceDirname()
 	case projectrepo.FieldIsPrimary:
 		return m.IsPrimary()
 	case projectrepo.FieldLabels:
@@ -15022,8 +15151,8 @@ func (m *ProjectRepoMutation) OldField(ctx context.Context, name string) (ent.Va
 		return m.OldRepositoryURL(ctx)
 	case projectrepo.FieldDefaultBranch:
 		return m.OldDefaultBranch(ctx)
-	case projectrepo.FieldClonePath:
-		return m.OldClonePath(ctx)
+	case projectrepo.FieldWorkspaceDirname:
+		return m.OldWorkspaceDirname(ctx)
 	case projectrepo.FieldIsPrimary:
 		return m.OldIsPrimary(ctx)
 	case projectrepo.FieldLabels:
@@ -15065,12 +15194,12 @@ func (m *ProjectRepoMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetDefaultBranch(v)
 		return nil
-	case projectrepo.FieldClonePath:
+	case projectrepo.FieldWorkspaceDirname:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetClonePath(v)
+		m.SetWorkspaceDirname(v)
 		return nil
 	case projectrepo.FieldIsPrimary:
 		v, ok := value.(bool)
@@ -15116,9 +15245,6 @@ func (m *ProjectRepoMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *ProjectRepoMutation) ClearedFields() []string {
 	var fields []string
-	if m.FieldCleared(projectrepo.FieldClonePath) {
-		fields = append(fields, projectrepo.FieldClonePath)
-	}
 	if m.FieldCleared(projectrepo.FieldLabels) {
 		fields = append(fields, projectrepo.FieldLabels)
 	}
@@ -15136,9 +15262,6 @@ func (m *ProjectRepoMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *ProjectRepoMutation) ClearField(name string) error {
 	switch name {
-	case projectrepo.FieldClonePath:
-		m.ClearClonePath()
-		return nil
 	case projectrepo.FieldLabels:
 		m.ClearLabels()
 		return nil
@@ -15162,8 +15285,8 @@ func (m *ProjectRepoMutation) ResetField(name string) error {
 	case projectrepo.FieldDefaultBranch:
 		m.ResetDefaultBranch()
 		return nil
-	case projectrepo.FieldClonePath:
-		m.ResetClonePath()
+	case projectrepo.FieldWorkspaceDirname:
+		m.ResetWorkspaceDirname()
 		return nil
 	case projectrepo.FieldIsPrimary:
 		m.ResetIsPrimary()
@@ -15177,12 +15300,15 @@ func (m *ProjectRepoMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectRepoMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.project != nil {
 		edges = append(edges, projectrepo.EdgeProject)
 	}
 	if m.ticket_scopes != nil {
 		edges = append(edges, projectrepo.EdgeTicketScopes)
+	}
+	if m.mirrors != nil {
+		edges = append(edges, projectrepo.EdgeMirrors)
 	}
 	return edges
 }
@@ -15201,15 +15327,24 @@ func (m *ProjectRepoMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case projectrepo.EdgeMirrors:
+		ids := make([]ent.Value, 0, len(m.mirrors))
+		for id := range m.mirrors {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectRepoMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.removedticket_scopes != nil {
 		edges = append(edges, projectrepo.EdgeTicketScopes)
+	}
+	if m.removedmirrors != nil {
+		edges = append(edges, projectrepo.EdgeMirrors)
 	}
 	return edges
 }
@@ -15224,18 +15359,27 @@ func (m *ProjectRepoMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case projectrepo.EdgeMirrors:
+		ids := make([]ent.Value, 0, len(m.removedmirrors))
+		for id := range m.removedmirrors {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectRepoMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedproject {
 		edges = append(edges, projectrepo.EdgeProject)
 	}
 	if m.clearedticket_scopes {
 		edges = append(edges, projectrepo.EdgeTicketScopes)
+	}
+	if m.clearedmirrors {
+		edges = append(edges, projectrepo.EdgeMirrors)
 	}
 	return edges
 }
@@ -15248,6 +15392,8 @@ func (m *ProjectRepoMutation) EdgeCleared(name string) bool {
 		return m.clearedproject
 	case projectrepo.EdgeTicketScopes:
 		return m.clearedticket_scopes
+	case projectrepo.EdgeMirrors:
+		return m.clearedmirrors
 	}
 	return false
 }
@@ -15273,8 +15419,1008 @@ func (m *ProjectRepoMutation) ResetEdge(name string) error {
 	case projectrepo.EdgeTicketScopes:
 		m.ResetTicketScopes()
 		return nil
+	case projectrepo.EdgeMirrors:
+		m.ResetMirrors()
+		return nil
 	}
 	return fmt.Errorf("unknown ProjectRepo edge %s", name)
+}
+
+// ProjectRepoMirrorMutation represents an operation that mutates the ProjectRepoMirror nodes in the graph.
+type ProjectRepoMirrorMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *uuid.UUID
+	local_path          *string
+	state               *projectrepomirror.State
+	head_commit         *string
+	last_synced_at      *time.Time
+	last_verified_at    *time.Time
+	last_error          *string
+	created_at          *time.Time
+	updated_at          *time.Time
+	clearedFields       map[string]struct{}
+	project_repo        *uuid.UUID
+	clearedproject_repo bool
+	machine             *uuid.UUID
+	clearedmachine      bool
+	done                bool
+	oldValue            func(context.Context) (*ProjectRepoMirror, error)
+	predicates          []predicate.ProjectRepoMirror
+}
+
+var _ ent.Mutation = (*ProjectRepoMirrorMutation)(nil)
+
+// projectrepomirrorOption allows management of the mutation configuration using functional options.
+type projectrepomirrorOption func(*ProjectRepoMirrorMutation)
+
+// newProjectRepoMirrorMutation creates new mutation for the ProjectRepoMirror entity.
+func newProjectRepoMirrorMutation(c config, op Op, opts ...projectrepomirrorOption) *ProjectRepoMirrorMutation {
+	m := &ProjectRepoMirrorMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectRepoMirror,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectRepoMirrorID sets the ID field of the mutation.
+func withProjectRepoMirrorID(id uuid.UUID) projectrepomirrorOption {
+	return func(m *ProjectRepoMirrorMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectRepoMirror
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectRepoMirror, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectRepoMirror.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectRepoMirror sets the old ProjectRepoMirror of the mutation.
+func withProjectRepoMirror(node *ProjectRepoMirror) projectrepomirrorOption {
+	return func(m *ProjectRepoMirrorMutation) {
+		m.oldValue = func(context.Context) (*ProjectRepoMirror, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectRepoMirrorMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectRepoMirrorMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectRepoMirror entities.
+func (m *ProjectRepoMirrorMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectRepoMirrorMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectRepoMirrorMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectRepoMirror.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetProjectRepoID sets the "project_repo_id" field.
+func (m *ProjectRepoMirrorMutation) SetProjectRepoID(u uuid.UUID) {
+	m.project_repo = &u
+}
+
+// ProjectRepoID returns the value of the "project_repo_id" field in the mutation.
+func (m *ProjectRepoMirrorMutation) ProjectRepoID() (r uuid.UUID, exists bool) {
+	v := m.project_repo
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectRepoID returns the old "project_repo_id" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldProjectRepoID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectRepoID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectRepoID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectRepoID: %w", err)
+	}
+	return oldValue.ProjectRepoID, nil
+}
+
+// ResetProjectRepoID resets all changes to the "project_repo_id" field.
+func (m *ProjectRepoMirrorMutation) ResetProjectRepoID() {
+	m.project_repo = nil
+}
+
+// SetMachineID sets the "machine_id" field.
+func (m *ProjectRepoMirrorMutation) SetMachineID(u uuid.UUID) {
+	m.machine = &u
+}
+
+// MachineID returns the value of the "machine_id" field in the mutation.
+func (m *ProjectRepoMirrorMutation) MachineID() (r uuid.UUID, exists bool) {
+	v := m.machine
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMachineID returns the old "machine_id" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldMachineID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMachineID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMachineID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMachineID: %w", err)
+	}
+	return oldValue.MachineID, nil
+}
+
+// ResetMachineID resets all changes to the "machine_id" field.
+func (m *ProjectRepoMirrorMutation) ResetMachineID() {
+	m.machine = nil
+}
+
+// SetLocalPath sets the "local_path" field.
+func (m *ProjectRepoMirrorMutation) SetLocalPath(s string) {
+	m.local_path = &s
+}
+
+// LocalPath returns the value of the "local_path" field in the mutation.
+func (m *ProjectRepoMirrorMutation) LocalPath() (r string, exists bool) {
+	v := m.local_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLocalPath returns the old "local_path" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldLocalPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLocalPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLocalPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLocalPath: %w", err)
+	}
+	return oldValue.LocalPath, nil
+}
+
+// ResetLocalPath resets all changes to the "local_path" field.
+func (m *ProjectRepoMirrorMutation) ResetLocalPath() {
+	m.local_path = nil
+}
+
+// SetState sets the "state" field.
+func (m *ProjectRepoMirrorMutation) SetState(pr projectrepomirror.State) {
+	m.state = &pr
+}
+
+// State returns the value of the "state" field in the mutation.
+func (m *ProjectRepoMirrorMutation) State() (r projectrepomirror.State, exists bool) {
+	v := m.state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldState returns the old "state" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldState(ctx context.Context) (v projectrepomirror.State, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldState: %w", err)
+	}
+	return oldValue.State, nil
+}
+
+// ResetState resets all changes to the "state" field.
+func (m *ProjectRepoMirrorMutation) ResetState() {
+	m.state = nil
+}
+
+// SetHeadCommit sets the "head_commit" field.
+func (m *ProjectRepoMirrorMutation) SetHeadCommit(s string) {
+	m.head_commit = &s
+}
+
+// HeadCommit returns the value of the "head_commit" field in the mutation.
+func (m *ProjectRepoMirrorMutation) HeadCommit() (r string, exists bool) {
+	v := m.head_commit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHeadCommit returns the old "head_commit" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldHeadCommit(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHeadCommit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHeadCommit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHeadCommit: %w", err)
+	}
+	return oldValue.HeadCommit, nil
+}
+
+// ClearHeadCommit clears the value of the "head_commit" field.
+func (m *ProjectRepoMirrorMutation) ClearHeadCommit() {
+	m.head_commit = nil
+	m.clearedFields[projectrepomirror.FieldHeadCommit] = struct{}{}
+}
+
+// HeadCommitCleared returns if the "head_commit" field was cleared in this mutation.
+func (m *ProjectRepoMirrorMutation) HeadCommitCleared() bool {
+	_, ok := m.clearedFields[projectrepomirror.FieldHeadCommit]
+	return ok
+}
+
+// ResetHeadCommit resets all changes to the "head_commit" field.
+func (m *ProjectRepoMirrorMutation) ResetHeadCommit() {
+	m.head_commit = nil
+	delete(m.clearedFields, projectrepomirror.FieldHeadCommit)
+}
+
+// SetLastSyncedAt sets the "last_synced_at" field.
+func (m *ProjectRepoMirrorMutation) SetLastSyncedAt(t time.Time) {
+	m.last_synced_at = &t
+}
+
+// LastSyncedAt returns the value of the "last_synced_at" field in the mutation.
+func (m *ProjectRepoMirrorMutation) LastSyncedAt() (r time.Time, exists bool) {
+	v := m.last_synced_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastSyncedAt returns the old "last_synced_at" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldLastSyncedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastSyncedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastSyncedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastSyncedAt: %w", err)
+	}
+	return oldValue.LastSyncedAt, nil
+}
+
+// ClearLastSyncedAt clears the value of the "last_synced_at" field.
+func (m *ProjectRepoMirrorMutation) ClearLastSyncedAt() {
+	m.last_synced_at = nil
+	m.clearedFields[projectrepomirror.FieldLastSyncedAt] = struct{}{}
+}
+
+// LastSyncedAtCleared returns if the "last_synced_at" field was cleared in this mutation.
+func (m *ProjectRepoMirrorMutation) LastSyncedAtCleared() bool {
+	_, ok := m.clearedFields[projectrepomirror.FieldLastSyncedAt]
+	return ok
+}
+
+// ResetLastSyncedAt resets all changes to the "last_synced_at" field.
+func (m *ProjectRepoMirrorMutation) ResetLastSyncedAt() {
+	m.last_synced_at = nil
+	delete(m.clearedFields, projectrepomirror.FieldLastSyncedAt)
+}
+
+// SetLastVerifiedAt sets the "last_verified_at" field.
+func (m *ProjectRepoMirrorMutation) SetLastVerifiedAt(t time.Time) {
+	m.last_verified_at = &t
+}
+
+// LastVerifiedAt returns the value of the "last_verified_at" field in the mutation.
+func (m *ProjectRepoMirrorMutation) LastVerifiedAt() (r time.Time, exists bool) {
+	v := m.last_verified_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastVerifiedAt returns the old "last_verified_at" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldLastVerifiedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastVerifiedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastVerifiedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastVerifiedAt: %w", err)
+	}
+	return oldValue.LastVerifiedAt, nil
+}
+
+// ClearLastVerifiedAt clears the value of the "last_verified_at" field.
+func (m *ProjectRepoMirrorMutation) ClearLastVerifiedAt() {
+	m.last_verified_at = nil
+	m.clearedFields[projectrepomirror.FieldLastVerifiedAt] = struct{}{}
+}
+
+// LastVerifiedAtCleared returns if the "last_verified_at" field was cleared in this mutation.
+func (m *ProjectRepoMirrorMutation) LastVerifiedAtCleared() bool {
+	_, ok := m.clearedFields[projectrepomirror.FieldLastVerifiedAt]
+	return ok
+}
+
+// ResetLastVerifiedAt resets all changes to the "last_verified_at" field.
+func (m *ProjectRepoMirrorMutation) ResetLastVerifiedAt() {
+	m.last_verified_at = nil
+	delete(m.clearedFields, projectrepomirror.FieldLastVerifiedAt)
+}
+
+// SetLastError sets the "last_error" field.
+func (m *ProjectRepoMirrorMutation) SetLastError(s string) {
+	m.last_error = &s
+}
+
+// LastError returns the value of the "last_error" field in the mutation.
+func (m *ProjectRepoMirrorMutation) LastError() (r string, exists bool) {
+	v := m.last_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastError returns the old "last_error" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldLastError(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastError: %w", err)
+	}
+	return oldValue.LastError, nil
+}
+
+// ClearLastError clears the value of the "last_error" field.
+func (m *ProjectRepoMirrorMutation) ClearLastError() {
+	m.last_error = nil
+	m.clearedFields[projectrepomirror.FieldLastError] = struct{}{}
+}
+
+// LastErrorCleared returns if the "last_error" field was cleared in this mutation.
+func (m *ProjectRepoMirrorMutation) LastErrorCleared() bool {
+	_, ok := m.clearedFields[projectrepomirror.FieldLastError]
+	return ok
+}
+
+// ResetLastError resets all changes to the "last_error" field.
+func (m *ProjectRepoMirrorMutation) ResetLastError() {
+	m.last_error = nil
+	delete(m.clearedFields, projectrepomirror.FieldLastError)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ProjectRepoMirrorMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ProjectRepoMirrorMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ProjectRepoMirrorMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ProjectRepoMirrorMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ProjectRepoMirrorMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ProjectRepoMirror entity.
+// If the ProjectRepoMirror object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectRepoMirrorMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ProjectRepoMirrorMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearProjectRepo clears the "project_repo" edge to the ProjectRepo entity.
+func (m *ProjectRepoMirrorMutation) ClearProjectRepo() {
+	m.clearedproject_repo = true
+	m.clearedFields[projectrepomirror.FieldProjectRepoID] = struct{}{}
+}
+
+// ProjectRepoCleared reports if the "project_repo" edge to the ProjectRepo entity was cleared.
+func (m *ProjectRepoMirrorMutation) ProjectRepoCleared() bool {
+	return m.clearedproject_repo
+}
+
+// ProjectRepoIDs returns the "project_repo" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectRepoID instead. It exists only for internal usage by the builders.
+func (m *ProjectRepoMirrorMutation) ProjectRepoIDs() (ids []uuid.UUID) {
+	if id := m.project_repo; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProjectRepo resets all changes to the "project_repo" edge.
+func (m *ProjectRepoMirrorMutation) ResetProjectRepo() {
+	m.project_repo = nil
+	m.clearedproject_repo = false
+}
+
+// ClearMachine clears the "machine" edge to the Machine entity.
+func (m *ProjectRepoMirrorMutation) ClearMachine() {
+	m.clearedmachine = true
+	m.clearedFields[projectrepomirror.FieldMachineID] = struct{}{}
+}
+
+// MachineCleared reports if the "machine" edge to the Machine entity was cleared.
+func (m *ProjectRepoMirrorMutation) MachineCleared() bool {
+	return m.clearedmachine
+}
+
+// MachineIDs returns the "machine" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MachineID instead. It exists only for internal usage by the builders.
+func (m *ProjectRepoMirrorMutation) MachineIDs() (ids []uuid.UUID) {
+	if id := m.machine; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMachine resets all changes to the "machine" edge.
+func (m *ProjectRepoMirrorMutation) ResetMachine() {
+	m.machine = nil
+	m.clearedmachine = false
+}
+
+// Where appends a list predicates to the ProjectRepoMirrorMutation builder.
+func (m *ProjectRepoMirrorMutation) Where(ps ...predicate.ProjectRepoMirror) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectRepoMirrorMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectRepoMirrorMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectRepoMirror, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectRepoMirrorMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectRepoMirrorMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectRepoMirror).
+func (m *ProjectRepoMirrorMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectRepoMirrorMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.project_repo != nil {
+		fields = append(fields, projectrepomirror.FieldProjectRepoID)
+	}
+	if m.machine != nil {
+		fields = append(fields, projectrepomirror.FieldMachineID)
+	}
+	if m.local_path != nil {
+		fields = append(fields, projectrepomirror.FieldLocalPath)
+	}
+	if m.state != nil {
+		fields = append(fields, projectrepomirror.FieldState)
+	}
+	if m.head_commit != nil {
+		fields = append(fields, projectrepomirror.FieldHeadCommit)
+	}
+	if m.last_synced_at != nil {
+		fields = append(fields, projectrepomirror.FieldLastSyncedAt)
+	}
+	if m.last_verified_at != nil {
+		fields = append(fields, projectrepomirror.FieldLastVerifiedAt)
+	}
+	if m.last_error != nil {
+		fields = append(fields, projectrepomirror.FieldLastError)
+	}
+	if m.created_at != nil {
+		fields = append(fields, projectrepomirror.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, projectrepomirror.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectRepoMirrorMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectrepomirror.FieldProjectRepoID:
+		return m.ProjectRepoID()
+	case projectrepomirror.FieldMachineID:
+		return m.MachineID()
+	case projectrepomirror.FieldLocalPath:
+		return m.LocalPath()
+	case projectrepomirror.FieldState:
+		return m.State()
+	case projectrepomirror.FieldHeadCommit:
+		return m.HeadCommit()
+	case projectrepomirror.FieldLastSyncedAt:
+		return m.LastSyncedAt()
+	case projectrepomirror.FieldLastVerifiedAt:
+		return m.LastVerifiedAt()
+	case projectrepomirror.FieldLastError:
+		return m.LastError()
+	case projectrepomirror.FieldCreatedAt:
+		return m.CreatedAt()
+	case projectrepomirror.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectRepoMirrorMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectrepomirror.FieldProjectRepoID:
+		return m.OldProjectRepoID(ctx)
+	case projectrepomirror.FieldMachineID:
+		return m.OldMachineID(ctx)
+	case projectrepomirror.FieldLocalPath:
+		return m.OldLocalPath(ctx)
+	case projectrepomirror.FieldState:
+		return m.OldState(ctx)
+	case projectrepomirror.FieldHeadCommit:
+		return m.OldHeadCommit(ctx)
+	case projectrepomirror.FieldLastSyncedAt:
+		return m.OldLastSyncedAt(ctx)
+	case projectrepomirror.FieldLastVerifiedAt:
+		return m.OldLastVerifiedAt(ctx)
+	case projectrepomirror.FieldLastError:
+		return m.OldLastError(ctx)
+	case projectrepomirror.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case projectrepomirror.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectRepoMirror field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectRepoMirrorMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectrepomirror.FieldProjectRepoID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectRepoID(v)
+		return nil
+	case projectrepomirror.FieldMachineID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMachineID(v)
+		return nil
+	case projectrepomirror.FieldLocalPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLocalPath(v)
+		return nil
+	case projectrepomirror.FieldState:
+		v, ok := value.(projectrepomirror.State)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetState(v)
+		return nil
+	case projectrepomirror.FieldHeadCommit:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHeadCommit(v)
+		return nil
+	case projectrepomirror.FieldLastSyncedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastSyncedAt(v)
+		return nil
+	case projectrepomirror.FieldLastVerifiedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastVerifiedAt(v)
+		return nil
+	case projectrepomirror.FieldLastError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastError(v)
+		return nil
+	case projectrepomirror.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case projectrepomirror.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectRepoMirror field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectRepoMirrorMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectRepoMirrorMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectRepoMirrorMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ProjectRepoMirror numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectRepoMirrorMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectrepomirror.FieldHeadCommit) {
+		fields = append(fields, projectrepomirror.FieldHeadCommit)
+	}
+	if m.FieldCleared(projectrepomirror.FieldLastSyncedAt) {
+		fields = append(fields, projectrepomirror.FieldLastSyncedAt)
+	}
+	if m.FieldCleared(projectrepomirror.FieldLastVerifiedAt) {
+		fields = append(fields, projectrepomirror.FieldLastVerifiedAt)
+	}
+	if m.FieldCleared(projectrepomirror.FieldLastError) {
+		fields = append(fields, projectrepomirror.FieldLastError)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectRepoMirrorMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectRepoMirrorMutation) ClearField(name string) error {
+	switch name {
+	case projectrepomirror.FieldHeadCommit:
+		m.ClearHeadCommit()
+		return nil
+	case projectrepomirror.FieldLastSyncedAt:
+		m.ClearLastSyncedAt()
+		return nil
+	case projectrepomirror.FieldLastVerifiedAt:
+		m.ClearLastVerifiedAt()
+		return nil
+	case projectrepomirror.FieldLastError:
+		m.ClearLastError()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectRepoMirror nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectRepoMirrorMutation) ResetField(name string) error {
+	switch name {
+	case projectrepomirror.FieldProjectRepoID:
+		m.ResetProjectRepoID()
+		return nil
+	case projectrepomirror.FieldMachineID:
+		m.ResetMachineID()
+		return nil
+	case projectrepomirror.FieldLocalPath:
+		m.ResetLocalPath()
+		return nil
+	case projectrepomirror.FieldState:
+		m.ResetState()
+		return nil
+	case projectrepomirror.FieldHeadCommit:
+		m.ResetHeadCommit()
+		return nil
+	case projectrepomirror.FieldLastSyncedAt:
+		m.ResetLastSyncedAt()
+		return nil
+	case projectrepomirror.FieldLastVerifiedAt:
+		m.ResetLastVerifiedAt()
+		return nil
+	case projectrepomirror.FieldLastError:
+		m.ResetLastError()
+		return nil
+	case projectrepomirror.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case projectrepomirror.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectRepoMirror field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectRepoMirrorMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.project_repo != nil {
+		edges = append(edges, projectrepomirror.EdgeProjectRepo)
+	}
+	if m.machine != nil {
+		edges = append(edges, projectrepomirror.EdgeMachine)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectRepoMirrorMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case projectrepomirror.EdgeProjectRepo:
+		if id := m.project_repo; id != nil {
+			return []ent.Value{*id}
+		}
+	case projectrepomirror.EdgeMachine:
+		if id := m.machine; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectRepoMirrorMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectRepoMirrorMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectRepoMirrorMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedproject_repo {
+		edges = append(edges, projectrepomirror.EdgeProjectRepo)
+	}
+	if m.clearedmachine {
+		edges = append(edges, projectrepomirror.EdgeMachine)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectRepoMirrorMutation) EdgeCleared(name string) bool {
+	switch name {
+	case projectrepomirror.EdgeProjectRepo:
+		return m.clearedproject_repo
+	case projectrepomirror.EdgeMachine:
+		return m.clearedmachine
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectRepoMirrorMutation) ClearEdge(name string) error {
+	switch name {
+	case projectrepomirror.EdgeProjectRepo:
+		m.ClearProjectRepo()
+		return nil
+	case projectrepomirror.EdgeMachine:
+		m.ClearMachine()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectRepoMirror unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectRepoMirrorMutation) ResetEdge(name string) error {
+	switch name {
+	case projectrepomirror.EdgeProjectRepo:
+		m.ResetProjectRepo()
+		return nil
+	case projectrepomirror.EdgeMachine:
+		m.ResetMachine()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectRepoMirror edge %s", name)
 }
 
 // ScheduledJobMutation represents an operation that mutates the ScheduledJob nodes in the graph.

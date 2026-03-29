@@ -5,14 +5,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -43,6 +47,9 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 			entmigrate.WithDropIndex(false),
 		); err != nil {
 			return fmt.Errorf("migrate database schema: %w", err)
+		}
+		if err := reconcileLegacyProjectRepoSemantics(ctx, trimmedDSN); err != nil {
+			return err
 		}
 		if err := ticketstatus.NewService(client).BackfillDefaultStages(ctx); err != nil {
 			return fmt.Errorf("backfill ticket stages: %w", err)
@@ -178,6 +185,201 @@ func reconcileLegacyTicketIdentifierIndex(ctx context.Context, dsn string) error
 	}
 
 	return nil
+}
+
+func reconcileLegacyProjectRepoSemantics(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database for project repo reconciliation: %w", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database for project repo reconciliation: %w", err)
+	}
+
+	if _, err := db.ExecContext(
+		ctx,
+		`UPDATE "project_repos" SET "workspace_dirname" = "name" WHERE COALESCE("workspace_dirname", '') = ''`,
+	); err != nil {
+		return fmt.Errorf("backfill project repo workspace_dirname defaults: %w", err)
+	}
+
+	clonePathExists, err := columnExists(ctx, db, "project_repos", "clone_path")
+	if err != nil {
+		return err
+	}
+	if !clonePathExists {
+		return nil
+	}
+
+	rows, err := db.QueryContext(
+		ctx,
+		`SELECT pr."id", p."organization_id", pr."name", pr."clone_path", pr."workspace_dirname"
+		FROM "project_repos" AS pr
+		JOIN "projects" AS p ON p."id" = pr."project_id"
+		WHERE pr."clone_path" IS NOT NULL AND BTRIM(pr."clone_path") <> ''`,
+	)
+	if err != nil {
+		return fmt.Errorf("query legacy project repo clone_path rows: %w", err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	localMachineByOrg, err := localMachineIDsByOrganization(ctx, db)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	for rows.Next() {
+		var (
+			projectRepoID    uuid.UUID
+			organizationID   uuid.UUID
+			repoName         string
+			legacyClonePath  string
+			workspaceDirname string
+		)
+		if err := rows.Scan(&projectRepoID, &organizationID, &repoName, &legacyClonePath, &workspaceDirname); err != nil {
+			return fmt.Errorf("scan legacy project repo clone_path row: %w", err)
+		}
+
+		if legacyWorkspaceDirname, ok := parseLegacyWorkspaceDirname(legacyClonePath); ok {
+			if _, err := db.ExecContext(
+				ctx,
+				`UPDATE "project_repos"
+				SET "workspace_dirname" = $1
+				WHERE "id" = $2
+				  AND (COALESCE("workspace_dirname", '') = '' OR "workspace_dirname" = "name")`,
+				legacyWorkspaceDirname,
+				projectRepoID,
+			); err != nil {
+				return fmt.Errorf("backfill project repo workspace_dirname from clone_path: %w", err)
+			}
+		}
+
+		localPath, ok := parseLegacyMirrorLocalPath(legacyClonePath)
+		if !ok {
+			continue
+		}
+		machineID, ok := localMachineByOrg[organizationID]
+		if !ok {
+			continue
+		}
+
+		if _, err := db.ExecContext(
+			ctx,
+			`INSERT INTO "project_repo_mirrors"
+				("id", "project_repo_id", "machine_id", "local_path", "state", "last_verified_at", "created_at", "updated_at")
+			VALUES ($1, $2, $3, $4, 'ready', $5, $5, $5)
+			ON CONFLICT ("project_repo_id", "machine_id") DO NOTHING`,
+			uuid.New(),
+			projectRepoID,
+			machineID,
+			localPath,
+			now,
+		); err != nil {
+			return fmt.Errorf("backfill project repo mirror from clone_path: %w", err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate legacy project repo clone_path rows: %w", err)
+	}
+
+	return nil
+}
+
+func columnExists(ctx context.Context, db *sql.DB, tableName string, columnName string) (bool, error) {
+	var exists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = current_schema()
+			  AND table_name = $1
+			  AND column_name = $2
+		)`,
+		tableName,
+		columnName,
+	).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check %s.%s column: %w", tableName, columnName, err)
+	}
+	return exists, nil
+}
+
+func localMachineIDsByOrganization(ctx context.Context, db *sql.DB) (map[uuid.UUID]uuid.UUID, error) {
+	rows, err := db.QueryContext(
+		ctx,
+		`SELECT "organization_id", "id"
+		FROM "machines"
+		WHERE "name" = $1`,
+		catalogdomain.LocalMachineName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query local machines for project repo reconciliation: %w", err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	machineIDs := make(map[uuid.UUID]uuid.UUID)
+	for rows.Next() {
+		var organizationID uuid.UUID
+		var machineID uuid.UUID
+		if err := rows.Scan(&organizationID, &machineID); err != nil {
+			return nil, fmt.Errorf("scan local machine for project repo reconciliation: %w", err)
+		}
+		machineIDs[organizationID] = machineID
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate local machines for project repo reconciliation: %w", err)
+	}
+
+	return machineIDs, nil
+}
+
+func parseLegacyWorkspaceDirname(raw string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || filepath.IsAbs(trimmed) {
+		return "", false
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err == nil && parsed.Scheme != "" {
+		return "", false
+	}
+
+	cleaned := strings.TrimPrefix(filepath.ToSlash(filepath.Clean(trimmed)), "./")
+	if cleaned == "." || cleaned == "" || strings.HasPrefix(cleaned, "../") || strings.Contains(cleaned, "/../") {
+		return "", false
+	}
+
+	return cleaned, true
+}
+
+func parseLegacyMirrorLocalPath(raw string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", false
+	}
+	if filepath.IsAbs(trimmed) {
+		return filepath.Clean(trimmed), true
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Scheme != "file" {
+		return "", false
+	}
+
+	repoPath, err := url.PathUnescape(parsed.Path)
+	if err != nil || repoPath == "" {
+		return "", false
+	}
+	return filepath.Clean(filepath.FromSlash(repoPath)), true
 }
 
 func reconcileLegacyAgentProviderMachineIDs(ctx context.Context, dsn string) error {

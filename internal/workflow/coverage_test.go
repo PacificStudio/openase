@@ -500,11 +500,11 @@ func TestHarnessTemplateHelpers(t *testing.T) {
 	allRepos := mapHarnessAllRepos([]*ent.ProjectRepo{
 		repo,
 		{
-			ID:            uuid.New(),
-			Name:          "frontend",
-			RepositoryURL: "https://example.com/frontend.git",
-			DefaultBranch: "develop",
-			ClonePath:     "/repos/frontend",
+			ID:               uuid.New(),
+			Name:             "frontend",
+			RepositoryURL:    "https://example.com/frontend.git",
+			DefaultBranch:    "develop",
+			WorkspaceDirname: "/repos/frontend",
 		},
 	}, branches, "/workspaces/ASE-278")
 	if len(allRepos) != 2 || allRepos[0].Branch != "feature/ase-278" || allRepos[1].Path != "/repos/frontend" {

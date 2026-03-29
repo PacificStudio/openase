@@ -269,7 +269,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos/"+createRepoPayload.Repo.ID,
-		`{"clone_path":"services/backend","is_primary":true}`,
+		`{"workspace_dirname":"services/backend","is_primary":true}`,
 	)
 	if patchRepoRec.Code != http.StatusOK {
 		t.Fatalf("expected repo patch 200, got %d: %s", patchRepoRec.Code, patchRepoRec.Body.String())
@@ -279,7 +279,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, patchRepoRec, &patchRepoPayload)
-	if !patchRepoPayload.Repo.IsPrimary || patchRepoPayload.Repo.ClonePath == nil || *patchRepoPayload.Repo.ClonePath != "services/backend" {
+	if !patchRepoPayload.Repo.IsPrimary || patchRepoPayload.Repo.WorkspaceDirname != "services/backend" {
 		t.Fatalf("unexpected patched repo payload: %+v", patchRepoPayload.Repo)
 	}
 
@@ -1495,14 +1495,14 @@ func (f *fakeCatalogService) CreateProjectRepo(_ context.Context, input domain.C
 	}
 
 	item := domain.ProjectRepo{
-		ID:            uuid.New(),
-		ProjectID:     input.ProjectID,
-		Name:          input.Name,
-		RepositoryURL: input.RepositoryURL,
-		DefaultBranch: input.DefaultBranch,
-		ClonePath:     input.ClonePath,
-		IsPrimary:     isPrimary,
-		Labels:        append([]string(nil), input.Labels...),
+		ID:               uuid.New(),
+		ProjectID:        input.ProjectID,
+		Name:             input.Name,
+		RepositoryURL:    input.RepositoryURL,
+		DefaultBranch:    input.DefaultBranch,
+		WorkspaceDirname: input.WorkspaceDirname,
+		IsPrimary:        isPrimary,
+		Labels:           append([]string(nil), input.Labels...),
 	}
 	f.projectRepos[item.ID] = item
 
@@ -1531,7 +1531,7 @@ func (f *fakeCatalogService) UpdateProjectRepo(_ context.Context, input domain.U
 	item.Name = input.Name
 	item.RepositoryURL = input.RepositoryURL
 	item.DefaultBranch = input.DefaultBranch
-	item.ClonePath = input.ClonePath
+	item.WorkspaceDirname = input.WorkspaceDirname
 	item.IsPrimary = input.IsPrimary
 	item.Labels = append([]string(nil), input.Labels...)
 	f.projectRepos[item.ID] = item

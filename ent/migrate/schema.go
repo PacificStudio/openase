@@ -622,7 +622,7 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "repository_url", Type: field.TypeString},
 		{Name: "default_branch", Type: field.TypeString, Default: "main"},
-		{Name: "clone_path", Type: field.TypeString, Nullable: true},
+		{Name: "workspace_dirname", Type: field.TypeString, Default: ""},
 		{Name: "is_primary", Type: field.TypeBool, Default: false},
 		{Name: "labels", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "project_id", Type: field.TypeUUID},
@@ -653,6 +653,52 @@ var (
 				Annotation: &entsql.IndexAnnotation{
 					Type: "GIN",
 				},
+			},
+		},
+	}
+	// ProjectRepoMirrorsColumns holds the columns for the "project_repo_mirrors" table.
+	ProjectRepoMirrorsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "local_path", Type: field.TypeString},
+		{Name: "state", Type: field.TypeEnum, Enums: []string{"missing", "provisioning", "ready", "stale", "syncing", "error", "deleting"}, Default: "missing"},
+		{Name: "head_commit", Type: field.TypeString, Nullable: true},
+		{Name: "last_synced_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_verified_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_error", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "machine_id", Type: field.TypeUUID},
+		{Name: "project_repo_id", Type: field.TypeUUID},
+	}
+	// ProjectRepoMirrorsTable holds the schema information for the "project_repo_mirrors" table.
+	ProjectRepoMirrorsTable = &schema.Table{
+		Name:       "project_repo_mirrors",
+		Columns:    ProjectRepoMirrorsColumns,
+		PrimaryKey: []*schema.Column{ProjectRepoMirrorsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "project_repo_mirrors_machines_project_repo_mirrors",
+				Columns:    []*schema.Column{ProjectRepoMirrorsColumns[9]},
+				RefColumns: []*schema.Column{MachinesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "project_repo_mirrors_project_repos_mirrors",
+				Columns:    []*schema.Column{ProjectRepoMirrorsColumns[10]},
+				RefColumns: []*schema.Column{ProjectReposColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectrepomirror_project_repo_id_machine_id",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectRepoMirrorsColumns[10], ProjectRepoMirrorsColumns[9]},
+			},
+			{
+				Name:    "projectrepomirror_machine_id_state",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectRepoMirrorsColumns[9], ProjectRepoMirrorsColumns[2]},
 			},
 		},
 	}
@@ -1160,6 +1206,7 @@ var (
 		OrganizationsTable,
 		ProjectsTable,
 		ProjectReposTable,
+		ProjectRepoMirrorsTable,
 		ScheduledJobsTable,
 		TicketsTable,
 		TicketCommentsTable,
@@ -1207,6 +1254,8 @@ func init() {
 	ProjectsTable.ForeignKeys[1].RefTable = WorkflowsTable
 	ProjectsTable.ForeignKeys[2].RefTable = AgentProvidersTable
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable
+	ProjectRepoMirrorsTable.ForeignKeys[0].RefTable = MachinesTable
+	ProjectRepoMirrorsTable.ForeignKeys[1].RefTable = ProjectReposTable
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
 	TicketsTable.ForeignKeys[0].RefTable = AgentRunsTable

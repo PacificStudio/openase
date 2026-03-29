@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/google/uuid"
 )
@@ -28,6 +29,7 @@ type ProjectRepoQuery struct {
 	predicates       []predicate.ProjectRepo
 	withProject      *ProjectQuery
 	withTicketScopes *TicketRepoScopeQuery
+	withMirrors      *ProjectRepoMirrorQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -101,6 +103,28 @@ func (_q *ProjectRepoQuery) QueryTicketScopes() *TicketRepoScopeQuery {
 			sqlgraph.From(projectrepo.Table, projectrepo.FieldID, selector),
 			sqlgraph.To(ticketreposcope.Table, ticketreposcope.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, projectrepo.TicketScopesTable, projectrepo.TicketScopesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMirrors chains the current query on the "mirrors" edge.
+func (_q *ProjectRepoQuery) QueryMirrors() *ProjectRepoMirrorQuery {
+	query := (&ProjectRepoMirrorClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectrepo.Table, projectrepo.FieldID, selector),
+			sqlgraph.To(projectrepomirror.Table, projectrepomirror.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, projectrepo.MirrorsTable, projectrepo.MirrorsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -302,6 +326,7 @@ func (_q *ProjectRepoQuery) Clone() *ProjectRepoQuery {
 		predicates:       append([]predicate.ProjectRepo{}, _q.predicates...),
 		withProject:      _q.withProject.Clone(),
 		withTicketScopes: _q.withTicketScopes.Clone(),
+		withMirrors:      _q.withMirrors.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -327,6 +352,17 @@ func (_q *ProjectRepoQuery) WithTicketScopes(opts ...func(*TicketRepoScopeQuery)
 		opt(query)
 	}
 	_q.withTicketScopes = query
+	return _q
+}
+
+// WithMirrors tells the query-builder to eager-load the nodes that are connected to
+// the "mirrors" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectRepoQuery) WithMirrors(opts ...func(*ProjectRepoMirrorQuery)) *ProjectRepoQuery {
+	query := (&ProjectRepoMirrorClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMirrors = query
 	return _q
 }
 
@@ -408,9 +444,10 @@ func (_q *ProjectRepoQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 	var (
 		nodes       = []*ProjectRepo{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withProject != nil,
 			_q.withTicketScopes != nil,
+			_q.withMirrors != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -441,6 +478,13 @@ func (_q *ProjectRepoQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 		if err := _q.loadTicketScopes(ctx, query, nodes,
 			func(n *ProjectRepo) { n.Edges.TicketScopes = []*TicketRepoScope{} },
 			func(n *ProjectRepo, e *TicketRepoScope) { n.Edges.TicketScopes = append(n.Edges.TicketScopes, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMirrors; query != nil {
+		if err := _q.loadMirrors(ctx, query, nodes,
+			func(n *ProjectRepo) { n.Edges.Mirrors = []*ProjectRepoMirror{} },
+			func(n *ProjectRepo, e *ProjectRepoMirror) { n.Edges.Mirrors = append(n.Edges.Mirrors, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -501,6 +545,36 @@ func (_q *ProjectRepoQuery) loadTicketScopes(ctx context.Context, query *TicketR
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "repo_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectRepoQuery) loadMirrors(ctx context.Context, query *ProjectRepoMirrorQuery, nodes []*ProjectRepo, init func(*ProjectRepo), assign func(*ProjectRepo, *ProjectRepoMirror)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*ProjectRepo)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(projectrepomirror.FieldProjectRepoID)
+	}
+	query.Where(predicate.ProjectRepoMirror(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(projectrepo.MirrorsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectRepoID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_repo_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

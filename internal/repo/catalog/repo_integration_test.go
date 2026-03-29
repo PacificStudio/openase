@@ -135,14 +135,14 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		Name:             "openase-main",
 		RepositoryURL:    "https://github.com/GrandCX/openase.git",
 		DefaultBranch:    "main",
-		ClonePath:        strPtr(filepath.Join(t.TempDir(), "openase-main")),
+		WorkspaceDirname: "openase-main",
 		RequestedPrimary: &primaryRequested,
 		Labels:           []string{"backend", "automation"},
 	})
 	if err != nil {
 		t.Fatalf("CreateProjectRepo() repoOne error = %v", err)
 	}
-	if !repoOne.IsPrimary || repoOne.ClonePath == nil || *repoOne.ClonePath == "" {
+	if !repoOne.IsPrimary || repoOne.WorkspaceDirname != "openase-main" {
 		t.Fatalf("CreateProjectRepo() repoOne = %+v", repoOne)
 	}
 
@@ -177,21 +177,21 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		t.Fatalf("GetProjectRepo() = %+v", gotRepoOne)
 	}
 
-	repoTwoClonePath := filepath.Join(t.TempDir(), "worker-tools")
+	repoTwoWorkspaceDirname := "worker-tools/release"
 	updatedRepoTwo, err := repo.UpdateProjectRepo(ctx, domain.UpdateProjectRepo{
-		ID:            repoTwo.ID,
-		ProjectID:     project.ID,
-		Name:          "worker-tools",
-		RepositoryURL: repoTwo.RepositoryURL,
-		DefaultBranch: "release",
-		ClonePath:     &repoTwoClonePath,
-		IsPrimary:     true,
-		Labels:        []string{"worker", "ops"},
+		ID:               repoTwo.ID,
+		ProjectID:        project.ID,
+		Name:             "worker-tools",
+		RepositoryURL:    repoTwo.RepositoryURL,
+		DefaultBranch:    "release",
+		WorkspaceDirname: repoTwoWorkspaceDirname,
+		IsPrimary:        true,
+		Labels:           []string{"worker", "ops"},
 	})
 	if err != nil {
 		t.Fatalf("UpdateProjectRepo() repoTwo error = %v", err)
 	}
-	if !updatedRepoTwo.IsPrimary || updatedRepoTwo.ClonePath == nil || *updatedRepoTwo.ClonePath != repoTwoClonePath || len(updatedRepoTwo.Labels) != 2 {
+	if !updatedRepoTwo.IsPrimary || updatedRepoTwo.WorkspaceDirname != repoTwoWorkspaceDirname || len(updatedRepoTwo.Labels) != 2 {
 		t.Fatalf("UpdateProjectRepo() repoTwo = %+v", updatedRepoTwo)
 	}
 	gotRepoOneAfterPrimarySwitch, err := repo.GetProjectRepo(ctx, project.ID, repoOne.ID)
@@ -203,19 +203,19 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	}
 
 	updatedRepoOne, err := repo.UpdateProjectRepo(ctx, domain.UpdateProjectRepo{
-		ID:            repoOne.ID,
-		ProjectID:     project.ID,
-		Name:          "openase-main",
-		RepositoryURL: repoOne.RepositoryURL,
-		DefaultBranch: "main",
-		ClonePath:     nil,
-		IsPrimary:     false,
-		Labels:        nil,
+		ID:               repoOne.ID,
+		ProjectID:        project.ID,
+		Name:             "openase-main",
+		RepositoryURL:    repoOne.RepositoryURL,
+		DefaultBranch:    "main",
+		WorkspaceDirname: "openase-main",
+		IsPrimary:        false,
+		Labels:           nil,
 	})
 	if err != nil {
 		t.Fatalf("UpdateProjectRepo() error = %v", err)
 	}
-	if updatedRepoOne.IsPrimary || updatedRepoOne.ClonePath != nil || len(updatedRepoOne.Labels) != 0 {
+	if updatedRepoOne.IsPrimary || updatedRepoOne.WorkspaceDirname != "openase-main" || len(updatedRepoOne.Labels) != 0 {
 		t.Fatalf("UpdateProjectRepo() = %+v", updatedRepoOne)
 	}
 	gotRepoTwo, err := repo.GetProjectRepo(ctx, project.ID, repoTwo.ID)

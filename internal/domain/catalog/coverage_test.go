@@ -554,7 +554,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	accessibleA := uuid.New()
 	accessibleB := uuid.New()
 	maxConcurrent := 7
-	clonePath := " /srv/repo "
+	clonePath := " services/repo "
 	prURL := " https://github.com/GrandCX/openase/pull/1 "
 	branchName := " feat/openase-278-coverage "
 
@@ -648,17 +648,17 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 
 	createRepo, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{
-		Name:          " OpenASE ",
-		RepositoryURL: " https://github.com/GrandCX/openase ",
-		DefaultBranch: " trunk ",
-		ClonePath:     &clonePath,
-		IsPrimary:     boolPtr(true),
-		Labels:        []string{" backend ", "backend", " coverage "},
+		Name:             " OpenASE ",
+		RepositoryURL:    " https://github.com/GrandCX/openase ",
+		DefaultBranch:    " trunk ",
+		WorkspaceDirname: &clonePath,
+		IsPrimary:        boolPtr(true),
+		Labels:           []string{" backend ", "backend", " coverage "},
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateProjectRepo() error = %v", err)
 	}
-	if createRepo.DefaultBranch != "trunk" || createRepo.ClonePath == nil || *createRepo.ClonePath != "/srv/repo" || len(createRepo.Labels) != 2 {
+	if createRepo.DefaultBranch != "trunk" || createRepo.WorkspaceDirname != "services/repo" || len(createRepo.Labels) != 2 {
 		t.Fatalf("ParseCreateProjectRepo() = %+v", createRepo)
 	}
 	updateRepo, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{

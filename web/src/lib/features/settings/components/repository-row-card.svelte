@@ -52,8 +52,8 @@
 
       <div class="text-muted-foreground mt-4 flex flex-wrap items-center gap-3 text-xs">
         <span>
-          Clone path:
-          <span class="text-foreground">{repo.clone_path || 'Auto workspace path'}</span>
+          Workspace dirname:
+          <span class="text-foreground">{repo.workspace_dirname || repo.name}</span>
         </span>
 
         {#if repo.labels.length === 0}

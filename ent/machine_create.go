@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -205,6 +206,21 @@ func (_c *MachineCreate) AddProviders(v ...*AgentProvider) *MachineCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddProviderIDs(ids...)
+}
+
+// AddProjectRepoMirrorIDs adds the "project_repo_mirrors" edge to the ProjectRepoMirror entity by IDs.
+func (_c *MachineCreate) AddProjectRepoMirrorIDs(ids ...uuid.UUID) *MachineCreate {
+	_c.mutation.AddProjectRepoMirrorIDs(ids...)
+	return _c
+}
+
+// AddProjectRepoMirrors adds the "project_repo_mirrors" edges to the ProjectRepoMirror entity.
+func (_c *MachineCreate) AddProjectRepoMirrors(v ...*ProjectRepoMirror) *MachineCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddProjectRepoMirrorIDs(ids...)
 }
 
 // AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
@@ -426,6 +442,22 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ProjectRepoMirrorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ProjectRepoMirrorsTable,
+			Columns: []string{machine.ProjectRepoMirrorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

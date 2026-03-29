@@ -1369,7 +1369,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetName("backend").
 		SetRepositoryURL("git@github.com:acme/backend.git").
 		SetDefaultBranch("main").
-		SetClonePath("backend").
+		SetWorkspaceDirname("backend").
 		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {

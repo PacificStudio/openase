@@ -81,7 +81,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	now := time.Date(2026, 3, 27, 12, 0, 0, 0, time.FixedZone("UTC+2", 2*60*60))
 	defaultAgentProviderID := uuid.New()
 	defaultWorkflowID := uuid.New()
-	stageClonePath := "/srv/openase"
+	stageWorkspaceDirname := "openase"
 	pullRequestURL := "https://github.com/GrandCX/openase/pull/278"
 	sshUser := "codex"
 	workspaceRoot := "/workspace/openase"
@@ -109,14 +109,14 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		MaxConcurrentAgents:    4,
 	}
 	projectRepo := &ent.ProjectRepo{
-		ID:            repoID,
-		ProjectID:     projectID,
-		Name:          "openase",
-		RepositoryURL: "https://github.com/GrandCX/openase.git",
-		DefaultBranch: "main",
-		ClonePath:     stageClonePath,
-		IsPrimary:     true,
-		Labels:        []string{"backend", "automation"},
+		ID:               repoID,
+		ProjectID:        projectID,
+		Name:             "openase",
+		RepositoryURL:    "https://github.com/GrandCX/openase.git",
+		DefaultBranch:    "main",
+		WorkspaceDirname: stageWorkspaceDirname,
+		IsPrimary:        true,
+		Labels:           []string{"backend", "automation"},
 	}
 	ticketRepoScope := &ent.TicketRepoScope{
 		ID:             uuid.New(),
@@ -214,7 +214,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	}
 
 	mappedProjectRepo := mapProjectRepo(projectRepo)
-	if mappedProjectRepo.ClonePath == nil || *mappedProjectRepo.ClonePath != stageClonePath || len(mappedProjectRepo.Labels) != 2 {
+	if mappedProjectRepo.WorkspaceDirname != stageWorkspaceDirname || len(mappedProjectRepo.Labels) != 2 {
 		t.Fatalf("mapProjectRepo() = %+v", mappedProjectRepo)
 	}
 	if mapped := mapProjectRepos([]*ent.ProjectRepo{projectRepo}); len(mapped) != 1 || mapped[0].ID != repoID {

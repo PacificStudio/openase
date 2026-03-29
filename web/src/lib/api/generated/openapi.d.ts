@@ -5246,7 +5246,6 @@ export interface operations {
         content: {
           'application/json': {
             repos?: {
-              clone_path?: string | null
               default_branch?: string
               id?: string
               is_primary?: boolean
@@ -5254,6 +5253,7 @@ export interface operations {
               name?: string
               project_id?: string
               repository_url?: string
+              workspace_dirname?: string
             }[]
           }
         }
@@ -5310,12 +5310,12 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          clone_path?: string | null
           default_branch?: string
           is_primary?: boolean | null
           labels?: string[]
           name?: string
           repository_url?: string
+          workspace_dirname?: string | null
         }
       }
     }
@@ -5328,7 +5328,6 @@ export interface operations {
         content: {
           'application/json': {
             repo?: {
-              clone_path?: string | null
               default_branch?: string
               id?: string
               is_primary?: boolean
@@ -5336,6 +5335,7 @@ export interface operations {
               name?: string
               project_id?: string
               repository_url?: string
+              workspace_dirname?: string
             }
           }
         }
@@ -5412,7 +5412,6 @@ export interface operations {
         content: {
           'application/json': {
             repo?: {
-              clone_path?: string | null
               default_branch?: string
               id?: string
               is_primary?: boolean
@@ -5420,6 +5419,7 @@ export interface operations {
               name?: string
               project_id?: string
               repository_url?: string
+              workspace_dirname?: string
             }
           }
         }
@@ -5490,12 +5490,12 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          clone_path?: string | null
           default_branch?: string | null
           is_primary?: boolean | null
           labels?: string[] | null
           name?: string | null
           repository_url?: string | null
+          workspace_dirname?: string | null
         }
       }
     }
@@ -5508,7 +5508,6 @@ export interface operations {
         content: {
           'application/json': {
             repo?: {
-              clone_path?: string | null
               default_branch?: string
               id?: string
               is_primary?: boolean
@@ -5516,6 +5515,7 @@ export interface operations {
               name?: string
               project_id?: string
               repository_url?: string
+              workspace_dirname?: string
             }
           }
         }
@@ -6819,7 +6819,6 @@ export interface operations {
               pr_status?: string
               pull_request_url?: string | null
               repo?: {
-                clone_path?: string | null
                 default_branch?: string
                 id?: string
                 is_primary?: boolean
@@ -6827,6 +6826,7 @@ export interface operations {
                 name?: string
                 project_id?: string
                 repository_url?: string
+                workspace_dirname?: string
               } | null
               repo_id?: string
               ticket_id?: string

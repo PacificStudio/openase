@@ -308,10 +308,8 @@ func (r *EntRepository) CreateProjectRepo(ctx context.Context, input domain.Crea
 		SetName(input.Name).
 		SetRepositoryURL(input.RepositoryURL).
 		SetDefaultBranch(input.DefaultBranch).
+		SetWorkspaceDirname(input.WorkspaceDirname).
 		SetIsPrimary(makePrimary)
-	if input.ClonePath != nil {
-		builder.SetClonePath(*input.ClonePath)
-	}
 	if len(input.Labels) > 0 {
 		builder.SetLabels(pgarray.StringArray(input.Labels))
 	}
@@ -364,12 +362,8 @@ func (r *EntRepository) UpdateProjectRepo(ctx context.Context, input domain.Upda
 		SetName(input.Name).
 		SetRepositoryURL(input.RepositoryURL).
 		SetDefaultBranch(input.DefaultBranch).
+		SetWorkspaceDirname(input.WorkspaceDirname).
 		SetIsPrimary(makePrimary)
-	if input.ClonePath != nil {
-		builder.SetClonePath(*input.ClonePath)
-	} else {
-		builder.ClearClonePath()
-	}
 	if len(input.Labels) > 0 {
 		builder.SetLabels(pgarray.StringArray(input.Labels))
 	} else {
@@ -896,14 +890,14 @@ func mapProjectRepos(items []*ent.ProjectRepo) []domain.ProjectRepo {
 
 func mapProjectRepo(item *ent.ProjectRepo) domain.ProjectRepo {
 	return domain.ProjectRepo{
-		ID:            item.ID,
-		ProjectID:     item.ProjectID,
-		Name:          item.Name,
-		RepositoryURL: item.RepositoryURL,
-		DefaultBranch: item.DefaultBranch,
-		ClonePath:     optionalString(item.ClonePath),
-		IsPrimary:     item.IsPrimary,
-		Labels:        append([]string(nil), item.Labels...),
+		ID:               item.ID,
+		ProjectID:        item.ProjectID,
+		Name:             item.Name,
+		RepositoryURL:    item.RepositoryURL,
+		DefaultBranch:    item.DefaultBranch,
+		WorkspaceDirname: item.WorkspaceDirname,
+		IsPrimary:        item.IsPrimary,
+		Labels:           append([]string(nil), item.Labels...),
 	}
 }
 

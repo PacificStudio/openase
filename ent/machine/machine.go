@@ -47,6 +47,8 @@ const (
 	EdgeOrganization = "organization"
 	// EdgeProviders holds the string denoting the providers edge name in mutations.
 	EdgeProviders = "providers"
+	// EdgeProjectRepoMirrors holds the string denoting the project_repo_mirrors edge name in mutations.
+	EdgeProjectRepoMirrors = "project_repo_mirrors"
 	// EdgeTargetTickets holds the string denoting the target_tickets edge name in mutations.
 	EdgeTargetTickets = "target_tickets"
 	// Table holds the table name of the machine in the database.
@@ -65,6 +67,13 @@ const (
 	ProvidersInverseTable = "agent_providers"
 	// ProvidersColumn is the table column denoting the providers relation/edge.
 	ProvidersColumn = "machine_id"
+	// ProjectRepoMirrorsTable is the table that holds the project_repo_mirrors relation/edge.
+	ProjectRepoMirrorsTable = "project_repo_mirrors"
+	// ProjectRepoMirrorsInverseTable is the table name for the ProjectRepoMirror entity.
+	// It exists in this package in order to avoid circular dependency with the "projectrepomirror" package.
+	ProjectRepoMirrorsInverseTable = "project_repo_mirrors"
+	// ProjectRepoMirrorsColumn is the table column denoting the project_repo_mirrors relation/edge.
+	ProjectRepoMirrorsColumn = "machine_id"
 	// TargetTicketsTable is the table that holds the target_tickets relation/edge.
 	TargetTicketsTable = "tickets"
 	// TargetTicketsInverseTable is the table name for the Ticket entity.
@@ -238,6 +247,20 @@ func ByProviders(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByProjectRepoMirrorsCount orders the results by project_repo_mirrors count.
+func ByProjectRepoMirrorsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newProjectRepoMirrorsStep(), opts...)
+	}
+}
+
+// ByProjectRepoMirrors orders the results by project_repo_mirrors terms.
+func ByProjectRepoMirrors(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newProjectRepoMirrorsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByTargetTicketsCount orders the results by target_tickets count.
 func ByTargetTicketsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -263,6 +286,13 @@ func newProvidersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProvidersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ProvidersTable, ProvidersColumn),
+	)
+}
+func newProjectRepoMirrorsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ProjectRepoMirrorsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ProjectRepoMirrorsTable, ProjectRepoMirrorsColumn),
 	)
 }
 func newTargetTicketsStep() *sqlgraph.Step {

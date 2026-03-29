@@ -922,8 +922,8 @@ func buildWorkspaceRepoInputs(
 				input.GitHubToken = &token
 			}
 		}
-		if clonePath := strings.TrimSpace(repo.ClonePath); clonePath != "" {
-			input.ClonePath = &clonePath
+		if workspaceDirname := strings.TrimSpace(repo.WorkspaceDirname); workspaceDirname != "" {
+			input.WorkspaceDirname = &workspaceDirname
 		}
 		if scope, ok := scopeByRepoID[repo.ID]; ok {
 			branchName := scope.BranchName
@@ -967,13 +967,13 @@ func primaryPreparedRepoPath(
 	launchContext runtimeLaunchContext,
 	repos []workspaceinfra.PreparedRepo,
 ) (string, bool) {
-	primaryClonePath := primaryWorkspaceClonePath(launchContext)
-	if primaryClonePath == "" {
+	primaryWorkspaceDirname := primaryWorkspaceDirname(launchContext)
+	if primaryWorkspaceDirname == "" {
 		return "", false
 	}
 
 	for _, repo := range repos {
-		if repo.ClonePath == primaryClonePath {
+		if repo.WorkspaceDirname == primaryWorkspaceDirname {
 			return repo.Path, true
 		}
 	}
@@ -981,7 +981,7 @@ func primaryPreparedRepoPath(
 	return "", false
 }
 
-func primaryWorkspaceClonePath(launchContext runtimeLaunchContext) string {
+func primaryWorkspaceDirname(launchContext runtimeLaunchContext) string {
 	projectReposByID := make(map[uuid.UUID]*ent.ProjectRepo, len(launchContext.projectRepos))
 	for _, repo := range launchContext.projectRepos {
 		projectReposByID[repo.ID] = repo
@@ -992,25 +992,25 @@ func primaryWorkspaceClonePath(launchContext runtimeLaunchContext) string {
 			continue
 		}
 		if repo := projectReposByID[scope.RepoID]; repo != nil {
-			return projectRepoClonePath(repo)
+			return projectRepoWorkspaceDirname(repo)
 		}
 	}
 
 	for _, repo := range launchContext.projectRepos {
 		if repo.IsPrimary {
-			return projectRepoClonePath(repo)
+			return projectRepoWorkspaceDirname(repo)
 		}
 	}
 
 	return ""
 }
 
-func projectRepoClonePath(repo *ent.ProjectRepo) string {
+func projectRepoWorkspaceDirname(repo *ent.ProjectRepo) string {
 	if repo == nil {
 		return ""
 	}
-	if clonePath := strings.TrimSpace(repo.ClonePath); clonePath != "" {
-		return clonePath
+	if workspaceDirname := strings.TrimSpace(repo.WorkspaceDirname); workspaceDirname != "" {
+		return workspaceDirname
 	}
 
 	return repo.Name

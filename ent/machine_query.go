@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
+	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/google/uuid"
 )
@@ -23,13 +24,14 @@ import (
 // MachineQuery is the builder for querying Machine entities.
 type MachineQuery struct {
 	config
-	ctx               *QueryContext
-	order             []machine.OrderOption
-	inters            []Interceptor
-	predicates        []predicate.Machine
-	withOrganization  *OrganizationQuery
-	withProviders     *AgentProviderQuery
-	withTargetTickets *TicketQuery
+	ctx                    *QueryContext
+	order                  []machine.OrderOption
+	inters                 []Interceptor
+	predicates             []predicate.Machine
+	withOrganization       *OrganizationQuery
+	withProviders          *AgentProviderQuery
+	withProjectRepoMirrors *ProjectRepoMirrorQuery
+	withTargetTickets      *TicketQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -103,6 +105,28 @@ func (_q *MachineQuery) QueryProviders() *AgentProviderQuery {
 			sqlgraph.From(machine.Table, machine.FieldID, selector),
 			sqlgraph.To(agentprovider.Table, agentprovider.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, machine.ProvidersTable, machine.ProvidersColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryProjectRepoMirrors chains the current query on the "project_repo_mirrors" edge.
+func (_q *MachineQuery) QueryProjectRepoMirrors() *ProjectRepoMirrorQuery {
+	query := (&ProjectRepoMirrorClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machine.Table, machine.FieldID, selector),
+			sqlgraph.To(projectrepomirror.Table, projectrepomirror.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, machine.ProjectRepoMirrorsTable, machine.ProjectRepoMirrorsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -319,14 +343,15 @@ func (_q *MachineQuery) Clone() *MachineQuery {
 		return nil
 	}
 	return &MachineQuery{
-		config:            _q.config,
-		ctx:               _q.ctx.Clone(),
-		order:             append([]machine.OrderOption{}, _q.order...),
-		inters:            append([]Interceptor{}, _q.inters...),
-		predicates:        append([]predicate.Machine{}, _q.predicates...),
-		withOrganization:  _q.withOrganization.Clone(),
-		withProviders:     _q.withProviders.Clone(),
-		withTargetTickets: _q.withTargetTickets.Clone(),
+		config:                 _q.config,
+		ctx:                    _q.ctx.Clone(),
+		order:                  append([]machine.OrderOption{}, _q.order...),
+		inters:                 append([]Interceptor{}, _q.inters...),
+		predicates:             append([]predicate.Machine{}, _q.predicates...),
+		withOrganization:       _q.withOrganization.Clone(),
+		withProviders:          _q.withProviders.Clone(),
+		withProjectRepoMirrors: _q.withProjectRepoMirrors.Clone(),
+		withTargetTickets:      _q.withTargetTickets.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -352,6 +377,17 @@ func (_q *MachineQuery) WithProviders(opts ...func(*AgentProviderQuery)) *Machin
 		opt(query)
 	}
 	_q.withProviders = query
+	return _q
+}
+
+// WithProjectRepoMirrors tells the query-builder to eager-load the nodes that are connected to
+// the "project_repo_mirrors" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *MachineQuery) WithProjectRepoMirrors(opts ...func(*ProjectRepoMirrorQuery)) *MachineQuery {
+	query := (&ProjectRepoMirrorClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withProjectRepoMirrors = query
 	return _q
 }
 
@@ -444,9 +480,10 @@ func (_q *MachineQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mach
 	var (
 		nodes       = []*Machine{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withOrganization != nil,
 			_q.withProviders != nil,
+			_q.withProjectRepoMirrors != nil,
 			_q.withTargetTickets != nil,
 		}
 	)
@@ -478,6 +515,15 @@ func (_q *MachineQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mach
 		if err := _q.loadProviders(ctx, query, nodes,
 			func(n *Machine) { n.Edges.Providers = []*AgentProvider{} },
 			func(n *Machine, e *AgentProvider) { n.Edges.Providers = append(n.Edges.Providers, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withProjectRepoMirrors; query != nil {
+		if err := _q.loadProjectRepoMirrors(ctx, query, nodes,
+			func(n *Machine) { n.Edges.ProjectRepoMirrors = []*ProjectRepoMirror{} },
+			func(n *Machine, e *ProjectRepoMirror) {
+				n.Edges.ProjectRepoMirrors = append(n.Edges.ProjectRepoMirrors, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -535,6 +581,36 @@ func (_q *MachineQuery) loadProviders(ctx context.Context, query *AgentProviderQ
 	}
 	query.Where(predicate.AgentProvider(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(machine.ProvidersColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.MachineID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "machine_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *MachineQuery) loadProjectRepoMirrors(ctx context.Context, query *ProjectRepoMirrorQuery, nodes []*Machine, init func(*Machine), assign func(*Machine, *ProjectRepoMirror)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Machine)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(projectrepomirror.FieldMachineID)
+	}
+	query.Where(predicate.ProjectRepoMirror(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(machine.ProjectRepoMirrorsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

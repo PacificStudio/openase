@@ -61,11 +61,13 @@ type MachineEdges struct {
 	Organization *Organization `json:"organization,omitempty"`
 	// Providers holds the value of the providers edge.
 	Providers []*AgentProvider `json:"providers,omitempty"`
+	// ProjectRepoMirrors holds the value of the project_repo_mirrors edge.
+	ProjectRepoMirrors []*ProjectRepoMirror `json:"project_repo_mirrors,omitempty"`
 	// TargetTickets holds the value of the target_tickets edge.
 	TargetTickets []*Ticket `json:"target_tickets,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -88,10 +90,19 @@ func (e MachineEdges) ProvidersOrErr() ([]*AgentProvider, error) {
 	return nil, &NotLoadedError{edge: "providers"}
 }
 
+// ProjectRepoMirrorsOrErr returns the ProjectRepoMirrors value or an error if the edge
+// was not loaded in eager-loading.
+func (e MachineEdges) ProjectRepoMirrorsOrErr() ([]*ProjectRepoMirror, error) {
+	if e.loadedTypes[2] {
+		return e.ProjectRepoMirrors, nil
+	}
+	return nil, &NotLoadedError{edge: "project_repo_mirrors"}
+}
+
 // TargetTicketsOrErr returns the TargetTickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e MachineEdges) TargetTicketsOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.TargetTickets, nil
 	}
 	return nil, &NotLoadedError{edge: "target_tickets"}
@@ -243,6 +254,11 @@ func (_m *Machine) QueryOrganization() *OrganizationQuery {
 // QueryProviders queries the "providers" edge of the Machine entity.
 func (_m *Machine) QueryProviders() *AgentProviderQuery {
 	return NewMachineClient(_m.config).QueryProviders(_m)
+}
+
+// QueryProjectRepoMirrors queries the "project_repo_mirrors" edge of the Machine entity.
+func (_m *Machine) QueryProjectRepoMirrors() *ProjectRepoMirrorQuery {
+	return NewMachineClient(_m.config).QueryProjectRepoMirrors(_m)
 }
 
 // QueryTargetTickets queries the "target_tickets" edge of the Machine entity.

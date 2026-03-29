@@ -45,6 +45,9 @@ type Project func(*sql.Selector)
 // ProjectRepo is the predicate function for projectrepo builders.
 type ProjectRepo func(*sql.Selector)
 
+// ProjectRepoMirror is the predicate function for projectrepomirror builders.
+type ProjectRepoMirror func(*sql.Selector)
+
 // ScheduledJob is the predicate function for scheduledjob builders.
 type ScheduledJob func(*sql.Selector)
 
