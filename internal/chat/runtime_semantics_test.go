@@ -113,7 +113,7 @@ func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	if events[1].Event != "done" || !ok {
 		t.Fatalf("second event = %+v, want done payload", events[1])
 	}
-	if done.SessionID != "session-gemini-1" || done.TurnsUsed != 1 || done.TurnsRemaining != DefaultMaxTurns-1 {
+	if done.SessionID != "session-gemini-1" || done.TurnsUsed != 1 || done.TurnsRemaining == nil || *done.TurnsRemaining != DefaultMaxTurns-1 {
 		t.Fatalf("unexpected done payload: %#v", done)
 	}
 

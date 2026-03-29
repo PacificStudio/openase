@@ -34,6 +34,19 @@ type RuntimeTurnInput struct {
 	MaxBudgetUSD     float64
 }
 
+func remainingTurns(maxTurns int, turnsUsed int) *int {
+	if maxTurns <= 0 {
+		return nil
+	}
+
+	remaining := 0
+	if maxTurns > turnsUsed {
+		remaining = maxTurns - turnsUsed
+	}
+
+	return &remaining
+}
+
 type Runtime interface {
 	Supports(catalogdomain.AgentProvider) bool
 	StartTurn(context.Context, RuntimeTurnInput) (TurnStream, error)

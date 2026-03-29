@@ -28,7 +28,7 @@ export type ChatTextPayload = {
 export type ChatDonePayload = {
   sessionId: string
   turnsUsed: number
-  turnsRemaining: number
+  turnsRemaining?: number
   costUSD?: number
 }
 
@@ -228,7 +228,7 @@ function parseDonePayload(payload: unknown): ChatDonePayload {
   return {
     sessionId: readRequiredString(object, 'session_id'),
     turnsUsed: readRequiredNumber(object, 'turns_used'),
-    turnsRemaining: readRequiredNumber(object, 'turns_remaining'),
+    turnsRemaining: readOptionalNumber(object, 'turns_remaining'),
     costUSD: readOptionalNumber(object, 'cost_usd'),
   }
 }

@@ -37,6 +37,8 @@ func (u UserID) String() string {
 type sessionState struct {
 	UserID           UserID
 	ProviderID       uuid.UUID
+	MaxTurns         int
+	MaxBudgetUSD     float64
 	TurnsUsed        int
 	CostUSD          float64
 	HasCostUSD       bool
@@ -50,7 +52,13 @@ type sessionRegistry struct {
 	byUser    map[UserID]SessionID
 }
 
-func (r *sessionRegistry) Register(userID UserID, sessionID SessionID, providerID uuid.UUID) {
+func (r *sessionRegistry) Register(
+	userID UserID,
+	sessionID SessionID,
+	providerID uuid.UUID,
+	maxTurns int,
+	maxBudgetUSD float64,
+) {
 	if sessionID == "" || providerID == uuid.Nil || userID == "" {
 		return
 	}
@@ -70,8 +78,10 @@ func (r *sessionRegistry) Register(userID UserID, sessionID SessionID, providerI
 	}
 
 	r.bySession[sessionID] = sessionState{
-		UserID:     userID,
-		ProviderID: providerID,
+		UserID:       userID,
+		ProviderID:   providerID,
+		MaxTurns:     maxTurns,
+		MaxBudgetUSD: maxBudgetUSD,
 	}
 	r.byUser[userID] = sessionID
 }

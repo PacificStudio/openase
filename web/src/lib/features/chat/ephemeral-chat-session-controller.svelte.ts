@@ -6,11 +6,17 @@ import {
   type ChatStreamEvent,
 } from '$lib/api/chat'
 import type { AgentProvider } from '$lib/api/contracts'
-import { executeActionProposal, type ChatActionExecutionResult } from './action-proposal-executor'
+import {
+  executeActionProposal,
+  summarizeExecutionResults,
+  type ChatActionExecutionResult,
+} from './action-proposal-executor'
 import { listEphemeralChatProviders, pickDefaultEphemeralChatProvider } from './provider-options'
 import { formatEphemeralChatUsageSummary } from './session-policy'
 import {
+  appendAssistantTextChunk,
   createTextTranscriptEntry,
+  finalizeAssistantTextChunk,
   isAbortError,
   isActionProposalEntry,
   mapChatPayloadToTranscriptEntry,
@@ -18,21 +24,14 @@ import {
   type EphemeralChatTranscriptEntry,
 } from './transcript'
 
-type EphemeralChatContext = {
-  projectId: string
-  workflowId?: string
-  ticketId?: string
-}
+type EphemeralChatContext = { projectId: string; workflowId?: string; ticketId?: string }
 
 type CreateEphemeralChatSessionControllerInput = {
   getSource: () => ChatSource
   onError?: (message: string) => void
 }
 
-type CloseSessionOptions = {
-  clearEntries: boolean
-  suppressError?: boolean
-}
+type CloseSessionOptions = { clearEntries: boolean; suppressError?: boolean }
 
 export function createEphemeralChatSessionController(
   input: CreateEphemeralChatSessionControllerInput,
@@ -46,10 +45,28 @@ export function createEphemeralChatSessionController(
   let entryCounter = 0
   let requestId = 0
   let abortController: AbortController | null = null
+  let activeAssistantEntryId = ''
 
-  function appendEntry(role: EphemeralChatRole, content: string) {
+  function appendEntry(
+    role: EphemeralChatRole,
+    content: string,
+    options?: { streaming?: boolean },
+  ) {
     entryCounter += 1
-    entries = [...entries, createTextTranscriptEntry(`entry-${entryCounter}`, role, content)]
+    entries = [
+      ...entries,
+      createTextTranscriptEntry(`entry-${entryCounter}`, role, content, options),
+    ]
+  }
+
+  function applyAssistantTextUpdate(update: {
+    entries: EphemeralChatTranscriptEntry[]
+    activeAssistantEntryId: string
+    entryCounter: number
+  }) {
+    entries = update.entries
+    activeAssistantEntryId = update.activeAssistantEntryId
+    entryCounter = update.entryCounter
   }
 
   function appendMappedEntry(event: Extract<ChatStreamEvent, { kind: 'message' }>) {
@@ -65,18 +82,38 @@ export function createEphemeralChatSessionController(
 
     if (event.kind === 'done') {
       sessionId = event.payload.sessionId
-      appendEntry('system', formatEphemeralChatUsageSummary(event.payload))
+      applyAssistantTextUpdate(
+        finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
+      )
+      appendEntry('system', formatEphemeralChatUsageSummary(input.getSource(), event.payload))
       pending = false
       return
     }
 
     if (event.kind === 'error') {
+      applyAssistantTextUpdate(
+        finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
+      )
       reportError(event.payload.message)
       pending = false
       return
     }
 
-    appendMappedEntry(event)
+    const messageEvent = event as Extract<ChatStreamEvent, { kind: 'message' }>
+    const payload = messageEvent.payload
+    if (payload.type === 'text') {
+      applyAssistantTextUpdate(
+        appendAssistantTextChunk({
+          entries,
+          activeAssistantEntryId,
+          entryCounter,
+          content: (payload as Extract<typeof payload, { type: 'text' }>).content,
+        }),
+      )
+      return
+    }
+
+    appendMappedEntry(messageEvent)
   }
 
   function reportError(message: string) {
@@ -89,6 +126,7 @@ export function createEphemeralChatSessionController(
 
     abortController?.abort()
     abortController = null
+    activeAssistantEntryId = ''
     pending = false
     sessionId = ''
 
@@ -177,6 +215,7 @@ export function createEphemeralChatSessionController(
       }
 
       appendEntry('user', message)
+      activeAssistantEntryId = ''
       pending = true
 
       const controller = new AbortController()
@@ -223,12 +262,10 @@ export function createEphemeralChatSessionController(
       if (!entry || !isActionProposalEntry(entry) || entry.status !== 'pending') {
         return
       }
-
       updateActionProposalEntry(entryId, {
         status: 'executing',
         results: [],
       })
-
       const results = await executeActionProposal(entry.proposal)
       updateActionProposalEntry(entryId, {
         status: 'confirmed',
@@ -241,7 +278,6 @@ export function createEphemeralChatSessionController(
       if (!entry || !isActionProposalEntry(entry) || entry.status !== 'pending') {
         return
       }
-
       updateActionProposalEntry(entryId, {
         status: 'cancelled',
         results: [],
@@ -260,21 +296,4 @@ export function createEphemeralChatSessionController(
       await closeActiveSession({ clearEntries: false, suppressError: true })
     },
   }
-}
-
-function summarizeExecutionResults(results: ChatActionExecutionResult[]) {
-  if (results.length === 0) {
-    return 'No platform actions were proposed.'
-  }
-
-  const successCount = results.filter((result) => result.ok).length
-  if (successCount === results.length) {
-    return `Executed ${successCount} proposed platform action${successCount === 1 ? '' : 's'}.`
-  }
-
-  if (successCount === 0) {
-    return `All ${results.length} proposed platform actions failed.`
-  }
-
-  return `Executed ${successCount} of ${results.length} proposed platform actions successfully.`
 }

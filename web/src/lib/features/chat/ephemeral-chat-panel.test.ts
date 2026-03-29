@@ -160,7 +160,7 @@ describe('EphemeralChatPanel', () => {
 
     expect(
       await findByText(
-        'Session cap: 10 turns / $2.00. The first reply starts a new ephemeral chat session.',
+        'The first reply starts a grouped project conversation. Assistant markdown streams into a single reply block per turn.',
       ),
     ).toBeTruthy()
 
