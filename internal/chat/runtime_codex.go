@@ -234,16 +234,12 @@ func (r *CodexRuntime) bridgeTurn(
 			turnsUsed := state.turnsUsed
 			r.mu.Unlock()
 
-			turnsRemaining := 0
-			if maxTurns > turnsUsed {
-				turnsRemaining = maxTurns - turnsUsed
-			}
 			events <- StreamEvent{
 				Event: "done",
 				Payload: donePayload{
 					SessionID:      sessionID.String(),
 					TurnsUsed:      turnsUsed,
-					TurnsRemaining: turnsRemaining,
+					TurnsRemaining: remainingTurns(maxTurns, turnsUsed),
 				},
 			}
 			return

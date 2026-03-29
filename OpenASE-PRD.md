@@ -9028,6 +9028,12 @@ AI: ✅ 已创建 ASE-43、ASE-44、ASE-45，均关联为 ASE-42 的子工单。
 
 所有入口统一带一个 provider selector，允许用户在 Claude Code / Codex / Gemini CLI 之间切换当前 Ephemeral Chat 会话使用的 provider。
 
+补充交互约束：
+
+- `project_sidebar` 的全局 Ask AI 采用常规聊天体验，不再使用固定 turn cap 作为 transcript UX。
+- `project_sidebar` 中一个 assistant turn 只对应一个可变的 transcript block，流式增量必须合并到当前 assistant 回复中，不能把 chunk 边界暴露成多个气泡。
+- assistant markdown 需要走流式友好的渲染路径；首个实现至少覆盖 `codex-app-server` 与 `claude-code-cli`。
+
 ### 31.6 Harness 编辑器中的 AI 辅助细节
 
 这是最高频的使用场景，需要更细致的交互设计：
@@ -9070,7 +9076,7 @@ AI: ✅ 已创建 ASE-43、ASE-44、ASE-45，均关联为 ASE-42 的子工单。
 | 会话上下文 | 支持多轮对话（通过 `--resume session_id` 续接） |
 | 历史记录 | 不持久化。临时对话不存数据库，关闭即丢弃 |
 | 并发 | 每个用户同时最多 1 个 Ephemeral Chat 会话，新会话自动关闭旧会话 |
-| 成本控制 | UI 明示单次会话最大 10 轮对话 / $2.00 预算；10 轮上限由服务端对所有 provider 强制执行，`cost_usd` 由支持成本回传的 provider 在 `done` 事件中上报并用于触发 $2.00 封顶，若 provider 暂无成本遥测则前端显示预算上限但当前花费标记为 unavailable；任一上限命中后提示"请创建工单让 Agent 处理" |
+| 成本控制 | Harness 编辑器 / 工单详情等临时入口仍可显示固定会话预算（默认 10 轮 / $2.00）；`project_sidebar` 不再暴露固定 turn cap，而是保留 ongoing conversation，并把成本/花费与 transcript UX 解耦。`cost_usd` 由支持成本回传的 provider 在 `done` 事件中上报并用于触发预算封顶；若 provider 暂无成本遥测则前端显示 spend unavailable。预算命中后提示"请创建工单让 Agent 处理" |
 
 ### 31.8 API 端点
 

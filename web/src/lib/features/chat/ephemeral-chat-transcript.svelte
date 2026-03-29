@@ -2,6 +2,7 @@
   import { cn } from '$lib/utils'
   import { LoaderCircle } from '@lucide/svelte'
   import EphemeralChatActionProposalCard from './ephemeral-chat-action-proposal-card.svelte'
+  import ChatMarkdownContent from './chat-markdown-content.svelte'
   import type { EphemeralChatTranscriptEntry } from './transcript'
 
   let {
@@ -19,6 +20,10 @@
     onConfirmActionProposal?: (entryId: string) => Promise<void> | void
     onCancelActionProposal?: (entryId: string) => void
   } = $props()
+
+  const hasStreamingAssistantEntry = $derived(
+    entries.some((entry) => entry.kind === 'text' && entry.role === 'assistant' && entry.streaming),
+  )
 </script>
 
 <div class="space-y-3">
@@ -50,12 +55,16 @@
         <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">
           {entry.role}
         </div>
-        <div class="break-words whitespace-pre-wrap">{entry.content}</div>
+        {#if entry.role === 'assistant'}
+          <ChatMarkdownContent source={entry.content} />
+        {:else}
+          <div class="break-words whitespace-pre-wrap">{entry.content}</div>
+        {/if}
       </div>
     {/if}
   {/each}
 
-  {#if pending}
+  {#if pending && !hasStreamingAssistantEntry}
     <div
       class="border-border bg-muted/30 flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm"
     >
