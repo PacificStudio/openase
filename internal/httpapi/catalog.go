@@ -89,6 +89,19 @@ type projectRepoMirrorResponse struct {
 	UpdatedAt      string  `json:"updated_at"`
 }
 
+type projectRepoMirrorMaterializeMode string
+
+const (
+	projectRepoMirrorMaterializeModeRegisterExisting projectRepoMirrorMaterializeMode = "register_existing"
+	projectRepoMirrorMaterializeModePrepare          projectRepoMirrorMaterializeMode = "prepare"
+)
+
+type projectRepoMirrorMaterializeRequest struct {
+	MachineID string `json:"machine_id"`
+	LocalPath string `json:"local_path"`
+	Mode      string `json:"mode"`
+}
+
 type ticketRepoScopeResponse struct {
 	ID             string  `json:"id"`
 	TicketID       string  `json:"ticket_id"`
@@ -171,6 +184,7 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.DELETE("/projects/:projectId", s.archiveProject)
 	api.GET("/projects/:projectId/repos", s.listProjectRepos)
 	api.GET("/projects/:projectId/repos/:repoId/mirrors", s.listProjectRepoMirrors)
+	api.POST("/projects/:projectId/repos/:repoId/mirrors", s.materializeProjectRepoMirror)
 	api.POST("/projects/:projectId/repos", s.createProjectRepo)
 	api.PATCH("/projects/:projectId/repos/:repoId", s.patchProjectRepo)
 	api.DELETE("/projects/:projectId/repos/:repoId", s.deleteProjectRepo)
@@ -683,6 +697,59 @@ func (s *Server) listProjectRepoMirrors(c echo.Context) error {
 	})
 }
 
+func (s *Server) materializeProjectRepoMirror(c echo.Context) error {
+	if s.projectRepoMirrors == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project repo mirror service unavailable")
+	}
+
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	repoID, err := parseUUIDPathParam(c, "repoId")
+	if err != nil {
+		return err
+	}
+	if _, err := s.catalog.GetProjectRepo(c.Request().Context(), projectID, repoID); err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	var request projectRepoMirrorMaterializeRequest
+	if err := decodeJSON(c, &request); err != nil {
+		return err
+	}
+
+	machineID, localPath, mode, err := parseProjectRepoMirrorMaterializeRequest(request)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	var mirror domain.ProjectRepoMirror
+	switch mode {
+	case projectRepoMirrorMaterializeModeRegisterExisting:
+		mirror, err = s.projectRepoMirrors.RegisterExisting(c.Request().Context(), projectrepomirrorsvc.RegisterExistingInput{
+			ProjectRepoID: repoID,
+			MachineID:     machineID,
+			LocalPath:     localPath,
+		})
+	case projectRepoMirrorMaterializeModePrepare:
+		mirror, err = s.projectRepoMirrors.Prepare(c.Request().Context(), projectrepomirrorsvc.PrepareInput{
+			ProjectRepoID: repoID,
+			MachineID:     machineID,
+			LocalPath:     localPath,
+		})
+	default:
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "mode must be one of register_existing or prepare")
+	}
+	if err != nil {
+		return writeProjectRepoMirrorError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"mirror": mapProjectRepoMirrorResponse(mirror),
+	})
+}
+
 func (s *Server) createProjectRepo(c echo.Context) error {
 	projectID, err := parseUUIDPathParam(c, "projectId")
 	if err != nil {
@@ -1150,6 +1217,26 @@ func mapProjectRepoMirrorResponse(item domain.ProjectRepoMirror) projectRepoMirr
 		LastError:      cloneStringPointerValue(item.LastError),
 		CreatedAt:      item.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:      item.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func parseProjectRepoMirrorMaterializeRequest(raw projectRepoMirrorMaterializeRequest) (uuid.UUID, string, projectRepoMirrorMaterializeMode, error) {
+	machineID, err := uuid.Parse(strings.TrimSpace(raw.MachineID))
+	if err != nil {
+		return uuid.UUID{}, "", "", fmt.Errorf("machine_id must be a valid UUID")
+	}
+
+	localPath := strings.TrimSpace(raw.LocalPath)
+	if localPath == "" {
+		return uuid.UUID{}, "", "", fmt.Errorf("local_path must not be empty")
+	}
+
+	mode := projectRepoMirrorMaterializeMode(strings.TrimSpace(raw.Mode))
+	switch mode {
+	case projectRepoMirrorMaterializeModeRegisterExisting, projectRepoMirrorMaterializeModePrepare:
+		return machineID, localPath, mode, nil
+	default:
+		return uuid.UUID{}, "", "", fmt.Errorf("mode must be one of register_existing or prepare")
 	}
 }
 

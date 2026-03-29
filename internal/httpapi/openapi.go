@@ -713,6 +713,10 @@ type OpenAPIProjectRepoMirrorsResponse struct {
 	Mirrors []OpenAPIProjectRepoMirror `json:"mirrors"`
 }
 
+type OpenAPIProjectRepoMirrorResponse struct {
+	Mirror OpenAPIProjectRepoMirror `json:"mirror"`
+}
+
 type OpenAPITicketRepoScopesResponse struct {
 	RepoScopes []OpenAPITicketRepoScope `json:"repo_scopes"`
 }
@@ -891,6 +895,7 @@ type OpenAPICreateMachineRequest catalogdomain.MachineInput
 type OpenAPIUpdateMachineRequest machinePatchRequest
 type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
+type OpenAPIMaterializeProjectRepoMirrorRequest projectRepoMirrorMaterializeRequest
 type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
 type OpenAPIUpdateTicketRepoScopeRequest ticketRepoScopePatchRequest
 type OpenAPICreateAgentRequest catalogdomain.AgentInput
@@ -1402,6 +1407,26 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	projectRepoMirrorsGet.AddParameter(uuidPathParameter("repoId", "Repository ID."))
 	projectRepoMirrorsGet.AddParameter(uuidQueryParameter("machine_id", "Optional machine filter."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors", http.MethodGet, projectRepoMirrorsGet)
+
+	projectRepoMirrorsPost, err := b.jsonOperation(
+		"materializeProjectRepoMirror",
+		"Register or prepare a project repository mirror",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPIProjectRepoMirrorResponse{},
+		OpenAPIMaterializeProjectRepoMirrorRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectRepoMirrorsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectRepoMirrorsPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors", http.MethodPost, projectRepoMirrorsPost)
 
 	projectReposPost, err := b.jsonOperation(
 		"createProjectRepo",
