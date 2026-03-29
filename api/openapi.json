@@ -10648,13 +10648,38 @@
                           "body": {
                             "type": "string"
                           },
+                          "body_markdown": {
+                            "type": "string"
+                          },
                           "created_at": {
                             "type": "string"
                           },
                           "created_by": {
                             "type": "string"
                           },
+                          "deleted_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "deleted_by": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "edit_count": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "id": {
+                            "type": "string"
+                          },
+                          "is_deleted": {
+                            "type": "boolean"
+                          },
+                          "last_edited_by": {
+                            "nullable": true,
                             "type": "string"
                           },
                           "ticket_id": {
@@ -10973,6 +10998,61 @@
                         }
                       },
                       "type": "object"
+                    },
+                    "timeline": {
+                      "items": {
+                        "properties": {
+                          "actor_name": {
+                            "type": "string"
+                          },
+                          "actor_type": {
+                            "type": "string"
+                          },
+                          "body_markdown": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "body_text": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "edited_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "is_collapsible": {
+                            "type": "boolean"
+                          },
+                          "is_deleted": {
+                            "type": "boolean"
+                          },
+                          "item_type": {
+                            "type": "string"
+                          },
+                          "metadata": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "ticket_id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "type": "object"
@@ -14443,13 +14523,38 @@
                         "body": {
                           "type": "string"
                         },
+                        "body_markdown": {
+                          "type": "string"
+                        },
                         "created_at": {
                           "type": "string"
                         },
                         "created_by": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "deleted_by": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "edit_count": {
+                          "type": "integer"
+                        },
+                        "edited_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "id": {
+                          "type": "string"
+                        },
+                        "is_deleted": {
+                          "type": "boolean"
+                        },
+                        "last_edited_by": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "ticket_id": {
@@ -14662,6 +14767,14 @@
                 "properties": {
                   "body": {
                     "type": "string"
+                  },
+                  "edit_reason": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "edited_by": {
+                    "nullable": true,
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -14682,13 +14795,38 @@
                         "body": {
                           "type": "string"
                         },
+                        "body_markdown": {
+                          "type": "string"
+                        },
                         "created_at": {
                           "type": "string"
                         },
                         "created_by": {
                           "type": "string"
                         },
+                        "deleted_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "deleted_by": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "edit_count": {
+                          "type": "integer"
+                        },
+                        "edited_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "id": {
+                          "type": "string"
+                        },
+                        "is_deleted": {
+                          "type": "boolean"
+                        },
+                        "last_edited_by": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "ticket_id": {
@@ -14764,6 +14902,135 @@
           }
         },
         "summary": "Update a ticket comment",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/tickets/{ticketId}/comments/{commentId}/revisions": {
+      "get": {
+        "operationId": "listTicketCommentRevisions",
+        "parameters": [
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Comment ID.",
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "revisions": {
+                      "items": {
+                        "properties": {
+                          "body_markdown": {
+                            "type": "string"
+                          },
+                          "comment_id": {
+                            "type": "string"
+                          },
+                          "edit_reason": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "edited_at": {
+                            "type": "string"
+                          },
+                          "edited_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "revision_number": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List ticket comment revisions response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List ticket comment revisions",
         "tags": [
           "tickets"
         ]

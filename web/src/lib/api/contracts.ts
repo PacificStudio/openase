@@ -122,6 +122,10 @@ export type TicketCommentUpdateResponse = DeepRequired<
 export type TicketCommentDeleteResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/comments/{commentId}', 'delete'>
 >
+export type TicketCommentRevisionListResponse = DeepRequired<
+  ResponseFor<'/api/v1/tickets/{ticketId}/comments/{commentId}/revisions', 'get'>
+>
+export type TicketCommentRevisionRecord = ItemOf<TicketCommentRevisionListResponse['revisions']>
 export type TicketDependencyResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/dependencies', 'post'>
 >
@@ -233,6 +237,7 @@ export type TicketDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/detail', 'get'>
 >
 export type TicketCommentRecord = ItemOf<TicketDetailPayload['comments']>
+export type TicketTimelineItemRecord = ItemOf<TicketDetailPayload['timeline']>
 export type TicketRepoScope = ItemOf<TicketDetailPayload['repo_scopes']>
 export type ProjectRepo = NonNullable<TicketRepoScope['repo']>
 

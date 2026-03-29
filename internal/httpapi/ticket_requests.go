@@ -59,7 +59,9 @@ type rawCreateTicketCommentRequest struct {
 }
 
 type rawUpdateTicketCommentRequest struct {
-	Body string `json:"body"`
+	Body       string  `json:"body"`
+	EditedBy   *string `json:"edited_by"`
+	EditReason *string `json:"edit_reason"`
 }
 
 func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (ticketservice.CreateInput, error) {
@@ -270,11 +272,19 @@ func parseUpdateTicketCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, ra
 		return ticketservice.UpdateCommentInput{}, fmt.Errorf("body must not be empty")
 	}
 
-	return ticketservice.UpdateCommentInput{
+	input := ticketservice.UpdateCommentInput{
 		TicketID:  ticketID,
 		CommentID: commentID,
 		Body:      body,
-	}, nil
+	}
+	if raw.EditedBy != nil {
+		input.EditedBy = strings.TrimSpace(*raw.EditedBy)
+	}
+	if raw.EditReason != nil {
+		input.EditReason = strings.TrimSpace(*raw.EditReason)
+	}
+
+	return input, nil
 }
 
 func parseTicketID(c echo.Context) (uuid.UUID, error) {

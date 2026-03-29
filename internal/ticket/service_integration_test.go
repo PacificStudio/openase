@@ -218,15 +218,24 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		t.Fatalf("ListComments() = %+v", comments)
 	}
 	updatedCommentOne, err := service.UpdateComment(ctx, UpdateCommentInput{
-		TicketID:  parent.ID,
-		CommentID: commentOne.ID,
-		Body:      "updated first comment",
+		TicketID:   parent.ID,
+		CommentID:  commentOne.ID,
+		Body:       "updated first comment",
+		EditedBy:   "agent:codex",
+		EditReason: "clarify scope",
 	})
 	if err != nil {
 		t.Fatalf("UpdateComment() error = %v", err)
 	}
-	if updatedCommentOne.Body != "updated first comment" {
+	if updatedCommentOne.BodyMarkdown != "updated first comment" || updatedCommentOne.EditCount != 1 || updatedCommentOne.LastEditedBy == nil || *updatedCommentOne.LastEditedBy != "agent:codex" {
 		t.Fatalf("UpdateComment() = %+v", updatedCommentOne)
+	}
+	revisions, err := service.ListCommentRevisions(ctx, parent.ID, commentOne.ID)
+	if err != nil {
+		t.Fatalf("ListCommentRevisions() error = %v", err)
+	}
+	if len(revisions) != 2 || revisions[0].RevisionNumber != 1 || revisions[0].BodyMarkdown != "first comment" || revisions[1].RevisionNumber != 2 || revisions[1].BodyMarkdown != "updated first comment" {
+		t.Fatalf("ListCommentRevisions() = %+v", revisions)
 	}
 	removeCommentResult, err := service.RemoveComment(ctx, parent.ID, commentTwo.ID)
 	if err != nil {
@@ -234,6 +243,13 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	}
 	if removeCommentResult.DeletedCommentID != commentTwo.ID {
 		t.Fatalf("RemoveComment() = %+v", removeCommentResult)
+	}
+	commentsAfterDelete, err := service.ListComments(ctx, parent.ID)
+	if err != nil {
+		t.Fatalf("ListComments(after delete) error = %v", err)
+	}
+	if len(commentsAfterDelete) != 2 || !commentsAfterDelete[1].IsDeleted || commentsAfterDelete[1].DeletedAt == nil {
+		t.Fatalf("ListComments(after delete) = %+v", commentsAfterDelete)
 	}
 
 	if _, err := client.Ticket.UpdateOneID(parent.ID).SetCostAmount(75).Save(ctx); err != nil {
@@ -471,6 +487,9 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	}
 	if _, err := service.RemoveComment(ctx, parent.ID, uuid.New()); err != ErrCommentNotFound {
 		t.Fatalf("RemoveComment(missing) error = %v, want %v", err, ErrCommentNotFound)
+	}
+	if _, err := service.ListCommentRevisions(ctx, parent.ID, uuid.New()); err != ErrCommentNotFound {
+		t.Fatalf("ListCommentRevisions(missing) error = %v, want %v", err, ErrCommentNotFound)
 	}
 
 	if _, err := service.RemoveExternalLink(ctx, parent.ID, link.ID); err != nil {

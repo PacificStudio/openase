@@ -54,6 +54,9 @@ type Ticket func(*sql.Selector)
 // TicketComment is the predicate function for ticketcomment builders.
 type TicketComment func(*sql.Selector)
 
+// TicketCommentRevision is the predicate function for ticketcommentrevision builders.
+type TicketCommentRevision func(*sql.Selector)
+
 // TicketDependency is the predicate function for ticketdependency builders.
 type TicketDependency func(*sql.Selector)
 

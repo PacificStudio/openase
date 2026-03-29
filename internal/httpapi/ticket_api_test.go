@@ -15,6 +15,7 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticketcomment "github.com/BetterAndBetterII/openase/ent/ticketcomment"
+	entticketcommentrevision "github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -299,7 +300,7 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		http.StatusCreated,
 		&commentCreateResp,
 	)
-	if commentCreateResp.Comment.CreatedBy != "user:reviewer" || commentCreateResp.Comment.Body == "" {
+	if commentCreateResp.Comment.CreatedBy != "user:reviewer" || commentCreateResp.Comment.BodyMarkdown == "" {
 		t.Fatalf("unexpected comment create response: %+v", commentCreateResp.Comment)
 	}
 
@@ -321,7 +322,7 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		http.StatusOK,
 		&commentUpdateResp,
 	)
-	if !strings.Contains(commentUpdateResp.Comment.Body, "markdown support") {
+	if !strings.Contains(commentUpdateResp.Comment.BodyMarkdown, "markdown support") {
 		t.Fatalf("unexpected comment update response: %+v", commentUpdateResp.Comment)
 	}
 
@@ -1085,6 +1086,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	}
 	backlogID := findStatusIDByName(t, statuses, "Backlog")
 	doneID := findStatusIDByName(t, statuses, "Done")
+	detailBaseTime := time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(project.ID).
@@ -1147,6 +1149,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetEventType("comment_added").
 		SetMessage("Looks good.\n\n- Please include PR links.").
 		SetMetadata(map[string]any{"comment_author": "user:reviewer"}).
+		SetCreatedAt(detailBaseTime.Add(2 * time.Minute)).
 		Save(ctx); err != nil {
 		t.Fatalf("create comment event: %v", err)
 	}
@@ -1156,6 +1159,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetEventType("pr.opened").
 		SetMessage("Opened frontend PR #9").
 		SetMetadata(map[string]any{"stream": "stdout"}).
+		SetCreatedAt(detailBaseTime.Add(3 * time.Minute)).
 		Save(ctx); err != nil {
 		t.Fatalf("create activity event: %v", err)
 	}
@@ -1165,6 +1169,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetEventType("hook.failed").
 		SetMessage("on_complete failed for run-tests.sh").
 		SetMetadata(map[string]any{"hook_name": "on_complete", "command": "run-tests.sh"}).
+		SetCreatedAt(detailBaseTime.Add(4 * time.Minute)).
 		Save(ctx); err != nil {
 		t.Fatalf("create hook event: %v", err)
 	}
@@ -1179,12 +1184,37 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket external link: %v", err)
 	}
-	if _, err := client.TicketComment.Create().
+	commentItem, err := client.TicketComment.Create().
 		SetTicketID(ticketItem.ID).
-		SetBody("Please split runtime hooks from discussion comments.").
+		SetBody("Please split runtime hooks from discussion comments, then add revisions.").
 		SetCreatedBy("user:product").
-		Save(ctx); err != nil {
+		SetCreatedAt(detailBaseTime.Add(time.Minute)).
+		SetUpdatedAt(detailBaseTime.Add(5 * time.Minute)).
+		SetEditedAt(detailBaseTime.Add(5 * time.Minute)).
+		SetEditCount(1).
+		SetLastEditedBy("agent:codex").
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create ticket comment: %v", err)
+	}
+	if _, err := client.TicketCommentRevision.Create().
+		SetCommentID(commentItem.ID).
+		SetRevisionNumber(1).
+		SetBodyMarkdown("Please split runtime hooks from discussion comments.").
+		SetEditedBy("user:product").
+		SetEditedAt(detailBaseTime.Add(time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("create first ticket comment revision: %v", err)
+	}
+	if _, err := client.TicketCommentRevision.Create().
+		SetCommentID(commentItem.ID).
+		SetRevisionNumber(2).
+		SetBodyMarkdown("Please split runtime hooks from discussion comments, then add revisions.").
+		SetEditedBy("agent:codex").
+		SetEditedAt(detailBaseTime.Add(5 * time.Minute)).
+		SetEditReason("clarified scope").
+		Save(ctx); err != nil {
+		t.Fatalf("create second ticket comment revision: %v", err)
 	}
 	agentProvider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
@@ -1242,6 +1272,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		Ticket        ticketResponse                  `json:"ticket"`
 		RepoScopes    []ticketRepoScopeDetailResponse `json:"repo_scopes"`
 		Comments      []ticketCommentResponse         `json:"comments"`
+		Timeline      []ticketTimelineItemResponse    `json:"timeline"`
 		Activity      []activityEventResponse         `json:"activity"`
 		HookHistory   []activityEventResponse         `json:"hook_history"`
 	}
@@ -1279,8 +1310,14 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if payload.RepoScopes[0].PullRequestURL == nil || *payload.RepoScopes[0].PullRequestURL != "https://github.com/acme/frontend/pull/9" {
 		t.Fatalf("expected frontend pull request URL, got %+v", payload.RepoScopes[0])
 	}
-	if len(payload.Comments) != 1 || payload.Comments[0].CreatedBy != "user:product" {
+	if len(payload.Comments) != 1 || payload.Comments[0].CreatedBy != "user:product" || payload.Comments[0].EditCount != 1 || payload.Comments[0].EditedAt == nil {
 		t.Fatalf("expected ticket detail to include comments, got %+v", payload.Comments)
+	}
+	if len(payload.Timeline) != 4 || payload.Timeline[0].ItemType != "description" || payload.Timeline[1].ItemType != "comment" || payload.Timeline[2].ItemType != "activity" || payload.Timeline[3].ItemType != "activity" {
+		t.Fatalf("expected ticket detail timeline projection, got %+v", payload.Timeline)
+	}
+	if payload.Timeline[1].Metadata["revision_count"] != float64(2) && payload.Timeline[1].Metadata["revision_count"] != 2 {
+		t.Fatalf("expected comment timeline metadata to include revision count, got %+v", payload.Timeline[1].Metadata)
 	}
 	if len(payload.Activity) != 2 {
 		t.Fatalf("expected two ticket activity events, got %+v", payload.Activity)
@@ -1353,7 +1390,7 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 		&createPayload,
 	)
 
-	if createPayload.Comment.Body != "First comment" || createPayload.Comment.CreatedBy != "user:reviewer" {
+	if createPayload.Comment.BodyMarkdown != "First comment" || createPayload.Comment.CreatedBy != "user:reviewer" || createPayload.Comment.EditCount != 0 {
 		t.Fatalf("unexpected created comment payload: %+v", createPayload.Comment)
 	}
 
@@ -1366,14 +1403,33 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/tickets/%s/comments/%s", ticketItem.ID, createPayload.Comment.ID),
 		map[string]any{
-			"body": "Updated comment body",
+			"body":        "Updated comment body",
+			"edited_by":   "agent:codex",
+			"edit_reason": "clarified scope",
 		},
 		http.StatusOK,
 		&updatePayload,
 	)
 
-	if updatePayload.Comment.Body != "Updated comment body" || updatePayload.Comment.UpdatedAt == nil {
+	if updatePayload.Comment.BodyMarkdown != "Updated comment body" || updatePayload.Comment.UpdatedAt == nil || updatePayload.Comment.EditedAt == nil || updatePayload.Comment.EditCount != 1 || updatePayload.Comment.LastEditedBy == nil || *updatePayload.Comment.LastEditedBy != "agent:codex" {
 		t.Fatalf("unexpected updated comment payload: %+v", updatePayload.Comment)
+	}
+
+	var revisionsPayload struct {
+		Revisions []ticketCommentRevisionResponse `json:"revisions"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/tickets/%s/comments/%s/revisions", ticketItem.ID, createPayload.Comment.ID),
+		nil,
+		http.StatusOK,
+		&revisionsPayload,
+	)
+
+	if len(revisionsPayload.Revisions) != 2 || revisionsPayload.Revisions[0].RevisionNumber != 1 || revisionsPayload.Revisions[0].BodyMarkdown != "First comment" || revisionsPayload.Revisions[1].RevisionNumber != 2 || revisionsPayload.Revisions[1].BodyMarkdown != "Updated comment body" {
+		t.Fatalf("unexpected revisions payload: %+v", revisionsPayload.Revisions)
 	}
 
 	var deletePayload struct {
@@ -1399,8 +1455,24 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("count remaining comments: %v", err)
 	}
-	if remaining != 0 {
-		t.Fatalf("expected comment row to be deleted, remaining=%d", remaining)
+	if remaining != 1 {
+		t.Fatalf("expected comment row to be soft deleted, remaining=%d", remaining)
+	}
+	deletedComment, err := client.TicketComment.Get(ctx, uuid.MustParse(createPayload.Comment.ID))
+	if err != nil {
+		t.Fatalf("get deleted comment: %v", err)
+	}
+	if !deletedComment.IsDeleted || deletedComment.DeletedAt == nil {
+		t.Fatalf("expected comment to be soft deleted, got %+v", deletedComment)
+	}
+	revisionCount, err := client.TicketCommentRevision.Query().
+		Where(entticketcommentrevision.CommentIDEQ(deletedComment.ID)).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count comment revisions: %v", err)
+	}
+	if revisionCount != 2 {
+		t.Fatalf("expected revisions to survive delete, got %d", revisionCount)
 	}
 }
 
