@@ -89,6 +89,16 @@ export type TicketComment = {
   updatedAt?: string
 }
 
+export type TicketCommentRevision = {
+  id: string
+  commentId: string
+  revisionNumber: number
+  bodyMarkdown: string
+  editedBy: string
+  editedAt: string
+  editReason?: string
+}
+
 export type TicketTimelineActor = {
   name: string
   type: string
