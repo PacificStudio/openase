@@ -15,8 +15,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
-	gitconfig "github.com/go-git/go-git/v5/config"
 	git "github.com/go-git/go-git/v5"
+	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	_ "github.com/lib/pq"
 )
