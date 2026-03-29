@@ -19,6 +19,7 @@ import (
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
@@ -1153,24 +1154,26 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("create comment event: %v", err)
 	}
-	if _, err := client.ActivityEvent.Create().
+	prOpenedEvent, err := client.ActivityEvent.Create().
 		SetProjectID(project.ID).
 		SetTicketID(ticketItem.ID).
 		SetEventType("pr.opened").
 		SetMessage("Opened frontend PR #9").
 		SetMetadata(map[string]any{"stream": "stdout"}).
 		SetCreatedAt(detailBaseTime.Add(3 * time.Minute)).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create activity event: %v", err)
 	}
-	if _, err := client.ActivityEvent.Create().
+	hookFailedEvent, err := client.ActivityEvent.Create().
 		SetProjectID(project.ID).
 		SetTicketID(ticketItem.ID).
 		SetEventType("hook.failed").
 		SetMessage("on_complete failed for run-tests.sh").
 		SetMetadata(map[string]any{"hook_name": "on_complete", "command": "run-tests.sh"}).
 		SetCreatedAt(detailBaseTime.Add(4 * time.Minute)).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create hook event: %v", err)
 	}
 	if _, err := client.TicketExternalLink.Create().
@@ -1316,6 +1319,12 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if len(payload.Timeline) != 4 || payload.Timeline[0].ItemType != "description" || payload.Timeline[1].ItemType != "comment" || payload.Timeline[2].ItemType != "activity" || payload.Timeline[3].ItemType != "activity" {
 		t.Fatalf("expected ticket detail timeline projection, got %+v", payload.Timeline)
 	}
+	if payload.Timeline[0].ID != "description:"+ticketItem.ID.String() || payload.Timeline[0].Title == nil || *payload.Timeline[0].Title != ticketItem.Title {
+		t.Fatalf("expected description timeline root to use ticket title and stable id, got %+v", payload.Timeline[0])
+	}
+	if payload.Timeline[1].ID != "comment:"+commentItem.ID.String() || payload.Timeline[2].ID != "activity:"+prOpenedEvent.ID.String() || payload.Timeline[3].ID != "activity:"+hookFailedEvent.ID.String() {
+		t.Fatalf("expected mixed timeline items to use stable ids and created_at ordering, got %+v", payload.Timeline)
+	}
 	if payload.Timeline[1].Metadata["revision_count"] != float64(2) && payload.Timeline[1].Metadata["revision_count"] != 2 {
 		t.Fatalf("expected comment timeline metadata to include revision count, got %+v", payload.Timeline[1].Metadata)
 	}
@@ -1324,6 +1333,88 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	}
 	if len(payload.HookHistory) != 1 || payload.HookHistory[0].EventType != "hook.failed" {
 		t.Fatalf("expected hook history to filter hook-tagged events, got %+v", payload.HookHistory)
+	}
+}
+
+func TestBuildTicketTimelineKeepsDescriptionRootAndNormalizesActors(t *testing.T) {
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000111")
+	ticketID := uuid.MustParse("00000000-0000-0000-0000-000000000222")
+	activityEarlierID := uuid.MustParse("00000000-0000-0000-0000-000000000301")
+	activitySameTimeID := uuid.MustParse("00000000-0000-0000-0000-000000000302")
+	commentSameTimeID := uuid.MustParse("00000000-0000-0000-0000-000000000401")
+	commentLaterID := uuid.MustParse("00000000-0000-0000-0000-000000000402")
+	baseTime := time.Date(2026, 3, 29, 9, 0, 0, 0, time.UTC)
+
+	ticketItem := ticketservice.Ticket{
+		ID:          ticketID,
+		ProjectID:   projectID,
+		Identifier:  "ASE-333",
+		Title:       "Build the ticket detail timeline projector",
+		Description: "Project the root ticket description as the first timeline item.",
+		CreatedBy:   "system_proxy:dispatcher",
+		CreatedAt:   baseTime,
+	}
+	comments := []ticketservice.Comment{
+		{
+			ID:           commentLaterID,
+			TicketID:     ticketID,
+			BodyMarkdown: "Later discussion entry.",
+			CreatedBy:    "user:zoe",
+			CreatedAt:    baseTime.Add(3 * time.Minute),
+			UpdatedAt:    baseTime.Add(3 * time.Minute),
+		},
+		{
+			ID:           commentSameTimeID,
+			TicketID:     ticketID,
+			BodyMarkdown: "Same timestamp as an activity entry.",
+			CreatedBy:    "user:alice",
+			CreatedAt:    baseTime.Add(2 * time.Minute),
+			UpdatedAt:    baseTime.Add(2 * time.Minute),
+		},
+	}
+	activity := []catalogdomain.ActivityEvent{
+		{
+			ID:        activitySameTimeID,
+			ProjectID: projectID,
+			TicketID:  &ticketID,
+			EventType: "status.changed",
+			Message:   "Moved to In Progress.",
+			Metadata:  map[string]any{"actor_name": "dispatcher"},
+			CreatedAt: baseTime.Add(2 * time.Minute),
+		},
+		{
+			ID:        activityEarlierID,
+			ProjectID: projectID,
+			TicketID:  &ticketID,
+			EventType: "pr.opened",
+			Message:   "Opened PR #333.",
+			Metadata:  map[string]any{"agent_name": "codex"},
+			CreatedAt: baseTime.Add(time.Minute),
+		},
+	}
+
+	timeline := buildTicketTimeline(ticketItem, comments, activity)
+	if len(timeline) != 5 {
+		t.Fatalf("expected five timeline items, got %+v", timeline)
+	}
+	if timeline[0].ID != "description:"+ticketID.String() || timeline[0].Title == nil || *timeline[0].Title != ticketItem.Title {
+		t.Fatalf("expected root description timeline item, got %+v", timeline[0])
+	}
+	if timeline[0].ActorType != "system" || timeline[0].ActorName != "dispatcher" {
+		t.Fatalf("expected system_proxy actor to normalize to system, got %+v", timeline[0])
+	}
+
+	wantIDs := []string{
+		"description:" + ticketID.String(),
+		"activity:" + activityEarlierID.String(),
+		"activity:" + activitySameTimeID.String(),
+		"comment:" + commentSameTimeID.String(),
+		"comment:" + commentLaterID.String(),
+	}
+	for i, wantID := range wantIDs {
+		if timeline[i].ID != wantID {
+			t.Fatalf("timeline[%d] id = %q, want %q; full timeline=%+v", i, timeline[i].ID, wantID, timeline)
+		}
 	}
 }
 
