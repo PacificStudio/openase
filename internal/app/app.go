@@ -24,6 +24,7 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
+	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
@@ -119,6 +120,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	}
 	ticketSvc := ticketservice.NewService(client)
 	ticketStatusSvc := ticketstatus.NewService(client)
+	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
 	catalogSvc := catalogservice.New(
 		catalogRepo,
 		executable.NewPathResolver(),
@@ -173,6 +175,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
+		httpapi.WithProjectRepoMirrorService(projectRepoMirrorSvc),
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithMetricsProvider(a.metrics),

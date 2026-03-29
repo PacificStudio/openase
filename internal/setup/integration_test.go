@@ -7,10 +7,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
+	git "github.com/go-git/go-git/v5"
+	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
@@ -28,8 +32,37 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	}
 
 	repoRoot := filepath.Join(t.TempDir(), "repo")
-	if err := os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("MkdirAll(.git) error = %v", err)
+	if err := os.MkdirAll(repoRoot, 0o750); err != nil {
+		t.Fatalf("MkdirAll(repoRoot) error = %v", err)
+	}
+	repository, err := git.PlainInit(repoRoot, false)
+	if err != nil {
+		t.Fatalf("PlainInit() error = %v", err)
+	}
+	if _, err := repository.CreateRemote(&gitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{"https://github.com/GrandCX/openase.git"},
+	}); err != nil {
+		t.Fatalf("CreateRemote(origin) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("setup integration\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile(README.md) error = %v", err)
+	}
+	worktree, err := repository.Worktree()
+	if err != nil {
+		t.Fatalf("Worktree() error = %v", err)
+	}
+	if _, err := worktree.Add("README.md"); err != nil {
+		t.Fatalf("Add(README.md) error = %v", err)
+	}
+	if _, err := worktree.Commit("initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Codex",
+			Email: "codex@openai.com",
+			When:  time.Date(2026, 3, 29, 15, 0, 0, 0, time.UTC),
+		},
+	}); err != nil {
+		t.Fatalf("Commit() error = %v", err)
 	}
 
 	templates := catalog.BuiltinAgentProviderTemplates()

@@ -9,6 +9,12 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestProjectRepoMirrorStateString(t *testing.T) {
+	if got := ProjectRepoMirrorStateReady.String(); got != "ready" {
+		t.Fatalf("ProjectRepoMirrorStateReady.String() = %q, want ready", got)
+	}
+}
+
 func TestCatalogActivityAndOutputParsers(t *testing.T) {
 	projectID := uuid.New()
 	agentID := uuid.New()
