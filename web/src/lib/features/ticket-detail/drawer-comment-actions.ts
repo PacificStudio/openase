@@ -20,7 +20,7 @@ type TicketDrawerCommentState = {
   clearMutationMessages: () => void
   setMutationError: (message: string) => void
   setMutationNotice: (message: string) => void
-  load: (projectId: string, ticketId: string, options?: LoadOptions) => Promise<void>
+  refreshTimeline: (projectId: string, ticketId: string, options?: LoadOptions) => Promise<void>
 }
 
 export async function handleCreateTicketComment({
@@ -42,7 +42,10 @@ export async function handleCreateTicketComment({
   try {
     await createTicketComment(ticketId, { body })
     drawerState.setMutationNotice('Comment added.')
-    await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    await drawerState.refreshTimeline(projectId, ticketId, {
+      background: true,
+      preserveMessages: true,
+    })
     return true
   } catch (caughtError) {
     drawerState.setMutationError(
@@ -75,7 +78,10 @@ export async function handleUpdateTicketComment({
   try {
     await updateTicketComment(ticketId, commentId, { body })
     drawerState.setMutationNotice('Comment updated.')
-    await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    await drawerState.refreshTimeline(projectId, ticketId, {
+      background: true,
+      preserveMessages: true,
+    })
     return true
   } catch (caughtError) {
     drawerState.setMutationError(
@@ -106,13 +112,19 @@ export async function handleDeleteTicketComment({
   try {
     await deleteTicketComment(ticketId, commentId)
     drawerState.setMutationNotice('Comment deleted.')
-    await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    await drawerState.refreshTimeline(projectId, ticketId, {
+      background: true,
+      preserveMessages: true,
+    })
     return true
   } catch (caughtError) {
     drawerState.setMutationError(
       caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
     )
-    await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    await drawerState.refreshTimeline(projectId, ticketId, {
+      background: true,
+      preserveMessages: true,
+    })
     return false
   } finally {
     drawerState.deletingCommentId = null
