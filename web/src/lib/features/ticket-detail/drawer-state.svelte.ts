@@ -3,12 +3,11 @@ import { toastStore } from '$lib/stores/toast.svelte'
 import { fetchTicketDetailContext } from './context'
 import type {
   HookExecution,
-  TicketActivity,
-  TicketComment,
   TicketDetail,
   TicketReferenceOption,
   TicketRepoOption,
   TicketStatusOption,
+  TicketTimelineItem,
 } from './types'
 
 type LoadOptions = {
@@ -16,13 +15,20 @@ type LoadOptions = {
   preserveMessages?: boolean
 }
 
-export function createTicketDrawerState() {
+type TicketDrawerStateDeps = {
+  fetchContext: typeof fetchTicketDetailContext
+}
+
+const defaultDeps: TicketDrawerStateDeps = {
+  fetchContext: fetchTicketDetailContext,
+}
+
+export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDeps) {
   let loading = $state(false)
   let error = $state('')
   let ticket = $state<TicketDetail | null>(null)
-  let comments = $state<TicketComment[]>([])
+  let timeline = $state<TicketTimelineItem[]>([])
   let hooks = $state<HookExecution[]>([])
-  let activities = $state<TicketActivity[]>([])
   let statuses = $state<TicketStatusOption[]>([])
   let dependencyCandidates = $state<TicketReferenceOption[]>([])
   let repoOptions = $state<TicketRepoOption[]>([])
@@ -38,6 +44,62 @@ export function createTicketDrawerState() {
   let updatingCommentId = $state<string | null>(null)
   let deletingCommentId = $state<string | null>(null)
   let loadRequestId = 0
+  let timelineRefreshQueued = false
+  let timelineRefreshLoop: Promise<void> | null = null
+
+  function applyFullContext(detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>) {
+    ticket = detailContext.ticket
+    timeline = detailContext.timeline
+    hooks = detailContext.hooks
+    statuses = detailContext.statuses
+    dependencyCandidates = detailContext.dependencyCandidates
+    repoOptions = detailContext.repoOptions
+  }
+
+  function applyTimelineRefresh(
+    detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>,
+  ) {
+    ticket = detailContext.ticket
+    timeline = detailContext.timeline
+    hooks = detailContext.hooks
+  }
+
+  async function runTimelineRefresh(projectId: string, ticketId: string) {
+    if (loading || !ticket) {
+      return
+    }
+    if (timelineRefreshLoop) {
+      await timelineRefreshLoop
+      return
+    }
+
+    timelineRefreshLoop = (async () => {
+      while (timelineRefreshQueued && !loading && ticket) {
+        timelineRefreshQueued = false
+        const requestId = loadRequestId
+        try {
+          const detailContext = await deps.fetchContext(projectId, ticketId)
+          if (requestId !== loadRequestId || !ticket) {
+            continue
+          }
+          applyTimelineRefresh(detailContext)
+        } catch (caughtError) {
+          if (requestId !== loadRequestId || !ticket) {
+            continue
+          }
+          const message =
+            caughtError instanceof ApiError
+              ? caughtError.detail
+              : 'Failed to refresh ticket timeline.'
+          toastStore.error(message)
+        }
+      }
+    })().finally(() => {
+      timelineRefreshLoop = null
+    })
+
+    await timelineRefreshLoop
+  }
 
   return {
     get loading() {
@@ -55,14 +117,11 @@ export function createTicketDrawerState() {
     get hooks() {
       return hooks
     },
-    get comments() {
-      return comments
+    get timeline() {
+      return timeline
     },
-    set comments(value) {
-      comments = value
-    },
-    get activities() {
-      return activities
+    set timeline(value) {
+      timeline = value
     },
     get statuses() {
       return statuses
@@ -155,16 +214,10 @@ export function createTicketDrawerState() {
         error = ''
       }
       try {
-        const detailContext = await fetchTicketDetailContext(projectId, ticketId)
+        const detailContext = await deps.fetchContext(projectId, ticketId)
         if (requestId !== loadRequestId) return
 
-        ticket = detailContext.ticket
-        comments = detailContext.comments
-        hooks = detailContext.hooks
-        activities = detailContext.activities
-        statuses = detailContext.statuses
-        dependencyCandidates = detailContext.dependencyCandidates
-        repoOptions = detailContext.repoOptions
+        applyFullContext(detailContext)
       } catch (caughtError) {
         if (requestId !== loadRequestId) return
         const message =
@@ -180,14 +233,25 @@ export function createTicketDrawerState() {
         }
       }
     },
+    async refreshTimeline(projectId: string, ticketId: string) {
+      if (loading || !ticket) {
+        return
+      }
+      timelineRefreshQueued = true
+      await runTimelineRefresh(projectId, ticketId)
+      if (timelineRefreshQueued) {
+        await runTimelineRefresh(projectId, ticketId)
+      }
+    },
     reset() {
       loadRequestId += 1
+      timelineRefreshQueued = false
+      timelineRefreshLoop = null
       loading = false
       error = ''
       ticket = null
-      comments = []
+      timeline = []
       hooks = []
-      activities = []
       statuses = []
       dependencyCandidates = []
       repoOptions = []

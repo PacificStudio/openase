@@ -114,7 +114,7 @@ type donePayload struct {
 	SessionID      string   `json:"session_id"`
 	CostUSD        *float64 `json:"cost_usd,omitempty"`
 	TurnsUsed      int      `json:"turns_used"`
-	TurnsRemaining int      `json:"turns_remaining"`
+	TurnsRemaining *int     `json:"turns_remaining,omitempty"`
 }
 
 type sessionPayload struct {
@@ -123,6 +123,11 @@ type sessionPayload struct {
 
 type errorPayload struct {
 	Message string `json:"message"`
+}
+
+type sessionPolicy struct {
+	MaxTurns     int
+	MaxBudgetUSD float64
 }
 
 type textPayload struct {
@@ -240,8 +245,16 @@ func (s *Service) StartTurn(ctx context.Context, userID UserID, input StartInput
 		return TurnStream{}, err
 	}
 
+	policy := s.policyForSource(input.Source)
+	if existingSession != nil {
+		policy = sessionPolicy{
+			MaxTurns:     existingSession.MaxTurns,
+			MaxBudgetUSD: existingSession.MaxBudgetUSD,
+		}
+	}
+
 	if created {
-		s.sessions.Register(userID, sessionID, providerItem.ID)
+		s.sessions.Register(userID, sessionID, providerItem.ID, policy.MaxTurns, policy.MaxBudgetUSD)
 	}
 
 	stream, err := s.runtime.StartTurn(ctx, RuntimeTurnInput{
@@ -250,8 +263,8 @@ func (s *Service) StartTurn(ctx context.Context, userID UserID, input StartInput
 		Message:          input.Message,
 		SystemPrompt:     systemPrompt,
 		WorkingDirectory: s.workingDir,
-		MaxTurns:         s.maxTurns,
-		MaxBudgetUSD:     s.maxBudgetUSD,
+		MaxTurns:         policy.MaxTurns,
+		MaxBudgetUSD:     policy.MaxBudgetUSD,
 	})
 	if err != nil {
 		if created {
@@ -380,16 +393,16 @@ func (s *Service) resolveExistingSession(userID UserID, rawSessionID *SessionID)
 }
 
 func (s *Service) validateSessionBudget(state sessionState) error {
-	if state.ExhaustedMessage != "" {
-		if state.HasCostUSD && state.CostUSD >= s.maxBudgetUSD {
-			return ErrSessionBudgetExceeded
-		}
+	switch state.ExhaustedMessage {
+	case ErrSessionBudgetExceeded.Error():
+		return ErrSessionBudgetExceeded
+	case ErrSessionTurnLimitReached.Error():
 		return ErrSessionTurnLimitReached
 	}
-	if state.TurnsUsed >= s.maxTurns {
+	if state.MaxTurns > 0 && state.TurnsUsed >= state.MaxTurns {
 		return ErrSessionTurnLimitReached
 	}
-	if state.HasCostUSD && state.CostUSD >= s.maxBudgetUSD {
+	if state.MaxBudgetUSD > 0 && state.HasCostUSD && state.CostUSD >= state.MaxBudgetUSD {
 		return ErrSessionBudgetExceeded
 	}
 
@@ -435,9 +448,9 @@ func (s *Service) handleTerminalEvent(sessionID SessionID, event StreamEvent) {
 
 	exhaustedMessage := ""
 	switch {
-	case state.HasCostUSD && state.CostUSD >= s.maxBudgetUSD:
+	case state.MaxBudgetUSD > 0 && state.HasCostUSD && state.CostUSD >= state.MaxBudgetUSD:
 		exhaustedMessage = ErrSessionBudgetExceeded.Error()
-	case state.TurnsUsed >= s.maxTurns:
+	case state.MaxTurns > 0 && state.TurnsUsed >= state.MaxTurns:
 		exhaustedMessage = ErrSessionTurnLimitReached.Error()
 	}
 	if exhaustedMessage == "" {
@@ -456,6 +469,19 @@ func findProvider(items []catalogdomain.AgentProvider, want uuid.UUID) (catalogd
 	}
 
 	return catalogdomain.AgentProvider{}, false
+}
+
+func (s *Service) policyForSource(source Source) sessionPolicy {
+	policy := sessionPolicy{
+		MaxTurns:     s.maxTurns,
+		MaxBudgetUSD: s.maxBudgetUSD,
+	}
+
+	if source == SourceProjectSidebar {
+		policy.MaxTurns = 0
+	}
+
+	return policy
 }
 
 func (s *Service) buildSystemPrompt(

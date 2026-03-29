@@ -85,6 +85,23 @@ export async function executeActionProposal(
   return results
 }
 
+export function summarizeExecutionResults(results: ChatActionExecutionResult[]) {
+  if (results.length === 0) {
+    return 'No platform actions were proposed.'
+  }
+
+  const successCount = results.filter((result) => result.ok).length
+  if (successCount === results.length) {
+    return `Executed ${successCount} proposed platform action${successCount === 1 ? '' : 's'}.`
+  }
+
+  if (successCount === 0) {
+    return `All ${results.length} proposed platform actions failed.`
+  }
+
+  return `Executed ${successCount} of ${results.length} proposed platform actions successfully.`
+}
+
 function parseSupportedAction(action: ChatActionProposalAction): SupportedAction | null {
   const path = matchActionProposalPath(action.path)
 

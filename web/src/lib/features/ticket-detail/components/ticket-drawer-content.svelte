@@ -18,20 +18,19 @@
   import TicketRepos from './ticket-repos.svelte'
   import type {
     HookExecution,
-    TicketActivity,
-    TicketComment,
+    TicketCommentRevision,
     TicketDetail,
     TicketReferenceOption,
     TicketRepoOption,
     TicketStatusOption,
+    TicketTimelineItem,
   } from '../types'
 
   let {
     ticket,
     projectId,
     hooks,
-    comments,
-    activities,
+    timeline,
     statuses,
     dependencyCandidates,
     repoOptions,
@@ -58,12 +57,12 @@
     onCreateComment,
     onUpdateComment,
     onDeleteComment,
+    onLoadCommentHistory,
   }: {
     ticket: TicketDetail
     projectId: string
     hooks: HookExecution[]
-    comments: TicketComment[]
-    activities: TicketActivity[]
+    timeline: TicketTimelineItem[]
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
@@ -116,6 +115,9 @@
     onCreateComment?: (body: string) => Promise<boolean> | boolean
     onUpdateComment?: (commentId: string, body: string) => Promise<boolean> | boolean
     onDeleteComment?: (commentId: string) => Promise<boolean> | boolean
+    onLoadCommentHistory?: (
+      commentId: string,
+    ) => Promise<TicketCommentRevision[]> | TicketCommentRevision[]
   } = $props()
 
   const costPercent = $derived.by(() =>
@@ -164,8 +166,7 @@
 <div class="flex flex-1 gap-0 overflow-hidden">
   <TicketCommentsThread
     {ticket}
-    {comments}
-    {activities}
+    {timeline}
     {savingFields}
     {creatingComment}
     {updatingCommentId}
@@ -174,6 +175,7 @@
     {onCreateComment}
     {onUpdateComment}
     {onDeleteComment}
+    {onLoadCommentHistory}
   />
 
   <!-- Right sidebar: metadata -->

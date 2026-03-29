@@ -1,6 +1,12 @@
 import { ApiError } from '$lib/api/client'
-import { createTicketComment, deleteTicketComment, updateTicketComment } from '$lib/api/openase'
-import type { TicketComment } from './types'
+import { type TicketCommentRevisionRecord } from '$lib/api/contracts'
+import {
+  createTicketComment,
+  deleteTicketComment,
+  listTicketCommentRevisions,
+  updateTicketComment,
+} from '$lib/api/openase'
+import type { TicketCommentRevision } from './types'
 
 type LoadOptions = {
   background?: boolean
@@ -8,14 +14,13 @@ type LoadOptions = {
 }
 
 type TicketDrawerCommentState = {
-  comments: TicketComment[]
   creatingComment: boolean
   updatingCommentId: string | null
   deletingCommentId: string | null
   clearMutationMessages: () => void
   setMutationError: (message: string) => void
   setMutationNotice: (message: string) => void
-  load: (projectId: string, ticketId: string, options?: LoadOptions) => Promise<void>
+  refreshTimeline: (projectId: string, ticketId: string, options?: LoadOptions) => Promise<void>
 }
 
 export async function handleCreateTicketComment({
@@ -37,7 +42,10 @@ export async function handleCreateTicketComment({
   try {
     await createTicketComment(ticketId, { body })
     drawerState.setMutationNotice('Comment added.')
-    await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    await drawerState.refreshTimeline(projectId, ticketId, {
+      background: true,
+      preserveMessages: true,
+    })
     return true
   } catch (caughtError) {
     drawerState.setMutationError(
@@ -70,7 +78,10 @@ export async function handleUpdateTicketComment({
   try {
     await updateTicketComment(ticketId, commentId, { body })
     drawerState.setMutationNotice('Comment updated.')
-    await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    await drawerState.refreshTimeline(projectId, ticketId, {
+      background: true,
+      preserveMessages: true,
+    })
     return true
   } catch (caughtError) {
     drawerState.setMutationError(
@@ -99,18 +110,68 @@ export async function handleDeleteTicketComment({
   drawerState.clearMutationMessages()
 
   try {
-    drawerState.comments = drawerState.comments.filter((comment) => comment.id !== commentId)
     await deleteTicketComment(ticketId, commentId)
     drawerState.setMutationNotice('Comment deleted.')
-    await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    await drawerState.refreshTimeline(projectId, ticketId, {
+      background: true,
+      preserveMessages: true,
+    })
     return true
   } catch (caughtError) {
     drawerState.setMutationError(
       caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
     )
-    await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
+    await drawerState.refreshTimeline(projectId, ticketId, {
+      background: true,
+      preserveMessages: true,
+    })
     return false
   } finally {
     drawerState.deletingCommentId = null
+  }
+}
+
+export async function loadTicketCommentHistory({
+  ticketId,
+  commentId,
+}: {
+  ticketId?: string | null
+  commentId: string
+}) {
+  if (!ticketId) return []
+
+  try {
+    const response = await listTicketCommentRevisions(ticketId, commentId)
+    return response.revisions
+      .map(parseRawTicketCommentRevision)
+      .filter((item): item is TicketCommentRevision => item !== null)
+  } catch (caughtError) {
+    throw new Error(
+      caughtError instanceof ApiError ? caughtError.detail : 'Failed to load comment history.',
+    )
+  }
+}
+
+function parseRawTicketCommentRevision(
+  raw: TicketCommentRevisionRecord,
+): TicketCommentRevision | null {
+  if (
+    !raw.id ||
+    !raw.comment_id ||
+    !raw.edited_at ||
+    !raw.edited_by ||
+    typeof raw.revision_number !== 'number'
+  ) {
+    return null
+  }
+
+  return {
+    id: raw.id,
+    commentId: raw.comment_id,
+    revisionNumber: raw.revision_number,
+    bodyMarkdown: raw.body_markdown ?? '',
+    editedBy: raw.edited_by,
+    editedAt: raw.edited_at,
+    editReason: raw.edit_reason ?? undefined,
   }
 }

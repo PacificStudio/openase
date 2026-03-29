@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -80,6 +81,10 @@ func (r *ClaudeRuntime) buildSessionSpec(input RuntimeTurnInput) (provider.Claud
 	}
 
 	maxTurns := input.MaxTurns
+	var maxTurnsPointer *int
+	if maxTurns > 0 {
+		maxTurnsPointer = &maxTurns
+	}
 	maxBudgetUSD := input.MaxBudgetUSD
 	resumeSessionID := r.nativeSessions.Resolve(input.SessionID)
 
@@ -90,7 +95,7 @@ func (r *ClaudeRuntime) buildSessionSpec(input RuntimeTurnInput) (provider.Claud
 		provider.AuthConfigEnvironment(input.Provider.AuthConfig),
 		nil,
 		input.SystemPrompt,
-		&maxTurns,
+		maxTurnsPointer,
 		&maxBudgetUSD,
 		resumeSessionID,
 		true,
@@ -169,11 +174,7 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 			return nil
 		}
 
-		items := make([]StreamEvent, 0, len(texts))
-		for _, text := range texts {
-			items = append(items, normalizeAssistantText(text)...)
-		}
-		return items
+		return normalizeAssistantText(strings.Join(texts, "\n\n"))
 	case provider.ClaudeCodeEventKindTaskStart:
 		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskStarted, decodeRawJSON(event.Raw))}
 	case provider.ClaudeCodeEventKindTaskProgress:
@@ -187,17 +188,13 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 		}
 		return []StreamEvent{{Event: "message", Payload: payload}}
 	case provider.ClaudeCodeEventKindResult:
-		turnsRemaining := 0
-		if maxTurns > event.NumTurns {
-			turnsRemaining = maxTurns - event.NumTurns
-		}
 		return []StreamEvent{{
 			Event: "done",
 			Payload: donePayload{
 				SessionID:      sessionID.String(),
 				CostUSD:        event.TotalCostUSD,
 				TurnsUsed:      event.NumTurns,
-				TurnsRemaining: turnsRemaining,
+				TurnsRemaining: remainingTurns(maxTurns, event.NumTurns),
 			},
 		}}
 	default:

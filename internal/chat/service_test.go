@@ -109,7 +109,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		streamEvents: []StreamEvent{
 			{Event: "message", Payload: map[string]any{"type": "task_started"}},
 			{Event: "message", Payload: textPayload{Type: "text", Content: "Project summary ready."}},
-			{Event: "done", Payload: donePayload{SessionID: "sess-project-1", TurnsUsed: 2, TurnsRemaining: 8, CostUSD: floatPointer(0.12)}},
+			{Event: "done", Payload: donePayload{SessionID: "sess-project-1", TurnsUsed: 2, TurnsRemaining: nil, CostUSD: floatPointer(0.12)}},
 		},
 	}
 	catalog := fakeCatalogReader{
@@ -176,7 +176,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		t.Fatalf("third payload = %#v, want assistant text", collected[2].Payload)
 	}
 	done, ok := collected[3].Payload.(donePayload)
-	if !ok || done.SessionID != "sess-project-1" || done.TurnsUsed != 2 || done.TurnsRemaining != 8 {
+	if !ok || done.SessionID != "sess-project-1" || done.TurnsUsed != 2 || done.TurnsRemaining != nil {
 		t.Fatalf("done payload = %#v", collected[2].Payload)
 	}
 
@@ -188,6 +188,9 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 	}
 	if runtime.lastInput.Message != "Summarize project" {
 		t.Fatalf("runtime message = %q, want Summarize project", runtime.lastInput.Message)
+	}
+	if runtime.lastInput.MaxTurns != 0 {
+		t.Fatalf("runtime max turns = %d, want unlimited project sidebar policy", runtime.lastInput.MaxTurns)
 	}
 	if !containsAll(runtime.lastInput.SystemPrompt,
 		"## 来源: 项目侧栏",
@@ -378,7 +381,7 @@ func TestChatHelperCoverageAndRegistry(t *testing.T) {
 	providerID := uuid.New()
 	userID := UserID("user:registry")
 	sessionID := SessionID("sess-registry")
-	registry.Register(userID, sessionID, providerID)
+	registry.Register(userID, sessionID, providerID, DefaultMaxTurns, DefaultMaxBudgetUSD)
 	if got, ok := registry.ResolveForUser(userID, sessionID); !ok || got.ProviderID != providerID {
 		t.Fatalf("ResolveForUser() = %#v, %v", got, ok)
 	}
@@ -404,7 +407,7 @@ func TestStartTurnReplacesExistingSessionForSameUser(t *testing.T) {
 					Payload: donePayload{
 						SessionID:      input.SessionID.String(),
 						TurnsUsed:      1,
-						TurnsRemaining: DefaultMaxTurns - 1,
+						TurnsRemaining: nil,
 					},
 				},
 			}
@@ -478,7 +481,7 @@ func TestStartTurnRejectsResumeAcrossUsers(t *testing.T) {
 					Payload: donePayload{
 						SessionID:      input.SessionID.String(),
 						TurnsUsed:      1,
-						TurnsRemaining: DefaultMaxTurns - 1,
+						TurnsRemaining: nil,
 					},
 				},
 			}
@@ -563,17 +566,84 @@ func TestStartTurnRejectsExhaustedSession(t *testing.T) {
 		"",
 	)
 
-	service.sessions.Register(userID, sessionID, providerID)
+	service.sessions.Register(userID, sessionID, providerID, DefaultMaxTurns, DefaultMaxBudgetUSD)
 	service.sessions.MarkUsage(sessionID, DefaultMaxTurns, nil)
 	service.sessions.MarkReleased(sessionID, ErrSessionTurnLimitReached.Error())
 
 	if _, err := service.StartTurn(context.Background(), userID, StartInput{
 		Message:   "resume",
-		Source:    SourceProjectSidebar,
+		Source:    SourceHarnessEditor,
 		Context:   Context{ProjectID: projectID},
 		SessionID: &sessionID,
 	}); !errors.Is(err, ErrSessionTurnLimitReached) {
 		t.Fatalf("StartTurn() exhausted error = %v, want %v", err, ErrSessionTurnLimitReached)
+	}
+}
+
+func TestStartTurnAllowsUnlimitedProjectSidebarResume(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	userID := UserID("user:alice")
+	sessionID := SessionID("sess-project-sidebar")
+	providerID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440000")
+	runtime := &fakeRuntime{
+		startFn: func(input RuntimeTurnInput) []StreamEvent {
+			return []StreamEvent{{
+				Event: "done",
+				Payload: donePayload{
+					SessionID:      input.SessionID.String(),
+					TurnsUsed:      DefaultMaxTurns + 2,
+					TurnsRemaining: nil,
+				},
+			}}
+		},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             providerID,
+					OrganizationID: orgID,
+					Name:           "Codex",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:     "codex",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+
+	service.sessions.Register(userID, sessionID, providerID, 0, DefaultMaxBudgetUSD)
+	service.sessions.MarkUsage(sessionID, DefaultMaxTurns+1, nil)
+
+	stream, err := service.StartTurn(context.Background(), userID, StartInput{
+		Message:   "resume",
+		Source:    SourceProjectSidebar,
+		Context:   Context{ProjectID: projectID},
+		SessionID: &sessionID,
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	events := collectStreamEvents(stream.Events)
+	if len(events) != 2 {
+		t.Fatalf("event count = %d, want 2: %+v", len(events), events)
+	}
+	if runtime.lastInput.MaxTurns != 0 {
+		t.Fatalf("runtime max turns = %d, want unlimited resume policy", runtime.lastInput.MaxTurns)
 	}
 }
 

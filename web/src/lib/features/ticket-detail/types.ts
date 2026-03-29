@@ -89,6 +89,61 @@ export type TicketComment = {
   updatedAt?: string
 }
 
+export type TicketCommentRevision = {
+  id: string
+  commentId: string
+  revisionNumber: number
+  bodyMarkdown: string
+  editedBy: string
+  editedAt: string
+  editReason?: string
+}
+
+export type TicketTimelineActor = {
+  name: string
+  type: string
+}
+
+export type TicketTimelineBase = {
+  id: string
+  ticketId: string
+  actor: TicketTimelineActor
+  createdAt: string
+  updatedAt: string
+  editedAt?: string
+  isCollapsible: boolean
+  isDeleted: boolean
+}
+
+export type TicketDescriptionTimelineItem = TicketTimelineBase & {
+  kind: 'description'
+  title: string
+  bodyMarkdown: string
+  identifier?: string
+}
+
+export type TicketCommentTimelineItem = TicketTimelineBase & {
+  kind: 'comment'
+  commentId: string
+  bodyMarkdown: string
+  editCount: number
+  revisionCount: number
+  lastEditedBy?: string
+}
+
+export type TicketActivityTimelineItem = TicketTimelineBase & {
+  kind: 'activity'
+  eventType: string
+  title: string
+  bodyText: string
+  metadata: Record<string, unknown>
+}
+
+export type TicketTimelineItem =
+  | TicketDescriptionTimelineItem
+  | TicketCommentTimelineItem
+  | TicketActivityTimelineItem
+
 export type HookExecution = {
   id: string
   hookName: string

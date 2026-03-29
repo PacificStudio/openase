@@ -11,7 +11,7 @@
   import { Bot, RefreshCcw, Send } from '@lucide/svelte'
   import { createEphemeralChatSessionController } from './ephemeral-chat-session-controller.svelte'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
-  import { EPHEMERAL_CHAT_MAX_BUDGET_USD, EPHEMERAL_CHAT_MAX_TURNS } from './session-policy'
+  import { describeEphemeralChatSessionPolicy } from './session-policy'
   import EphemeralChatTranscript from './ephemeral-chat-transcript.svelte'
   import type { ChatSource } from '$lib/api/chat'
 
@@ -273,9 +273,7 @@
 
     <div class="flex items-center justify-between gap-3">
       <p class="text-muted-foreground text-[11px] leading-4">
-        {sessionId
-          ? `Session cap: ${EPHEMERAL_CHAT_MAX_TURNS} turns / $${EPHEMERAL_CHAT_MAX_BUDGET_USD.toFixed(2)}. Follow-up prompts reuse the current chat context until you close the panel, switch providers, or hit the limit.`
-          : `Session cap: ${EPHEMERAL_CHAT_MAX_TURNS} turns / $${EPHEMERAL_CHAT_MAX_BUDGET_USD.toFixed(2)}. The first reply starts a new ephemeral chat session.`}
+        {describeEphemeralChatSessionPolicy(source, Boolean(sessionId))}
       </p>
       <Button
         size="sm"

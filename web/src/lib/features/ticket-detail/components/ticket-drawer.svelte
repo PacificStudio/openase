@@ -8,6 +8,7 @@
   import {
     handleCreateTicketComment,
     handleDeleteTicketComment,
+    loadTicketCommentHistory,
     handleUpdateTicketComment,
   } from '../drawer-comment-actions'
   import { statusSync } from '$lib/features/statuses/public'
@@ -91,10 +92,7 @@
     }
 
     return connectTicketDetailStreams(projectId, ticketId, () => {
-      void drawerState.load(projectId, ticketId, {
-        background: true,
-        preserveMessages: true,
-      })
+      void drawerState.refreshTimeline(projectId, ticketId)
     })
   })
 
@@ -226,6 +224,10 @@
   async function handleDeleteComment(commentId: string) {
     return handleDeleteTicketComment({ projectId, ticketId, drawerState, commentId })
   }
+
+  async function handleLoadCommentHistory(commentId: string) {
+    return loadTicketCommentHistory({ ticketId, commentId })
+  }
 </script>
 
 <Sheet bind:open>
@@ -254,8 +256,7 @@
         projectId={projectId ?? ''}
         ticket={drawerState.ticket}
         hooks={drawerState.hooks}
-        comments={drawerState.comments}
-        activities={drawerState.activities}
+        timeline={drawerState.timeline}
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
         repoOptions={drawerState.repoOptions}
@@ -282,6 +283,7 @@
         onCreateComment={handleCreateComment}
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
+        onLoadCommentHistory={handleLoadCommentHistory}
       />
     {/if}
   </SheetContent>

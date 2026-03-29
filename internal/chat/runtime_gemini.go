@@ -250,17 +250,12 @@ func (r *GeminiRuntime) collectTurn(
 	if state != nil {
 		turnsUsed = state.turnsUsed
 	}
-	turnsRemaining := 0
-	if maxTurns > turnsUsed {
-		turnsRemaining = maxTurns - turnsUsed
-	}
-
 	events <- StreamEvent{
 		Event: "done",
 		Payload: donePayload{
 			SessionID:      sessionID.String(),
 			TurnsUsed:      turnsUsed,
-			TurnsRemaining: turnsRemaining,
+			TurnsRemaining: remainingTurns(maxTurns, turnsUsed),
 		},
 	}
 }
