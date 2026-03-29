@@ -45,6 +45,7 @@ func (Machine) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("providers", AgentProvider.Type),
+		edge.To("project_repo_mirrors", ProjectRepoMirror.Type),
 		edge.To("target_tickets", Ticket.Type),
 	}
 }

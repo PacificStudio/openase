@@ -31,12 +31,12 @@ type SetupInput struct {
 
 // RepoInput describes one repository to materialize in a workspace.
 type RepoInput struct {
-	Name          string
-	RepositoryURL string
-	DefaultBranch string
-	ClonePath     *string
-	BranchName    *string
-	GitHubToken   *string
+	Name             string
+	RepositoryURL    string
+	DefaultBranch    string
+	WorkspaceDirname *string
+	BranchName       *string
+	GitHubToken      *string
 }
 
 // SetupRequest is the parsed workspace preparation request.
@@ -51,12 +51,12 @@ type SetupRequest struct {
 
 // RepoRequest is the parsed repository setup request.
 type RepoRequest struct {
-	Name          string
-	RepositoryURL string
-	DefaultBranch string
-	ClonePath     string
-	BranchName    string
-	GitHubToken   string
+	Name             string
+	RepositoryURL    string
+	DefaultBranch    string
+	WorkspaceDirname string
+	BranchName       string
+	GitHubToken      string
 }
 
 // Workspace describes a prepared ticket workspace on disk.
@@ -68,12 +68,12 @@ type Workspace struct {
 
 // PreparedRepo describes one repository that was prepared inside a workspace.
 type PreparedRepo struct {
-	Name          string
-	RepositoryURL string
-	DefaultBranch string
-	BranchName    string
-	ClonePath     string
-	Path          string
+	Name             string
+	RepositoryURL    string
+	DefaultBranch    string
+	BranchName       string
+	WorkspaceDirname string
+	Path             string
 }
 
 // Manager prepares ticket workspaces and repository clones.
@@ -116,16 +116,16 @@ func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
 	// workspace root so hooks, harness rendering, and agent launches can share
 	// the same ticket-scoped path convention.
 	repos := make([]RepoRequest, 0, len(input.Repos))
-	clonePaths := make(map[string]struct{}, len(input.Repos))
+	workspaceDirnames := make(map[string]struct{}, len(input.Repos))
 	for index, rawRepo := range input.Repos {
 		repo, err := parseRepoInput(index, rawRepo, branchName)
 		if err != nil {
 			return SetupRequest{}, err
 		}
-		if _, exists := clonePaths[repo.ClonePath]; exists {
-			return SetupRequest{}, fmt.Errorf("repos[%d].clone_path duplicates %q", index, repo.ClonePath)
+		if _, exists := workspaceDirnames[repo.WorkspaceDirname]; exists {
+			return SetupRequest{}, fmt.Errorf("repos[%d].workspace_dirname duplicates %q", index, repo.WorkspaceDirname)
 		}
-		clonePaths[repo.ClonePath] = struct{}{}
+		workspaceDirnames[repo.WorkspaceDirname] = struct{}{}
 		repos = append(repos, repo)
 	}
 
@@ -160,7 +160,7 @@ func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace,
 
 	preparedRepos := make([]PreparedRepo, 0, len(request.Repos))
 	for _, repo := range request.Repos {
-		repoPath := RepoPath(workspacePath, repo.ClonePath, repo.Name)
+		repoPath := RepoPath(workspacePath, repo.WorkspaceDirname, repo.Name)
 		if err := os.MkdirAll(filepath.Dir(repoPath), 0o750); err != nil {
 			return Workspace{}, fmt.Errorf("create parent directory for repo %s: %w", repo.Name, err)
 		}
@@ -170,12 +170,12 @@ func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace,
 		}
 
 		preparedRepos = append(preparedRepos, PreparedRepo{
-			Name:          repo.Name,
-			RepositoryURL: repo.RepositoryURL,
-			DefaultBranch: repo.DefaultBranch,
-			BranchName:    repo.BranchName,
-			ClonePath:     repo.ClonePath,
-			Path:          repoPath,
+			Name:             repo.Name,
+			RepositoryURL:    repo.RepositoryURL,
+			DefaultBranch:    repo.DefaultBranch,
+			BranchName:       repo.BranchName,
+			WorkspaceDirname: repo.WorkspaceDirname,
+			Path:             repoPath,
 		})
 	}
 
@@ -205,9 +205,9 @@ func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest,
 		return RepoRequest{}, fmt.Errorf("repos[%d].default_branch must not contain '/'", index)
 	}
 
-	clonePath := name
-	if input.ClonePath != nil {
-		clonePath, err = parseRelativeWorkspacePath(fmt.Sprintf("repos[%d].clone_path", index), *input.ClonePath)
+	workspaceDirname := name
+	if input.WorkspaceDirname != nil {
+		workspaceDirname, err = parseWorkspaceDirname(fmt.Sprintf("repos[%d].workspace_dirname", index), *input.WorkspaceDirname)
 		if err != nil {
 			return RepoRequest{}, err
 		}
@@ -221,12 +221,12 @@ func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest,
 	}
 
 	return RepoRequest{
-		Name:          name,
-		RepositoryURL: repositoryURL,
-		DefaultBranch: defaultBranch,
-		ClonePath:     clonePath,
-		BranchName:    branchName,
-		GitHubToken:   strings.TrimSpace(optionalStringValue(input.GitHubToken)),
+		Name:             name,
+		RepositoryURL:    repositoryURL,
+		DefaultBranch:    defaultBranch,
+		WorkspaceDirname: workspaceDirname,
+		BranchName:       branchName,
+		GitHubToken:      strings.TrimSpace(optionalStringValue(input.GitHubToken)),
 	}, nil
 }
 
@@ -254,7 +254,7 @@ func parsePathSegment(fieldName string, raw string) (string, error) {
 	return trimmed, nil
 }
 
-func parseRelativeWorkspacePath(fieldName string, raw string) (string, error) {
+func parseWorkspaceDirname(fieldName string, raw string) (string, error) {
 	trimmed := path.Clean(strings.TrimSpace(filepath.ToSlash(raw)))
 	if trimmed == "." || trimmed == "" {
 		return "", fmt.Errorf("%s must not be empty", fieldName)

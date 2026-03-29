@@ -757,7 +757,7 @@ function createInitialState(): MockState {
       name: 'TodoApp',
       repository_url: 'https://github.com/BetterAndBetterII/TodoApp.git',
       default_branch: 'main',
-      clone_path: '',
+      workspace_dirname: 'TodoApp',
       labels: [],
       is_primary: true,
     },
@@ -907,7 +907,8 @@ function createRepoRecord(body: Record<string, unknown>) {
     name: asString(body.name) ?? `repo-${mockState.counters.repo}`,
     repository_url: asString(body.repository_url) ?? '',
     default_branch: asString(body.default_branch) ?? 'main',
-    clone_path: asString(body.clone_path) ?? '',
+    workspace_dirname:
+      asString(body.workspace_dirname) ?? asString(body.name) ?? `repo-${mockState.counters.repo}`,
     labels: asStringArray(body.labels),
     is_primary: asBoolean(body.is_primary) ?? false,
   }
@@ -953,7 +954,7 @@ function applyRepoMutation(repo: Record<string, unknown>, body: Record<string, u
   repo.name = asString(body.name) ?? repo.name
   repo.repository_url = asString(body.repository_url) ?? repo.repository_url
   repo.default_branch = asString(body.default_branch) ?? repo.default_branch
-  repo.clone_path = asString(body.clone_path) ?? repo.clone_path
+  repo.workspace_dirname = asString(body.workspace_dirname) ?? repo.workspace_dirname
   repo.labels = asStringArray(body.labels)
   if (typeof body.is_primary === 'boolean') {
     repo.is_primary = body.is_primary

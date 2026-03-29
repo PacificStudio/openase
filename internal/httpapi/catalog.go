@@ -62,14 +62,14 @@ type machineProbeResponse struct {
 }
 
 type projectRepoResponse struct {
-	ID            string   `json:"id"`
-	ProjectID     string   `json:"project_id"`
-	Name          string   `json:"name"`
-	RepositoryURL string   `json:"repository_url"`
-	DefaultBranch string   `json:"default_branch"`
-	ClonePath     *string  `json:"clone_path,omitempty"`
-	IsPrimary     bool     `json:"is_primary"`
-	Labels        []string `json:"labels"`
+	ID               string   `json:"id"`
+	ProjectID        string   `json:"project_id"`
+	Name             string   `json:"name"`
+	RepositoryURL    string   `json:"repository_url"`
+	DefaultBranch    string   `json:"default_branch"`
+	WorkspaceDirname string   `json:"workspace_dirname"`
+	IsPrimary        bool     `json:"is_primary"`
+	Labels           []string `json:"labels"`
 }
 
 type ticketRepoScopeResponse struct {
@@ -115,12 +115,12 @@ type machinePatchRequest struct {
 }
 
 type projectRepoPatchRequest struct {
-	Name          *string   `json:"name"`
-	RepositoryURL *string   `json:"repository_url"`
-	DefaultBranch *string   `json:"default_branch"`
-	ClonePath     *string   `json:"clone_path"`
-	IsPrimary     *bool     `json:"is_primary"`
-	Labels        *[]string `json:"labels"`
+	Name             *string   `json:"name"`
+	RepositoryURL    *string   `json:"repository_url"`
+	DefaultBranch    *string   `json:"default_branch"`
+	WorkspaceDirname *string   `json:"workspace_dirname"`
+	IsPrimary        *bool     `json:"is_primary"`
+	Labels           *[]string `json:"labels"`
 }
 
 type ticketRepoScopePatchRequest struct {
@@ -675,12 +675,12 @@ func (s *Server) patchProjectRepo(c echo.Context) error {
 	}
 
 	request := domain.ProjectRepoInput{
-		Name:          current.Name,
-		RepositoryURL: current.RepositoryURL,
-		DefaultBranch: current.DefaultBranch,
-		ClonePath:     current.ClonePath,
-		IsPrimary:     boolPointer(current.IsPrimary),
-		Labels:        append([]string(nil), current.Labels...),
+		Name:             current.Name,
+		RepositoryURL:    current.RepositoryURL,
+		DefaultBranch:    current.DefaultBranch,
+		WorkspaceDirname: stringPointer(current.WorkspaceDirname),
+		IsPrimary:        boolPointer(current.IsPrimary),
+		Labels:           append([]string(nil), current.Labels...),
 	}
 	if patch.Name != nil {
 		request.Name = *patch.Name
@@ -691,8 +691,8 @@ func (s *Server) patchProjectRepo(c echo.Context) error {
 	if patch.DefaultBranch != nil {
 		request.DefaultBranch = *patch.DefaultBranch
 	}
-	if patch.ClonePath != nil {
-		request.ClonePath = patch.ClonePath
+	if patch.WorkspaceDirname != nil {
+		request.WorkspaceDirname = patch.WorkspaceDirname
 	}
 	if patch.IsPrimary != nil {
 		request.IsPrimary = patch.IsPrimary
@@ -1045,14 +1045,14 @@ func mapProjectRepoResponses(items []domain.ProjectRepo) []projectRepoResponse {
 
 func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 	return projectRepoResponse{
-		ID:            item.ID.String(),
-		ProjectID:     item.ProjectID.String(),
-		Name:          item.Name,
-		RepositoryURL: item.RepositoryURL,
-		DefaultBranch: item.DefaultBranch,
-		ClonePath:     item.ClonePath,
-		IsPrimary:     item.IsPrimary,
-		Labels:        cloneStringSlice(item.Labels),
+		ID:               item.ID.String(),
+		ProjectID:        item.ProjectID.String(),
+		Name:             item.Name,
+		RepositoryURL:    item.RepositoryURL,
+		DefaultBranch:    item.DefaultBranch,
+		WorkspaceDirname: item.WorkspaceDirname,
+		IsPrimary:        item.IsPrimary,
+		Labels:           cloneStringSlice(item.Labels),
 	}
 }
 

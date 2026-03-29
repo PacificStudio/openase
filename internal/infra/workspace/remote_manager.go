@@ -60,14 +60,14 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 	}
 	preparedRepos := make([]PreparedRepo, 0, len(request.Repos))
 	for _, repo := range request.Repos {
-		repoPath := RepoPath(workspacePath, repo.ClonePath, repo.Name)
+		repoPath := RepoPath(workspacePath, repo.WorkspaceDirname, repo.Name)
 		preparedRepos = append(preparedRepos, PreparedRepo{
-			Name:          repo.Name,
-			RepositoryURL: repo.RepositoryURL,
-			DefaultBranch: repo.DefaultBranch,
-			BranchName:    repo.BranchName,
-			ClonePath:     repo.ClonePath,
-			Path:          repoPath,
+			Name:             repo.Name,
+			RepositoryURL:    repo.RepositoryURL,
+			DefaultBranch:    repo.DefaultBranch,
+			BranchName:       repo.BranchName,
+			WorkspaceDirname: repo.WorkspaceDirname,
+			Path:             repoPath,
 		})
 	}
 
@@ -93,7 +93,7 @@ func buildPrepareWorkspaceCommand(request SetupRequest) string {
 	lines = append(lines, remoteGitWrapperScript())
 
 	for _, repo := range request.Repos {
-		repoPath := RepoPath(workspacePath, repo.ClonePath, repo.Name)
+		repoPath := RepoPath(workspacePath, repo.WorkspaceDirname, repo.Name)
 		gitCommand := "git"
 		if strings.TrimSpace(repo.GitHubToken) != "" {
 			if _, ok := githubauthdomain.ParseGitHubRepositoryURL(repo.RepositoryURL); ok {

@@ -53,6 +53,7 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 		Project: ProjectConfig{
 			Name:            "Setup Coverage Repo",
 			PrimaryRepoPath: repoRoot,
+			PrimaryRepoURL:  "https://github.com/GrandCX/openase.git",
 			DefaultBranch:   "main",
 		},
 	}
@@ -103,8 +104,16 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	if len(repos) != 1 {
 		t.Fatalf("project repo count = %d, want 1", len(repos))
 	}
-	if repos[0].RepositoryURL != repoRoot {
-		t.Fatalf("repository URL = %q, want repo path fallback %q", repos[0].RepositoryURL, repoRoot)
+	if repos[0].RepositoryURL != "https://github.com/GrandCX/openase.git" {
+		t.Fatalf("repository URL = %q", repos[0].RepositoryURL)
+	}
+
+	mirrors, err := client.ProjectRepoMirror.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("ProjectRepoMirror.Query().All() error = %v", err)
+	}
+	if len(mirrors) != 1 || mirrors[0].LocalPath != repoRoot {
+		t.Fatalf("project repo mirrors = %+v", mirrors)
 	}
 
 	statuses, err := client.TicketStatus.Query().All(ctx)

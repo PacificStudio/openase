@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -87,23 +88,17 @@ func (_u *ProjectRepoUpdate) SetNillableDefaultBranch(v *string) *ProjectRepoUpd
 	return _u
 }
 
-// SetClonePath sets the "clone_path" field.
-func (_u *ProjectRepoUpdate) SetClonePath(v string) *ProjectRepoUpdate {
-	_u.mutation.SetClonePath(v)
+// SetWorkspaceDirname sets the "workspace_dirname" field.
+func (_u *ProjectRepoUpdate) SetWorkspaceDirname(v string) *ProjectRepoUpdate {
+	_u.mutation.SetWorkspaceDirname(v)
 	return _u
 }
 
-// SetNillableClonePath sets the "clone_path" field if the given value is not nil.
-func (_u *ProjectRepoUpdate) SetNillableClonePath(v *string) *ProjectRepoUpdate {
+// SetNillableWorkspaceDirname sets the "workspace_dirname" field if the given value is not nil.
+func (_u *ProjectRepoUpdate) SetNillableWorkspaceDirname(v *string) *ProjectRepoUpdate {
 	if v != nil {
-		_u.SetClonePath(*v)
+		_u.SetWorkspaceDirname(*v)
 	}
-	return _u
-}
-
-// ClearClonePath clears the value of the "clone_path" field.
-func (_u *ProjectRepoUpdate) ClearClonePath() *ProjectRepoUpdate {
-	_u.mutation.ClearClonePath()
 	return _u
 }
 
@@ -153,6 +148,21 @@ func (_u *ProjectRepoUpdate) AddTicketScopes(v ...*TicketRepoScope) *ProjectRepo
 	return _u.AddTicketScopeIDs(ids...)
 }
 
+// AddMirrorIDs adds the "mirrors" edge to the ProjectRepoMirror entity by IDs.
+func (_u *ProjectRepoUpdate) AddMirrorIDs(ids ...uuid.UUID) *ProjectRepoUpdate {
+	_u.mutation.AddMirrorIDs(ids...)
+	return _u
+}
+
+// AddMirrors adds the "mirrors" edges to the ProjectRepoMirror entity.
+func (_u *ProjectRepoUpdate) AddMirrors(v ...*ProjectRepoMirror) *ProjectRepoUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMirrorIDs(ids...)
+}
+
 // Mutation returns the ProjectRepoMutation object of the builder.
 func (_u *ProjectRepoUpdate) Mutation() *ProjectRepoMutation {
 	return _u.mutation
@@ -183,6 +193,27 @@ func (_u *ProjectRepoUpdate) RemoveTicketScopes(v ...*TicketRepoScope) *ProjectR
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTicketScopeIDs(ids...)
+}
+
+// ClearMirrors clears all "mirrors" edges to the ProjectRepoMirror entity.
+func (_u *ProjectRepoUpdate) ClearMirrors() *ProjectRepoUpdate {
+	_u.mutation.ClearMirrors()
+	return _u
+}
+
+// RemoveMirrorIDs removes the "mirrors" edge to ProjectRepoMirror entities by IDs.
+func (_u *ProjectRepoUpdate) RemoveMirrorIDs(ids ...uuid.UUID) *ProjectRepoUpdate {
+	_u.mutation.RemoveMirrorIDs(ids...)
+	return _u
+}
+
+// RemoveMirrors removes "mirrors" edges to ProjectRepoMirror entities.
+func (_u *ProjectRepoUpdate) RemoveMirrors(v ...*ProjectRepoMirror) *ProjectRepoUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMirrorIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -251,11 +282,8 @@ func (_u *ProjectRepoUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	if value, ok := _u.mutation.DefaultBranch(); ok {
 		_spec.SetField(projectrepo.FieldDefaultBranch, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.ClonePath(); ok {
-		_spec.SetField(projectrepo.FieldClonePath, field.TypeString, value)
-	}
-	if _u.mutation.ClonePathCleared() {
-		_spec.ClearField(projectrepo.FieldClonePath, field.TypeString)
+	if value, ok := _u.mutation.WorkspaceDirname(); ok {
+		_spec.SetField(projectrepo.FieldWorkspaceDirname, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.IsPrimary(); ok {
 		_spec.SetField(projectrepo.FieldIsPrimary, field.TypeBool, value)
@@ -340,6 +368,51 @@ func (_u *ProjectRepoUpdate) sqlSave(ctx context.Context) (_node int, err error)
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.MirrorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.MirrorsTable,
+			Columns: []string{projectrepo.MirrorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMirrorsIDs(); len(nodes) > 0 && !_u.mutation.MirrorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.MirrorsTable,
+			Columns: []string{projectrepo.MirrorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MirrorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.MirrorsTable,
+			Columns: []string{projectrepo.MirrorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{projectrepo.Label}
@@ -416,23 +489,17 @@ func (_u *ProjectRepoUpdateOne) SetNillableDefaultBranch(v *string) *ProjectRepo
 	return _u
 }
 
-// SetClonePath sets the "clone_path" field.
-func (_u *ProjectRepoUpdateOne) SetClonePath(v string) *ProjectRepoUpdateOne {
-	_u.mutation.SetClonePath(v)
+// SetWorkspaceDirname sets the "workspace_dirname" field.
+func (_u *ProjectRepoUpdateOne) SetWorkspaceDirname(v string) *ProjectRepoUpdateOne {
+	_u.mutation.SetWorkspaceDirname(v)
 	return _u
 }
 
-// SetNillableClonePath sets the "clone_path" field if the given value is not nil.
-func (_u *ProjectRepoUpdateOne) SetNillableClonePath(v *string) *ProjectRepoUpdateOne {
+// SetNillableWorkspaceDirname sets the "workspace_dirname" field if the given value is not nil.
+func (_u *ProjectRepoUpdateOne) SetNillableWorkspaceDirname(v *string) *ProjectRepoUpdateOne {
 	if v != nil {
-		_u.SetClonePath(*v)
+		_u.SetWorkspaceDirname(*v)
 	}
-	return _u
-}
-
-// ClearClonePath clears the value of the "clone_path" field.
-func (_u *ProjectRepoUpdateOne) ClearClonePath() *ProjectRepoUpdateOne {
-	_u.mutation.ClearClonePath()
 	return _u
 }
 
@@ -482,6 +549,21 @@ func (_u *ProjectRepoUpdateOne) AddTicketScopes(v ...*TicketRepoScope) *ProjectR
 	return _u.AddTicketScopeIDs(ids...)
 }
 
+// AddMirrorIDs adds the "mirrors" edge to the ProjectRepoMirror entity by IDs.
+func (_u *ProjectRepoUpdateOne) AddMirrorIDs(ids ...uuid.UUID) *ProjectRepoUpdateOne {
+	_u.mutation.AddMirrorIDs(ids...)
+	return _u
+}
+
+// AddMirrors adds the "mirrors" edges to the ProjectRepoMirror entity.
+func (_u *ProjectRepoUpdateOne) AddMirrors(v ...*ProjectRepoMirror) *ProjectRepoUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMirrorIDs(ids...)
+}
+
 // Mutation returns the ProjectRepoMutation object of the builder.
 func (_u *ProjectRepoUpdateOne) Mutation() *ProjectRepoMutation {
 	return _u.mutation
@@ -512,6 +594,27 @@ func (_u *ProjectRepoUpdateOne) RemoveTicketScopes(v ...*TicketRepoScope) *Proje
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTicketScopeIDs(ids...)
+}
+
+// ClearMirrors clears all "mirrors" edges to the ProjectRepoMirror entity.
+func (_u *ProjectRepoUpdateOne) ClearMirrors() *ProjectRepoUpdateOne {
+	_u.mutation.ClearMirrors()
+	return _u
+}
+
+// RemoveMirrorIDs removes the "mirrors" edge to ProjectRepoMirror entities by IDs.
+func (_u *ProjectRepoUpdateOne) RemoveMirrorIDs(ids ...uuid.UUID) *ProjectRepoUpdateOne {
+	_u.mutation.RemoveMirrorIDs(ids...)
+	return _u
+}
+
+// RemoveMirrors removes "mirrors" edges to ProjectRepoMirror entities.
+func (_u *ProjectRepoUpdateOne) RemoveMirrors(v ...*ProjectRepoMirror) *ProjectRepoUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMirrorIDs(ids...)
 }
 
 // Where appends a list predicates to the ProjectRepoUpdate builder.
@@ -610,11 +713,8 @@ func (_u *ProjectRepoUpdateOne) sqlSave(ctx context.Context) (_node *ProjectRepo
 	if value, ok := _u.mutation.DefaultBranch(); ok {
 		_spec.SetField(projectrepo.FieldDefaultBranch, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.ClonePath(); ok {
-		_spec.SetField(projectrepo.FieldClonePath, field.TypeString, value)
-	}
-	if _u.mutation.ClonePathCleared() {
-		_spec.ClearField(projectrepo.FieldClonePath, field.TypeString)
+	if value, ok := _u.mutation.WorkspaceDirname(); ok {
+		_spec.SetField(projectrepo.FieldWorkspaceDirname, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.IsPrimary(); ok {
 		_spec.SetField(projectrepo.FieldIsPrimary, field.TypeBool, value)
@@ -692,6 +792,51 @@ func (_u *ProjectRepoUpdateOne) sqlSave(ctx context.Context) (_node *ProjectRepo
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketreposcope.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MirrorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.MirrorsTable,
+			Columns: []string{projectrepo.MirrorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMirrorsIDs(); len(nodes) > 0 && !_u.mutation.MirrorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.MirrorsTable,
+			Columns: []string{projectrepo.MirrorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MirrorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.MirrorsTable,
+			Columns: []string{projectrepo.MirrorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

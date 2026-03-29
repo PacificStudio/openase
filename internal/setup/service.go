@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 
+	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -20,6 +22,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	git "github.com/go-git/go-git/v5"
 	"github.com/google/uuid"
 	"go.yaml.in/yaml/v3"
 )
@@ -485,9 +488,9 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 		}
 	}
 
-	repositoryURL := input.Project.PrimaryRepoURL
+	repositoryURL := resolvePrimaryRepoRemoteURL(input.Project)
 	if repositoryURL == "" {
-		repositoryURL = input.Project.PrimaryRepoPath
+		return nil
 	}
 	isPrimary := true
 	projectRepoCreate, err := catalogdomain.ParseCreateProjectRepo(project.ID, catalogdomain.ProjectRepoInput{
@@ -499,11 +502,51 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	if err != nil {
 		return err
 	}
-	if _, err := service.CreateProjectRepo(ctx, projectRepoCreate); err != nil {
+	projectRepo, err := service.CreateProjectRepo(ctx, projectRepoCreate)
+	if err != nil {
 		return fmt.Errorf("create project repo: %w", err)
 	}
 
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationID(org.ID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		return fmt.Errorf("get setup local machine: %w", err)
+	}
+
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(projectRepo.ID).
+		SetMachineID(localMachine.ID).
+		SetLocalPath(filepath.Clean(input.Project.PrimaryRepoPath)).
+		SetState(entprojectrepomirror.StateReady).
+		Save(ctx); err != nil {
+		return fmt.Errorf("create setup project repo mirror: %w", err)
+	}
+
 	return nil
+}
+
+func resolvePrimaryRepoRemoteURL(project ProjectConfig) string {
+	if remoteURL := strings.TrimSpace(project.PrimaryRepoURL); remoteURL != "" {
+		return remoteURL
+	}
+
+	repository, err := git.PlainOpen(project.PrimaryRepoPath)
+	if err != nil {
+		return ""
+	}
+	remote, err := repository.Remote("origin")
+	if err != nil {
+		return ""
+	}
+	if remote == nil || remote.Config() == nil || len(remote.Config().URLs) == 0 {
+		return ""
+	}
+
+	return strings.TrimSpace(remote.Config().URLs[0])
 }
 
 func safeSlug(raw string) string {

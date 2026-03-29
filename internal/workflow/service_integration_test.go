@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -415,15 +414,11 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	if detected, err := DetectRepoRoot(childDir); err != nil || detected != repoRoot {
 		t.Fatalf("DetectRepoRoot() = %q, %v", detected, err)
 	}
-	if detected, ok, err := resolveLocalProjectRepoRoot(repoRoot); err != nil || !ok || detected != repoRoot {
-		t.Fatalf("resolveLocalProjectRepoRoot(abs) = %q, %t, %v", detected, ok, err)
+	if detected, err := ResolveReadyMirrorRepoRoot([]*ent.ProjectRepoMirror{{LocalPath: repoRoot}}); err != nil || detected != repoRoot {
+		t.Fatalf("ResolveReadyMirrorRepoRoot(abs) = %q, %v", detected, err)
 	}
-	fileURI := (&url.URL{Scheme: "file", Path: filepath.ToSlash(repoRoot)}).String()
-	if detected, ok, err := resolveLocalProjectRepoRoot(fileURI); err != nil || !ok || detected != repoRoot {
-		t.Fatalf("resolveLocalProjectRepoRoot(file URI) = %q, %t, %v", detected, ok, err)
-	}
-	if detected, ok, err := resolveLocalProjectRepoRoot("https://example.com/repo.git"); err != nil || ok || detected != "" {
-		t.Fatalf("resolveLocalProjectRepoRoot(https) = %q, %t, %v", detected, ok, err)
+	if _, err := ResolveReadyMirrorRepoRoot([]*ent.ProjectRepoMirror{{LocalPath: "https://example.com/repo.git"}}); err == nil {
+		t.Fatal("ResolveReadyMirrorRepoRoot(https) expected error")
 	}
 
 	if _, err := service.List(ctx, uuid.New()); !errors.Is(err, ErrProjectNotFound) {
@@ -756,6 +751,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if _, err := client.ProjectRepo.UpdateOneID(primaryRepo.ID).
 		SetName("backend").
 		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
 		Save(ctx); err != nil {
 		t.Fatalf("normalize primary repo metadata: %v", err)
 	}
@@ -764,6 +760,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetName("frontend").
 		SetRepositoryURL("https://github.com/acme/frontend").
 		SetDefaultBranch("develop").
+		SetWorkspaceDirname("frontend").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create frontend repo: %v", err)
@@ -960,10 +957,10 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 			frontendRepoData = &data.AllRepos[index]
 		}
 	}
-	if backendRepoData == nil || backendRepoData.Branch != "agent/codex/ASE-42" || backendRepoData.Path != "/workspaces/ASE-42/backend" {
+	if backendRepoData == nil || backendRepoData.Branch != "agent/codex/ASE-42" || backendRepoData.Path != "backend" {
 		t.Fatalf("backend repo data = %+v", backendRepoData)
 	}
-	if frontendRepoData == nil || frontendRepoData.Branch != "agent/codex/frontend-ASE-42" || frontendRepoData.Path != "/workspaces/ASE-42/frontend" {
+	if frontendRepoData == nil || frontendRepoData.Branch != "agent/codex/frontend-ASE-42" || frontendRepoData.Path != "frontend" {
 		t.Fatalf("frontend repo data = %+v", frontendRepoData)
 	}
 
@@ -1066,14 +1063,24 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 	if err != nil {
 		t.Fatalf("create projectWithoutRepo: %v", err)
 	}
-	if _, err := client.ProjectRepo.Create().
+	projectRepo, err := client.ProjectRepo.Create().
 		SetProjectID(project.ID).
 		SetName(filepath.Base(repoRoot)).
-		SetRepositoryURL(repoRoot).
+		SetRepositoryURL("https://github.com/GrandCX/openase.git").
 		SetDefaultBranch("main").
+		SetWorkspaceDirname(filepath.Base(repoRoot)).
 		SetIsPrimary(true).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create primary project repo: %v", err)
+	}
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(projectRepo.ID).
+		SetMachineID(machine.ID).
+		SetLocalPath(repoRoot).
+		SetState("ready").
+		Save(ctx); err != nil {
+		t.Fatalf("create primary project repo mirror: %v", err)
 	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)

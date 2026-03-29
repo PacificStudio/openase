@@ -33,16 +33,16 @@ func TicketWorkspacePattern(workspaceRoot string, orgSlug string, projectSlug st
 }
 
 // RepoPath derives the repository path under a ticket workspace.
-func RepoPath(workspacePath string, clonePath string, repoName string) string {
-	resolvedClonePath := strings.TrimSpace(clonePath)
-	if resolvedClonePath == "" {
-		resolvedClonePath = strings.TrimSpace(repoName)
+func RepoPath(workspacePath string, workspaceDirname string, repoName string) string {
+	resolvedWorkspaceDirname := strings.TrimSpace(workspaceDirname)
+	if resolvedWorkspaceDirname == "" {
+		resolvedWorkspaceDirname = strings.TrimSpace(repoName)
 	}
-	if resolvedClonePath == "" {
+	if resolvedWorkspaceDirname == "" {
 		return strings.TrimSpace(workspacePath)
 	}
 
-	return filepath.Join(strings.TrimSpace(workspacePath), filepath.FromSlash(resolvedClonePath))
+	return filepath.Join(strings.TrimSpace(workspacePath), filepath.FromSlash(resolvedWorkspaceDirname))
 }
 
 func deriveTicketWorkspace(workspaceRoot string, orgSlug string, projectSlug string, ticketIdentifier string, requireAbsoluteRoot bool) (string, error) {

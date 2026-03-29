@@ -78,10 +78,10 @@ func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 				DefaultBranch: "main",
 			},
 			{
-				Name:          "frontend",
-				RepositoryURL: frontendRepoPath,
-				DefaultBranch: "main",
-				ClonePath:     &clonePath,
+				Name:             "frontend",
+				RepositoryURL:    frontendRepoPath,
+				DefaultBranch:    "main",
+				WorkspaceDirname: &clonePath,
 			},
 		},
 	})
@@ -207,17 +207,17 @@ func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
 	if got, err := parseTicketSegment("ticket_identifier", ticketPlaceholder); err != nil || got != ticketPlaceholder {
 		t.Fatalf("parseTicketSegment(placeholder) = %q, %v", got, err)
 	}
-	if _, err := parseRelativeWorkspacePath("repos[0].clone_path", "/abs"); err == nil || !strings.Contains(err.Error(), "must be relative") {
-		t.Fatalf("parseRelativeWorkspacePath(abs) error = %v", err)
+	if _, err := parseWorkspaceDirname("repos[0].workspace_dirname", "/abs"); err == nil || !strings.Contains(err.Error(), "must be relative") {
+		t.Fatalf("parseWorkspaceDirname(abs) error = %v", err)
 	}
-	if _, err := parseRelativeWorkspacePath("repos[0].clone_path", "../escape"); err == nil || !strings.Contains(err.Error(), "must stay inside the workspace") {
-		t.Fatalf("parseRelativeWorkspacePath(parent) error = %v", err)
+	if _, err := parseWorkspaceDirname("repos[0].workspace_dirname", "../escape"); err == nil || !strings.Contains(err.Error(), "must stay inside the workspace") {
+		t.Fatalf("parseWorkspaceDirname(parent) error = %v", err)
 	}
-	if _, err := parseRelativeWorkspacePath("repos[0].clone_path", "bad path"); err == nil || !strings.Contains(err.Error(), "must match") {
-		t.Fatalf("parseRelativeWorkspacePath(pattern) error = %v", err)
+	if _, err := parseWorkspaceDirname("repos[0].workspace_dirname", "bad path"); err == nil || !strings.Contains(err.Error(), "must match") {
+		t.Fatalf("parseWorkspaceDirname(pattern) error = %v", err)
 	}
-	if got, err := parseRelativeWorkspacePath("repos[0].clone_path", "./services/api"); err != nil || got != "services/api" {
-		t.Fatalf("parseRelativeWorkspacePath(clean) = %q, %v", got, err)
+	if got, err := parseWorkspaceDirname("repos[0].workspace_dirname", "./services/api"); err != nil || got != "services/api" {
+		t.Fatalf("parseWorkspaceDirname(clean) = %q, %v", got, err)
 	}
 
 	if _, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "repo.git", DefaultBranch: "feature/x"}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), "default_branch must not contain '/'") {

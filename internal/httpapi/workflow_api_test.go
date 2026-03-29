@@ -77,7 +77,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
+	createPrimaryProjectRepoWithMirror(ctx, t, client, project.ID, localMachine.ID, primaryRepoRoot)
 
 	statusSvc := ticketstatus.NewService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
@@ -695,15 +695,18 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	if _, err := client.ProjectRepo.Create().
+	backendRepo, err := client.ProjectRepo.Create().
 		SetProjectID(project.ID).
 		SetName("backend").
-		SetRepositoryURL(repoRoot).
+		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
 		SetIsPrimary(true).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create backend repo: %v", err)
 	}
+	createReadyProjectRepoMirror(ctx, t, client, backendRepo.ID, localMachine.ID, repoRoot)
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
@@ -1028,7 +1031,6 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
 	localMachine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName("local").
@@ -1039,6 +1041,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create local machine: %v", err)
 	}
+	createPrimaryProjectRepoWithMirror(ctx, t, client, project.ID, localMachine.ID, primaryRepoRoot)
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)

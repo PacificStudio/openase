@@ -640,7 +640,7 @@ func mapHarnessScopedRepos(scopes []*ent.TicketRepoScope, workspace string) ([]H
 		repos = append(repos, HarnessRepoData{
 			Name:          repo.Name,
 			URL:           repo.RepositoryURL,
-			Path:          resolveRepoPath(repo.ClonePath, workspace, repo.Name),
+			Path:          resolveRepoPath(repo.WorkspaceDirname, workspace, repo.Name),
 			Branch:        scope.BranchName,
 			DefaultBranch: repo.DefaultBranch,
 			Labels:        append([]string(nil), repo.Labels...),
@@ -660,7 +660,7 @@ func mapHarnessAllRepos(repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]s
 		items = append(items, HarnessRepoData{
 			Name:          repo.Name,
 			URL:           repo.RepositoryURL,
-			Path:          resolveRepoPath(repo.ClonePath, workspace, repo.Name),
+			Path:          resolveRepoPath(repo.WorkspaceDirname, workspace, repo.Name),
 			Branch:        branch,
 			DefaultBranch: repo.DefaultBranch,
 			Labels:        append([]string(nil), repo.Labels...),
@@ -923,8 +923,8 @@ func deriveDefaultBranch(repos []*ent.ProjectRepo) string {
 	return "main"
 }
 
-func resolveRepoPath(clonePath string, workspace string, repoName string) string {
-	if trimmed := strings.TrimSpace(clonePath); trimmed != "" {
+func resolveRepoPath(workspaceDirname string, workspace string, repoName string) string {
+	if trimmed := strings.TrimSpace(workspaceDirname); trimmed != "" {
 		return trimmed
 	}
 	if strings.TrimSpace(workspace) == "" {

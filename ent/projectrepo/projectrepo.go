@@ -21,8 +21,8 @@ const (
 	FieldRepositoryURL = "repository_url"
 	// FieldDefaultBranch holds the string denoting the default_branch field in the database.
 	FieldDefaultBranch = "default_branch"
-	// FieldClonePath holds the string denoting the clone_path field in the database.
-	FieldClonePath = "clone_path"
+	// FieldWorkspaceDirname holds the string denoting the workspace_dirname field in the database.
+	FieldWorkspaceDirname = "workspace_dirname"
 	// FieldIsPrimary holds the string denoting the is_primary field in the database.
 	FieldIsPrimary = "is_primary"
 	// FieldLabels holds the string denoting the labels field in the database.
@@ -31,6 +31,8 @@ const (
 	EdgeProject = "project"
 	// EdgeTicketScopes holds the string denoting the ticket_scopes edge name in mutations.
 	EdgeTicketScopes = "ticket_scopes"
+	// EdgeMirrors holds the string denoting the mirrors edge name in mutations.
+	EdgeMirrors = "mirrors"
 	// Table holds the table name of the projectrepo in the database.
 	Table = "project_repos"
 	// ProjectTable is the table that holds the project relation/edge.
@@ -47,6 +49,13 @@ const (
 	TicketScopesInverseTable = "ticket_repo_scopes"
 	// TicketScopesColumn is the table column denoting the ticket_scopes relation/edge.
 	TicketScopesColumn = "repo_id"
+	// MirrorsTable is the table that holds the mirrors relation/edge.
+	MirrorsTable = "project_repo_mirrors"
+	// MirrorsInverseTable is the table name for the ProjectRepoMirror entity.
+	// It exists in this package in order to avoid circular dependency with the "projectrepomirror" package.
+	MirrorsInverseTable = "project_repo_mirrors"
+	// MirrorsColumn is the table column denoting the mirrors relation/edge.
+	MirrorsColumn = "project_repo_id"
 )
 
 // Columns holds all SQL columns for projectrepo fields.
@@ -56,7 +65,7 @@ var Columns = []string{
 	FieldName,
 	FieldRepositoryURL,
 	FieldDefaultBranch,
-	FieldClonePath,
+	FieldWorkspaceDirname,
 	FieldIsPrimary,
 	FieldLabels,
 }
@@ -78,6 +87,8 @@ var (
 	RepositoryURLValidator func(string) error
 	// DefaultDefaultBranch holds the default value on creation for the "default_branch" field.
 	DefaultDefaultBranch string
+	// DefaultWorkspaceDirname holds the default value on creation for the "workspace_dirname" field.
+	DefaultWorkspaceDirname string
 	// DefaultIsPrimary holds the default value on creation for the "is_primary" field.
 	DefaultIsPrimary bool
 	// DefaultID holds the default value on creation for the "id" field.
@@ -112,9 +123,9 @@ func ByDefaultBranch(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDefaultBranch, opts...).ToFunc()
 }
 
-// ByClonePath orders the results by the clone_path field.
-func ByClonePath(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldClonePath, opts...).ToFunc()
+// ByWorkspaceDirname orders the results by the workspace_dirname field.
+func ByWorkspaceDirname(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWorkspaceDirname, opts...).ToFunc()
 }
 
 // ByIsPrimary orders the results by the is_primary field.
@@ -147,6 +158,20 @@ func ByTicketScopes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newTicketScopesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByMirrorsCount orders the results by mirrors count.
+func ByMirrorsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMirrorsStep(), opts...)
+	}
+}
+
+// ByMirrors orders the results by mirrors terms.
+func ByMirrors(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMirrorsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newProjectStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -159,5 +184,12 @@ func newTicketScopesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TicketScopesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TicketScopesTable, TicketScopesColumn),
+	)
+}
+func newMirrorsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MirrorsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, MirrorsTable, MirrorsColumn),
 	)
 }

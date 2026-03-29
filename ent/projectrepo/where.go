@@ -75,9 +75,9 @@ func DefaultBranch(v string) predicate.ProjectRepo {
 	return predicate.ProjectRepo(sql.FieldEQ(FieldDefaultBranch, v))
 }
 
-// ClonePath applies equality check predicate on the "clone_path" field. It's identical to ClonePathEQ.
-func ClonePath(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldEQ(FieldClonePath, v))
+// WorkspaceDirname applies equality check predicate on the "workspace_dirname" field. It's identical to WorkspaceDirnameEQ.
+func WorkspaceDirname(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldEQ(FieldWorkspaceDirname, v))
 }
 
 // IsPrimary applies equality check predicate on the "is_primary" field. It's identical to IsPrimaryEQ.
@@ -305,79 +305,69 @@ func DefaultBranchContainsFold(v string) predicate.ProjectRepo {
 	return predicate.ProjectRepo(sql.FieldContainsFold(FieldDefaultBranch, v))
 }
 
-// ClonePathEQ applies the EQ predicate on the "clone_path" field.
-func ClonePathEQ(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldEQ(FieldClonePath, v))
+// WorkspaceDirnameEQ applies the EQ predicate on the "workspace_dirname" field.
+func WorkspaceDirnameEQ(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldEQ(FieldWorkspaceDirname, v))
 }
 
-// ClonePathNEQ applies the NEQ predicate on the "clone_path" field.
-func ClonePathNEQ(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldNEQ(FieldClonePath, v))
+// WorkspaceDirnameNEQ applies the NEQ predicate on the "workspace_dirname" field.
+func WorkspaceDirnameNEQ(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldNEQ(FieldWorkspaceDirname, v))
 }
 
-// ClonePathIn applies the In predicate on the "clone_path" field.
-func ClonePathIn(vs ...string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldIn(FieldClonePath, vs...))
+// WorkspaceDirnameIn applies the In predicate on the "workspace_dirname" field.
+func WorkspaceDirnameIn(vs ...string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldIn(FieldWorkspaceDirname, vs...))
 }
 
-// ClonePathNotIn applies the NotIn predicate on the "clone_path" field.
-func ClonePathNotIn(vs ...string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldNotIn(FieldClonePath, vs...))
+// WorkspaceDirnameNotIn applies the NotIn predicate on the "workspace_dirname" field.
+func WorkspaceDirnameNotIn(vs ...string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldNotIn(FieldWorkspaceDirname, vs...))
 }
 
-// ClonePathGT applies the GT predicate on the "clone_path" field.
-func ClonePathGT(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldGT(FieldClonePath, v))
+// WorkspaceDirnameGT applies the GT predicate on the "workspace_dirname" field.
+func WorkspaceDirnameGT(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldGT(FieldWorkspaceDirname, v))
 }
 
-// ClonePathGTE applies the GTE predicate on the "clone_path" field.
-func ClonePathGTE(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldGTE(FieldClonePath, v))
+// WorkspaceDirnameGTE applies the GTE predicate on the "workspace_dirname" field.
+func WorkspaceDirnameGTE(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldGTE(FieldWorkspaceDirname, v))
 }
 
-// ClonePathLT applies the LT predicate on the "clone_path" field.
-func ClonePathLT(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldLT(FieldClonePath, v))
+// WorkspaceDirnameLT applies the LT predicate on the "workspace_dirname" field.
+func WorkspaceDirnameLT(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldLT(FieldWorkspaceDirname, v))
 }
 
-// ClonePathLTE applies the LTE predicate on the "clone_path" field.
-func ClonePathLTE(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldLTE(FieldClonePath, v))
+// WorkspaceDirnameLTE applies the LTE predicate on the "workspace_dirname" field.
+func WorkspaceDirnameLTE(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldLTE(FieldWorkspaceDirname, v))
 }
 
-// ClonePathContains applies the Contains predicate on the "clone_path" field.
-func ClonePathContains(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldContains(FieldClonePath, v))
+// WorkspaceDirnameContains applies the Contains predicate on the "workspace_dirname" field.
+func WorkspaceDirnameContains(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldContains(FieldWorkspaceDirname, v))
 }
 
-// ClonePathHasPrefix applies the HasPrefix predicate on the "clone_path" field.
-func ClonePathHasPrefix(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldHasPrefix(FieldClonePath, v))
+// WorkspaceDirnameHasPrefix applies the HasPrefix predicate on the "workspace_dirname" field.
+func WorkspaceDirnameHasPrefix(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldHasPrefix(FieldWorkspaceDirname, v))
 }
 
-// ClonePathHasSuffix applies the HasSuffix predicate on the "clone_path" field.
-func ClonePathHasSuffix(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldHasSuffix(FieldClonePath, v))
+// WorkspaceDirnameHasSuffix applies the HasSuffix predicate on the "workspace_dirname" field.
+func WorkspaceDirnameHasSuffix(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldHasSuffix(FieldWorkspaceDirname, v))
 }
 
-// ClonePathIsNil applies the IsNil predicate on the "clone_path" field.
-func ClonePathIsNil() predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldIsNull(FieldClonePath))
+// WorkspaceDirnameEqualFold applies the EqualFold predicate on the "workspace_dirname" field.
+func WorkspaceDirnameEqualFold(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldEqualFold(FieldWorkspaceDirname, v))
 }
 
-// ClonePathNotNil applies the NotNil predicate on the "clone_path" field.
-func ClonePathNotNil() predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldNotNull(FieldClonePath))
-}
-
-// ClonePathEqualFold applies the EqualFold predicate on the "clone_path" field.
-func ClonePathEqualFold(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldEqualFold(FieldClonePath, v))
-}
-
-// ClonePathContainsFold applies the ContainsFold predicate on the "clone_path" field.
-func ClonePathContainsFold(v string) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldContainsFold(FieldClonePath, v))
+// WorkspaceDirnameContainsFold applies the ContainsFold predicate on the "workspace_dirname" field.
+func WorkspaceDirnameContainsFold(v string) predicate.ProjectRepo {
+	return predicate.ProjectRepo(sql.FieldContainsFold(FieldWorkspaceDirname, v))
 }
 
 // IsPrimaryEQ applies the EQ predicate on the "is_primary" field.
@@ -478,6 +468,29 @@ func HasTicketScopes() predicate.ProjectRepo {
 func HasTicketScopesWith(preds ...predicate.TicketRepoScope) predicate.ProjectRepo {
 	return predicate.ProjectRepo(func(s *sql.Selector) {
 		step := newTicketScopesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasMirrors applies the HasEdge predicate on the "mirrors" edge.
+func HasMirrors() predicate.ProjectRepo {
+	return predicate.ProjectRepo(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, MirrorsTable, MirrorsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMirrorsWith applies the HasEdge predicate on the "mirrors" edge with a given conditions (other predicates).
+func HasMirrorsWith(preds ...predicate.ProjectRepoMirror) predicate.ProjectRepo {
+	return predicate.ProjectRepo(func(s *sql.Selector) {
+		step := newMirrorsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

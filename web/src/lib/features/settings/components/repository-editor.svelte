@@ -94,12 +94,12 @@
     </div>
 
     <div class="space-y-2">
-      <Label for="repo-clone-path">Clone path</Label>
+      <Label for="repo-workspace-dirname">Workspace dirname</Label>
       <Input
-        id="repo-clone-path"
-        value={draft.clonePath}
+        id="repo-workspace-dirname"
+        value={draft.workspaceDirname}
         placeholder="services/backend"
-        oninput={(event) => updateTextField('clonePath', event)}
+        oninput={(event) => updateTextField('workspaceDirname', event)}
       />
       <p class="text-muted-foreground text-xs">
         Leave empty to let the runtime derive the workspace path automatically.

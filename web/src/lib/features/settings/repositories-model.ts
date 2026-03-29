@@ -4,7 +4,7 @@ export type RepositoryDraft = {
   name: string
   repositoryURL: string
   defaultBranch: string
-  clonePath: string
+  workspaceDirname: string
   labels: string
   isPrimary: boolean
 }
@@ -13,7 +13,7 @@ export type RepositoryMutationInput = {
   name: string
   repository_url: string
   default_branch: string
-  clone_path: string | null
+  workspace_dirname: string | null
   labels: string[]
   is_primary: boolean
 }
@@ -29,7 +29,7 @@ export function createEmptyRepositoryDraft(options: { isPrimary?: boolean } = {}
     name: '',
     repositoryURL: '',
     defaultBranch: 'main',
-    clonePath: '',
+    workspaceDirname: '',
     labels: '',
     isPrimary: options.isPrimary ?? false,
   }
@@ -42,7 +42,7 @@ export function projectRepoToDraft(repo: ProjectRepoRecord): RepositoryDraft {
     name: repo.name,
     repositoryURL: repo.repository_url,
     defaultBranch: repo.default_branch || 'main',
-    clonePath: repo.clone_path ?? '',
+    workspaceDirname: repo.workspace_dirname ?? '',
     labels: labels.join(', '),
     isPrimary: repo.is_primary,
   }
@@ -65,7 +65,7 @@ export function parseRepositoryDraft(draft: RepositoryDraft): RepositoryDraftPar
       name,
       repository_url: repositoryURL,
       default_branch: draft.defaultBranch.trim() || 'main',
-      clone_path: draft.clonePath.trim() || null,
+      workspace_dirname: draft.workspaceDirname.trim() || null,
       labels: splitLabels(draft.labels),
       is_primary: draft.isPrimary,
     },

@@ -233,8 +233,8 @@ func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
 		secondaryRepoID := uuid.New()
 		launchContext := runtimeLaunchContext{
 			projectRepos: []*ent.ProjectRepo{
-				{ID: primaryRepoID, Name: "backend", ClonePath: "repos/backend", IsPrimary: true},
-				{ID: secondaryRepoID, Name: "frontend", ClonePath: "repos/frontend"},
+				{ID: primaryRepoID, Name: "backend", WorkspaceDirname: "repos/backend", IsPrimary: true},
+				{ID: secondaryRepoID, Name: "frontend", WorkspaceDirname: "repos/frontend"},
 			},
 			ticketScopes: []*ent.TicketRepoScope{
 				{RepoID: secondaryRepoID, IsPrimaryScope: true},
@@ -244,13 +244,13 @@ func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
 		workspace := workspaceinfra.Workspace{
 			Path: "/tmp/workspaces/ASE-278",
 			Repos: []workspaceinfra.PreparedRepo{
-				{Name: "backend", ClonePath: "repos/backend", Path: "/tmp/workspaces/ASE-278/repos/backend"},
-				{Name: "frontend", ClonePath: "repos/frontend", Path: "/tmp/workspaces/ASE-278/repos/frontend"},
+				{Name: "backend", WorkspaceDirname: "repos/backend", Path: "/tmp/workspaces/ASE-278/repos/backend"},
+				{Name: "frontend", WorkspaceDirname: "repos/frontend", Path: "/tmp/workspaces/ASE-278/repos/frontend"},
 			},
 		}
 
-		if got := primaryWorkspaceClonePath(launchContext); got != "repos/frontend" {
-			t.Fatalf("primaryWorkspaceClonePath(primary scope) = %q", got)
+		if got := primaryWorkspaceDirname(launchContext); got != "repos/frontend" {
+			t.Fatalf("primaryWorkspaceDirname(primary scope) = %q", got)
 		}
 		if got, ok := primaryPreparedRepoPath(launchContext, workspace.Repos); !ok || got != "/tmp/workspaces/ASE-278/repos/frontend" {
 			t.Fatalf("primaryPreparedRepoPath(primary scope) = %q, %t", got, ok)
@@ -261,16 +261,16 @@ func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
 
 		noScopeContext := runtimeLaunchContext{
 			projectRepos: []*ent.ProjectRepo{
-				{ID: primaryRepoID, Name: "backend", ClonePath: "repos/backend", IsPrimary: true},
+				{ID: primaryRepoID, Name: "backend", WorkspaceDirname: "repos/backend", IsPrimary: true},
 				{ID: secondaryRepoID, Name: "frontend"},
 			},
 		}
-		if got := primaryWorkspaceClonePath(noScopeContext); got != "repos/backend" {
-			t.Fatalf("primaryWorkspaceClonePath(project primary) = %q", got)
+		if got := primaryWorkspaceDirname(noScopeContext); got != "repos/backend" {
+			t.Fatalf("primaryWorkspaceDirname(project primary) = %q", got)
 		}
 		if got := resolveAgentWorkingDirectory(noScopeContext, workspaceinfra.Workspace{
 			Path:  "/tmp/workspaces/ASE-278",
-			Repos: []workspaceinfra.PreparedRepo{{Name: "backend", ClonePath: "repos/backend", Path: "/tmp/workspaces/ASE-278/repos/backend"}},
+			Repos: []workspaceinfra.PreparedRepo{{Name: "backend", WorkspaceDirname: "repos/backend", Path: "/tmp/workspaces/ASE-278/repos/backend"}},
 		}); got != "/tmp/workspaces/ASE-278/repos/backend" {
 			t.Fatalf("resolveAgentWorkingDirectory(single repo) = %q", got)
 		}
@@ -280,11 +280,11 @@ func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
 		if got, ok := primaryPreparedRepoPath(runtimeLaunchContext{}, workspace.Repos); ok || got != "" {
 			t.Fatalf("primaryPreparedRepoPath(empty) = %q, %t", got, ok)
 		}
-		if got := projectRepoClonePath(&ent.ProjectRepo{Name: "backend"}); got != "backend" {
-			t.Fatalf("projectRepoClonePath(default) = %q", got)
+		if got := projectRepoWorkspaceDirname(&ent.ProjectRepo{Name: "backend"}); got != "backend" {
+			t.Fatalf("projectRepoWorkspaceDirname(default) = %q", got)
 		}
-		if got := projectRepoClonePath(nil); got != "" {
-			t.Fatalf("projectRepoClonePath(nil) = %q", got)
+		if got := projectRepoWorkspaceDirname(nil); got != "" {
+			t.Fatalf("projectRepoWorkspaceDirname(nil) = %q", got)
 		}
 	})
 }
@@ -419,11 +419,11 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 			Identifier: "ASE-77",
 		},
 		projectRepos: []*ent.ProjectRepo{{
-			ID:            repoID,
-			Name:          "backend",
-			RepositoryURL: "https://github.com/acme/backend.git",
-			DefaultBranch: "main",
-			ClonePath:     "services/backend",
+			ID:               repoID,
+			Name:             "backend",
+			RepositoryURL:    "https://github.com/acme/backend.git",
+			DefaultBranch:    "main",
+			WorkspaceDirname: "services/backend",
 		}},
 		ticketScopes: []*ent.TicketRepoScope{{
 			RepoID:     repoID,
