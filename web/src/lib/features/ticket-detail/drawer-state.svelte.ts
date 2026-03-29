@@ -3,12 +3,11 @@ import { toastStore } from '$lib/stores/toast.svelte'
 import { fetchTicketDetailContext } from './context'
 import type {
   HookExecution,
-  TicketActivity,
-  TicketComment,
   TicketDetail,
   TicketReferenceOption,
   TicketRepoOption,
   TicketStatusOption,
+  TicketTimelineItem,
 } from './types'
 
 type LoadOptions = {
@@ -20,9 +19,8 @@ export function createTicketDrawerState() {
   let loading = $state(false)
   let error = $state('')
   let ticket = $state<TicketDetail | null>(null)
-  let comments = $state<TicketComment[]>([])
+  let timeline = $state<TicketTimelineItem[]>([])
   let hooks = $state<HookExecution[]>([])
-  let activities = $state<TicketActivity[]>([])
   let statuses = $state<TicketStatusOption[]>([])
   let dependencyCandidates = $state<TicketReferenceOption[]>([])
   let repoOptions = $state<TicketRepoOption[]>([])
@@ -55,14 +53,11 @@ export function createTicketDrawerState() {
     get hooks() {
       return hooks
     },
-    get comments() {
-      return comments
+    get timeline() {
+      return timeline
     },
-    set comments(value) {
-      comments = value
-    },
-    get activities() {
-      return activities
+    set timeline(value) {
+      timeline = value
     },
     get statuses() {
       return statuses
@@ -159,9 +154,8 @@ export function createTicketDrawerState() {
         if (requestId !== loadRequestId) return
 
         ticket = detailContext.ticket
-        comments = detailContext.comments
+        timeline = detailContext.timeline
         hooks = detailContext.hooks
-        activities = detailContext.activities
         statuses = detailContext.statuses
         dependencyCandidates = detailContext.dependencyCandidates
         repoOptions = detailContext.repoOptions
@@ -185,9 +179,8 @@ export function createTicketDrawerState() {
       loading = false
       error = ''
       ticket = null
-      comments = []
+      timeline = []
       hooks = []
-      activities = []
       statuses = []
       dependencyCandidates = []
       repoOptions = []

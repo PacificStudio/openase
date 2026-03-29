@@ -254,8 +254,7 @@
         projectId={projectId ?? ''}
         ticket={drawerState.ticket}
         hooks={drawerState.hooks}
-        comments={drawerState.comments}
-        activities={drawerState.activities}
+        timeline={drawerState.timeline}
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
         repoOptions={drawerState.repoOptions}

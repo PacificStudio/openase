@@ -1,6 +1,5 @@
 import { ApiError } from '$lib/api/client'
 import { createTicketComment, deleteTicketComment, updateTicketComment } from '$lib/api/openase'
-import type { TicketComment } from './types'
 
 type LoadOptions = {
   background?: boolean
@@ -8,7 +7,6 @@ type LoadOptions = {
 }
 
 type TicketDrawerCommentState = {
-  comments: TicketComment[]
   creatingComment: boolean
   updatingCommentId: string | null
   deletingCommentId: string | null
@@ -99,7 +97,6 @@ export async function handleDeleteTicketComment({
   drawerState.clearMutationMessages()
 
   try {
-    drawerState.comments = drawerState.comments.filter((comment) => comment.id !== commentId)
     await deleteTicketComment(ticketId, commentId)
     drawerState.setMutationNotice('Comment deleted.')
     await drawerState.load(projectId, ticketId, { background: true, preserveMessages: true })
