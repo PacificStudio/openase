@@ -66,7 +66,8 @@
       <div>
         <h3 class="text-sm font-medium">Repositories & PRs</h3>
         <p class="text-muted-foreground mt-1 text-xs">
-          Edit branch, PR metadata, CI state, and primary scope assignment inline.
+          Review linked repositories at a glance, then open Edit when you need to update branch, PR,
+          CI, or primary scope details.
         </p>
       </div>
 
