@@ -19,7 +19,7 @@ func (ProjectRepo) Fields() []ent.Field {
 		field.String("name").NotEmpty(),
 		field.String("repository_url").NotEmpty(),
 		field.String("default_branch").Default("main"),
-		field.String("clone_path").Optional(),
+		field.String("workspace_dirname").Default(""),
 		field.Bool("is_primary").Default(false),
 		textArrayField("labels"),
 	}
@@ -33,6 +33,7 @@ func (ProjectRepo) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("ticket_scopes", TicketRepoScope.Type),
+		edge.To("mirrors", ProjectRepoMirror.Type),
 	}
 }
 

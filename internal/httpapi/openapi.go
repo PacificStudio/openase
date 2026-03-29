@@ -66,14 +66,14 @@ type OpenAPIMachineProbe struct {
 }
 
 type OpenAPIProjectRepo struct {
-	ID            string   `json:"id"`
-	ProjectID     string   `json:"project_id"`
-	Name          string   `json:"name"`
-	RepositoryURL string   `json:"repository_url"`
-	DefaultBranch string   `json:"default_branch"`
-	ClonePath     *string  `json:"clone_path,omitempty"`
-	IsPrimary     bool     `json:"is_primary"`
-	Labels        []string `json:"labels,omitempty"`
+	ID               string   `json:"id"`
+	ProjectID        string   `json:"project_id"`
+	Name             string   `json:"name"`
+	RepositoryURL    string   `json:"repository_url"`
+	DefaultBranch    string   `json:"default_branch"`
+	WorkspaceDirname string   `json:"workspace_dirname"`
+	IsPrimary        bool     `json:"is_primary"`
+	Labels           []string `json:"labels,omitempty"`
 }
 
 type OpenAPIAgentProvider struct {

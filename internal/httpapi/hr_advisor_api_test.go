@@ -79,6 +79,7 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create local machine: %v", err)
 	}
+	createReadyPrimaryProjectRepoMirror(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
@@ -436,6 +437,7 @@ func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *te
 	if err != nil {
 		t.Fatalf("create local machine: %v", err)
 	}
+	createReadyPrimaryProjectRepoMirror(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
@@ -616,6 +618,7 @@ func TestActivateHRRecommendationRouteCreatesWorkflowAgentAndBootstrapTicket(t *
 		t.Fatalf("create project: %v", err)
 	}
 	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
+	createReadyPrimaryProjectRepoMirror(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 	if _, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}

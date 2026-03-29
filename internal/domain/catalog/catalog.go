@@ -32,14 +32,14 @@ type Project struct {
 }
 
 type ProjectRepo struct {
-	ID            uuid.UUID
-	ProjectID     uuid.UUID
-	Name          string
-	RepositoryURL string
-	DefaultBranch string
-	ClonePath     *string
-	IsPrimary     bool
-	Labels        []string
+	ID               uuid.UUID
+	ProjectID        uuid.UUID
+	Name             string
+	RepositoryURL    string
+	DefaultBranch    string
+	WorkspaceDirname string
+	IsPrimary        bool
+	Labels           []string
 }
 
 type TicketRepoScope struct {
@@ -71,12 +71,12 @@ type ProjectInput struct {
 }
 
 type ProjectRepoInput struct {
-	Name          string   `json:"name"`
-	RepositoryURL string   `json:"repository_url"`
-	DefaultBranch string   `json:"default_branch"`
-	ClonePath     *string  `json:"clone_path"`
-	IsPrimary     *bool    `json:"is_primary"`
-	Labels        []string `json:"labels"`
+	Name             string   `json:"name"`
+	RepositoryURL    string   `json:"repository_url"`
+	DefaultBranch    string   `json:"default_branch"`
+	WorkspaceDirname *string  `json:"workspace_dirname"`
+	IsPrimary        *bool    `json:"is_primary"`
+	Labels           []string `json:"labels"`
 }
 
 type TicketRepoScopeInput struct {
@@ -131,20 +131,20 @@ type CreateProjectRepo struct {
 	Name             string
 	RepositoryURL    string
 	DefaultBranch    string
-	ClonePath        *string
+	WorkspaceDirname string
 	RequestedPrimary *bool
 	Labels           []string
 }
 
 type UpdateProjectRepo struct {
-	ID            uuid.UUID
-	ProjectID     uuid.UUID
-	Name          string
-	RepositoryURL string
-	DefaultBranch string
-	ClonePath     *string
-	IsPrimary     bool
-	Labels        []string
+	ID               uuid.UUID
+	ProjectID        uuid.UUID
+	Name             string
+	RepositoryURL    string
+	DefaultBranch    string
+	WorkspaceDirname string
+	IsPrimary        bool
+	Labels           []string
 }
 
 type CreateTicketRepoScope struct {
@@ -288,7 +288,10 @@ func ParseCreateProjectRepo(projectID uuid.UUID, raw ProjectRepoInput) (CreatePr
 
 	defaultBranch := parseDefaultBranch(raw.DefaultBranch)
 
-	clonePath := parseOptionalText(raw.ClonePath)
+	workspaceDirname, err := parseWorkspaceDirname(name, raw.WorkspaceDirname)
+	if err != nil {
+		return CreateProjectRepo{}, err
+	}
 
 	labels, err := parseLabels(raw.Labels)
 	if err != nil {
@@ -300,7 +303,7 @@ func ParseCreateProjectRepo(projectID uuid.UUID, raw ProjectRepoInput) (CreatePr
 		Name:             name,
 		RepositoryURL:    repositoryURL,
 		DefaultBranch:    defaultBranch,
-		ClonePath:        clonePath,
+		WorkspaceDirname: workspaceDirname,
 		RequestedPrimary: raw.IsPrimary,
 		Labels:           labels,
 	}, nil
@@ -318,14 +321,14 @@ func ParseUpdateProjectRepo(id uuid.UUID, projectID uuid.UUID, raw ProjectRepoIn
 	}
 
 	return UpdateProjectRepo{
-		ID:            id,
-		ProjectID:     input.ProjectID,
-		Name:          input.Name,
-		RepositoryURL: input.RepositoryURL,
-		DefaultBranch: input.DefaultBranch,
-		ClonePath:     input.ClonePath,
-		IsPrimary:     isPrimary,
-		Labels:        input.Labels,
+		ID:               id,
+		ProjectID:        input.ProjectID,
+		Name:             input.Name,
+		RepositoryURL:    input.RepositoryURL,
+		DefaultBranch:    input.DefaultBranch,
+		WorkspaceDirname: input.WorkspaceDirname,
+		IsPrimary:        isPrimary,
+		Labels:           input.Labels,
 	}, nil
 }
 
@@ -418,6 +421,36 @@ func parseOptionalText(raw *string) *string {
 	}
 
 	return &trimmed
+}
+
+func parseWorkspaceDirname(repoName string, raw *string) (string, error) {
+	if raw == nil {
+		return repoName, nil
+	}
+
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return repoName, nil
+	}
+	if strings.HasPrefix(trimmed, "/") {
+		return "", fmt.Errorf("workspace_dirname must be relative")
+	}
+	if strings.Contains(trimmed, "\\") {
+		return "", fmt.Errorf("workspace_dirname must use forward slashes")
+	}
+	if strings.Contains(trimmed, "..") {
+		return "", fmt.Errorf("workspace_dirname must stay inside the workspace")
+	}
+
+	cleaned := strings.TrimPrefix(trimmed, "./")
+	if cleaned == "" {
+		return "", fmt.Errorf("workspace_dirname must not be empty")
+	}
+	if strings.Contains(cleaned, " ") {
+		return "", fmt.Errorf("workspace_dirname must not contain spaces")
+	}
+
+	return cleaned, nil
 }
 
 func parseLabels(raw []string) ([]string, error) {

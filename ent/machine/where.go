@@ -898,6 +898,29 @@ func HasProvidersWith(preds ...predicate.AgentProvider) predicate.Machine {
 	})
 }
 
+// HasProjectRepoMirrors applies the HasEdge predicate on the "project_repo_mirrors" edge.
+func HasProjectRepoMirrors() predicate.Machine {
+	return predicate.Machine(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ProjectRepoMirrorsTable, ProjectRepoMirrorsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasProjectRepoMirrorsWith applies the HasEdge predicate on the "project_repo_mirrors" edge with a given conditions (other predicates).
+func HasProjectRepoMirrorsWith(preds ...predicate.ProjectRepoMirror) predicate.Machine {
+	return predicate.Machine(func(s *sql.Selector) {
+		step := newProjectRepoMirrorsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasTargetTickets applies the HasEdge predicate on the "target_tickets" edge.
 func HasTargetTickets() predicate.Machine {
 	return predicate.Machine(func(s *sql.Selector) {

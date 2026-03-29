@@ -19,6 +19,7 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -798,6 +799,10 @@ func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UU
 			query.WithOrganization()
 			query.WithRepos(func(repoQuery *ent.ProjectRepoQuery) {
 				repoQuery.Order(entprojectrepo.ByName())
+				repoQuery.WithMirrors(func(mirrorQuery *ent.ProjectRepoMirrorQuery) {
+					mirrorQuery.Where(entprojectrepomirror.StateEQ(entprojectrepomirror.StateReady))
+					mirrorQuery.WithMachine()
+				})
 			})
 		}).
 		Only(ctx)
@@ -914,7 +919,10 @@ func buildWorkspaceRequest(
 		return workspaceinfra.SetupRequest{}, err
 	}
 
-	repoInputs := buildWorkspaceRepoInputs(launchContext.projectRepos, launchContext.ticketScopes, githubToken)
+	repoInputs, err := buildWorkspaceRepoInputs(launchContext.projectRepos, launchContext.ticketScopes, remote, githubToken)
+	if err != nil {
+		return workspaceinfra.SetupRequest{}, err
+	}
 	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
 		WorkspaceRoot:    workspaceRoot,
 		OrganizationSlug: launchContext.project.Edges.Organization.Slug,
@@ -967,8 +975,9 @@ func buildWorkspacePath(launchContext runtimeLaunchContext, machine catalogdomai
 func buildWorkspaceRepoInputs(
 	projectRepos []*ent.ProjectRepo,
 	ticketScopes []*ent.TicketRepoScope,
+	remote bool,
 	githubToken string,
-) []workspaceinfra.RepoInput {
+) ([]workspaceinfra.RepoInput, error) {
 	scopeByRepoID := make(map[uuid.UUID]*ent.TicketRepoScope, len(ticketScopes))
 	for _, scope := range ticketScopes {
 		scopeByRepoID[scope.RepoID] = scope
@@ -986,19 +995,27 @@ func buildWorkspaceRepoInputs(
 
 	inputs := make([]workspaceinfra.RepoInput, 0, len(selectedRepos))
 	for _, repo := range selectedRepos {
+		repositoryURL := strings.TrimSpace(repo.RepositoryURL)
+		if !remote {
+			resolvedRepositoryURL, err := workflowservice.ResolveReadyMirrorRepoRoot(repo.Edges.Mirrors)
+			if err != nil {
+				return nil, fmt.Errorf("resolve local repo source for %s: %w", repo.Name, err)
+			}
+			repositoryURL = resolvedRepositoryURL
+		}
 		input := workspaceinfra.RepoInput{
 			Name:          repo.Name,
-			RepositoryURL: repo.RepositoryURL,
+			RepositoryURL: repositoryURL,
 			DefaultBranch: repo.DefaultBranch,
 		}
 		if githubToken != "" {
-			if _, ok := githubauthdomain.ParseGitHubRepositoryURL(repo.RepositoryURL); ok {
+			if _, ok := githubauthdomain.ParseGitHubRepositoryURL(repositoryURL); ok {
 				token := githubToken
 				input.GitHubToken = &token
 			}
 		}
-		if clonePath := strings.TrimSpace(repo.ClonePath); clonePath != "" {
-			input.ClonePath = &clonePath
+		if workspaceDirname := strings.TrimSpace(repo.WorkspaceDirname); workspaceDirname != "" {
+			input.WorkspaceDirname = &workspaceDirname
 		}
 		if scope, ok := scopeByRepoID[repo.ID]; ok {
 			branchName := scope.BranchName
@@ -1007,7 +1024,7 @@ func buildWorkspaceRepoInputs(
 		inputs = append(inputs, input)
 	}
 
-	return inputs
+	return inputs, nil
 }
 
 func (l *RuntimeLauncher) resolveProjectGitHubToken(ctx context.Context, launchContext runtimeLaunchContext) (string, error) {
@@ -1042,13 +1059,13 @@ func primaryPreparedRepoPath(
 	launchContext runtimeLaunchContext,
 	repos []workspaceinfra.PreparedRepo,
 ) (string, bool) {
-	primaryClonePath := primaryWorkspaceClonePath(launchContext)
-	if primaryClonePath == "" {
+	primaryWorkspaceDirname := primaryWorkspaceDirname(launchContext)
+	if primaryWorkspaceDirname == "" {
 		return "", false
 	}
 
 	for _, repo := range repos {
-		if repo.ClonePath == primaryClonePath {
+		if repo.WorkspaceDirname == primaryWorkspaceDirname {
 			return repo.Path, true
 		}
 	}
@@ -1056,7 +1073,7 @@ func primaryPreparedRepoPath(
 	return "", false
 }
 
-func primaryWorkspaceClonePath(launchContext runtimeLaunchContext) string {
+func primaryWorkspaceDirname(launchContext runtimeLaunchContext) string {
 	projectReposByID := make(map[uuid.UUID]*ent.ProjectRepo, len(launchContext.projectRepos))
 	for _, repo := range launchContext.projectRepos {
 		projectReposByID[repo.ID] = repo
@@ -1067,25 +1084,25 @@ func primaryWorkspaceClonePath(launchContext runtimeLaunchContext) string {
 			continue
 		}
 		if repo := projectReposByID[scope.RepoID]; repo != nil {
-			return projectRepoClonePath(repo)
+			return projectRepoWorkspaceDirname(repo)
 		}
 	}
 
 	for _, repo := range launchContext.projectRepos {
 		if repo.IsPrimary {
-			return projectRepoClonePath(repo)
+			return projectRepoWorkspaceDirname(repo)
 		}
 	}
 
 	return ""
 }
 
-func projectRepoClonePath(repo *ent.ProjectRepo) string {
+func projectRepoWorkspaceDirname(repo *ent.ProjectRepo) string {
 	if repo == nil {
 		return ""
 	}
-	if clonePath := strings.TrimSpace(repo.ClonePath); clonePath != "" {
-		return clonePath
+	if workspaceDirname := strings.TrimSpace(repo.WorkspaceDirname); workspaceDirname != "" {
+		return workspaceDirname
 	}
 
 	return repo.Name

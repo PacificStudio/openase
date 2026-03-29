@@ -7480,10 +7480,6 @@
                     "repos": {
                       "items": {
                         "properties": {
-                          "clone_path": {
-                            "nullable": true,
-                            "type": "string"
-                          },
                           "default_branch": {
                             "type": "string"
                           },
@@ -7506,6 +7502,9 @@
                             "type": "string"
                           },
                           "repository_url": {
+                            "type": "string"
+                          },
+                          "workspace_dirname": {
                             "type": "string"
                           }
                         },
@@ -7599,10 +7598,6 @@
             "application/json": {
               "schema": {
                 "properties": {
-                  "clone_path": {
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "default_branch": {
                     "type": "string"
                   },
@@ -7621,6 +7616,10 @@
                   },
                   "repository_url": {
                     "type": "string"
+                  },
+                  "workspace_dirname": {
+                    "nullable": true,
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -7638,10 +7637,6 @@
                   "properties": {
                     "repo": {
                       "properties": {
-                        "clone_path": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "default_branch": {
                           "type": "string"
                         },
@@ -7664,6 +7659,9 @@
                           "type": "string"
                         },
                         "repository_url": {
+                          "type": "string"
+                        },
+                        "workspace_dirname": {
                           "type": "string"
                         }
                       },
@@ -7788,10 +7786,6 @@
                   "properties": {
                     "repo": {
                       "properties": {
-                        "clone_path": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "default_branch": {
                           "type": "string"
                         },
@@ -7814,6 +7808,9 @@
                           "type": "string"
                         },
                         "repository_url": {
+                          "type": "string"
+                        },
+                        "workspace_dirname": {
                           "type": "string"
                         }
                       },
@@ -7933,10 +7930,6 @@
             "application/json": {
               "schema": {
                 "properties": {
-                  "clone_path": {
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "default_branch": {
                     "nullable": true,
                     "type": "string"
@@ -7959,6 +7952,10 @@
                   "repository_url": {
                     "nullable": true,
                     "type": "string"
+                  },
+                  "workspace_dirname": {
+                    "nullable": true,
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -7976,10 +7973,6 @@
                   "properties": {
                     "repo": {
                       "properties": {
-                        "clone_path": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "default_branch": {
                           "type": "string"
                         },
@@ -8002,6 +7995,9 @@
                           "type": "string"
                         },
                         "repository_url": {
+                          "type": "string"
+                        },
+                        "workspace_dirname": {
                           "type": "string"
                         }
                       },
@@ -10754,10 +10750,6 @@
                           "repo": {
                             "nullable": true,
                             "properties": {
-                              "clone_path": {
-                                "nullable": true,
-                                "type": "string"
-                              },
                               "default_branch": {
                                 "type": "string"
                               },
@@ -10780,6 +10772,9 @@
                                 "type": "string"
                               },
                               "repository_url": {
+                                "type": "string"
+                              },
+                              "workspace_dirname": {
                                 "type": "string"
                               }
                             },

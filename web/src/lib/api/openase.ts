@@ -477,7 +477,7 @@ export function createProjectRepo(
     name: string
     repository_url: string
     default_branch: string
-    clone_path?: string | null
+    workspace_dirname?: string | null
     is_primary?: boolean
     labels?: string[]
   },
@@ -492,7 +492,7 @@ export function updateProjectRepo(
     name?: string | null
     repository_url?: string | null
     default_branch?: string | null
-    clone_path?: string | null
+    workspace_dirname?: string | null
     is_primary?: boolean | null
     labels?: string[] | null
   },

@@ -27,8 +27,8 @@ type ProjectRepo struct {
 	RepositoryURL string `json:"repository_url,omitempty"`
 	// DefaultBranch holds the value of the "default_branch" field.
 	DefaultBranch string `json:"default_branch,omitempty"`
-	// ClonePath holds the value of the "clone_path" field.
-	ClonePath string `json:"clone_path,omitempty"`
+	// WorkspaceDirname holds the value of the "workspace_dirname" field.
+	WorkspaceDirname string `json:"workspace_dirname,omitempty"`
 	// IsPrimary holds the value of the "is_primary" field.
 	IsPrimary bool `json:"is_primary,omitempty"`
 	// Labels holds the value of the "labels" field.
@@ -45,9 +45,11 @@ type ProjectRepoEdges struct {
 	Project *Project `json:"project,omitempty"`
 	// TicketScopes holds the value of the ticket_scopes edge.
 	TicketScopes []*TicketRepoScope `json:"ticket_scopes,omitempty"`
+	// Mirrors holds the value of the mirrors edge.
+	Mirrors []*ProjectRepoMirror `json:"mirrors,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -70,6 +72,15 @@ func (e ProjectRepoEdges) TicketScopesOrErr() ([]*TicketRepoScope, error) {
 	return nil, &NotLoadedError{edge: "ticket_scopes"}
 }
 
+// MirrorsOrErr returns the Mirrors value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectRepoEdges) MirrorsOrErr() ([]*ProjectRepoMirror, error) {
+	if e.loadedTypes[2] {
+		return e.Mirrors, nil
+	}
+	return nil, &NotLoadedError{edge: "mirrors"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*ProjectRepo) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -79,7 +90,7 @@ func (*ProjectRepo) scanValues(columns []string) ([]any, error) {
 			values[i] = new(pgarray.StringArray)
 		case projectrepo.FieldIsPrimary:
 			values[i] = new(sql.NullBool)
-		case projectrepo.FieldName, projectrepo.FieldRepositoryURL, projectrepo.FieldDefaultBranch, projectrepo.FieldClonePath:
+		case projectrepo.FieldName, projectrepo.FieldRepositoryURL, projectrepo.FieldDefaultBranch, projectrepo.FieldWorkspaceDirname:
 			values[i] = new(sql.NullString)
 		case projectrepo.FieldID, projectrepo.FieldProjectID:
 			values[i] = new(uuid.UUID)
@@ -128,11 +139,11 @@ func (_m *ProjectRepo) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.DefaultBranch = value.String
 			}
-		case projectrepo.FieldClonePath:
+		case projectrepo.FieldWorkspaceDirname:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field clone_path", values[i])
+				return fmt.Errorf("unexpected type %T for field workspace_dirname", values[i])
 			} else if value.Valid {
-				_m.ClonePath = value.String
+				_m.WorkspaceDirname = value.String
 			}
 		case projectrepo.FieldIsPrimary:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -167,6 +178,11 @@ func (_m *ProjectRepo) QueryProject() *ProjectQuery {
 // QueryTicketScopes queries the "ticket_scopes" edge of the ProjectRepo entity.
 func (_m *ProjectRepo) QueryTicketScopes() *TicketRepoScopeQuery {
 	return NewProjectRepoClient(_m.config).QueryTicketScopes(_m)
+}
+
+// QueryMirrors queries the "mirrors" edge of the ProjectRepo entity.
+func (_m *ProjectRepo) QueryMirrors() *ProjectRepoMirrorQuery {
+	return NewProjectRepoClient(_m.config).QueryMirrors(_m)
 }
 
 // Update returns a builder for updating this ProjectRepo.
@@ -204,8 +220,8 @@ func (_m *ProjectRepo) String() string {
 	builder.WriteString("default_branch=")
 	builder.WriteString(_m.DefaultBranch)
 	builder.WriteString(", ")
-	builder.WriteString("clone_path=")
-	builder.WriteString(_m.ClonePath)
+	builder.WriteString("workspace_dirname=")
+	builder.WriteString(_m.WorkspaceDirname)
 	builder.WriteString(", ")
 	builder.WriteString("is_primary=")
 	builder.WriteString(fmt.Sprintf("%v", _m.IsPrimary))

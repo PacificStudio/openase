@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -17,8 +17,10 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/google/uuid"
 )
@@ -239,58 +241,76 @@ func (s *Service) resolvePrimaryRepoRoot(ctx context.Context, projectID uuid.UUI
 		return "", fmt.Errorf("get primary project repo: %w", err)
 	}
 
-	for _, candidate := range []string{repoItem.ClonePath, repoItem.RepositoryURL} {
-		repoRoot, ok, candidateErr := resolveLocalProjectRepoRoot(candidate)
-		if candidateErr != nil {
-			return "", fmt.Errorf("%w: %s", ErrPrimaryRepoUnavailable, candidateErr)
-		}
-		if ok {
-			return repoRoot, nil
-		}
+	mirrors, err := s.client.ProjectRepoMirror.Query().
+		Where(
+			entprojectrepomirror.ProjectRepoID(repoItem.ID),
+			entprojectrepomirror.StateEQ(entprojectrepomirror.StateReady),
+		).
+		WithMachine().
+		All(ctx)
+	if err != nil {
+		return "", fmt.Errorf("list primary project repo mirrors: %w", err)
 	}
 
-	return "", fmt.Errorf(
-		"%w: primary repo %q must expose a local repository path via clone_path or repository_url",
-		ErrPrimaryRepoUnavailable,
-		repoItem.Name,
-	)
+	repoRoot, err := ResolveReadyMirrorRepoRoot(mirrors)
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrPrimaryRepoUnavailable, err)
+	}
+	return repoRoot, nil
 }
 
-func resolveLocalProjectRepoRoot(raw string) (string, bool, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return "", false, nil
+func ResolveReadyMirrorRepoRoot(mirrors []*ent.ProjectRepoMirror) (string, error) {
+	if len(mirrors) == 0 {
+		return "", errors.New("no ready ProjectRepoMirror.local_path is available")
 	}
 
-	if filepath.IsAbs(trimmed) {
-		repoRoot, err := DetectRepoRoot(filepath.Clean(trimmed))
-		if err != nil {
-			return "", false, err
+	ordered := append([]*ent.ProjectRepoMirror(nil), mirrors...)
+	slices.SortStableFunc(ordered, compareMirrorLocality)
+
+	var lastErr error
+	for _, mirror := range ordered {
+		if mirror == nil {
+			continue
 		}
-		return repoRoot, true, nil
+		localPath := strings.TrimSpace(mirror.LocalPath)
+		if localPath == "" {
+			continue
+		}
+
+		repoRoot, err := DetectRepoRoot(filepath.Clean(localPath))
+		if err == nil {
+			return repoRoot, nil
+		}
+		lastErr = err
 	}
 
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return "", false, fmt.Errorf("parse project repo location %q: %w", trimmed, err)
-	}
-	if parsed.Scheme != "file" {
-		return "", false, nil
+	if lastErr != nil {
+		return "", lastErr
 	}
 
-	repoPath, err := url.PathUnescape(parsed.Path)
-	if err != nil {
-		return "", false, fmt.Errorf("decode project repo file URI %q: %w", trimmed, err)
+	return "", errors.New("no ready ProjectRepoMirror.local_path is available")
+}
+
+func compareMirrorLocality(left *ent.ProjectRepoMirror, right *ent.ProjectRepoMirror) int {
+	leftLocal := projectRepoMirrorIsLocal(left)
+	rightLocal := projectRepoMirrorIsLocal(right)
+	switch {
+	case leftLocal && !rightLocal:
+		return -1
+	case !leftLocal && rightLocal:
+		return 1
+	default:
+		return strings.Compare(strings.TrimSpace(left.LocalPath), strings.TrimSpace(right.LocalPath))
 	}
-	if repoPath == "" {
-		return "", false, fmt.Errorf("project repo file URI %q must include a path", trimmed)
+}
+
+func projectRepoMirrorIsLocal(mirror *ent.ProjectRepoMirror) bool {
+	if mirror == nil || mirror.Edges.Machine == nil {
+		return false
 	}
 
-	repoRoot, err := DetectRepoRoot(filepath.Clean(filepath.FromSlash(repoPath)))
-	if err != nil {
-		return "", false, err
-	}
-	return repoRoot, true, nil
+	return mirror.Edges.Machine.Name == catalogdomain.LocalMachineName ||
+		mirror.Edges.Machine.Host == catalogdomain.LocalMachineHost
 }
 
 func (s *Service) Close() error {

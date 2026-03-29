@@ -27,11 +27,11 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 		BranchName:       "agent/codex-01/ASE-104",
 		Repos: []RepoRequest{
 			{
-				Name:          "backend",
-				RepositoryURL: "git@github.com:acme/backend.git",
-				DefaultBranch: "main",
-				ClonePath:     "backend",
-				BranchName:    "agent/codex-01/ASE-104",
+				Name:             "backend",
+				RepositoryURL:    "git@github.com:acme/backend.git",
+				DefaultBranch:    "main",
+				WorkspaceDirname: "backend",
+				BranchName:       "agent/codex-01/ASE-104",
 			},
 		},
 	}
@@ -61,12 +61,12 @@ func TestBuildPrepareWorkspaceCommandProjectsGitHubTokenIntoSessionScript(t *tes
 		BranchName:       "agent/codex-01/ASE-104",
 		Repos: []RepoRequest{
 			{
-				Name:          "backend",
-				RepositoryURL: "https://github.com/acme/backend.git",
-				DefaultBranch: "main",
-				ClonePath:     "backend",
-				BranchName:    "agent/codex-01/ASE-104",
-				GitHubToken:   "ghu_session_token",
+				Name:             "backend",
+				RepositoryURL:    "https://github.com/acme/backend.git",
+				DefaultBranch:    "main",
+				WorkspaceDirname: "backend",
+				BranchName:       "agent/codex-01/ASE-104",
+				GitHubToken:      "ghu_session_token",
 			},
 		},
 	}
