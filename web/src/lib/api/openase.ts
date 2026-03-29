@@ -27,6 +27,8 @@ import type {
   NotificationRulePayload,
   NotificationRuleResponse,
   ProjectRepoPayload,
+  ProjectRepoMirrorPayload,
+  ProjectRepoMirrorResponse,
   ProjectArchiveResponse,
   ProjectRepoResponse,
   ProjectCreateResponse,
@@ -502,6 +504,32 @@ export function updateProjectRepo(
 
 export function deleteProjectRepo(projectId: string, repoId: string) {
   return api.delete<ProjectRepoResponse>(`/api/v1/projects/${projectId}/repos/${repoId}`)
+}
+
+export function listProjectRepoMirrors(
+  projectId: string,
+  repoId: string,
+  machineId?: string | null,
+) {
+  const suffix = machineId ? `?machine_id=${encodeURIComponent(machineId)}` : ''
+  return api.get<ProjectRepoMirrorPayload>(
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors${suffix}`,
+  )
+}
+
+export function materializeProjectRepoMirror(
+  projectId: string,
+  repoId: string,
+  body: {
+    machine_id: string
+    local_path: string
+    mode: 'register_existing' | 'prepare'
+  },
+) {
+  return api.post<ProjectRepoMirrorResponse>(
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors`,
+    { body },
+  )
 }
 
 export function listTicketRepoScopes(projectId: string, ticketId: string) {

@@ -16,14 +16,20 @@
     repo,
     selected = false,
     deleting = false,
+    materializing = false,
+    mirrorActionLabel = 'Set up mirror',
     handleOpenRepo,
     onDelete,
+    onMaterialize,
   }: {
     repo: ProjectRepoRecord
     selected?: boolean
     deleting?: boolean
+    materializing?: boolean
+    mirrorActionLabel?: string
     handleOpenRepo?: () => void
     onDelete?: () => void
+    onMaterialize?: () => void
   } = $props()
 
   let confirmDeleteOpen = $state(false)
@@ -106,6 +112,24 @@
     </button>
 
     <div class="flex flex-wrap items-center justify-end gap-2 xl:flex-col xl:items-stretch">
+      {#if mirror.action !== 'none'}
+        <Button
+          size="sm"
+          variant="outline"
+          class="gap-1.5"
+          onclick={(event) => {
+            event.stopPropagation()
+            onMaterialize?.()
+          }}
+          disabled={materializing || mirror.action === 'wait_for_mirror'}
+        >
+          {materializing
+            ? 'Updating mirror…'
+            : mirror.action === 'wait_for_mirror'
+              ? 'Mirror busy'
+              : mirrorActionLabel}
+        </Button>
+      {/if}
       <Button
         size="sm"
         class="gap-1.5"

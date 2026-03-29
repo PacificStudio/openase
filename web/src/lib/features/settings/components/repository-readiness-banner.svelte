@@ -1,8 +1,17 @@
 <script lang="ts">
+  import { Button } from '$ui/button'
   import type { PrimaryRepositoryReadiness } from '../repositories-readiness'
   import { formatMirrorTimestamp, repositoryMirrorToneClasses } from '../repositories-readiness'
 
-  let { readiness }: { readiness: PrimaryRepositoryReadiness } = $props()
+  let {
+    readiness,
+    mirrorActionLabel = 'Set up mirror',
+    onOpenPrimaryMirror,
+  }: {
+    readiness: PrimaryRepositoryReadiness
+    mirrorActionLabel?: string
+    onOpenPrimaryMirror?: (() => void) | undefined
+  } = $props()
 </script>
 
 <section
@@ -80,6 +89,12 @@
     <div class="bg-background/70 mt-3 rounded-xl border border-current/20 px-3 py-2 text-sm">
       <p class="font-medium">Last mirror error</p>
       <p class="mt-1 break-words opacity-80">{readiness.lastError}</p>
+    </div>
+  {/if}
+
+  {#if readiness.kind === 'primary_mirror_not_ready' && onOpenPrimaryMirror}
+    <div class="mt-4">
+      <Button variant="outline" size="sm" onclick={onOpenPrimaryMirror}>{mirrorActionLabel}</Button>
     </div>
   {/if}
 </section>

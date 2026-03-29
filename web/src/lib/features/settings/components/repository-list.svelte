@@ -8,17 +8,23 @@
     repos = [],
     selectedId = '',
     deletingId = '',
+    materializingId = '',
+    mirrorActionLabelByRepoId = {},
     onCreate,
     onOpenRepo,
     onDelete,
+    onMaterialize,
   }: {
     loading?: boolean
     repos?: ProjectRepoRecord[]
     selectedId?: string
     deletingId?: string
+    materializingId?: string
+    mirrorActionLabelByRepoId?: Record<string, string>
     onCreate?: () => void
     onOpenRepo?: (repo: ProjectRepoRecord) => void
     onDelete?: (repo: ProjectRepoRecord) => void
+    onMaterialize?: (repo: ProjectRepoRecord) => void
   } = $props()
 </script>
 
@@ -54,8 +60,11 @@
           {repo}
           selected={repo.id === selectedId}
           deleting={deletingId === repo.id}
+          materializing={materializingId === repo.id}
+          mirrorActionLabel={mirrorActionLabelByRepoId[repo.id] ?? 'Set up mirror'}
           handleOpenRepo={() => onOpenRepo?.(repo)}
           onDelete={() => onDelete?.(repo)}
+          onMaterialize={() => onMaterialize?.(repo)}
         />
       {/each}
     </div>
