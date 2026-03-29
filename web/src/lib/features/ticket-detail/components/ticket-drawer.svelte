@@ -8,6 +8,7 @@
   import {
     handleCreateTicketComment,
     handleDeleteTicketComment,
+    loadTicketCommentHistory,
     handleUpdateTicketComment,
   } from '../drawer-comment-actions'
   import { statusSync } from '$lib/features/statuses/public'
@@ -226,6 +227,10 @@
   async function handleDeleteComment(commentId: string) {
     return handleDeleteTicketComment({ projectId, ticketId, drawerState, commentId })
   }
+
+  async function handleLoadCommentHistory(commentId: string) {
+    return loadTicketCommentHistory({ ticketId, commentId })
+  }
 </script>
 
 <Sheet bind:open>
@@ -281,6 +286,7 @@
         onCreateComment={handleCreateComment}
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
+        onLoadCommentHistory={handleLoadCommentHistory}
       />
     {/if}
   </SheetContent>

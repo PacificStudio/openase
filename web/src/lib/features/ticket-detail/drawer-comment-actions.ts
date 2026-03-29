@@ -1,5 +1,12 @@
 import { ApiError } from '$lib/api/client'
-import { createTicketComment, deleteTicketComment, updateTicketComment } from '$lib/api/openase'
+import { type TicketCommentRevisionRecord } from '$lib/api/contracts'
+import {
+  createTicketComment,
+  deleteTicketComment,
+  listTicketCommentRevisions,
+  updateTicketComment,
+} from '$lib/api/openase'
+import type { TicketCommentRevision } from './types'
 
 type LoadOptions = {
   background?: boolean
@@ -109,5 +116,50 @@ export async function handleDeleteTicketComment({
     return false
   } finally {
     drawerState.deletingCommentId = null
+  }
+}
+
+export async function loadTicketCommentHistory({
+  ticketId,
+  commentId,
+}: {
+  ticketId?: string | null
+  commentId: string
+}) {
+  if (!ticketId) return []
+
+  try {
+    const response = await listTicketCommentRevisions(ticketId, commentId)
+    return response.revisions
+      .map(parseRawTicketCommentRevision)
+      .filter((item): item is TicketCommentRevision => item !== null)
+  } catch (caughtError) {
+    throw new Error(
+      caughtError instanceof ApiError ? caughtError.detail : 'Failed to load comment history.',
+    )
+  }
+}
+
+function parseRawTicketCommentRevision(
+  raw: TicketCommentRevisionRecord,
+): TicketCommentRevision | null {
+  if (
+    !raw.id ||
+    !raw.comment_id ||
+    !raw.edited_at ||
+    !raw.edited_by ||
+    typeof raw.revision_number !== 'number'
+  ) {
+    return null
+  }
+
+  return {
+    id: raw.id,
+    commentId: raw.comment_id,
+    revisionNumber: raw.revision_number,
+    bodyMarkdown: raw.body_markdown ?? '',
+    editedBy: raw.edited_by,
+    editedAt: raw.edited_at,
+    editReason: raw.edit_reason ?? undefined,
   }
 }

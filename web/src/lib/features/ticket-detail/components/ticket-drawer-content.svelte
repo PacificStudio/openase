@@ -18,6 +18,7 @@
   import TicketRepos from './ticket-repos.svelte'
   import type {
     HookExecution,
+    TicketCommentRevision,
     TicketDetail,
     TicketReferenceOption,
     TicketRepoOption,
@@ -56,6 +57,7 @@
     onCreateComment,
     onUpdateComment,
     onDeleteComment,
+    onLoadCommentHistory,
   }: {
     ticket: TicketDetail
     projectId: string
@@ -113,6 +115,9 @@
     onCreateComment?: (body: string) => Promise<boolean> | boolean
     onUpdateComment?: (commentId: string, body: string) => Promise<boolean> | boolean
     onDeleteComment?: (commentId: string) => Promise<boolean> | boolean
+    onLoadCommentHistory?: (
+      commentId: string,
+    ) => Promise<TicketCommentRevision[]> | TicketCommentRevision[]
   } = $props()
 
   const costPercent = $derived.by(() =>
@@ -170,6 +175,7 @@
     {onCreateComment}
     {onUpdateComment}
     {onDeleteComment}
+    {onLoadCommentHistory}
   />
 
   <!-- Right sidebar: metadata -->
