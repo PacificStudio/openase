@@ -15,7 +15,15 @@ type LoadOptions = {
   preserveMessages?: boolean
 }
 
-export function createTicketDrawerState() {
+type TicketDrawerStateDeps = {
+  fetchContext: typeof fetchTicketDetailContext
+}
+
+const defaultDeps: TicketDrawerStateDeps = {
+  fetchContext: fetchTicketDetailContext,
+}
+
+export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDeps) {
   let loading = $state(false)
   let error = $state('')
   let ticket = $state<TicketDetail | null>(null)
@@ -36,6 +44,62 @@ export function createTicketDrawerState() {
   let updatingCommentId = $state<string | null>(null)
   let deletingCommentId = $state<string | null>(null)
   let loadRequestId = 0
+  let timelineRefreshQueued = false
+  let timelineRefreshLoop: Promise<void> | null = null
+
+  function applyFullContext(detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>) {
+    ticket = detailContext.ticket
+    timeline = detailContext.timeline
+    hooks = detailContext.hooks
+    statuses = detailContext.statuses
+    dependencyCandidates = detailContext.dependencyCandidates
+    repoOptions = detailContext.repoOptions
+  }
+
+  function applyTimelineRefresh(
+    detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>,
+  ) {
+    ticket = detailContext.ticket
+    timeline = detailContext.timeline
+    hooks = detailContext.hooks
+  }
+
+  async function runTimelineRefresh(projectId: string, ticketId: string) {
+    if (loading || !ticket) {
+      return
+    }
+    if (timelineRefreshLoop) {
+      await timelineRefreshLoop
+      return
+    }
+
+    timelineRefreshLoop = (async () => {
+      while (timelineRefreshQueued && !loading && ticket) {
+        timelineRefreshQueued = false
+        const requestId = loadRequestId
+        try {
+          const detailContext = await deps.fetchContext(projectId, ticketId)
+          if (requestId !== loadRequestId || !ticket) {
+            continue
+          }
+          applyTimelineRefresh(detailContext)
+        } catch (caughtError) {
+          if (requestId !== loadRequestId || !ticket) {
+            continue
+          }
+          const message =
+            caughtError instanceof ApiError
+              ? caughtError.detail
+              : 'Failed to refresh ticket timeline.'
+          toastStore.error(message)
+        }
+      }
+    })().finally(() => {
+      timelineRefreshLoop = null
+    })
+
+    await timelineRefreshLoop
+  }
 
   return {
     get loading() {
@@ -150,15 +214,10 @@ export function createTicketDrawerState() {
         error = ''
       }
       try {
-        const detailContext = await fetchTicketDetailContext(projectId, ticketId)
+        const detailContext = await deps.fetchContext(projectId, ticketId)
         if (requestId !== loadRequestId) return
 
-        ticket = detailContext.ticket
-        timeline = detailContext.timeline
-        hooks = detailContext.hooks
-        statuses = detailContext.statuses
-        dependencyCandidates = detailContext.dependencyCandidates
-        repoOptions = detailContext.repoOptions
+        applyFullContext(detailContext)
       } catch (caughtError) {
         if (requestId !== loadRequestId) return
         const message =
@@ -174,8 +233,20 @@ export function createTicketDrawerState() {
         }
       }
     },
+    async refreshTimeline(projectId: string, ticketId: string) {
+      if (loading || !ticket) {
+        return
+      }
+      timelineRefreshQueued = true
+      await runTimelineRefresh(projectId, ticketId)
+      if (timelineRefreshQueued) {
+        await runTimelineRefresh(projectId, ticketId)
+      }
+    },
     reset() {
       loadRequestId += 1
+      timelineRefreshQueued = false
+      timelineRefreshLoop = null
       loading = false
       error = ''
       ticket = null

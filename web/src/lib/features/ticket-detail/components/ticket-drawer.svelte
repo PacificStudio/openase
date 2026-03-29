@@ -92,10 +92,7 @@
     }
 
     return connectTicketDetailStreams(projectId, ticketId, () => {
-      void drawerState.load(projectId, ticketId, {
-        background: true,
-        preserveMessages: true,
-      })
+      void drawerState.refreshTimeline(projectId, ticketId)
     })
   })
 
