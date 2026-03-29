@@ -27,6 +27,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	externalRef := " GH-42 "
 	title := " Updated Title "
 	description := " Updated description "
+	editReason := " demo workflow "
 	priority := " high "
 	ticketType := " bugfix "
 	negativeBudget := -1.0
@@ -140,7 +141,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	updateCommentInput, err := parseUpdateTicketCommentRequest(ticketID, commentID, rawUpdateTicketCommentRequest{
 		Body:       " updated ",
 		EditedBy:   &createdBy,
-		EditReason: &description,
+		EditReason: &editReason,
 	})
 	if err != nil {
 		t.Fatalf("parseUpdateTicketCommentRequest() error = %v", err)
