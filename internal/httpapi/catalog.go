@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -70,6 +72,21 @@ type projectRepoResponse struct {
 	WorkspaceDirname string   `json:"workspace_dirname"`
 	IsPrimary        bool     `json:"is_primary"`
 	Labels           []string `json:"labels"`
+}
+
+type projectRepoMirrorResponse struct {
+	ID             string  `json:"id"`
+	ProjectID      string  `json:"project_id"`
+	ProjectRepoID  string  `json:"project_repo_id"`
+	MachineID      string  `json:"machine_id"`
+	LocalPath      string  `json:"local_path"`
+	State          string  `json:"state"`
+	HeadCommit     *string `json:"head_commit,omitempty"`
+	LastSyncedAt   *string `json:"last_synced_at,omitempty"`
+	LastVerifiedAt *string `json:"last_verified_at,omitempty"`
+	LastError      *string `json:"last_error,omitempty"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
 }
 
 type ticketRepoScopeResponse struct {
@@ -153,6 +170,7 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.PATCH("/projects/:projectId", s.patchProject)
 	api.DELETE("/projects/:projectId", s.archiveProject)
 	api.GET("/projects/:projectId/repos", s.listProjectRepos)
+	api.GET("/projects/:projectId/repos/:repoId/mirrors", s.listProjectRepoMirrors)
 	api.POST("/projects/:projectId/repos", s.createProjectRepo)
 	api.PATCH("/projects/:projectId/repos/:repoId", s.patchProjectRepo)
 	api.DELETE("/projects/:projectId/repos/:repoId", s.deleteProjectRepo)
@@ -628,6 +646,43 @@ func (s *Server) listProjectRepos(c echo.Context) error {
 	})
 }
 
+func (s *Server) listProjectRepoMirrors(c echo.Context) error {
+	if s.projectRepoMirrors == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project repo mirror service unavailable")
+	}
+
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	repoID, err := parseUUIDPathParam(c, "repoId")
+	if err != nil {
+		return err
+	}
+
+	var machineID *uuid.UUID
+	if rawMachineID := strings.TrimSpace(c.QueryParam("machine_id")); rawMachineID != "" {
+		parsedMachineID, parseErr := uuid.Parse(rawMachineID)
+		if parseErr != nil {
+			return writeAPIError(c, http.StatusBadRequest, "INVALID_MACHINE_ID", "machine_id must be a valid UUID")
+		}
+		machineID = &parsedMachineID
+	}
+
+	items, err := s.projectRepoMirrors.List(c.Request().Context(), projectrepomirrorsvc.ListFilter{
+		ProjectID:     projectID,
+		ProjectRepoID: repoID,
+		MachineID:     machineID,
+	})
+	if err != nil {
+		return writeProjectRepoMirrorError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"mirrors": mapProjectRepoMirrorResponses(items),
+	})
+}
+
 func (s *Server) createProjectRepo(c echo.Context) error {
 	projectID, err := parseUUIDPathParam(c, "projectId")
 	if err != nil {
@@ -931,6 +986,23 @@ func writeCatalogError(c echo.Context, err error) error {
 	}
 }
 
+func writeProjectRepoMirrorError(c echo.Context, err error) error {
+	switch {
+	case errors.Is(err, projectrepomirrorsvc.ErrInvalidInput):
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	case errors.Is(err, projectrepomirrorsvc.ErrNotFound):
+		return writeAPIError(c, http.StatusNotFound, "PROJECT_REPO_MIRROR_NOT_FOUND", err.Error())
+	case errors.Is(err, projectrepomirrorsvc.ErrMirrorNotReady):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_REPO_MIRROR_NOT_READY", err.Error())
+	case errors.Is(err, projectrepomirrorsvc.ErrMirrorSyncFailed):
+		return writeAPIError(c, http.StatusBadGateway, "PROJECT_REPO_MIRROR_SYNC_FAILED", err.Error())
+	case errors.Is(err, projectrepomirrorsvc.ErrInvalidTransition):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_REPO_MIRROR_STATE_CONFLICT", err.Error())
+	default:
+		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error")
+	}
+}
+
 func errorResponse(message string) map[string]string {
 	return map[string]string{"error": message}
 }
@@ -1056,6 +1128,31 @@ func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 	}
 }
 
+func mapProjectRepoMirrorResponses(items []domain.ProjectRepoMirror) []projectRepoMirrorResponse {
+	response := make([]projectRepoMirrorResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapProjectRepoMirrorResponse(item))
+	}
+	return response
+}
+
+func mapProjectRepoMirrorResponse(item domain.ProjectRepoMirror) projectRepoMirrorResponse {
+	return projectRepoMirrorResponse{
+		ID:             item.ID.String(),
+		ProjectID:      item.ProjectID.String(),
+		ProjectRepoID:  item.ProjectRepoID.String(),
+		MachineID:      item.MachineID.String(),
+		LocalPath:      item.LocalPath,
+		State:          item.State.String(),
+		HeadCommit:     cloneStringPointerValue(item.HeadCommit),
+		LastSyncedAt:   timeStringPointer(item.LastSyncedAt),
+		LastVerifiedAt: timeStringPointer(item.LastVerifiedAt),
+		LastError:      cloneStringPointerValue(item.LastError),
+		CreatedAt:      item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:      item.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
 func mapTicketRepoScopeResponses(items []domain.TicketRepoScope) []ticketRepoScopeResponse {
 	response := make([]ticketRepoScopeResponse, 0, len(items))
 	for _, item := range items {
@@ -1084,6 +1181,24 @@ func uuidToStringPointer(value *uuid.UUID) *string {
 	}
 
 	text := value.String()
+	return &text
+}
+
+func timeStringPointer(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+
+	text := value.UTC().Format(time.RFC3339)
+	return &text
+}
+
+func cloneStringPointerValue(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	text := *value
 	return &text
 }
 

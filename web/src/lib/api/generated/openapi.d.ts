@@ -650,6 +650,23 @@ export interface paths {
     patch: operations['updateProjectRepo']
     trace?: never
   }
+  '/api/v1/projects/{projectId}/repos/{repoId}/mirrors': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List project repository mirrors */
+    get: operations['listProjectRepoMirrors']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/scheduled-jobs': {
     parameters: {
       query?: never
@@ -5575,6 +5592,109 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listProjectRepoMirrors: {
+    parameters: {
+      query?: {
+        /** @description Optional machine filter. */
+        machine_id?: string
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Repository ID. */
+        repoId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List project repository mirrors response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            mirrors?: {
+              created_at?: string
+              head_commit?: string | null
+              id?: string
+              last_error?: string | null
+              last_synced_at?: string | null
+              last_verified_at?: string | null
+              local_path?: string
+              machine_id?: string
+              project_id?: string
+              project_repo_id?: string
+              state?: string
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
         headers: {
           [name: string]: unknown
         }
