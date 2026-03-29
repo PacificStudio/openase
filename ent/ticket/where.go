@@ -1746,6 +1746,29 @@ func HasAgentRunsWith(preds ...predicate.AgentRun) predicate.Ticket {
 	})
 }
 
+// HasRepoWorkspaces applies the HasEdge predicate on the "repo_workspaces" edge.
+func HasRepoWorkspaces() predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RepoWorkspacesTable, RepoWorkspacesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRepoWorkspacesWith applies the HasEdge predicate on the "repo_workspaces" edge with a given conditions (other predicates).
+func HasRepoWorkspacesWith(preds ...predicate.TicketRepoWorkspace) predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := newRepoWorkspacesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasOutgoingDependencies applies the HasEdge predicate on the "outgoing_dependencies" edge.
 func HasOutgoingDependencies() predicate.Ticket {
 	return predicate.Ticket(func(s *sql.Selector) {

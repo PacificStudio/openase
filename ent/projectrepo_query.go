@@ -17,19 +17,21 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/google/uuid"
 )
 
 // ProjectRepoQuery is the builder for querying ProjectRepo entities.
 type ProjectRepoQuery struct {
 	config
-	ctx              *QueryContext
-	order            []projectrepo.OrderOption
-	inters           []Interceptor
-	predicates       []predicate.ProjectRepo
-	withProject      *ProjectQuery
-	withTicketScopes *TicketRepoScopeQuery
-	withMirrors      *ProjectRepoMirrorQuery
+	ctx                      *QueryContext
+	order                    []projectrepo.OrderOption
+	inters                   []Interceptor
+	predicates               []predicate.ProjectRepo
+	withProject              *ProjectQuery
+	withTicketScopes         *TicketRepoScopeQuery
+	withTicketRepoWorkspaces *TicketRepoWorkspaceQuery
+	withMirrors              *ProjectRepoMirrorQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -103,6 +105,28 @@ func (_q *ProjectRepoQuery) QueryTicketScopes() *TicketRepoScopeQuery {
 			sqlgraph.From(projectrepo.Table, projectrepo.FieldID, selector),
 			sqlgraph.To(ticketreposcope.Table, ticketreposcope.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, projectrepo.TicketScopesTable, projectrepo.TicketScopesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryTicketRepoWorkspaces chains the current query on the "ticket_repo_workspaces" edge.
+func (_q *ProjectRepoQuery) QueryTicketRepoWorkspaces() *TicketRepoWorkspaceQuery {
+	query := (&TicketRepoWorkspaceClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectrepo.Table, projectrepo.FieldID, selector),
+			sqlgraph.To(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, projectrepo.TicketRepoWorkspacesTable, projectrepo.TicketRepoWorkspacesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -319,14 +343,15 @@ func (_q *ProjectRepoQuery) Clone() *ProjectRepoQuery {
 		return nil
 	}
 	return &ProjectRepoQuery{
-		config:           _q.config,
-		ctx:              _q.ctx.Clone(),
-		order:            append([]projectrepo.OrderOption{}, _q.order...),
-		inters:           append([]Interceptor{}, _q.inters...),
-		predicates:       append([]predicate.ProjectRepo{}, _q.predicates...),
-		withProject:      _q.withProject.Clone(),
-		withTicketScopes: _q.withTicketScopes.Clone(),
-		withMirrors:      _q.withMirrors.Clone(),
+		config:                   _q.config,
+		ctx:                      _q.ctx.Clone(),
+		order:                    append([]projectrepo.OrderOption{}, _q.order...),
+		inters:                   append([]Interceptor{}, _q.inters...),
+		predicates:               append([]predicate.ProjectRepo{}, _q.predicates...),
+		withProject:              _q.withProject.Clone(),
+		withTicketScopes:         _q.withTicketScopes.Clone(),
+		withTicketRepoWorkspaces: _q.withTicketRepoWorkspaces.Clone(),
+		withMirrors:              _q.withMirrors.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -352,6 +377,17 @@ func (_q *ProjectRepoQuery) WithTicketScopes(opts ...func(*TicketRepoScopeQuery)
 		opt(query)
 	}
 	_q.withTicketScopes = query
+	return _q
+}
+
+// WithTicketRepoWorkspaces tells the query-builder to eager-load the nodes that are connected to
+// the "ticket_repo_workspaces" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectRepoQuery) WithTicketRepoWorkspaces(opts ...func(*TicketRepoWorkspaceQuery)) *ProjectRepoQuery {
+	query := (&TicketRepoWorkspaceClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withTicketRepoWorkspaces = query
 	return _q
 }
 
@@ -444,9 +480,10 @@ func (_q *ProjectRepoQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 	var (
 		nodes       = []*ProjectRepo{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withProject != nil,
 			_q.withTicketScopes != nil,
+			_q.withTicketRepoWorkspaces != nil,
 			_q.withMirrors != nil,
 		}
 	)
@@ -478,6 +515,15 @@ func (_q *ProjectRepoQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 		if err := _q.loadTicketScopes(ctx, query, nodes,
 			func(n *ProjectRepo) { n.Edges.TicketScopes = []*TicketRepoScope{} },
 			func(n *ProjectRepo, e *TicketRepoScope) { n.Edges.TicketScopes = append(n.Edges.TicketScopes, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withTicketRepoWorkspaces; query != nil {
+		if err := _q.loadTicketRepoWorkspaces(ctx, query, nodes,
+			func(n *ProjectRepo) { n.Edges.TicketRepoWorkspaces = []*TicketRepoWorkspace{} },
+			func(n *ProjectRepo, e *TicketRepoWorkspace) {
+				n.Edges.TicketRepoWorkspaces = append(n.Edges.TicketRepoWorkspaces, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -535,6 +581,36 @@ func (_q *ProjectRepoQuery) loadTicketScopes(ctx context.Context, query *TicketR
 	}
 	query.Where(predicate.TicketRepoScope(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(projectrepo.TicketScopesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.RepoID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "repo_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectRepoQuery) loadTicketRepoWorkspaces(ctx context.Context, query *TicketRepoWorkspaceQuery, nodes []*ProjectRepo, init func(*ProjectRepo), assign func(*ProjectRepo, *TicketRepoWorkspace)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*ProjectRepo)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(ticketrepoworkspace.FieldRepoID)
+	}
+	query.Where(predicate.TicketRepoWorkspace(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(projectrepo.TicketRepoWorkspacesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

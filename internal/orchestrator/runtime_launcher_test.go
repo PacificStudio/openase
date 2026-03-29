@@ -25,6 +25,7 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -265,6 +266,18 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_REAL_BIN="+currentExecutable) {
 		t.Fatalf("expected OPENASE_REAL_BIN in process environment, got %+v", processEnvironment)
+	}
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateReady {
+		t.Fatalf("expected ready ticket repo workspace, got %+v", repoWorkspace)
+	}
+	if repoWorkspace.MirrorID == uuid.Nil || repoWorkspace.PreparedAt == nil {
+		t.Fatalf("expected persisted ticket repo workspace metadata, got %+v", repoWorkspace)
 	}
 }
 
@@ -1767,6 +1780,15 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(repoItem.ID).
+		SetMachineID(remoteMachine.ID).
+		SetLocalPath("/srv/openase/mirrors/backend").
+		SetState(entprojectrepomirror.StateReady).
+		SetHeadCommit("abc123remote").
+		Save(ctx); err != nil {
+		t.Fatalf("create ready remote mirror: %v", err)
+	}
 
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
@@ -1806,7 +1828,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if runAfter.SessionID != "thread-runtime-1" {
 		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
+	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch '/srv/openase/mirrors/backend' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
 	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
@@ -1814,6 +1836,15 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	}
 	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
 		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
+	}
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load remote ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.HeadCommit != "abc123remote" {
+		t.Fatalf("unexpected remote ticket repo workspace %+v", repoWorkspace)
 	}
 }
 
@@ -1929,6 +1960,130 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	}
 	if ticketAfter.NextRetryAt == nil {
 		t.Fatalf("expected launch failure to schedule retry, got %+v", ticketAfter)
+	}
+}
+
+func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIsMissing(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-404").
+		SetTitle("Remote launch without ssh pool").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	projectRepo, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("openase").
+		SetRepositoryURL("https://github.com/GrandCX/openase.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("openase").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-03.pem"
+	workspaceRoot := "/srv/openase/workspaces"
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("gpu-03").
+		SetHost("10.0.1.12").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetWorkspaceRoot(workspaceRoot).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx); err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	remoteMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("gpu-03"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load remote machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider machine: %v", err)
+	}
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(projectRepo.ID).
+		SetMachineID(remoteMachine.ID).
+		SetLocalPath("/srv/openase/mirrors/openase").
+		SetState(entprojectrepomirror.StateReady).
+		SetHeadCommit("abc123remote").
+		Save(ctx); err != nil {
+		t.Fatalf("create ready remote mirror: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-03").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run, got %+v", runAfter)
+	}
+
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateFailed {
+		t.Fatalf("expected failed repo workspace, got %+v", repoWorkspace)
+	}
+	if !strings.Contains(repoWorkspace.LastError, "ssh pool unavailable for remote machine gpu-03") {
+		t.Fatalf("expected ssh pool failure in last_error, got %+v", repoWorkspace)
 	}
 }
 

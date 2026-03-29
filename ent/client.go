@@ -37,6 +37,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -89,6 +90,8 @@ type Client struct {
 	TicketExternalLink *TicketExternalLinkClient
 	// TicketRepoScope is the client for interacting with the TicketRepoScope builders.
 	TicketRepoScope *TicketRepoScopeClient
+	// TicketRepoWorkspace is the client for interacting with the TicketRepoWorkspace builders.
+	TicketRepoWorkspace *TicketRepoWorkspaceClient
 	// TicketStage is the client for interacting with the TicketStage builders.
 	TicketStage *TicketStageClient
 	// TicketStatus is the client for interacting with the TicketStatus builders.
@@ -127,6 +130,7 @@ func (c *Client) init() {
 	c.TicketDependency = NewTicketDependencyClient(c.config)
 	c.TicketExternalLink = NewTicketExternalLinkClient(c.config)
 	c.TicketRepoScope = NewTicketRepoScopeClient(c.config)
+	c.TicketRepoWorkspace = NewTicketRepoWorkspaceClient(c.config)
 	c.TicketStage = NewTicketStageClient(c.config)
 	c.TicketStatus = NewTicketStatusClient(c.config)
 	c.Workflow = NewWorkflowClient(c.config)
@@ -243,6 +247,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		TicketDependency:      NewTicketDependencyClient(cfg),
 		TicketExternalLink:    NewTicketExternalLinkClient(cfg),
 		TicketRepoScope:       NewTicketRepoScopeClient(cfg),
+		TicketRepoWorkspace:   NewTicketRepoWorkspaceClient(cfg),
 		TicketStage:           NewTicketStageClient(cfg),
 		TicketStatus:          NewTicketStatusClient(cfg),
 		Workflow:              NewWorkflowClient(cfg),
@@ -286,6 +291,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		TicketDependency:      NewTicketDependencyClient(cfg),
 		TicketExternalLink:    NewTicketExternalLinkClient(cfg),
 		TicketRepoScope:       NewTicketRepoScopeClient(cfg),
+		TicketRepoWorkspace:   NewTicketRepoWorkspaceClient(cfg),
 		TicketStage:           NewTicketStageClient(cfg),
 		TicketStatus:          NewTicketStatusClient(cfg),
 		Workflow:              NewWorkflowClient(cfg),
@@ -323,7 +329,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo,
 		c.ProjectRepoMirror, c.ScheduledJob, c.Ticket, c.TicketComment,
 		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
-		c.TicketRepoScope, c.TicketStage, c.TicketStatus, c.Workflow,
+		c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStage, c.TicketStatus,
+		c.Workflow,
 	} {
 		n.Use(hooks...)
 	}
@@ -338,7 +345,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo,
 		c.ProjectRepoMirror, c.ScheduledJob, c.Ticket, c.TicketComment,
 		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
-		c.TicketRepoScope, c.TicketStage, c.TicketStatus, c.Workflow,
+		c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStage, c.TicketStatus,
+		c.Workflow,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -389,6 +397,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TicketExternalLink.mutate(ctx, m)
 	case *TicketRepoScopeMutation:
 		return c.TicketRepoScope.mutate(ctx, m)
+	case *TicketRepoWorkspaceMutation:
+		return c.TicketRepoWorkspace.mutate(ctx, m)
 	case *TicketStageMutation:
 		return c.TicketStage.mutate(ctx, m)
 	case *TicketStatusMutation:
@@ -1220,6 +1230,22 @@ func (c *AgentRunClient) QueryCurrentForTicket(_m *AgentRun) *TicketQuery {
 			sqlgraph.From(agentrun.Table, agentrun.FieldID, id),
 			sqlgraph.To(ticket.Table, ticket.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, agentrun.CurrentForTicketTable, agentrun.CurrentForTicketColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTicketRepoWorkspaces queries the ticket_repo_workspaces edge of a AgentRun.
+func (c *AgentRunClient) QueryTicketRepoWorkspaces(_m *AgentRun) *TicketRepoWorkspaceQuery {
+	query := (&TicketRepoWorkspaceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentrun.Table, agentrun.FieldID, id),
+			sqlgraph.To(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agentrun.TicketRepoWorkspacesTable, agentrun.TicketRepoWorkspacesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3144,6 +3170,22 @@ func (c *ProjectRepoClient) QueryTicketScopes(_m *ProjectRepo) *TicketRepoScopeQ
 	return query
 }
 
+// QueryTicketRepoWorkspaces queries the ticket_repo_workspaces edge of a ProjectRepo.
+func (c *ProjectRepoClient) QueryTicketRepoWorkspaces(_m *ProjectRepo) *TicketRepoWorkspaceQuery {
+	query := (&TicketRepoWorkspaceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectrepo.Table, projectrepo.FieldID, id),
+			sqlgraph.To(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, projectrepo.TicketRepoWorkspacesTable, projectrepo.TicketRepoWorkspacesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryMirrors queries the mirrors edge of a ProjectRepo.
 func (c *ProjectRepoClient) QueryMirrors(_m *ProjectRepo) *ProjectRepoMirrorQuery {
 	query := (&ProjectRepoMirrorClient{config: c.config}).Query()
@@ -3318,6 +3360,22 @@ func (c *ProjectRepoMirrorClient) QueryMachine(_m *ProjectRepoMirror) *MachineQu
 			sqlgraph.From(projectrepomirror.Table, projectrepomirror.FieldID, id),
 			sqlgraph.To(machine.Table, machine.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, projectrepomirror.MachineTable, projectrepomirror.MachineColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTicketRepoWorkspaces queries the ticket_repo_workspaces edge of a ProjectRepoMirror.
+func (c *ProjectRepoMirrorClient) QueryTicketRepoWorkspaces(_m *ProjectRepoMirror) *TicketRepoWorkspaceQuery {
+	query := (&TicketRepoWorkspaceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectrepomirror.Table, projectrepomirror.FieldID, id),
+			sqlgraph.To(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, projectrepomirror.TicketRepoWorkspacesTable, projectrepomirror.TicketRepoWorkspacesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3856,6 +3914,22 @@ func (c *TicketClient) QueryAgentRuns(_m *Ticket) *AgentRunQuery {
 			sqlgraph.From(ticket.Table, ticket.FieldID, id),
 			sqlgraph.To(agentrun.Table, agentrun.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, ticket.AgentRunsTable, ticket.AgentRunsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRepoWorkspaces queries the repo_workspaces edge of a Ticket.
+func (c *TicketClient) QueryRepoWorkspaces(_m *Ticket) *TicketRepoWorkspaceQuery {
+	query := (&TicketRepoWorkspaceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticket.Table, ticket.FieldID, id),
+			sqlgraph.To(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ticket.RepoWorkspacesTable, ticket.RepoWorkspacesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4713,6 +4787,203 @@ func (c *TicketRepoScopeClient) mutate(ctx context.Context, m *TicketRepoScopeMu
 	}
 }
 
+// TicketRepoWorkspaceClient is a client for the TicketRepoWorkspace schema.
+type TicketRepoWorkspaceClient struct {
+	config
+}
+
+// NewTicketRepoWorkspaceClient returns a client for the TicketRepoWorkspace from the given config.
+func NewTicketRepoWorkspaceClient(c config) *TicketRepoWorkspaceClient {
+	return &TicketRepoWorkspaceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `ticketrepoworkspace.Hooks(f(g(h())))`.
+func (c *TicketRepoWorkspaceClient) Use(hooks ...Hook) {
+	c.hooks.TicketRepoWorkspace = append(c.hooks.TicketRepoWorkspace, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `ticketrepoworkspace.Intercept(f(g(h())))`.
+func (c *TicketRepoWorkspaceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TicketRepoWorkspace = append(c.inters.TicketRepoWorkspace, interceptors...)
+}
+
+// Create returns a builder for creating a TicketRepoWorkspace entity.
+func (c *TicketRepoWorkspaceClient) Create() *TicketRepoWorkspaceCreate {
+	mutation := newTicketRepoWorkspaceMutation(c.config, OpCreate)
+	return &TicketRepoWorkspaceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TicketRepoWorkspace entities.
+func (c *TicketRepoWorkspaceClient) CreateBulk(builders ...*TicketRepoWorkspaceCreate) *TicketRepoWorkspaceCreateBulk {
+	return &TicketRepoWorkspaceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TicketRepoWorkspaceClient) MapCreateBulk(slice any, setFunc func(*TicketRepoWorkspaceCreate, int)) *TicketRepoWorkspaceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TicketRepoWorkspaceCreateBulk{err: fmt.Errorf("calling to TicketRepoWorkspaceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TicketRepoWorkspaceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TicketRepoWorkspaceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TicketRepoWorkspace.
+func (c *TicketRepoWorkspaceClient) Update() *TicketRepoWorkspaceUpdate {
+	mutation := newTicketRepoWorkspaceMutation(c.config, OpUpdate)
+	return &TicketRepoWorkspaceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TicketRepoWorkspaceClient) UpdateOne(_m *TicketRepoWorkspace) *TicketRepoWorkspaceUpdateOne {
+	mutation := newTicketRepoWorkspaceMutation(c.config, OpUpdateOne, withTicketRepoWorkspace(_m))
+	return &TicketRepoWorkspaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TicketRepoWorkspaceClient) UpdateOneID(id uuid.UUID) *TicketRepoWorkspaceUpdateOne {
+	mutation := newTicketRepoWorkspaceMutation(c.config, OpUpdateOne, withTicketRepoWorkspaceID(id))
+	return &TicketRepoWorkspaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TicketRepoWorkspace.
+func (c *TicketRepoWorkspaceClient) Delete() *TicketRepoWorkspaceDelete {
+	mutation := newTicketRepoWorkspaceMutation(c.config, OpDelete)
+	return &TicketRepoWorkspaceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TicketRepoWorkspaceClient) DeleteOne(_m *TicketRepoWorkspace) *TicketRepoWorkspaceDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TicketRepoWorkspaceClient) DeleteOneID(id uuid.UUID) *TicketRepoWorkspaceDeleteOne {
+	builder := c.Delete().Where(ticketrepoworkspace.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TicketRepoWorkspaceDeleteOne{builder}
+}
+
+// Query returns a query builder for TicketRepoWorkspace.
+func (c *TicketRepoWorkspaceClient) Query() *TicketRepoWorkspaceQuery {
+	return &TicketRepoWorkspaceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTicketRepoWorkspace},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TicketRepoWorkspace entity by its id.
+func (c *TicketRepoWorkspaceClient) Get(ctx context.Context, id uuid.UUID) (*TicketRepoWorkspace, error) {
+	return c.Query().Where(ticketrepoworkspace.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TicketRepoWorkspaceClient) GetX(ctx context.Context, id uuid.UUID) *TicketRepoWorkspace {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryTicket queries the ticket edge of a TicketRepoWorkspace.
+func (c *TicketRepoWorkspaceClient) QueryTicket(_m *TicketRepoWorkspace) *TicketQuery {
+	query := (&TicketClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID, id),
+			sqlgraph.To(ticket.Table, ticket.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticketrepoworkspace.TicketTable, ticketrepoworkspace.TicketColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentRun queries the agent_run edge of a TicketRepoWorkspace.
+func (c *TicketRepoWorkspaceClient) QueryAgentRun(_m *TicketRepoWorkspace) *AgentRunQuery {
+	query := (&AgentRunClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID, id),
+			sqlgraph.To(agentrun.Table, agentrun.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticketrepoworkspace.AgentRunTable, ticketrepoworkspace.AgentRunColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRepo queries the repo edge of a TicketRepoWorkspace.
+func (c *TicketRepoWorkspaceClient) QueryRepo(_m *TicketRepoWorkspace) *ProjectRepoQuery {
+	query := (&ProjectRepoClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID, id),
+			sqlgraph.To(projectrepo.Table, projectrepo.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticketrepoworkspace.RepoTable, ticketrepoworkspace.RepoColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMirror queries the mirror edge of a TicketRepoWorkspace.
+func (c *TicketRepoWorkspaceClient) QueryMirror(_m *TicketRepoWorkspace) *ProjectRepoMirrorQuery {
+	query := (&ProjectRepoMirrorClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID, id),
+			sqlgraph.To(projectrepomirror.Table, projectrepomirror.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ticketrepoworkspace.MirrorTable, ticketrepoworkspace.MirrorColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TicketRepoWorkspaceClient) Hooks() []Hook {
+	return c.hooks.TicketRepoWorkspace
+}
+
+// Interceptors returns the client interceptors.
+func (c *TicketRepoWorkspaceClient) Interceptors() []Interceptor {
+	return c.inters.TicketRepoWorkspace
+}
+
+func (c *TicketRepoWorkspaceClient) mutate(ctx context.Context, m *TicketRepoWorkspaceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TicketRepoWorkspaceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TicketRepoWorkspaceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TicketRepoWorkspaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TicketRepoWorkspaceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TicketRepoWorkspace mutation op: %q", m.Op())
+	}
+}
+
 // TicketStageClient is a client for the TicketStage schema.
 type TicketStageClient struct {
 	config
@@ -5343,13 +5614,13 @@ type (
 		AgentTraceEvent, Machine, NotificationChannel, NotificationRule, Organization,
 		Project, ProjectRepo, ProjectRepoMirror, ScheduledJob, Ticket, TicketComment,
 		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
-		TicketStage, TicketStatus, Workflow []ent.Hook
+		TicketRepoWorkspace, TicketStage, TicketStatus, Workflow []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, Machine, NotificationChannel, NotificationRule, Organization,
 		Project, ProjectRepo, ProjectRepoMirror, ScheduledJob, Ticket, TicketComment,
 		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
-		TicketStage, TicketStatus, Workflow []ent.Interceptor
+		TicketRepoWorkspace, TicketStage, TicketStatus, Workflow []ent.Interceptor
 	}
 )

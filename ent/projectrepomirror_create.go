@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/google/uuid"
 )
 
@@ -161,6 +162,21 @@ func (_c *ProjectRepoMirrorCreate) SetProjectRepo(v *ProjectRepo) *ProjectRepoMi
 // SetMachine sets the "machine" edge to the Machine entity.
 func (_c *ProjectRepoMirrorCreate) SetMachine(v *Machine) *ProjectRepoMirrorCreate {
 	return _c.SetMachineID(v.ID)
+}
+
+// AddTicketRepoWorkspaceIDs adds the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (_c *ProjectRepoMirrorCreate) AddTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoMirrorCreate {
+	_c.mutation.AddTicketRepoWorkspaceIDs(ids...)
+	return _c
+}
+
+// AddTicketRepoWorkspaces adds the "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_c *ProjectRepoMirrorCreate) AddTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoMirrorCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddTicketRepoWorkspaceIDs(ids...)
 }
 
 // Mutation returns the ProjectRepoMirrorMutation object of the builder.
@@ -351,6 +367,22 @@ func (_c *ProjectRepoMirrorCreate) createSpec() (*ProjectRepoMirror, *sqlgraph.C
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.MachineID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.TicketRepoWorkspacesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepomirror.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepomirror.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

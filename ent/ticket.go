@@ -120,13 +120,15 @@ type TicketEdges struct {
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
 	// AgentRuns holds the value of the agent_runs edge.
 	AgentRuns []*AgentRun `json:"agent_runs,omitempty"`
+	// RepoWorkspaces holds the value of the repo_workspaces edge.
+	RepoWorkspaces []*TicketRepoWorkspace `json:"repo_workspaces,omitempty"`
 	// OutgoingDependencies holds the value of the outgoing_dependencies edge.
 	OutgoingDependencies []*TicketDependency `json:"outgoing_dependencies,omitempty"`
 	// IncomingDependencies holds the value of the incoming_dependencies edge.
 	IncomingDependencies []*TicketDependency `json:"incoming_dependencies,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [17]bool
+	loadedTypes [18]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -276,10 +278,19 @@ func (e TicketEdges) AgentRunsOrErr() ([]*AgentRun, error) {
 	return nil, &NotLoadedError{edge: "agent_runs"}
 }
 
+// RepoWorkspacesOrErr returns the RepoWorkspaces value or an error if the edge
+// was not loaded in eager-loading.
+func (e TicketEdges) RepoWorkspacesOrErr() ([]*TicketRepoWorkspace, error) {
+	if e.loadedTypes[15] {
+		return e.RepoWorkspaces, nil
+	}
+	return nil, &NotLoadedError{edge: "repo_workspaces"}
+}
+
 // OutgoingDependenciesOrErr returns the OutgoingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[15] {
+	if e.loadedTypes[16] {
 		return e.OutgoingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "outgoing_dependencies"}
@@ -288,7 +299,7 @@ func (e TicketEdges) OutgoingDependenciesOrErr() ([]*TicketDependency, error) {
 // IncomingDependenciesOrErr returns the IncomingDependencies value or an error if the edge
 // was not loaded in eager-loading.
 func (e TicketEdges) IncomingDependenciesOrErr() ([]*TicketDependency, error) {
-	if e.loadedTypes[16] {
+	if e.loadedTypes[17] {
 		return e.IncomingDependencies, nil
 	}
 	return nil, &NotLoadedError{edge: "incoming_dependencies"}
@@ -605,6 +616,11 @@ func (_m *Ticket) QueryActivityEvents() *ActivityEventQuery {
 // QueryAgentRuns queries the "agent_runs" edge of the Ticket entity.
 func (_m *Ticket) QueryAgentRuns() *AgentRunQuery {
 	return NewTicketClient(_m.config).QueryAgentRuns(_m)
+}
+
+// QueryRepoWorkspaces queries the "repo_workspaces" edge of the Ticket entity.
+func (_m *Ticket) QueryRepoWorkspaces() *TicketRepoWorkspaceQuery {
+	return NewTicketClient(_m.config).QueryRepoWorkspaces(_m)
 }
 
 // QueryOutgoingDependencies queries the "outgoing_dependencies" edge of the Ticket entity.

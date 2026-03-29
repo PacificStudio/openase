@@ -45,11 +45,13 @@ type ProjectRepoEdges struct {
 	Project *Project `json:"project,omitempty"`
 	// TicketScopes holds the value of the ticket_scopes edge.
 	TicketScopes []*TicketRepoScope `json:"ticket_scopes,omitempty"`
+	// TicketRepoWorkspaces holds the value of the ticket_repo_workspaces edge.
+	TicketRepoWorkspaces []*TicketRepoWorkspace `json:"ticket_repo_workspaces,omitempty"`
 	// Mirrors holds the value of the mirrors edge.
 	Mirrors []*ProjectRepoMirror `json:"mirrors,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -72,10 +74,19 @@ func (e ProjectRepoEdges) TicketScopesOrErr() ([]*TicketRepoScope, error) {
 	return nil, &NotLoadedError{edge: "ticket_scopes"}
 }
 
+// TicketRepoWorkspacesOrErr returns the TicketRepoWorkspaces value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectRepoEdges) TicketRepoWorkspacesOrErr() ([]*TicketRepoWorkspace, error) {
+	if e.loadedTypes[2] {
+		return e.TicketRepoWorkspaces, nil
+	}
+	return nil, &NotLoadedError{edge: "ticket_repo_workspaces"}
+}
+
 // MirrorsOrErr returns the Mirrors value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectRepoEdges) MirrorsOrErr() ([]*ProjectRepoMirror, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.Mirrors, nil
 	}
 	return nil, &NotLoadedError{edge: "mirrors"}
@@ -178,6 +189,11 @@ func (_m *ProjectRepo) QueryProject() *ProjectQuery {
 // QueryTicketScopes queries the "ticket_scopes" edge of the ProjectRepo entity.
 func (_m *ProjectRepo) QueryTicketScopes() *TicketRepoScopeQuery {
 	return NewProjectRepoClient(_m.config).QueryTicketScopes(_m)
+}
+
+// QueryTicketRepoWorkspaces queries the "ticket_repo_workspaces" edge of the ProjectRepo entity.
+func (_m *ProjectRepo) QueryTicketRepoWorkspaces() *TicketRepoWorkspaceQuery {
+	return NewProjectRepoClient(_m.config).QueryTicketRepoWorkspaces(_m)
 }
 
 // QueryMirrors queries the "mirrors" edge of the ProjectRepo entity.

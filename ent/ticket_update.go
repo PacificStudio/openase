@@ -24,6 +24,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -727,6 +728,21 @@ func (_u *TicketUpdate) AddAgentRuns(v ...*AgentRun) *TicketUpdate {
 	return _u.AddAgentRunIDs(ids...)
 }
 
+// AddRepoWorkspaceIDs adds the "repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (_u *TicketUpdate) AddRepoWorkspaceIDs(ids ...uuid.UUID) *TicketUpdate {
+	_u.mutation.AddRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// AddRepoWorkspaces adds the "repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *TicketUpdate) AddRepoWorkspaces(v ...*TicketRepoWorkspace) *TicketUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRepoWorkspaceIDs(ids...)
+}
+
 // AddOutgoingDependencyIDs adds the "outgoing_dependencies" edge to the TicketDependency entity by IDs.
 func (_u *TicketUpdate) AddOutgoingDependencyIDs(ids ...uuid.UUID) *TicketUpdate {
 	_u.mutation.AddOutgoingDependencyIDs(ids...)
@@ -985,6 +1001,27 @@ func (_u *TicketUpdate) RemoveAgentRuns(v ...*AgentRun) *TicketUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentRunIDs(ids...)
+}
+
+// ClearRepoWorkspaces clears all "repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *TicketUpdate) ClearRepoWorkspaces() *TicketUpdate {
+	_u.mutation.ClearRepoWorkspaces()
+	return _u
+}
+
+// RemoveRepoWorkspaceIDs removes the "repo_workspaces" edge to TicketRepoWorkspace entities by IDs.
+func (_u *TicketUpdate) RemoveRepoWorkspaceIDs(ids ...uuid.UUID) *TicketUpdate {
+	_u.mutation.RemoveRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// RemoveRepoWorkspaces removes "repo_workspaces" edges to TicketRepoWorkspace entities.
+func (_u *TicketUpdate) RemoveRepoWorkspaces(v ...*TicketRepoWorkspace) *TicketUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRepoWorkspaceIDs(ids...)
 }
 
 // ClearOutgoingDependencies clears all "outgoing_dependencies" edges to the TicketDependency entity.
@@ -1794,6 +1831,51 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.RepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.RepoWorkspacesTable,
+			Columns: []string{ticket.RepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRepoWorkspacesIDs(); len(nodes) > 0 && !_u.mutation.RepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.RepoWorkspacesTable,
+			Columns: []string{ticket.RepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RepoWorkspacesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.RepoWorkspacesTable,
+			Columns: []string{ticket.RepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.OutgoingDependenciesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2589,6 +2671,21 @@ func (_u *TicketUpdateOne) AddAgentRuns(v ...*AgentRun) *TicketUpdateOne {
 	return _u.AddAgentRunIDs(ids...)
 }
 
+// AddRepoWorkspaceIDs adds the "repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (_u *TicketUpdateOne) AddRepoWorkspaceIDs(ids ...uuid.UUID) *TicketUpdateOne {
+	_u.mutation.AddRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// AddRepoWorkspaces adds the "repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *TicketUpdateOne) AddRepoWorkspaces(v ...*TicketRepoWorkspace) *TicketUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRepoWorkspaceIDs(ids...)
+}
+
 // AddOutgoingDependencyIDs adds the "outgoing_dependencies" edge to the TicketDependency entity by IDs.
 func (_u *TicketUpdateOne) AddOutgoingDependencyIDs(ids ...uuid.UUID) *TicketUpdateOne {
 	_u.mutation.AddOutgoingDependencyIDs(ids...)
@@ -2847,6 +2944,27 @@ func (_u *TicketUpdateOne) RemoveAgentRuns(v ...*AgentRun) *TicketUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentRunIDs(ids...)
+}
+
+// ClearRepoWorkspaces clears all "repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *TicketUpdateOne) ClearRepoWorkspaces() *TicketUpdateOne {
+	_u.mutation.ClearRepoWorkspaces()
+	return _u
+}
+
+// RemoveRepoWorkspaceIDs removes the "repo_workspaces" edge to TicketRepoWorkspace entities by IDs.
+func (_u *TicketUpdateOne) RemoveRepoWorkspaceIDs(ids ...uuid.UUID) *TicketUpdateOne {
+	_u.mutation.RemoveRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// RemoveRepoWorkspaces removes "repo_workspaces" edges to TicketRepoWorkspace entities.
+func (_u *TicketUpdateOne) RemoveRepoWorkspaces(v ...*TicketRepoWorkspace) *TicketUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRepoWorkspaceIDs(ids...)
 }
 
 // ClearOutgoingDependencies clears all "outgoing_dependencies" edges to the TicketDependency entity.
@@ -3679,6 +3797,51 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.RepoWorkspacesTable,
+			Columns: []string{ticket.RepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRepoWorkspacesIDs(); len(nodes) > 0 && !_u.mutation.RepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.RepoWorkspacesTable,
+			Columns: []string{ticket.RepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RepoWorkspacesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   ticket.RepoWorkspacesTable,
+			Columns: []string{ticket.RepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

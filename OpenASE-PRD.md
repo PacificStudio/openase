@@ -112,7 +112,7 @@ AI Agent 编码领域正在经历从"单 Agent 使用"到"Agent 舰队管理"的
 
 1. 人类或系统创建工单（手动创建 / 定时任务触发 / GitHub Issue 同步 / 外部 API 调用）
 2. 工单带有 Workflow 类型，定义了处理方式（coding / test / doc / security / deploy）
-3. 编排引擎在调度周期中发现可执行的工单，解析其 Workflow 绑定的 Agent 定义，执行 `on_claim` Hook（仓库克隆、密钥解密、工作区准备等），然后创建 AgentRun
+3. 编排引擎在调度周期中发现可执行的工单，解析其 Workflow 绑定的 Agent 定义，先确保所需 repo mirror 已就绪，再执行 `on_claim` Hook（派生工单工作副本、密钥解密、依赖准备等），然后创建 AgentRun
 4. AgentRun 按照 Workflow Harness 执行工作（编码 + 测试 + PR 创建）
 5. AgentRun 完成后，编排引擎执行 `on_complete` Hook（运行测试、lint 检查、安全扫描等），Hook 全部通过才允许推进状态
 6. AgentRun 完成后，工单移动到非 `pickup` 状态（如 `in_review`），等待人类继续推进
@@ -1677,14 +1677,14 @@ ticket_hooks:
 | 维度 | Workflow Hook | Ticket Hook |
 |------|-------------|-------------|
 | 触发粒度 | 每个 Workflow 生命周期 | 每个工单每次执行 |
-| 执行上下文 | 项目仓库根目录 | 工单工作区（clone 后的目录） |
+| 执行上下文 | 项目仓库根目录 | 基于 ready mirror 派生出的工单工作区 |
 | 触发频率 | 极低（Harness 变更时） | 高（每个工单都触发） |
 | YAML 键名 | `workflow_hooks:` | `ticket_hooks:` |
 | 可用环境变量 | `OPENASE_PROJECT_ID`, `OPENASE_WORKFLOW_NAME` | 完整工单上下文（ticket_id, repos, agent 等） |
 
 ### 8.4 脚本跟随仓库
 
-**所有 Hook 调用的脚本文件都在项目仓库中**，clone 仓库即拥有全部 Hook 能力：
+**所有 Hook 调用的脚本文件都在项目仓库中**，从 ready mirror 派生出的工单工作副本即拥有全部 Hook 能力：
 
 ```
 your-project/
@@ -1739,7 +1739,7 @@ ticket_hooks:
 ```
 工单 ASE-42 被领取
   │
-  ├── ticket.on_claim Hook（clone 仓库、安装依赖）
+  ├── ticket.on_claim Hook（派生工作副本、checkout 分支、安装依赖）
   │
   ├── 启动 Agent CLI 子进程（bash -lc "claude -p ... --output-format stream-json"）
   │   │
@@ -4323,7 +4323,7 @@ Scheduler.dispatch()
     ▼
 ┌────────────────────┐  on_claim Hook   ┌──────────────┐   Agent CLI   ┌───────────┐
 │ ticket.Service     │ ───────────────→ │ HookExecutor │ ────────────→ │  Adapter  │
-│ Claim / Assign     │  (仓库克隆等)     │  (Shell)     │   (启动)      │(ClaudeCode)│
+│ Claim / Assign     │ (mirror 准备/工作副本派生等) │  (Shell)     │   (启动)      │(ClaudeCode)│
 └────────────────────┘                  └──────────────┘              └───────────┘
 ```
 

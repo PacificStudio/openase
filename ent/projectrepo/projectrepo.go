@@ -31,6 +31,8 @@ const (
 	EdgeProject = "project"
 	// EdgeTicketScopes holds the string denoting the ticket_scopes edge name in mutations.
 	EdgeTicketScopes = "ticket_scopes"
+	// EdgeTicketRepoWorkspaces holds the string denoting the ticket_repo_workspaces edge name in mutations.
+	EdgeTicketRepoWorkspaces = "ticket_repo_workspaces"
 	// EdgeMirrors holds the string denoting the mirrors edge name in mutations.
 	EdgeMirrors = "mirrors"
 	// Table holds the table name of the projectrepo in the database.
@@ -49,6 +51,13 @@ const (
 	TicketScopesInverseTable = "ticket_repo_scopes"
 	// TicketScopesColumn is the table column denoting the ticket_scopes relation/edge.
 	TicketScopesColumn = "repo_id"
+	// TicketRepoWorkspacesTable is the table that holds the ticket_repo_workspaces relation/edge.
+	TicketRepoWorkspacesTable = "ticket_repo_workspaces"
+	// TicketRepoWorkspacesInverseTable is the table name for the TicketRepoWorkspace entity.
+	// It exists in this package in order to avoid circular dependency with the "ticketrepoworkspace" package.
+	TicketRepoWorkspacesInverseTable = "ticket_repo_workspaces"
+	// TicketRepoWorkspacesColumn is the table column denoting the ticket_repo_workspaces relation/edge.
+	TicketRepoWorkspacesColumn = "repo_id"
 	// MirrorsTable is the table that holds the mirrors relation/edge.
 	MirrorsTable = "project_repo_mirrors"
 	// MirrorsInverseTable is the table name for the ProjectRepoMirror entity.
@@ -159,6 +168,20 @@ func ByTicketScopes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByTicketRepoWorkspacesCount orders the results by ticket_repo_workspaces count.
+func ByTicketRepoWorkspacesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newTicketRepoWorkspacesStep(), opts...)
+	}
+}
+
+// ByTicketRepoWorkspaces orders the results by ticket_repo_workspaces terms.
+func ByTicketRepoWorkspaces(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newTicketRepoWorkspacesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByMirrorsCount orders the results by mirrors count.
 func ByMirrorsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -184,6 +207,13 @@ func newTicketScopesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TicketScopesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TicketScopesTable, TicketScopesColumn),
+	)
+}
+func newTicketRepoWorkspacesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(TicketRepoWorkspacesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, TicketRepoWorkspacesTable, TicketRepoWorkspacesColumn),
 	)
 }
 func newMirrorsStep() *sqlgraph.Step {

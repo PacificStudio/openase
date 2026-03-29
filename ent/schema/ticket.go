@@ -99,6 +99,7 @@ func (Ticket) Edges() []ent.Edge {
 		edge.To("agent_step_events", AgentStepEvent.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 		edge.To("agent_runs", AgentRun.Type),
+		edge.To("repo_workspaces", TicketRepoWorkspace.Type),
 		edge.To("outgoing_dependencies", TicketDependency.Type),
 		edge.To("incoming_dependencies", TicketDependency.Type),
 	}

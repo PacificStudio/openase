@@ -13,6 +13,7 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -400,6 +401,7 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 	projectID := uuid.New()
 	repoID := uuid.New()
 	ticketID := uuid.New()
+	remoteMachineID := uuid.New()
 
 	project := &ent.Project{
 		ID:   projectID,
@@ -424,6 +426,14 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 			RepositoryURL:    "https://github.com/acme/backend.git",
 			DefaultBranch:    "main",
 			WorkspaceDirname: "services/backend",
+			Edges: ent.ProjectRepoEdges{
+				Mirrors: []*ent.ProjectRepoMirror{{
+					ID:        uuid.New(),
+					MachineID: remoteMachineID,
+					LocalPath: "/srv/openase/mirrors/backend",
+					State:     entprojectrepomirror.StateReady,
+				}},
+			},
 		}},
 		ticketScopes: []*ent.TicketRepoScope{{
 			RepoID:     repoID,
@@ -433,13 +443,13 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 
 	remoteRoot := "/srv/openase/workspaces"
 	remoteMachine := catalogdomain.Machine{
-		ID:            uuid.New(),
+		ID:            remoteMachineID,
 		Name:          "builder",
 		Host:          "10.0.0.12",
 		WorkspaceRoot: &remoteRoot,
 	}
 
-	request, err := buildWorkspaceRequest(launchContext, remoteMachine, true, "")
+	request, plans, err := buildWorkspaceRequest(launchContext, remoteMachine, true)
 	if err != nil {
 		t.Fatalf("buildWorkspaceRequest() error = %v", err)
 	}
@@ -448,6 +458,9 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 	}
 	if len(request.Repos) != 1 || request.Repos[0].BranchName != "agent/codex-01/ASE-77" {
 		t.Fatalf("buildWorkspaceRequest().Repos = %+v", request.Repos)
+	}
+	if len(plans) != 1 || plans[0].MirrorPath != "/srv/openase/mirrors/backend" {
+		t.Fatalf("buildWorkspaceRequest().Plans = %+v", plans)
 	}
 
 	workspacePath, err := buildWorkspacePath(launchContext, remoteMachine, true)
@@ -458,7 +471,7 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 		t.Fatalf("buildWorkspacePath() = %q", workspacePath)
 	}
 
-	if _, err := buildWorkspaceRequest(runtimeLaunchContext{project: &ent.Project{}}, remoteMachine, true, ""); err == nil || err.Error() == "" {
+	if _, _, err := buildWorkspaceRequest(runtimeLaunchContext{project: &ent.Project{}}, remoteMachine, true); err == nil || err.Error() == "" {
 		t.Fatalf("buildWorkspaceRequest(missing org) error = %v", err)
 	}
 	if _, err := resolveWorkspaceRoot(catalogdomain.Machine{Name: "builder", Host: "10.0.0.12"}, true); err == nil || err.Error() == "" {

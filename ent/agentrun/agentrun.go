@@ -52,6 +52,8 @@ const (
 	EdgeProvider = "provider"
 	// EdgeCurrentForTicket holds the string denoting the current_for_ticket edge name in mutations.
 	EdgeCurrentForTicket = "current_for_ticket"
+	// EdgeTicketRepoWorkspaces holds the string denoting the ticket_repo_workspaces edge name in mutations.
+	EdgeTicketRepoWorkspaces = "ticket_repo_workspaces"
 	// EdgeAgentTraceEvents holds the string denoting the agent_trace_events edge name in mutations.
 	EdgeAgentTraceEvents = "agent_trace_events"
 	// EdgeAgentStepEvents holds the string denoting the agent_step_events edge name in mutations.
@@ -93,6 +95,13 @@ const (
 	CurrentForTicketInverseTable = "tickets"
 	// CurrentForTicketColumn is the table column denoting the current_for_ticket relation/edge.
 	CurrentForTicketColumn = "current_run_id"
+	// TicketRepoWorkspacesTable is the table that holds the ticket_repo_workspaces relation/edge.
+	TicketRepoWorkspacesTable = "ticket_repo_workspaces"
+	// TicketRepoWorkspacesInverseTable is the table name for the TicketRepoWorkspace entity.
+	// It exists in this package in order to avoid circular dependency with the "ticketrepoworkspace" package.
+	TicketRepoWorkspacesInverseTable = "ticket_repo_workspaces"
+	// TicketRepoWorkspacesColumn is the table column denoting the ticket_repo_workspaces relation/edge.
+	TicketRepoWorkspacesColumn = "agent_run_id"
 	// AgentTraceEventsTable is the table that holds the agent_trace_events relation/edge.
 	AgentTraceEventsTable = "agent_trace_events"
 	// AgentTraceEventsInverseTable is the table name for the AgentTraceEvent entity.
@@ -286,6 +295,20 @@ func ByCurrentForTicket(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption 
 	}
 }
 
+// ByTicketRepoWorkspacesCount orders the results by ticket_repo_workspaces count.
+func ByTicketRepoWorkspacesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newTicketRepoWorkspacesStep(), opts...)
+	}
+}
+
+// ByTicketRepoWorkspaces orders the results by ticket_repo_workspaces terms.
+func ByTicketRepoWorkspaces(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newTicketRepoWorkspacesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAgentTraceEventsCount orders the results by agent_trace_events count.
 func ByAgentTraceEventsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -346,6 +369,13 @@ func newCurrentForTicketStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CurrentForTicketInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CurrentForTicketTable, CurrentForTicketColumn),
+	)
+}
+func newTicketRepoWorkspacesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(TicketRepoWorkspacesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, TicketRepoWorkspacesTable, TicketRepoWorkspacesColumn),
 	)
 }
 func newAgentTraceEventsStep() *sqlgraph.Step {

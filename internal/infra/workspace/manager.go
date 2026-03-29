@@ -10,11 +10,8 @@ import (
 	"regexp"
 	"strings"
 
-	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	transport "github.com/go-git/go-git/v5/plumbing/transport"
-	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 var safeSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
@@ -32,11 +29,10 @@ type SetupInput struct {
 // RepoInput describes one repository to materialize in a workspace.
 type RepoInput struct {
 	Name             string
-	RepositoryURL    string
+	MirrorPath       string
 	DefaultBranch    string
 	WorkspaceDirname *string
 	BranchName       *string
-	GitHubToken      *string
 }
 
 // SetupRequest is the parsed workspace preparation request.
@@ -52,11 +48,10 @@ type SetupRequest struct {
 // RepoRequest is the parsed repository setup request.
 type RepoRequest struct {
 	Name             string
-	RepositoryURL    string
+	MirrorPath       string
 	DefaultBranch    string
 	WorkspaceDirname string
 	BranchName       string
-	GitHubToken      string
 }
 
 // Workspace describes a prepared ticket workspace on disk.
@@ -69,7 +64,7 @@ type Workspace struct {
 // PreparedRepo describes one repository that was prepared inside a workspace.
 type PreparedRepo struct {
 	Name             string
-	RepositoryURL    string
+	MirrorPath       string
 	DefaultBranch    string
 	BranchName       string
 	WorkspaceDirname string
@@ -171,7 +166,7 @@ func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace,
 
 		preparedRepos = append(preparedRepos, PreparedRepo{
 			Name:             repo.Name,
-			RepositoryURL:    repo.RepositoryURL,
+			MirrorPath:       repo.MirrorPath,
 			DefaultBranch:    repo.DefaultBranch,
 			BranchName:       repo.BranchName,
 			WorkspaceDirname: repo.WorkspaceDirname,
@@ -192,9 +187,9 @@ func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest,
 		return RepoRequest{}, err
 	}
 
-	repositoryURL := strings.TrimSpace(input.RepositoryURL)
-	if repositoryURL == "" {
-		return RepoRequest{}, fmt.Errorf("repos[%d].repository_url must not be empty", index)
+	mirrorPath, err := parseAbsolutePath(fmt.Sprintf("repos[%d].mirror_path", index), input.MirrorPath)
+	if err != nil {
+		return RepoRequest{}, err
 	}
 
 	defaultBranch := strings.TrimSpace(input.DefaultBranch)
@@ -222,11 +217,10 @@ func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest,
 
 	return RepoRequest{
 		Name:             name,
-		RepositoryURL:    repositoryURL,
+		MirrorPath:       mirrorPath,
 		DefaultBranch:    defaultBranch,
 		WorkspaceDirname: workspaceDirname,
 		BranchName:       branchName,
-		GitHubToken:      strings.TrimSpace(optionalStringValue(input.GitHubToken)),
 	}, nil
 }
 
@@ -276,13 +270,25 @@ func parseWorkspaceDirname(fieldName string, raw string) (string, error) {
 	return trimmed, nil
 }
 
+func parseAbsolutePath(fieldName string, raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s must not be empty", fieldName)
+	}
+	if !filepath.IsAbs(trimmed) {
+		return "", fmt.Errorf("%s must be absolute", fieldName)
+	}
+
+	return filepath.Clean(trimmed), nil
+}
+
 func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) error {
-	repository, err := cloneOrOpenRepository(ctx, repoPath, repo.RepositoryURL, repo.GitHubToken)
+	repository, err := cloneOrOpenRepository(ctx, repoPath, repo.MirrorPath)
 	if err != nil {
 		return fmt.Errorf("prepare repo %s: %w", repo.Name, err)
 	}
 
-	if err := ensureOriginMatches(repository, repo.RepositoryURL); err != nil {
+	if err := ensureOriginMatches(repository, repo.MirrorPath); err != nil {
 		return fmt.Errorf("prepare repo %s: %w", repo.Name, err)
 	}
 
@@ -293,13 +299,13 @@ func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) e
 	return nil
 }
 
-func cloneOrOpenRepository(ctx context.Context, repoPath string, repositoryURL string, githubToken string) (*git.Repository, error) {
+func cloneOrOpenRepository(ctx context.Context, repoPath string, mirrorPath string) (*git.Repository, error) {
 	stat, err := os.Stat(repoPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			repository, cloneErr := git.PlainCloneContext(ctx, repoPath, false, buildCloneOptions(repositoryURL, githubToken))
+			repository, cloneErr := git.PlainCloneContext(ctx, repoPath, false, buildCloneOptions(mirrorPath))
 			if cloneErr != nil {
-				return nil, fmt.Errorf("clone repository %s into %s: %w", repositoryURL, repoPath, cloneErr)
+				return nil, fmt.Errorf("clone repository %s into %s: %w", mirrorPath, repoPath, cloneErr)
 			}
 
 			return repository, nil
@@ -316,15 +322,15 @@ func cloneOrOpenRepository(ctx context.Context, repoPath string, repositoryURL s
 		return nil, fmt.Errorf("open repository %s: %w", repoPath, err)
 	}
 
-	if err := fetchRepository(ctx, repository, repositoryURL, githubToken); err != nil {
+	if err := fetchRepository(ctx, repository); err != nil {
 		return nil, fmt.Errorf("fetch repository %s: %w", repoPath, err)
 	}
 
 	return repository, nil
 }
 
-func fetchRepository(ctx context.Context, repository *git.Repository, repositoryURL string, githubToken string) error {
-	err := repository.FetchContext(ctx, buildFetchOptions(repositoryURL, githubToken))
+func fetchRepository(ctx context.Context, repository *git.Repository) error {
+	err := repository.FetchContext(ctx, buildFetchOptions())
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
 	}
@@ -382,36 +388,14 @@ func ensureFeatureBranchCheckedOut(repository *git.Repository, defaultBranch str
 	return nil
 }
 
-func buildCloneOptions(repositoryURL string, githubToken string) *git.CloneOptions {
+func buildCloneOptions(mirrorPath string) *git.CloneOptions {
 	return &git.CloneOptions{
-		URL:  repositoryURL,
-		Auth: gitAuthMethod(repositoryURL, githubToken),
+		URL: mirrorPath,
 	}
 }
 
-func buildFetchOptions(repositoryURL string, githubToken string) *git.FetchOptions {
+func buildFetchOptions() *git.FetchOptions {
 	return &git.FetchOptions{
 		RemoteName: "origin",
-		Auth:       gitAuthMethod(repositoryURL, githubToken),
 	}
-}
-
-func gitAuthMethod(repositoryURL string, githubToken string) transport.AuthMethod {
-	if strings.TrimSpace(githubToken) == "" {
-		return nil
-	}
-	if _, ok := githubauthdomain.ParseGitHubRepositoryURL(repositoryURL); !ok {
-		return nil
-	}
-	return &githttp.BasicAuth{
-		Username: "x-access-token",
-		Password: strings.TrimSpace(githubToken),
-	}
-}
-
-func optionalStringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }
