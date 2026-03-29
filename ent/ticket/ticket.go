@@ -104,6 +104,8 @@ const (
 	EdgeActivityEvents = "activity_events"
 	// EdgeAgentRuns holds the string denoting the agent_runs edge name in mutations.
 	EdgeAgentRuns = "agent_runs"
+	// EdgeRepoWorkspaces holds the string denoting the repo_workspaces edge name in mutations.
+	EdgeRepoWorkspaces = "repo_workspaces"
 	// EdgeOutgoingDependencies holds the string denoting the outgoing_dependencies edge name in mutations.
 	EdgeOutgoingDependencies = "outgoing_dependencies"
 	// EdgeIncomingDependencies holds the string denoting the incoming_dependencies edge name in mutations.
@@ -209,6 +211,13 @@ const (
 	AgentRunsInverseTable = "agent_runs"
 	// AgentRunsColumn is the table column denoting the agent_runs relation/edge.
 	AgentRunsColumn = "ticket_id"
+	// RepoWorkspacesTable is the table that holds the repo_workspaces relation/edge.
+	RepoWorkspacesTable = "ticket_repo_workspaces"
+	// RepoWorkspacesInverseTable is the table name for the TicketRepoWorkspace entity.
+	// It exists in this package in order to avoid circular dependency with the "ticketrepoworkspace" package.
+	RepoWorkspacesInverseTable = "ticket_repo_workspaces"
+	// RepoWorkspacesColumn is the table column denoting the repo_workspaces relation/edge.
+	RepoWorkspacesColumn = "ticket_id"
 	// OutgoingDependenciesTable is the table that holds the outgoing_dependencies relation/edge.
 	OutgoingDependenciesTable = "ticket_dependencies"
 	// OutgoingDependenciesInverseTable is the table name for the TicketDependency entity.
@@ -675,6 +684,20 @@ func ByAgentRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByRepoWorkspacesCount orders the results by repo_workspaces count.
+func ByRepoWorkspacesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRepoWorkspacesStep(), opts...)
+	}
+}
+
+// ByRepoWorkspaces orders the results by repo_workspaces terms.
+func ByRepoWorkspaces(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRepoWorkspacesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByOutgoingDependenciesCount orders the results by outgoing_dependencies count.
 func ByOutgoingDependenciesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -805,6 +828,13 @@ func newAgentRunsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentRunsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentRunsTable, AgentRunsColumn),
+	)
+}
+func newRepoWorkspacesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RepoWorkspacesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RepoWorkspacesTable, RepoWorkspacesColumn),
 	)
 }
 func newOutgoingDependenciesStep() *sqlgraph.Step {

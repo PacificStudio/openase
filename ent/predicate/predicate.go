@@ -69,6 +69,9 @@ type TicketExternalLink func(*sql.Selector)
 // TicketRepoScope is the predicate function for ticketreposcope builders.
 type TicketRepoScope func(*sql.Selector)
 
+// TicketRepoWorkspace is the predicate function for ticketrepoworkspace builders.
+type TicketRepoWorkspace func(*sql.Selector)
+
 // TicketStage is the predicate function for ticketstage builders.
 type TicketStage func(*sql.Selector)
 

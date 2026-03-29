@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/google/uuid"
 )
 
@@ -183,6 +184,21 @@ func (_u *ProjectRepoMirrorUpdate) SetMachine(v *Machine) *ProjectRepoMirrorUpda
 	return _u.SetMachineID(v.ID)
 }
 
+// AddTicketRepoWorkspaceIDs adds the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (_u *ProjectRepoMirrorUpdate) AddTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoMirrorUpdate {
+	_u.mutation.AddTicketRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// AddTicketRepoWorkspaces adds the "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *ProjectRepoMirrorUpdate) AddTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoMirrorUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTicketRepoWorkspaceIDs(ids...)
+}
+
 // Mutation returns the ProjectRepoMirrorMutation object of the builder.
 func (_u *ProjectRepoMirrorUpdate) Mutation() *ProjectRepoMirrorMutation {
 	return _u.mutation
@@ -198,6 +214,27 @@ func (_u *ProjectRepoMirrorUpdate) ClearProjectRepo() *ProjectRepoMirrorUpdate {
 func (_u *ProjectRepoMirrorUpdate) ClearMachine() *ProjectRepoMirrorUpdate {
 	_u.mutation.ClearMachine()
 	return _u
+}
+
+// ClearTicketRepoWorkspaces clears all "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *ProjectRepoMirrorUpdate) ClearTicketRepoWorkspaces() *ProjectRepoMirrorUpdate {
+	_u.mutation.ClearTicketRepoWorkspaces()
+	return _u
+}
+
+// RemoveTicketRepoWorkspaceIDs removes the "ticket_repo_workspaces" edge to TicketRepoWorkspace entities by IDs.
+func (_u *ProjectRepoMirrorUpdate) RemoveTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoMirrorUpdate {
+	_u.mutation.RemoveTicketRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// RemoveTicketRepoWorkspaces removes "ticket_repo_workspaces" edges to TicketRepoWorkspace entities.
+func (_u *ProjectRepoMirrorUpdate) RemoveTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoMirrorUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTicketRepoWorkspaceIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -353,6 +390,51 @@ func (_u *ProjectRepoMirrorUpdate) sqlSave(ctx context.Context) (_node int, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TicketRepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepomirror.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepomirror.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTicketRepoWorkspacesIDs(); len(nodes) > 0 && !_u.mutation.TicketRepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepomirror.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepomirror.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TicketRepoWorkspacesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepomirror.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepomirror.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -532,6 +614,21 @@ func (_u *ProjectRepoMirrorUpdateOne) SetMachine(v *Machine) *ProjectRepoMirrorU
 	return _u.SetMachineID(v.ID)
 }
 
+// AddTicketRepoWorkspaceIDs adds the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (_u *ProjectRepoMirrorUpdateOne) AddTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoMirrorUpdateOne {
+	_u.mutation.AddTicketRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// AddTicketRepoWorkspaces adds the "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *ProjectRepoMirrorUpdateOne) AddTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoMirrorUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTicketRepoWorkspaceIDs(ids...)
+}
+
 // Mutation returns the ProjectRepoMirrorMutation object of the builder.
 func (_u *ProjectRepoMirrorUpdateOne) Mutation() *ProjectRepoMirrorMutation {
 	return _u.mutation
@@ -547,6 +644,27 @@ func (_u *ProjectRepoMirrorUpdateOne) ClearProjectRepo() *ProjectRepoMirrorUpdat
 func (_u *ProjectRepoMirrorUpdateOne) ClearMachine() *ProjectRepoMirrorUpdateOne {
 	_u.mutation.ClearMachine()
 	return _u
+}
+
+// ClearTicketRepoWorkspaces clears all "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *ProjectRepoMirrorUpdateOne) ClearTicketRepoWorkspaces() *ProjectRepoMirrorUpdateOne {
+	_u.mutation.ClearTicketRepoWorkspaces()
+	return _u
+}
+
+// RemoveTicketRepoWorkspaceIDs removes the "ticket_repo_workspaces" edge to TicketRepoWorkspace entities by IDs.
+func (_u *ProjectRepoMirrorUpdateOne) RemoveTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoMirrorUpdateOne {
+	_u.mutation.RemoveTicketRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// RemoveTicketRepoWorkspaces removes "ticket_repo_workspaces" edges to TicketRepoWorkspace entities.
+func (_u *ProjectRepoMirrorUpdateOne) RemoveTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoMirrorUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTicketRepoWorkspaceIDs(ids...)
 }
 
 // Where appends a list predicates to the ProjectRepoMirrorUpdate builder.
@@ -732,6 +850,51 @@ func (_u *ProjectRepoMirrorUpdateOne) sqlSave(ctx context.Context) (_node *Proje
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(machine.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TicketRepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepomirror.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepomirror.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTicketRepoWorkspacesIDs(); len(nodes) > 0 && !_u.mutation.TicketRepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepomirror.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepomirror.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TicketRepoWorkspacesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepomirror.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepomirror.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

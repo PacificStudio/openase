@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -148,6 +149,21 @@ func (_u *ProjectRepoUpdate) AddTicketScopes(v ...*TicketRepoScope) *ProjectRepo
 	return _u.AddTicketScopeIDs(ids...)
 }
 
+// AddTicketRepoWorkspaceIDs adds the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (_u *ProjectRepoUpdate) AddTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoUpdate {
+	_u.mutation.AddTicketRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// AddTicketRepoWorkspaces adds the "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *ProjectRepoUpdate) AddTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTicketRepoWorkspaceIDs(ids...)
+}
+
 // AddMirrorIDs adds the "mirrors" edge to the ProjectRepoMirror entity by IDs.
 func (_u *ProjectRepoUpdate) AddMirrorIDs(ids ...uuid.UUID) *ProjectRepoUpdate {
 	_u.mutation.AddMirrorIDs(ids...)
@@ -193,6 +209,27 @@ func (_u *ProjectRepoUpdate) RemoveTicketScopes(v ...*TicketRepoScope) *ProjectR
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTicketScopeIDs(ids...)
+}
+
+// ClearTicketRepoWorkspaces clears all "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *ProjectRepoUpdate) ClearTicketRepoWorkspaces() *ProjectRepoUpdate {
+	_u.mutation.ClearTicketRepoWorkspaces()
+	return _u
+}
+
+// RemoveTicketRepoWorkspaceIDs removes the "ticket_repo_workspaces" edge to TicketRepoWorkspace entities by IDs.
+func (_u *ProjectRepoUpdate) RemoveTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoUpdate {
+	_u.mutation.RemoveTicketRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// RemoveTicketRepoWorkspaces removes "ticket_repo_workspaces" edges to TicketRepoWorkspace entities.
+func (_u *ProjectRepoUpdate) RemoveTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTicketRepoWorkspaceIDs(ids...)
 }
 
 // ClearMirrors clears all "mirrors" edges to the ProjectRepoMirror entity.
@@ -361,6 +398,51 @@ func (_u *ProjectRepoUpdate) sqlSave(ctx context.Context) (_node int, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketreposcope.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TicketRepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepo.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTicketRepoWorkspacesIDs(); len(nodes) > 0 && !_u.mutation.TicketRepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepo.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TicketRepoWorkspacesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepo.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -549,6 +631,21 @@ func (_u *ProjectRepoUpdateOne) AddTicketScopes(v ...*TicketRepoScope) *ProjectR
 	return _u.AddTicketScopeIDs(ids...)
 }
 
+// AddTicketRepoWorkspaceIDs adds the "ticket_repo_workspaces" edge to the TicketRepoWorkspace entity by IDs.
+func (_u *ProjectRepoUpdateOne) AddTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoUpdateOne {
+	_u.mutation.AddTicketRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// AddTicketRepoWorkspaces adds the "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *ProjectRepoUpdateOne) AddTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTicketRepoWorkspaceIDs(ids...)
+}
+
 // AddMirrorIDs adds the "mirrors" edge to the ProjectRepoMirror entity by IDs.
 func (_u *ProjectRepoUpdateOne) AddMirrorIDs(ids ...uuid.UUID) *ProjectRepoUpdateOne {
 	_u.mutation.AddMirrorIDs(ids...)
@@ -594,6 +691,27 @@ func (_u *ProjectRepoUpdateOne) RemoveTicketScopes(v ...*TicketRepoScope) *Proje
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTicketScopeIDs(ids...)
+}
+
+// ClearTicketRepoWorkspaces clears all "ticket_repo_workspaces" edges to the TicketRepoWorkspace entity.
+func (_u *ProjectRepoUpdateOne) ClearTicketRepoWorkspaces() *ProjectRepoUpdateOne {
+	_u.mutation.ClearTicketRepoWorkspaces()
+	return _u
+}
+
+// RemoveTicketRepoWorkspaceIDs removes the "ticket_repo_workspaces" edge to TicketRepoWorkspace entities by IDs.
+func (_u *ProjectRepoUpdateOne) RemoveTicketRepoWorkspaceIDs(ids ...uuid.UUID) *ProjectRepoUpdateOne {
+	_u.mutation.RemoveTicketRepoWorkspaceIDs(ids...)
+	return _u
+}
+
+// RemoveTicketRepoWorkspaces removes "ticket_repo_workspaces" edges to TicketRepoWorkspace entities.
+func (_u *ProjectRepoUpdateOne) RemoveTicketRepoWorkspaces(v ...*TicketRepoWorkspace) *ProjectRepoUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTicketRepoWorkspaceIDs(ids...)
 }
 
 // ClearMirrors clears all "mirrors" edges to the ProjectRepoMirror entity.
@@ -792,6 +910,51 @@ func (_u *ProjectRepoUpdateOne) sqlSave(ctx context.Context) (_node *ProjectRepo
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketreposcope.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TicketRepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepo.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTicketRepoWorkspacesIDs(); len(nodes) > 0 && !_u.mutation.TicketRepoWorkspacesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepo.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TicketRepoWorkspacesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   projectrepo.TicketRepoWorkspacesTable,
+			Columns: []string{projectrepo.TicketRepoWorkspacesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

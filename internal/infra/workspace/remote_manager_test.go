@@ -28,7 +28,7 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 		Repos: []RepoRequest{
 			{
 				Name:             "backend",
-				RepositoryURL:    "git@github.com:acme/backend.git",
+				MirrorPath:       "/srv/openase/mirrors/backend",
 				DefaultBranch:    "main",
 				WorkspaceDirname: "backend",
 				BranchName:       "agent/codex-01/ASE-104",
@@ -44,7 +44,7 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 	if workspaceItem.Path != "/srv/openase/workspaces/acme/payments/ASE-104" {
 		t.Fatalf("expected workspace path, got %q", workspaceItem.Path)
 	}
-	if !strings.Contains(session.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/acme/payments/ASE-104/backend'") {
+	if !strings.Contains(session.command, "git clone --branch 'main' --single-branch '/srv/openase/mirrors/backend' '/srv/openase/workspaces/acme/payments/ASE-104/backend'") {
 		t.Fatalf("expected clone command, got %q", session.command)
 	}
 	if !strings.Contains(session.command, "git -C '/srv/openase/workspaces/acme/payments/ASE-104/backend' checkout -B 'agent/codex-01/ASE-104' 'origin/main'") {
@@ -52,7 +52,7 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 	}
 }
 
-func TestBuildPrepareWorkspaceCommandProjectsGitHubTokenIntoSessionScript(t *testing.T) {
+func TestBuildPrepareWorkspaceCommandUsesMirrorPathAsOrigin(t *testing.T) {
 	request := SetupRequest{
 		WorkspaceRoot:    "/srv/openase/workspaces",
 		OrganizationSlug: "acme",
@@ -62,24 +62,20 @@ func TestBuildPrepareWorkspaceCommandProjectsGitHubTokenIntoSessionScript(t *tes
 		Repos: []RepoRequest{
 			{
 				Name:             "backend",
-				RepositoryURL:    "https://github.com/acme/backend.git",
+				MirrorPath:       "/srv/openase/mirrors/backend",
 				DefaultBranch:    "main",
 				WorkspaceDirname: "backend",
 				BranchName:       "agent/codex-01/ASE-104",
-				GitHubToken:      "ghu_session_token",
 			},
 		},
 	}
 
 	command := buildPrepareWorkspaceCommand(request)
-	if !strings.Contains(command, "export GH_TOKEN='ghu_session_token'") {
-		t.Fatalf("expected GH_TOKEN export, got %q", command)
+	if !strings.Contains(command, "git clone --branch 'main' --single-branch '/srv/openase/mirrors/backend'") {
+		t.Fatalf("expected mirror clone command, got %q", command)
 	}
-	if !strings.Contains(command, "openase_git clone --branch 'main' --single-branch 'https://github.com/acme/backend.git'") {
-		t.Fatalf("expected openase_git clone for GitHub transport, got %q", command)
-	}
-	if !strings.Contains(command, "credential.helper=!f()") {
-		t.Fatalf("expected session-scoped credential helper, got %q", command)
+	if !strings.Contains(command, "if [ \"$actual_origin\" != '/srv/openase/mirrors/backend' ]; then") {
+		t.Fatalf("expected origin verification against mirror path, got %q", command)
 	}
 }
 

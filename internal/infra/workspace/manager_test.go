@@ -23,9 +23,9 @@ func TestParseSetupRequestRejectsNonCanonicalBranchName(t *testing.T) {
 		TicketIdentifier: "ASE-33",
 		Repos: []RepoInput{
 			{
-				Name:          "backend",
-				RepositoryURL: "/tmp/backend.git",
-				BranchName:    &rawBranch,
+				Name:       "backend",
+				MirrorPath: "/tmp/backend.git",
+				BranchName: &rawBranch,
 			},
 		},
 	})
@@ -74,12 +74,12 @@ func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 		Repos: []RepoInput{
 			{
 				Name:          "backend",
-				RepositoryURL: backendRepoPath,
+				MirrorPath:    backendRepoPath,
 				DefaultBranch: "main",
 			},
 			{
 				Name:             "frontend",
-				RepositoryURL:    frontendRepoPath,
+				MirrorPath:       frontendRepoPath,
 				DefaultBranch:    "main",
 				WorkspaceDirname: &clonePath,
 			},
@@ -126,7 +126,7 @@ func TestManagerPrepareFetchesExistingClone(t *testing.T) {
 		Repos: []RepoInput{
 			{
 				Name:          "backend",
-				RepositoryURL: repositoryURL,
+				MirrorPath:    repositoryURL,
 				DefaultBranch: "main",
 			},
 		},
@@ -207,6 +207,9 @@ func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
 	if got, err := parseTicketSegment("ticket_identifier", ticketPlaceholder); err != nil || got != ticketPlaceholder {
 		t.Fatalf("parseTicketSegment(placeholder) = %q, %v", got, err)
 	}
+	if _, err := parseAbsolutePath("repos[0].mirror_path", "relative/repo"); err == nil || !strings.Contains(err.Error(), "must be absolute") {
+		t.Fatalf("parseAbsolutePath(relative) error = %v", err)
+	}
 	if _, err := parseWorkspaceDirname("repos[0].workspace_dirname", "/abs"); err == nil || !strings.Contains(err.Error(), "must be relative") {
 		t.Fatalf("parseWorkspaceDirname(abs) error = %v", err)
 	}
@@ -220,11 +223,11 @@ func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
 		t.Fatalf("parseWorkspaceDirname(clean) = %q, %v", got, err)
 	}
 
-	if _, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "repo.git", DefaultBranch: "feature/x"}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), "default_branch must not contain '/'") {
+	if _, err := parseRepoInput(0, RepoInput{Name: "backend", MirrorPath: "/repo.git", DefaultBranch: "feature/x"}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), "default_branch must not contain '/'") {
 		t.Fatalf("parseRepoInput(default branch) error = %v", err)
 	}
 	branch := "feature/x"
-	if _, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "repo.git", BranchName: &branch}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), `must equal "agent/codex-01/ASE-33"`) {
+	if _, err := parseRepoInput(0, RepoInput{Name: "backend", MirrorPath: "/repo.git", BranchName: &branch}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), `must equal "agent/codex-01/ASE-33"`) {
 		t.Fatalf("parseRepoInput(branch name) error = %v", err)
 	}
 
@@ -232,23 +235,8 @@ func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
 	if err := os.WriteFile(notDirPath, []byte("not a directory"), 0o600); err != nil {
 		t.Fatalf("WriteFile(notDirPath) error = %v", err)
 	}
-	if _, err := cloneOrOpenRepository(context.Background(), notDirPath, "https://example.invalid/repo.git", ""); err == nil || !strings.Contains(err.Error(), "is not a directory") {
+	if _, err := cloneOrOpenRepository(context.Background(), notDirPath, "/tmp/example.invalid/repo.git"); err == nil || !strings.Contains(err.Error(), "is not a directory") {
 		t.Fatalf("cloneOrOpenRepository(file path) error = %v", err)
-	}
-}
-
-func TestGitAuthMethodOnlyAppliesToGitHubHTTPSRepos(t *testing.T) {
-	if auth := gitAuthMethod("https://github.com/GrandCX/openase.git", "ghu_test_token"); auth == nil {
-		t.Fatal("expected GitHub HTTPS repo auth to be configured")
-	}
-	if auth := gitAuthMethod("git@github.com:GrandCX/openase.git", "ghu_test_token"); auth != nil {
-		t.Fatalf("expected SSH repo auth to stay nil, got %+v", auth)
-	}
-	if auth := gitAuthMethod("/tmp/openase", "ghu_test_token"); auth != nil {
-		t.Fatalf("expected local repo auth to stay nil, got %+v", auth)
-	}
-	if auth := gitAuthMethod("https://github.com/GrandCX/openase.git", " "); auth != nil {
-		t.Fatalf("expected blank token auth to stay nil, got %+v", auth)
 	}
 }
 

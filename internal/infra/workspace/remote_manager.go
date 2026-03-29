@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 )
 
@@ -63,7 +62,7 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 		repoPath := RepoPath(workspacePath, repo.WorkspaceDirname, repo.Name)
 		preparedRepos = append(preparedRepos, PreparedRepo{
 			Name:             repo.Name,
-			RepositoryURL:    repo.RepositoryURL,
+			MirrorPath:       repo.MirrorPath,
 			DefaultBranch:    repo.DefaultBranch,
 			BranchName:       repo.BranchName,
 			WorkspaceDirname: repo.WorkspaceDirname,
@@ -90,37 +89,20 @@ func buildPrepareWorkspaceCommand(request SetupRequest) string {
 		"set -eu",
 		"mkdir -p "+sshinfra.ShellQuote(workspacePath),
 	)
-	lines = append(lines, remoteGitWrapperScript())
 
 	for _, repo := range request.Repos {
 		repoPath := RepoPath(workspacePath, repo.WorkspaceDirname, repo.Name)
-		gitCommand := "git"
-		if strings.TrimSpace(repo.GitHubToken) != "" {
-			if _, ok := githubauthdomain.ParseGitHubRepositoryURL(repo.RepositoryURL); ok {
-				lines = append(lines, "export GH_TOKEN="+sshinfra.ShellQuote(repo.GitHubToken))
-				gitCommand = "openase_git"
-			}
-		}
 		lines = append(lines,
 			"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(repoPath)),
 			"if [ -e "+sshinfra.ShellQuote(repoPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(repoPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+repoPath+" is not a git clone")+" >&2; exit 1; fi",
-			"if [ ! -e "+sshinfra.ShellQuote(repoPath)+" ]; then "+gitCommand+" clone --branch "+sshinfra.ShellQuote(repo.DefaultBranch)+" --single-branch "+sshinfra.ShellQuote(repo.RepositoryURL)+" "+sshinfra.ShellQuote(repoPath)+"; fi",
+			"if [ ! -e "+sshinfra.ShellQuote(repoPath)+" ]; then git clone --branch "+sshinfra.ShellQuote(repo.DefaultBranch)+" --single-branch "+sshinfra.ShellQuote(repo.MirrorPath)+" "+sshinfra.ShellQuote(repoPath)+"; fi",
 			"actual_origin=$(git -C "+sshinfra.ShellQuote(repoPath)+" remote get-url origin)",
-			"if [ \"$actual_origin\" != "+sshinfra.ShellQuote(repo.RepositoryURL)+" ]; then echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi",
-			gitCommand+" -C "+sshinfra.ShellQuote(repoPath)+" fetch origin",
+			"if [ \"$actual_origin\" != "+sshinfra.ShellQuote(repo.MirrorPath)+" ]; then echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi",
+			"git -C "+sshinfra.ShellQuote(repoPath)+" fetch origin",
 			"git -C "+sshinfra.ShellQuote(repoPath)+" rev-parse --verify "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch)+" >/dev/null",
 			"git -C "+sshinfra.ShellQuote(repoPath)+" checkout -B "+sshinfra.ShellQuote(repo.BranchName)+" "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch),
 		)
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-func remoteGitWrapperScript() string {
-	return `openase_git() {
-  GIT_TERMINAL_PROMPT=0 git \
-    -c credential.helper= \
-    -c 'credential.helper=!f() { test -n "${GH_TOKEN:-}" || exit 1; echo username=x-access-token; echo password=$GH_TOKEN; }; f' \
-    "$@"
-}`
 }

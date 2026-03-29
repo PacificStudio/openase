@@ -27,6 +27,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -515,6 +516,34 @@ func init() {
 	ticketreposcopeDescID := ticketreposcopeFields[0].Descriptor()
 	// ticketreposcope.DefaultID holds the default value on creation for the id field.
 	ticketreposcope.DefaultID = ticketreposcopeDescID.Default.(func() uuid.UUID)
+	ticketrepoworkspaceFields := schema.TicketRepoWorkspace{}.Fields()
+	_ = ticketrepoworkspaceFields
+	// ticketrepoworkspaceDescWorkspaceRoot is the schema descriptor for workspace_root field.
+	ticketrepoworkspaceDescWorkspaceRoot := ticketrepoworkspaceFields[5].Descriptor()
+	// ticketrepoworkspace.WorkspaceRootValidator is a validator for the "workspace_root" field. It is called by the builders before save.
+	ticketrepoworkspace.WorkspaceRootValidator = ticketrepoworkspaceDescWorkspaceRoot.Validators[0].(func(string) error)
+	// ticketrepoworkspaceDescRepoPath is the schema descriptor for repo_path field.
+	ticketrepoworkspaceDescRepoPath := ticketrepoworkspaceFields[6].Descriptor()
+	// ticketrepoworkspace.RepoPathValidator is a validator for the "repo_path" field. It is called by the builders before save.
+	ticketrepoworkspace.RepoPathValidator = ticketrepoworkspaceDescRepoPath.Validators[0].(func(string) error)
+	// ticketrepoworkspaceDescBranchName is the schema descriptor for branch_name field.
+	ticketrepoworkspaceDescBranchName := ticketrepoworkspaceFields[7].Descriptor()
+	// ticketrepoworkspace.BranchNameValidator is a validator for the "branch_name" field. It is called by the builders before save.
+	ticketrepoworkspace.BranchNameValidator = ticketrepoworkspaceDescBranchName.Validators[0].(func(string) error)
+	// ticketrepoworkspaceDescCreatedAt is the schema descriptor for created_at field.
+	ticketrepoworkspaceDescCreatedAt := ticketrepoworkspaceFields[13].Descriptor()
+	// ticketrepoworkspace.DefaultCreatedAt holds the default value on creation for the created_at field.
+	ticketrepoworkspace.DefaultCreatedAt = ticketrepoworkspaceDescCreatedAt.Default.(func() time.Time)
+	// ticketrepoworkspaceDescUpdatedAt is the schema descriptor for updated_at field.
+	ticketrepoworkspaceDescUpdatedAt := ticketrepoworkspaceFields[14].Descriptor()
+	// ticketrepoworkspace.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	ticketrepoworkspace.DefaultUpdatedAt = ticketrepoworkspaceDescUpdatedAt.Default.(func() time.Time)
+	// ticketrepoworkspace.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	ticketrepoworkspace.UpdateDefaultUpdatedAt = ticketrepoworkspaceDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// ticketrepoworkspaceDescID is the schema descriptor for id field.
+	ticketrepoworkspaceDescID := ticketrepoworkspaceFields[0].Descriptor()
+	// ticketrepoworkspace.DefaultID holds the default value on creation for the id field.
+	ticketrepoworkspace.DefaultID = ticketrepoworkspaceDescID.Default.(func() uuid.UUID)
 	ticketstageFields := schema.TicketStage{}.Fields()
 	_ = ticketstageFields
 	// ticketstageDescKey is the schema descriptor for key field.

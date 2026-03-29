@@ -33,6 +33,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -117,6 +118,7 @@ func checkColumn(t, c string) error {
 			ticketdependency.Table:      ticketdependency.ValidColumn,
 			ticketexternallink.Table:    ticketexternallink.ValidColumn,
 			ticketreposcope.Table:       ticketreposcope.ValidColumn,
+			ticketrepoworkspace.Table:   ticketrepoworkspace.ValidColumn,
 			ticketstage.Table:           ticketstage.ValidColumn,
 			ticketstatus.Table:          ticketstatus.ValidColumn,
 			workflow.Table:              workflow.ValidColumn,

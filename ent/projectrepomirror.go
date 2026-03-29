@@ -52,9 +52,11 @@ type ProjectRepoMirrorEdges struct {
 	ProjectRepo *ProjectRepo `json:"project_repo,omitempty"`
 	// Machine holds the value of the machine edge.
 	Machine *Machine `json:"machine,omitempty"`
+	// TicketRepoWorkspaces holds the value of the ticket_repo_workspaces edge.
+	TicketRepoWorkspaces []*TicketRepoWorkspace `json:"ticket_repo_workspaces,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // ProjectRepoOrErr returns the ProjectRepo value or an error if the edge
@@ -77,6 +79,15 @@ func (e ProjectRepoMirrorEdges) MachineOrErr() (*Machine, error) {
 		return nil, &NotFoundError{label: machine.Label}
 	}
 	return nil, &NotLoadedError{edge: "machine"}
+}
+
+// TicketRepoWorkspacesOrErr returns the TicketRepoWorkspaces value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectRepoMirrorEdges) TicketRepoWorkspacesOrErr() ([]*TicketRepoWorkspace, error) {
+	if e.loadedTypes[2] {
+		return e.TicketRepoWorkspaces, nil
+	}
+	return nil, &NotLoadedError{edge: "ticket_repo_workspaces"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -194,6 +205,11 @@ func (_m *ProjectRepoMirror) QueryProjectRepo() *ProjectRepoQuery {
 // QueryMachine queries the "machine" edge of the ProjectRepoMirror entity.
 func (_m *ProjectRepoMirror) QueryMachine() *MachineQuery {
 	return NewProjectRepoMirrorClient(_m.config).QueryMachine(_m)
+}
+
+// QueryTicketRepoWorkspaces queries the "ticket_repo_workspaces" edge of the ProjectRepoMirror entity.
+func (_m *ProjectRepoMirror) QueryTicketRepoWorkspaces() *TicketRepoWorkspaceQuery {
+	return NewProjectRepoMirrorClient(_m.config).QueryTicketRepoWorkspaces(_m)
 }
 
 // Update returns a builder for updating this ProjectRepoMirror.

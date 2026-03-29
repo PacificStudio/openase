@@ -44,6 +44,7 @@ func (ProjectRepoMirror) Edges() []ent.Edge {
 			Field("machine_id").
 			Unique().
 			Required(),
+		edge.To("ticket_repo_workspaces", TicketRepoWorkspace.Type),
 	}
 }
 
