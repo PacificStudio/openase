@@ -50,6 +50,7 @@ import type {
   TicketCreateResponse,
   TicketCommentCreateResponse,
   TicketCommentDeleteResponse,
+  TicketCommentRevisionListResponse,
   TicketCommentUpdateResponse,
   TicketExternalLinkDeleteResponse,
   TicketExternalLinkResponse,
@@ -402,6 +403,8 @@ export function updateTicketComment(
   commentId: string,
   body: {
     body: string
+    edited_by?: string | null
+    edit_reason?: string | null
   },
 ) {
   return api.patch<TicketCommentUpdateResponse>(
@@ -413,6 +416,12 @@ export function updateTicketComment(
 export function deleteTicketComment(ticketId: string, commentId: string) {
   return api.delete<TicketCommentDeleteResponse>(
     `/api/v1/tickets/${ticketId}/comments/${commentId}`,
+  )
+}
+
+export function listTicketCommentRevisions(ticketId: string, commentId: string) {
+  return api.get<TicketCommentRevisionListResponse>(
+    `/api/v1/tickets/${ticketId}/comments/${commentId}/revisions`,
   )
 }
 

@@ -29,6 +29,18 @@ type TicketComment struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// EditedAt holds the value of the "edited_at" field.
+	EditedAt *time.Time `json:"edited_at,omitempty"`
+	// EditCount holds the value of the "edit_count" field.
+	EditCount int `json:"edit_count,omitempty"`
+	// LastEditedBy holds the value of the "last_edited_by" field.
+	LastEditedBy *string `json:"last_edited_by,omitempty"`
+	// IsDeleted holds the value of the "is_deleted" field.
+	IsDeleted bool `json:"is_deleted,omitempty"`
+	// DeletedAt holds the value of the "deleted_at" field.
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	// DeletedBy holds the value of the "deleted_by" field.
+	DeletedBy *string `json:"deleted_by,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TicketCommentQuery when eager-loading is set.
 	Edges        TicketCommentEdges `json:"edges"`
@@ -39,9 +51,11 @@ type TicketComment struct {
 type TicketCommentEdges struct {
 	// Ticket holds the value of the ticket edge.
 	Ticket *Ticket `json:"ticket,omitempty"`
+	// Revisions holds the value of the revisions edge.
+	Revisions []*TicketCommentRevision `json:"revisions,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // TicketOrErr returns the Ticket value or an error if the edge
@@ -55,14 +69,27 @@ func (e TicketCommentEdges) TicketOrErr() (*Ticket, error) {
 	return nil, &NotLoadedError{edge: "ticket"}
 }
 
+// RevisionsOrErr returns the Revisions value or an error if the edge
+// was not loaded in eager-loading.
+func (e TicketCommentEdges) RevisionsOrErr() ([]*TicketCommentRevision, error) {
+	if e.loadedTypes[1] {
+		return e.Revisions, nil
+	}
+	return nil, &NotLoadedError{edge: "revisions"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*TicketComment) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case ticketcomment.FieldBody, ticketcomment.FieldCreatedBy:
+		case ticketcomment.FieldIsDeleted:
+			values[i] = new(sql.NullBool)
+		case ticketcomment.FieldEditCount:
+			values[i] = new(sql.NullInt64)
+		case ticketcomment.FieldBody, ticketcomment.FieldCreatedBy, ticketcomment.FieldLastEditedBy, ticketcomment.FieldDeletedBy:
 			values[i] = new(sql.NullString)
-		case ticketcomment.FieldCreatedAt, ticketcomment.FieldUpdatedAt:
+		case ticketcomment.FieldCreatedAt, ticketcomment.FieldUpdatedAt, ticketcomment.FieldEditedAt, ticketcomment.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
 		case ticketcomment.FieldID, ticketcomment.FieldTicketID:
 			values[i] = new(uuid.UUID)
@@ -117,6 +144,46 @@ func (_m *TicketComment) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.UpdatedAt = value.Time
 			}
+		case ticketcomment.FieldEditedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field edited_at", values[i])
+			} else if value.Valid {
+				_m.EditedAt = new(time.Time)
+				*_m.EditedAt = value.Time
+			}
+		case ticketcomment.FieldEditCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field edit_count", values[i])
+			} else if value.Valid {
+				_m.EditCount = int(value.Int64)
+			}
+		case ticketcomment.FieldLastEditedBy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field last_edited_by", values[i])
+			} else if value.Valid {
+				_m.LastEditedBy = new(string)
+				*_m.LastEditedBy = value.String
+			}
+		case ticketcomment.FieldIsDeleted:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_deleted", values[i])
+			} else if value.Valid {
+				_m.IsDeleted = value.Bool
+			}
+		case ticketcomment.FieldDeletedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field deleted_at", values[i])
+			} else if value.Valid {
+				_m.DeletedAt = new(time.Time)
+				*_m.DeletedAt = value.Time
+			}
+		case ticketcomment.FieldDeletedBy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field deleted_by", values[i])
+			} else if value.Valid {
+				_m.DeletedBy = new(string)
+				*_m.DeletedBy = value.String
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -133,6 +200,11 @@ func (_m *TicketComment) Value(name string) (ent.Value, error) {
 // QueryTicket queries the "ticket" edge of the TicketComment entity.
 func (_m *TicketComment) QueryTicket() *TicketQuery {
 	return NewTicketCommentClient(_m.config).QueryTicket(_m)
+}
+
+// QueryRevisions queries the "revisions" edge of the TicketComment entity.
+func (_m *TicketComment) QueryRevisions() *TicketCommentRevisionQuery {
+	return NewTicketCommentClient(_m.config).QueryRevisions(_m)
 }
 
 // Update returns a builder for updating this TicketComment.
@@ -172,6 +244,32 @@ func (_m *TicketComment) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(_m.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.EditedAt; v != nil {
+		builder.WriteString("edited_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("edit_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EditCount))
+	builder.WriteString(", ")
+	if v := _m.LastEditedBy; v != nil {
+		builder.WriteString("last_edited_by=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("is_deleted=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IsDeleted))
+	builder.WriteString(", ")
+	if v := _m.DeletedAt; v != nil {
+		builder.WriteString("deleted_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.DeletedBy; v != nil {
+		builder.WriteString("deleted_by=")
+		builder.WriteString(*v)
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

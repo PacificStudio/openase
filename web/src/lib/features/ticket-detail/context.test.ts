@@ -51,6 +51,7 @@ const detailPayloadFixture: TicketDetailPayload = {
   },
   repo_scopes: [],
   comments: [],
+  timeline: [],
   activity: [],
   hook_history: [],
 }
