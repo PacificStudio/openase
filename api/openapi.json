@@ -7495,6 +7495,30 @@
                             },
                             "type": "array"
                           },
+                          "last_error": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_synced_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_verified_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "mirror_count": {
+                            "nullable": true,
+                            "type": "integer"
+                          },
+                          "mirror_machine_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "mirror_state": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "name": {
                             "type": "string"
                           },
@@ -7652,6 +7676,30 @@
                           },
                           "type": "array"
                         },
+                        "last_error": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_synced_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_verified_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_count": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
+                        "mirror_machine_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_state": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -7800,6 +7848,30 @@
                             "type": "string"
                           },
                           "type": "array"
+                        },
+                        "last_error": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_synced_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_verified_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_count": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
+                        "mirror_machine_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_state": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "name": {
                           "type": "string"
@@ -7987,6 +8059,30 @@
                             "type": "string"
                           },
                           "type": "array"
+                        },
+                        "last_error": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_synced_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_verified_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_count": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
+                        "mirror_machine_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_state": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "name": {
                           "type": "string"
@@ -11156,6 +11252,30 @@
                                   "type": "string"
                                 },
                                 "type": "array"
+                              },
+                              "last_error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "last_synced_at": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "last_verified_at": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "mirror_count": {
+                                "nullable": true,
+                                "type": "integer"
+                              },
+                              "mirror_machine_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "mirror_state": {
+                                "nullable": true,
+                                "type": "string"
                               },
                               "name": {
                                 "type": "string"

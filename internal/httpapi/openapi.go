@@ -74,6 +74,12 @@ type OpenAPIProjectRepo struct {
 	WorkspaceDirname string   `json:"workspace_dirname"`
 	IsPrimary        bool     `json:"is_primary"`
 	Labels           []string `json:"labels,omitempty"`
+	MirrorCount      *int     `json:"mirror_count,omitempty"`
+	MirrorState      *string  `json:"mirror_state,omitempty"`
+	MirrorMachineID  *string  `json:"mirror_machine_id,omitempty"`
+	LastSyncedAt     *string  `json:"last_synced_at,omitempty"`
+	LastVerifiedAt   *string  `json:"last_verified_at,omitempty"`
+	LastError        *string  `json:"last_error,omitempty"`
 }
 
 type OpenAPIProjectRepoMirror struct {

@@ -22,7 +22,9 @@
     type RepositoryDraft,
     type RepositoryEditorMode,
   } from '../repositories-model'
+  import { derivePrimaryRepositoryReadiness } from '../repositories-readiness'
   import RepositoriesList from './repository-list.svelte'
+  import RepositoryReadinessBanner from './repository-readiness-banner.svelte'
   import RepositoryEditorSheet from './repository-editor-sheet.svelte'
 
   const repositoriesCapability = getSettingsSectionCapability('repositories')
@@ -37,6 +39,7 @@
   let draft = $state<RepositoryDraft>(createEmptyRepositoryDraft())
 
   const selectedRepo = $derived(repos.find((repo) => repo.id === selectedId) ?? null)
+  const primaryReadiness = $derived(derivePrimaryRepositoryReadiness(repos))
   $effect(() => {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
@@ -216,6 +219,10 @@
     </div>
     <p class="text-muted-foreground mt-1 max-w-3xl text-sm">{repositoriesCapability.summary}</p>
   </div>
+
+  {#if repos.length > 0}
+    <RepositoryReadinessBanner readiness={primaryReadiness} />
+  {/if}
 
   <RepositoriesList
     {loading}

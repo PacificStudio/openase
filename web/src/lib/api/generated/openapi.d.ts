@@ -5302,6 +5302,12 @@ export interface operations {
               id?: string
               is_primary?: boolean
               labels?: string[]
+              last_error?: string | null
+              last_synced_at?: string | null
+              last_verified_at?: string | null
+              mirror_count?: number | null
+              mirror_machine_id?: string | null
+              mirror_state?: string | null
               name?: string
               project_id?: string
               repository_url?: string
@@ -5384,6 +5390,12 @@ export interface operations {
               id?: string
               is_primary?: boolean
               labels?: string[]
+              last_error?: string | null
+              last_synced_at?: string | null
+              last_verified_at?: string | null
+              mirror_count?: number | null
+              mirror_machine_id?: string | null
+              mirror_state?: string | null
               name?: string
               project_id?: string
               repository_url?: string
@@ -5468,6 +5480,12 @@ export interface operations {
               id?: string
               is_primary?: boolean
               labels?: string[]
+              last_error?: string | null
+              last_synced_at?: string | null
+              last_verified_at?: string | null
+              mirror_count?: number | null
+              mirror_machine_id?: string | null
+              mirror_state?: string | null
               name?: string
               project_id?: string
               repository_url?: string
@@ -5564,6 +5582,12 @@ export interface operations {
               id?: string
               is_primary?: boolean
               labels?: string[]
+              last_error?: string | null
+              last_synced_at?: string | null
+              last_verified_at?: string | null
+              mirror_count?: number | null
+              mirror_machine_id?: string | null
+              mirror_state?: string | null
               name?: string
               project_id?: string
               repository_url?: string
@@ -7094,6 +7118,12 @@ export interface operations {
                 id?: string
                 is_primary?: boolean
                 labels?: string[]
+                last_error?: string | null
+                last_synced_at?: string | null
+                last_verified_at?: string | null
+                mirror_count?: number | null
+                mirror_machine_id?: string | null
+                mirror_state?: string | null
                 name?: string
                 project_id?: string
                 repository_url?: string
