@@ -1036,6 +1036,23 @@ export interface paths {
     patch: operations['updateTicketComment']
     trace?: never
   }
+  '/api/v1/tickets/{ticketId}/comments/{commentId}/revisions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List ticket comment revisions */
+    get: operations['listTicketCommentRevisions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/tickets/{ticketId}/dependencies': {
     parameters: {
       query?: never
@@ -6793,9 +6810,16 @@ export interface operations {
             } | null
             comments?: {
               body?: string
+              body_markdown?: string
               created_at?: string
               created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
               id?: string
+              is_deleted?: boolean
+              last_edited_by?: string | null
               ticket_id?: string
               updated_at?: string | null
             }[]
@@ -6898,6 +6922,24 @@ export interface operations {
               type?: string
               workflow_id?: string | null
             }
+            timeline?: {
+              actor_name?: string
+              actor_type?: string
+              body_markdown?: string | null
+              body_text?: string | null
+              created_at?: string
+              edited_at?: string | null
+              id?: string
+              is_collapsible?: boolean
+              is_deleted?: boolean
+              item_type?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              ticket_id?: string
+              title?: string | null
+              updated_at?: string
+            }[]
           }
         }
       }
@@ -8665,9 +8707,16 @@ export interface operations {
           'application/json': {
             comment?: {
               body?: string
+              body_markdown?: string
               created_at?: string
               created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
               id?: string
+              is_deleted?: boolean
+              last_edited_by?: string | null
               ticket_id?: string
               updated_at?: string | null
             }
@@ -8792,6 +8841,8 @@ export interface operations {
       content: {
         'application/json': {
           body?: string
+          edit_reason?: string | null
+          edited_by?: string | null
         }
       }
     }
@@ -8805,12 +8856,90 @@ export interface operations {
           'application/json': {
             comment?: {
               body?: string
+              body_markdown?: string
               created_at?: string
               created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
               id?: string
+              is_deleted?: boolean
+              last_edited_by?: string | null
               ticket_id?: string
               updated_at?: string | null
             }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listTicketCommentRevisions: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+        /** @description Comment ID. */
+        commentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List ticket comment revisions response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            revisions?: {
+              body_markdown?: string
+              comment_id?: string
+              edit_reason?: string | null
+              edited_at?: string
+              edited_by?: string
+              id?: string
+              revision_number?: number
+            }[]
           }
         }
       }

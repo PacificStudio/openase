@@ -27,6 +27,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	externalRef := " GH-42 "
 	title := " Updated Title "
 	description := " Updated description "
+	editReason := " demo workflow "
 	priority := " high "
 	ticketType := " bugfix "
 	negativeBudget := -1.0
@@ -137,11 +138,15 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 		t.Fatalf("parseCreateTicketCommentRequest(blank body) error = %v", err)
 	}
 
-	updateCommentInput, err := parseUpdateTicketCommentRequest(ticketID, commentID, rawUpdateTicketCommentRequest{Body: " updated "})
+	updateCommentInput, err := parseUpdateTicketCommentRequest(ticketID, commentID, rawUpdateTicketCommentRequest{
+		Body:       " updated ",
+		EditedBy:   &createdBy,
+		EditReason: &editReason,
+	})
 	if err != nil {
 		t.Fatalf("parseUpdateTicketCommentRequest() error = %v", err)
 	}
-	if updateCommentInput.Body != "updated" {
+	if updateCommentInput.Body != "updated" || updateCommentInput.EditedBy != "codex" || updateCommentInput.EditReason != "demo workflow" {
 		t.Fatalf("parseUpdateTicketCommentRequest() = %+v", updateCommentInput)
 	}
 	if _, err := parseUpdateTicketCommentRequest(ticketID, commentID, rawUpdateTicketCommentRequest{}); err == nil || !strings.Contains(err.Error(), "body must not be empty") {
