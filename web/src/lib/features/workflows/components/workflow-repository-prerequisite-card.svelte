@@ -1,6 +1,6 @@
 <script lang="ts">
   import { GitBranch } from '@lucide/svelte'
-  import type { WorkflowRepositoryPrerequisite } from '../data'
+  import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
 

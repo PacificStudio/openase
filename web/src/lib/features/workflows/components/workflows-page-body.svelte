@@ -8,7 +8,7 @@
   } from '../types'
   import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
   import type { SkillState } from '../model'
-  import type { WorkflowRepositoryPrerequisite } from '../data'
+  import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
   import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'

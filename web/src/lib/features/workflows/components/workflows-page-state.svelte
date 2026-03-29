@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { WorkflowRepositoryPrerequisite } from '../data'
+  import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import WorkflowRepositoryPrerequisiteCard from './workflow-repository-prerequisite-card.svelte'
 
   let {
