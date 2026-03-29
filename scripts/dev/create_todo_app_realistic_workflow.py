@@ -175,6 +175,36 @@ def require_single_local_machine(base_url: str, org_id: str) -> dict:
     return local_machine
 
 
+def register_existing_primary_mirror(base_url: str, project_id: str, repo_id: str, machine_id: str, local_path: Path) -> dict:
+    response = request_json(
+        base_url,
+        "POST",
+        f"/api/v1/projects/{project_id}/repos/{repo_id}/mirrors",
+        {
+            "machine_id": machine_id,
+            "local_path": str(local_path),
+            "mode": "register_existing",
+        },
+    )
+    mirror = response.get("mirror")
+    if not isinstance(mirror, dict):
+        raise RuntimeError(f"mirror registration returned an unexpected payload: {response!r}")
+    return mirror
+
+
+def require_workflow_repository_ready(base_url: str, project_id: str) -> dict:
+    response = request_json(base_url, "GET", f"/api/v1/projects/{project_id}/workflows/prerequisite")
+    prerequisite = response.get("prerequisite")
+    if not isinstance(prerequisite, dict):
+        raise RuntimeError(f"workflow prerequisite returned an unexpected payload: {response!r}")
+    if prerequisite.get("kind") != "ready":
+        raise RuntimeError(
+            "project primary repository is not ready for workflows: "
+            + json.dumps(prerequisite, sort_keys=True)
+        )
+    return prerequisite
+
+
 def slugify(raw: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
     slug = re.sub(r"-{2,}", "-", slug)
@@ -722,13 +752,22 @@ def main() -> int:
             f"/api/v1/projects/{project['id']}/repos",
             {
                 "name": slugify(project_name),
-                "repository_url": str(github_repo_preparation["repo_dir"]),
-                "default_branch": "main",
-                "clone_path": str(github_repo_preparation["repo_dir"]),
+                "repository_url": github_repo_preparation["clone_url"],
+                "default_branch": github_repo_preparation["default_branch"],
                 "is_primary": True,
                 "labels": ["todo-app", "validation", "github"],
             },
         )["repo"]
+        mirror = register_existing_primary_mirror(
+            base_url,
+            project["id"],
+            project_repo["id"],
+            local_machine["id"],
+            github_repo_preparation["repo_dir"],
+        )
+        if mirror.get("state") != "ready":
+            raise RuntimeError(f"registered primary mirror is not ready: {mirror!r}")
+        require_workflow_repository_ready(base_url, project["id"])
         workflow = request_json(
             base_url,
             "POST",
@@ -742,14 +781,6 @@ def main() -> int:
                 "harness_content": build_validation_workflow_harness(project_name),
             },
         )["workflow"]
-        request_json(
-            base_url,
-            "PATCH",
-            f"/api/v1/projects/{project['id']}/repos/{project_repo['id']}",
-            {
-                "clone_path": project_repo["name"],
-            },
-        )["repo"]
 
         print("[7/12] set project defaults after creating the primary workspace repo")
         request_json(

@@ -15,12 +15,20 @@ import (
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	git "github.com/go-git/go-git/v5"
+	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/uuid"
 )
 
@@ -47,8 +55,9 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		nil,
 		ticketstatus.NewService(client),
 		nil,
-		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
+		WithProjectRepoMirrorService(projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))),
 	)
 
 	ctx := context.Background()
@@ -372,8 +381,9 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		nil,
 		ticketstatus.NewService(client),
 		nil,
-		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
+		WithProjectRepoMirrorService(projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))),
 	)
 
 	ctx := context.Background()
@@ -420,7 +430,17 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		t.Fatalf("create projectReady: %v", err)
 	}
 
-	createPrimaryProjectRepo(ctx, t, client, projectWithoutMirror.ID, createTestGitRepo(t))
+	mirrorPendingRepoRoot := createMirrorReadyGitRepo(t, "https://github.com/acme/mirror-pending.git")
+	if _, err := client.ProjectRepo.Create().
+		SetProjectID(projectWithoutMirror.ID).
+		SetName(filepath.Base(mirrorPendingRepoRoot)).
+		SetRepositoryURL("https://github.com/acme/mirror-pending.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname(filepath.Base(mirrorPendingRepoRoot)).
+		SetIsPrimary(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create primary repo without mirror: %v", err)
+	}
 	createPrimaryProjectRepoWithMirror(ctx, t, client, projectReady.ID, localMachine.ID, primaryRepoRoot)
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectWithoutMirror.ID)
@@ -521,6 +541,112 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		errorPayload.Details.Prerequisite.Action != "prepare_primary_mirror" {
 		t.Fatalf("mirror readiness error payload = %+v", errorPayload)
 	}
+
+	projectRepo, err := client.ProjectRepo.Query().
+		Where(
+			entprojectrepo.ProjectIDEQ(projectWithoutMirror.ID),
+			entprojectrepo.IsPrimary(true),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load project repo without mirror: %v", err)
+	}
+
+	var mirrorPayload struct {
+		Mirror projectRepoMirrorResponse `json:"mirror"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/repos/%s/mirrors", projectWithoutMirror.ID, projectRepo.ID),
+		map[string]any{
+			"machine_id": localMachine.ID.String(),
+			"local_path": mirrorPendingRepoRoot,
+			"mode":       "register_existing",
+		},
+		http.StatusCreated,
+		&mirrorPayload,
+	)
+	if mirrorPayload.Mirror.State != "ready" || mirrorPayload.Mirror.LocalPath != mirrorPendingRepoRoot {
+		t.Fatalf("registered mirror payload = %+v", mirrorPayload.Mirror)
+	}
+
+	pendingResp = workflowRepositoryPrerequisiteResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/workflows/prerequisite", projectWithoutMirror.ID),
+		nil,
+		http.StatusOK,
+		&pendingResp,
+	)
+	if pendingResp.Prerequisite.Kind != "ready" ||
+		pendingResp.Prerequisite.MirrorState == nil ||
+		*pendingResp.Prerequisite.MirrorState != "ready" {
+		t.Fatalf("prerequisite after mirror registration = %+v", pendingResp.Prerequisite)
+	}
+
+	var workflowCreate struct {
+		Workflow workflowResponse `json:"workflow"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", projectWithoutMirror.ID),
+		map[string]any{
+			"agent_id":          agent.ID.String(),
+			"name":              "Coding Workflow",
+			"type":              "coding",
+			"pickup_status_ids": []string{todoID.String()},
+			"finish_status_ids": []string{doneID.String()},
+			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		},
+		http.StatusCreated,
+		&workflowCreate,
+	)
+	if workflowCreate.Workflow.Name != "Coding Workflow" {
+		t.Fatalf("workflow create after mirror registration = %+v", workflowCreate.Workflow)
+	}
+}
+
+func createMirrorReadyGitRepo(t *testing.T, repositoryURL string) string {
+	t.Helper()
+
+	repoRoot := t.TempDir()
+	repository, err := git.PlainInit(repoRoot, false)
+	if err != nil {
+		t.Fatalf("init git repo: %v", err)
+	}
+	if _, err := repository.CreateRemote(&gitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{repositoryURL},
+	}); err != nil {
+		t.Fatalf("create origin remote: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("workflow mirror test\n"), 0o600); err != nil {
+		t.Fatalf("write README.md: %v", err)
+	}
+	worktree, err := repository.Worktree()
+	if err != nil {
+		t.Fatalf("load worktree: %v", err)
+	}
+	if _, err := worktree.Add("README.md"); err != nil {
+		t.Fatalf("add README.md: %v", err)
+	}
+	if _, err := worktree.Commit("initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Codex",
+			Email: "codex@openai.com",
+			When:  time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC),
+		},
+	}); err != nil {
+		t.Fatalf("commit README.md: %v", err)
+	}
+
+	return repoRoot
 }
 
 func TestValidateHarnessRoute(t *testing.T) {

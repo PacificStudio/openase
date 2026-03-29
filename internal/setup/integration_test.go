@@ -145,7 +145,7 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectRepoMirror.Query().All() error = %v", err)
 	}
-	if len(mirrors) != 1 || mirrors[0].LocalPath != repoRoot {
+	if len(mirrors) != 1 || mirrors[0].LocalPath != repoRoot || mirrors[0].State != "ready" {
 		t.Fatalf("project repo mirrors = %+v", mirrors)
 	}
 
