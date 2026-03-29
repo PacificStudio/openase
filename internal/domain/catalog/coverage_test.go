@@ -661,6 +661,17 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if createRepo.DefaultBranch != "trunk" || createRepo.WorkspaceDirname != "services/repo" || len(createRepo.Labels) != 2 {
 		t.Fatalf("ParseCreateProjectRepo() = %+v", createRepo)
 	}
+	createRepo, err = ParseCreateProjectRepo(projectID, ProjectRepoInput{
+		Name:             "Backend",
+		RepositoryURL:    "https://github.com/GrandCX/openase",
+		WorkspaceDirname: stringPtr("   "),
+	})
+	if err != nil {
+		t.Fatalf("ParseCreateProjectRepo(blank workspace dirname) error = %v", err)
+	}
+	if createRepo.WorkspaceDirname != "Backend" {
+		t.Fatalf("ParseCreateProjectRepo(blank workspace dirname) = %+v", createRepo)
+	}
 	updateRepo, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{
 		Name:          "OpenASE",
 		RepositoryURL: "ssh://repo",
@@ -683,6 +694,21 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: " "}); err == nil {
 		t.Fatal("ParseCreateProjectRepo() expected repository_url validation error")
+	}
+	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "https://github.com", WorkspaceDirname: stringPtr("/abs")}); err == nil {
+		t.Fatal("ParseCreateProjectRepo() expected absolute workspace_dirname validation error")
+	}
+	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "https://github.com", WorkspaceDirname: stringPtr(`nested\\repo`)}); err == nil {
+		t.Fatal("ParseCreateProjectRepo() expected backslash workspace_dirname validation error")
+	}
+	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "https://github.com", WorkspaceDirname: stringPtr("../repo")}); err == nil {
+		t.Fatal("ParseCreateProjectRepo() expected parent traversal workspace_dirname validation error")
+	}
+	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "https://github.com", WorkspaceDirname: stringPtr("./")}); err == nil {
+		t.Fatal("ParseCreateProjectRepo() expected empty workspace_dirname validation error")
+	}
+	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "https://github.com", WorkspaceDirname: stringPtr("repo dir")}); err == nil {
+		t.Fatal("ParseCreateProjectRepo() expected spaced workspace_dirname validation error")
 	}
 	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "https://github.com", Labels: []string{""}}); err == nil {
 		t.Fatal("ParseCreateProjectRepo() expected labels validation error")

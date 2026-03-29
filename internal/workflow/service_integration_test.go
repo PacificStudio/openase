@@ -751,6 +751,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if _, err := client.ProjectRepo.UpdateOneID(primaryRepo.ID).
 		SetName("backend").
 		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
 		Save(ctx); err != nil {
 		t.Fatalf("normalize primary repo metadata: %v", err)
 	}
@@ -759,6 +760,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetName("frontend").
 		SetRepositoryURL("https://github.com/acme/frontend").
 		SetDefaultBranch("develop").
+		SetWorkspaceDirname("frontend").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create frontend repo: %v", err)
@@ -955,10 +957,10 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 			frontendRepoData = &data.AllRepos[index]
 		}
 	}
-	if backendRepoData == nil || backendRepoData.Branch != "agent/codex/ASE-42" || backendRepoData.Path != "/workspaces/ASE-42/backend" {
+	if backendRepoData == nil || backendRepoData.Branch != "agent/codex/ASE-42" || backendRepoData.Path != "backend" {
 		t.Fatalf("backend repo data = %+v", backendRepoData)
 	}
-	if frontendRepoData == nil || frontendRepoData.Branch != "agent/codex/frontend-ASE-42" || frontendRepoData.Path != "/workspaces/ASE-42/frontend" {
+	if frontendRepoData == nil || frontendRepoData.Branch != "agent/codex/frontend-ASE-42" || frontendRepoData.Path != "frontend" {
 		t.Fatalf("frontend repo data = %+v", frontendRepoData)
 	}
 
