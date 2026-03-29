@@ -540,28 +540,165 @@ Organization → Project → ProjectRepo (1:N)
 
 > **v3.2 变更**：`repository_url` 和 `default_branch` 从 Project 中移除，迁移至新增的 ProjectRepo 实体。一个 Project 可以关联多个 Repo。
 
-### 6.4 ProjectRepo（项目仓库）
+> **v3.3 修订**：历史上的 `ProjectRepo.clone_path` 同时混用了“项目级本地 repo 路径”和“Ticket 工作区中的目录名”两种语义，导致 Workflow、Workspace、Git 同步逻辑互相冲突。现将其拆分为三个明确对象：`ProjectRepo`（远端绑定）、`ProjectRepoMirror`（项目级本地镜像）、`TicketRepoWorkspace`（工单工作副本）。禁止再用单个字段同时表达远端地址、本地镜像路径、Ticket 工作区挂载路径。
 
-一个 Project 可以关联多个 Git 仓库。ProjectRepo 是 Project 与 Git 仓库之间的多对多关系实体。
+### 6.4 ProjectRepo（项目仓库绑定）
+
+一个 Project 可以关联多个 Git 仓库。`ProjectRepo` 是“项目与远端代码仓库之间的绑定关系”，它回答的是“这个项目涉及哪些 repo”，而不是“该 repo 当前在本机是否已经 clone”。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUID | 主键 |
 | project_id | FK | 所属项目 |
 | name | String | 仓库别名（如 `backend`、`frontend`、`infra`），项目内唯一 |
-| repository_url | String | Git 仓库地址 |
-| default_branch | String | 默认分支（如 main） |
-| clone_path | String | 本地克隆路径（编排引擎管理） |
-| is_primary | Boolean | 是否为主仓库（Harness 文件存储在主仓库的 `.openase/harnesses/` 中） |
+| repository_url | String | 远端 Git 仓库地址；永远表示 remote truth，不得混写本地绝对路径 |
+| default_branch | String | 默认分支（如 `main`） |
+| workspace_dirname | String | 该 repo 在 Ticket 工作区中的一级目录名；默认等于 `name`，必须为相对路径片段 |
+| is_primary | Boolean | 是否为主仓库；Harness 文件存储在主仓库的 `.openase/harnesses/` 中 |
 | labels | TEXT[] | 仓库标签（如 `{"go", "backend", "api"}`），PostgreSQL 原生数组，支持 GIN 索引 |
+
+**职责边界：**
+
+- `ProjectRepo` 只保存静态绑定信息，不保存“当前机器上的 clone 是否存在”这种运行时状态。
+- `repository_url` 只表示远端地址；平台若需要本地路径，必须读取 `ProjectRepoMirror.local_path`。
+- `workspace_dirname` 只表示 Ticket 工作区里的目录名；不得拿它当项目级镜像根目录。
 
 **设计理由**：现实中一个产品通常是多仓库结构（前端、后端、SDK、基础设施各自独立仓库）。将 Repo 从 Project 中解耦后，一个工单可以声明它涉及哪些 Repo，编排引擎为 Agent 创建包含所有相关 Repo 的联合工作区。
 
 **典型场景**：
 
-- 一个"用户注册功能"工单需要同时修改 `backend`（API 接口）+ `frontend`（注册页面）+ `sdk`（类型定义）
-- 一个"数据库迁移"工单只涉及 `backend` 仓库
-- 一个"CI 流水线更新"工单只涉及 `infra` 仓库
+- 一个“用户注册功能”工单需要同时修改 `backend`（API 接口）+ `frontend`（注册页面）+ `sdk`（类型定义）
+- 一个“数据库迁移”工单只涉及 `backend` 仓库
+- 一个“CI 流水线更新”工单只涉及 `infra` 仓库
+
+### 6.4.1 ProjectRepoMirror（项目级本地镜像）
+
+`ProjectRepoMirror` 表示某个 `ProjectRepo` 在某台执行机器上的项目级本地镜像。它是 Workflow/Harness、Workflow Hook、以及 Ticket 工作区派生的本地真相源。
+
+一个 `ProjectRepo` 可以在多台机器上拥有多个 mirror；mirror 是机器级资源，而不是全局单例。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | UUID | 主键 |
+| project_repo_id | FK | 关联的 ProjectRepo |
+| machine_id | FK | 所属执行机器；本机模式也通过统一 Machine 记录表达 |
+| local_path | String | 该 mirror 的本地绝对路径 |
+| state | Enum | `missing / provisioning / ready / stale / syncing / error / deleting` |
+| head_commit | String | 当前 mirror HEAD 提交 SHA（可空） |
+| last_synced_at | DateTime | 最近一次成功同步远端时间 |
+| last_verified_at | DateTime | 最近一次完成 git 健康检查时间 |
+| last_error | Text | 最近一次 materialize / sync / verify 失败信息 |
+| created_at | DateTime | 创建时间 |
+| updated_at | DateTime | 更新时间 |
+
+**状态语义：**
+
+- `missing`
+  - 该机器上尚未 materialize 这个 repo 的本地镜像。
+- `provisioning`
+  - 平台正在 clone / init mirror / checkout 默认分支。
+- `ready`
+  - mirror 存在且可用；默认分支可 checkout，git 元数据完整，可供 Harness 和 Ticket Workspace 派生。
+- `stale`
+  - mirror 仍可读，但同步快照已过期；需要在下次使用前或后台任务中执行 sync。
+- `syncing`
+  - 平台正在 fetch / fast-forward / verify mirror。
+- `error`
+  - 最近一次 materialize / sync / verify 失败；需要人工或系统重试。
+- `deleting`
+  - 平台正在清理 mirror；删除完成后转回 `missing`。
+
+**状态迁移规则：**
+
+- 新建 repo 绑定后：`missing`
+- 首次准备镜像：`missing -> provisioning -> ready | error`
+- 定时或手动同步：`ready | stale | error -> syncing -> ready | stale | error`
+- 超过 freshness window：`ready -> stale`
+- 用户删除 repo / 机器下线清理：`ready | stale | error -> deleting -> missing`
+
+**关键规则：**
+
+- `ProjectRepoMirror` 是 Workflow/Harness 的本地依赖真相源。
+- 任何需要“项目仓库根目录”的操作，都必须基于某个 `ready` 的 mirror，而不是直接把 `repository_url` 当本地路径解析。
+- 平台必须显式区分“主 repo 已绑定”与“主 repo mirror 已就绪”；前者不代表后者。
+
+### 6.4.2 TicketRepoWorkspace（工单工作副本）
+
+`TicketRepoWorkspace` 表示某个 Ticket 在某次执行中的 repo 工作副本。它不是配置实体，而是运行时派生对象。每个工作副本都来自对应机器上的 `ProjectRepoMirror`，而不是直接以远端 repo 作为唯一真相源。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | UUID | 主键 |
+| ticket_id | FK | 所属 Ticket |
+| agent_run_id | FK | 所属 AgentRun |
+| repo_id | FK | 关联的 ProjectRepo |
+| mirror_id | FK | 派生来源的 ProjectRepoMirror |
+| workspace_root | String | 本次 Ticket 的工作区根目录 |
+| repo_path | String | 该 repo 在工作区中的绝对路径 |
+| branch_name | String | 当前工作分支 |
+| state | Enum | `planned / materializing / ready / dirty / verifying / completed / failed / cleaning / cleaned` |
+| head_commit | String | 当前工作副本 HEAD |
+| last_error | Text | 最近一次 materialize / verify / cleanup 错误 |
+| prepared_at | DateTime | 工作副本就绪时间 |
+| cleaned_at | DateTime | 清理完成时间 |
+
+**状态语义：**
+
+- `planned`
+  - 调度器已决定需要该 repo，但尚未开始准备工作副本。
+- `materializing`
+  - 平台正在从 mirror 派生工作副本、checkout 分支、写入运行时上下文。
+- `ready`
+  - Agent 可安全进入 repo_path 工作。
+- `dirty`
+  - Agent 已产生未验证改动。
+- `verifying`
+  - 平台或 Hook 正在执行测试、lint、CI 聚合等检查。
+- `completed`
+  - 本次执行已完成，结果待清理。
+- `failed`
+  - 本次工作副本准备或验证失败。
+- `cleaning`
+  - 平台正在清理该工作副本。
+- `cleaned`
+  - 清理完成；保留记录用于审计。
+
+**关键规则：**
+
+- Ticket Workspace 是短生命周期对象；mirror 是中生命周期缓存。
+- 同一个 Ticket 的多次重试 / continuation 默认复用同一个 `workspace_root`，但每个 repo 的工作副本状态仍独立跟踪。
+- 清理 Ticket Workspace 不应隐式删除 ProjectRepoMirror；mirror 作为后续 Ticket 的可复用缓存独立存活。
+
+### 6.4.3 Repo 生命周期总览
+
+OpenASE 中一个 repo 至少有三层不同形态，必须明确区分：
+
+1. **远端绑定（ProjectRepo）**
+   - 真相源：repo 地址、默认分支、标签、主仓库标记
+   - 生命周期长，基本只受用户配置操作影响
+2. **项目级本地镜像（ProjectRepoMirror）**
+   - 真相源：某台机器上的本地绝对路径、同步状态、健康状态
+   - 供 Workflow/Harness 与 Ticket 工作区派生复用
+3. **工单工作副本（TicketRepoWorkspace）**
+   - 真相源：本次 Ticket / AgentRun 的目录、分支、校验状态
+   - 随执行创建，随执行清理
+
+**平台必须显式管理以下事件：**
+
+- `register_repo`
+  - 创建 ProjectRepo 绑定；初始不保证本地可用
+- `prepare_mirror`
+  - 在指定机器上 materialize ProjectRepoMirror
+- `sync_mirror`
+  - fetch / verify / fast-forward 镜像
+- `mark_primary`
+  - 切换主仓库；若目标 repo 在目标机器上没有 `ready` mirror，平台必须拒绝或先完成 prepare
+- `claim_ticket`
+  - 从相关 mirror 派生 TicketRepoWorkspace
+- `complete_ticket`
+  - 对工作副本执行 verify / cleanup
+- `delete_repo`
+  - 先阻止新 run，再清理 mirror，最后删除绑定
 
 ### 6.5 Ticket（工单）—— 核心实体
 
@@ -659,7 +796,7 @@ Organization → Project → ProjectRepo (1:N)
 
 **编排引擎的多 Repo 工作区策略：**
 
-当工单涉及多个 Repo 时，编排引擎创建一个联合工作区（workspace），目录结构如下：
+当工单涉及多个 Repo 时，编排引擎在确认相关 `ProjectRepoMirror` 已处于 `ready` 后，创建一个联合工作区（workspace），并为每个 repo 派生 `TicketRepoWorkspace`。目录结构如下：
 
 ```
 ~/.openase/workspace/{org-slug}/{project-slug}/{ticket-identifier}/
@@ -690,6 +827,8 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 - 一个 Ticket 对应一个独立工作目录
 - 工作目录下一级目录为该 Ticket 涉及的多个 Repo
 - 同一个 Ticket 的多次重试 / continuation 复用同一个 Ticket 工作目录
+- Ticket 工作目录是执行态副本，不是项目级 mirror；二者生命周期必须分离
+- 若某个 repo 的 mirror 不可用，平台必须把问题报告为“mirror 未就绪 / 同步失败”，而不是模糊地报告“主 repo 不可用”
 
 ### 6.6 Workflow（工作流）
 
@@ -714,6 +853,8 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 说明：
 
 - Harness 仍然存储在 Git 中，负责定义角色行为、Prompt、Hook、权限等“行为即代码”内容。
+- 任何涉及 Harness 文件读写、Workflow Hook 执行、Workflow 激活的操作，都要求当前 Workflow 绑定 Agent 所在机器上存在 `is_primary=true` 且 `state=ready` 的 `ProjectRepoMirror`。
+- `ProjectRepo` 仅表示“主仓库已绑定”；它本身不等价于“主仓库 mirror 已就绪”。前端与 API 必须分别展示这两个状态。
 - `pickup_status_ids / finish_status_ids` 属于结构化 Workflow 元数据，存储在数据库中，由前端配置并受数据库引用约束维护。
 - 编排引擎只读取数据库中的状态绑定进行调度；Harness 中不再作为真相源重复声明这些状态。
 - Harness Prompt 可以读取这些绑定后的状态名称，但那是展示数据，不是配置来源。
@@ -1396,7 +1537,13 @@ workflow_hooks:
 ---
 ```
 
-**Workflow Hook 的执行上下文不是工单工作区**——它在项目仓库的根目录下执行（因为此时还没有工单、没有工作区）。
+**Workflow Hook 的执行上下文不是工单工作区**——它在主仓库的 `ProjectRepoMirror.local_path` 下执行（因为此时还没有工单、没有 Ticket Workspace）。
+
+**前置条件：**
+
+- Workflow Hook 要求主仓库 mirror 已在目标机器上处于 `ready`
+- 若主仓库仅完成 `ProjectRepo` 绑定、但 mirror 仍是 `missing / provisioning / error`，平台必须拒绝激活 / 热重载 Workflow，并返回结构化原因 `primary_mirror_not_ready`
+- `workflow.on_activate` 可以校验 git transport、CLI、依赖缓存是否可用，但不负责决定主仓库 mirror 的存在性；mirror 的准备由 repo 生命周期管理器负责
 
 ### 8.2 Ticket Hook（工单执行生命周期）
 
@@ -1404,7 +1551,7 @@ Ticket Hook 在 **每个工单的每次执行过程中触发**，每个工单每
 
 | Hook | 触发时机 | 阻塞行为 | 典型用途 |
 |------|---------|---------|---------|
-| `ticket.on_claim` | 编排引擎接手工单后、Agent 启动前 | 失败则释放工单，退避后重试 | clone 仓库、安装依赖、创建工作区、解密密钥 |
+| `ticket.on_claim` | 编排引擎接手工单后、Agent 启动前 | 失败则释放工单，退避后重试 | 从 mirror 派生工作副本、安装依赖、补充运行时上下文、解密密钥 |
 | `ticket.on_start` | Agent CLI 子进程启动前 | 失败则触发重试 | 拉取最新代码、检查分支冲突、验证 Agent 可用 |
 | `ticket.on_complete` | Agent 声明任务完成时 | 失败则阻止推进，Agent 收到反馈继续 | 运行测试、lint、类型检查、安全扫描 |
 | `ticket.on_done` | 工单成功到达 finish 状态后 | 不阻塞 | 工作区清理、通知、Skill 收割 |
@@ -1436,7 +1583,13 @@ ticket_hooks:
 ---
 ```
 
-**Ticket Hook 在工单工作区目录下执行**（即 `on_claim` 创建的 `~/.openase/workspace/{org}/{project}/{ticket}/` 目录）。
+**Ticket Hook 在工单工作区目录下执行**（即 `on_claim` 基于 ready mirror 派生出的 `~/.openase/workspace/{org}/{project}/{ticket}/` 目录）。
+
+**职责边界：**
+
+- `ticket.on_claim` 可以在已存在的工作副本中执行 `git fetch`、`checkout`、依赖安装等准备动作
+- `ticket.on_claim` 不负责创造“项目级主仓库 mirror 是否存在”这一前提；若 mirror 缺失，调度器必须先走 `prepare_mirror`
+- 若某个 repo mirror 处于 `stale`，平台可在进入 `ticket.on_claim` 前自动执行 `sync_mirror`
 
 ### 8.3 两类 Hook 的关键区别
 
