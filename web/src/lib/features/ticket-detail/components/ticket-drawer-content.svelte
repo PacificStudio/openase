@@ -18,20 +18,18 @@
   import TicketRepos from './ticket-repos.svelte'
   import type {
     HookExecution,
-    TicketActivity,
-    TicketComment,
     TicketDetail,
     TicketReferenceOption,
     TicketRepoOption,
     TicketStatusOption,
+    TicketTimelineItem,
   } from '../types'
 
   let {
     ticket,
     projectId,
     hooks,
-    comments,
-    activities,
+    timeline,
     statuses,
     dependencyCandidates,
     repoOptions,
@@ -62,8 +60,7 @@
     ticket: TicketDetail
     projectId: string
     hooks: HookExecution[]
-    comments: TicketComment[]
-    activities: TicketActivity[]
+    timeline: TicketTimelineItem[]
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
@@ -164,8 +161,7 @@
 <div class="flex flex-1 gap-0 overflow-hidden">
   <TicketCommentsThread
     {ticket}
-    {comments}
-    {activities}
+    {timeline}
     {savingFields}
     {creatingComment}
     {updatingCommentId}
