@@ -34,6 +34,12 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	defaultLaunchTimeout           = 30 * time.Second
+	defaultLaunchCleanupTimeout    = 5 * time.Second
+	defaultLifecyclePublishTimeout = 2 * time.Second
+)
+
 type RuntimeLauncher struct {
 	client         *ent.Client
 	logger         *slog.Logger
@@ -45,9 +51,14 @@ type RuntimeLauncher struct {
 	platformAPIURL string
 	githubAuth     githubauthservice.TokenResolver
 	now            func() time.Time
+	launchTimeout  time.Duration
+	eventTimeout   time.Duration
 
 	sessionsMu sync.Mutex
 	sessions   map[uuid.UUID]*codex.Session
+
+	launchesMu sync.Mutex
+	launches   map[uuid.UUID]struct{}
 
 	executionsMu sync.Mutex
 	executions   map[uuid.UUID]struct{}
@@ -85,7 +96,10 @@ func NewRuntimeLauncher(
 		sshPool:        sshPool,
 		workflow:       workflow,
 		now:            time.Now,
+		launchTimeout:  defaultLaunchTimeout,
+		eventTimeout:   defaultLifecyclePublishTimeout,
 		sessions:       map[uuid.UUID]*codex.Session{},
+		launches:       map[uuid.UUID]struct{}{},
 		executions:     map[uuid.UUID]struct{}{},
 		tickets:        ticketservice.NewService(client),
 	}
@@ -138,11 +152,18 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return fmt.Errorf("list current runs awaiting launch: %w", err)
 	}
 
+	var launchWG sync.WaitGroup
 	for _, assignment := range assignments {
-		if err := l.launchAgent(ctx, assignment); err != nil {
-			l.logger.Error("launch current run", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
+		if assignment.run == nil || !l.beginLaunch(assignment.run.ID) {
+			continue
 		}
+		launchWG.Add(1)
+		go func(assignment runtimeAssignment) {
+			defer launchWG.Done()
+			l.runLaunch(ctx, assignment)
+		}(assignment)
 	}
+	launchWG.Wait()
 
 	return nil
 }
@@ -212,21 +233,52 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			l.logger.Warn("reload terminated agent", "agent_id", assignment.agent.ID, "run_id", runID, "error", err)
 			continue
 		}
-		if err := publishAgentLifecycleEvent(
+		l.publishLifecycleEvent(
 			ctx,
-			l.client,
-			l.events,
 			agentTerminatedType,
 			agentState,
 			lifecycleMessage(agentTerminatedType, agentState.agent.Name),
 			runtimeEventMetadataForState(agentState),
 			now,
-		); err != nil {
-			l.logger.Warn("publish terminated lifecycle", "agent_id", assignment.agent.ID, "run_id", runID, "error", err)
-		}
+		)
 	}
 
 	return nil
+}
+
+func (l *RuntimeLauncher) startLaunch(ctx context.Context, assignment runtimeAssignment) {
+	if l == nil || assignment.run == nil {
+		return
+	}
+	if !l.beginLaunch(assignment.run.ID) {
+		return
+	}
+
+	//nolint:gosec // Launching runs must not block later assignments in the orchestrator tick.
+	go l.runLaunch(ctx, assignment)
+}
+
+func (l *RuntimeLauncher) runLaunch(ctx context.Context, assignment runtimeAssignment) {
+	defer l.finishLaunch(assignment.run.ID)
+
+	launchCtx, cancel := l.launchContext(ctx, l.launchTimeout)
+	defer cancel()
+
+	err := l.launchAgent(launchCtx, assignment)
+	if err == nil {
+		return
+	}
+
+	l.logger.Error("launch current run", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
+	if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil {
+		return
+	}
+
+	failureCtx, failureCancel := l.launchContext(ctx, defaultLaunchCleanupTimeout)
+	defer failureCancel()
+	if markErr := l.markLaunchFailed(failureCtx, assignment.agent.ID, assignment.ticket.ID, assignment.run.ID, err); markErr != nil {
+		l.logger.Error("mark launch failed", "agent_id", assignment.agent.ID, "ticket_id", assignment.ticket.ID, "run_id", assignment.run.ID, "error", markErr)
+	}
 }
 
 func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAssignment) error {
@@ -257,22 +309,18 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 	if err != nil {
 		return err
 	}
-	if err := publishAgentLifecycleEvent(
+	l.publishLifecycleEvent(
 		ctx,
-		l.client,
-		l.events,
 		agentLaunchingType,
 		launchingAgent,
 		lifecycleMessage(agentLaunchingType, launchingAgent.agent.Name),
 		runtimeEventMetadataForState(launchingAgent),
 		now,
-	); err != nil {
-		return err
-	}
+	)
 
 	session, launchErr := l.startCodexSession(ctx, assignment)
 	if launchErr != nil {
-		return l.markLaunchFailed(ctx, assignment.agent.ID, assignment.run.ID, launchErr)
+		return launchErr
 	}
 
 	l.storeSession(assignment.run.ID, session)
@@ -304,35 +352,27 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 	if err != nil {
 		return err
 	}
-	if err := publishAgentLifecycleEvent(
+	l.publishLifecycleEvent(
 		ctx,
-		l.client,
-		l.events,
 		agentReadyType,
 		readyAgent,
 		lifecycleMessage(agentReadyType, readyAgent.agent.Name),
 		runtimeEventMetadataForState(readyAgent),
 		readyAt,
-	); err != nil {
-		return err
-	}
-	if err := publishAgentLifecycleEvent(
+	)
+	l.publishLifecycleEvent(
 		ctx,
-		l.client,
-		l.events,
 		agentHeartbeatType,
 		readyAgent,
 		lifecycleMessage(agentHeartbeatType, readyAgent.agent.Name),
 		runtimeEventMetadataForState(readyAgent),
 		readyAt,
-	); err != nil {
-		return err
-	}
+	)
 
 	return nil
 }
 
-func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUID, runID uuid.UUID, launchErr error) error {
+func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUID, ticketID uuid.UUID, runID uuid.UUID, launchErr error) error {
 	now := l.now().UTC()
 	count, err := l.client.AgentRun.Update().
 		Where(
@@ -352,20 +392,25 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 		return nil
 	}
 
+	retrySvc := NewRetryService(l.client, l.logger)
+	retrySvc.now = l.now
+	if _, err := retrySvc.MarkAttemptFailed(ctx, ticketID); err != nil {
+		return fmt.Errorf("release failed launch claim for ticket %s: %w", ticketID, err)
+	}
+
 	failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID)
 	if err != nil {
 		return err
 	}
-	return publishAgentLifecycleEvent(
+	l.publishLifecycleEvent(
 		ctx,
-		l.client,
-		l.events,
 		agentFailedType,
 		failedAgent,
 		lifecycleMessage(agentFailedType, failedAgent.agent.Name),
 		runtimeEventMetadataForState(failedAgent),
 		now,
 	)
+	return nil
 }
 
 func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
@@ -467,16 +512,15 @@ func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssi
 	if err != nil {
 		return err
 	}
-	return publishAgentLifecycleEvent(
+	l.publishLifecycleEvent(
 		ctx,
-		l.client,
-		l.events,
 		agentPausedType,
 		pausedAgent,
 		lifecycleMessage(agentPausedType, pausedAgent.agent.Name),
 		runtimeEventMetadataForState(pausedAgent),
 		pausedAt,
 	)
+	return nil
 }
 
 func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runtimeAssignment) (*codex.Session, error) {
@@ -591,7 +635,7 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 		return nil, fmt.Errorf("construct codex adapter: %w", err)
 	}
 
-	return adapter.Start(ctx, codex.StartRequest{
+	session, err := adapter.Start(ctx, codex.StartRequest{
 		Process: processSpec,
 		Initialize: codex.InitializeParams{
 			ClientName:    "openase",
@@ -617,6 +661,10 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 			},
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
 }
 
 func (l *RuntimeLauncher) buildAgentPlatformEnvironment(ctx context.Context, launchContext runtimeLaunchContext) ([]string, error) {
@@ -1293,6 +1341,75 @@ func (l *RuntimeLauncher) finishExecution(runID uuid.UUID) {
 	l.executionsMu.Lock()
 	defer l.executionsMu.Unlock()
 	delete(l.executions, runID)
+}
+
+func (l *RuntimeLauncher) beginLaunch(runID uuid.UUID) bool {
+	l.launchesMu.Lock()
+	defer l.launchesMu.Unlock()
+	if _, exists := l.launches[runID]; exists {
+		return false
+	}
+	l.launches[runID] = struct{}{}
+	return true
+}
+
+func (l *RuntimeLauncher) finishLaunch(runID uuid.UUID) {
+	l.launchesMu.Lock()
+	defer l.launchesMu.Unlock()
+	delete(l.launches, runID)
+}
+
+func (l *RuntimeLauncher) launchContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	base := context.Background()
+	if ctx != nil {
+		base = context.WithoutCancel(ctx)
+	}
+	if timeout <= 0 {
+		return base, func() {}
+	}
+	return context.WithTimeout(base, timeout)
+}
+
+func (l *RuntimeLauncher) publishLifecycleEvent(
+	ctx context.Context,
+	eventType provider.EventType,
+	state agentLifecycleState,
+	message string,
+	metadata map[string]any,
+	publishedAt time.Time,
+) {
+	if l == nil || state.agent == nil {
+		return
+	}
+
+	publishCtx, cancel := l.launchContext(ctx, l.eventTimeout)
+	defer cancel()
+	if err := publishAgentLifecycleEvent(
+		publishCtx,
+		l.client,
+		l.events,
+		eventType,
+		state,
+		message,
+		metadata,
+		publishedAt,
+	); err != nil {
+		l.logger.Warn(
+			"publish agent lifecycle",
+			"event_type", eventType.String(),
+			"agent_id", state.agent.ID,
+			"run_id", uuidPointerToString(lifecycleRunUUID(state)),
+			"error", err,
+		)
+	}
+}
+
+func lifecycleRunUUID(state agentLifecycleState) *uuid.UUID {
+	if state.run == nil {
+		return nil
+	}
+	value := state.run.ID
+	return &value
 }
 
 func stopSession(ctx context.Context, session *codex.Session) {

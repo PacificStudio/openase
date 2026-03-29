@@ -347,20 +347,22 @@ func (s *Session) Stop(ctx context.Context) error {
 	if s == nil {
 		return fmt.Errorf("session must not be nil")
 	}
-	if ctx == nil {
-		return fmt.Errorf("context must not be nil")
+	stopCtx, cancel, err := normalizeStopContext(ctx)
+	if err != nil {
+		return err
 	}
+	defer cancel()
 
 	s.stopRequested.Store(true)
-	if err := s.process.Stop(ctx); err != nil {
+	if err := s.process.Stop(stopCtx); err != nil {
 		return err
 	}
 
 	select {
 	case <-s.done:
 		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	case <-stopCtx.Done():
+		return stopCtx.Err()
 	}
 }
 
@@ -875,10 +877,18 @@ func (s *Session) stderrSuffix() string {
 }
 
 func (s *Session) stopWithTimeout() error {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultShutdownTimeout)
-	defer cancel()
+	return s.Stop(context.Background())
+}
 
-	return s.Stop(ctx)
+func normalizeStopContext(ctx context.Context) (context.Context, context.CancelFunc, error) {
+	if ctx == nil {
+		return nil, nil, fmt.Errorf("context must not be nil")
+	}
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}, nil
+	}
+	stopCtx, cancel := context.WithTimeout(ctx, defaultShutdownTimeout)
+	return stopCtx, cancel, nil
 }
 
 func turnErrorFromWire(value *wireTurnError) *TurnError {
