@@ -358,12 +358,15 @@ func (l *RuntimeLauncher) startCodexSessionWithTimeout(ctx context.Context, assi
 	}
 
 	resultCh := make(chan launchResult)
+	//nolint:gosec // launch timeout cleanup needs a detached stop context to reclaim late sessions safely.
 	go func() {
 		session, err := l.startCodexSession(launchCtx, assignment)
 		select {
 		case resultCh <- launchResult{session: session, err: err}:
 		case <-launchCtx.Done():
-			stopSession(context.Background(), session)
+			stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			defer stopCancel()
+			stopSession(stopCtx, session)
 		}
 	}()
 
