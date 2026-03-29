@@ -199,6 +199,7 @@ func TestRunningProcessStopKillsChildProcesses(t *testing.T) {
 	var childPID int
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
+		//nolint:gosec // Test reads a temp file path it created in the same function.
 		raw, readErr := os.ReadFile(childPIDPath)
 		if readErr == nil {
 			childPID, err = strconv.Atoi(strings.TrimSpace(string(raw)))

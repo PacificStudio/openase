@@ -887,6 +887,7 @@ func normalizeStopContext(ctx context.Context) (context.Context, context.CancelF
 	if _, ok := ctx.Deadline(); ok {
 		return ctx, func() {}, nil
 	}
+	//nolint:gosec // Cancel ownership is intentionally transferred to the caller via the returned cancel func.
 	stopCtx, cancel := context.WithTimeout(ctx, defaultShutdownTimeout)
 	return stopCtx, cancel, nil
 }

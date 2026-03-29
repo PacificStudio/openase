@@ -246,18 +246,6 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 	return nil
 }
 
-func (l *RuntimeLauncher) startLaunch(ctx context.Context, assignment runtimeAssignment) {
-	if l == nil || assignment.run == nil {
-		return
-	}
-	if !l.beginLaunch(assignment.run.ID) {
-		return
-	}
-
-	//nolint:gosec // Launching runs must not block later assignments in the orchestrator tick.
-	go l.runLaunch(ctx, assignment)
-}
-
 func (l *RuntimeLauncher) runLaunch(ctx context.Context, assignment runtimeAssignment) {
 	defer l.finishLaunch(assignment.run.ID)
 
@@ -1406,6 +1394,7 @@ func (l *RuntimeLauncher) launchContext(ctx context.Context, timeout time.Durati
 	if timeout <= 0 {
 		return base, func() {}
 	}
+	//nolint:gosec // Cancel ownership is intentionally transferred to callers of launchContext.
 	return context.WithTimeout(base, timeout)
 }
 

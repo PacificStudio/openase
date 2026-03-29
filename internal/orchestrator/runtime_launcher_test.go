@@ -2443,13 +2443,14 @@ func (m *runtimeSequencedProcessManager) Start(ctx context.Context, spec provide
 	callNumber := m.starts
 	m.mu.Unlock()
 
-	if callNumber == 1 {
+	switch callNumber {
+	case 1:
 		select {
 		case <-m.firstRelease:
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
-	} else if callNumber == 2 {
+	case 2:
 		select {
 		case <-m.secondStarted:
 		default:
