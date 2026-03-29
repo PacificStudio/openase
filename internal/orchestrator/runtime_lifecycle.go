@@ -139,43 +139,43 @@ func publishAgentLifecycleEvent(
 		return fmt.Errorf("agent lifecycle event requires an agent")
 	}
 
-	if events != nil {
-		event, err := provider.NewJSONEvent(
-			agentLifecycleTopic,
-			eventType,
-			agentLifecycleEnvelope{Agent: mapAgentLifecycleSnapshot(state)},
-			publishedAt,
-		)
+	var activityItem *ent.ActivityEvent
+	if client != nil {
+		activityCreate := client.ActivityEvent.Create().
+			SetProjectID(state.agent.ProjectID).
+			SetAgentID(state.agent.ID).
+			SetEventType(eventType.String()).
+			SetMessage(message).
+			SetMetadata(cloneLifecycleMetadata(metadata)).
+			SetCreatedAt(publishedAt.UTC())
+		if state.run != nil {
+			activityCreate.SetTicketID(state.run.TicketID)
+		}
+
+		item, err := activityCreate.Save(ctx)
 		if err != nil {
-			return fmt.Errorf("construct %s event: %w", eventType, err)
+			return fmt.Errorf("persist %s activity event: %w", eventType, err)
 		}
-		if err := events.Publish(ctx, event); err != nil {
-			return fmt.Errorf("publish %s event: %w", eventType, err)
-		}
-	}
-
-	if client == nil {
-		return nil
-	}
-
-	activityCreate := client.ActivityEvent.Create().
-		SetProjectID(state.agent.ProjectID).
-		SetAgentID(state.agent.ID).
-		SetEventType(eventType.String()).
-		SetMessage(message).
-		SetMetadata(cloneLifecycleMetadata(metadata)).
-		SetCreatedAt(publishedAt.UTC())
-	if state.run != nil {
-		activityCreate.SetTicketID(state.run.TicketID)
-	}
-
-	activityItem, err := activityCreate.
-		Save(ctx)
-	if err != nil {
-		return fmt.Errorf("persist %s activity event: %w", eventType, err)
+		activityItem = item
 	}
 
 	if events == nil {
+		return nil
+	}
+
+	event, err := provider.NewJSONEvent(
+		agentLifecycleTopic,
+		eventType,
+		agentLifecycleEnvelope{Agent: mapAgentLifecycleSnapshot(state)},
+		publishedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("construct %s event: %w", eventType, err)
+	}
+	if err := events.Publish(ctx, event); err != nil {
+		return fmt.Errorf("publish %s event: %w", eventType, err)
+	}
+	if activityItem == nil {
 		return nil
 	}
 

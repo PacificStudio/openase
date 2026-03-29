@@ -7,6 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -113,31 +116,14 @@ func TestManagerStartHonorsWorkingDirectoryAndEnvironment(t *testing.T) {
 	}
 }
 
-func TestManagerStartCancelsProcessViaContext(t *testing.T) {
+func TestManagerStartRejectsCanceledContext(t *testing.T) {
 	command := requirePOSIXShell(t)
 	manager := NewManager(ManagerOptions{StopGracePeriod: 50 * time.Millisecond})
 	ctx, cancel := context.WithCancel(context.Background())
-	spec := newShellSpec(t, command, "sleep 30")
-
-	process, err := manager.Start(ctx, spec)
-	if err != nil {
-		t.Fatalf("Start returned error: %v", err)
-	}
-
 	cancel()
 
-	waitDone := make(chan error, 1)
-	go func() {
-		waitDone <- process.Wait()
-	}()
-
-	select {
-	case err := <-waitDone:
-		if err == nil {
-			t.Fatal("expected Wait to fail after context cancellation")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("process did not exit after context cancellation")
+	if _, err := manager.Start(ctx, newShellSpec(t, command, "sleep 30")); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Start(canceled context) error = %v, want context.Canceled", err)
 	}
 }
 
@@ -161,6 +147,80 @@ func TestRunningProcessStopTerminatesRunningProcess(t *testing.T) {
 	if waitErr := process.Wait(); waitErr == nil {
 		t.Fatal("expected Wait to report a terminated process")
 	}
+}
+
+func TestManagerStartDoesNotTieProcessLifetimeToStartContext(t *testing.T) {
+	command := requirePOSIXShell(t)
+	manager := NewManager(ManagerOptions{StopGracePeriod: 200 * time.Millisecond})
+	ctx, cancel := context.WithCancel(context.Background())
+	spec := newShellSpec(t, command, "read line; printf '%s' \"$line\"; trap '' INT; sleep 30")
+
+	process, err := manager.Start(ctx, spec)
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	cancel()
+
+	if _, err := io.WriteString(process.Stdin(), "still-running\n"); err != nil {
+		t.Fatalf("WriteString(stdin) returned error after start context cancellation: %v", err)
+	}
+	if err := process.Stdin().Close(); err != nil {
+		t.Fatalf("Close(stdin) returned error: %v", err)
+	}
+
+	stdout, err := io.ReadAll(process.Stdout())
+	if err != nil {
+		t.Fatalf("ReadAll(stdout) returned error: %v", err)
+	}
+	if string(stdout) != "still-running" {
+		t.Fatalf("unexpected stdout after start context cancellation: %q", string(stdout))
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := process.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	_ = process.Wait()
+}
+
+func TestRunningProcessStopKillsChildProcesses(t *testing.T) {
+	command := requirePOSIXShell(t)
+	manager := NewManager(ManagerOptions{StopGracePeriod: 200 * time.Millisecond})
+	childPIDPath := t.TempDir() + "/child.pid"
+	spec := newShellSpec(t, command, "sh -c 'trap \"\" INT; sleep 30' & echo $! > '"+childPIDPath+"'; trap '' INT; while :; do sleep 1; done")
+
+	process, err := manager.Start(context.Background(), spec)
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	var childPID int
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		//nolint:gosec // Test reads a temp file path it created in the same function.
+		raw, readErr := os.ReadFile(childPIDPath)
+		if readErr == nil {
+			childPID, err = strconv.Atoi(strings.TrimSpace(string(raw)))
+			if err == nil && childPID > 0 {
+				break
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if childPID <= 0 {
+		t.Fatalf("expected child pid in %s, got %d", childPIDPath, childPID)
+	}
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := process.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	_ = process.Wait()
+
+	waitForProcessExit(t, childPID)
 }
 
 func TestManagerStartUsesStdinAndRejectsInvalidInputs(t *testing.T) {
@@ -335,7 +395,9 @@ func newTestShellCommand(t *testing.T, command string, script string) *exec.Cmd 
 	t.Helper()
 
 	//nolint:gosec // Tests intentionally execute the discovered local POSIX shell.
-	return exec.Command(command, "-c", script)
+	cmd := exec.Command(command, "-c", script)
+	configureProcessGroup(cmd)
+	return cmd
 }
 
 func newShellSpec(t *testing.T, command string, script string) provider.AgentCLIProcessSpec {
@@ -352,4 +414,19 @@ func newShellSpec(t *testing.T, command string, script string) provider.AgentCLI
 	}
 
 	return spec
+}
+
+func waitForProcessExit(t *testing.T, pid int) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		err := syscall.Kill(pid, syscall.Signal(0))
+		if errors.Is(err, syscall.ESRCH) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	t.Fatalf("process %d still exists after waiting for exit", pid)
 }
