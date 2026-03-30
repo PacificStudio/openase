@@ -77,11 +77,11 @@ func TestTicketCommentWorkpadCreatesAndUpdatesSingleComment(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests = append(requests, r.Method+" "+r.URL.RequestURI())
-		switch {
-		case r.Method == http.MethodGet:
+		switch r.Method {
+		case http.MethodGet:
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(listResponse))
-		case r.Method == http.MethodPost:
+		case http.MethodPost:
 			var payload map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 				t.Fatalf("Decode(create) error = %v", err)
@@ -90,7 +90,7 @@ func TestTicketCommentWorkpadCreatesAndUpdatesSingleComment(t *testing.T) {
 			listResponse = `{"comments":[{"id":"comment-1","body_markdown":"## Codex Workpad\n\nfirst pass","is_deleted":false}]}`
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"comment":{"id":"comment-1","body_markdown":"## Codex Workpad\n\nfirst pass"}}`))
-		case r.Method == http.MethodPatch:
+		case http.MethodPatch:
 			var payload map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 				t.Fatalf("Decode(update) error = %v", err)

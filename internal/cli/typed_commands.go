@@ -795,6 +795,7 @@ func readInputFile(path string) ([]byte, error) {
 	if path == "-" {
 		return io.ReadAll(os.Stdin)
 	}
+	// #nosec G304 -- CLI users explicitly choose the input file path.
 	body, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read input file %s: %w", path, err)
@@ -920,10 +921,7 @@ func buildOpenAPICommandContract(doc *openapi3.T, spec openAPICommandSpec) (open
 		mediaType := operation.RequestBody.Value.Content.Get("application/json")
 		if mediaType != nil && mediaType.Schema != nil && mediaType.Schema.Value != nil {
 			contract.hasBody = true
-			fields, required, err := openAPIFieldsFromSchema(mediaType.Schema.Value)
-			if err != nil {
-				return openAPICommandContract{}, fmt.Errorf("%s %s request body: %w", spec.Method, spec.Path, err)
-			}
+			fields, required := openAPIFieldsFromSchema(mediaType.Schema.Value)
 			contract.bodyFields = fields
 			contract.requiredBody = required
 		}
@@ -951,12 +949,12 @@ func openAPIFieldFromParameter(parameter *openapi3.Parameter) (openAPIInputField
 	}, nil
 }
 
-func openAPIFieldsFromSchema(schema *openapi3.Schema) ([]openAPIInputField, []string, error) {
+func openAPIFieldsFromSchema(schema *openapi3.Schema) ([]openAPIInputField, []string) {
 	if schema == nil {
-		return nil, nil, nil
+		return nil, nil
 	}
 	if !schema.Type.Is("object") {
-		return nil, nil, nil
+		return nil, nil
 	}
 	required := make(map[string]struct{}, len(schema.Required))
 	for _, name := range schema.Required {
@@ -984,7 +982,7 @@ func openAPIFieldsFromSchema(schema *openapi3.Schema) ([]openAPIInputField, []st
 	requiredNames := make([]string, 0, len(schema.Required))
 	requiredNames = append(requiredNames, schema.Required...)
 	sort.Strings(requiredNames)
-	return fields, requiredNames, nil
+	return fields, requiredNames
 }
 
 func schemaKind(schema *openapi3.SchemaRef) (flagValueKind, error) {
