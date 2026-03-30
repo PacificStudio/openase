@@ -4,10 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"net"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -17,7 +13,6 @@ import (
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
 )
 
@@ -123,31 +118,8 @@ func TestIssueAgentTokenCommandOutputsShellExports(t *testing.T) {
 func openCLIEntClient(t *testing.T) (*ent.Client, string) {
 	t.Helper()
 
-	port, err := getFreePort()
-	if err != nil {
-		t.Fatalf("get free port: %v", err)
-	}
-
-	dataDir := filepath.Join(t.TempDir(), "pgdata")
-	pg := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(port).
-			Database("openase").
-			Username("postgres").
-			Password("postgres").
-			DataPath(dataDir),
-	)
-	if err := pg.Start(); err != nil {
-		t.Fatalf("start embedded postgres: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := pg.Stop(); err != nil {
-			t.Errorf("stop embedded postgres: %v", err)
-		}
-	})
-
-	dsn := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/openase?sslmode=disable", port)
+	databaseInfo := testPostgres.NewIsolatedDatabase(t)
+	dsn := databaseInfo.DSN
 	client, err := ent.Open("postgres", dsn)
 	if err != nil {
 		t.Fatalf("open ent client: %v", err)
@@ -238,30 +210,4 @@ func findCLIStatusIDByName(t *testing.T, statuses []ticketstatus.Status, want st
 
 	t.Fatalf("status %q not found in %+v", want, statuses)
 	return uuid.Nil
-}
-
-func getFreePort() (uint32, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		_ = listener.Close()
-	}()
-
-	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
-	if !ok {
-		return 0, fmt.Errorf("listener address %T is not TCP", listener.Addr())
-	}
-
-	if tcpAddr.Port < 0 {
-		return 0, fmt.Errorf("listener port %d is negative", tcpAddr.Port)
-	}
-
-	port, err := strconv.ParseUint(strconv.Itoa(tcpAddr.Port), 10, 32)
-	if err != nil {
-		return 0, fmt.Errorf("parse listener port %d: %w", tcpAddr.Port, err)
-	}
-
-	return uint32(port), nil
 }

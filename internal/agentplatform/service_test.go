@@ -2,14 +2,9 @@ package agentplatform
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"fmt"
 	"io"
-	"math"
-	"net"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -17,65 +12,17 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/internal/testutil/pgtest"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
-	_ "github.com/lib/pq"
 )
 
-var (
-	testPostgres     *embeddedpostgres.EmbeddedPostgres
-	testPostgresPort uint32
-)
+var testPostgres *pgtest.Server
 
 func TestMain(m *testing.M) {
-	port, err := freeTCPPort()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "allocate free port: %v\n", err)
-		os.Exit(1)
-	}
-
-	dataDir, err := os.MkdirTemp("", "agentplatform-postgres-*")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "create embedded postgres temp dir: %v\n", err)
-		os.Exit(1)
-	}
-
-	testPostgresPort = port
-	testPostgres = embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(port).
-			Username("postgres").
-			Password("postgres").
-			Database("postgres").
-			RuntimePath(filepath.Join(dataDir, "runtime")).
-			BinariesPath(filepath.Join(dataDir, "binaries")).
-			DataPath(filepath.Join(dataDir, "data")),
-	)
-
-	if err := testPostgres.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "start embedded postgres: %v\n", err)
-		_ = os.RemoveAll(dataDir)
-		os.Exit(1)
-	}
-
-	exitCode := m.Run()
-
-	if err := testPostgres.Stop(); err != nil {
-		fmt.Fprintf(os.Stderr, "stop embedded postgres: %v\n", err)
-		if exitCode == 0 {
-			exitCode = 1
-		}
-	}
-	if err := os.RemoveAll(dataDir); err != nil {
-		fmt.Fprintf(os.Stderr, "remove embedded postgres temp dir: %v\n", err)
-		if exitCode == 0 {
-			exitCode = 1
-		}
-	}
-
-	os.Exit(exitCode)
+	os.Exit(pgtest.RunTestMain(m, "agentplatform", func(server *pgtest.Server) {
+		testPostgres = server
+	}))
 }
 
 func TestIssueAndAuthenticateToken(t *testing.T) {
@@ -504,93 +451,7 @@ func seedAgentPlatformFixture(ctx context.Context, t *testing.T, client *ent.Cli
 func openTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
-	dbName := "openase_agentplatform_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	adminDB := openAdminDB(t)
-	if _, err := adminDB.ExecContext(context.Background(), "CREATE DATABASE "+dbName); err != nil {
-		t.Fatalf("create test database %s: %v", dbName, err)
-	}
-	t.Cleanup(func() {
-		terminateConnections(t, adminDB, dbName)
-		if _, err := adminDB.ExecContext(context.Background(), "DROP DATABASE IF EXISTS "+dbName); err != nil {
-			t.Errorf("drop test database %s: %v", dbName, err)
-		}
-		if err := adminDB.Close(); err != nil {
-			t.Errorf("close admin db handle: %v", err)
-		}
-	})
-
-	dsn := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/%s?sslmode=disable", testPostgresPort, dbName)
-	client, err := ent.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("open ent client: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close ent client: %v", err)
-		}
-	})
-
-	if err := client.Schema.Create(context.Background()); err != nil {
-		t.Fatalf("create schema: %v", err)
-	}
-	return client
-}
-
-func freePort(t *testing.T) uint32 {
-	t.Helper()
-
-	port, err := freeTCPPort()
-	if err != nil {
-		t.Fatalf("allocate free port: %v", err)
-	}
-	return port
-}
-
-func freeTCPPort() (uint32, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-
-	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
-	if !ok {
-		_ = listener.Close()
-		return 0, fmt.Errorf("expected TCP address, got %T", listener.Addr())
-	}
-	if err := listener.Close(); err != nil {
-		return 0, fmt.Errorf("close listener: %w", err)
-	}
-	if tcpAddr.Port < 0 || tcpAddr.Port > math.MaxUint16 {
-		return 0, fmt.Errorf("expected TCP port in uint16 range, got %d", tcpAddr.Port)
-	}
-	return uint32(tcpAddr.Port), nil //nolint:gosec // validated above to fit the TCP port range
-}
-
-func openAdminDB(t *testing.T) *sql.DB {
-	t.Helper()
-
-	dsn := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/postgres?sslmode=disable", testPostgresPort)
-	db, err := sql.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("open admin db: %v", err)
-	}
-	if err := db.PingContext(context.Background()); err != nil {
-		_ = db.Close()
-		t.Fatalf("ping admin db: %v", err)
-	}
-	return db
-}
-
-func terminateConnections(t *testing.T, adminDB *sql.DB, dbName string) {
-	t.Helper()
-
-	if _, err := adminDB.ExecContext(
-		context.Background(),
-		"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()",
-		dbName,
-	); err != nil {
-		t.Errorf("terminate db connections for %s: %v", dbName, err)
-	}
+	return testPostgres.NewIsolatedEntClient(t)
 }
 
 func findStatusIDByName(t *testing.T, statuses []ticketstatus.Status, name string) uuid.UUID {

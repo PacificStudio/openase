@@ -5,9 +5,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"net"
-	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -16,7 +13,6 @@ import (
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
 )
 
@@ -386,61 +382,5 @@ func seedScheduledJobFixture(ctx context.Context, t *testing.T, client *ent.Clie
 func openScheduledJobTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
-	port := freeScheduledJobPort(t)
-	dataDir := t.TempDir()
-	pg := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(port).
-			Username("postgres").
-			Password("postgres").
-			Database("openase").
-			RuntimePath(filepath.Join(dataDir, "runtime")).
-			BinariesPath(filepath.Join(dataDir, "binaries")).
-			DataPath(filepath.Join(dataDir, "data")),
-	)
-	if err := pg.Start(); err != nil {
-		t.Fatalf("start embedded postgres: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := pg.Stop(); err != nil {
-			t.Errorf("stop embedded postgres: %v", err)
-		}
-	})
-
-	dsn := "postgres://postgres:postgres@127.0.0.1:" + strconv.Itoa(int(port)) + "/openase?sslmode=disable"
-	client, err := ent.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("open ent client: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close ent client: %v", err)
-		}
-	})
-	if err := client.Schema.Create(context.Background()); err != nil {
-		t.Fatalf("create schema: %v", err)
-	}
-
-	return client
-}
-
-func freeScheduledJobPort(t *testing.T) uint32 {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen for free port: %v", err)
-	}
-	defer func() {
-		_ = listener.Close()
-	}()
-
-	port := listener.Addr().(*net.TCPAddr).Port
-	parsed, err := strconv.ParseUint(strconv.Itoa(port), 10, 32)
-	if err != nil {
-		t.Fatalf("parse free port %d: %v", port, err)
-	}
-
-	return uint32(parsed)
+	return testPostgres.NewIsolatedEntClient(t)
 }

@@ -5,11 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,7 +16,6 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 )
 
 func TestAppNewProvidesTelemetryDefaults(t *testing.T) {
@@ -600,29 +597,7 @@ func (p *sequenceAppEventProvider) Close() error {
 func openAppTestDSN(t *testing.T) string {
 	t.Helper()
 
-	port := freeAppPort(t)
-	dataDir := t.TempDir()
-	pg := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(port).
-			Username("postgres").
-			Password("postgres").
-			Database("openase").
-			RuntimePath(filepath.Join(dataDir, "runtime")).
-			BinariesPath(filepath.Join(dataDir, "binaries")).
-			DataPath(filepath.Join(dataDir, "data")),
-	)
-	if err := pg.Start(); err != nil {
-		t.Fatalf("start embedded postgres: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := pg.Stop(); err != nil {
-			t.Errorf("stop embedded postgres: %v", err)
-		}
-	})
-
-	return fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/openase?sslmode=disable", port)
+	return testPostgres.NewIsolatedDatabase(t).DSN
 }
 
 func freeAppPort(t *testing.T) uint32 {

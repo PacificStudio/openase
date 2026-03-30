@@ -2,16 +2,14 @@ package setup
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
+	"github.com/BetterAndBetterII/openase/internal/testutil/pgtest"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -20,7 +18,8 @@ import (
 func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	t.Parallel()
 
-	dsn := openSetupTestDSN(t)
+	databaseInfo := openSetupTestDatabase(t)
+	dsn := databaseInfo.DSN
 	ctx := context.Background()
 
 	connector := runtimeDatabaseConnector{}
@@ -70,8 +69,8 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 		Mode: ModeTeam,
 		Database: DatabaseConfig{
 			Host:     "127.0.0.1",
-			Port:     setupTestPortFromDSN(t, dsn),
-			Name:     "openase",
+			Port:     int(databaseInfo.Port),
+			Name:     databaseInfo.Name,
 			User:     "postgres",
 			Password: "postgres",
 			SSLMode:  "disable",
@@ -158,50 +157,8 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	}
 }
 
-func openSetupTestDSN(t *testing.T) string {
+func openSetupTestDatabase(t *testing.T) pgtest.Database {
 	t.Helper()
 
-	port := freeSetupPort(t)
-	dataDir := t.TempDir()
-	pg := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(mustUint32Port(t, port)).
-			Username("postgres").
-			Password("postgres").
-			Database("openase").
-			RuntimePath(filepath.Join(dataDir, "runtime")).
-			BinariesPath(filepath.Join(dataDir, "binaries")).
-			DataPath(filepath.Join(dataDir, "data")),
-	)
-	if err := pg.Start(); err != nil {
-		t.Fatalf("start embedded postgres: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := pg.Stop(); err != nil {
-			t.Errorf("stop embedded postgres: %v", err)
-		}
-	})
-
-	return fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/openase?sslmode=disable", port)
-}
-
-func mustUint32Port(t *testing.T, port int) uint32 {
-	t.Helper()
-
-	parsed, err := strconv.ParseUint(strconv.Itoa(port), 10, 32)
-	if err != nil {
-		t.Fatalf("parse port %d: %v", port, err)
-	}
-	return uint32(parsed)
-}
-
-func setupTestPortFromDSN(t *testing.T, dsn string) int {
-	t.Helper()
-
-	var port int
-	if _, err := fmt.Sscanf(dsn, "postgres://postgres:postgres@127.0.0.1:%d/openase?sslmode=disable", &port); err != nil {
-		t.Fatalf("parse test dsn %q: %v", dsn, err)
-	}
-	return port
+	return testPostgres.NewIsolatedDatabase(t)
 }

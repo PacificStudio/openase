@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -24,7 +22,6 @@ import (
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
 )
@@ -1205,43 +1202,7 @@ func newWorkflowTestService(t *testing.T, client *ent.Client, repoRoot string) *
 func openWorkflowTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
-	port := freeWorkflowPort(t)
-	dataDir := t.TempDir()
-	pg := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(port).
-			Username("postgres").
-			Password("postgres").
-			Database("openase").
-			RuntimePath(filepath.Join(dataDir, "runtime")).
-			BinariesPath(filepath.Join(dataDir, "binaries")).
-			DataPath(filepath.Join(dataDir, "data")),
-	)
-	if err := pg.Start(); err != nil {
-		t.Fatalf("start embedded postgres: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := pg.Stop(); err != nil {
-			t.Errorf("stop embedded postgres: %v", err)
-		}
-	})
-
-	dsn := "postgres://postgres:postgres@127.0.0.1:" + strconv.Itoa(int(port)) + "/openase?sslmode=disable"
-	client, err := ent.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("open ent client: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close ent client: %v", err)
-		}
-	})
-	if err := client.Schema.Create(context.Background()); err != nil {
-		t.Fatalf("create schema: %v", err)
-	}
-
-	return client
+	return testPostgres.NewIsolatedEntClient(t)
 }
 
 func createWorkflowTestGitRepo(t *testing.T) string {
@@ -1253,26 +1214,6 @@ func createWorkflowTestGitRepo(t *testing.T) string {
 	}
 
 	return repoRoot
-}
-
-func freeWorkflowPort(t *testing.T) uint32 {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen for free port: %v", err)
-	}
-	defer func() {
-		_ = listener.Close()
-	}()
-
-	port := listener.Addr().(*net.TCPAddr).Port
-	parsed, err := strconv.ParseUint(strconv.Itoa(port), 10, 32)
-	if err != nil {
-		t.Fatalf("parse free port %d: %v", port, err)
-	}
-
-	return uint32(parsed)
 }
 
 func mustReadWorkflowFile(t *testing.T, path string) string {

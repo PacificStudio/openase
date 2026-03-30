@@ -2,11 +2,7 @@ package ticket
 
 import (
 	"context"
-	"fmt"
 	"math"
-	"net"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -14,7 +10,6 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
 )
 
@@ -310,65 +305,5 @@ func findStatusIDByName(t *testing.T, items []ticketstatus.Status, want string) 
 func openTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
-	port := freePort(t)
-	dataDir := t.TempDir()
-	pg := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(port).
-			Username("postgres").
-			Password("postgres").
-			Database("openase").
-			RuntimePath(filepath.Join(dataDir, "runtime")).
-			BinariesPath(filepath.Join(dataDir, "binaries")).
-			DataPath(filepath.Join(dataDir, "data")),
-	)
-	if err := pg.Start(); err != nil {
-		t.Fatalf("start embedded postgres: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := pg.Stop(); err != nil {
-			t.Errorf("stop embedded postgres: %v", err)
-		}
-	})
-
-	dsn := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/openase?sslmode=disable", port)
-	client, err := ent.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("open ent client: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close ent client: %v", err)
-		}
-	})
-	if err := client.Schema.Create(context.Background()); err != nil {
-		t.Fatalf("create schema: %v", err)
-	}
-
-	return client
-}
-
-func freePort(t *testing.T) uint32 {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen for free port: %v", err)
-	}
-	defer func() {
-		_ = listener.Close()
-	}()
-
-	port := listener.Addr().(*net.TCPAddr).Port
-	if port < 0 || port > 65535 {
-		t.Fatalf("listener returned out-of-range port: %d", port)
-	}
-
-	parsed, err := strconv.ParseUint(strconv.Itoa(port), 10, 32)
-	if err != nil {
-		t.Fatalf("parse free port %d: %v", port, err)
-	}
-
-	return uint32(parsed)
+	return testPostgres.NewIsolatedEntClient(t)
 }

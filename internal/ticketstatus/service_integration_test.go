@@ -3,11 +3,6 @@ package ticketstatus
 import (
 	"context"
 	"errors"
-	"fmt"
-	"math"
-	"net"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -18,7 +13,6 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
 )
 
@@ -536,67 +530,7 @@ func TestTicketStatusServiceMissingProjectAndEmptyBackfillPaths(t *testing.T) {
 func openTicketStatusTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
-	port := freeTicketStatusPort(t)
-	dataDir := t.TempDir()
-	pg := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(port).
-			Username("postgres").
-			Password("postgres").
-			Database("openase").
-			RuntimePath(filepath.Join(dataDir, "runtime")).
-			BinariesPath(filepath.Join(dataDir, "binaries")).
-			DataPath(filepath.Join(dataDir, "data")),
-	)
-	if err := pg.Start(); err != nil {
-		t.Fatalf("start embedded postgres: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := pg.Stop(); err != nil {
-			t.Errorf("stop embedded postgres: %v", err)
-		}
-	})
-
-	dsn := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/openase?sslmode=disable", port)
-	client, err := ent.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("open ent client: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close ent client: %v", err)
-		}
-	})
-
-	if err := client.Schema.Create(context.Background()); err != nil {
-		t.Fatalf("create schema: %v", err)
-	}
-	return client
-}
-
-func freeTicketStatusPort(t *testing.T) uint32 {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("allocate free port: %v", err)
-	}
-	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
-	if !ok {
-		t.Fatalf("expected TCP address, got %T", listener.Addr())
-	}
-	if err := listener.Close(); err != nil {
-		t.Fatalf("close listener: %v", err)
-	}
-	if tcpAddr.Port < 0 || tcpAddr.Port > math.MaxUint16 {
-		t.Fatalf("expected TCP port in uint16 range, got %d", tcpAddr.Port)
-	}
-	parsed, err := strconv.ParseUint(strconv.Itoa(tcpAddr.Port), 10, 32)
-	if err != nil {
-		t.Fatalf("parse TCP port %d: %v", tcpAddr.Port, err)
-	}
-	return uint32(parsed)
+	return testPostgres.NewIsolatedEntClient(t)
 }
 
 func seedTicketStatusProject(ctx context.Context, t *testing.T, client *ent.Client) uuid.UUID {
