@@ -9,11 +9,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
+
+const codexWorkpadHeading = "## Codex Workpad"
 
 type platformHTTPDoer interface {
 	Do(*http.Request) (*http.Response, error)
@@ -84,6 +87,26 @@ type ticketReportUsageInput struct {
 	costUSDSet      bool
 }
 
+type ticketCommentListInput struct {
+	ticketID string
+}
+
+type ticketCommentCreateInput struct {
+	ticketID string
+	body     string
+}
+
+type ticketCommentUpdateInput struct {
+	ticketID  string
+	commentID string
+	body      string
+}
+
+type ticketCommentWorkpadInput struct {
+	ticketID string
+	body     string
+}
+
 type projectUpdateInput struct {
 	projectID   string
 	description string
@@ -117,6 +140,7 @@ func newTicketCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	bindPlatformFlags(command.PersistentFlags(), &options.rawPlatformContext)
 	command.AddCommand(newTicketListCommand(options, client))
 	command.AddCommand(newTicketCreateCommand(options, client))
+	command.AddCommand(newTicketCommentCommand(options, client))
 	command.AddCommand(newTicketReportUsageCommand(options, client))
 	command.AddCommand(newTicketUpdateCommand(options, client))
 
@@ -139,6 +163,19 @@ func newProjectCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	bindPlatformFlags(command.PersistentFlags(), &options.rawPlatformContext)
 	command.AddCommand(newProjectUpdateCommand(options, client))
 	command.AddCommand(newProjectAddRepoCommand(options, client))
+
+	return command
+}
+
+func newTicketCommentCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
+	command := &cobra.Command{
+		Use:   "comment",
+		Short: "Operate on comments for the current ticket.",
+	}
+
+	command.AddCommand(newTicketCommentListCommand(options, client))
+	command.AddCommand(newTicketCommentCreateCommand(options, client))
+	command.AddCommand(newTicketCommentWorkpadCommand(options, client))
 
 	return command
 }
@@ -182,6 +219,115 @@ func newTicketListCommand(options *ticketCommandOptions, client platformClient) 
 
 	command.Flags().StringSliceVar(&statusNames, "status-name", nil, "Filter by one or more status names.")
 	command.Flags().StringSliceVar(&priorities, "priority", nil, "Filter by one or more priorities.")
+
+	return command
+}
+
+func newTicketCommentListCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
+	command := &cobra.Command{
+		Use:   "list [ticket-id]",
+		Short: "List comments for the current ticket.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			platform, err := options.resolve()
+			if err != nil {
+				return err
+			}
+
+			input, err := platform.parseTicketCommentListInput(ticketCommentListInput{
+				ticketID: firstNonEmpty(firstArg(args), options.ticketID),
+			})
+			if err != nil {
+				return err
+			}
+
+			body, err := client.listTicketComments(cmd.Context(), platform, input)
+			if err != nil {
+				return err
+			}
+			return writePrettyJSON(cmd.OutOrStdout(), body)
+		},
+	}
+
+	return command
+}
+
+func newTicketCommentCreateCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
+	var body string
+	var bodyFile string
+
+	command := &cobra.Command{
+		Use:   "create [ticket-id]",
+		Short: "Create a comment on the current ticket.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			platform, err := options.resolve()
+			if err != nil {
+				return err
+			}
+
+			commentBody, err := resolveCommentBody(body, bodyFile)
+			if err != nil {
+				return err
+			}
+			input, err := platform.parseTicketCommentCreateInput(ticketCommentCreateInput{
+				ticketID: firstNonEmpty(firstArg(args), options.ticketID),
+				body:     commentBody,
+			})
+			if err != nil {
+				return err
+			}
+
+			responseBody, err := client.createTicketComment(cmd.Context(), platform, input)
+			if err != nil {
+				return err
+			}
+			return writePrettyJSON(cmd.OutOrStdout(), responseBody)
+		},
+	}
+
+	command.Flags().StringVar(&body, "body", "", "Comment markdown body.")
+	command.Flags().StringVar(&bodyFile, "body-file", "", "Read comment markdown from a file. Use '-' for stdin.")
+
+	return command
+}
+
+func newTicketCommentWorkpadCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
+	var body string
+	var bodyFile string
+
+	command := &cobra.Command{
+		Use:   "workpad [ticket-id]",
+		Short: "Create or update the persistent ## Codex Workpad comment on the current ticket.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			platform, err := options.resolve()
+			if err != nil {
+				return err
+			}
+
+			commentBody, err := resolveCommentBody(body, bodyFile)
+			if err != nil {
+				return err
+			}
+			input, err := platform.parseTicketCommentWorkpadInput(ticketCommentWorkpadInput{
+				ticketID: firstNonEmpty(firstArg(args), options.ticketID),
+				body:     commentBody,
+			})
+			if err != nil {
+				return err
+			}
+
+			responseBody, err := client.upsertTicketWorkpad(cmd.Context(), platform, input)
+			if err != nil {
+				return err
+			}
+			return writePrettyJSON(cmd.OutOrStdout(), responseBody)
+		},
+	}
+
+	command.Flags().StringVar(&body, "body", "", "Workpad markdown body. The command will add the heading if missing.")
+	command.Flags().StringVar(&bodyFile, "body-file", "", "Read workpad markdown from a file. Use '-' for stdin.")
 
 	return command
 }
@@ -551,6 +697,62 @@ func (platform platformContext) parseTicketReportUsageInput(raw ticketReportUsag
 	}, nil
 }
 
+func (platform platformContext) parseTicketCommentListInput(raw ticketCommentListInput) (ticketCommentListInput, error) {
+	ticketID := strings.TrimSpace(firstNonEmpty(raw.ticketID, platform.ticketID))
+	if ticketID == "" {
+		return ticketCommentListInput{}, fmt.Errorf("ticket id is required via positional argument, --ticket-id, or OPENASE_TICKET_ID")
+	}
+
+	return ticketCommentListInput{ticketID: ticketID}, nil
+}
+
+func (platform platformContext) parseTicketCommentCreateInput(raw ticketCommentCreateInput) (ticketCommentCreateInput, error) {
+	ticketID := strings.TrimSpace(firstNonEmpty(raw.ticketID, platform.ticketID))
+	if ticketID == "" {
+		return ticketCommentCreateInput{}, fmt.Errorf("ticket id is required via positional argument, --ticket-id, or OPENASE_TICKET_ID")
+	}
+	body := strings.TrimSpace(raw.body)
+	if body == "" {
+		return ticketCommentCreateInput{}, fmt.Errorf("comment body must not be empty")
+	}
+
+	return ticketCommentCreateInput{ticketID: ticketID, body: body}, nil
+}
+
+func (platform platformContext) parseTicketCommentUpdateInput(raw ticketCommentUpdateInput) (ticketCommentUpdateInput, error) {
+	ticketID := strings.TrimSpace(firstNonEmpty(raw.ticketID, platform.ticketID))
+	if ticketID == "" {
+		return ticketCommentUpdateInput{}, fmt.Errorf("ticket id is required via --ticket-id or OPENASE_TICKET_ID")
+	}
+	commentID := strings.TrimSpace(raw.commentID)
+	if commentID == "" {
+		return ticketCommentUpdateInput{}, fmt.Errorf("comment id must not be empty")
+	}
+	body := strings.TrimSpace(raw.body)
+	if body == "" {
+		return ticketCommentUpdateInput{}, fmt.Errorf("comment body must not be empty")
+	}
+
+	return ticketCommentUpdateInput{
+		ticketID:  ticketID,
+		commentID: commentID,
+		body:      body,
+	}, nil
+}
+
+func (platform platformContext) parseTicketCommentWorkpadInput(raw ticketCommentWorkpadInput) (ticketCommentWorkpadInput, error) {
+	ticketID := strings.TrimSpace(firstNonEmpty(raw.ticketID, platform.ticketID))
+	if ticketID == "" {
+		return ticketCommentWorkpadInput{}, fmt.Errorf("ticket id is required via positional argument, --ticket-id, or OPENASE_TICKET_ID")
+	}
+	body := normalizeWorkpadBody(raw.body)
+	if body == "" {
+		return ticketCommentWorkpadInput{}, fmt.Errorf("workpad body must not be empty")
+	}
+
+	return ticketCommentWorkpadInput{ticketID: ticketID, body: body}, nil
+}
+
 func (platform platformContext) parseProjectUpdateInput(raw projectUpdateInput) (projectUpdateInput, error) {
 	projectID := strings.TrimSpace(firstNonEmpty(raw.projectID, platform.projectID))
 	if projectID == "" {
@@ -638,6 +840,69 @@ func (client platformClient) createTicket(ctx context.Context, platform platform
 	}
 
 	return client.doJSON(ctx, platform, http.MethodPost, "/projects/"+url.PathEscape(input.projectID)+"/tickets", payload)
+}
+
+func (client platformClient) listTicketComments(ctx context.Context, platform platformContext, input ticketCommentListInput) ([]byte, error) {
+	return client.doJSON(ctx, platform, http.MethodGet, "/tickets/"+url.PathEscape(input.ticketID)+"/comments", nil)
+}
+
+func (client platformClient) createTicketComment(ctx context.Context, platform platformContext, input ticketCommentCreateInput) ([]byte, error) {
+	return client.doJSON(ctx, platform, http.MethodPost, "/tickets/"+url.PathEscape(input.ticketID)+"/comments", map[string]any{
+		"body": input.body,
+	})
+}
+
+func (client platformClient) updateTicketComment(ctx context.Context, platform platformContext, input ticketCommentUpdateInput) ([]byte, error) {
+	return client.doJSON(
+		ctx,
+		platform,
+		http.MethodPatch,
+		"/tickets/"+url.PathEscape(input.ticketID)+"/comments/"+url.PathEscape(input.commentID),
+		map[string]any{"body": input.body},
+	)
+}
+
+func (client platformClient) upsertTicketWorkpad(ctx context.Context, platform platformContext, input ticketCommentWorkpadInput) ([]byte, error) {
+	listPayload, err := client.listTicketComments(ctx, platform, ticketCommentListInput{ticketID: input.ticketID})
+	if err != nil {
+		return nil, err
+	}
+
+	type ticketCommentSummary struct {
+		ID   string `json:"id"`
+		Body string `json:"body"`
+	}
+	type ticketCommentListResponse struct {
+		Comments []ticketCommentSummary `json:"comments"`
+	}
+
+	var existing ticketCommentListResponse
+	if err := json.Unmarshal(listPayload, &existing); err != nil {
+		return nil, fmt.Errorf("parse ticket comment list response: %w", err)
+	}
+
+	for _, comment := range existing.Comments {
+		if isCodexWorkpadComment(comment.Body) {
+			updated, updateErr := platform.parseTicketCommentUpdateInput(ticketCommentUpdateInput{
+				ticketID:  input.ticketID,
+				commentID: comment.ID,
+				body:      input.body,
+			})
+			if updateErr != nil {
+				return nil, updateErr
+			}
+			return client.updateTicketComment(ctx, platform, updated)
+		}
+	}
+
+	created, err := platform.parseTicketCommentCreateInput(ticketCommentCreateInput{
+		ticketID: input.ticketID,
+		body:     input.body,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return client.createTicketComment(ctx, platform, created)
 }
 
 func (client platformClient) updateTicket(ctx context.Context, platform platformContext, input ticketUpdateInput) ([]byte, error) {
@@ -800,4 +1065,53 @@ func float64PointerWhen(enabled bool, value float64) *float64 {
 	}
 
 	return &value
+}
+
+func resolveCommentBody(body string, bodyFile string) (string, error) {
+	if strings.TrimSpace(body) != "" && strings.TrimSpace(bodyFile) != "" {
+		return "", fmt.Errorf("body and body-file cannot be used together")
+	}
+	if strings.TrimSpace(body) != "" {
+		return strings.TrimSpace(body), nil
+	}
+
+	file := strings.TrimSpace(bodyFile)
+	if file == "" {
+		return "", fmt.Errorf("either --body or --body-file is required")
+	}
+	if file == "-" {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return "", fmt.Errorf("read comment body from stdin: %w", err)
+		}
+		return strings.TrimSpace(string(data)), nil
+	}
+
+	data, err := os.ReadFile(filepath.Clean(file))
+	if err != nil {
+		return "", fmt.Errorf("read comment body from %s: %w", file, err)
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
+func normalizeWorkpadBody(body string) string {
+	trimmed := strings.TrimSpace(body)
+	if trimmed == "" {
+		return ""
+	}
+	if isCodexWorkpadComment(trimmed) {
+		return trimmed
+	}
+	return codexWorkpadHeading + "\n\n" + trimmed
+}
+
+func isCodexWorkpadComment(body string) bool {
+	for _, line := range strings.Split(body, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		return trimmed == codexWorkpadHeading
+	}
+	return false
 }
