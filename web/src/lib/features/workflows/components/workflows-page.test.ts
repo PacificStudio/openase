@@ -1,0 +1,213 @@
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import type { Organization, Project } from '$lib/api/contracts'
+import { appStore } from '$lib/stores/app.svelte'
+import WorkflowsPage from './workflows-page.svelte'
+
+const {
+  loadWorkflowPageData,
+  loadWorkflowHarness,
+  saveWorkflowHarness,
+  validateHarness,
+  bindWorkflowSkills,
+  unbindWorkflowSkills,
+} = vi.hoisted(() => ({
+  loadWorkflowPageData: vi.fn(),
+  loadWorkflowHarness: vi.fn(),
+  saveWorkflowHarness: vi.fn(),
+  validateHarness: vi.fn(),
+  bindWorkflowSkills: vi.fn(),
+  unbindWorkflowSkills: vi.fn(),
+}))
+
+vi.mock('../data', () => ({
+  loadWorkflowPageData,
+  loadWorkflowHarness,
+}))
+
+vi.mock('$lib/api/openase', () => ({
+  saveWorkflowHarness,
+  validateHarness,
+  bindWorkflowSkills,
+  unbindWorkflowSkills,
+}))
+
+const { toastStore } = vi.hoisted(() => ({
+  toastStore: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}))
+
+vi.mock('$lib/stores/toast.svelte', () => ({
+  toastStore,
+}))
+
+vi.mock('./harness-ai-sidebar.svelte', () => ({
+  default: vi.fn(),
+}))
+
+vi.mock('./workflow-creation-dialog.svelte', () => ({
+  default: vi.fn(),
+}))
+
+const orgFixture: Organization = {
+  id: 'org-1',
+  name: 'Acme',
+  slug: 'acme',
+  status: 'active',
+  default_agent_provider_id: null,
+}
+
+const projectFixture: Project = {
+  id: 'project-1',
+  organization_id: 'org-1',
+  name: 'TestProject',
+  slug: 'test-project',
+  description: '',
+  status: 'active',
+  default_workflow_id: null,
+  default_agent_provider_id: null,
+  accessible_machine_ids: [],
+  max_concurrent_agents: 4,
+}
+
+const pageDataFixture = {
+  prerequisite: { kind: 'ready' as const },
+  workflows: [
+    {
+      id: 'wf-1',
+      name: 'Coding Workflow',
+      type: 'coding',
+      agentId: 'agent-1',
+      harnessPath: '.openase/harnesses/coding.md',
+      pickupStatusIds: ['todo'],
+      pickupStatusLabel: 'To Do',
+      finishStatusIds: ['done'],
+      finishStatusLabel: 'Done',
+      maxConcurrent: 1,
+      maxRetry: 1,
+      timeoutMinutes: 30,
+      stallTimeoutMinutes: 10,
+      isActive: true,
+      lastModified: '2026-03-28T12:00:00Z',
+      recentSuccessRate: 85,
+      version: 3,
+    },
+  ],
+  selectedWorkflowId: 'wf-1',
+  agentOptions: [],
+  providers: [],
+  skillStates: [{ name: 'lint', description: 'Run linters', path: 'skills/lint', bound: false }],
+  builtinRoleContent: '',
+  statuses: [
+    { id: 'todo', name: 'To Do' },
+    { id: 'done', name: 'Done' },
+  ],
+  variableGroups: [],
+  harness: {
+    frontmatter: 'type: coding',
+    body: 'You are a coding assistant.',
+    rawContent: '---\ntype: coding\n---\nYou are a coding assistant.',
+  },
+}
+
+describe('WorkflowsPage', () => {
+  afterEach(() => {
+    cleanup()
+    appStore.currentOrg = null
+    appStore.currentProject = null
+    vi.clearAllMocks()
+  })
+
+  it('renders the workflows page and loads data', async () => {
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadWorkflowPageData.mockResolvedValue(pageDataFixture)
+
+    const { findAllByText, findByText } = render(WorkflowsPage)
+
+    // "Coding Workflow" appears in both the list and editor toolbar
+    expect((await findAllByText('Coding Workflow')).length).toBeGreaterThanOrEqual(1)
+    expect(await findByText('Validate')).toBeTruthy()
+  })
+
+  it('updates harness content after successful skill bind', async () => {
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadWorkflowPageData.mockResolvedValue(pageDataFixture)
+
+    const updatedContent = '---\ntype: coding\nskills:\n  - lint\n---\nYou are a coding assistant.'
+    bindWorkflowSkills.mockResolvedValue({
+      harness: {
+        content: updatedContent,
+        path: '.openase/harnesses/coding.md',
+        version: 4,
+      },
+    })
+
+    const { findByTitle } = render(WorkflowsPage)
+
+    const lintButton = await findByTitle('Bind lint: Run linters')
+    await fireEvent.click(lintButton)
+
+    await waitFor(() => {
+      expect(bindWorkflowSkills).toHaveBeenCalledWith('wf-1', ['skills/lint'])
+      expect(toastStore.success).toHaveBeenCalledWith('Bound lint.')
+    })
+  })
+
+  it('blocks skill toggle when harness has unsaved changes', async () => {
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadWorkflowPageData.mockResolvedValue({
+      ...pageDataFixture,
+      skillStates: [{ name: 'lint', description: 'Run linters', path: 'skills/lint', bound: true }],
+    })
+
+    const { findByTitle, findAllByText } = render(WorkflowsPage)
+
+    // Wait for page to load
+    await findAllByText('Coding Workflow')
+
+    // Simulate a draft change to make isDirty true
+    // We do this by finding the textarea and typing in it
+    const textarea = document.querySelector('textarea')
+    if (textarea) {
+      await fireEvent.input(textarea, { target: { value: 'modified content' } })
+    }
+
+    const lintButton = await findByTitle('Unbind lint: Run linters')
+    await fireEvent.click(lintButton)
+
+    await waitFor(() => {
+      expect(toastStore.warning).toHaveBeenCalledWith(
+        'Please save your harness changes before binding or unbinding skills.',
+      )
+      expect(unbindWorkflowSkills).not.toHaveBeenCalled()
+    })
+  })
+
+  it('shows error toast when skill toggle fails', async () => {
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadWorkflowPageData.mockResolvedValue(pageDataFixture)
+    bindWorkflowSkills.mockRejectedValue(new Error('Network error'))
+
+    const { findByTitle } = render(WorkflowsPage)
+
+    const lintButton = await findByTitle('Bind lint: Run linters')
+    await fireEvent.click(lintButton)
+
+    await waitFor(() => {
+      expect(toastStore.error).toHaveBeenCalledWith('Failed to update workflow skills.')
+    })
+  })
+})

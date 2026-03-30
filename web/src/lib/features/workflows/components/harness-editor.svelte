@@ -28,6 +28,7 @@
 
   let copied = $state(false)
   let textareaElement = $state<HTMLTextAreaElement | null>(null)
+  let lineNumberElement = $state<HTMLDivElement | null>(null)
   let completionState = $state<CompletionState | null>(null)
   let activeSuggestionIndex = $state(0)
   let lines = $derived(content.rawContent.split('\n'))
@@ -91,6 +92,12 @@
     setTimeout(() => (copied = false), 1500)
   }
 
+  function handleScroll() {
+    if (lineNumberElement && textareaElement) {
+      lineNumberElement.scrollTop = textareaElement.scrollTop
+    }
+  }
+
   function refreshCompletion(target: HTMLTextAreaElement) {
     const nextState = findCompletionState(target.value, target.selectionStart)
     completionState = nextState
@@ -118,16 +125,18 @@
 </script>
 
 <div class={cn('flex h-full flex-col overflow-hidden', className)}>
-  <div class="border-border bg-muted/30 flex items-center justify-between border-b px-4 py-2">
-    <div class="flex items-center gap-2 text-sm">
-      <FileCode class="text-muted-foreground size-4" />
-      <span class="text-muted-foreground font-mono text-xs">{filePath}</span>
-      <span class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
+  <div class="border-border bg-muted/30 flex items-center justify-between border-b px-3 py-1.5">
+    <div class="flex min-w-0 items-center gap-2 text-sm">
+      <FileCode class="text-muted-foreground size-3.5 shrink-0" />
+      <span class="text-muted-foreground truncate font-mono text-xs" title={filePath}
+        >{filePath}</span
+      >
+      <span class="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 text-[10px]">
         v{version}
       </span>
     </div>
     <button
-      class="text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
+      class="text-muted-foreground hover:bg-muted hover:text-foreground flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
       onclick={copyContent}
     >
       {#if copied}
@@ -140,28 +149,28 @@
     </button>
   </div>
 
-  <div class="relative flex-1 overflow-hidden bg-[#0d1117]">
-    <div class="flex h-full overflow-auto">
-      <div
-        class="sticky left-0 shrink-0 border-r border-neutral-800 bg-[#0d1117] px-3 py-3 text-right font-mono text-xs leading-6 text-neutral-600 select-none"
-        aria-hidden="true"
-      >
-        {#each lines as _, i}
-          <div>{i + 1}</div>
-        {/each}
-      </div>
-
-      <textarea
-        bind:this={textareaElement}
-        class="min-h-full flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-6 text-neutral-200 outline-none placeholder:text-neutral-600"
-        spellcheck="false"
-        value={content.rawContent}
-        oninput={handleInput}
-        onclick={handleCursorActivity}
-        onkeyup={handleCursorActivity}
-        onkeydown={handleKeydown}
-      ></textarea>
+  <div class="relative flex flex-1 overflow-hidden bg-[#0d1117]">
+    <div
+      bind:this={lineNumberElement}
+      class="shrink-0 overflow-hidden border-r border-neutral-800 bg-[#0d1117] px-3 py-3 text-right font-mono text-xs leading-6 text-neutral-600 select-none"
+      aria-hidden="true"
+    >
+      {#each lines as _, i}
+        <div>{i + 1}</div>
+      {/each}
     </div>
+
+    <textarea
+      bind:this={textareaElement}
+      class="h-full flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-6 text-neutral-200 outline-none placeholder:text-neutral-600"
+      spellcheck="false"
+      value={content.rawContent}
+      oninput={handleInput}
+      onclick={handleCursorActivity}
+      onkeyup={handleCursorActivity}
+      onkeydown={handleKeydown}
+      onscroll={handleScroll}
+    ></textarea>
 
     {#if completionState && filteredSuggestions.length > 0}
       <div
