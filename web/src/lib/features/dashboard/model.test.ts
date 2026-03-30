@@ -24,17 +24,15 @@ describe('dashboard model', () => {
       '2026-03-27T10:00:00Z',
     )
 
-    expect(summary).toEqual([
-      {
-        id: 'project-1',
-        name: 'TodoApp',
-        description: 'Shared ticket workflow and automation dashboard.',
-        status: 'Planned',
-        activeAgents: 2,
-        activeTickets: 3,
-        lastActivity: '2026-03-27T10:00:00Z',
-      },
-    ])
+    expect(summary).toEqual({
+      id: 'project-1',
+      name: 'TodoApp',
+      description: 'Shared ticket workflow and automation dashboard.',
+      status: 'Planned',
+      activeAgents: 2,
+      activeTickets: 3,
+      lastActivity: '2026-03-27T10:00:00Z',
+    })
   })
 
   it('keeps missing activity as null instead of fabricating a timestamp', () => {
@@ -44,6 +42,6 @@ describe('dashboard model', () => {
       null,
     )
 
-    expect(summary[0]?.lastActivity).toBeNull()
+    expect(summary.lastActivity).toBeNull()
   })
 })

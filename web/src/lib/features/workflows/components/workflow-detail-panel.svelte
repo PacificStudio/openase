@@ -143,7 +143,7 @@
   }
 </script>
 
-<div class={cn('border-border flex h-full flex-col overflow-y-auto border-l', className)}>
+<div class={cn('flex h-full flex-col overflow-y-auto', className)}>
   <WorkflowDetailHeader
     {workflow}
     isActive={draft.isActive}
@@ -224,7 +224,7 @@
         {machineSummary}
       />
 
-      <div class="grid gap-4 sm:grid-cols-2">
+      <div class="space-y-4">
         <div class="space-y-2">
           <Label>Pickup Statuses</Label>
           <div class="flex flex-wrap gap-2">

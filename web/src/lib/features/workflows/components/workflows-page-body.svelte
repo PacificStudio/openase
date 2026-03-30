@@ -9,6 +9,7 @@
   import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
   import type { SkillState } from '../model'
   import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
+  import * as Sheet from '$ui/sheet'
   import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
   import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
@@ -33,8 +34,9 @@
     saving = false,
     validating = false,
     isDirty = false,
-    showDetail = true,
+    showDetail = $bindable(false),
     showCreateDialog = $bindable(false),
+    showList = $bindable(true),
     statuses,
     agentOptions,
     builtinRoleContent = '',
@@ -66,6 +68,7 @@
     isDirty?: boolean
     showDetail?: boolean
     showCreateDialog?: boolean
+    showList?: boolean
     statuses: WorkflowStatusOption[]
     agentOptions: WorkflowAgentOption[]
     builtinRoleContent?: string
@@ -89,9 +92,11 @@
   />
 {:else}
   <div class="border-border/60 bg-card/60 flex min-h-0 flex-1 overflow-hidden rounded-xl border">
-    <div class="w-60 shrink-0">
-      <WorkflowList {workflows} {selectedId} onselect={(id) => onSelectedIdChange?.(id)} />
-    </div>
+    {#if showList}
+      <div class="w-52 shrink-0">
+        <WorkflowList {workflows} {selectedId} onselect={(id) => onSelectedIdChange?.(id)} />
+      </div>
+    {/if}
     <WorkflowEditorPanel
       projectId={projectId || undefined}
       {providers}
@@ -103,14 +108,24 @@
       {saving}
       {validating}
       {isDirty}
+      {showList}
       onDraftChange={(raw) => onDraftChange?.(raw)}
       {onApplyAssistantDraft}
       {onSave}
       {onValidate}
       onToggleSkill={(skill) => onToggleSkill?.(skill)}
+      onToggleList={() => (showList = !showList)}
+      onToggleDetail={() => (showDetail = !showDetail)}
     />
-    {#if showDetail && selectedWorkflow}
-      <div class="w-70 shrink-0">
+  </div>
+
+  <Sheet.Root bind:open={showDetail}>
+    <Sheet.Content side="right" class="w-[24rem] overflow-y-auto p-0 sm:max-w-[24rem]">
+      <Sheet.Header class="sr-only">
+        <Sheet.Title>Workflow Settings</Sheet.Title>
+        <Sheet.Description>Configure workflow lifecycle settings.</Sheet.Description>
+      </Sheet.Header>
+      {#if selectedWorkflow}
         <WorkflowLifecycleSidebar
           workflow={selectedWorkflow}
           {workflows}
@@ -119,9 +134,9 @@
           onWorkflowsChange={(nextWorkflows) => onWorkflowsChange?.(nextWorkflows)}
           onSelectedIdChange={(nextSelectedId) => onSelectedIdChange?.(nextSelectedId)}
         />
-      </div>
-    {/if}
-  </div>
+      {/if}
+    </Sheet.Content>
+  </Sheet.Root>
 {/if}
 
 <WorkflowCreationDialog

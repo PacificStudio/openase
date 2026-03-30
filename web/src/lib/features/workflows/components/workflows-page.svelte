@@ -22,8 +22,9 @@
   import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import WorkflowsPageBody from './workflows-page-body.svelte'
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
-  let showDetail = $state(true)
+  let showDetail = $state(false)
   let showCreateDialog = $state(false)
+  let showList = $state(true)
   let loading = $state(false),
     saving = $state(false),
     validating = $state(false)
@@ -207,20 +208,23 @@
   }
   async function handleToggleSkill(skill: SkillState) {
     if (!selectedId) return
+    if (isDirty) {
+      toastStore.warning('Please save your harness changes before binding or unbinding skills.')
+      return
+    }
     try {
-      if (skill.bound) {
-        await unbindWorkflowSkills(selectedId, [skill.path])
-        skillStates = skillStates.map((item) =>
-          item.path === skill.path ? { ...item, bound: false } : item,
-        )
-        toastStore.success(`Unbound ${skill.name}.`)
-        return
-      }
-      await bindWorkflowSkills(selectedId, [skill.path])
+      const result = skill.bound
+        ? await unbindWorkflowSkills(selectedId, [skill.path])
+        : await bindWorkflowSkills(selectedId, [skill.path])
+
+      const newContent = result.harness.content
+      harness = toHarnessContent(newContent)
+      draftHarness = newContent
+
       skillStates = skillStates.map((item) =>
-        item.path === skill.path ? { ...item, bound: true } : item,
+        item.path === skill.path ? { ...item, bound: !skill.bound } : item,
       )
-      toastStore.success(`Bound ${skill.name}.`)
+      toastStore.success(skill.bound ? `Unbound ${skill.name}.` : `Bound ${skill.name}.`)
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow skills.',
@@ -236,9 +240,7 @@
 
 {#snippet actions()}
   <WorkflowsPageHeaderActions
-    {showDetail}
     canCreate={statuses.length > 0 && agentOptions.length > 0}
-    onToggleDetail={() => (showDetail = !showDetail)}
     onCreate={handleCreateWorkflow}
   />
 {/snippet}
@@ -267,8 +269,9 @@
     {saving}
     {validating}
     {isDirty}
-    {showDetail}
+    bind:showDetail
     bind:showCreateDialog
+    bind:showList
     {statuses}
     {agentOptions}
     {builtinRoleContent}

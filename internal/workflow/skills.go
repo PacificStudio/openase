@@ -44,6 +44,11 @@ type SkillWorkflowBinding struct {
 	HarnessPath string    `json:"harness_path"`
 }
 
+type skillDocument struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+}
+
 type RefreshSkillsInput struct {
 	ProjectID     uuid.UUID
 	WorkspaceRoot string
@@ -181,12 +186,17 @@ func (s *Service) readSkillDescription(storage *projectStorage, name string) (st
 		return "", fmt.Errorf("read skill %s metadata: %w", name, err)
 	}
 
-	title := parseSkillTitle(string(data))
+	document, body, err := parseSkillDocument(string(data))
+	if err != nil {
+		return "", fmt.Errorf("read skill %s metadata: %w", name, err)
+	}
+
+	title := parseSkillTitle(body)
 	if title != "" {
 		return title, nil
 	}
 
-	return "", nil
+	return strings.TrimSpace(document.Description), nil
 }
 
 func parseSkillTitle(content string) string {
@@ -582,10 +592,53 @@ func validateSkillDirectory(dir string) error {
 	if err != nil {
 		return fmt.Errorf("%w: missing SKILL.md in %s", ErrSkillInvalid, dir)
 	}
-	if strings.TrimSpace(string(content)) == "" {
-		return fmt.Errorf("%w: SKILL.md in %s must not be empty", ErrSkillInvalid, dir)
+	document, _, err := parseSkillDocument(string(content))
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrSkillInvalid, err)
+	}
+	if document.Name != filepath.Base(dir) {
+		return fmt.Errorf("%w: skill frontmatter name %q must match directory %q", ErrSkillInvalid, document.Name, filepath.Base(dir))
 	}
 	return nil
+}
+
+func parseSkillDocument(content string) (skillDocument, string, error) {
+	normalized := strings.ReplaceAll(content, "\r\n", "\n")
+	lines := strings.Split(normalized, "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
+		return skillDocument{}, "", fmt.Errorf("skill must begin with YAML frontmatter delimited by ---")
+	}
+
+	for index := 1; index < len(lines); index++ {
+		if strings.TrimSpace(lines[index]) != "---" {
+			continue
+		}
+
+		frontmatter := strings.Join(lines[1:index], "\n")
+		body := strings.Join(lines[index+1:], "\n")
+		if strings.TrimSpace(frontmatter) == "" {
+			return skillDocument{}, "", fmt.Errorf("skill YAML frontmatter must not be empty")
+		}
+
+		var document skillDocument
+		if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
+			return skillDocument{}, "", fmt.Errorf("parse skill YAML frontmatter: %w", err)
+		}
+		document.Name = strings.TrimSpace(document.Name)
+		document.Description = strings.TrimSpace(document.Description)
+		if _, err := normalizeSkillNames([]string{document.Name}); err != nil {
+			return skillDocument{}, "", fmt.Errorf("skill YAML frontmatter name is invalid: %w", err)
+		}
+		if document.Description == "" {
+			return skillDocument{}, "", fmt.Errorf("skill YAML frontmatter description must not be empty")
+		}
+		if strings.TrimSpace(body) == "" {
+			return skillDocument{}, "", fmt.Errorf("skill body must not be empty")
+		}
+		return document, body, nil
+	}
+
+	return skillDocument{}, "", fmt.Errorf("skill YAML frontmatter is missing the closing --- delimiter")
 }
 
 func (s *Service) ensureSkillExists(storage *projectStorage, name string) error {
