@@ -145,6 +145,7 @@ func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets/:ticketId/detail", s.handleGetTicketDetail)
 	api.GET("/tickets/:ticketId", s.handleGetTicket)
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)
+	api.GET("/tickets/:ticketId/comments", s.handleListTicketComments)
 	api.POST("/tickets/:ticketId/comments", s.handleCreateTicketComment)
 	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleUpdateTicketComment)
 	api.DELETE("/tickets/:ticketId/comments/:commentId", s.handleDeleteTicketComment)
@@ -343,6 +344,26 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"ticket": mapTicketResponse(item),
+	})
+}
+
+func (s *Server) handleListTicketComments(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+
+	comments, err := s.ticketService.ListComments(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"comments": mapTicketCommentResponses(comments),
 	})
 }
 

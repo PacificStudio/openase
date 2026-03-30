@@ -10,10 +10,21 @@ import (
 	"testing"
 )
 
-func TestNewRootCommandIncludesPlatformCommands(t *testing.T) {
+func TestNewRootCommandIncludesTypedAPICommands(t *testing.T) {
 	root := NewRootCommand("dev")
 
-	for _, path := range [][]string{{"ticket"}, {"project"}} {
+	for _, path := range [][]string{
+		{"api"},
+		{"ticket"},
+		{"project"},
+		{"workflow"},
+		{"scheduled-job"},
+		{"machine"},
+		{"provider"},
+		{"agent"},
+		{"skill"},
+		{"watch"},
+	} {
 		command, _, err := root.Find(path)
 		if err != nil {
 			t.Fatalf("Find(%v) returned error: %v", path, err)
@@ -46,7 +57,7 @@ func TestTicketCreateCommandUsesAgentPlatformEnvironment(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_PROJECT_ID", "project-123")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	var stdout bytes.Buffer
 	command.SetOut(&stdout)
 	command.SetErr(&stdout)
@@ -91,7 +102,7 @@ func TestTicketUpdateCommandFallsBackToCurrentTicketEnv(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"update", "--description", "updated"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
@@ -124,7 +135,7 @@ func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"update", "--status", "Done"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
@@ -164,7 +175,7 @@ func TestTicketCommentWorkpadCommandCreatesCommentWhenMissing(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"comment", "workpad", "--body", "Progress\n- started"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
@@ -208,7 +219,7 @@ func TestTicketCommentWorkpadCommandUpdatesExistingComment(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"comment", "workpad", "--body", "Validation\n- npm test"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
@@ -247,7 +258,7 @@ func TestTicketReportUsageCommandPostsUsagePayload(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"report-usage", "--input-tokens", "120", "--output-tokens", "45", "--cost-usd", "0.21"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
@@ -285,7 +296,7 @@ func TestProjectAddRepoCommandPostsRepoPayload(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_PROJECT_ID", "project-123")
 
-	command := newProjectCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformProjectCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"add-repo", "--name", "worker-tools", "--url", "https://github.com/acme/worker-tools.git", "--label", "go", "--label", "backend"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
@@ -323,7 +334,7 @@ func TestTicketListCommandBuildsQueryFromFilters(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_PROJECT_ID", "project-123")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	var stdout bytes.Buffer
 	command.SetOut(&stdout)
 	command.SetErr(&stdout)
@@ -364,7 +375,7 @@ func TestProjectUpdateCommandPatchesDescription(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_PROJECT_ID", "project-123")
 
-	command := newProjectCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformProjectCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	var stdout bytes.Buffer
 	command.SetOut(&stdout)
 	command.SetErr(&stdout)

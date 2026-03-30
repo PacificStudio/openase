@@ -1486,6 +1486,23 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 		t.Fatalf("unexpected created comment payload: %+v", createPayload.Comment)
 	}
 
+	var listPayload struct {
+		Comments []ticketCommentResponse `json:"comments"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/tickets/%s/comments", ticketItem.ID),
+		nil,
+		http.StatusOK,
+		&listPayload,
+	)
+
+	if len(listPayload.Comments) != 1 || listPayload.Comments[0].ID != createPayload.Comment.ID || listPayload.Comments[0].BodyMarkdown != "First comment" {
+		t.Fatalf("unexpected comment list payload: %+v", listPayload.Comments)
+	}
+
 	var updatePayload struct {
 		Comment ticketCommentResponse `json:"comment"`
 	}
