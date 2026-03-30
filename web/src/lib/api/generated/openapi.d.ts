@@ -2197,6 +2197,7 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
+              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -2276,6 +2277,7 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
+              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -2359,6 +2361,7 @@ export interface operations {
           env_vars?: string[] | null
           host?: string | null
           labels?: string[] | null
+          mirror_root?: string | null
           name?: string | null
           port?: number | null
           ssh_key_path?: string | null
@@ -2384,6 +2387,7 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
+              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -2475,6 +2479,7 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
+              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -2651,6 +2656,7 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
+              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -3429,6 +3435,7 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
+              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -3500,6 +3507,7 @@ export interface operations {
           env_vars?: string[]
           host?: string
           labels?: string[]
+          mirror_root?: string | null
           name?: string
           port?: number | null
           ssh_key_path?: string | null
@@ -3525,6 +3533,7 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
+              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -5925,7 +5934,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          local_path?: string
+          local_path?: string | null
           machine_id?: string
           mode?: string
         }

@@ -457,6 +457,9 @@ func (s *Service) resolveTarget(
 		}
 		return resolvedTarget{}, fmt.Errorf("load project repo: %w", err)
 	}
+	if projectRepo.Edges.Project == nil || projectRepo.Edges.Project.Edges.Organization == nil {
+		return resolvedTarget{}, fmt.Errorf("project repo project organization edge must be loaded")
+	}
 
 	machine, err := s.client.Machine.Query().
 		Where(entmachine.ID(machineID)).
@@ -473,7 +476,12 @@ func (s *Service) resolveTarget(
 		if !allowDefaultPath {
 			return resolvedTarget{}, fmt.Errorf("%w: local_path must not be empty", ErrInvalidInput)
 		}
-		localPath, err = deriveDefaultMirrorLocalPath(projectRepo, machine)
+		localPath, err = deriveDefaultMirrorLocalPath(
+			machine,
+			projectRepo.Edges.Project.Edges.Organization.Slug,
+			projectRepo.Edges.Project.Slug,
+			projectRepo.Name,
+		)
 		if err != nil {
 			return resolvedTarget{}, err
 		}
@@ -797,45 +805,6 @@ func ensureDefaultBranchCheckedOut(repository *git.Repository, defaultBranch str
 		return fmt.Errorf("reset default branch %s: %w", branchName, err)
 	}
 	return nil
-}
-
-func deriveDefaultMirrorLocalPath(projectRepo *rootent.ProjectRepo, machine *rootent.Machine) (string, error) {
-	if projectRepo == nil || machine == nil {
-		return "", fmt.Errorf("%w: project repo and machine are required to derive local_path", ErrInvalidInput)
-	}
-	if projectRepo.Edges.Project == nil || projectRepo.Edges.Project.Edges.Organization == nil {
-		return "", fmt.Errorf("%w: project repo organization context is unavailable", ErrInvalidInput)
-	}
-
-	mirrorRoot, err := deriveMirrorRoot(machine)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(
-		mirrorRoot,
-		projectRepo.Edges.Project.Edges.Organization.Slug,
-		projectRepo.Edges.Project.Slug,
-		strings.TrimSpace(projectRepo.Name),
-	), nil
-}
-
-func deriveMirrorRoot(machine *rootent.Machine) (string, error) {
-	if machine == nil {
-		return "", fmt.Errorf("%w: machine is required", ErrInvalidInput)
-	}
-	if machineIsLocal(machine) {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve user home directory for mirror root: %w", err)
-		}
-		return filepath.Join(homeDir, ".openase", "mirrors"), nil
-	}
-
-	workspaceRoot := strings.TrimSpace(machine.WorkspaceRoot)
-	if workspaceRoot == "" {
-		return "", fmt.Errorf("%w: machine %s is missing workspace_root", ErrInvalidInput, machine.Name)
-	}
-	return filepath.Join(filepath.Dir(filepath.Clean(workspaceRoot)), "mirrors"), nil
 }
 
 func machineIsLocal(machine *rootent.Machine) bool {

@@ -85,6 +85,7 @@ type MachineMutationBody = {
   ssh_user?: string
   status?: string
   workspace_root?: string
+  mirror_root?: string
 }
 
 export function getSystemDashboard() {
@@ -532,7 +533,7 @@ export function materializeProjectRepoMirror(
   repoId: string,
   body: {
     machine_id: string
-    local_path: string
+    local_path?: string
     mode: 'register_existing' | 'prepare'
   },
 ) {

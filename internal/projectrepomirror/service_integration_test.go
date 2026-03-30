@@ -2,6 +2,7 @@ package projectrepomirror
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,11 +10,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
@@ -26,6 +29,12 @@ func TestServicePrepareMarkStaleVerifyAndDelete(t *testing.T) {
 	ctx := context.Background()
 
 	project, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	machine, err := client.Machine.UpdateOneID(machine.ID).
+		SetMirrorRoot(filepath.Join(t.TempDir(), "mirrors")).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("set machine mirror_root: %v", err)
+	}
 	sourceRepoPath, headCommit := createGitRepository(t)
 	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
 		SetRepositoryURL(sourceRepoPath).
@@ -38,17 +47,19 @@ func TestServicePrepareMarkStaleVerifyAndDelete(t *testing.T) {
 	base := time.Date(2026, 3, 29, 15, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return base }
 
-	mirrorPath := filepath.Join(t.TempDir(), "mirror")
 	prepared, err := svc.Prepare(ctx, PrepareInput{
 		ProjectRepoID: projectRepo.ID,
 		MachineID:     machine.ID,
-		LocalPath:     mirrorPath,
 	})
 	if err != nil {
 		t.Fatalf("Prepare() error = %v", err)
 	}
 	if prepared.ProjectID != project.ID || prepared.State != domain.ProjectRepoMirrorStateReady {
 		t.Fatalf("Prepare() = %+v", prepared)
+	}
+	expectedMirrorPath := filepath.Join(machine.MirrorRoot, "acme", "openase", "backend")
+	if prepared.LocalPath != expectedMirrorPath {
+		t.Fatalf("prepared local_path = %q, want %q", prepared.LocalPath, expectedMirrorPath)
 	}
 	if prepared.HeadCommit == nil || *prepared.HeadCommit != headCommit {
 		t.Fatalf("prepared head commit = %v, want %s", prepared.HeadCommit, headCommit)
@@ -96,7 +107,7 @@ func TestServicePrepareMarkStaleVerifyAndDelete(t *testing.T) {
 	if deleted.State != domain.ProjectRepoMirrorStateMissing {
 		t.Fatalf("Delete() = %+v", deleted)
 	}
-	if _, err := os.Stat(mirrorPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(expectedMirrorPath); !os.IsNotExist(err) {
 		t.Fatalf("mirror path still exists after delete: %v", err)
 	}
 }
@@ -131,6 +142,75 @@ func TestServiceRegisterExisting(t *testing.T) {
 	}
 	if registered.HeadCommit == nil || *registered.HeadCommit != headCommit {
 		t.Fatalf("registered head commit = %v, want %s", registered.HeadCommit, headCommit)
+	}
+}
+
+func TestServicePrepareDerivesRemoteMirrorPathFromWorkspaceRoot(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	_, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	machine, err := client.Machine.UpdateOneID(machine.ID).
+		SetName("builder").
+		SetHost("10.0.0.12").
+		SetSSHUser("openase").
+		SetSSHKeyPath("keys/builder").
+		SetWorkspaceRoot(filepath.Join(t.TempDir(), "workspace")).
+		ClearMirrorRoot().
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("update machine: %v", err)
+	}
+	sourceRepoPath, headCommit := createGitRepository(t)
+	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
+		SetRepositoryURL(sourceRepoPath).
+		SetDefaultBranch("master").
+		Save(ctx); err != nil {
+		t.Fatalf("update project repo remote: %v", err)
+	}
+
+	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	sshSession := &mirrorTestSSHSession{output: []byte(headCommit + "\n")}
+	svc.ConfigureSSHPool(sshinfra.NewPool("/tmp/openase",
+		sshinfra.WithDialer(&mirrorTestSSHDialer{clients: []sshinfra.Client{
+			&mirrorTestSSHClient{session: sshSession},
+		}}),
+		sshinfra.WithReadFile(func(string) ([]byte, error) {
+			return []byte("key"), nil
+		}),
+	))
+	prepared, err := svc.Prepare(ctx, PrepareInput{
+		ProjectRepoID: projectRepo.ID,
+		MachineID:     machine.ID,
+	})
+	if err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+
+	expected := filepath.Join(filepath.Dir(machine.WorkspaceRoot), "mirrors", "acme", "openase", "backend")
+	if prepared.LocalPath != expected {
+		t.Fatalf("Prepare() local_path = %q, want %q", prepared.LocalPath, expected)
+	}
+	if prepared.HeadCommit == nil || *prepared.HeadCommit != headCommit {
+		t.Fatalf("Prepare() head_commit = %v, want %q", prepared.HeadCommit, headCommit)
+	}
+	if !strings.Contains(sshSession.command, expected) {
+		t.Fatalf("remote mirror command = %q, want path %q", sshSession.command, expected)
+	}
+}
+
+func TestServiceRegisterExistingRequiresLocalPath(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	_, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	if _, err := svc.RegisterExisting(ctx, RegisterExistingInput{
+		ProjectRepoID: projectRepo.ID,
+		MachineID:     machine.ID,
+	}); err == nil || err.Error() != "project repo mirror input is invalid: local_path must not be empty" {
+		t.Fatalf("RegisterExisting() missing local_path error = %v", err)
 	}
 }
 
@@ -217,6 +297,78 @@ func createGitRepository(t *testing.T) (string, string) {
 	}
 
 	return repoPath, hash.String()
+}
+
+type mirrorTestSSHDialer struct {
+	clients []sshinfra.Client
+	calls   int
+}
+
+func (d *mirrorTestSSHDialer) DialContext(context.Context, sshinfra.DialConfig) (sshinfra.Client, error) {
+	if d.calls >= len(d.clients) {
+		return nil, errors.New("unexpected dial")
+	}
+	client := d.clients[d.calls]
+	d.calls++
+	return client, nil
+}
+
+type mirrorTestSSHClient struct {
+	session sshinfra.Session
+}
+
+func (c *mirrorTestSSHClient) NewSession() (sshinfra.Session, error) {
+	if c.session == nil {
+		c.session = &mirrorTestSSHSession{}
+	}
+	return c.session, nil
+}
+
+func (c *mirrorTestSSHClient) SendRequest(string, bool, []byte) (bool, []byte, error) {
+	return true, nil, nil
+}
+
+func (c *mirrorTestSSHClient) Close() error {
+	return nil
+}
+
+type mirrorTestSSHSession struct {
+	output  []byte
+	err     error
+	command string
+}
+
+func (s *mirrorTestSSHSession) CombinedOutput(cmd string) ([]byte, error) {
+	s.command = cmd
+	return s.output, s.err
+}
+
+func (s *mirrorTestSSHSession) StdinPipe() (io.WriteCloser, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) StdoutPipe() (io.Reader, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) StderrPipe() (io.Reader, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) Start(string) error {
+	return errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) Signal(string) error {
+	return errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) Wait() error {
+	return nil
+}
+
+func (s *mirrorTestSSHSession) Close() error {
+	return nil
 }
 
 func openTestEntClient(t *testing.T) *ent.Client {

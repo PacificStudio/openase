@@ -134,6 +134,20 @@ func (_c *MachineCreate) SetNillableWorkspaceRoot(v *string) *MachineCreate {
 	return _c
 }
 
+// SetMirrorRoot sets the "mirror_root" field.
+func (_c *MachineCreate) SetMirrorRoot(v string) *MachineCreate {
+	_c.mutation.SetMirrorRoot(v)
+	return _c
+}
+
+// SetNillableMirrorRoot sets the "mirror_root" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableMirrorRoot(v *string) *MachineCreate {
+	if v != nil {
+		_c.SetMirrorRoot(*v)
+	}
+	return _c
+}
+
 // SetAgentCliPath sets the "agent_cli_path" field.
 func (_c *MachineCreate) SetAgentCliPath(v string) *MachineCreate {
 	_c.mutation.SetAgentCliPath(v)
@@ -399,6 +413,10 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.WorkspaceRoot(); ok {
 		_spec.SetField(machine.FieldWorkspaceRoot, field.TypeString, value)
 		_node.WorkspaceRoot = value
+	}
+	if value, ok := _c.mutation.MirrorRoot(); ok {
+		_spec.SetField(machine.FieldMirrorRoot, field.TypeString, value)
+		_node.MirrorRoot = value
 	}
 	if value, ok := _c.mutation.AgentCliPath(); ok {
 		_spec.SetField(machine.FieldAgentCliPath, field.TypeString, value)
