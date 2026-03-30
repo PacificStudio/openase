@@ -35,6 +35,8 @@ const (
 	FieldStatus = "status"
 	// FieldWorkspaceRoot holds the string denoting the workspace_root field in the database.
 	FieldWorkspaceRoot = "workspace_root"
+	// FieldMirrorRoot holds the string denoting the mirror_root field in the database.
+	FieldMirrorRoot = "mirror_root"
 	// FieldAgentCliPath holds the string denoting the agent_cli_path field in the database.
 	FieldAgentCliPath = "agent_cli_path"
 	// FieldEnvVars holds the string denoting the env_vars field in the database.
@@ -96,6 +98,7 @@ var Columns = []string{
 	FieldLabels,
 	FieldStatus,
 	FieldWorkspaceRoot,
+	FieldMirrorRoot,
 	FieldAgentCliPath,
 	FieldEnvVars,
 	FieldLastHeartbeatAt,
@@ -209,6 +212,11 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByWorkspaceRoot orders the results by the workspace_root field.
 func ByWorkspaceRoot(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWorkspaceRoot, opts...).ToFunc()
+}
+
+// ByMirrorRoot orders the results by the mirror_root field.
+func ByMirrorRoot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMirrorRoot, opts...).ToFunc()
 }
 
 // ByAgentCliPath orders the results by the agent_cli_path field.

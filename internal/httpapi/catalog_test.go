@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -23,6 +25,9 @@ import (
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	git "github.com/go-git/go-git/v5"
+	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -530,7 +535,7 @@ func TestMachineRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/machines",
-		`{"name":"gpu-01","host":"10.0.1.10","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
+		`{"name":"gpu-01","host":"10.0.1.10","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","mirror_root":"/srv/openase/mirrors","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
 	)
 	if createMachineRec.Code != http.StatusCreated {
 		t.Fatalf("expected machine create 201, got %d: %s", createMachineRec.Code, createMachineRec.Body.String())
@@ -542,6 +547,9 @@ func TestMachineRoutes(t *testing.T) {
 	decodeResponse(t, createMachineRec, &createMachinePayload)
 	if createMachinePayload.Machine.Status != "maintenance" {
 		t.Fatalf("expected created remote machine to default to maintenance, got %+v", createMachinePayload.Machine)
+	}
+	if createMachinePayload.Machine.MirrorRoot == nil || *createMachinePayload.Machine.MirrorRoot != "/srv/openase/mirrors" {
+		t.Fatalf("expected created remote machine mirror_root, got %+v", createMachinePayload.Machine)
 	}
 
 	getMachineRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+createMachinePayload.Machine.ID, "")
@@ -562,7 +570,7 @@ func TestMachineRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/machines/"+createMachinePayload.Machine.ID,
-		`{"status":"online","description":"A100 worker"}`,
+		`{"status":"online","description":"A100 worker","mirror_root":"/srv/openase/custom-mirrors"}`,
 	)
 	if patchMachineRec.Code != http.StatusOK {
 		t.Fatalf("expected machine patch 200, got %d: %s", patchMachineRec.Code, patchMachineRec.Body.String())
@@ -572,7 +580,7 @@ func TestMachineRoutes(t *testing.T) {
 		Machine machineResponse `json:"machine"`
 	}
 	decodeResponse(t, patchMachineRec, &patchMachinePayload)
-	if patchMachinePayload.Machine.Status != "online" || patchMachinePayload.Machine.Description != "A100 worker" {
+	if patchMachinePayload.Machine.Status != "online" || patchMachinePayload.Machine.Description != "A100 worker" || patchMachinePayload.Machine.MirrorRoot == nil || *patchMachinePayload.Machine.MirrorRoot != "/srv/openase/custom-mirrors" {
 		t.Fatalf("unexpected patched machine payload: %+v", patchMachinePayload.Machine)
 	}
 
@@ -1281,6 +1289,7 @@ func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.Creat
 		Labels:         append([]string(nil), input.Labels...),
 		Status:         input.Status,
 		WorkspaceRoot:  input.WorkspaceRoot,
+		MirrorRoot:     input.MirrorRoot,
 		AgentCLIPath:   input.AgentCLIPath,
 		EnvVars:        append([]string(nil), input.EnvVars...),
 		Resources:      map[string]any{},
@@ -1319,6 +1328,7 @@ func (f *fakeCatalogService) UpdateMachine(_ context.Context, input domain.Updat
 	current.Labels = append([]string(nil), input.Labels...)
 	current.Status = input.Status
 	current.WorkspaceRoot = input.WorkspaceRoot
+	current.MirrorRoot = input.MirrorRoot
 	current.AgentCLIPath = input.AgentCLIPath
 	current.EnvVars = append([]string(nil), input.EnvVars...)
 	f.machines[input.ID] = current
@@ -2188,6 +2198,101 @@ func TestProjectRepoMirrorListingWithEntRepository(t *testing.T) {
 	}
 }
 
+func TestProjectRepoMirrorMaterializeContractWithEntRepository(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+		WithProjectRepoMirrorService(projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))),
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	machine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("builder").
+		SetHost("10.0.0.10").
+		SetPort(22).
+		SetStatus("online").
+		SetWorkspaceRoot(workspaceRoot).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	projectRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://example.invalid/backend.git").
+		SetDefaultBranch("master").
+		SetWorkspaceDirname("backend").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+
+	sourceRepoPath, _ := createGitRepository(t)
+	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
+		SetRepositoryURL(sourceRepoPath).
+		SetDefaultBranch("master").
+		Save(ctx); err != nil {
+		t.Fatalf("update project repo remote: %v", err)
+	}
+
+	var preparePayload struct {
+		Mirror projectRepoMirrorResponse `json:"mirror"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/repos/"+projectRepo.ID.String()+"/mirrors",
+		map[string]any{
+			"machine_id": machine.ID.String(),
+			"mode":       "prepare",
+		},
+		http.StatusCreated,
+		&preparePayload,
+	)
+	expectedPath := filepath.Join(filepath.Dir(workspaceRoot), "mirrors", "acme", "openase", "backend")
+	if preparePayload.Mirror.LocalPath != expectedPath {
+		t.Fatalf("prepare mirror local_path = %q, want %q", preparePayload.Mirror.LocalPath, expectedPath)
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/repos/"+projectRepo.ID.String()+"/mirrors",
+		fmt.Sprintf(`{"machine_id":"%s","mode":"register_existing"}`, machine.ID),
+	)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "local_path must not be empty for register_existing mode") {
+		t.Fatalf("register_existing without local_path = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestOrganizationCreateSeedsLocalMachineWithEntRepository(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
@@ -2233,4 +2338,47 @@ func TestOrganizationCreateSeedsLocalMachineWithEntRepository(t *testing.T) {
 	if machinesPayload.Machines[0].Name != "local" || machinesPayload.Machines[0].Status != "online" {
 		t.Fatalf("unexpected seeded local machine: %+v", machinesPayload.Machines[0])
 	}
+}
+
+func createGitRepository(t *testing.T) (string, string) {
+	t.Helper()
+
+	repoPath := filepath.Join(t.TempDir(), "remote")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("create git repo dir: %v", err)
+	}
+
+	repository, err := git.PlainInit(repoPath, false)
+	if err != nil {
+		t.Fatalf("git init: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "README.md"), []byte("mirror test\n"), 0o600); err != nil {
+		t.Fatalf("write git file: %v", err)
+	}
+
+	worktree, err := repository.Worktree()
+	if err != nil {
+		t.Fatalf("git worktree: %v", err)
+	}
+	if _, err := worktree.Add("README.md"); err != nil {
+		t.Fatalf("git add: %v", err)
+	}
+	hash, err := worktree.Commit("initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Codex",
+			Email: "codex@openai.com",
+			When:  time.Date(2026, 3, 29, 14, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("git commit: %v", err)
+	}
+	if _, err := repository.CreateRemote(&gitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{repoPath},
+	}); err != nil {
+		t.Fatalf("git create remote: %v", err)
+	}
+
+	return repoPath, hash.String()
 }

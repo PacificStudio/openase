@@ -1541,6 +1541,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "mirror_root": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -1708,6 +1712,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "mirror_root": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -1851,6 +1859,10 @@
                     "nullable": true,
                     "type": "array"
                   },
+                  "mirror_root": {
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "name": {
                     "nullable": true,
                     "type": "string"
@@ -1917,6 +1929,10 @@
                           "type": "array"
                         },
                         "last_heartbeat_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_root": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -2254,6 +2270,10 @@
                           "type": "array"
                         },
                         "last_heartbeat_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_root": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -3575,6 +3595,10 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "mirror_root": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "name": {
                             "type": "string"
                           },
@@ -3716,6 +3740,10 @@
                     },
                     "type": "array"
                   },
+                  "mirror_root": {
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "name": {
                     "type": "string"
                   },
@@ -3780,6 +3808,10 @@
                           "type": "array"
                         },
                         "last_heartbeat_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mirror_root": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -8406,6 +8438,7 @@
               "schema": {
                 "properties": {
                   "local_path": {
+                    "nullable": true,
                     "type": "string"
                   },
                   "machine_id": {
