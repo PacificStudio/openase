@@ -668,6 +668,40 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Sync a project repository mirror */
+    post: operations['syncProjectRepoMirror']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Verify a project repository mirror */
+    post: operations['verifyProjectRepoMirror']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/scheduled-jobs': {
     parameters: {
       query?: never
@@ -5775,6 +5809,220 @@ export interface operations {
     responses: {
       /** @description Register or prepare a project repository mirror response. */
       201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            mirror?: {
+              created_at?: string
+              head_commit?: string | null
+              id?: string
+              last_error?: string | null
+              last_synced_at?: string | null
+              last_verified_at?: string | null
+              local_path?: string
+              machine_id?: string
+              project_id?: string
+              project_repo_id?: string
+              state?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  syncProjectRepoMirror: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Repository ID. */
+        repoId: string
+      }
+      cookie?: never
+    }
+    /** @description Sync a project repository mirror request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          machine_id?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Sync a project repository mirror response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            mirror?: {
+              created_at?: string
+              head_commit?: string | null
+              id?: string
+              last_error?: string | null
+              last_synced_at?: string | null
+              last_verified_at?: string | null
+              local_path?: string
+              machine_id?: string
+              project_id?: string
+              project_repo_id?: string
+              state?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  verifyProjectRepoMirror: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Repository ID. */
+        repoId: string
+      }
+      cookie?: never
+    }
+    /** @description Verify a project repository mirror request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          machine_id?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Verify a project repository mirror response. */
+      200: {
         headers: {
           [name: string]: unknown
         }

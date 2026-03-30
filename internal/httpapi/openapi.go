@@ -906,6 +906,7 @@ type OpenAPIUpdateMachineRequest machinePatchRequest
 type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
 type OpenAPIMaterializeProjectRepoMirrorRequest projectRepoMirrorMaterializeRequest
+type OpenAPIProjectRepoMirrorMachineRequest projectRepoMirrorMachineRequest
 type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
 type OpenAPIUpdateTicketRepoScopeRequest ticketRepoScopePatchRequest
 type OpenAPICreateAgentRequest catalogdomain.AgentInput
@@ -1437,6 +1438,46 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	projectRepoMirrorsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	projectRepoMirrorsPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors", http.MethodPost, projectRepoMirrorsPost)
+
+	projectRepoMirrorVerifyPost, err := b.jsonOperation(
+		"verifyProjectRepoMirror",
+		"Verify a project repository mirror",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectRepoMirrorResponse{},
+		OpenAPIProjectRepoMirrorMachineRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectRepoMirrorVerifyPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectRepoMirrorVerifyPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify", http.MethodPost, projectRepoMirrorVerifyPost)
+
+	projectRepoMirrorSyncPost, err := b.jsonOperation(
+		"syncProjectRepoMirror",
+		"Sync a project repository mirror",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectRepoMirrorResponse{},
+		OpenAPIProjectRepoMirrorMachineRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectRepoMirrorSyncPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectRepoMirrorSyncPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync", http.MethodPost, projectRepoMirrorSyncPost)
 
 	projectReposPost, err := b.jsonOperation(
 		"createProjectRepo",

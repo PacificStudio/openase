@@ -121,6 +121,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	ticketSvc := ticketservice.NewService(client)
 	ticketStatusSvc := ticketstatus.NewService(client)
 	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
+	projectRepoMirrorSvc.ConfigureSSHPool(sshPool)
 	catalogSvc := catalogservice.New(
 		catalogRepo,
 		executable.NewPathResolver(),
@@ -138,6 +139,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	workflowSvc.ConfigureMirrorService(projectRepoMirrorSvc)
 	scheduledJobSvc := scheduledjobservice.NewService(client, ticketSvc, a.logger)
 	defer func() {
 		if closeErr := workflowSvc.Close(); closeErr != nil {
@@ -229,6 +231,9 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
+	projectRepoMirrorSvc.ConfigureSSHPool(sshPool)
+	workflowSvc.ConfigureMirrorService(projectRepoMirrorSvc)
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
 	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, sshinfra.NewMonitorCollector(sshPool))
@@ -241,6 +246,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		workflowSvc,
 	)
 	runtimeLauncher.ConfigureGitHubCredentials(githubAuthSvc)
+	runtimeLauncher.ConfigureMirrorService(projectRepoMirrorSvc)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

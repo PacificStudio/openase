@@ -532,6 +532,28 @@ export function materializeProjectRepoMirror(
   )
 }
 
+export function verifyProjectRepoMirror(
+  projectId: string,
+  repoId: string,
+  body: { machine_id: string },
+) {
+  return api.post<ProjectRepoMirrorResponse>(
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors/verify`,
+    { body },
+  )
+}
+
+export function syncProjectRepoMirror(
+  projectId: string,
+  repoId: string,
+  body: { machine_id: string },
+) {
+  return api.post<ProjectRepoMirrorResponse>(
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors/sync`,
+    { body },
+  )
+}
+
 export function listTicketRepoScopes(projectId: string, ticketId: string) {
   return api.get<TicketRepoScopePayload>(
     `/api/v1/projects/${projectId}/tickets/${ticketId}/repo-scopes`,

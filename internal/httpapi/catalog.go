@@ -110,6 +110,10 @@ type projectRepoMirrorMaterializeRequest struct {
 	Mode      string `json:"mode"`
 }
 
+type projectRepoMirrorMachineRequest struct {
+	MachineID string `json:"machine_id"`
+}
+
 type ticketRepoScopeResponse struct {
 	ID             string  `json:"id"`
 	TicketID       string  `json:"ticket_id"`
@@ -193,6 +197,8 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/repos", s.listProjectRepos)
 	api.GET("/projects/:projectId/repos/:repoId/mirrors", s.listProjectRepoMirrors)
 	api.POST("/projects/:projectId/repos/:repoId/mirrors", s.materializeProjectRepoMirror)
+	api.POST("/projects/:projectId/repos/:repoId/mirrors/verify", s.verifyProjectRepoMirror)
+	api.POST("/projects/:projectId/repos/:repoId/mirrors/sync", s.syncProjectRepoMirror)
 	api.POST("/projects/:projectId/repos", s.createProjectRepo)
 	api.PATCH("/projects/:projectId/repos/:repoId", s.patchProjectRepo)
 	api.DELETE("/projects/:projectId/repos/:repoId", s.deleteProjectRepo)
@@ -759,6 +765,63 @@ func (s *Server) materializeProjectRepoMirror(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
+		"mirror": mapProjectRepoMirrorResponse(mirror),
+	})
+}
+
+func (s *Server) verifyProjectRepoMirror(c echo.Context) error {
+	return s.runProjectRepoMirrorAction(c, func(ctx context.Context, repoID uuid.UUID, machineID uuid.UUID) (domain.ProjectRepoMirror, error) {
+		return s.projectRepoMirrors.Verify(ctx, projectrepomirrorsvc.VerifyInput{
+			ProjectRepoID: repoID,
+			MachineID:     machineID,
+		})
+	})
+}
+
+func (s *Server) syncProjectRepoMirror(c echo.Context) error {
+	return s.runProjectRepoMirrorAction(c, func(ctx context.Context, repoID uuid.UUID, machineID uuid.UUID) (domain.ProjectRepoMirror, error) {
+		return s.projectRepoMirrors.Sync(ctx, projectrepomirrorsvc.SyncInput{
+			ProjectRepoID: repoID,
+			MachineID:     machineID,
+		})
+	})
+}
+
+func (s *Server) runProjectRepoMirrorAction(
+	c echo.Context,
+	action func(context.Context, uuid.UUID, uuid.UUID) (domain.ProjectRepoMirror, error),
+) error {
+	if s.projectRepoMirrors == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project repo mirror service unavailable")
+	}
+
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+	repoID, err := parseUUIDPathParam(c, "repoId")
+	if err != nil {
+		return err
+	}
+	if _, err := s.catalog.GetProjectRepo(c.Request().Context(), projectID, repoID); err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	var request projectRepoMirrorMachineRequest
+	if err := decodeJSON(c, &request); err != nil {
+		return err
+	}
+	machineID, err := parseProjectRepoMirrorMachineRequest(request)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	mirror, err := action(c.Request().Context(), repoID, machineID)
+	if err != nil {
+		return writeProjectRepoMirrorError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
 		"mirror": mapProjectRepoMirrorResponse(mirror),
 	})
 }
@@ -1409,6 +1472,14 @@ func parseProjectRepoMirrorMaterializeRequest(raw projectRepoMirrorMaterializeRe
 	default:
 		return uuid.UUID{}, "", "", fmt.Errorf("mode must be one of register_existing or prepare")
 	}
+}
+
+func parseProjectRepoMirrorMachineRequest(raw projectRepoMirrorMachineRequest) (uuid.UUID, error) {
+	machineID, err := uuid.Parse(strings.TrimSpace(raw.MachineID))
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("machine_id must be a valid UUID")
+	}
+	return machineID, nil
 }
 
 func mapTicketRepoScopeResponses(items []domain.TicketRepoScope) []ticketRepoScopeResponse {

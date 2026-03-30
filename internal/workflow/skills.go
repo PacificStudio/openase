@@ -85,7 +85,7 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
 		return nil, err
 	}
-	storage, err := s.storageForProject(ctx, projectID)
+	storage, err := s.storageForProject(ctx, projectID, workflowStorageUsageRead)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return RefreshSkillsResult{}, err
 	}
-	storage, err := s.storageForProject(ctx, input.ProjectID)
+	storage, err := s.storageForProject(ctx, input.ProjectID, workflowStorageUsageWrite)
 	if err != nil {
 		return RefreshSkillsResult{}, err
 	}
@@ -250,7 +250,7 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return HarvestSkillsResult{}, err
 	}
-	storage, err := s.storageForProject(ctx, input.ProjectID)
+	storage, err := s.storageForProject(ctx, input.ProjectID, workflowStorageUsageWrite)
 	if err != nil {
 		return HarvestSkillsResult{}, err
 	}
@@ -357,7 +357,7 @@ func (s *Service) updateWorkflowSkills(
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for skills update", err)
 	}
-	storage, err := s.storageForProject(ctx, workflowItem.ProjectID)
+	storage, err := s.storageForProject(ctx, workflowItem.ProjectID, workflowStorageUsageWrite)
 	if err != nil {
 		return HarnessDocument{}, err
 	}
