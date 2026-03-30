@@ -101,11 +101,11 @@ type platformClient struct {
 	httpClient platformHTTPDoer
 }
 
-func newTicketCommand() *cobra.Command {
-	return newTicketCommandWithDeps(platformCommandDeps{httpClient: http.DefaultClient})
+func newAgentPlatformTicketCommand() *cobra.Command {
+	return newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: http.DefaultClient})
 }
 
-func newTicketCommandWithDeps(deps platformCommandDeps) *cobra.Command {
+func newAgentPlatformTicketCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	options := &ticketCommandOptions{}
 	client := platformClient(deps)
 
@@ -123,11 +123,11 @@ func newTicketCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	return command
 }
 
-func newProjectCommand() *cobra.Command {
-	return newProjectCommandWithDeps(platformCommandDeps{httpClient: http.DefaultClient})
+func newAgentPlatformProjectCommand() *cobra.Command {
+	return newAgentPlatformProjectCommandWithDeps(platformCommandDeps{httpClient: http.DefaultClient})
 }
 
-func newProjectCommandWithDeps(deps platformCommandDeps) *cobra.Command {
+func newAgentPlatformProjectCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	options := &projectCommandOptions{}
 	client := platformClient(deps)
 

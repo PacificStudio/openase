@@ -154,19 +154,44 @@ Representative HTTP routes:
 - `POST /api/v1/webhooks/github`
 - authenticated agent platform routes under `/api/v1/platform/...`
 
-## Agent Platform CLI
+## CLI Contract
 
-Agent workers can talk back to OpenASE through token-scoped platform commands:
+`cmd/openase` now follows a GitHub-style dual-layer contract:
+
+- `openase api METHOD PATH` is the raw escape hatch for any shipped HTTP route.
+- typed resource commands stay aligned with OpenAPI and group high-frequency operations by resource.
+- stream endpoints live under `openase watch ...` instead of being mixed into CRUD trees.
+
+Representative examples:
+
+```bash
+openase api GET /api/v1/projects/$OPENASE_PROJECT_ID/tickets --query status_name=Todo
+openase api PATCH /api/v1/tickets/$OPENASE_TICKET_ID --field status_name=In\ Review
+openase ticket list $OPENASE_PROJECT_ID --status-name Todo --json tickets
+openase ticket comment workpad $OPENASE_TICKET_ID --body-file /tmp/workpad.md
+openase workflow create $OPENASE_PROJECT_ID --name "Codex Worker" --description "Default coding workflow"
+openase scheduled-job trigger $OPENASE_JOB_ID
+openase watch tickets $OPENASE_PROJECT_ID
+```
+
+Raw and typed commands default to JSON output and support:
+
+- `--jq '<expr>'`
+- `--json field1,field2`
+- `--template '{{...}}'`
+
+## Agent Platform Compatibility
+
+Agent workers still inherit `OPENASE_API_URL`, `OPENASE_AGENT_TOKEN`, `OPENASE_PROJECT_ID`, and `OPENASE_TICKET_ID` from the workspace wrapper. When those env vars point at `/api/v1/platform`, the shared resource commands continue to resolve against the agent-platform surface for the overlapping routes.
+
+Examples:
 
 ```bash
 openase ticket list --status-name Todo
 openase ticket create --title "Add integration coverage" --description "Follow-up from coding ticket"
 openase ticket update --description "Recorded execution notes"
 openase project update --description "Latest project context"
-openase project add-repo --name "worker-tools" --url "https://github.com/acme/worker-tools.git"
 ```
-
-These commands read `OPENASE_API_URL`, `OPENASE_AGENT_TOKEN`, `OPENASE_PROJECT_ID`, and `OPENASE_TICKET_ID` by default, which is why the setup-generated `./.openase/bin/openase` wrapper is the preferred entrypoint inside agent workspaces.
 
 ## Repository Layout
 

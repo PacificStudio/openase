@@ -208,6 +208,29 @@ func TestCLIOpenAPIGenerateCommandWritesJSON(t *testing.T) {
 	}
 }
 
+func TestCLIOpenAPICLIContractCommandWritesJSON(t *testing.T) {
+	t.Parallel()
+
+	outputPath := filepath.Join(t.TempDir(), "nested", "openapi-cli-contract.json")
+	command := newOpenAPICommand()
+	command.SetArgs([]string{"cli-contract", "--output", outputPath})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext() error = %v", err)
+	}
+
+	body, err := readCLITestFile(outputPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q) error = %v", outputPath, err)
+	}
+	if !json.Valid(body) {
+		t.Fatalf("generated CLI contract JSON is invalid: %q", string(body))
+	}
+	if !bytes.Contains(body, []byte(`"openapi_sha256"`)) || !bytes.Contains(body, []byte(`"commands"`)) {
+		t.Fatalf("generated CLI contract JSON missing expected fields: %q", string(body))
+	}
+}
+
 func TestCLIWriteIssueAgentTokenShellAndJSONHelpers(t *testing.T) {
 	t.Parallel()
 

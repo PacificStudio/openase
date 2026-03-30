@@ -38,6 +38,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/projects/{projectId}/security-settings",
 		"/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
 		"/api/v1/projects/{projectId}/tickets/{ticketId}/detail",
+		"/api/v1/tickets/{ticketId}/comments",
 		"/api/v1/tickets/{ticketId}/dependencies",
 		"/api/v1/chat",
 		"/api/v1/projects/{projectId}/tickets/stream",

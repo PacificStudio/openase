@@ -699,6 +699,10 @@ type OpenAPITicketCommentResponse struct {
 	Comment OpenAPITicketComment `json:"comment"`
 }
 
+type OpenAPITicketCommentsResponse struct {
+	Comments []OpenAPITicketComment `json:"comments"`
+}
+
 type OpenAPITicketCommentRevisionsResponse struct {
 	Revisions []OpenAPITicketCommentRevision `json:"revisions"`
 }
@@ -2375,6 +2379,23 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	}
 	ticketPatch.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}", http.MethodPatch, ticketPatch)
+
+	commentsGet, err := b.jsonOperation(
+		"listTicketComments",
+		"List ticket comments",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketCommentsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	commentsGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/comments", http.MethodGet, commentsGet)
 
 	commentPost, err := b.jsonOperation(
 		"createTicketComment",
