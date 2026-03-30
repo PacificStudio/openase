@@ -201,6 +201,24 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     })
   }
 
+  if (segments[2] === 'workflows' && segments[3] === 'prerequisite' && request.method === 'GET') {
+    return jsonResponse({
+      prerequisite: {
+        kind: 'ready',
+        repo_count: mockState.repos.length,
+        primary_repo_id:
+          (mockState.repos.find((r) => r.is_primary) as Record<string, unknown>)?.id ??
+          'repo-primary',
+        primary_repo_name:
+          (mockState.repos.find((r) => r.is_primary) as Record<string, unknown>)?.name ??
+          'todo-app',
+        mirror_count: 1,
+        mirror_state: 'ready',
+        action: 'none',
+      },
+    })
+  }
+
   if (segments[2] === 'workflows') {
     if (request.method === 'GET') {
       return jsonResponse({

@@ -43,18 +43,16 @@ export function buildProjectSummary(
   project: Project,
   stats: Pick<DashboardStats, 'runningAgents' | 'activeTickets'>,
   lastActivity: string | null,
-): ProjectSummary[] {
-  return [
-    {
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      status: project.status,
-      activeAgents: stats.runningAgents,
-      activeTickets: stats.activeTickets,
-      lastActivity,
-    },
-  ]
+): ProjectSummary {
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description,
+    status: project.status,
+    activeAgents: stats.runningAgents,
+    activeTickets: stats.activeTickets,
+    lastActivity,
+  }
 }
 
 export function buildActivityItems(events: ActivityEvent[]): ActivityItem[] {

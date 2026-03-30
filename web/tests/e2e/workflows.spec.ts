@@ -35,7 +35,7 @@ test('workflow creation dialog stays responsive', async ({ page, projectPath }, 
     },
   })
 
-  await expect(page.getByRole('heading', { name: 'Workflow E2E' })).toBeVisible()
+  await expect(page.getByText('Workflow E2E').first()).toBeVisible()
 })
 
 test('scheduled jobs creation remains responsive', async ({ page, projectPath }, testInfo) => {

@@ -3,6 +3,8 @@ package builtin
 import (
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func TestEnvironmentProvisionerSkillsExist(t *testing.T) {
@@ -52,5 +54,39 @@ func TestSkillHelpers(t *testing.T) {
 	}
 	if _, ok := SkillByName("missing-skill"); ok {
 		t.Fatal("SkillByName(missing-skill) expected false")
+	}
+}
+
+func TestBuiltinSkillsIncludeCodexFrontmatter(t *testing.T) {
+	for _, skill := range Skills() {
+		if !strings.HasPrefix(skill.Content, "---\n") {
+			t.Fatalf("skill %q missing YAML frontmatter prefix:\n%s", skill.Name, skill.Content)
+		}
+
+		lines := strings.Split(strings.ReplaceAll(skill.Content, "\r\n", "\n"), "\n")
+		end := -1
+		for index := 1; index < len(lines); index++ {
+			if strings.TrimSpace(lines[index]) == "---" {
+				end = index
+				break
+			}
+		}
+		if end == -1 {
+			t.Fatalf("skill %q missing YAML frontmatter closing delimiter", skill.Name)
+		}
+
+		var document struct {
+			Name        string `yaml:"name"`
+			Description string `yaml:"description"`
+		}
+		if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &document); err != nil {
+			t.Fatalf("unmarshal frontmatter for %q: %v", skill.Name, err)
+		}
+		if document.Name != skill.Name {
+			t.Fatalf("frontmatter name for %q = %q", skill.Name, document.Name)
+		}
+		if document.Description != skill.Description {
+			t.Fatalf("frontmatter description for %q = %q, want %q", skill.Name, document.Description, skill.Description)
+		}
 	}
 }

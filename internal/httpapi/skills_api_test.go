@@ -274,8 +274,8 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read refreshed skill: %v", err)
 	}
-	if string(refreshedSkill) == "" {
-		t.Fatalf("expected refreshed skill content")
+	if !strings.HasPrefix(string(refreshedSkill), "---\nname: ") {
+		t.Fatalf("expected refreshed skill to include frontmatter, got %q", string(refreshedSkill))
 	}
 	if _, err := os.Stat(filepath.Join(workspaceRoot, ".openase", "bin", "openase")); err != nil {
 		t.Fatalf("expected openase wrapper in refreshed workspace: %v", err)
@@ -317,7 +317,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read updated commit skill: %v", err)
 	}
-	if string(updatedCommit) != "# Commit\n\nWrite a stricter conventional commit message.\n" {
+	if !strings.Contains(string(updatedCommit), "Write a stricter conventional commit message.") || !strings.HasPrefix(string(updatedCommit), "---\nname: ") {
 		t.Fatalf("unexpected updated commit skill content: %q", string(updatedCommit))
 	}
 
@@ -535,6 +535,13 @@ func writeSkillFixture(t *testing.T, repoRoot string, name string, content strin
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("create skill fixture parent: %v", err)
 	}
+	if !strings.HasPrefix(strings.TrimSpace(content), "---") {
+		title := parseSkillTitle(content)
+		if title == "" {
+			title = name
+		}
+		content = fmt.Sprintf("---\nname: %q\ndescription: %q\n---\n\n%s\n", name, title, strings.TrimSpace(content))
+	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write skill fixture: %v", err)
 	}
@@ -545,6 +552,13 @@ func writeWorkspaceSkill(t *testing.T, workspaceRoot string, adapterDir string, 
 	path := filepath.Join(workspaceRoot, adapterDir, "skills", name, "SKILL.md")
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("create workspace skill parent: %v", err)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(content), "---") {
+		title := parseSkillTitle(content)
+		if title == "" {
+			title = name
+		}
+		content = fmt.Sprintf("---\nname: %q\ndescription: %q\n---\n\n%s\n", name, title, strings.TrimSpace(content))
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write workspace skill: %v", err)
@@ -571,4 +585,14 @@ func findBuiltinRoleResponse(t *testing.T, items []builtinRoleResponse, slug str
 	}
 	t.Fatalf("role %s not found in %+v", slug, items)
 	return builtinRoleResponse{}
+}
+
+func parseSkillTitle(content string) string {
+	for _, line := range strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "# ") {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, "# "))
+		}
+	}
+	return ""
 }

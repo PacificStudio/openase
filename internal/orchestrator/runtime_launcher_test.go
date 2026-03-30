@@ -229,6 +229,13 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
 		t.Fatalf("expected built-in platform skill in primary repo: %v", err)
 	}
+	repoSkillContent, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read repo platform skill: %v", err)
+	}
+	if !strings.HasPrefix(string(repoSkillContent), "---\nname: ") {
+		t.Fatalf("expected repo platform skill to include frontmatter, got %q", string(repoSkillContent))
+	}
 	workspacePath, err := workspaceinfra.TicketWorkspacePath(
 		expectedLocalWorkspaceRoot,
 		"better-and-better",
@@ -247,6 +254,13 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".codex", "skills", "openase-platform", "SKILL.md")); err != nil {
 		t.Fatalf("expected platform skill in codex workspace: %v", err)
+	}
+	workspaceSkillContent, err := os.ReadFile(filepath.Join(repoWorkspacePath, ".codex", "skills", "openase-platform", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read codex workspace platform skill: %v", err)
+	}
+	if !strings.HasPrefix(string(workspaceSkillContent), "---\nname: ") {
+		t.Fatalf("expected codex workspace platform skill to include frontmatter, got %q", string(workspaceSkillContent))
 	}
 	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".openase", "bin", "openase")); err != nil {
 		t.Fatalf("expected openase wrapper in codex workspace: %v", err)
