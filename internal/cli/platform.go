@@ -895,10 +895,7 @@ func (client platformClient) upsertTicketWorkpad(ctx context.Context, platform p
 		}
 	}
 
-	created, err := platform.parseTicketCommentCreateInput(ticketCommentCreateInput{
-		ticketID: input.ticketID,
-		body:     input.body,
-	})
+	created, err := platform.parseTicketCommentCreateInput(ticketCommentCreateInput(input))
 	if err != nil {
 		return nil, err
 	}
