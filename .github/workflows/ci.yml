@@ -180,13 +180,29 @@ jobs:
           if-no-files-found: error
 
   backend:
-    name: Backend Checks
+    name: Backend Checks (${{ matrix.group }}/6)
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 60
     needs:
       - changes
       - api-contract
       - frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: "1"
+            run_build: "false"
+          - group: "2"
+            run_build: "false"
+          - group: "3"
+            run_build: "false"
+          - group: "4"
+            run_build: "false"
+          - group: "5"
+            run_build: "false"
+          - group: "6"
+            run_build: "true"
     if: |
       always() &&
       needs.changes.result == 'success' &&
@@ -230,6 +246,7 @@ jobs:
         shell: bash
         env:
           OPENASE_BACKEND_TEST_GROUP_SIZE: "8"
+          OPENASE_BACKEND_TEST_GROUPS: "${{ matrix.group }}"
           OPENASE_GO_TEST_PROGRESS_MODE: plain
         run: |
           set -euo pipefail
@@ -270,6 +287,7 @@ jobs:
           make check
 
       - name: Build OpenASE Binary
+        if: matrix.run_build == 'true'
         timeout-minutes: 10
         run: make build
 
