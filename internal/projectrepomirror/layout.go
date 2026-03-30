@@ -10,8 +10,6 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 )
 
-const localMirrorPatternRoot = "~/.openase/mirrors"
-
 func deriveDefaultMirrorLocalPath(machine *ent.Machine, orgSlug string, projectSlug string, repoName string) (string, error) {
 	mirrorRoot, err := deriveMirrorRoot(machine)
 	if err != nil {
