@@ -84,13 +84,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--platform-skill-timeout-seconds",
         type=int,
         default=180,
-        help="Maximum seconds to wait for the agent to finish its current ticket via the platform skill.",
+        help="Maximum seconds to wait for the agent to post or update the current ticket workpad via the platform skill.",
     )
     parser.add_argument(
         "--require-platform-skill",
         action="store_true",
         help=(
-            "Fail unless the claimed ticket is moved to the workflow finish status by the agent itself. "
+            "Fail unless the claimed ticket receives an agent-owned Codex Workpad comment update. "
             "This is enabled implicitly for real-codex mode."
         ),
     )
@@ -444,26 +444,40 @@ def wait_for_workspace_activity(workspace_path: Path, baseline_head: str, timeou
     return None
 
 
-def wait_for_ticket_finished_by_agent(
+def wait_for_ticket_workpad_comment_by_agent(
     base_url: str,
+    project_id: str,
     ticket_id: str,
-    finish_status_id: str,
-    expected_created_by: str,
+    expected_actor: str,
     timeout_seconds: int,
 ) -> dict | None:
     deadline = time.time() + timeout_seconds
     last_seen = None
     while time.time() < deadline:
-        ticket = request_json(base_url, "GET", f"/api/v1/tickets/{ticket_id}").get("ticket")
-        if not isinstance(ticket, dict):
+        detail = request_json(base_url, "GET", f"/api/v1/projects/{project_id}/tickets/{ticket_id}/detail")
+        ticket = detail.get("ticket")
+        comments = detail.get("comments")
+        if not isinstance(ticket, dict) or not isinstance(comments, list):
             time.sleep(2)
             continue
-        last_seen = ticket
-        if ticket.get("status_id") == finish_status_id and ticket.get("created_by") == expected_created_by:
+        last_seen = {"ticket": ticket, "comments": comments}
+        for comment in comments:
+            if not isinstance(comment, dict):
+                continue
+            if comment.get("is_deleted"):
+                continue
+            body_markdown = comment.get("body_markdown")
+            if not isinstance(body_markdown, str):
+                continue
+            if not body_markdown.lstrip().startswith("## Codex Workpad"):
+                continue
+            if comment.get("created_by") != expected_actor and comment.get("last_edited_by") != expected_actor:
+                continue
             return {
                 "detected": True,
                 "detected_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "ticket": ticket,
+                "comment": comment,
             }
         time.sleep(2)
     if last_seen is None:
@@ -471,7 +485,8 @@ def wait_for_ticket_finished_by_agent(
     return {
         "detected": False,
         "detected_at": None,
-        "ticket": last_seen,
+        "ticket": last_seen.get("ticket"),
+        "comments": last_seen.get("comments"),
     }
 
 
@@ -936,10 +951,10 @@ def main() -> int:
                     "ticket_id": claimed_ticket_id,
                 }
             else:
-                platform_skill_result = wait_for_ticket_finished_by_agent(
+                platform_skill_result = wait_for_ticket_workpad_comment_by_agent(
                     base_url,
+                    project["id"],
                     claimed_ticket_id,
-                    done["id"],
                     f"agent:{agent['name']}",
                     args.platform_skill_timeout_seconds,
                 )
@@ -958,11 +973,11 @@ def main() -> int:
                     if not platform_skill_result["detected"]:
                         ticket = platform_skill_result.get("ticket", {})
                         platform_skill_result["reason"] = (
-                            "claimed ticket did not reach the workflow finish status via agent-owned platform update"
+                            "claimed ticket did not receive an agent-owned Codex Workpad comment update"
                         )
                         platform_skill_result["observed_status_id"] = ticket.get("status_id")
                         platform_skill_result["observed_status_name"] = ticket.get("status_name")
-                        platform_skill_result["observed_created_by"] = ticket.get("created_by")
+                        platform_skill_result["observed_comments"] = len(platform_skill_result.get("comments", []))
         else:
             platform_skill_result = {
                 "detected": False,
@@ -974,8 +989,8 @@ def main() -> int:
 
         if require_platform_skill and not platform_skill_result.get("detected", False):
             raise RuntimeError(
-                "expected the agent to finish its claimed ticket via openase-platform skill, "
-                f"but no qualifying ticket status transition was observed: {json.dumps(platform_skill_result, ensure_ascii=False)}"
+                "expected the agent to post or update a Codex Workpad comment via openase-platform skill, "
+                f"but no qualifying ticket comment activity was observed: {json.dumps(platform_skill_result, ensure_ascii=False)}"
             )
 
         print("[12/12] summarize created resources")
@@ -1018,7 +1033,7 @@ def main() -> int:
                 "The script creates a fresh empty baseline checkpoint on main before opening ticket PRs.",
                 "Each ticket gets a GitHub draft PR, a repo scope branch binding, and a github_pr external link.",
                 f"Provider mode: {args.provider_mode}",
-                "Platform skill detection is based on the claimed ticket reaching the workflow finish status with created_by=agent:<agent-name>.",
+                "Platform skill detection is based on the claimed ticket receiving a Codex Workpad comment created or edited by agent:<agent-name>.",
             ],
         }
         print(json.dumps(summary, indent=2))

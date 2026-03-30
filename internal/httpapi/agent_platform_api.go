@@ -210,7 +210,6 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 			return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 		}
 		input.StatusID = ticketservice.Some(statusID)
-		input.RestrictStatusToWorkflowFinishSet = true
 	}
 	if raw.StatusName != nil {
 		if s.ticketStatusService == nil {
@@ -221,7 +220,6 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 			return writeTicketStatusError(c, err)
 		}
 		input.StatusID = ticketservice.Some(statusID)
-		input.RestrictStatusToWorkflowFinishSet = true
 	}
 	input.CreatedBy = ticketservice.Some(claims.CreatedBy())
 
