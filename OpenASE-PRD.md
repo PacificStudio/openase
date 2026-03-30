@@ -582,7 +582,7 @@ Organization → Project → ProjectRepo (1:N)
 | id | UUID | 主键 |
 | project_repo_id | FK | 关联的 ProjectRepo |
 | machine_id | FK | 所属执行机器；本机模式也通过统一 Machine 记录表达 |
-| local_path | String | 该 mirror 的本地绝对路径 |
+| local_path | String | 该 mirror 的本地绝对路径；可由平台按规则自动推导，也可在 register-existing 场景下显式登记 |
 | state | Enum | `missing / provisioning / ready / stale / syncing / error / deleting` |
 | head_commit | String | 当前 mirror HEAD 提交 SHA（可空） |
 | last_synced_at | DateTime | 最近一次成功同步远端时间 |
@@ -599,6 +599,7 @@ Organization → Project → ProjectRepo (1:N)
   - 平台正在 clone / init mirror / checkout 默认分支。
 - `ready`
   - mirror 存在且可用；默认分支可 checkout，git 元数据完整，可供 Harness 和 Ticket Workspace 派生。
+  - `ready` 只表示“当前可作为本地仓库根目录使用”，**不自动等价于“已经是上游最新”**；是否必须先同步，取决于后续操作类型。
 - `stale`
   - mirror 仍可读，但同步快照已过期；需要在下次使用前或后台任务中执行 sync。
 - `syncing`
@@ -616,11 +617,51 @@ Organization → Project → ProjectRepo (1:N)
 - 超过 freshness window：`ready -> stale`
 - 用户删除 repo / 机器下线清理：`ready | stale | error -> deleting -> missing`
 
+**Mirror 操作语义：**
+
+- `prepare_mirror`
+  - 首次在指定机器上 materialize mirror。
+  - 若调用方未显式提供 `local_path`，平台必须按 machine 级路径规则自动推导默认路径。
+  - 典型动作：clone 远端仓库、校验 `origin`、checkout 默认分支、记录 `head_commit`。
+- `register_existing_mirror`
+  - 把目标 machine 上已经存在的本地 checkout 登记为 mirror。
+  - 调用方必须显式提供 `local_path`；平台不得在该模式下假定用户现有仓库已经放在哪个目录。
+  - 典型动作：校验路径存在、是 Git 仓库、`origin` URL 匹配、记录 `head_commit`、标记为 `ready`。
+- `verify_mirror`
+  - 只做健康检查，不要求把 mirror 推进到上游最新。
+  - 典型动作：检查 `local_path` 存在、是 Git 仓库、`origin` URL 匹配、默认分支可解析、当前 `HEAD` 可读取。
+  - 成功后只更新 `last_verified_at`；不得隐式改变工作树指向，也不得把本地默认分支强制 reset 到远端。
+- `sync_mirror`
+  - 明确要求把 mirror 推进到上游默认分支最新快照。
+  - 典型动作：fetch 远端、校验 `origin`、checkout 默认分支、reset/fast-forward 到 `origin/<default_branch>`、更新 `head_commit`、`last_synced_at`、`last_verified_at`。
+  - `sync_mirror` 是“强 freshness 操作”；它不仅验证 mirror 可读，还要保证后续派生出的 Ticket Workspace 看到的是最新基线。
+
+**执行位置规则：**
+
+- mirror 永远是“目标 machine 上的本地仓库”。
+- 对本机 mirror，平台可直接在本机文件系统上执行 `prepare / verify / sync`。
+- 对远端 machine 的 mirror，平台必须在目标 machine 上执行这些动作（例如通过 SSH / agent sidecar）；不得把远端 `local_path` 误当作编排服务所在机器的本地目录去访问。
+- 因此，`ProjectRepoMirror.local_path` 的解释域始终是 `machine_id` 指向的机器，而不是 OpenASE 编排进程自身所在主机。
+
+**Mirror 路径推导规则：**
+
+- mirror 的默认路径必须是 machine 级布局规则的一部分，而不是前端弹窗的硬编码字符串。
+- 平台应优先读取 `machine.mirror_root` 作为该机器的 mirror 根目录。
+- 若 `machine.mirror_root` 为空，则按以下默认规则推导：
+  - 本机：`~/.openase/mirrors`
+  - 远端机器：若配置了 `machine.workspace_root`，默认取其同级目录 `dirname(machine.workspace_root) + "/mirrors"`；例如 `workspace_root=/srv/openase/workspace` 时，默认 `mirror_root=/srv/openase/mirrors`
+- 在得到 `mirror_root` 后，单个 repo 的默认 `local_path` 统一推导为：
+  - `{mirror_root}/{org_slug}/{project_slug}/{repo_name}`
+- 不建议只用 `repo_name` 作为全局唯一路径，也不建议复用 `workspace_dirname` 作为 mirror 路径片段；前者容易在跨项目时冲突，后者的语义属于 Ticket Workspace，而不是项目级 mirror。
+- `prepare_mirror` 应默认支持省略 `local_path` 并走上述推导；`register_existing_mirror` 则必须保留显式路径输入。
+
 **关键规则：**
 
 - `ProjectRepoMirror` 是 Workflow/Harness 的本地依赖真相源。
 - 任何需要“项目仓库根目录”的操作，都必须基于某个 `ready` 的 mirror，而不是直接把 `repository_url` 当本地路径解析。
 - 平台必须显式区分“主 repo 已绑定”与“主 repo mirror 已就绪”；前者不代表后者。
+- 平台必须显式区分“mirror 可用（ready）”与“mirror 已同步到上游最新（fresh）”；不得把两者混为同一状态位。
+- `stale` 既可以由后台周期任务持久化标记，也可以由调用路径基于 `last_synced_at` 的 freshness window 派生判断；是否持久化不应改变业务语义。
 
 ### 6.4.2 TicketRepoWorkspace（工单工作副本）
 
@@ -689,16 +730,30 @@ OpenASE 中一个 repo 至少有三层不同形态，必须明确区分：
   - 创建 ProjectRepo 绑定；初始不保证本地可用
 - `prepare_mirror`
   - 在指定机器上 materialize ProjectRepoMirror
+- `register_existing_mirror`
+  - 将指定机器上一个已存在的 checkout 注册为 mirror
+- `verify_mirror`
+  - 对既有 mirror 做 git 健康检查；确认它仍是可读本地仓库，但不强制追到上游最新
 - `sync_mirror`
-  - fetch / verify / fast-forward 镜像
+  - fetch 上游、校验 `origin`、推进默认分支；必要时修复 stale / error mirror
 - `mark_primary`
   - 切换主仓库；若目标 repo 在目标机器上没有 `ready` mirror，平台必须拒绝或先完成 prepare
 - `claim_ticket`
-  - 从相关 mirror 派生 TicketRepoWorkspace
+  - 先确保相关 mirror 满足执行 freshness，再从相关 mirror 派生 TicketRepoWorkspace
 - `complete_ticket`
   - 对工作副本执行 verify / cleanup
 - `delete_repo`
   - 先阻止新 run，再清理 mirror，最后删除绑定
+
+**Freshness 策略（低成本默认实现）：**
+
+- 平台不要求后台持续同步所有 mirror。
+- 默认采用“按需确保 freshness”的惰性策略：
+  - 读路径优先 `verify_mirror`
+  - 写路径与执行路径优先 `sync_mirror`
+- 后台周期性 `mark_stale` 是可选增强，不是 correctness 的唯一来源。
+- 这样可以把网络和磁盘成本集中在真正会消费最新代码的路径上，而不是对所有 mirror 做无差别轮询同步。
+- `prepare_mirror` 的默认路径推导应由后端统一完成，并由 machine 配置参与；前端最多展示“建议路径”或允许高级覆盖，不得成为 mirror 默认路径规则的唯一真相源。
 
 ### 6.5 Ticket（工单）—— 核心实体
 
@@ -876,7 +931,7 @@ Ticket Detail 的主视图不应让前端自己把 `Ticket`、`TicketComment`、
 
 **编排引擎的多 Repo 工作区策略：**
 
-当工单涉及多个 Repo 时，编排引擎在确认相关 `ProjectRepoMirror` 已处于 `ready` 后，创建一个联合工作区（workspace），并为每个 repo 派生 `TicketRepoWorkspace`。目录结构如下：
+当工单涉及多个 Repo 时，编排引擎在确认相关 `ProjectRepoMirror` 已处于 `ready`，并按执行 freshness 规则完成必要 `sync_mirror` 后，创建一个联合工作区（workspace），并为每个 repo 派生 `TicketRepoWorkspace`。目录结构如下：
 
 ```
 ~/.openase/workspace/{org-slug}/{project-slug}/{ticket-identifier}/
@@ -909,6 +964,7 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 - 同一个 Ticket 的多次重试 / continuation 复用同一个 Ticket 工作目录
 - Ticket 工作目录是执行态副本，不是项目级 mirror；二者生命周期必须分离
 - 若某个 repo 的 mirror 不可用，平台必须把问题报告为“mirror 未就绪 / 同步失败”，而不是模糊地报告“主 repo 不可用”
+- Ticket Workspace 对其 `origin` 的 `fetch` 默认命中的是项目级 mirror，而不是远端 Git 仓库本身；因此 **mirror stale 会直接导致派生出的 Ticket Workspace 也是旧基线**。平台不得把“工作副本里执行了 `git fetch origin`”误判为“已经拉到上游最新”。
 
 ### 6.6 Workflow（工作流）
 
@@ -934,6 +990,7 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 
 - Harness 仍然存储在 Git 中，负责定义角色行为、Prompt、Hook、权限等“行为即代码”内容。
 - 任何涉及 Harness 文件读写、Workflow Hook 执行、Workflow 激活的操作，都要求当前 Workflow 绑定 Agent 所在机器上存在 `is_primary=true` 且 `state=ready` 的 `ProjectRepoMirror`。
+- 上述操作中，若只是只读访问主仓库（如读取 Harness、列举 Skill、展示 prerequisite），平台可先做 `verify_mirror`；若要修改 Harness/Skill 文件或执行 Workflow Hook，则必须先保证对应 primary mirror 已完成 `sync_mirror`。
 - `ProjectRepo` 仅表示“主仓库已绑定”；它本身不等价于“主仓库 mirror 已就绪”。前端与 API 必须分别展示这两个状态。
 - `pickup_status_ids / finish_status_ids` 属于结构化 Workflow 元数据，存储在数据库中，由前端配置并受数据库引用约束维护。
 - 编排引擎只读取数据库中的状态绑定进行调度；Harness 中不再作为真相源重复声明这些状态。
@@ -1625,6 +1682,8 @@ workflow_hooks:
 - Workflow Hook 要求主仓库 mirror 已在目标机器上处于 `ready`
 - 若主仓库仅完成 `ProjectRepo` 绑定、但 mirror 仍是 `missing / provisioning / error`，平台必须拒绝激活 / 热重载 Workflow，并返回结构化原因 `primary_mirror_not_ready`
 - `workflow.on_activate` 可以校验 git transport、CLI、依赖缓存是否可用，但不负责决定主仓库 mirror 的存在性；mirror 的准备由 repo 生命周期管理器负责
+- 任何会修改主仓库内容或在主仓库上执行 Workflow Hook 的路径，在真正进入 Hook 之前都必须先确保 primary mirror 已完成 `sync_mirror`；`ready` 但长期未同步的 mirror 不能直接作为写路径上下文
+- 只读路径（例如打开 Harness、列出 Skills、读取 workflow prerequisite）允许先走 `verify_mirror`，以较低成本确认 mirror 仍健康
 
 ### 8.2 Ticket Hook（工单执行生命周期）
 
@@ -1671,6 +1730,31 @@ ticket_hooks:
 - `ticket.on_claim` 可以在已存在的工作副本中执行 `git fetch`、`checkout`、依赖安装等准备动作
 - `ticket.on_claim` 不负责创造“项目级主仓库 mirror 是否存在”这一前提；若 mirror 缺失，调度器必须先走 `prepare_mirror`
 - 若某个 repo mirror 处于 `stale`，平台可在进入 `ticket.on_claim` 前自动执行 `sync_mirror`
+- 更严格地说：凡是要从 mirror 派生 `TicketRepoWorkspace` 的执行路径，都必须先确保对应 machine 上的相关 mirror 已满足执行 freshness；否则派生出的工作副本即使再 `git fetch origin`，拉到的也只是 mirror 当前快照，而不是上游仓库最新快照
+- 因此，`ticket.on_start` 中的“拉取最新代码”只能被解释为“拉取当前工作副本 `origin`（即 mirror）上的最新”，不能替代平台在 `claim_ticket` 前执行的 `sync_mirror`
+
+### 8.2.1 哪些操作需要最新 mirror
+
+为了控制成本，平台必须按操作类型区分 freshness 要求，而不是把所有 mirror 都持续保持在最新。
+
+- **只读路径：优先 `verify_mirror`**
+  - 读取 Harness 内容
+  - 列举项目 Skills
+  - 查看 repo / workflow prerequisite / mirror 状态
+  - 展示 settings 页面中的 mirror 摘要
+- **写路径：必须先 `sync_mirror`**
+  - 创建 / 更新 / 删除 Workflow
+  - 更新 Harness 内容
+  - 绑定 / 解绑 Workflow Skills
+  - Harvest Skills 回写主仓库
+  - Refresh Skills 前从主仓库读取并注入到 Agent 工作区
+  - 执行 Workflow Hook（activate / reload / deactivate）
+- **执行路径：必须先 `sync_mirror`**
+  - `claim_ticket` 前从 mirror 派生 Ticket Workspace
+  - 进入 `ticket.on_claim` 前的工作副本准备
+  - 任何要求 Agent 基于最新主分支创建工作分支的路径
+
+这一定义的核心目标是：把网络与磁盘成本集中在真正会消费“最新代码”的路径上，而不是对所有 mirror 做持续的后台全量同步。
 
 ### 8.3 两类 Hook 的关键区别
 
@@ -6594,6 +6678,7 @@ OpenASE 需要支持：
 | labels | TEXT[] | 资源标签（如 `{"gpu", "a100", "cuda-12"}` 或 `{"high-memory", "data-processing"}`） |
 | status | Enum | online / offline / degraded / maintenance |
 | workspace_root | String | 远端 Ticket 工作区根目录（如 `/home/openase/.openase/workspace`） |
+| mirror_root | String | 该机器上项目级 mirror 的基准根目录（如 `/home/openase/.openase/mirrors`）；为空时由平台按 `workspace_root` 或本机默认规则推导 |
 | env_vars | TEXT[] | 远端执行时注入的环境变量（如 `{"CUDA_VISIBLE_DEVICES=0,1", "HF_HOME=/data/huggingface"}`） |
 | last_heartbeat_at | DateTime | 最后健康检查时间 |
 | resources | JSONB | 最近一次采集的资源快照（动态数据，适合 JSONB） |
@@ -6619,6 +6704,11 @@ OpenASE 需要支持：
 - Machine `status` 只回答“这台机器作为执行节点是否健康”
 - Provider `availability_state` 才回答“这台机器上的某个具体 Agent CLI 入口能否执行”
 - Scheduler 必须同时检查 `machine.status` 与 `provider.availability_state`，不得只看其中一个
+- `workspace_root` 只控制 Ticket Workspace 的根目录；不得拿它直接当单个 mirror 的 `local_path`
+- `mirror_root` 只控制项目级 mirror 的默认基准目录；不得拿它派生 Ticket 工作副本
+- 若 `mirror_root` 为空，平台可按 machine 布局规则自动推导：
+  - 本机默认 `~/.openase/mirrors`
+  - 远端默认 `dirname(workspace_root) + "/mirrors"`，例如 `/srv/openase/workspace` 对应 `/srv/openase/mirrors`
 
 **`resources` JSONB 结构**（由 Machine Monitor 定期采集）：
 
