@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
-  import { providerAdapterOptions } from '$lib/features/agents/public'
+  import { ProviderModelPicker, providerAdapterOptions } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
-  import ProviderModelPicker from '$lib/features/agents/components/provider-model-picker.svelte'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
   import { Input } from '$ui/input'

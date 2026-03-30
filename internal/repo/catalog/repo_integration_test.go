@@ -544,6 +544,7 @@ func TestEntRepositoryMachineProviderValidationAndOrganizationFiltering(t *testi
 		SSHKeyPath:     strPtr("/tmp/id_builder_a"),
 		Description:    "Build worker",
 		Status:         domain.MachineStatusOnline,
+		MirrorRoot:     strPtr("/srv/openase/mirrors"),
 	})
 	if err != nil {
 		t.Fatalf("CreateMachine() remote error = %v", err)
@@ -570,6 +571,7 @@ func TestEntRepositoryMachineProviderValidationAndOrganizationFiltering(t *testi
 		Port:           remoteMachine.Port,
 		Description:    remoteMachine.Description,
 		Status:         remoteMachine.Status,
+		MirrorRoot:     remoteMachine.MirrorRoot,
 	}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("UpdateMachine() organization mismatch error = %v, want %v", err, ErrInvalidInput)
 	}
@@ -582,6 +584,7 @@ func TestEntRepositoryMachineProviderValidationAndOrganizationFiltering(t *testi
 		Port:           localMachine.Port,
 		Description:    localMachine.Description,
 		Status:         localMachine.Status,
+		MirrorRoot:     localMachine.MirrorRoot,
 	}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("UpdateMachine() local machine mutation error = %v, want %v", err, ErrInvalidInput)
 	}

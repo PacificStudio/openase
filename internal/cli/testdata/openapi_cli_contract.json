@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "808046725a6bab3f084d6f075b41bb171cc2398c985ab8d7897c0b0da6fb71eb",
+  "openapi_sha256": "9a3a9a4ddf9a7d8e6fb8a9d23c1de9b76f9a89a0327e729ad3aff03d12964754",
   "commands": [
     {
       "use": "list [projectId]",
@@ -903,6 +903,10 @@
           "kind": "string_slice"
         },
         {
+          "name": "mirror_root",
+          "kind": "string"
+        },
+        {
           "name": "name",
           "kind": "string"
         },
@@ -964,6 +968,10 @@
         {
           "name": "labels",
           "kind": "string_slice"
+        },
+        {
+          "name": "mirror_root",
+          "kind": "string"
         },
         {
           "name": "name",

@@ -52,6 +52,7 @@ type machineResponse struct {
 	Labels          []string       `json:"labels"`
 	Status          string         `json:"status"`
 	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
+	MirrorRoot      *string        `json:"mirror_root,omitempty"`
 	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
 	EnvVars         []string       `json:"env_vars"`
 	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
@@ -105,9 +106,9 @@ const (
 )
 
 type projectRepoMirrorMaterializeRequest struct {
-	MachineID string `json:"machine_id"`
-	LocalPath string `json:"local_path"`
-	Mode      string `json:"mode"`
+	MachineID string  `json:"machine_id"`
+	LocalPath *string `json:"local_path,omitempty"`
+	Mode      string  `json:"mode"`
 }
 
 type ticketRepoScopeResponse struct {
@@ -148,6 +149,7 @@ type machinePatchRequest struct {
 	Labels        *[]string `json:"labels"`
 	Status        *string   `json:"status"`
 	WorkspaceRoot *string   `json:"workspace_root"`
+	MirrorRoot    *string   `json:"mirror_root"`
 	AgentCLIPath  *string   `json:"agent_cli_path"`
 	EnvVars       *[]string `json:"env_vars"`
 }
@@ -451,6 +453,7 @@ func (s *Server) patchMachine(c echo.Context) error {
 		Labels:        cloneStringSlice(current.Labels),
 		Status:        current.Status.String(),
 		WorkspaceRoot: current.WorkspaceRoot,
+		MirrorRoot:    current.MirrorRoot,
 		AgentCLIPath:  current.AgentCLIPath,
 		EnvVars:       cloneStringSlice(current.EnvVars),
 	}
@@ -480,6 +483,9 @@ func (s *Server) patchMachine(c echo.Context) error {
 	}
 	if patch.WorkspaceRoot != nil {
 		request.WorkspaceRoot = patch.WorkspaceRoot
+	}
+	if patch.MirrorRoot != nil {
+		request.MirrorRoot = patch.MirrorRoot
 	}
 	if patch.AgentCLIPath != nil {
 		request.AgentCLIPath = patch.AgentCLIPath
@@ -1190,6 +1196,7 @@ func mapMachineResponse(item domain.Machine) machineResponse {
 		Labels:          cloneStringSlice(item.Labels),
 		Status:          item.Status.String(),
 		WorkspaceRoot:   item.WorkspaceRoot,
+		MirrorRoot:      item.MirrorRoot,
 		AgentCLIPath:    item.AgentCLIPath,
 		EnvVars:         cloneStringSlice(item.EnvVars),
 		LastHeartbeatAt: timeToStringPointer(item.LastHeartbeatAt),
@@ -1417,14 +1424,22 @@ func parseProjectRepoMirrorMaterializeRequest(raw projectRepoMirrorMaterializeRe
 		return uuid.UUID{}, "", "", fmt.Errorf("machine_id must be a valid UUID")
 	}
 
-	localPath := strings.TrimSpace(raw.LocalPath)
-	if localPath == "" {
-		return uuid.UUID{}, "", "", fmt.Errorf("local_path must not be empty")
-	}
-
 	mode := projectRepoMirrorMaterializeMode(strings.TrimSpace(raw.Mode))
 	switch mode {
-	case projectRepoMirrorMaterializeModeRegisterExisting, projectRepoMirrorMaterializeModePrepare:
+	case projectRepoMirrorMaterializeModeRegisterExisting:
+		localPath := ""
+		if raw.LocalPath != nil {
+			localPath = strings.TrimSpace(*raw.LocalPath)
+		}
+		if localPath == "" {
+			return uuid.UUID{}, "", "", fmt.Errorf("local_path must not be empty for register_existing mode")
+		}
+		return machineID, localPath, mode, nil
+	case projectRepoMirrorMaterializeModePrepare:
+		localPath := ""
+		if raw.LocalPath != nil {
+			localPath = strings.TrimSpace(*raw.LocalPath)
+		}
 		return machineID, localPath, mode, nil
 	default:
 		return uuid.UUID{}, "", "", fmt.Errorf("mode must be one of register_existing or prepare")

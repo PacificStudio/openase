@@ -125,7 +125,7 @@ func (s *Service) RegisterExisting(ctx context.Context, input RegisterExistingIn
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: service unavailable", ErrInvalidInput)
 	}
 
-	projectRepo, localPath, err := s.parseTarget(ctx, input.ProjectRepoID, input.MachineID, input.LocalPath)
+	projectRepo, localPath, err := s.parseRegisterExistingTarget(ctx, input.ProjectRepoID, input.MachineID, input.LocalPath)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
@@ -166,7 +166,7 @@ func (s *Service) Prepare(ctx context.Context, input PrepareInput) (mirror domai
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: service unavailable", ErrInvalidInput)
 	}
 
-	projectRepo, localPath, err := s.parseTarget(ctx, input.ProjectRepoID, input.MachineID, input.LocalPath)
+	projectRepo, localPath, err := s.parsePrepareTarget(ctx, input.ProjectRepoID, input.MachineID, input.LocalPath)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
@@ -350,40 +350,85 @@ func (s *Service) Delete(ctx context.Context, input DeleteInput) (mirror domain.
 	return mapProjectRepoMirror(current), nil
 }
 
-func (s *Service) parseTarget(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID, localPath string) (*rootent.ProjectRepo, string, error) {
-	if projectRepoID == uuid.Nil {
-		return nil, "", fmt.Errorf("%w: project repo id must not be empty", ErrInvalidInput)
-	}
-	if machineID == uuid.Nil {
-		return nil, "", fmt.Errorf("%w: machine id must not be empty", ErrInvalidInput)
-	}
+type mirrorTarget struct {
+	projectRepo *rootent.ProjectRepo
+	machine     *rootent.Machine
+	orgSlug     string
+	projectSlug string
+}
 
+func (s *Service) parseRegisterExistingTarget(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID, localPath string) (*rootent.ProjectRepo, string, error) {
+	target, err := s.loadTarget(ctx, projectRepoID, machineID)
+	if err != nil {
+		return nil, "", err
+	}
 	parsedPath, err := parseAbsoluteLocalPath(localPath)
 	if err != nil {
 		return nil, "", err
 	}
+	return target.projectRepo, parsedPath, nil
+}
+
+func (s *Service) parsePrepareTarget(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID, localPath string) (*rootent.ProjectRepo, string, error) {
+	target, err := s.loadTarget(ctx, projectRepoID, machineID)
+	if err != nil {
+		return nil, "", err
+	}
+	if strings.TrimSpace(localPath) != "" {
+		parsedPath, parseErr := parseAbsoluteLocalPath(localPath)
+		if parseErr != nil {
+			return nil, "", parseErr
+		}
+		return target.projectRepo, parsedPath, nil
+	}
+
+	defaultPath, err := deriveDefaultMirrorLocalPath(target.machine, target.orgSlug, target.projectSlug, target.projectRepo.Name)
+	if err != nil {
+		return nil, "", err
+	}
+	return target.projectRepo, defaultPath, nil
+}
+
+func (s *Service) loadTarget(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID) (*mirrorTarget, error) {
+	if projectRepoID == uuid.Nil {
+		return nil, fmt.Errorf("%w: project repo id must not be empty", ErrInvalidInput)
+	}
+	if machineID == uuid.Nil {
+		return nil, fmt.Errorf("%w: machine id must not be empty", ErrInvalidInput)
+	}
 
 	projectRepo, err := s.client.ProjectRepo.Query().
 		Where(entprojectrepo.ID(projectRepoID)).
+		WithProject(func(query *rootent.ProjectQuery) {
+			query.WithOrganization()
+		}).
 		Only(ctx)
 	if err != nil {
 		if rootent.IsNotFound(err) {
-			return nil, "", ErrNotFound
+			return nil, ErrNotFound
 		}
-		return nil, "", fmt.Errorf("load project repo: %w", err)
+		return nil, fmt.Errorf("load project repo: %w", err)
+	}
+	if projectRepo.Edges.Project == nil || projectRepo.Edges.Project.Edges.Organization == nil {
+		return nil, fmt.Errorf("project repo project organization edge must be loaded")
 	}
 
-	exists, err := s.client.Machine.Query().
+	machine, err := s.client.Machine.Query().
 		Where(entmachine.ID(machineID)).
-		Exist(ctx)
+		Only(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("check machine before mirror update: %w", err)
-	}
-	if !exists {
-		return nil, "", ErrNotFound
+		if rootent.IsNotFound(err) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("load machine before mirror update: %w", err)
 	}
 
-	return projectRepo, parsedPath, nil
+	return &mirrorTarget{
+		projectRepo: projectRepo,
+		machine:     machine,
+		orgSlug:     projectRepo.Edges.Project.Edges.Organization.Slug,
+		projectSlug: projectRepo.Edges.Project.Slug,
+	}, nil
 }
 
 func (s *Service) upsertMirrorState(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID, localPath string, state entprojectrepomirror.State) (*rootent.ProjectRepoMirror, error) {

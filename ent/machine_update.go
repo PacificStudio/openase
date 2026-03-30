@@ -203,6 +203,26 @@ func (_u *MachineUpdate) ClearWorkspaceRoot() *MachineUpdate {
 	return _u
 }
 
+// SetMirrorRoot sets the "mirror_root" field.
+func (_u *MachineUpdate) SetMirrorRoot(v string) *MachineUpdate {
+	_u.mutation.SetMirrorRoot(v)
+	return _u
+}
+
+// SetNillableMirrorRoot sets the "mirror_root" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableMirrorRoot(v *string) *MachineUpdate {
+	if v != nil {
+		_u.SetMirrorRoot(*v)
+	}
+	return _u
+}
+
+// ClearMirrorRoot clears the value of the "mirror_root" field.
+func (_u *MachineUpdate) ClearMirrorRoot() *MachineUpdate {
+	_u.mutation.ClearMirrorRoot()
+	return _u
+}
+
 // SetAgentCliPath sets the "agent_cli_path" field.
 func (_u *MachineUpdate) SetAgentCliPath(v string) *MachineUpdate {
 	_u.mutation.SetAgentCliPath(v)
@@ -491,6 +511,12 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.WorkspaceRootCleared() {
 		_spec.ClearField(machine.FieldWorkspaceRoot, field.TypeString)
+	}
+	if value, ok := _u.mutation.MirrorRoot(); ok {
+		_spec.SetField(machine.FieldMirrorRoot, field.TypeString, value)
+	}
+	if _u.mutation.MirrorRootCleared() {
+		_spec.ClearField(machine.FieldMirrorRoot, field.TypeString)
 	}
 	if value, ok := _u.mutation.AgentCliPath(); ok {
 		_spec.SetField(machine.FieldAgentCliPath, field.TypeString, value)
@@ -866,6 +892,26 @@ func (_u *MachineUpdateOne) ClearWorkspaceRoot() *MachineUpdateOne {
 	return _u
 }
 
+// SetMirrorRoot sets the "mirror_root" field.
+func (_u *MachineUpdateOne) SetMirrorRoot(v string) *MachineUpdateOne {
+	_u.mutation.SetMirrorRoot(v)
+	return _u
+}
+
+// SetNillableMirrorRoot sets the "mirror_root" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableMirrorRoot(v *string) *MachineUpdateOne {
+	if v != nil {
+		_u.SetMirrorRoot(*v)
+	}
+	return _u
+}
+
+// ClearMirrorRoot clears the value of the "mirror_root" field.
+func (_u *MachineUpdateOne) ClearMirrorRoot() *MachineUpdateOne {
+	_u.mutation.ClearMirrorRoot()
+	return _u
+}
+
 // SetAgentCliPath sets the "agent_cli_path" field.
 func (_u *MachineUpdateOne) SetAgentCliPath(v string) *MachineUpdateOne {
 	_u.mutation.SetAgentCliPath(v)
@@ -1184,6 +1230,12 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 	}
 	if _u.mutation.WorkspaceRootCleared() {
 		_spec.ClearField(machine.FieldWorkspaceRoot, field.TypeString)
+	}
+	if value, ok := _u.mutation.MirrorRoot(); ok {
+		_spec.SetField(machine.FieldMirrorRoot, field.TypeString, value)
+	}
+	if _u.mutation.MirrorRootCleared() {
+		_spec.ClearField(machine.FieldMirrorRoot, field.TypeString)
 	}
 	if value, ok := _u.mutation.AgentCliPath(); ok {
 		_spec.SetField(machine.FieldAgentCliPath, field.TypeString, value)

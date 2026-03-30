@@ -6,10 +6,10 @@
   import {
     createEmptyProviderDraft,
     parseProviderDraft,
+    ProviderModelPicker,
     providerAdapterOptions,
   } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
-  import ProviderModelPicker from '$lib/features/agents/components/provider-model-picker.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'

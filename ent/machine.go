@@ -41,6 +41,8 @@ type Machine struct {
 	Status machine.Status `json:"status,omitempty"`
 	// WorkspaceRoot holds the value of the "workspace_root" field.
 	WorkspaceRoot string `json:"workspace_root,omitempty"`
+	// MirrorRoot holds the value of the "mirror_root" field.
+	MirrorRoot string `json:"mirror_root,omitempty"`
 	// AgentCliPath holds the value of the "agent_cli_path" field.
 	AgentCliPath string `json:"agent_cli_path,omitempty"`
 	// EnvVars holds the value of the "env_vars" field.
@@ -119,7 +121,7 @@ func (*Machine) scanValues(columns []string) ([]any, error) {
 			values[i] = new(pgarray.StringArray)
 		case machine.FieldPort:
 			values[i] = new(sql.NullInt64)
-		case machine.FieldName, machine.FieldHost, machine.FieldSSHUser, machine.FieldSSHKeyPath, machine.FieldDescription, machine.FieldStatus, machine.FieldWorkspaceRoot, machine.FieldAgentCliPath:
+		case machine.FieldName, machine.FieldHost, machine.FieldSSHUser, machine.FieldSSHKeyPath, machine.FieldDescription, machine.FieldStatus, machine.FieldWorkspaceRoot, machine.FieldMirrorRoot, machine.FieldAgentCliPath:
 			values[i] = new(sql.NullString)
 		case machine.FieldLastHeartbeatAt:
 			values[i] = new(sql.NullTime)
@@ -205,6 +207,12 @@ func (_m *Machine) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field workspace_root", values[i])
 			} else if value.Valid {
 				_m.WorkspaceRoot = value.String
+			}
+		case machine.FieldMirrorRoot:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field mirror_root", values[i])
+			} else if value.Valid {
+				_m.MirrorRoot = value.String
 			}
 		case machine.FieldAgentCliPath:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -318,6 +326,9 @@ func (_m *Machine) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("workspace_root=")
 	builder.WriteString(_m.WorkspaceRoot)
+	builder.WriteString(", ")
+	builder.WriteString("mirror_root=")
+	builder.WriteString(_m.MirrorRoot)
 	builder.WriteString(", ")
 	builder.WriteString("agent_cli_path=")
 	builder.WriteString(_m.AgentCliPath)

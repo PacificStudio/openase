@@ -26,6 +26,12 @@ func TestServicePrepareMarkStaleVerifyAndDelete(t *testing.T) {
 	ctx := context.Background()
 
 	project, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	machine, err := client.Machine.UpdateOneID(machine.ID).
+		SetMirrorRoot(filepath.Join(t.TempDir(), "mirrors")).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("set machine mirror_root: %v", err)
+	}
 	sourceRepoPath, headCommit := createGitRepository(t)
 	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
 		SetRepositoryURL(sourceRepoPath).
@@ -38,17 +44,19 @@ func TestServicePrepareMarkStaleVerifyAndDelete(t *testing.T) {
 	base := time.Date(2026, 3, 29, 15, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return base }
 
-	mirrorPath := filepath.Join(t.TempDir(), "mirror")
 	prepared, err := svc.Prepare(ctx, PrepareInput{
 		ProjectRepoID: projectRepo.ID,
 		MachineID:     machine.ID,
-		LocalPath:     mirrorPath,
 	})
 	if err != nil {
 		t.Fatalf("Prepare() error = %v", err)
 	}
 	if prepared.ProjectID != project.ID || prepared.State != domain.ProjectRepoMirrorStateReady {
 		t.Fatalf("Prepare() = %+v", prepared)
+	}
+	expectedMirrorPath := filepath.Join(machine.MirrorRoot, "acme", "openase", "backend")
+	if prepared.LocalPath != expectedMirrorPath {
+		t.Fatalf("prepared local_path = %q, want %q", prepared.LocalPath, expectedMirrorPath)
 	}
 	if prepared.HeadCommit == nil || *prepared.HeadCommit != headCommit {
 		t.Fatalf("prepared head commit = %v, want %s", prepared.HeadCommit, headCommit)
@@ -96,7 +104,7 @@ func TestServicePrepareMarkStaleVerifyAndDelete(t *testing.T) {
 	if deleted.State != domain.ProjectRepoMirrorStateMissing {
 		t.Fatalf("Delete() = %+v", deleted)
 	}
-	if _, err := os.Stat(mirrorPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(expectedMirrorPath); !os.IsNotExist(err) {
 		t.Fatalf("mirror path still exists after delete: %v", err)
 	}
 }
@@ -131,6 +139,58 @@ func TestServiceRegisterExisting(t *testing.T) {
 	}
 	if registered.HeadCommit == nil || *registered.HeadCommit != headCommit {
 		t.Fatalf("registered head commit = %v, want %s", registered.HeadCommit, headCommit)
+	}
+}
+
+func TestServicePrepareDerivesRemoteMirrorPathFromWorkspaceRoot(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	_, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	machine, err := client.Machine.UpdateOneID(machine.ID).
+		SetName("builder").
+		SetHost("10.0.0.12").
+		SetWorkspaceRoot(filepath.Join(t.TempDir(), "workspace")).
+		ClearMirrorRoot().
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("update machine: %v", err)
+	}
+	sourceRepoPath, _ := createGitRepository(t)
+	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
+		SetRepositoryURL(sourceRepoPath).
+		SetDefaultBranch("master").
+		Save(ctx); err != nil {
+		t.Fatalf("update project repo remote: %v", err)
+	}
+
+	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	prepared, err := svc.Prepare(ctx, PrepareInput{
+		ProjectRepoID: projectRepo.ID,
+		MachineID:     machine.ID,
+	})
+	if err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+
+	expected := filepath.Join(filepath.Dir(machine.WorkspaceRoot), "mirrors", "acme", "openase", "backend")
+	if prepared.LocalPath != expected {
+		t.Fatalf("Prepare() local_path = %q, want %q", prepared.LocalPath, expected)
+	}
+}
+
+func TestServiceRegisterExistingRequiresLocalPath(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	_, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	if _, err := svc.RegisterExisting(ctx, RegisterExistingInput{
+		ProjectRepoID: projectRepo.ID,
+		MachineID:     machine.ID,
+	}); err == nil || err.Error() != "project repo mirror input is invalid: local_path must not be empty" {
+		t.Fatalf("RegisterExisting() missing local_path error = %v", err)
 	}
 }
 

@@ -52,6 +52,7 @@ type OpenAPIMachine struct {
 	Labels          []string       `json:"labels,omitempty"`
 	Status          string         `json:"status"`
 	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
+	MirrorRoot      *string        `json:"mirror_root,omitempty"`
 	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
 	EnvVars         []string       `json:"env_vars,omitempty"`
 	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`

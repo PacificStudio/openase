@@ -102,6 +102,11 @@ func WorkspaceRoot(v string) predicate.Machine {
 	return predicate.Machine(sql.FieldEQ(FieldWorkspaceRoot, v))
 }
 
+// MirrorRoot applies equality check predicate on the "mirror_root" field. It's identical to MirrorRootEQ.
+func MirrorRoot(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldMirrorRoot, v))
+}
+
 // AgentCliPath applies equality check predicate on the "agent_cli_path" field. It's identical to AgentCliPathEQ.
 func AgentCliPath(v string) predicate.Machine {
 	return predicate.Machine(sql.FieldEQ(FieldAgentCliPath, v))
@@ -675,6 +680,81 @@ func WorkspaceRootEqualFold(v string) predicate.Machine {
 // WorkspaceRootContainsFold applies the ContainsFold predicate on the "workspace_root" field.
 func WorkspaceRootContainsFold(v string) predicate.Machine {
 	return predicate.Machine(sql.FieldContainsFold(FieldWorkspaceRoot, v))
+}
+
+// MirrorRootEQ applies the EQ predicate on the "mirror_root" field.
+func MirrorRootEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldMirrorRoot, v))
+}
+
+// MirrorRootNEQ applies the NEQ predicate on the "mirror_root" field.
+func MirrorRootNEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldMirrorRoot, v))
+}
+
+// MirrorRootIn applies the In predicate on the "mirror_root" field.
+func MirrorRootIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldMirrorRoot, vs...))
+}
+
+// MirrorRootNotIn applies the NotIn predicate on the "mirror_root" field.
+func MirrorRootNotIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldMirrorRoot, vs...))
+}
+
+// MirrorRootGT applies the GT predicate on the "mirror_root" field.
+func MirrorRootGT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGT(FieldMirrorRoot, v))
+}
+
+// MirrorRootGTE applies the GTE predicate on the "mirror_root" field.
+func MirrorRootGTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGTE(FieldMirrorRoot, v))
+}
+
+// MirrorRootLT applies the LT predicate on the "mirror_root" field.
+func MirrorRootLT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLT(FieldMirrorRoot, v))
+}
+
+// MirrorRootLTE applies the LTE predicate on the "mirror_root" field.
+func MirrorRootLTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLTE(FieldMirrorRoot, v))
+}
+
+// MirrorRootContains applies the Contains predicate on the "mirror_root" field.
+func MirrorRootContains(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContains(FieldMirrorRoot, v))
+}
+
+// MirrorRootHasPrefix applies the HasPrefix predicate on the "mirror_root" field.
+func MirrorRootHasPrefix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasPrefix(FieldMirrorRoot, v))
+}
+
+// MirrorRootHasSuffix applies the HasSuffix predicate on the "mirror_root" field.
+func MirrorRootHasSuffix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasSuffix(FieldMirrorRoot, v))
+}
+
+// MirrorRootIsNil applies the IsNil predicate on the "mirror_root" field.
+func MirrorRootIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldMirrorRoot))
+}
+
+// MirrorRootNotNil applies the NotNil predicate on the "mirror_root" field.
+func MirrorRootNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldMirrorRoot))
+}
+
+// MirrorRootEqualFold applies the EqualFold predicate on the "mirror_root" field.
+func MirrorRootEqualFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEqualFold(FieldMirrorRoot, v))
+}
+
+// MirrorRootContainsFold applies the ContainsFold predicate on the "mirror_root" field.
+func MirrorRootContainsFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContainsFold(FieldMirrorRoot, v))
 }
 
 // AgentCliPathEQ applies the EQ predicate on the "agent_cli_path" field.

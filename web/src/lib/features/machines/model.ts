@@ -13,6 +13,7 @@ export function createEmptyMachineDraft(): MachineDraft {
     labels: '',
     status: 'maintenance',
     workspaceRoot: '',
+    mirrorRoot: '',
     agentCLIPath: '',
     envVars: '',
   }
@@ -29,6 +30,7 @@ export function machineToDraft(machine: Machine): MachineDraft {
     labels: (machine.labels ?? []).join(', '),
     status: normalizeMachineStatus(machine.status),
     workspaceRoot: machine.workspace_root ?? '',
+    mirrorRoot: machine.mirror_root ?? '',
     agentCLIPath: machine.agent_cli_path ?? '',
     envVars: (machine.env_vars ?? []).join('\n'),
   }
@@ -82,6 +84,7 @@ export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult 
       labels: splitLabels(draft.labels),
       status: normalizeMachineStatus(draft.status),
       workspace_root: draft.workspaceRoot.trim(),
+      mirror_root: draft.mirrorRoot.trim(),
       agent_cli_path: draft.agentCLIPath.trim(),
       env_vars: splitLines(draft.envVars),
     },

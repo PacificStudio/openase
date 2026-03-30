@@ -14,7 +14,7 @@ export type RepositoryMirrorDraft = {
 
 export type RepositoryMirrorMutationInput = {
   machine_id: string
-  local_path: string
+  local_path?: string
   mode: RepositoryMirrorMode
 }
 
@@ -48,11 +48,11 @@ export function parseRepositoryMirrorDraft(
   }
 
   const localPath = draft.localPath.trim()
-  if (!localPath) {
+  if (draft.mode === 'register_existing' && !localPath) {
     return { ok: false, error: 'Local path is required.' }
   }
 
-  if (!localPath.startsWith('/')) {
+  if (localPath && !localPath.startsWith('/')) {
     return { ok: false, error: 'Local path must be absolute.' }
   }
 
@@ -60,7 +60,7 @@ export function parseRepositoryMirrorDraft(
     ok: true,
     value: {
       machine_id: machineId,
-      local_path: localPath,
+      ...(localPath ? { local_path: localPath } : {}),
       mode: draft.mode,
     },
   }
@@ -101,11 +101,80 @@ function defaultMirrorMode(repo: ProjectRepoRecord | null): RepositoryMirrorMode
 }
 
 function defaultMirrorLocalPath(repo: ProjectRepoRecord | null): string {
+  if (defaultMirrorMode(repo) === 'prepare') {
+    return ''
+  }
+
   const repositoryURL = repo?.repository_url?.trim() ?? ''
   if (repositoryURL.startsWith('/')) {
     return repositoryURL
   }
   return ''
+}
+
+export function suggestRepositoryMirrorLocalPath(
+  machine: Machine | null | undefined,
+  repo: ProjectRepoRecord | null,
+  orgSlug: string | null | undefined,
+  projectSlug: string | null | undefined,
+): string {
+  const mirrorRoot = suggestMirrorRoot(machine)
+  const repoName = repo?.name?.trim() ?? ''
+  const normalizedOrgSlug = orgSlug?.trim() ?? ''
+  const normalizedProjectSlug = projectSlug?.trim() ?? ''
+  if (!mirrorRoot || !repoName || !normalizedOrgSlug || !normalizedProjectSlug) {
+    return ''
+  }
+
+  return joinPathSegments(mirrorRoot, normalizedOrgSlug, normalizedProjectSlug, repoName)
+}
+
+function suggestMirrorRoot(machine: Machine | null | undefined): string {
+  if (!machine) {
+    return ''
+  }
+
+  const configuredMirrorRoot = machine.mirror_root?.trim() ?? ''
+  if (configuredMirrorRoot) {
+    return trimTrailingSlash(configuredMirrorRoot)
+  }
+
+  if (isLocalMachine(machine)) {
+    return '~/.openase/mirrors'
+  }
+
+  const workspaceRoot = trimTrailingSlash(machine.workspace_root?.trim() ?? '')
+  if (!workspaceRoot.startsWith('/')) {
+    return ''
+  }
+  const parentPath = workspaceRoot.slice(0, workspaceRoot.lastIndexOf('/')) || '/'
+  return joinPathSegments(parentPath, 'mirrors')
+}
+
+function isLocalMachine(machine: Machine): boolean {
+  return (
+    machine.host?.trim().toLowerCase() === 'local' || machine.name?.trim().toLowerCase() === 'local'
+  )
+}
+
+function joinPathSegments(...segments: string[]): string {
+  return segments
+    .map((segment, index) => {
+      const trimmed = segment.trim()
+      if (index === 0) {
+        return trimTrailingSlash(trimmed)
+      }
+      return trimmed.replace(/^\/+|\/+$/g, '')
+    })
+    .filter(Boolean)
+    .join('/')
+}
+
+function trimTrailingSlash(raw: string): string {
+  if (raw === '/') {
+    return raw
+  }
+  return raw.replace(/\/+$/g, '')
 }
 
 function selectDefaultMachineId(machines: Machine[]): string {
