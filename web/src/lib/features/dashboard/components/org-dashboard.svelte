@@ -14,7 +14,7 @@
   } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import StatCard from './stat-card.svelte'
-  import ProjectHealthList from './project-health-list.svelte'
+  import ProjectSummaryCard from './project-summary-card.svelte'
   import ExceptionPanel from './exception-panel.svelte'
   import ActivityFeedPanel from './activity-feed-panel.svelte'
   import CostSnapshotPanel from './cost-snapshot-panel.svelte'
@@ -56,7 +56,7 @@
     avgCycleMinutes: 0,
     prMergeRate: 0,
   })
-  let projects = $state<ProjectSummary[]>([])
+  let projectSummary = $state<ProjectSummary | null>(null)
   let exceptions = $state<ReturnType<typeof buildExceptionItems>>([])
   let activities = $state<ReturnType<typeof buildActivityItems>>([])
   let hrAdvisor = $state<HRAdvisorSnapshot | null>(null)
@@ -74,15 +74,13 @@
     try {
       const payload = await updateProject(projectId, { status })
       appStore.currentProject = payload.project
-      projects = projects.map((project) =>
-        project.id === projectId
-          ? {
-              ...project,
-              description: payload.project.description,
-              status: payload.project.status,
-            }
-          : project,
-      )
+      if (projectSummary?.id === projectId) {
+        projectSummary = {
+          ...projectSummary,
+          description: payload.project.description,
+          status: payload.project.status,
+        }
+      }
       toastStore.success('Project status updated.')
     } catch (caughtError) {
       toastStore.error(
@@ -96,7 +94,7 @@
   $effect(() => {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      projects = []
+      projectSummary = null
       activities = []
       exceptions = []
       hrAdvisor = null
@@ -149,7 +147,7 @@
             }
           : null
 
-        projects = buildProjectSummary(
+        projectSummary = buildProjectSummary(
           projectPayload.project,
           stats,
           activityPayload.events[0]?.created_at ?? null,
@@ -208,11 +206,13 @@
       </div>
 
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ProjectHealthList
-          {projects}
-          {savingProjectStatusId}
-          onUpdateStatus={handleProjectStatusChange}
-        />
+        {#if projectSummary}
+          <ProjectSummaryCard
+            project={projectSummary}
+            {savingProjectStatusId}
+            onUpdateStatus={handleProjectStatusChange}
+          />
+        {/if}
         <CostSnapshotPanel
           newTicketsTodayCost={stats.newTicketsTodayCost}
           projectCost={stats.projectCost}
