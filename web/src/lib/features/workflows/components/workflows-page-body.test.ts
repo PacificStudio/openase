@@ -72,11 +72,12 @@ describe('WorkflowsPageBody', () => {
   })
 
   it('hides the workflow list when showList is false', () => {
-    const { getByText } = render(WorkflowsPageBody, {
+    const { getByText, queryByText } = render(WorkflowsPageBody, {
       props: { ...defaultProps, showList: false },
     })
 
     // The list heading "Workflows" should not be present
+    expect(queryByText('Workflows')).toBeNull()
     // The editor should still render
     expect(getByText('Validate')).toBeTruthy()
     // Workflow list items won't render since the list is hidden

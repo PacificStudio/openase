@@ -113,13 +113,22 @@
       </p>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2">
+    <div class="grid gap-4 md:grid-cols-3">
       <div class="space-y-2">
         <Label for="machine-workspace-root">Workspace root</Label>
         <Input
           id="machine-workspace-root"
           value={draft.workspaceRoot}
           oninput={(event) => updateField('workspaceRoot', event)}
+        />
+      </div>
+
+      <div class="space-y-2">
+        <Label for="machine-mirror-root">Mirror root</Label>
+        <Input
+          id="machine-mirror-root"
+          value={draft.mirrorRoot}
+          oninput={(event) => updateField('mirrorRoot', event)}
         />
       </div>
 

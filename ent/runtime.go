@@ -195,7 +195,7 @@ func init() {
 	// machine.DefaultPort holds the default value on creation for the port field.
 	machine.DefaultPort = machineDescPort.Default.(int)
 	// machineDescResources is the schema descriptor for resources field.
-	machineDescResources := machineFields[14].Descriptor()
+	machineDescResources := machineFields[15].Descriptor()
 	// machine.DefaultResources holds the default value on creation for the resources field.
 	machine.DefaultResources = machineDescResources.Default.(func() map[string]interface{})
 	// machineDescID is the schema descriptor for id field.

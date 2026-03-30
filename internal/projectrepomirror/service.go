@@ -15,6 +15,7 @@ import (
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/uuid"
@@ -56,15 +57,30 @@ type VerifyInput struct {
 	MachineID     uuid.UUID
 }
 
+type EnsureOperation string
+
+const (
+	EnsureOperationRead    EnsureOperation = "read"
+	EnsureOperationWrite   EnsureOperation = "write"
+	EnsureOperationExecute EnsureOperation = "execute"
+)
+
+type EnsureInput struct {
+	ProjectRepoID uuid.UUID
+	MachineID     uuid.UUID
+	Operation     EnsureOperation
+}
+
 type DeleteInput struct {
 	ProjectRepoID uuid.UUID
 	MachineID     uuid.UUID
 }
 
 type Service struct {
-	client *rootent.Client
-	logger *slog.Logger
-	now    func() time.Time
+	client  *rootent.Client
+	logger  *slog.Logger
+	now     func() time.Time
+	sshPool *sshinfra.Pool
 }
 
 func NewService(client *rootent.Client, logger *slog.Logger) *Service {
@@ -76,6 +92,13 @@ func NewService(client *rootent.Client, logger *slog.Logger) *Service {
 		logger: logger.With("component", "project-repo-mirror"),
 		now:    time.Now,
 	}
+}
+
+func (s *Service) ConfigureSSHPool(pool *sshinfra.Pool) {
+	if s == nil {
+		return
+	}
+	s.sshPool = pool
 }
 
 func (s *Service) List(ctx context.Context, filter ListFilter) ([]domain.ProjectRepoMirror, error) {
@@ -125,26 +148,26 @@ func (s *Service) RegisterExisting(ctx context.Context, input RegisterExistingIn
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: service unavailable", ErrInvalidInput)
 	}
 
-	projectRepo, localPath, err := s.parseTarget(ctx, input.ProjectRepoID, input.MachineID, input.LocalPath)
+	target, err := s.resolveTarget(ctx, input.ProjectRepoID, input.MachineID, input.LocalPath, false)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	current, err := s.upsertMirrorState(ctx, projectRepo.ID, input.MachineID, localPath, entprojectrepomirror.StateProvisioning)
+	current, err := s.upsertMirrorState(ctx, target.projectRepo.ID, input.MachineID, target.localPath, entprojectrepomirror.StateProvisioning)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	headCommit, verifyErr := inspectExistingRepository(localPath, projectRepo.RepositoryURL)
+	headCommit, verifyErr := s.inspectRepository(ctx, target.machine, target.localPath, target.projectRepo.RepositoryURL, target.projectRepo.DefaultBranch)
 	if verifyErr != nil {
-		s.recordFailure(ctx, current.ID, localPath, verifyErr)
+		s.recordFailure(ctx, current.ID, target.localPath, verifyErr)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, verifyErr)
 	}
 
 	verifiedAt := s.now().UTC()
 	current, err = s.client.ProjectRepoMirror.UpdateOneID(current.ID).
 		SetState(entprojectrepomirror.StateReady).
-		SetLocalPath(localPath).
+		SetLocalPath(target.localPath).
 		SetHeadCommit(headCommit).
 		SetLastSyncedAt(verifiedAt).
 		SetLastVerifiedAt(verifiedAt).
@@ -166,26 +189,26 @@ func (s *Service) Prepare(ctx context.Context, input PrepareInput) (mirror domai
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: service unavailable", ErrInvalidInput)
 	}
 
-	projectRepo, localPath, err := s.parseTarget(ctx, input.ProjectRepoID, input.MachineID, input.LocalPath)
+	target, err := s.resolveTarget(ctx, input.ProjectRepoID, input.MachineID, input.LocalPath, true)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	current, err := s.upsertMirrorState(ctx, projectRepo.ID, input.MachineID, localPath, entprojectrepomirror.StateProvisioning)
+	current, err := s.upsertMirrorState(ctx, target.projectRepo.ID, input.MachineID, target.localPath, entprojectrepomirror.StateProvisioning)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	headCommit, syncErr := syncRepository(ctx, localPath, projectRepo.RepositoryURL, projectRepo.DefaultBranch)
+	headCommit, syncErr := s.syncRepository(ctx, target.machine, target.localPath, target.projectRepo.RepositoryURL, target.projectRepo.DefaultBranch)
 	if syncErr != nil {
-		s.recordFailure(ctx, current.ID, localPath, syncErr)
+		s.recordFailure(ctx, current.ID, target.localPath, syncErr)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, syncErr)
 	}
 
 	syncedAt := s.now().UTC()
 	current, err = s.client.ProjectRepoMirror.UpdateOneID(current.ID).
 		SetState(entprojectrepomirror.StateReady).
-		SetLocalPath(localPath).
+		SetLocalPath(target.localPath).
 		SetHeadCommit(headCommit).
 		SetLastSyncedAt(syncedAt).
 		SetLastVerifiedAt(syncedAt).
@@ -207,7 +230,7 @@ func (s *Service) Sync(ctx context.Context, input SyncInput) (mirror domain.Proj
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: service unavailable", ErrInvalidInput)
 	}
 
-	current, projectRepo, err := s.loadMirrorForUpdate(ctx, input.ProjectRepoID, input.MachineID)
+	current, projectRepo, machine, err := s.loadMirrorForUpdate(ctx, input.ProjectRepoID, input.MachineID)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
@@ -223,7 +246,7 @@ func (s *Service) Sync(ctx context.Context, input SyncInput) (mirror domain.Proj
 		return domain.ProjectRepoMirror{}, fmt.Errorf("mark project repo mirror syncing: %w", err)
 	}
 
-	headCommit, syncErr := syncRepository(ctx, current.LocalPath, projectRepo.RepositoryURL, projectRepo.DefaultBranch)
+	headCommit, syncErr := s.syncRepository(ctx, machine, current.LocalPath, projectRepo.RepositoryURL, projectRepo.DefaultBranch)
 	if syncErr != nil {
 		s.recordFailure(ctx, current.ID, current.LocalPath, syncErr)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, syncErr)
@@ -253,7 +276,7 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (mirror domain.
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: service unavailable", ErrInvalidInput)
 	}
 
-	current, projectRepo, err := s.loadMirrorForUpdate(ctx, input.ProjectRepoID, input.MachineID)
+	current, projectRepo, machine, err := s.loadMirrorForUpdate(ctx, input.ProjectRepoID, input.MachineID)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
@@ -261,7 +284,7 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (mirror domain.
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	headCommit, verifyErr := inspectExistingRepository(current.LocalPath, projectRepo.RepositoryURL)
+	headCommit, verifyErr := s.inspectRepository(ctx, machine, current.LocalPath, projectRepo.RepositoryURL, projectRepo.DefaultBranch)
 	if verifyErr != nil {
 		s.recordFailure(ctx, current.ID, current.LocalPath, verifyErr)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, verifyErr)
@@ -283,6 +306,58 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (mirror domain.
 		return domain.ProjectRepoMirror{}, err
 	}
 	return mapProjectRepoMirror(current), nil
+}
+
+func (s *Service) Ensure(ctx context.Context, input EnsureInput) (domain.ProjectRepoMirror, error) {
+	if s == nil || s.client == nil {
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: service unavailable", ErrInvalidInput)
+	}
+	if input.ProjectRepoID == uuid.Nil {
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: project repo id must not be empty", ErrInvalidInput)
+	}
+	if input.MachineID == uuid.Nil {
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: machine id must not be empty", ErrInvalidInput)
+	}
+
+	switch input.Operation {
+	case EnsureOperationRead, EnsureOperationWrite, EnsureOperationExecute:
+	default:
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: operation must be read, write, or execute", ErrInvalidInput)
+	}
+
+	current, _, _, err := s.loadMirrorForUpdate(ctx, input.ProjectRepoID, input.MachineID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return s.Prepare(ctx, PrepareInput{
+				ProjectRepoID: input.ProjectRepoID,
+				MachineID:     input.MachineID,
+			})
+		}
+		return domain.ProjectRepoMirror{}, err
+	}
+
+	switch current.State {
+	case entprojectrepomirror.StateProvisioning, entprojectrepomirror.StateSyncing, entprojectrepomirror.StateDeleting:
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: current state %q", ErrMirrorNotReady, current.State)
+	case entprojectrepomirror.StateMissing:
+		return s.Prepare(ctx, PrepareInput{
+			ProjectRepoID: input.ProjectRepoID,
+			MachineID:     input.MachineID,
+			LocalPath:     current.LocalPath,
+		})
+	}
+
+	if input.Operation == EnsureOperationRead {
+		return s.Verify(ctx, VerifyInput{
+			ProjectRepoID: input.ProjectRepoID,
+			MachineID:     input.MachineID,
+		})
+	}
+
+	return s.Sync(ctx, SyncInput{
+		ProjectRepoID: input.ProjectRepoID,
+		MachineID:     input.MachineID,
+	})
 }
 
 func (s *Service) MarkStaleMirrors(ctx context.Context, staleAfter time.Duration) error {
@@ -315,7 +390,7 @@ func (s *Service) Delete(ctx context.Context, input DeleteInput) (mirror domain.
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: service unavailable", ErrInvalidInput)
 	}
 
-	current, _, err := s.loadMirrorForUpdate(ctx, input.ProjectRepoID, input.MachineID)
+	current, _, machine, err := s.loadMirrorForUpdate(ctx, input.ProjectRepoID, input.MachineID)
 	if err != nil {
 		return domain.ProjectRepoMirror{}, err
 	}
@@ -327,7 +402,7 @@ func (s *Service) Delete(ctx context.Context, input DeleteInput) (mirror domain.
 		return domain.ProjectRepoMirror{}, fmt.Errorf("mark project repo mirror deleting: %w", err)
 	}
 
-	if err := os.RemoveAll(current.LocalPath); err != nil {
+	if err := s.deleteRepository(ctx, machine, current.LocalPath); err != nil {
 		s.recordFailure(ctx, current.ID, current.LocalPath, err)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
 	}
@@ -350,40 +425,78 @@ func (s *Service) Delete(ctx context.Context, input DeleteInput) (mirror domain.
 	return mapProjectRepoMirror(current), nil
 }
 
-func (s *Service) parseTarget(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID, localPath string) (*rootent.ProjectRepo, string, error) {
+type resolvedTarget struct {
+	projectRepo *rootent.ProjectRepo
+	machine     *rootent.Machine
+	localPath   string
+}
+
+func (s *Service) resolveTarget(
+	ctx context.Context,
+	projectRepoID uuid.UUID,
+	machineID uuid.UUID,
+	rawLocalPath string,
+	allowDefaultPath bool,
+) (resolvedTarget, error) {
 	if projectRepoID == uuid.Nil {
-		return nil, "", fmt.Errorf("%w: project repo id must not be empty", ErrInvalidInput)
+		return resolvedTarget{}, fmt.Errorf("%w: project repo id must not be empty", ErrInvalidInput)
 	}
 	if machineID == uuid.Nil {
-		return nil, "", fmt.Errorf("%w: machine id must not be empty", ErrInvalidInput)
-	}
-
-	parsedPath, err := parseAbsoluteLocalPath(localPath)
-	if err != nil {
-		return nil, "", err
+		return resolvedTarget{}, fmt.Errorf("%w: machine id must not be empty", ErrInvalidInput)
 	}
 
 	projectRepo, err := s.client.ProjectRepo.Query().
 		Where(entprojectrepo.ID(projectRepoID)).
+		WithProject(func(query *rootent.ProjectQuery) {
+			query.WithOrganization()
+		}).
 		Only(ctx)
 	if err != nil {
 		if rootent.IsNotFound(err) {
-			return nil, "", ErrNotFound
+			return resolvedTarget{}, ErrNotFound
 		}
-		return nil, "", fmt.Errorf("load project repo: %w", err)
+		return resolvedTarget{}, fmt.Errorf("load project repo: %w", err)
+	}
+	if projectRepo.Edges.Project == nil || projectRepo.Edges.Project.Edges.Organization == nil {
+		return resolvedTarget{}, fmt.Errorf("project repo project organization edge must be loaded")
 	}
 
-	exists, err := s.client.Machine.Query().
+	machine, err := s.client.Machine.Query().
 		Where(entmachine.ID(machineID)).
-		Exist(ctx)
+		Only(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("check machine before mirror update: %w", err)
-	}
-	if !exists {
-		return nil, "", ErrNotFound
+		if rootent.IsNotFound(err) {
+			return resolvedTarget{}, ErrNotFound
+		}
+		return resolvedTarget{}, fmt.Errorf("load machine before mirror update: %w", err)
 	}
 
-	return projectRepo, parsedPath, nil
+	localPath := strings.TrimSpace(rawLocalPath)
+	if localPath == "" {
+		if !allowDefaultPath {
+			return resolvedTarget{}, fmt.Errorf("%w: local_path must not be empty", ErrInvalidInput)
+		}
+		localPath, err = deriveDefaultMirrorLocalPath(
+			machine,
+			projectRepo.Edges.Project.Edges.Organization.Slug,
+			projectRepo.Edges.Project.Slug,
+			projectRepo.Name,
+		)
+		if err != nil {
+			return resolvedTarget{}, err
+		}
+	}
+
+	parsedPath, err := parseAbsoluteLocalPath(localPath)
+	if err != nil {
+		return resolvedTarget{}, err
+	}
+
+	return resolvedTarget{
+		projectRepo: projectRepo,
+		machine:     machine,
+		localPath:   parsedPath,
+	}, nil
 }
 
 func (s *Service) upsertMirrorState(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID, localPath string, state entprojectrepomirror.State) (*rootent.ProjectRepoMirror, error) {
@@ -424,12 +537,12 @@ func (s *Service) upsertMirrorState(ctx context.Context, projectRepoID uuid.UUID
 	return current, nil
 }
 
-func (s *Service) loadMirrorForUpdate(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID) (*rootent.ProjectRepoMirror, *rootent.ProjectRepo, error) {
+func (s *Service) loadMirrorForUpdate(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID) (*rootent.ProjectRepoMirror, *rootent.ProjectRepo, *rootent.Machine, error) {
 	if projectRepoID == uuid.Nil {
-		return nil, nil, fmt.Errorf("%w: project repo id must not be empty", ErrInvalidInput)
+		return nil, nil, nil, fmt.Errorf("%w: project repo id must not be empty", ErrInvalidInput)
 	}
 	if machineID == uuid.Nil {
-		return nil, nil, fmt.Errorf("%w: machine id must not be empty", ErrInvalidInput)
+		return nil, nil, nil, fmt.Errorf("%w: machine id must not be empty", ErrInvalidInput)
 	}
 
 	current, err := s.client.ProjectRepoMirror.Query().
@@ -438,18 +551,22 @@ func (s *Service) loadMirrorForUpdate(ctx context.Context, projectRepoID uuid.UU
 			entprojectrepomirror.MachineID(machineID),
 		).
 		WithProjectRepo().
+		WithMachine().
 		Only(ctx)
 	if err != nil {
 		if rootent.IsNotFound(err) {
-			return nil, nil, ErrNotFound
+			return nil, nil, nil, ErrNotFound
 		}
-		return nil, nil, fmt.Errorf("load project repo mirror: %w", err)
+		return nil, nil, nil, fmt.Errorf("load project repo mirror: %w", err)
 	}
 	if current.Edges.ProjectRepo == nil {
-		return nil, nil, fmt.Errorf("project repo mirror project repo edge must be loaded")
+		return nil, nil, nil, fmt.Errorf("project repo mirror project repo edge must be loaded")
+	}
+	if current.Edges.Machine == nil {
+		return nil, nil, nil, fmt.Errorf("project repo mirror machine edge must be loaded")
 	}
 
-	return current, current.Edges.ProjectRepo, nil
+	return current, current.Edges.ProjectRepo, current.Edges.Machine, nil
 }
 
 func (s *Service) loadMirror(ctx context.Context, projectRepoID uuid.UUID, machineID uuid.UUID) (*rootent.ProjectRepoMirror, error) {
@@ -504,7 +621,7 @@ func requireState(current entprojectrepomirror.State, allowed ...entprojectrepom
 	return fmt.Errorf("%w: current state %q", ErrInvalidTransition, current)
 }
 
-func inspectExistingRepository(localPath string, expectedURL string) (string, error) {
+func inspectExistingRepository(localPath string, expectedURL string, defaultBranch string) (string, error) {
 	repository, err := git.PlainOpen(localPath)
 	if err != nil {
 		return "", fmt.Errorf("open repository %s: %w", localPath, err)
@@ -513,6 +630,9 @@ func inspectExistingRepository(localPath string, expectedURL string) (string, er
 		if err := ensureOriginMatches(repository, expectedURL); err != nil {
 			return "", err
 		}
+	}
+	if err := ensureDefaultBranchResolvable(repository, defaultBranch); err != nil {
+		return "", err
 	}
 	head, err := repository.Head()
 	if err != nil {
@@ -537,6 +657,48 @@ func syncRepository(ctx context.Context, localPath string, repositoryURL string,
 		return "", fmt.Errorf("resolve repository head: %w", err)
 	}
 	return head.Hash().String(), nil
+}
+
+func (s *Service) inspectRepository(
+	ctx context.Context,
+	machine *rootent.Machine,
+	localPath string,
+	expectedURL string,
+	defaultBranch string,
+) (string, error) {
+	if machineIsLocal(machine) {
+		return inspectExistingRepository(localPath, expectedURL, defaultBranch)
+	}
+	output, err := s.runRemoteMirrorScript(ctx, machine, buildRemoteInspectMirrorScript(localPath, expectedURL, defaultBranch))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(output), nil
+}
+
+func (s *Service) syncRepository(
+	ctx context.Context,
+	machine *rootent.Machine,
+	localPath string,
+	repositoryURL string,
+	defaultBranch string,
+) (string, error) {
+	if machineIsLocal(machine) {
+		return syncRepository(ctx, localPath, repositoryURL, defaultBranch)
+	}
+	output, err := s.runRemoteMirrorScript(ctx, machine, buildRemoteSyncMirrorScript(localPath, repositoryURL, defaultBranch))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(output), nil
+}
+
+func (s *Service) deleteRepository(ctx context.Context, machine *rootent.Machine, localPath string) error {
+	if machineIsLocal(machine) {
+		return os.RemoveAll(localPath)
+	}
+	_, err := s.runRemoteMirrorScript(ctx, machine, buildRemoteDeleteMirrorScript(localPath))
+	return err
 }
 
 func cloneOrOpenRepository(ctx context.Context, localPath string, repositoryURL string) (*git.Repository, error) {
@@ -587,6 +749,29 @@ func ensureOriginMatches(repository *git.Repository, expectedURL string) error {
 	return nil
 }
 
+func ensureDefaultBranchResolvable(repository *git.Repository, defaultBranch string) error {
+	branchName := strings.TrimSpace(defaultBranch)
+	if branchName == "" {
+		branchName = "main"
+	}
+
+	branchRefName := plumbing.NewBranchReferenceName(branchName)
+	if _, err := repository.Reference(branchRefName, true); err == nil {
+		return nil
+	} else if !errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return fmt.Errorf("lookup local default branch %s: %w", branchName, err)
+	}
+
+	remoteRefName := plumbing.NewRemoteReferenceName("origin", branchName)
+	if _, err := repository.Reference(remoteRefName, true); err == nil {
+		return nil
+	} else if !errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return fmt.Errorf("lookup remote default branch %s: %w", branchName, err)
+	}
+
+	return fmt.Errorf("resolve default branch %s: reference not found", branchName)
+}
+
 func ensureDefaultBranchCheckedOut(repository *git.Repository, defaultBranch string) error {
 	branchName := strings.TrimSpace(defaultBranch)
 	if branchName == "" {
@@ -620,6 +805,118 @@ func ensureDefaultBranchCheckedOut(repository *git.Repository, defaultBranch str
 		return fmt.Errorf("reset default branch %s: %w", branchName, err)
 	}
 	return nil
+}
+
+func machineIsLocal(machine *rootent.Machine) bool {
+	if machine == nil {
+		return true
+	}
+	return machine.Name == domain.LocalMachineName || machine.Host == domain.LocalMachineHost
+}
+
+func (s *Service) runRemoteMirrorScript(ctx context.Context, machine *rootent.Machine, script string) (string, error) {
+	if s == nil || s.sshPool == nil {
+		return "", fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+	}
+
+	client, err := s.sshPool.Get(ctx, mapMachine(machine))
+	if err != nil {
+		return "", fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
+	}
+
+	session, err := client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("open ssh session: %w", err)
+	}
+	defer func() {
+		_ = session.Close()
+	}()
+
+	output, err := session.CombinedOutput("sh -lc " + sshinfra.ShellQuote(script))
+	if err != nil {
+		return "", fmt.Errorf("run remote mirror command: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func buildRemoteInspectMirrorScript(localPath string, expectedURL string, defaultBranch string) string {
+	lines := make([]string, 0, 6)
+	lines = append(lines,
+		"set -eu",
+		"if [ ! -d "+sshinfra.ShellQuote(filepath.Join(localPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+localPath+" is not a git repository")+" >&2; exit 1; fi",
+	)
+	lines = append(lines, remoteOriginCheckLines(localPath, expectedURL)...)
+	lines = append(lines,
+		"git -C "+sshinfra.ShellQuote(localPath)+" rev-parse --verify HEAD >/dev/null",
+		buildRemoteResolveDefaultBranchLine(localPath, defaultBranch),
+		"git -C "+sshinfra.ShellQuote(localPath)+" rev-parse HEAD",
+	)
+	return strings.Join(lines, "\n")
+}
+
+func buildRemoteSyncMirrorScript(localPath string, repositoryURL string, defaultBranch string) string {
+	branchName := normalizedDefaultBranch(defaultBranch)
+	lines := make([]string, 0, 9)
+	lines = append(lines,
+		"set -eu",
+		"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(localPath)),
+		"if [ -e "+sshinfra.ShellQuote(localPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(localPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+localPath+" is not a git repository")+" >&2; exit 1; fi",
+		"if [ ! -e "+sshinfra.ShellQuote(localPath)+" ]; then git clone --branch "+sshinfra.ShellQuote(branchName)+" --single-branch "+sshinfra.ShellQuote(repositoryURL)+" "+sshinfra.ShellQuote(localPath)+"; fi",
+	)
+	lines = append(lines, remoteOriginCheckLines(localPath, repositoryURL)...)
+	lines = append(lines,
+		"git -C "+sshinfra.ShellQuote(localPath)+" fetch origin",
+		"git -C "+sshinfra.ShellQuote(localPath)+" rev-parse --verify "+sshinfra.ShellQuote("origin/"+branchName)+" >/dev/null",
+		"git -C "+sshinfra.ShellQuote(localPath)+" checkout -B "+sshinfra.ShellQuote(branchName)+" "+sshinfra.ShellQuote("origin/"+branchName),
+		"git -C "+sshinfra.ShellQuote(localPath)+" reset --hard "+sshinfra.ShellQuote("origin/"+branchName),
+		"git -C "+sshinfra.ShellQuote(localPath)+" rev-parse HEAD",
+	)
+	return strings.Join(lines, "\n")
+}
+
+func buildRemoteDeleteMirrorScript(localPath string) string {
+	return strings.Join([]string{
+		"set -eu",
+		"rm -rf " + sshinfra.ShellQuote(localPath),
+	}, "\n")
+}
+
+func remoteOriginCheckLines(localPath string, expectedURL string) []string {
+	if strings.TrimSpace(expectedURL) == "" {
+		return nil
+	}
+	return []string{
+		"actual_origin=$(git -C " + sshinfra.ShellQuote(localPath) + " remote get-url origin)",
+		"if [ \"$actual_origin\" != " + sshinfra.ShellQuote(expectedURL) + " ]; then echo " + sshinfra.ShellQuote("origin remote URL mismatch") + " >&2; exit 1; fi",
+	}
+}
+
+func buildRemoteResolveDefaultBranchLine(localPath string, defaultBranch string) string {
+	branchName := normalizedDefaultBranch(defaultBranch)
+	return "if ! git -C " + sshinfra.ShellQuote(localPath) + " rev-parse --verify " + sshinfra.ShellQuote("refs/heads/"+branchName) + " >/dev/null 2>&1 && ! git -C " + sshinfra.ShellQuote(localPath) + " rev-parse --verify " + sshinfra.ShellQuote("refs/remotes/origin/"+branchName) + " >/dev/null 2>&1; then echo " + sshinfra.ShellQuote("default branch "+branchName+" is not available") + " >&2; exit 1; fi"
+}
+
+func normalizedDefaultBranch(defaultBranch string) string {
+	branchName := strings.TrimSpace(defaultBranch)
+	if branchName == "" {
+		return "main"
+	}
+	return branchName
+}
+
+func mapMachine(machine *rootent.Machine) domain.Machine {
+	if machine == nil {
+		return domain.Machine{}
+	}
+	return domain.Machine{
+		ID:            machine.ID,
+		Name:          machine.Name,
+		Host:          machine.Host,
+		Port:          machine.Port,
+		SSHUser:       optionalString(machine.SSHUser),
+		SSHKeyPath:    optionalString(machine.SSHKeyPath),
+		WorkspaceRoot: optionalString(machine.WorkspaceRoot),
+	}
 }
 
 func mapProjectRepoMirrors(items []*rootent.ProjectRepoMirror) []domain.ProjectRepoMirror {

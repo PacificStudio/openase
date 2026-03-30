@@ -28,6 +28,7 @@ import (
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/uuid"
 )
@@ -619,6 +620,11 @@ func createMirrorReadyGitRepo(t *testing.T, repositoryURL string) string {
 	repository, err := git.PlainInit(repoRoot, false)
 	if err != nil {
 		t.Fatalf("init git repo: %v", err)
+	}
+	if err := repository.Storer.SetReference(
+		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
+	); err != nil {
+		t.Fatalf("set HEAD to main: %v", err)
 	}
 	if _, err := repository.CreateRemote(&gitconfig.RemoteConfig{
 		Name: "origin",

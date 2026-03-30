@@ -412,6 +412,7 @@ var (
 		{Name: "labels", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"online", "offline", "degraded", "maintenance"}, Default: "maintenance"},
 		{Name: "workspace_root", Type: field.TypeString, Nullable: true},
+		{Name: "mirror_root", Type: field.TypeString, Nullable: true},
 		{Name: "agent_cli_path", Type: field.TypeString, Nullable: true},
 		{Name: "env_vars", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
@@ -426,7 +427,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "machines_organizations_machines",
-				Columns:    []*schema.Column{MachinesColumns[14]},
+				Columns:    []*schema.Column{MachinesColumns[15]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -435,12 +436,12 @@ var (
 			{
 				Name:    "machine_organization_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{MachinesColumns[14], MachinesColumns[1]},
+				Columns: []*schema.Column{MachinesColumns[15], MachinesColumns[1]},
 			},
 			{
 				Name:    "machine_organization_id_host",
 				Unique:  false,
-				Columns: []*schema.Column{MachinesColumns[14], MachinesColumns[2]},
+				Columns: []*schema.Column{MachinesColumns[15], MachinesColumns[2]},
 			},
 			{
 				Name:    "machine_labels",

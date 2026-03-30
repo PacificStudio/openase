@@ -8310,6 +8310,7 @@ type MachineMutation struct {
 	labels                      *pgarray.StringArray
 	status                      *machine.Status
 	workspace_root              *string
+	mirror_root                 *string
 	agent_cli_path              *string
 	env_vars                    *pgarray.StringArray
 	last_heartbeat_at           *time.Time
@@ -8880,6 +8881,55 @@ func (m *MachineMutation) ResetWorkspaceRoot() {
 	delete(m.clearedFields, machine.FieldWorkspaceRoot)
 }
 
+// SetMirrorRoot sets the "mirror_root" field.
+func (m *MachineMutation) SetMirrorRoot(s string) {
+	m.mirror_root = &s
+}
+
+// MirrorRoot returns the value of the "mirror_root" field in the mutation.
+func (m *MachineMutation) MirrorRoot() (r string, exists bool) {
+	v := m.mirror_root
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMirrorRoot returns the old "mirror_root" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldMirrorRoot(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMirrorRoot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMirrorRoot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMirrorRoot: %w", err)
+	}
+	return oldValue.MirrorRoot, nil
+}
+
+// ClearMirrorRoot clears the value of the "mirror_root" field.
+func (m *MachineMutation) ClearMirrorRoot() {
+	m.mirror_root = nil
+	m.clearedFields[machine.FieldMirrorRoot] = struct{}{}
+}
+
+// MirrorRootCleared returns if the "mirror_root" field was cleared in this mutation.
+func (m *MachineMutation) MirrorRootCleared() bool {
+	_, ok := m.clearedFields[machine.FieldMirrorRoot]
+	return ok
+}
+
+// ResetMirrorRoot resets all changes to the "mirror_root" field.
+func (m *MachineMutation) ResetMirrorRoot() {
+	m.mirror_root = nil
+	delete(m.clearedFields, machine.FieldMirrorRoot)
+}
+
 // SetAgentCliPath sets the "agent_cli_path" field.
 func (m *MachineMutation) SetAgentCliPath(s string) {
 	m.agent_cli_path = &s
@@ -9286,7 +9336,7 @@ func (m *MachineMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MachineMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.organization != nil {
 		fields = append(fields, machine.FieldOrganizationID)
 	}
@@ -9316,6 +9366,9 @@ func (m *MachineMutation) Fields() []string {
 	}
 	if m.workspace_root != nil {
 		fields = append(fields, machine.FieldWorkspaceRoot)
+	}
+	if m.mirror_root != nil {
+		fields = append(fields, machine.FieldMirrorRoot)
 	}
 	if m.agent_cli_path != nil {
 		fields = append(fields, machine.FieldAgentCliPath)
@@ -9357,6 +9410,8 @@ func (m *MachineMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case machine.FieldWorkspaceRoot:
 		return m.WorkspaceRoot()
+	case machine.FieldMirrorRoot:
+		return m.MirrorRoot()
 	case machine.FieldAgentCliPath:
 		return m.AgentCliPath()
 	case machine.FieldEnvVars:
@@ -9394,6 +9449,8 @@ func (m *MachineMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldStatus(ctx)
 	case machine.FieldWorkspaceRoot:
 		return m.OldWorkspaceRoot(ctx)
+	case machine.FieldMirrorRoot:
+		return m.OldMirrorRoot(ctx)
 	case machine.FieldAgentCliPath:
 		return m.OldAgentCliPath(ctx)
 	case machine.FieldEnvVars:
@@ -9480,6 +9537,13 @@ func (m *MachineMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetWorkspaceRoot(v)
+		return nil
+	case machine.FieldMirrorRoot:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMirrorRoot(v)
 		return nil
 	case machine.FieldAgentCliPath:
 		v, ok := value.(string)
@@ -9569,6 +9633,9 @@ func (m *MachineMutation) ClearedFields() []string {
 	if m.FieldCleared(machine.FieldWorkspaceRoot) {
 		fields = append(fields, machine.FieldWorkspaceRoot)
 	}
+	if m.FieldCleared(machine.FieldMirrorRoot) {
+		fields = append(fields, machine.FieldMirrorRoot)
+	}
 	if m.FieldCleared(machine.FieldAgentCliPath) {
 		fields = append(fields, machine.FieldAgentCliPath)
 	}
@@ -9606,6 +9673,9 @@ func (m *MachineMutation) ClearField(name string) error {
 		return nil
 	case machine.FieldWorkspaceRoot:
 		m.ClearWorkspaceRoot()
+		return nil
+	case machine.FieldMirrorRoot:
+		m.ClearMirrorRoot()
 		return nil
 	case machine.FieldAgentCliPath:
 		m.ClearAgentCliPath()
@@ -9653,6 +9723,9 @@ func (m *MachineMutation) ResetField(name string) error {
 		return nil
 	case machine.FieldWorkspaceRoot:
 		m.ResetWorkspaceRoot()
+		return nil
+	case machine.FieldMirrorRoot:
+		m.ResetMirrorRoot()
 		return nil
 	case machine.FieldAgentCliPath:
 		m.ResetAgentCliPath()

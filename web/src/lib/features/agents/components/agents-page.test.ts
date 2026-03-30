@@ -167,6 +167,7 @@ const agentsPageDataFixture: AgentsPageData = {
       labels: [],
       status: 'online',
       workspace_root: '/workspace',
+      mirror_root: '/mirrors',
       agent_cli_path: null,
       env_vars: [],
       last_heartbeat_at: null,

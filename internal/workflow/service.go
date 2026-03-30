@@ -22,6 +22,7 @@ import (
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
+	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/google/uuid"
 )
 
@@ -184,9 +185,17 @@ type Service struct {
 	client    *ent.Client
 	logger    *slog.Logger
 	repoRoot  string
+	mirrors   *projectrepomirrorsvc.Service
 	storageMu sync.Mutex
 	storages  map[uuid.UUID]*projectStorage
 }
+
+type workflowStorageUsage string
+
+const (
+	workflowStorageUsageRead  workflowStorageUsage = "read"
+	workflowStorageUsageWrite workflowStorageUsage = "write"
+)
 
 type projectStorage struct {
 	projectID    uuid.UUID
@@ -221,6 +230,13 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 	}
 
 	return service, nil
+}
+
+func (s *Service) ConfigureMirrorService(service *projectrepomirrorsvc.Service) {
+	if s == nil {
+		return
+	}
+	s.mirrors = service
 }
 
 func newProjectStorage(projectID uuid.UUID, repoRoot string, service *Service) (*projectStorage, error) {
@@ -261,7 +277,11 @@ func (s *projectStorage) Close() error {
 	return s.registry.Close()
 }
 
-func (s *Service) storageForProject(ctx context.Context, projectID uuid.UUID) (*projectStorage, error) {
+func (s *Service) storageForProject(ctx context.Context, projectID uuid.UUID, usage workflowStorageUsage) (*projectStorage, error) {
+	if err := s.ensureProjectStorageMirror(ctx, projectID, usage); err != nil {
+		return nil, err
+	}
+
 	repoRoot, err := s.resolvePrimaryRepoRoot(ctx, projectID)
 	if err != nil {
 		return nil, err
@@ -293,8 +313,78 @@ func (s *Service) GetRepositoryPrerequisite(ctx context.Context, projectID uuid.
 	if s.client == nil {
 		return WorkflowRepositoryPrerequisite{}, ErrUnavailable
 	}
+	if err := s.ensureProjectStorageMirror(ctx, projectID, workflowStorageUsageRead); err != nil {
+		if !errors.Is(err, ErrPrimaryMirrorNotReady) && !errors.Is(err, ErrPrimaryRepoRequired) {
+			return WorkflowRepositoryPrerequisite{}, err
+		}
+	}
 	prerequisite, _, err := s.loadRepositoryPrerequisite(ctx, projectID)
 	return prerequisite, err
+}
+
+func (s *Service) ensureProjectStorageMirror(ctx context.Context, projectID uuid.UUID, usage workflowStorageUsage) error {
+	if s == nil || s.client == nil || s.mirrors == nil {
+		return nil
+	}
+	if err := s.ensureProjectExists(ctx, projectID); err != nil {
+		return err
+	}
+
+	primaryRepo, mirrors, err := s.loadPrimaryRepoMirrors(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if primaryRepo == nil {
+		return nil
+	}
+
+	selected := selectWorkflowStorageMirror(mirrors)
+	if selected == nil || selected.Edges.Machine == nil || !projectRepoMirrorIsLocal(selected) {
+		return nil
+	}
+
+	operation := projectrepomirrorsvc.EnsureOperationRead
+	if usage == workflowStorageUsageWrite {
+		operation = projectrepomirrorsvc.EnsureOperationWrite
+	}
+	if _, err := s.mirrors.Ensure(ctx, projectrepomirrorsvc.EnsureInput{
+		ProjectRepoID: primaryRepo.ID,
+		MachineID:     selected.MachineID,
+		Operation:     operation,
+	}); err != nil {
+		return mapWorkflowMirrorError(err)
+	}
+	return nil
+}
+
+func (s *Service) loadPrimaryRepoMirrors(ctx context.Context, projectID uuid.UUID) (*ent.ProjectRepo, []*ent.ProjectRepoMirror, error) {
+	repos, err := s.client.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectID(projectID)).
+		Order(ent.Asc(entprojectrepo.FieldName)).
+		All(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list project repos for workflow storage: %w", err)
+	}
+
+	var primaryRepo *ent.ProjectRepo
+	for _, repoItem := range repos {
+		if repoItem != nil && repoItem.IsPrimary {
+			primaryRepo = repoItem
+			break
+		}
+	}
+	if primaryRepo == nil {
+		return nil, nil, nil
+	}
+
+	mirrors, err := s.client.ProjectRepoMirror.Query().
+		Where(entprojectrepomirror.ProjectRepoID(primaryRepo.ID)).
+		WithMachine().
+		All(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list primary project repo mirrors for workflow storage: %w", err)
+	}
+	return primaryRepo, mirrors, nil
 }
 
 func (s *Service) resolvePrimaryRepoRoot(ctx context.Context, projectID uuid.UUID) (string, error) {
@@ -468,6 +558,22 @@ func selectRepresentativeWorkflowMirror(mirrors []*ent.ProjectRepoMirror) *ent.P
 		if mirror != nil {
 			return mirror
 		}
+	}
+	return nil
+}
+
+func selectWorkflowStorageMirror(mirrors []*ent.ProjectRepoMirror) *ent.ProjectRepoMirror {
+	if len(mirrors) == 0 {
+		return nil
+	}
+
+	ordered := append([]*ent.ProjectRepoMirror(nil), mirrors...)
+	slices.SortStableFunc(ordered, compareWorkflowMirrorPriority)
+	for _, mirror := range ordered {
+		if mirror == nil || !projectRepoMirrorIsLocal(mirror) {
+			continue
+		}
+		return mirror
 	}
 	return nil
 }
@@ -697,7 +803,7 @@ func (s *Service) Get(ctx context.Context, workflowID uuid.UUID) (WorkflowDetail
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowReadError("get workflow", err)
 	}
-	storage, err := s.storageForProject(ctx, item.ProjectID)
+	storage, err := s.storageForProject(ctx, item.ProjectID, workflowStorageUsageRead)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -730,7 +836,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, finishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
-	storage, err := s.storageForProject(ctx, input.ProjectID)
+	storage, err := s.storageForProject(ctx, input.ProjectID, workflowStorageUsageWrite)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -808,7 +914,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowReadError("get workflow for update", err)
 	}
-	storage, err := s.storageForProject(ctx, current.ProjectID)
+	storage, err := s.storageForProject(ctx, current.ProjectID, workflowStorageUsageWrite)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -975,7 +1081,7 @@ func (s *Service) Delete(ctx context.Context, workflowID uuid.UUID) (Workflow, e
 	if err != nil {
 		return Workflow{}, s.mapWorkflowReadError("get workflow for delete", err)
 	}
-	storage, err := s.storageForProject(ctx, current.ProjectID)
+	storage, err := s.storageForProject(ctx, current.ProjectID, workflowStorageUsageWrite)
 	if err != nil {
 		return Workflow{}, err
 	}
@@ -1017,7 +1123,7 @@ func (s *Service) GetHarness(ctx context.Context, workflowID uuid.UUID) (Harness
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for harness", err)
 	}
-	storage, err := s.storageForProject(ctx, item.ProjectID)
+	storage, err := s.storageForProject(ctx, item.ProjectID, workflowStorageUsageRead)
 	if err != nil {
 		return HarnessDocument{}, err
 	}
@@ -1047,7 +1153,7 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for harness update", err)
 	}
-	storage, err := s.storageForProject(ctx, item.ProjectID)
+	storage, err := s.storageForProject(ctx, item.ProjectID, workflowStorageUsageWrite)
 	if err != nil {
 		return HarnessDocument{}, err
 	}
@@ -1225,7 +1331,7 @@ func (s *Service) handleHarnessReload(event harnessReloadEvent) {
 	}
 
 	ctx := context.Background()
-	storage, err := s.storageForProject(ctx, event.ProjectID)
+	storage, err := s.storageForProject(ctx, event.ProjectID, workflowStorageUsageWrite)
 	if err != nil {
 		s.logger.Error("resolve project storage for harness reload", "error", err, "project_id", event.ProjectID, "path", event.RelativePath)
 		return
@@ -1300,6 +1406,21 @@ func (s *Service) runWorkflowHooks(
 		return storage.hookExecutor.RunAll(ctx, hookName, hooks.OnReload, runtime)
 	default:
 		return nil
+	}
+}
+
+func mapWorkflowMirrorError(err error) error {
+	switch {
+	case errors.Is(err, projectrepomirrorsvc.ErrMirrorNotReady):
+		return ErrPrimaryMirrorNotReady
+	case errors.Is(err, projectrepomirrorsvc.ErrMirrorSyncFailed):
+		return fmt.Errorf("ensure workflow mirror freshness: %w", err)
+	case errors.Is(err, projectrepomirrorsvc.ErrInvalidInput),
+		errors.Is(err, projectrepomirrorsvc.ErrNotFound),
+		errors.Is(err, projectrepomirrorsvc.ErrInvalidTransition):
+		return fmt.Errorf("ensure workflow mirror freshness: %w", err)
+	default:
+		return err
 	}
 }
 

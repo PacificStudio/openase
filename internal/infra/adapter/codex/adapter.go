@@ -503,19 +503,28 @@ func (s *Session) call(ctx context.Context, method string, params any, out any) 
 		s.pendingMu.Unlock()
 		return ctx.Err()
 	case <-s.done:
-		return s.sessionError()
+		select {
+		case response := <-responseCh:
+			return decodeCallResult(method, response, out)
+		default:
+			return s.sessionError()
+		}
 	case response := <-responseCh:
-		if response.err != nil {
-			return fmt.Errorf("codex %s failed: %s (%d)", method, response.err.Message, response.err.Code)
-		}
-		if out == nil {
-			return nil
-		}
-		if err := json.Unmarshal(response.result, out); err != nil {
-			return fmt.Errorf("decode codex %s response: %w", method, err)
-		}
+		return decodeCallResult(method, response, out)
+	}
+}
+
+func decodeCallResult(method string, response callResult, out any) error {
+	if response.err != nil {
+		return fmt.Errorf("codex %s failed: %s (%d)", method, response.err.Message, response.err.Code)
+	}
+	if out == nil {
 		return nil
 	}
+	if err := json.Unmarshal(response.result, out); err != nil {
+		return fmt.Errorf("decode codex %s response: %w", method, err)
+	}
+	return nil
 }
 
 func (s *Session) notify(method string, params any) error {

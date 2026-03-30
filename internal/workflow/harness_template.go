@@ -281,7 +281,7 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		}
 		return HarnessTemplateData{}, fmt.Errorf("get project for harness render: %w", err)
 	}
-	storage, err := s.storageForProject(ctx, workflowItem.ProjectID)
+	storage, err := s.storageForProject(ctx, workflowItem.ProjectID, workflowStorageUsageRead)
 	if err != nil {
 		return HarnessTemplateData{}, err
 	}

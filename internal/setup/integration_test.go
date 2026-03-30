@@ -12,6 +12,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/testutil/pgtest"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -37,6 +38,11 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	repository, err := git.PlainInit(repoRoot, false)
 	if err != nil {
 		t.Fatalf("PlainInit() error = %v", err)
+	}
+	if err := repository.Storer.SetReference(
+		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
+	); err != nil {
+		t.Fatalf("set HEAD to main: %v", err)
 	}
 	if _, err := repository.CreateRemote(&gitconfig.RemoteConfig{
 		Name: "origin",

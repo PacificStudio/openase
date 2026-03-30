@@ -85,6 +85,7 @@ type MachineMutationBody = {
   ssh_user?: string
   status?: string
   workspace_root?: string
+  mirror_root?: string
 }
 
 export function getSystemDashboard() {
@@ -532,12 +533,34 @@ export function materializeProjectRepoMirror(
   repoId: string,
   body: {
     machine_id: string
-    local_path: string
+    local_path?: string
     mode: 'register_existing' | 'prepare'
   },
 ) {
   return api.post<ProjectRepoMirrorResponse>(
     `/api/v1/projects/${projectId}/repos/${repoId}/mirrors`,
+    { body },
+  )
+}
+
+export function verifyProjectRepoMirror(
+  projectId: string,
+  repoId: string,
+  body: { machine_id: string },
+) {
+  return api.post<ProjectRepoMirrorResponse>(
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors/verify`,
+    { body },
+  )
+}
+
+export function syncProjectRepoMirror(
+  projectId: string,
+  repoId: string,
+  body: { machine_id: string },
+) {
+  return api.post<ProjectRepoMirrorResponse>(
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors/sync`,
     { body },
   )
 }

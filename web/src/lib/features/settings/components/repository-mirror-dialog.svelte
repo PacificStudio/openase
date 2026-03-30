@@ -1,11 +1,16 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
   import type { Machine, ProjectRepoRecord } from '$lib/api/contracts'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
-  import type { RepositoryMirrorDraft, RepositoryMirrorMode } from '../repository-mirror-model'
+  import {
+    suggestRepositoryMirrorLocalPath,
+    type RepositoryMirrorDraft,
+    type RepositoryMirrorMode,
+  } from '../repository-mirror-model'
 
   let {
     open = $bindable(false),
@@ -36,11 +41,25 @@
       return 'Use an existing local checkout and register it as the mirror for this machine.'
     }
 
-    return 'Clone or resync the repository into the target path on the selected machine.'
+    return 'Let OpenASE derive the machine-level default mirror path, or override it for this one repository.'
   })
 
   const machineLabel = (machine: Machine) =>
     machine.status === 'online' ? machine.name : `${machine.name} (${machine.status})`
+  const selectedMachine = $derived(
+    machines.find((machine) => machine.id === draft.machineId) ?? null,
+  )
+  const suggestedLocalPath = $derived(
+    suggestRepositoryMirrorLocalPath(
+      selectedMachine,
+      repo,
+      appStore.currentOrg?.slug ?? null,
+      appStore.currentProject?.slug ?? null,
+    ),
+  )
+  const localPathLabel = $derived(
+    draft.mode === 'register_existing' ? 'Local path' : 'Local path override',
+  )
 </script>
 
 <Dialog.Root bind:open>
@@ -98,18 +117,29 @@
       </div>
 
       <div class="space-y-2">
-        <Label for="repository-mirror-local-path">Local path</Label>
+        <Label for="repository-mirror-local-path">{localPathLabel}</Label>
         <Input
           id="repository-mirror-local-path"
           value={draft.localPath}
           placeholder={draft.mode === 'register_existing'
             ? '/absolute/path/to/existing/repo'
-            : '/absolute/path/for/mirror/clone'}
+            : suggestedLocalPath || '/absolute/path/for/mirror/clone'}
           oninput={(event) =>
             onDraftChange?.('localPath', (event.currentTarget as HTMLInputElement).value)}
         />
         <p class="text-muted-foreground text-xs">
-          This path must be absolute and live on the selected machine.
+          {#if draft.mode === 'register_existing'}
+            This existing checkout path is required, must be absolute, and must live on the selected
+            machine.
+          {:else if suggestedLocalPath}
+            Leave this blank to let OpenASE prepare the mirror at <span class="font-mono"
+              >{suggestedLocalPath}</span
+            >. Enter an absolute path only to override the machine-level default.
+          {:else}
+            Leave this blank to let OpenASE derive the default path on the backend. If the selected
+            machine has no configured mirror root, remote machines need `workspace_root` or an
+            explicit `mirror_root`.
+          {/if}
         </p>
       </div>
 
