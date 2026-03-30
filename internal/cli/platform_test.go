@@ -150,6 +150,94 @@ func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
 	}
 }
 
+func TestTicketCommentWorkpadCommandCreatesCommentWhenMissing(t *testing.T) {
+	requests := make([]string, 0, 2)
+	var postPayload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.Method+" "+r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.RequestURI() == "/tickets/ticket-9/comments":
+			_, _ = w.Write([]byte(`{"comments":[]}`))
+		case r.Method == http.MethodPost && r.URL.RequestURI() == "/tickets/ticket-9/comments":
+			if err := json.NewDecoder(r.Body).Decode(&postPayload); err != nil {
+				t.Fatalf("Decode returned error: %v", err)
+			}
+			_, _ = w.Write([]byte(`{"comment":{"id":"comment-1","body":"## Codex Workpad\n\nProgress\n- started"}}`))
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.RequestURI())
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
+
+	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"comment", "workpad", "--body", "Progress\n- started"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	wantRequests := []string{
+		"GET /tickets/ticket-9/comments",
+		"POST /tickets/ticket-9/comments",
+	}
+	if strings.Join(requests, "|") != strings.Join(wantRequests, "|") {
+		t.Fatalf("request sequence = %v, want %v", requests, wantRequests)
+	}
+	if postPayload["body"] != "## Codex Workpad\n\nProgress\n- started" {
+		t.Fatalf("unexpected workpad create payload: %+v", postPayload)
+	}
+}
+
+func TestTicketCommentWorkpadCommandUpdatesExistingComment(t *testing.T) {
+	requests := make([]string, 0, 2)
+	var patchPayload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.Method+" "+r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.RequestURI() == "/tickets/ticket-9/comments":
+			_, _ = w.Write([]byte(`{"comments":[{"id":"comment-7","body":"## Codex Workpad\n\nOld"}]}`))
+		case r.Method == http.MethodPatch && r.URL.RequestURI() == "/tickets/ticket-9/comments/comment-7":
+			if err := json.NewDecoder(r.Body).Decode(&patchPayload); err != nil {
+				t.Fatalf("Decode returned error: %v", err)
+			}
+			_, _ = w.Write([]byte(`{"comment":{"id":"comment-7","body":"## Codex Workpad\n\nValidation\n- npm test"}}`))
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.RequestURI())
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
+
+	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"comment", "workpad", "--body", "Validation\n- npm test"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	wantRequests := []string{
+		"GET /tickets/ticket-9/comments",
+		"PATCH /tickets/ticket-9/comments/comment-7",
+	}
+	if strings.Join(requests, "|") != strings.Join(wantRequests, "|") {
+		t.Fatalf("request sequence = %v, want %v", requests, wantRequests)
+	}
+	if patchPayload["body"] != "## Codex Workpad\n\nValidation\n- npm test" {
+		t.Fatalf("unexpected workpad patch payload: %+v", patchPayload)
+	}
+}
+
 func TestTicketReportUsageCommandPostsUsagePayload(t *testing.T) {
 	var method string
 	var path string

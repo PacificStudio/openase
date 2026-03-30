@@ -112,6 +112,61 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		t.Fatalf("unexpected updated ticket payload: %+v", updateResp.Ticket)
 	}
 
+	createCommentResp := struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", currentTicketID),
+		map[string]any{
+			"body": "## Codex Workpad\n\nProgress\n- inspected current code",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusCreated,
+		&createCommentResp,
+	)
+	if createCommentResp.Comment.CreatedBy != "agent:coding-01" {
+		t.Fatalf("unexpected created comment payload: %+v", createCommentResp.Comment)
+	}
+
+	listCommentsResp := struct {
+		Comments []ticketCommentResponse `json:"comments"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", currentTicketID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&listCommentsResp,
+	)
+	if len(listCommentsResp.Comments) != 1 || listCommentsResp.Comments[0].ID != createCommentResp.Comment.ID {
+		t.Fatalf("unexpected listed comments payload: %+v", listCommentsResp.Comments)
+	}
+
+	updateCommentResp := struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments/%s", currentTicketID, createCommentResp.Comment.ID),
+		map[string]any{
+			"body": "## Codex Workpad\n\nValidation\n- npm test",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&updateCommentResp,
+	)
+	if updateCommentResp.Comment.Body != "## Codex Workpad\n\nValidation\n- npm test" || updateCommentResp.Comment.LastEditedBy == nil || *updateCommentResp.Comment.LastEditedBy != "agent:coding-01" {
+		t.Fatalf("unexpected updated comment payload: %+v", updateCommentResp.Comment)
+	}
+
 	statusUpdateResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
@@ -121,13 +176,13 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
 		map[string]any{
-			"status_name": "Done",
+			"status_name": "In Progress",
 		},
 		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
 		http.StatusOK,
 		&statusUpdateResp,
 	)
-	if statusUpdateResp.Ticket.StatusName != "Done" || statusUpdateResp.Ticket.CreatedBy != "agent:coding-01" {
+	if statusUpdateResp.Ticket.StatusName != "In Progress" || statusUpdateResp.Ticket.CreatedBy != "agent:coding-01" {
 		t.Fatalf("unexpected status update payload: %+v", statusUpdateResp.Ticket)
 	}
 
@@ -167,6 +222,18 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	)
 	if forbiddenRec.Code != http.StatusForbidden {
 		t.Fatalf("expected updating another ticket to return 403, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
+	}
+
+	forbiddenCommentRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", doneTicketID),
+		`{"body":"should fail"}`,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
+	)
+	if forbiddenCommentRec.Code != http.StatusForbidden {
+		t.Fatalf("expected commenting on another ticket to return 403, got %d: %s", forbiddenCommentRec.Code, forbiddenCommentRec.Body.String())
 	}
 }
 
@@ -403,7 +470,7 @@ func TestAgentPlatformRejectsMissingOrCrossProjectToken(t *testing.T) {
 	}
 }
 
-func TestAgentPlatformTicketUpdateRejectsStatusOutsideWorkflowFinishSet(t *testing.T) {
+func TestAgentPlatformTicketUpdateAllowsProjectStatuses(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
@@ -428,7 +495,7 @@ func TestAgentPlatformTicketUpdateRejectsStatusOutsideWorkflowFinishSet(t *testi
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
 	reviewID := findStatusIDByName(t, statuses, "In Review")
-	cancelledID := findStatusIDByName(t, statuses, "Cancelled")
+	inProgressID := findStatusIDByName(t, statuses, "In Progress")
 
 	workflowItem, err := client.Workflow.Create().
 		SetProjectID(projectID).
@@ -462,16 +529,30 @@ func TestAgentPlatformTicketUpdateRejectsStatusOutsideWorkflowFinishSet(t *testi
 		server,
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
-		fmt.Sprintf(`{"status_id":"%s"}`, cancelledID),
+		fmt.Sprintf(`{"status_id":"%s"}`, uuid.NewString()),
 		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
 	)
 	if forbiddenRec.Code != http.StatusBadRequest {
-		t.Fatalf("expected disallowed finish status to return 400, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
+		t.Fatalf("expected unknown project status to return 400, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
 	}
 
 	updateResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		map[string]any{"status_id": inProgressID.String()},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&updateResp,
+	)
+	if updateResp.Ticket.StatusID != inProgressID.String() {
+		t.Fatalf("expected allowed in-project intermediate status %s, got %+v", inProgressID, updateResp.Ticket)
+	}
+
 	executeJSONWithHeaders(
 		t,
 		server,
@@ -483,7 +564,7 @@ func TestAgentPlatformTicketUpdateRejectsStatusOutsideWorkflowFinishSet(t *testi
 		&updateResp,
 	)
 	if updateResp.Ticket.StatusID != reviewID.String() {
-		t.Fatalf("expected allowed finish status %s, got %+v", reviewID, updateResp.Ticket)
+		t.Fatalf("expected allowed review status %s, got %+v", reviewID, updateResp.Ticket)
 	}
 }
 

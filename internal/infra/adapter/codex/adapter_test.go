@@ -827,6 +827,107 @@ func TestSessionStopAddsDefaultTimeoutWhenDeadlineIsMissing(t *testing.T) {
 	}
 }
 
+func TestSessionStopDropsLateNotificationsAfterShutdown(t *testing.T) {
+	process := newFakeProcess()
+	process.stopFn = func(context.Context) error {
+		select {
+		case <-process.stopOnce.ch:
+			return nil
+		default:
+		}
+
+		close(process.stopOnce.ch)
+		process.done <- nil
+		close(process.done)
+		return nil
+	}
+
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: &fakeProcessManager{process: process}})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverReady := make(chan struct{})
+	serverDone := make(chan error, 1)
+	go func() {
+		decoder := json.NewDecoder(process.stdinRead)
+		encoder := json.NewEncoder(process.stdoutWrite)
+
+		if err := completeHandshake(decoder, encoder); err != nil {
+			serverDone <- err
+			return
+		}
+
+		close(serverReady)
+		<-process.stopOnce.ch
+		serverDone <- nil
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Initialize: InitializeParams{
+			ClientName:    "openase",
+			ClientVersion: "0.1.0",
+		},
+		Thread: ThreadStartParams{
+			WorkingDirectory: "/tmp/openase",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	select {
+	case <-serverReady:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for fake server handshake")
+	}
+
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+
+	encoder := json.NewEncoder(process.stdoutWrite)
+	if err := encoder.Encode(jsonRPCMessage{
+		JSONRPC: jsonRPCVersion,
+		Method:  methodAgentMessageDelta,
+		Params: mustMarshalJSON(wireAgentMessageDeltaNotification{
+			ThreadID: "thread-1",
+			TurnID:   "turn-late",
+			ItemID:   "item-late",
+			Delta:    "late output after shutdown",
+		}),
+	}); err != nil {
+		t.Fatalf("encode late notification: %v", err)
+	}
+	if err := process.stdoutWrite.Close(); err != nil {
+		t.Fatalf("close stdout writer: %v", err)
+	}
+
+	select {
+	case event, ok := <-session.Events():
+		if ok {
+			t.Fatalf("expected closed events channel after shutdown, got %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for events channel to close")
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
 type fakeProcessManager struct {
 	process   *fakeProcess
 	startSpec provider.AgentCLIProcessSpec
