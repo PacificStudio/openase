@@ -67,31 +67,33 @@
   })
 </script>
 
-<div class="space-y-6 p-6">
+<div class="flex h-full flex-col">
   {#if loading}
-    <div class="text-muted-foreground text-sm">Loading scheduled jobs…</div>
+    <div class="text-muted-foreground p-6 text-sm">Loading scheduled jobs…</div>
   {:else if error}
-    <div class="text-destructive text-sm">{error}</div>
+    <div class="text-destructive p-6 text-sm">{error}</div>
   {:else if !appStore.currentProject?.id}
-    <div class="text-muted-foreground text-sm">Project context is unavailable.</div>
+    <div class="text-muted-foreground p-6 text-sm">Project context is unavailable.</div>
   {:else if workflows.length === 0}
-    <div class="border-border bg-muted/20 space-y-3 rounded-lg border p-4">
-      <div class="space-y-1">
-        <h2 class="text-foreground text-base font-semibold">No workflows available</h2>
-        <p class="text-muted-foreground text-sm">
-          Create a workflow before scheduling recurring ticket creation.
-        </p>
+    <div class="p-6">
+      <div class="border-border bg-muted/20 space-y-3 rounded-lg border p-4">
+        <div class="space-y-1">
+          <h2 class="text-foreground text-base font-semibold">No workflows available</h2>
+          <p class="text-muted-foreground text-sm">
+            Create a workflow before scheduling recurring ticket creation.
+          </p>
+        </div>
+        <Button variant="outline" href={workflowsHref ?? undefined} disabled={!workflowsHref}>
+          Open Workflows
+        </Button>
       </div>
-      <Button variant="outline" href={workflowsHref ?? undefined} disabled={!workflowsHref}>
-        Open Workflows
-      </Button>
     </div>
   {:else}
     <WorkflowScheduledJobsPanel
       projectId={appStore.currentProject.id}
       {workflows}
       title="Scheduled Jobs"
-      description="Manage recurring ticket creation for project workflows from a dedicated project page."
+      description="Manage recurring ticket creation for project workflows."
     />
   {/if}
 </div>

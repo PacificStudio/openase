@@ -393,6 +393,8 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "delete machine local invalid input", method: http.MethodDelete, path: "/api/v1/machines/" + localMachineID.String(), wantStatus: http.StatusBadRequest, wantBody: "invalid input"},
 		{name: "test machine invalid id", method: http.MethodPost, path: "/api/v1/machines/not-a-uuid/test", wantStatus: http.StatusBadRequest, wantBody: "machineId must be a valid UUID"},
 		{name: "test machine missing", method: http.MethodPost, path: "/api/v1/machines/" + uuid.NewString() + "/test", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "refresh machine health invalid id", method: http.MethodPost, path: "/api/v1/machines/not-a-uuid/refresh-health", wantStatus: http.StatusBadRequest, wantBody: "machineId must be a valid UUID"},
+		{name: "refresh machine health missing", method: http.MethodPost, path: "/api/v1/machines/" + uuid.NewString() + "/refresh-health", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "get machine resources missing", method: http.MethodGet, path: "/api/v1/machines/" + uuid.NewString() + "/resources", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "get project invalid id", method: http.MethodGet, path: "/api/v1/projects/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
 		{name: "get project missing", method: http.MethodGet, path: "/api/v1/projects/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
@@ -591,6 +593,29 @@ func TestMachineRoutes(t *testing.T) {
 	}
 	if testMachinePayload.Machine.LastHeartbeatAt == nil {
 		t.Fatalf("expected machine test to stamp heartbeat, got %+v", testMachinePayload.Machine)
+	}
+
+	refreshMachineHealthRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/machines/"+createMachinePayload.Machine.ID+"/refresh-health",
+		"",
+	)
+	if refreshMachineHealthRec.Code != http.StatusOK {
+		t.Fatalf("expected machine health refresh 200, got %d: %s", refreshMachineHealthRec.Code, refreshMachineHealthRec.Body.String())
+	}
+
+	var refreshMachineHealthPayload struct {
+		Machine machineResponse `json:"machine"`
+	}
+	decodeResponse(t, refreshMachineHealthRec, &refreshMachineHealthPayload)
+	monitor, ok := refreshMachineHealthPayload.Machine.Resources["monitor"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected monitor payload after health refresh, got %+v", refreshMachineHealthPayload.Machine.Resources)
+	}
+	if _, ok := monitor["l4"].(map[string]any); !ok {
+		t.Fatalf("expected l4 payload after health refresh, got %+v", monitor)
 	}
 
 	resourcesRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+createMachinePayload.Machine.ID+"/resources", "")
@@ -1363,6 +1388,61 @@ func (f *fakeCatalogService) TestMachineConnection(_ context.Context, id uuid.UU
 	f.machines[id] = item
 
 	return item, probe, nil
+}
+
+func (f *fakeCatalogService) RefreshMachineHealth(_ context.Context, id uuid.UUID) (domain.Machine, error) {
+	item, ok := f.machines[id]
+	if !ok {
+		return domain.Machine{}, catalogservice.ErrNotFound
+	}
+
+	checkedAt := time.Now().UTC()
+	item.Status = domain.MachineStatusOnline
+	item.LastHeartbeatAt = &checkedAt
+	item.Resources = map[string]any{
+		"transport":    "ssh",
+		"checked_at":   checkedAt.Format(time.RFC3339),
+		"last_success": true,
+		"monitor": map[string]any{
+			"l1": map[string]any{
+				"checked_at": checkedAt.Format(time.RFC3339),
+				"reachable":  true,
+				"transport":  "ssh",
+			},
+			"l4": map[string]any{
+				"checked_at":         checkedAt.Format(time.RFC3339),
+				"agent_dispatchable": true,
+				"codex": map[string]any{
+					"installed":   true,
+					"version":     "0.117.0",
+					"auth_status": "logged_in",
+					"auth_mode":   "login",
+					"ready":       true,
+				},
+			},
+			"l5": map[string]any{
+				"checked_at": checkedAt.Format(time.RFC3339),
+				"git": map[string]any{
+					"installed":  true,
+					"user_name":  "Codex",
+					"user_email": "codex@openai.com",
+				},
+			},
+		},
+		"agent_dispatchable": true,
+		"agent_environment": map[string]any{
+			"codex": map[string]any{
+				"installed":   true,
+				"version":     "0.117.0",
+				"auth_status": "logged_in",
+				"auth_mode":   "login",
+				"ready":       true,
+			},
+		},
+	}
+	f.machines[id] = item
+
+	return item, nil
 }
 
 func (f *fakeCatalogService) ListProjects(_ context.Context, organizationID uuid.UUID) ([]domain.Project, error) {

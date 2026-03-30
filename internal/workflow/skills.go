@@ -227,6 +227,9 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 	if err != nil {
 		return RefreshSkillsResult{}, err
 	}
+	if err := os.RemoveAll(target.skillsDir.String()); err != nil {
+		return RefreshSkillsResult{}, fmt.Errorf("reset agent skill directory: %w", err)
+	}
 	if err := os.MkdirAll(target.skillsDir.String(), 0o750); err != nil {
 		return RefreshSkillsResult{}, fmt.Errorf("create agent skill directory: %w", err)
 	}

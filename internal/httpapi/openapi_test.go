@@ -24,6 +24,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/orgs/{orgId}/channels",
 		"/api/v1/orgs/{orgId}/machines",
 		"/api/v1/machines/{machineId}/test",
+		"/api/v1/provider-model-options",
 		"/api/v1/orgs/{orgId}/providers",
 		"/api/v1/harness/variables",
 		"/api/v1/projects/{projectId}/repos",

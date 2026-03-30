@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -76,6 +77,15 @@ func (r *GeminiRuntime) StartTurn(ctx context.Context, input RuntimeTurnInput) (
 	if err != nil {
 		cancel()
 		return TurnStream{}, fmt.Errorf("start gemini chat turn: %w", err)
+	}
+	if stdin := process.Stdin(); stdin != nil {
+		if err := stdin.Close(); err != nil {
+			cancel()
+			stopCtx, stopCancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer stopCancel()
+			_ = process.Stop(stopCtx)
+			return TurnStream{}, fmt.Errorf("close gemini stdin: %w", err)
+		}
 	}
 	r.setCancel(input.SessionID, cancel)
 
@@ -170,6 +180,18 @@ func (r *GeminiRuntime) collectTurn(
 ) {
 	defer close(events)
 	defer r.clearCancel(sessionID)
+
+	stopDone := make(chan struct{})
+	defer close(stopDone)
+	go func() {
+		select {
+		case <-ctx.Done():
+			stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			defer stopCancel()
+			_ = process.Stop(stopCtx)
+		case <-stopDone:
+		}
+	}()
 
 	stdout := process.Stdout()
 	stderr := process.Stderr()

@@ -195,6 +195,23 @@ export interface paths {
     patch: operations['updateMachine']
     trace?: never
   }
+  '/api/v1/machines/{machineId}/refresh-health': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Refresh multi-level machine health checks */
+    post: operations['refreshMachineHealth']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/machines/{machineId}/resources': {
     parameters: {
       query?: never
@@ -922,6 +939,23 @@ export interface paths {
     }
     /** Get workflow repository prerequisite */
     get: operations['getWorkflowRepositoryPrerequisite']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/provider-model-options': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List builtin provider model options */
+    get: operations['listProviderModelOptions']
     put?: never
     post?: never
     delete?: never
@@ -2402,6 +2436,97 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  refreshMachineHealth: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Refresh multi-level machine health checks response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            machine?: {
+              agent_cli_path?: string | null
+              description?: string
+              env_vars?: string[]
+              host?: string
+              id?: string
+              labels?: string[]
+              last_heartbeat_at?: string | null
+              name?: string
+              organization_id?: string
+              port?: number
+              resources?: {
+                [key: string]: unknown
+              }
+              ssh_key_path?: string | null
+              ssh_user?: string | null
+              status?: string
+              workspace_root?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
         headers: {
           [name: string]: unknown
         }
@@ -8105,6 +8230,49 @@ export interface operations {
           'application/json': {
             code?: string
             message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listProviderModelOptions: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List builtin provider model options response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            adapter_model_options?: {
+              adapter_type?: string
+              options?: {
+                description?: string
+                id?: string
+                label?: string
+                preview?: boolean
+                recommended?: boolean
+              }[]
+            }[]
           }
         }
       }

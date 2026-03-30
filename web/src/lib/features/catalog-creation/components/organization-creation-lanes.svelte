@@ -1,8 +1,13 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation'
-  import type { AgentProvider, Machine, Project } from '$lib/api/contracts'
+  import type {
+    AgentProvider,
+    AgentProviderModelCatalogEntry,
+    Machine,
+    Project,
+  } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
-  import { createProject, createProvider } from '$lib/api/openase'
+  import { createProject, createProvider, listProviderModelOptions } from '$lib/api/openase'
   import { createEmptyProviderDraft, parseProviderDraft } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
   import {
@@ -37,6 +42,7 @@
 
   let projectDraft = $state<ProjectCreationDraft>(createProjectDraft()),
     providerDraft = $state<ProviderDraft>(createEmptyProviderDraft()),
+    providerModelCatalog = $state<AgentProviderModelCatalogEntry[]>([]),
     projectSlugDirty = $state(false),
     creatingProject = $state(false),
     creatingProvider = $state(false)
@@ -52,6 +58,25 @@
     }
 
     projectDraft = createProjectDraft(defaultProviderId)
+  })
+
+  $effect(() => {
+    let cancelled = false
+    void listProviderModelOptions()
+      .then((payload) => {
+        if (!cancelled) {
+          providerModelCatalog = payload.adapter_model_options
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          providerModelCatalog = []
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
   })
 
   function updateProjectName(value: string) {
@@ -157,6 +182,7 @@
     <div class="space-y-4">
       <ProviderCreationPanel
         draft={providerDraft}
+        modelCatalog={providerModelCatalog}
         {machines}
         creating={creatingProvider}
         onFieldChange={updateProviderField}

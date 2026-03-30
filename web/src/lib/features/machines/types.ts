@@ -48,6 +48,7 @@ export type MachineMonitorLevel = {
   diskLow?: boolean
   available?: boolean
   gpuDispatchable?: boolean
+  agentDispatchable?: boolean
 }
 
 export type MachineGPUView = {
@@ -56,6 +57,42 @@ export type MachineGPUView = {
   memoryTotalGB: number
   memoryUsedGB: number
   utilizationPercent: number
+}
+
+export type MachineCLIStatus = {
+  name: string
+  installed?: boolean
+  version?: string
+  authStatus?: string
+  authMode?: string
+  ready?: boolean
+}
+
+export type MachineGitAuditView = {
+  installed?: boolean
+  userName?: string
+  userEmail?: string
+}
+
+export type MachineGitHubCLIAuditView = {
+  installed?: boolean
+  authStatus?: string
+}
+
+export type MachineGitHubTokenProbeView = {
+  checkedAt?: string
+  state?: string
+  configured?: boolean
+  valid?: boolean
+  permissions: string[]
+  repoAccess?: string
+  lastError?: string
+}
+
+export type MachineNetworkAuditView = {
+  githubReachable?: boolean
+  pypiReachable?: boolean
+  npmReachable?: boolean
 }
 
 export type MachineSnapshot = {
@@ -71,10 +108,22 @@ export type MachineSnapshot = {
   diskAvailableGB?: number
   gpuDispatchable?: boolean
   gpus: MachineGPUView[]
+  agentDispatchable?: boolean
+  agentEnvironmentCheckedAt?: string
+  agentEnvironment: MachineCLIStatus[]
   monitor: {
     l1?: MachineMonitorLevel
     l2?: MachineMonitorLevel
     l3?: MachineMonitorLevel
+    l4?: MachineMonitorLevel
+    l5?: MachineMonitorLevel
+  }
+  fullAudit?: {
+    checkedAt?: string
+    git?: MachineGitAuditView
+    ghCLI?: MachineGitHubCLIAuditView
+    githubTokenProbe?: MachineGitHubTokenProbeView
+    network?: MachineNetworkAuditView
   }
   monitorErrors: string[]
 }

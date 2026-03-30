@@ -16,14 +16,14 @@ func BuiltinAgentProviderTemplates() []BuiltinAgentProviderTemplate {
 			Name:        "Claude Code",
 			Command:     "claude",
 			AdapterType: AgentProviderAdapterTypeClaudeCodeCLI,
-			ModelName:   "claude-sonnet-4-5",
+			ModelName:   "claude-opus-4-6",
 		},
 		{
 			ID:          "codex",
 			Name:        "OpenAI Codex",
 			Command:     "codex",
 			AdapterType: AgentProviderAdapterTypeCodexAppServer,
-			ModelName:   "gpt-5.3-codex",
+			ModelName:   "gpt-5.4",
 			CliArgs:     []string{"app-server", "--listen", "stdio://"},
 		},
 		{

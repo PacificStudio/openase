@@ -44,6 +44,13 @@ export type AgentProviderResponse = DeepRequired<
   ResponseFor<'/api/v1/orgs/{orgId}/providers', 'post'>
 >
 export type AgentProvider = ItemOf<AgentProviderListPayload['providers']>
+export type AgentProviderModelCatalogPayload = DeepRequired<
+  ResponseFor<'/api/v1/provider-model-options', 'get'>
+>
+export type AgentProviderModelCatalogEntry = ItemOf<
+  AgentProviderModelCatalogPayload['adapter_model_options']
+>
+export type AgentProviderModelOption = ItemOf<AgentProviderModelCatalogEntry['options']>
 
 export type ProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'get'>>
 export type ProjectCreateResponse = DeepRequired<
@@ -64,6 +71,9 @@ export type Machine = ItemOf<MachinePayload['machines']>
 export type MachineTestResponse = DeepRequired<
   ResponseFor<'/api/v1/machines/{machineId}/test', 'post'>
 >
+export type MachineHealthRefreshResponse = {
+  machine: Machine
+}
 export type MachineProbe = MachineTestResponse['probe']
 export type MachineResourcesResponse = DeepRequired<
   ResponseFor<'/api/v1/machines/{machineId}/resources', 'get'>

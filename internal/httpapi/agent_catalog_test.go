@@ -690,6 +690,17 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 		})
 	}
 
+	modelOptionsRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/provider-model-options", "")
+	if modelOptionsRec.Code != http.StatusOK {
+		t.Fatalf("provider model options status = %d, body=%s", modelOptionsRec.Code, modelOptionsRec.Body.String())
+	}
+	if !strings.Contains(modelOptionsRec.Body.String(), `"adapter_type":"codex-app-server"`) {
+		t.Fatalf("provider model options body missing codex adapter: %s", modelOptionsRec.Body.String())
+	}
+	if !strings.Contains(modelOptionsRec.Body.String(), `"id":"gpt-5.4"`) {
+		t.Fatalf("provider model options body missing codex model: %s", modelOptionsRec.Body.String())
+	}
+
 	mappedProvider := mapAgentProviderResponse(service.providers[providerOneID])
 	if mappedProvider.MachineSSHUser == nil || *mappedProvider.MachineSSHUser != sshUser || mappedProvider.MachineWorkspaceRoot == nil || *mappedProvider.MachineWorkspaceRoot != workspaceRoot {
 		t.Fatalf("mapAgentProviderResponse() = %+v", mappedProvider)

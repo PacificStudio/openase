@@ -22,8 +22,10 @@
     snapshot,
     probe,
     loadingHealth = false,
+    refreshingHealth = false,
     saving = false,
     onDraftChange,
+    onRefreshHealth,
     onSave,
   }: {
     open?: boolean
@@ -33,8 +35,10 @@
     snapshot: MachineSnapshot | null
     probe: MachineProbeResult | null
     loadingHealth?: boolean
+    refreshingHealth?: boolean
     saving?: boolean
     onDraftChange?: (field: MachineDraftField, value: string) => void
+    onRefreshHealth?: () => void
     onSave?: () => void
   } = $props()
 </script>
@@ -86,10 +90,18 @@
             <div>
               <h3 class="text-foreground text-sm font-semibold">Runtime context</h3>
               <p class="text-muted-foreground mt-1 text-xs">
-                Read-only monitor snapshot and latest connection test output.
+                Multi-level machine checks, runtime readiness, and the latest connection test
+                output.
               </p>
             </div>
-            <MachineHealthPanel {machine} {snapshot} {probe} loading={loadingHealth} />
+            <MachineHealthPanel
+              {machine}
+              {snapshot}
+              {probe}
+              loading={loadingHealth}
+              refreshing={refreshingHealth}
+              onRefresh={onRefreshHealth}
+            />
           </section>
         {/if}
       </div>
