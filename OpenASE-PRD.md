@@ -5245,6 +5245,7 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | `/api/v1/tickets/:ticketId/comments` | 列出当前工单评论 |
 | POST | `/api/v1/tickets/:ticketId/comments` | 创建评论 |
 | PATCH | `/api/v1/tickets/:ticketId/comments/:commentId` | 编辑评论 |
 | DELETE | `/api/v1/tickets/:ticketId/comments/:commentId` | 删除评论 |
@@ -7627,6 +7628,153 @@ Agent 在 Harness Prompt 中看到的说明：
 所有操作都会记录在活动日志中，标记为由你（Agent）发起。
 ```
 
+#### 27.2.1 CLI / HTTP 同构原则（采用 `gh` 风格，而非先引入 GraphQL）
+
+OpenASE 的 CLI 不应成为另一套语义来源。**HTTP + OpenAPI 是唯一接口真相源，CLI 只是同一份接口契约的终端投影。**
+
+设计目标：
+
+1. **可达性优先**：任何已暴露的 HTTP API，都必须存在一条 CLI 路径可调用，不能出现“HTTP 有、CLI 没有”的能力黑洞。
+2. **同构优先于糖衣**：CLI 的参数名、请求字段名、返回字段名尽量直接对应 HTTP contract；体验优化可以叠加，但不能替代真实接口形状。
+3. **OpenAPI 单一真源**：新增/修改 HTTP handler 后，先更新 `api/openapi.json`；CLI 的 typed commands、帮助文本、参数映射都应尽可能由 OpenAPI 生成或校验。
+4. **认证分层明确**：
+   - 控制面 CLI：面向人类操作者，使用用户态认证。
+   - Agent Platform CLI：面向工作区内 Agent，默认读取 `OPENASE_AGENT_TOKEN`，能力受 Harness scope 限制。
+5. **流式接口单独建模**：SSE / chat / watch / stream 类型端点不强行塞进 CRUD 资源命令；它们应以独立的 watch/stream/chat 子命令暴露。
+
+**结论：产品上采用类似 GitHub CLI 的双层结构，而不是先引入 GraphQL。**
+
+- 第一层是 raw passthrough：类似 `gh api`
+- 第二层是 typed resource commands：类似 `gh issue` / `gh pr`
+
+GraphQL 不是当前阶段前置条件。OpenASE 当前真实接口面是 REST + OpenAPI，因此第一优先级是让 CLI 与 REST contract 同构，而不是再引入一套新的 GraphQL schema 作为并行真相源。
+
+#### 27.2.2 CLI 分层设计
+
+CLI 必须拆成两层：
+
+**A. Raw API 层（保底 100% 可达）**
+
+```bash
+openase api GET /api/v1/tickets/ASE-42
+openase api POST /api/v1/projects/$OPENASE_PROJECT_ID/tickets \
+  -f title="补充集成测试" \
+  -f workflow_id="..."
+openase api PATCH /api/v1/tickets/$OPENASE_TICKET_ID/comments/$COMMENT_ID \
+  -f body="$(cat workpad.md)"
+```
+
+要求：
+
+- `openase api` 必须允许指定 HTTP method + path，并支持：
+  - `-f key=value` 组装 JSON body
+  - `--input <file>` 直接提交原始 JSON body
+  - `--query key=value` 追加 query string
+  - `--header key:value` 追加额外 header
+- 默认原样输出 JSON；允许 `--jq`、`--json`、`--template` 做后处理。
+- 这层是所有 HTTP 能力的保底出口。即使 typed commands 还未补齐，只要 HTTP 已存在，CLI 就必须可达。
+
+**B. Typed Resource 层（高频、易用、可发现）**
+
+```bash
+openase ticket list
+openase ticket get ASE-42
+openase ticket comment list ASE-42
+openase ticket comment workpad ASE-42 --body-file /tmp/workpad.md
+openase workflow create ...
+openase scheduled-job update ...
+```
+
+要求：
+
+- 按资源分组：`ticket`、`project`、`workflow`、`scheduled-job`、`machine`、`provider`、`agent`、`skill` 等。
+- 每个 typed command 的参数名尽量直接复用 HTTP 字段名，例如：
+  - `status_name`
+  - `workflow_id`
+  - `external_ref`
+- typed command 只是 raw API 的可读封装，不允许内建一套偏离 HTTP 的私有语义。
+- typed commands 的帮助文本、必填参数、body schema、默认值、错误提示，优先从 OpenAPI 生成或校验。
+
+#### 27.2.3 `cmd/openase` 顶层命名空间约束
+
+`cmd/openase` 的顶层命令必须同时支持：
+
+- **控制面 typed commands**：人类直接操作平台资源
+- **Agent Platform typed commands**：Agent 在工作区内回写当前项目/当前工单
+- **通用 raw API**：`openase api ...`
+
+推荐结构：
+
+```bash
+openase api ...
+
+openase ticket ...
+openase project ...
+openase workflow ...
+openase scheduled-job ...
+openase machine ...
+openase provider ...
+openase agent ...
+openase skill ...
+
+openase watch ...
+openase stream ...
+openase chat ...
+```
+
+其中：
+
+- `openase api ...` 是协议级出口，必须保持通用。
+- `openase ticket ...` 等 typed commands 是高频资源入口。
+- `watch/stream/chat` 是流式或会话式入口，不归入 CRUD 资源树。
+
+#### 27.2.4 输出与脚本友好性
+
+为了让 CLI 既适合人读，也适合 Agent / shell / CI 调用，统一要求：
+
+- 默认输出 JSON，不做与 HTTP 字段不一致的二次命名。
+- 支持：
+  - `--jq '<expr>'`
+  - `--json field1,field2,...`
+  - `--template '<go-template-or-equivalent>'`
+- 对于 typed commands，`--json` 只能做字段裁剪，不能改写原始字段语义。
+- 错误输出必须保留 HTTP status、error code、message，便于脚本判断。
+
+#### 27.2.5 Workpad / Comment 的 CLI 一等公民约束
+
+工单评论不是边缘能力，而是 Workflow 闭环的一部分。CLI 必须原生支持：
+
+```bash
+openase ticket comment list
+openase ticket comment create
+openase ticket comment update
+openase ticket comment delete
+openase ticket comment revisions
+openase ticket comment workpad
+```
+
+其中 `openase ticket comment workpad` 是一个**幂等 upsert 命令**：
+
+- 查找当前工单下标题为 `## Codex Workpad` 的评论
+- 如果存在，则更新同一条评论
+- 如果不存在，则创建该评论
+
+`workpad` 是 typed sugar，不替代底层 `comment create/update/list` 的 HTTP 同构能力。
+
+#### 27.2.6 OpenAPI 驱动的实现约束
+
+实现上不允许长期维持“HTTP handler 手写一套、CLI 手写一套、两边慢慢漂”的模式。约束如下：
+
+1. HTTP contract 一旦变更，必须先更新 OpenAPI。
+2. CLI 的 typed commands 至少要做到：
+   - 参数与 OpenAPI schema 对齐
+   - body 字段与 OpenAPI schema 对齐
+   - 路由与 method 与 OpenAPI 对齐
+3. CI 必须增加一类校验：
+   - OpenAPI 已更新但 CLI generation / snapshot 未更新 → fail
+   - CLI 引用不存在的 route / 字段 → fail
+4. 在 typed commands 尚未覆盖的新接口上，`openase api` 必须立即可用，保证能力面不被 CLI 拖后腿。
+
 ### 27.3 Agent 可执行的平台操作
 
 | 操作 | API 端点 | 典型场景 | 权限级别 |
@@ -7634,6 +7782,7 @@ Agent 在 Harness Prompt 中看到的说明：
 | **创建子工单** | `POST /tickets` | 开发过程中发现 Bug → 创建 bugfix 工单；安全扫描发现漏洞 → 创建修复工单 | 默认允许 |
 | **关联外部链接** | `POST /tickets/:id/links` | 自动关联创建的 PR、发现的相关 Issue | 默认允许 |
 | **更新当前工单描述** | `PATCH /tickets/:id` | 补充执行过程中发现的上下文信息 | 默认允许 |
+| **维护当前工单评论 / Workpad** | `GET/POST/PATCH /tickets/:id/comments...` | 维护 `## Codex Workpad`、记录进度、阻塞与验证结果 | 默认允许（仅限当前工单） |
 | **更新项目描述** | `PATCH /projects/:id` | 产品经理角色完成调研后更新项目 README / 描述 | 需授权 |
 | **更新项目状态** | `POST /projects/:id/transition` | 例如将项目从 `Planned` 推进到 `In Progress`，或从 `In Progress` 标记为 `Completed` | 需授权 |
 | **注册新仓库** | `POST /projects/:id/repos` | 按照架构设计创建了新的微服务仓库后注册到平台 | 需授权 |
@@ -7832,7 +7981,7 @@ Agent Token 的 scope 限定在当前 `project_id`，不能跨项目操作。一
 | `internal/orchestrator` Worker | 启动 Agent 时生成 Agent Token，注入环境变量 |
 | `internal/agentplatform` / provider contracts | 认证与 Token 校验需要区分 User Token 和 Agent Token |
 | Harness 渲染 | 注入 `OPENASE_API_URL`、`OPENASE_AGENT_TOKEN` 等环境变量 |
-| `cmd/openase` / CLI | Agent 在工作区中通过 CLI 调用 API（CLI 读 `OPENASE_AGENT_TOKEN` 环境变量自动认证） |
+| `cmd/openase` / CLI | 形成 `openase api` + typed resource commands 双层结构；Agent CLI 默认读 `OPENASE_AGENT_TOKEN`，控制面 CLI 与 HTTP/OpenAPI 保持同构 |
 | ActivityEvent | `created_by` 支持 `user:xxx` 和 `agent:xxx` 两种格式 |
 | 数据库 | 新增 `agent_tokens` 表（token_hash, agent_id, ticket_id, scopes, expires_at） |
 
