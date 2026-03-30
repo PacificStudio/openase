@@ -230,6 +230,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
 		t.Fatalf("expected built-in platform skill in primary repo: %v", err)
 	}
+	// #nosec G304 -- test reads a fixture from the temp repo root created above.
 	repoSkillContent, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read repo platform skill: %v", err)
@@ -256,6 +257,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".codex", "skills", "openase-platform", "SKILL.md")); err != nil {
 		t.Fatalf("expected platform skill in codex workspace: %v", err)
 	}
+	// #nosec G304 -- test reads a fixture from the temp workspace path created above.
 	workspaceSkillContent, err := os.ReadFile(filepath.Join(repoWorkspacePath, ".codex", "skills", "openase-platform", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read codex workspace platform skill: %v", err)

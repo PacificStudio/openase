@@ -22,6 +22,7 @@ type EventType string
 
 const (
 	EventTypeToolCallRequested EventType = "tool_call_requested"
+	// #nosec G101 -- event type identifier, not a credential.
 	EventTypeTokenUsageUpdated EventType = "token_usage_updated"
 	EventTypeOutputProduced    EventType = "output_produced"
 	EventTypeTurnStarted       EventType = "turn_started"

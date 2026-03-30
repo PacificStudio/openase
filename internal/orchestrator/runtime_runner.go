@@ -144,7 +144,6 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 			if isCleanTurnSessionClose(err) {
 				reloaded, reloadErr := l.reloadExecutionTicket(ctx, state.ticket.ID)
 				if reloadErr != nil {
-					lastError = reloadErr.Error()
 					l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, reloadErr)
 					return
 				}
@@ -155,7 +154,6 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 					return
 				}
 			}
-			lastError = err.Error()
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
 			return
 		}
@@ -237,14 +235,14 @@ func buildContinuationPrompt(ticket *ent.Ticket, turnNumber int, maxTurns int, l
 	var builder strings.Builder
 	builder.WriteString("Continuation guidance:\n\n")
 	builder.WriteString("- The previous Codex turn completed, but the ticket is still active.\n")
-	builder.WriteString(fmt.Sprintf("- This is continuation turn #%d of %d.\n", turnNumber, maxTurns))
+	_, _ = fmt.Fprintf(&builder, "- This is continuation turn #%d of %d.\n", turnNumber, maxTurns)
 	builder.WriteString("- Resume from the current workspace and thread context.\n")
 	builder.WriteString("- Do not restate the original task before acting.\n")
 	if ticket != nil {
-		builder.WriteString(fmt.Sprintf("- Continue working on ticket %s: %s.\n", ticket.Identifier, ticket.Title))
+		_, _ = fmt.Fprintf(&builder, "- Continue working on ticket %s: %s.\n", ticket.Identifier, ticket.Title)
 	}
 	if trimmed := strings.TrimSpace(lastError); trimmed != "" {
-		builder.WriteString(fmt.Sprintf("- Address the latest blocker or failure if it is still relevant: %s\n", trimmed))
+		_, _ = fmt.Fprintf(&builder, "- Address the latest blocker or failure if it is still relevant: %s\n", trimmed)
 	}
 	return strings.TrimSpace(builder.String())
 }

@@ -303,14 +303,14 @@ func TestChannelParsingAndRedactionHelpers(t *testing.T) {
 	if _, err := requireHTTPURL(map[string]any{"url": "https:///path"}, "url"); err == nil {
 		t.Fatal("requireHTTPURL() expected host validation error")
 	}
-	if got, err := optionalStringMap(map[string]any{}, "headers"); err != nil || got != nil {
-		t.Fatalf("optionalStringMap(missing) = %+v, %v; want nil, nil", got, err)
+	if got, err := optionalHeadersMap(map[string]any{}); err != nil || got != nil {
+		t.Fatalf("optionalHeadersMap(missing) = %+v, %v; want nil, nil", got, err)
 	}
-	if _, err := optionalStringMap(map[string]any{"headers": []any{}}, "headers"); err == nil {
-		t.Fatal("optionalStringMap() expected object validation error")
+	if _, err := optionalHeadersMap(map[string]any{"headers": []any{}}); err == nil {
+		t.Fatal("optionalHeadersMap() expected object validation error")
 	}
-	if _, err := optionalStringMap(map[string]any{"headers": map[string]any{"X-Test": 1}}, "headers"); err == nil {
-		t.Fatal("optionalStringMap() expected string value validation error")
+	if _, err := optionalHeadersMap(map[string]any{"headers": map[string]any{"X-Test": 1}}); err == nil {
+		t.Fatal("optionalHeadersMap() expected string value validation error")
 	}
 	if got := copyStringMap(nil); got != nil {
 		t.Fatalf("copyStringMap(nil) = %+v, want nil", got)

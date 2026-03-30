@@ -97,7 +97,7 @@ func (s *Server) streamAgentOutput(c echo.Context) error {
 	header.Set("X-Accel-Buffering", "no")
 	response.WriteHeader(http.StatusOK)
 
-	if err := writeSSEComment(response, "keepalive"); err != nil {
+	if err := writeSSEKeepaliveComment(response); err != nil {
 		return err
 	}
 
@@ -125,7 +125,7 @@ func (s *Server) streamAgentOutput(c echo.Context) error {
 				return err
 			}
 		case <-heartbeat.C:
-			if err := writeSSEComment(response, "keepalive"); err != nil {
+			if err := writeSSEKeepaliveComment(response); err != nil {
 				return err
 			}
 		}

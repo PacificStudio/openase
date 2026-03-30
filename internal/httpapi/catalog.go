@@ -1276,15 +1276,6 @@ func mapMachineProbeResponse(item domain.MachineProbe) machineProbeResponse {
 	}
 }
 
-func mapProjectRepoResponses(items []domain.ProjectRepo) []projectRepoResponse {
-	response := make([]projectRepoResponse, 0, len(items))
-	for _, item := range items {
-		response = append(response, baseProjectRepoResponse(item))
-	}
-
-	return response
-}
-
 func baseProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 	return projectRepoResponse{
 		ID:               item.ID.String(),

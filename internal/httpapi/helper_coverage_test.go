@@ -122,8 +122,8 @@ func TestHTTPStreamAndTicketAssignedAgentHelpers(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 
-		if err := writeSSEComment(c.Response(), "keepalive"); err != nil {
-			t.Fatalf("writeSSEComment() error = %v", err)
+		if err := writeSSEKeepaliveComment(c.Response()); err != nil {
+			t.Fatalf("writeSSEKeepaliveComment() error = %v", err)
 		}
 
 		event := provider.Event{

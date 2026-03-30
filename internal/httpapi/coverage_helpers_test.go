@@ -280,12 +280,12 @@ func TestWorkflowRequestParsersCoverTrimmedAndInvalidInputs(t *testing.T) {
 	if _, err := parsePositiveInt("max_concurrent", intPointer(0), 3); err == nil {
 		t.Fatal("parsePositiveInt() expected error for zero")
 	}
-	defaultNonNegative, err := parseNonNegativeInt("max_retry_attempts", nil, 2)
+	defaultNonNegative, err := parseMaxRetryAttempts(nil, 2)
 	if err != nil || defaultNonNegative != 2 {
-		t.Fatalf("parseNonNegativeInt(nil) = (%d, %v), want (2, nil)", defaultNonNegative, err)
+		t.Fatalf("parseMaxRetryAttempts(nil) = (%d, %v), want (2, nil)", defaultNonNegative, err)
 	}
-	if _, err := parseNonNegativeInt("max_retry_attempts", intPointer(-1), 2); err == nil {
-		t.Fatal("parseNonNegativeInt() expected error for negative")
+	if _, err := parseMaxRetryAttempts(intPointer(-1), 2); err == nil {
+		t.Fatal("parseMaxRetryAttempts() expected error for negative")
 	}
 }
 

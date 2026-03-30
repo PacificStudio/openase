@@ -576,15 +576,14 @@ func findSkillResponse(t *testing.T, items []skillResponse, name string) skillRe
 	return skillResponse{}
 }
 
-func findBuiltinRoleResponse(t *testing.T, items []builtinRoleResponse, slug string) builtinRoleResponse {
+func findBuiltinRoleResponse(t *testing.T, items []builtinRoleResponse, slug string) {
 	t.Helper()
 	for _, item := range items {
 		if item.Slug == slug {
-			return item
+			return
 		}
 	}
 	t.Fatalf("role %s not found in %+v", slug, items)
-	return builtinRoleResponse{}
 }
 
 func parseSkillTitle(content string) string {

@@ -108,7 +108,7 @@ func TestLaunchdApplyWritesPlistAndBootstrapsService(t *testing.T) {
 	runner := &recordingRunner{
 		results: []error{&exec.ExitError{}},
 	}
-	manager := newLaunchdUserManagerForTest(homeDir, 501, runner)
+	manager := newLaunchdUserManagerForTest(homeDir, runner)
 	spec := testInstallSpec(t, homeDir)
 
 	if err := manager.Apply(context.Background(), spec); err != nil {
@@ -151,7 +151,7 @@ func TestLaunchdRestartBootstrapsWhenServiceIsNotLoaded(t *testing.T) {
 	runner := &recordingRunner{
 		results: []error{&exec.ExitError{}},
 	}
-	manager := newLaunchdUserManagerForTest(homeDir, 501, runner)
+	manager := newLaunchdUserManagerForTest(homeDir, runner)
 
 	if err := manager.Restart(context.Background(), provider.MustParseServiceName("openase")); err != nil {
 		t.Fatalf("Restart returned error: %v", err)
@@ -175,7 +175,7 @@ func TestLaunchdConstructorsPlatformDownAndRestartLoaded(t *testing.T) {
 	}
 
 	runner := &recordingRunner{results: []error{&exec.ExitError{}}}
-	manager := newLaunchdUserManagerForTest(homeDir, 501, runner)
+	manager := newLaunchdUserManagerForTest(homeDir, runner)
 	if got := manager.Platform(); got != "launchd" {
 		t.Fatalf("Platform() = %q", got)
 	}
@@ -187,7 +187,7 @@ func TestLaunchdConstructorsPlatformDownAndRestartLoaded(t *testing.T) {
 	}
 
 	runner = &recordingRunner{results: []error{nil}}
-	manager = newLaunchdUserManagerForTest(homeDir, 501, runner)
+	manager = newLaunchdUserManagerForTest(homeDir, runner)
 	if err := manager.Down(context.Background(), provider.MustParseServiceName("openase")); err != nil {
 		t.Fatalf("Down(loaded) error = %v", err)
 	}
@@ -200,7 +200,7 @@ func TestLaunchdConstructorsPlatformDownAndRestartLoaded(t *testing.T) {
 	}
 
 	runner = &recordingRunner{results: []error{nil}}
-	manager = newLaunchdUserManagerForTest(homeDir, 501, runner)
+	manager = newLaunchdUserManagerForTest(homeDir, runner)
 	if err := manager.Restart(context.Background(), provider.MustParseServiceName("openase")); err != nil {
 		t.Fatalf("Restart(loaded) error = %v", err)
 	}
@@ -216,7 +216,7 @@ func TestLaunchdConstructorsPlatformDownAndRestartLoaded(t *testing.T) {
 func TestLaunchdLogsUsesTail(t *testing.T) {
 	homeDir := t.TempDir()
 	runner := &recordingRunner{}
-	manager := newLaunchdUserManagerForTest(homeDir, 501, runner)
+	manager := newLaunchdUserManagerForTest(homeDir, runner)
 	opts, err := provider.NewUserServiceLogsOptions(50, false, io.Discard, io.Discard)
 	if err != nil {
 		t.Fatalf("NewUserServiceLogsOptions returned error: %v", err)
@@ -241,12 +241,12 @@ func TestLaunchdLogsUsesTail(t *testing.T) {
 
 func TestLaunchdHelperErrorPathsAndExecRunner(t *testing.T) {
 	homeDir := t.TempDir()
-	manager := newLaunchdUserManagerForTest(homeDir, 501, &recordingRunner{results: []error{errors.New("boom")}})
+	manager := newLaunchdUserManagerForTest(homeDir, &recordingRunner{results: []error{errors.New("boom")}})
 	if _, err := manager.isLoaded(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), "launchctl print gui/501/com.openase: boom") {
 		t.Fatalf("isLoaded(unexpected error) = %v", err)
 	}
 
-	failing := newLaunchdUserManagerForTest(homeDir, 501, &recordingRunner{results: []error{nil, errors.New("boom")}})
+	failing := newLaunchdUserManagerForTest(homeDir, &recordingRunner{results: []error{nil, errors.New("boom")}})
 	if err := failing.Restart(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), "launchctl kickstart -k gui/501/com.openase: boom") {
 		t.Fatalf("Restart(error) = %v", err)
 	}

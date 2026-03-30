@@ -225,7 +225,7 @@ func ParseChannelConfig(channelType ChannelType, raw map[string]any) (ChannelCon
 		if err != nil {
 			return nil, err
 		}
-		headers, err := optionalStringMap(raw, "headers")
+		headers, err := optionalHeadersMap(raw)
 		if err != nil {
 			return nil, err
 		}
@@ -457,7 +457,9 @@ func requireHTTPURL(raw map[string]any, field string) (string, error) {
 	return value, nil
 }
 
-func optionalStringMap(raw map[string]any, field string) (map[string]string, error) {
+func optionalHeadersMap(raw map[string]any) (map[string]string, error) {
+	const field = "headers"
+
 	value, ok := raw[field]
 	if !ok {
 		return nil, nil

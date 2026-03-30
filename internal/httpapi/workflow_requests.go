@@ -77,7 +77,7 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 	if err != nil {
 		return workflowservice.CreateInput{}, err
 	}
-	maxRetryAttempts, err := parseNonNegativeInt("max_retry_attempts", raw.MaxRetryAttempts, 3)
+	maxRetryAttempts, err := parseMaxRetryAttempts(raw.MaxRetryAttempts, 3)
 	if err != nil {
 		return workflowservice.CreateInput{}, err
 	}
@@ -273,12 +273,12 @@ func parsePositiveInt(fieldName string, raw *int, defaultValue int) (int, error)
 	return *raw, nil
 }
 
-func parseNonNegativeInt(fieldName string, raw *int, defaultValue int) (int, error) {
+func parseMaxRetryAttempts(raw *int, defaultValue int) (int, error) {
 	if raw == nil {
 		return defaultValue, nil
 	}
 	if *raw < 0 {
-		return 0, fmt.Errorf("%s must be greater than or equal to zero", fieldName)
+		return 0, fmt.Errorf("max_retry_attempts must be greater than or equal to zero")
 	}
 
 	return *raw, nil

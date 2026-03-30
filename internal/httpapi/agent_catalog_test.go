@@ -1067,15 +1067,6 @@ func (f *fakeCatalogService) DeleteAgent(_ context.Context, id uuid.UUID) (domai
 	return item, nil
 }
 
-func cloneTimePointer(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
-	}
-
-	cloned := value.UTC()
-	return &cloned
-}
-
 func cloneStringPointer(value *string) *string {
 	if value == nil {
 		return nil

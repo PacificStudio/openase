@@ -72,7 +72,7 @@ func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.T
 	header.Set("X-Accel-Buffering", "no")
 	response.WriteHeader(http.StatusOK)
 
-	if err := writeSSEComment(response, "keepalive"); err != nil {
+	if err := writeSSEKeepaliveComment(response); err != nil {
 		return err
 	}
 
@@ -91,7 +91,7 @@ func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.T
 				return err
 			}
 		case <-heartbeat.C:
-			if err := writeSSEComment(response, "keepalive"); err != nil {
+			if err := writeSSEKeepaliveComment(response); err != nil {
 				return err
 			}
 		}
@@ -115,8 +115,8 @@ func parseTopicQuery(rawTopics []string) ([]provider.Topic, error) {
 	return topics, nil
 }
 
-func writeSSEComment(response *echo.Response, comment string) error {
-	if _, err := fmt.Fprintf(response, ": %s\n\n", comment); err != nil {
+func writeSSEKeepaliveComment(response *echo.Response) error {
+	if _, err := fmt.Fprint(response, ": keepalive\n\n"); err != nil {
 		return err
 	}
 

@@ -17,6 +17,7 @@ import (
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
 	"github.com/google/uuid"
+	// Register the PostgreSQL SQL driver used by database/sql and ent.
 	_ "github.com/lib/pq"
 )
 

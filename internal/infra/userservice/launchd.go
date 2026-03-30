@@ -29,10 +29,10 @@ func NewLaunchdUserManager(homeDir string, uid int) *LaunchdUserManager {
 	}
 }
 
-func newLaunchdUserManagerForTest(homeDir string, uid int, runner commandRunner) *LaunchdUserManager {
+func newLaunchdUserManagerForTest(homeDir string, runner commandRunner) *LaunchdUserManager {
 	return &LaunchdUserManager{
 		homeDir: homeDir,
-		uid:     uid,
+		uid:     501,
 		runner:  runner,
 	}
 }

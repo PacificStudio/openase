@@ -379,11 +379,11 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if _, err := parsePositiveInt("max_concurrent", intPtr(0), 3); err == nil || !strings.Contains(err.Error(), "greater than zero") {
 		t.Fatalf("parsePositiveInt(invalid) error = %v", err)
 	}
-	if got, err := parseNonNegativeInt("max_retry_attempts", nil, 2); err != nil || got != 2 {
-		t.Fatalf("parseNonNegativeInt(default) = (%d, %v)", got, err)
+	if got, err := parseMaxRetryAttempts(nil, 2); err != nil || got != 2 {
+		t.Fatalf("parseMaxRetryAttempts(default) = (%d, %v)", got, err)
 	}
-	if _, err := parseNonNegativeInt("max_retry_attempts", intPtr(-1), 2); err == nil || !strings.Contains(err.Error(), "greater than or equal to zero") {
-		t.Fatalf("parseNonNegativeInt(invalid) error = %v", err)
+	if _, err := parseMaxRetryAttempts(intPtr(-1), 2); err == nil || !strings.Contains(err.Error(), "greater than or equal to zero") {
+		t.Fatalf("parseMaxRetryAttempts(invalid) error = %v", err)
 	}
 
 	e := echo.New()
