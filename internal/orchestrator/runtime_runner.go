@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -29,6 +30,33 @@ const (
 type tokenUsageHighWater struct {
 	inputTokens  int64
 	outputTokens int64
+}
+
+type turnSessionClosedError struct {
+	turnID string
+	cause  error
+}
+
+func (e *turnSessionClosedError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.cause != nil {
+		return fmt.Sprintf("codex session closed before turn %s completed: %v", e.turnID, e.cause)
+	}
+	return fmt.Sprintf("codex session closed before turn %s completed", e.turnID)
+}
+
+func (e *turnSessionClosedError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
+func isCleanTurnSessionClose(err error) bool {
+	var closedErr *turnSessionClosedError
+	return errors.As(err, &closedErr) && closedErr != nil && closedErr.cause == nil
 }
 
 func (l *RuntimeLauncher) startReadyExecutions(ctx context.Context) error {
@@ -113,6 +141,20 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 		}
 
 		if err := l.consumeTurn(ctx, state.agent.ProjectID, state.agent.ID, state.run.ID, state.ticket.ID, session, turn.TurnID, &highWater); err != nil {
+			if isCleanTurnSessionClose(err) {
+				reloaded, reloadErr := l.reloadExecutionTicket(ctx, state.ticket.ID)
+				if reloadErr != nil {
+					lastError = reloadErr.Error()
+					l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, reloadErr)
+					return
+				}
+				if !shouldContinueExecution(reloaded, state.run.ID) {
+					if err := l.finishResolvedExecution(ctx, state.run.ID, state.agent.ID, reloaded); err != nil {
+						l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, reloaded.ID, err)
+					}
+					return
+				}
+			}
 			lastError = err.Error()
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
 			return
@@ -224,9 +266,9 @@ func (l *RuntimeLauncher) consumeTurn(
 		if !ok {
 			logCodexSessionClosed(l.logger, runID, turnID, session)
 			if sessionErr := session.Err(); sessionErr != nil {
-				return fmt.Errorf("codex session closed before turn %s completed: %w", turnID, sessionErr)
+				return &turnSessionClosedError{turnID: turnID, cause: sessionErr}
 			}
-			return fmt.Errorf("codex session closed before turn %s completed", turnID)
+			return &turnSessionClosedError{turnID: turnID}
 		}
 
 		if err := l.touchHeartbeat(ctx, runID); err != nil {

@@ -115,6 +115,28 @@ func TestIssueAgentTokenCommandOutputsShellExports(t *testing.T) {
 	}
 }
 
+func TestIssueAgentTokenHelpClarifiesTicketUUIDSemantics(t *testing.T) {
+	command := newIssueAgentTokenCommand(&rootOptions{})
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"OPENASE_TICKET_ID",
+		"platform routes such as /api/v1/platform/tickets/:ticketId expect that UUID",
+		"Do not pass a human-readable ticket identifier such as ASE-2 here.",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
 func openCLIEntClient(t *testing.T) (*ent.Client, string) {
 	t.Helper()
 

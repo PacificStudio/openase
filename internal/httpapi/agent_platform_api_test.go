@@ -32,6 +32,10 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, doneTicketID := seedAgentPlatformHTTPFixture(ctx, t, client)
 	platformService := agentplatform.NewService(client)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir())
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
@@ -42,7 +46,7 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		ticketstatus.NewService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
-		nil,
+		workflowSvc,
 	)
 
 	issued, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
@@ -52,6 +56,25 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("IssueToken returned error: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(projectID).
+		SetAgentID(agentID).
+		SetName("Todo App Coding Workflow").
+		SetType("coding").
+		SetHarnessPath(".openase/harnesses/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
 	}
 
 	listResp := struct {
@@ -69,6 +92,57 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	)
 	if len(listResp.Tickets) != 2 {
 		t.Fatalf("expected two tickets in list, got %+v", listResp.Tickets)
+	}
+
+	workflowResp := struct {
+		Workflows []workflowResponse `json:"workflows"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/workflows", projectID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&workflowResp,
+	)
+	if len(workflowResp.Workflows) != 1 || workflowResp.Workflows[0].ID != workflowItem.ID.String() {
+		t.Fatalf("unexpected workflows payload: %+v", workflowResp.Workflows)
+	}
+
+	currentTicket, err := client.Ticket.Get(ctx, currentTicketID)
+	if err != nil {
+		t.Fatalf("load current ticket: %v", err)
+	}
+
+	getTicketResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&getTicketResp,
+	)
+	if getTicketResp.Ticket.ID != currentTicketID.String() {
+		t.Fatalf("unexpected get ticket payload by uuid: %+v", getTicketResp.Ticket)
+	}
+
+	invalidIdentifierRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicket.Identifier),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+	)
+	if invalidIdentifierRec.Code != http.StatusBadRequest || !strings.Contains(invalidIdentifierRec.Body.String(), "INVALID_TICKET_ID") {
+		t.Fatalf("expected identifier lookup to return INVALID_TICKET_ID, got %d: %s", invalidIdentifierRec.Code, invalidIdentifierRec.Body.String())
 	}
 
 	createResp := struct {
@@ -146,6 +220,18 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	)
 	if len(listCommentsResp.Comments) != 1 || listCommentsResp.Comments[0].ID != createCommentResp.Comment.ID {
 		t.Fatalf("unexpected listed comments payload: %+v", listCommentsResp.Comments)
+	}
+
+	invalidCommentIdentifierRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", currentTicket.Identifier),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+	)
+	if invalidCommentIdentifierRec.Code != http.StatusBadRequest || !strings.Contains(invalidCommentIdentifierRec.Body.String(), "INVALID_TICKET_ID") {
+		t.Fatalf("expected comment identifier lookup to return INVALID_TICKET_ID, got %d: %s", invalidCommentIdentifierRec.Code, invalidCommentIdentifierRec.Body.String())
 	}
 
 	updateCommentResp := struct {

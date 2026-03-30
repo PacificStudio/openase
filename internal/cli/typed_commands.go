@@ -297,6 +297,7 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	command := &cobra.Command{
 		Use:   spec.Use,
 		Short: contract.summary,
+		Long:  buildOpenAPIOperationHelp(spec, contract.summary),
 		Args:  cobra.MaximumNArgs(len(spec.PositionalParams)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOpenAPIOperationCommand(cmd, deps, contract, args)
@@ -306,6 +307,28 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	applyCLIFlagNormalization(command.Flags())
 	registerOpenAPICommandFlags(command.Flags(), contract)
 	return command
+}
+
+func buildOpenAPIOperationHelp(spec openAPICommandSpec, summary string) string {
+	lines := []string{summary}
+	if len(spec.PositionalParams) == 0 {
+		return strings.Join(lines, "\n\n")
+	}
+
+	uuidParams := make([]string, 0, len(spec.PositionalParams))
+	for _, name := range spec.PositionalParams {
+		if strings.HasSuffix(strings.ToLower(strings.TrimSpace(name)), "id") {
+			uuidParams = append(uuidParams, name)
+		}
+	}
+	if len(uuidParams) > 0 {
+		lines = append(lines, fmt.Sprintf(
+			"Positional parameter(s) %s must be UUID values unless the help text for that command says otherwise. Human-readable identifiers such as ASE-2 are not accepted for %s.",
+			strings.Join(uuidParams, ", "),
+			strings.Join(uuidParams, ", "),
+		))
+	}
+	return strings.Join(lines, "\n\n")
 }
 
 func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {

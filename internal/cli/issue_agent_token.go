@@ -38,6 +38,22 @@ func newIssueAgentTokenCommand(options *rootOptions) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "issue-agent-token",
 		Short: "Issue a development agent token for the local agent platform API.",
+		Long: strings.TrimSpace(`
+Issue a development agent token for the local agent platform API.
+
+This command is intended for local agent and harness debugging. The required
+--agent-id, --project-id, and --ticket-id values are all UUIDs.
+
+In particular, --ticket-id becomes OPENASE_TICKET_ID in the emitted environment,
+and platform routes such as /api/v1/platform/tickets/:ticketId expect that UUID.
+Do not pass a human-readable ticket identifier such as ASE-2 here.
+`),
+		Example: strings.TrimSpace(`
+  openase issue-agent-token \
+    --agent-id 87bcf5d1-019c-463a-87b5-70a47afb4880 \
+    --project-id 7b3b00c6-636c-4a1d-9ce5-9e04b1cd6d7a \
+    --ticket-id a6d58b41-4a6d-453d-a5ec-b7c37fe1eaff
+`),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := config.Load(config.LoadOptions{ConfigFile: options.configFile})
 			if err != nil {
@@ -112,7 +128,7 @@ func newIssueAgentTokenCommand(options *rootOptions) *cobra.Command {
 
 	command.Flags().StringVar(&agentID, "agent-id", "", "Agent UUID.")
 	command.Flags().StringVar(&projectID, "project-id", "", "Project UUID.")
-	command.Flags().StringVar(&ticketID, "ticket-id", "", "Current ticket UUID.")
+	command.Flags().StringVar(&ticketID, "ticket-id", "", "Current ticket UUID. This becomes OPENASE_TICKET_ID; do not pass a ticket identifier like ASE-2.")
 	command.Flags().StringSliceVar(&scopes, "scope", nil, "Explicit agent scope. Repeat for multiple scopes.")
 	command.Flags().DurationVar(&ttl, "ttl", 24*time.Hour, "Token lifetime, for example 30m or 2h.")
 	command.Flags().StringVar(&apiURL, "api-url", "", "Platform API base URL override. Defaults to the configured local server URL.")

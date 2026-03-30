@@ -10,7 +10,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/google/uuid"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
 )
 
@@ -52,7 +52,9 @@ type rawAgentProjectPatchRequest struct {
 
 func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleAgentListTickets)
+	api.GET("/projects/:projectId/workflows", s.handleAgentListProjectWorkflows)
 	api.POST("/projects/:projectId/tickets", s.handleAgentCreateTicket)
+	api.GET("/tickets/:ticketId", s.handleAgentGetOwnTicket)
 	api.PATCH("/tickets/:ticketId", s.handleAgentUpdateOwnTicket)
 	api.GET("/tickets/:ticketId/comments", s.handleAgentListOwnTicketComments)
 	api.POST("/tickets/:ticketId/comments", s.handleAgentCreateOwnTicketComment)
@@ -156,27 +158,60 @@ func (s *Server) handleAgentCreateTicket(c echo.Context) error {
 	})
 }
 
+func (s *Server) handleAgentListProjectWorkflows(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsList)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	items, err := s.workflowService.List(c.Request().Context(), projectID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"workflows": mapWorkflowResponses(items),
+	})
+}
+
+func (s *Server) handleAgentGetOwnTicket(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsList)
+	if !ok {
+		return nil
+	}
+	if current.ProjectID != claims.ProjectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"ticket": mapTicketResponse(current),
+	})
+}
+
 func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 	if s.ticketService == nil {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsUpdateSelf)
+	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
 	if !ok {
 		return nil
-	}
-
-	ticketID, err := parseTicketID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
-	}
-	if claims.TicketID != ticketID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_TICKET_FORBIDDEN", "agent token can only update its current ticket")
-	}
-
-	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
-	if err != nil {
-		return writeTicketError(c, err)
 	}
 	if current.ProjectID != claims.ProjectID {
 		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
@@ -190,7 +225,7 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "status_id and status_name cannot be provided together")
 	}
 
-	input := ticketservice.UpdateInput{TicketID: ticketID}
+	input := ticketservice.UpdateInput{TicketID: current.ID}
 	if raw.Title != nil {
 		title := strings.TrimSpace(*raw.Title)
 		if title == "" {
@@ -241,22 +276,9 @@ func (s *Server) handleAgentReportUsage(c echo.Context) error {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsReportUsage)
+	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsReportUsage)
 	if !ok {
 		return nil
-	}
-
-	ticketID, err := parseTicketID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
-	}
-	if claims.TicketID != ticketID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_TICKET_FORBIDDEN", "agent token can only report usage for its current ticket")
-	}
-
-	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
-	if err != nil {
-		return writeTicketError(c, err)
 	}
 	if current.ProjectID != claims.ProjectID {
 		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
@@ -269,7 +291,7 @@ func (s *Server) handleAgentReportUsage(c echo.Context) error {
 
 	result, err := s.ticketService.RecordUsage(c.Request().Context(), ticketservice.RecordUsageInput{
 		AgentID:  claims.AgentID,
-		TicketID: ticketID,
+		TicketID: current.ID,
 		Usage: ticketing.RawUsageDelta{
 			InputTokens:  raw.InputTokens,
 			OutputTokens: raw.OutputTokens,
@@ -295,7 +317,7 @@ func (s *Server) handleAgentListOwnTicketComments(c echo.Context) error {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, ticketID, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
+	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
 	if !ok {
 		return nil
 	}
@@ -303,7 +325,7 @@ func (s *Server) handleAgentListOwnTicketComments(c echo.Context) error {
 		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 	}
 
-	comments, err := s.ticketService.ListComments(c.Request().Context(), ticketID)
+	comments, err := s.ticketService.ListComments(c.Request().Context(), current.ID)
 	if err != nil {
 		return writeTicketError(c, err)
 	}
@@ -318,7 +340,7 @@ func (s *Server) handleAgentCreateOwnTicketComment(c echo.Context) error {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, ticketID, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
+	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
 	if !ok {
 		return nil
 	}
@@ -331,7 +353,7 @@ func (s *Server) handleAgentCreateOwnTicketComment(c echo.Context) error {
 		return err
 	}
 
-	input, err := parseCreateTicketCommentRequest(ticketID, rawCreateTicketCommentRequest{
+	input, err := parseCreateTicketCommentRequest(current.ID, rawCreateTicketCommentRequest{
 		Body:      raw.Body,
 		CreatedBy: stringPointer(claims.CreatedBy()),
 	})
@@ -354,7 +376,7 @@ func (s *Server) handleAgentUpdateOwnTicketComment(c echo.Context) error {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, ticketID, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
+	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
 	if !ok {
 		return nil
 	}
@@ -372,7 +394,7 @@ func (s *Server) handleAgentUpdateOwnTicketComment(c echo.Context) error {
 		return err
 	}
 
-	input, err := parseUpdateTicketCommentRequest(ticketID, commentID, rawUpdateTicketCommentRequest{
+	input, err := parseUpdateTicketCommentRequest(current.ID, commentID, rawUpdateTicketCommentRequest{
 		Body:       raw.Body,
 		EditedBy:   stringPointer(claims.CreatedBy()),
 		EditReason: stringPointer("agent_workpad_update"),
@@ -485,29 +507,29 @@ func (s *Server) handleAgentCreateProjectRepo(c echo.Context) error {
 	})
 }
 
-func (s *Server) requireAgentOwnTicket(c echo.Context, scope agentplatform.Scope) (agentplatform.Claims, uuid.UUID, ticketservice.Ticket, bool) {
+func (s *Server) requireAgentOwnTicket(c echo.Context, scope agentplatform.Scope) (agentplatform.Claims, ticketservice.Ticket, bool) {
 	claims, ok := requireAgentScope(c, scope)
 	if !ok {
-		return agentplatform.Claims{}, uuid.Nil, ticketservice.Ticket{}, false
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
 	}
 
 	ticketID, err := parseTicketID(c)
 	if err != nil {
 		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
-		return agentplatform.Claims{}, uuid.Nil, ticketservice.Ticket{}, false
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
 	}
 	if claims.TicketID != ticketID {
-		_ = writeAPIError(c, http.StatusForbidden, "AGENT_TICKET_FORBIDDEN", "agent token can only update its current ticket")
-		return agentplatform.Claims{}, uuid.Nil, ticketservice.Ticket{}, false
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_TICKET_FORBIDDEN", "agent token can only access its current ticket")
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
 	}
 
 	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
 	if err != nil {
 		_ = writeTicketError(c, err)
-		return agentplatform.Claims{}, uuid.Nil, ticketservice.Ticket{}, false
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
 	}
 
-	return claims, ticketID, current, true
+	return claims, current, true
 }
 
 func requireAgentScope(c echo.Context, scope agentplatform.Scope) (agentplatform.Claims, bool) {

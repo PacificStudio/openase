@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -538,6 +539,15 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	}
 	if prompt := buildContinuationPrompt(nil, 2, 10, ""); containsAll(prompt, "Address the latest blocker") {
 		t.Fatalf("buildContinuationPrompt(nil) should omit blocker line: %q", prompt)
+	}
+	if isCleanTurnSessionClose(nil) {
+		t.Fatal("isCleanTurnSessionClose(nil) expected false")
+	}
+	if !isCleanTurnSessionClose(&turnSessionClosedError{turnID: "turn-clean"}) {
+		t.Fatal("isCleanTurnSessionClose(clean close) expected true")
+	}
+	if isCleanTurnSessionClose(&turnSessionClosedError{turnID: "turn-failed", cause: errors.New("boom")}) {
+		t.Fatal("isCleanTurnSessionClose(with cause) expected false")
 	}
 
 	if shouldContinueExecution(nil, runID) {

@@ -127,6 +127,97 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 	}
 }
 
+func TestRuntimeLauncherConsumeTurnReturnsCleanSessionCloseWithoutExitCause(t *testing.T) {
+	process := newRuntimeRunnerFakeProcess()
+	adapter, err := codex.NewAdapter(codex.AdapterOptions{ProcessManager: &runtimeRunnerFakeProcessManager{process: process}})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runRuntimeRunnerProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			if err := runtimeRunnerCompleteHandshake(decoder, encoder); err != nil {
+				return err
+			}
+
+			turnStart, err := runtimeRunnerReadMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if turnStart.Method != "turn/start" {
+				return errors.New("expected turn/start request")
+			}
+			if err := encoder.Encode(runtimeRunnerJSONRPCMessage{
+				JSONRPC: "2.0",
+				ID:      turnStart.ID,
+				Result:  mustMarshalJSON(map[string]any{"turn": map[string]any{"id": "turn-clean-close", "status": "inProgress"}}),
+			}); err != nil {
+				return err
+			}
+
+			process.finish(nil)
+			return nil
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), codex.StartRequest{
+		Process: processSpec,
+		Thread: codex.ThreadStartParams{
+			WorkingDirectory: "/tmp/openase",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Keep working.")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+
+	launcher := &RuntimeLauncher{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	highWater := tokenUsageHighWater{}
+	err = launcher.consumeTurn(
+		context.Background(),
+		uuid.Nil,
+		uuid.Nil,
+		uuid.Nil,
+		uuid.Nil,
+		session,
+		turn.TurnID,
+		&highWater,
+	)
+	if err == nil {
+		t.Fatal("consumeTurn() returned nil")
+	}
+	if !isCleanTurnSessionClose(err) {
+		t.Fatalf("consumeTurn() error = %v, want clean session close", err)
+	}
+
+	var closedErr *turnSessionClosedError
+	if !errors.As(err, &closedErr) || closedErr == nil || closedErr.cause != nil {
+		t.Fatalf("consumeTurn() error = %#v, want clean turnSessionClosedError", err)
+	}
+	if message := err.Error(); !strings.Contains(message, "codex session closed before turn turn-clean-close completed") {
+		t.Fatalf("consumeTurn() error = %q", message)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
 type runtimeRunnerFakeProcessManager struct {
 	process *runtimeRunnerFakeProcess
 }
