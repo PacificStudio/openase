@@ -32,8 +32,14 @@
     live: 'Live',
     retrying: 'Retrying',
   }
+  let lastReportedOpen = $state(open)
 
   $effect(() => {
+    if (open === lastReportedOpen) {
+      return
+    }
+
+    lastReportedOpen = open
     onOpenChange?.(open)
   })
 

@@ -42,14 +42,13 @@
     loadVersion = 0
   const outputState = createAgentOutputState(),
     providerEditor = createProviderEditorState()
+  let outputAgentId = $state<string | null>(null)
   let runtimeActionAgentId = $state<string | null>(null)
 
   const selectedProvider = $derived(
     providers.find((provider) => provider.id === providerEditor.selectedProviderId) ?? null,
   )
-  const selectedOutputAgent = $derived(
-    agents.find((agent) => agent.id === outputState.selectedAgentId) ?? null,
-  )
+  const selectedOutputAgent = $derived(agents.find((agent) => agent.id === outputAgentId) ?? null)
 
   onMount(() => {
     activeTab = resolveAgentPageTab()
@@ -83,6 +82,7 @@
       machineItems = []
       resetRegistrationDraft()
       providerEditor.reset()
+      outputAgentId = null
       outputState.reset()
       return
     }
@@ -107,6 +107,7 @@
   wireAgentOutputStream({
     projectId: () => appStore.currentProject?.id,
     isOpen: () => outputSheetOpen,
+    selectedAgentId: () => outputAgentId,
     outputState,
   })
 
@@ -235,7 +236,10 @@
 
   function handleOutputOpenChange(open: boolean) {
     outputSheetOpen = open
-    if (!open) outputState.reset()
+    if (!open) {
+      outputAgentId = null
+      outputState.reset()
+    }
   }
 </script>
 
@@ -259,6 +263,7 @@
   onOpenRegister={() => handleRegisterOpenChange(true)}
   onSelectTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
   onViewOutput={(agentId) => {
+    outputAgentId = agentId
     outputState.open(agentId)
     outputSheetOpen = true
   }}

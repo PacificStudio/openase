@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Machine } from '$lib/api/contracts'
+  import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
+  import { listProviderModelOptions } from '$lib/api/openase'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
@@ -16,6 +17,7 @@
   import { Textarea } from '$ui/textarea'
   import { providerAdapterOptions } from '../provider-draft'
   import type { ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
+  import ProviderModelPicker from './provider-model-picker.svelte'
 
   let {
     open = $bindable(false),
@@ -39,6 +41,31 @@
     const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement
     onDraftChange?.(field, target.value)
   }
+
+  let modelCatalog = $state<AgentProviderModelCatalogEntry[]>([])
+
+  $effect(() => {
+    if (!open) {
+      return
+    }
+
+    let cancelled = false
+    void listProviderModelOptions()
+      .then((payload) => {
+        if (!cancelled) {
+          modelCatalog = payload.adapter_model_options
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          modelCatalog = []
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  })
 </script>
 
 <Sheet bind:open>
@@ -128,11 +155,12 @@
             </div>
 
             <div class="space-y-2">
-              <Label for="provider-model-name">Model name</Label>
-              <Input
-                id="provider-model-name"
-                value={draft.modelName}
-                oninput={(event) => updateField('modelName', event)}
+              <ProviderModelPicker
+                adapterType={draft.adapterType}
+                modelName={draft.modelName}
+                {modelCatalog}
+                inputId="provider-model-name"
+                onModelNameChange={(value) => onDraftChange?.('modelName', value)}
               />
             </div>
           </div>

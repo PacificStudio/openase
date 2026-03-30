@@ -6,11 +6,12 @@ type AgentOutputState = ReturnType<typeof createAgentOutputState>
 export function wireAgentOutputStream(input: {
   projectId: () => string | undefined
   isOpen: () => boolean
+  selectedAgentId: () => string | null
   outputState: AgentOutputState
 }) {
   $effect(() => {
     const projectId = input.projectId()
-    const agentId = input.outputState.selectedAgentId
+    const agentId = input.selectedAgentId()
 
     if (!input.isOpen() || !projectId || !agentId) {
       if (!input.isOpen()) input.outputState.reset()

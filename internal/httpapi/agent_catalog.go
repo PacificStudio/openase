@@ -35,6 +35,19 @@ type agentProviderResponse struct {
 	CostPerOutputToken    float64        `json:"cost_per_output_token"`
 }
 
+type agentProviderModelOptionResponse struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Recommended bool   `json:"recommended"`
+	Preview     bool   `json:"preview"`
+}
+
+type agentProviderModelCatalogEntryResponse struct {
+	AdapterType string                             `json:"adapter_type"`
+	Options     []agentProviderModelOptionResponse `json:"options"`
+}
+
 type agentResponse struct {
 	ID                    string                `json:"id"`
 	ProviderID            string                `json:"provider_id"`
@@ -102,6 +115,12 @@ func (s *Server) listAgentProviders(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"providers": mapAgentProviderResponses(items),
+	})
+}
+
+func (s *Server) listProviderModelOptions(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]any{
+		"adapter_model_options": mapAgentProviderModelCatalogResponses(),
 	})
 }
 
@@ -392,6 +411,36 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		CostPerInputToken:     item.CostPerInputToken,
 		CostPerOutputToken:    item.CostPerOutputToken,
 	}
+}
+
+func mapAgentProviderModelCatalogResponses() []agentProviderModelCatalogEntryResponse {
+	adapterTypes := domain.BuiltinAgentProviderAdaptersWithModelOptions()
+	responses := make([]agentProviderModelCatalogEntryResponse, 0, len(adapterTypes))
+	for _, adapterType := range adapterTypes {
+		responses = append(responses, agentProviderModelCatalogEntryResponse{
+			AdapterType: adapterType.String(),
+			Options:     mapAgentProviderModelOptionResponses(domain.BuiltinAgentProviderModelOptions(adapterType)),
+		})
+	}
+
+	return responses
+}
+
+func mapAgentProviderModelOptionResponses(
+	items []domain.AgentProviderModelOption,
+) []agentProviderModelOptionResponse {
+	responses := make([]agentProviderModelOptionResponse, 0, len(items))
+	for _, item := range items {
+		responses = append(responses, agentProviderModelOptionResponse{
+			ID:          item.ID,
+			Label:       item.Label,
+			Description: item.Description,
+			Recommended: item.Recommended,
+			Preview:     item.Preview,
+		})
+	}
+
+	return responses
 }
 
 func stringPointerValue(value *string) *string {

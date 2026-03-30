@@ -136,6 +136,13 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	}
 
 	workspaceRoot := t.TempDir()
+	legacySkillDir := filepath.Join(workspaceRoot, ".codex", "skills", "legacy-skill")
+	if err := os.MkdirAll(legacySkillDir, 0o750); err != nil {
+		t.Fatalf("mkdir legacy skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(legacySkillDir, "SKILL.md"), []byte("# Legacy Skill\nbody\n"), 0o600); err != nil {
+		t.Fatalf("write legacy skill file: %v", err)
+	}
 	refreshResult, err := service.RefreshSkills(ctx, RefreshSkillsInput{
 		ProjectID:     fixture.projectID,
 		WorkspaceRoot: workspaceRoot,
@@ -149,6 +156,9 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	}
 
 	workspaceSkillsRoot := filepath.Join(workspaceRoot, ".codex", "skills")
+	if _, err := os.Stat(filepath.Join(workspaceSkillsRoot, "legacy-skill")); !os.IsNotExist(err) {
+		t.Fatalf("expected legacy workspace skill to be removed, stat error = %v", err)
+	}
 	mustWriteSkill(t, filepath.Join(workspaceSkillsRoot, "skill-one"), "# Skill One Updated\nbody")
 	mustWriteSkill(t, filepath.Join(workspaceSkillsRoot, "skill-three"), "# Skill Three\nbody")
 

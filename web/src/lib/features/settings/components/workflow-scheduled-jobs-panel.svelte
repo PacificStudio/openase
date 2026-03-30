@@ -215,22 +215,28 @@
   }
 </script>
 
-<div class="space-y-4">
+<div class="flex h-full min-h-0 flex-col">
   {#if showHeader}
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <h3 class="text-foreground text-base font-semibold">{title}</h3>
-        <p class="text-muted-foreground mt-1 text-sm">{description}</p>
+    <div class="border-border flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
+      <div class="min-w-0">
+        <h3 class="text-foreground truncate text-sm font-semibold">{title}</h3>
+        <p class="text-muted-foreground mt-0.5 text-xs">{description}</p>
       </div>
       <Button variant="outline" size="sm" onclick={selectNewJob}>New job</Button>
     </div>
   {/if}
 
   {#if loading}
-    <div class="text-muted-foreground text-sm">Loading scheduled jobs…</div>
+    <div class="text-muted-foreground p-4 text-sm">Loading scheduled jobs…</div>
   {:else}
-    <div class="border-border flex min-h-[30rem] overflow-hidden rounded-lg border">
-      <WorkflowScheduledJobList {jobs} {selectedJobId} {workflowLabelById} onSelect={selectJob} />
+    <div class="flex min-h-0 flex-1 overflow-hidden">
+      <WorkflowScheduledJobList
+        {jobs}
+        {selectedJobId}
+        {workflowLabelById}
+        onSelect={selectJob}
+        onNewJob={selectNewJob}
+      />
 
       <WorkflowScheduledJobEditor
         {projectId}

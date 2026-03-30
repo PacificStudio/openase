@@ -21,7 +21,7 @@ func TestCreateAgentProviderAutoDetectsCLICommand(t *testing.T) {
 		MachineID:      uuid.New(),
 		Name:           "Codex",
 		AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
-		ModelName:      "gpt-5.3-codex",
+		ModelName:      "gpt-5.4",
 		AuthConfig:     map[string]any{},
 	})
 	if err != nil {
@@ -121,7 +121,7 @@ func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 				Name:             "Claude Code",
 				AdapterType:      domain.AgentProviderAdapterTypeClaudeCodeCLI,
 				CliCommand:       "claude",
-				ModelName:        "claude-sonnet-4-5",
+				ModelName:        "claude-opus-4-6",
 			},
 			{
 				ID:               uuid.New(),
@@ -133,7 +133,7 @@ func TestListAgentProvidersAnnotatesAvailability(t *testing.T) {
 				Name:             "OpenAI Codex",
 				AdapterType:      domain.AgentProviderAdapterTypeCodexAppServer,
 				CliCommand:       "codex",
-				ModelName:        "gpt-5.3-codex",
+				ModelName:        "gpt-5.4",
 			},
 		},
 	}
@@ -183,7 +183,7 @@ func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *tes
 				Name:             "Claude Code",
 				AdapterType:      domain.AgentProviderAdapterTypeClaudeCodeCLI,
 				CliCommand:       "claude",
-				ModelName:        "claude-sonnet-4-5",
+				ModelName:        "claude-opus-4-6",
 			},
 			{
 				ID:               uuid.New(),
@@ -195,7 +195,7 @@ func TestCreateOrganizationSetsDefaultProviderToPreferredAvailableBuiltin(t *tes
 				Name:             "OpenAI Codex",
 				AdapterType:      domain.AgentProviderAdapterTypeCodexAppServer,
 				CliCommand:       "codex",
-				ModelName:        "gpt-5.3-codex",
+				ModelName:        "gpt-5.4",
 			},
 		},
 	}
@@ -343,6 +343,114 @@ func TestTestMachineConnectionPreservesExistingResourceSnapshot(t *testing.T) {
 	}
 	if updated.Resources["connection_test"] == nil {
 		t.Fatalf("expected returned machine to expose connection_test, got %+v", updated.Resources)
+	}
+}
+
+func TestRefreshMachineHealthCollectsAndPersistsMultiLevelSnapshot(t *testing.T) {
+	machineID := uuid.New()
+	orgID := uuid.New()
+	checkedAt := time.Date(2026, 3, 30, 14, 24, 24, 0, time.UTC)
+	repo := &stubRepository{
+		machine: domain.Machine{
+			ID:             machineID,
+			OrganizationID: orgID,
+			Name:           "local",
+			Host:           domain.LocalMachineHost,
+			Port:           22,
+			Status:         domain.MachineStatusOnline,
+			Resources: map[string]any{
+				"monitor": map[string]any{
+					"l1": map[string]any{
+						"checked_at":           checkedAt.Add(-time.Hour).Format(time.RFC3339),
+						"consecutive_failures": 2,
+					},
+				},
+			},
+		},
+	}
+	collector := stubMachineHealthCollector{
+		reachability: domain.MachineReachability{
+			CheckedAt: checkedAt,
+			Transport: "local",
+			Reachable: true,
+		},
+		systemResources: domain.MachineSystemResources{
+			CollectedAt:            checkedAt,
+			CPUCores:               24,
+			CPUUsagePercent:        13.5,
+			MemoryTotalGB:          64,
+			MemoryUsedGB:           21,
+			MemoryAvailableGB:      43,
+			MemoryAvailablePercent: 67.2,
+			DiskTotalGB:            1024,
+			DiskAvailableGB:        900,
+		},
+		gpuResources: domain.MachineGPUResources{
+			CollectedAt: checkedAt,
+			Available:   false,
+		},
+		agentEnvironment: domain.MachineAgentEnvironment{
+			CollectedAt:  checkedAt,
+			Dispatchable: true,
+			CLIs: []domain.MachineAgentCLI{
+				{Name: "claude_code", Installed: true, Version: "2.1.87", AuthStatus: domain.MachineAgentAuthStatusLoggedIn, AuthMode: domain.MachineAgentAuthModeLogin, Ready: true},
+				{Name: "codex", Installed: true, Version: "0.117.0", AuthStatus: domain.MachineAgentAuthStatusLoggedIn, AuthMode: domain.MachineAgentAuthModeLogin, Ready: true},
+				{Name: "gemini", Installed: true, Version: "0.35.2", AuthStatus: domain.MachineAgentAuthStatusUnknown, AuthMode: domain.MachineAgentAuthModeUnknown, Ready: true},
+			},
+		},
+		fullAudit: domain.MachineFullAudit{
+			CollectedAt: checkedAt,
+			Git: domain.MachineGitAudit{
+				Installed: true,
+				UserName:  "Codex",
+				UserEmail: "codex@openai.com",
+			},
+			GitHubCLI: domain.MachineGitHubCLIAudit{
+				Installed:  true,
+				AuthStatus: domain.MachineAgentAuthStatusLoggedIn,
+			},
+			Network: domain.MachineNetworkAudit{
+				GitHubReachable: true,
+				PyPIReachable:   true,
+				NPMReachable:    true,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil, WithMachineHealthCollector(collector))
+
+	updated, err := svc.RefreshMachineHealth(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("RefreshMachineHealth returned error: %v", err)
+	}
+	if repo.recordedMachineProbe == nil {
+		t.Fatal("expected refreshed machine resources to be persisted")
+	}
+	if updated.Status != domain.MachineStatusOnline {
+		t.Fatalf("expected online machine after successful refresh, got %+v", updated)
+	}
+
+	monitor, ok := updated.Resources["monitor"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected monitor snapshot, got %+v", updated.Resources)
+	}
+	l4, ok := monitor["l4"].(map[string]any)
+	if !ok || l4["agent_dispatchable"] != true {
+		t.Fatalf("expected l4 agent snapshot, got %+v", monitor)
+	}
+	claude, ok := l4["claude_code"].(map[string]any)
+	if !ok || claude["auth_status"] != "logged_in" || claude["ready"] != true {
+		t.Fatalf("expected claude l4 snapshot, got %+v", l4)
+	}
+	l5, ok := monitor["l5"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected l5 audit snapshot, got %+v", monitor)
+	}
+	gitAudit, ok := l5["git"].(map[string]any)
+	if !ok || gitAudit["installed"] != true {
+		t.Fatalf("expected git audit in l5 snapshot, got %+v", l5)
+	}
+	if updated.Resources["agent_environment_checked_at"] != checkedAt.Format(time.RFC3339) {
+		t.Fatalf("expected updated agent environment timestamp, got %+v", updated.Resources)
 	}
 }
 
@@ -531,6 +639,39 @@ type stubMachineTester struct {
 
 func (s stubMachineTester) TestConnection(context.Context, domain.Machine) (domain.MachineProbe, error) {
 	return s.probe, s.err
+}
+
+type stubMachineHealthCollector struct {
+	reachability        domain.MachineReachability
+	reachabilityErr     error
+	systemResources     domain.MachineSystemResources
+	systemResourcesErr  error
+	gpuResources        domain.MachineGPUResources
+	gpuResourcesErr     error
+	agentEnvironment    domain.MachineAgentEnvironment
+	agentEnvironmentErr error
+	fullAudit           domain.MachineFullAudit
+	fullAuditErr        error
+}
+
+func (s stubMachineHealthCollector) CollectReachability(context.Context, domain.Machine) (domain.MachineReachability, error) {
+	return s.reachability, s.reachabilityErr
+}
+
+func (s stubMachineHealthCollector) CollectSystemResources(context.Context, domain.Machine) (domain.MachineSystemResources, error) {
+	return s.systemResources, s.systemResourcesErr
+}
+
+func (s stubMachineHealthCollector) CollectGPUResources(context.Context, domain.Machine) (domain.MachineGPUResources, error) {
+	return s.gpuResources, s.gpuResourcesErr
+}
+
+func (s stubMachineHealthCollector) CollectAgentEnvironment(context.Context, domain.Machine) (domain.MachineAgentEnvironment, error) {
+	return s.agentEnvironment, s.agentEnvironmentErr
+}
+
+func (s stubMachineHealthCollector) CollectFullAudit(context.Context, domain.Machine) (domain.MachineFullAudit, error) {
+	return s.fullAudit, s.fullAuditErr
 }
 
 type stubRepository struct {

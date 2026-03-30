@@ -2,11 +2,13 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import MachinesPageBody from './machines-page-body.svelte'
+  import { syncMachineListState } from './machines-page-state-sync'
   import {
     loadMachineSnapshot,
     loadMachines,
     machineErrorMessage,
     removeMachine,
+    runMachineHealthRefresh,
     runMachineConnectionTest,
     saveMachine,
   } from './machines-page-api'
@@ -18,8 +20,6 @@
   } from '../model'
   import {
     createEditorSelectionState,
-    createEmptyState,
-    createListErrorState,
     createNoOrgState,
     createStartCreateState,
     type MachinesPageViewState,
@@ -32,26 +32,26 @@
     MachineWorkspaceState,
   } from '../types'
 
-  let loading = $state(false)
-  let refreshing = $state(false)
-  let loadingHealth = $state(false)
-  let saving = $state(false)
-  let testingMachineId = $state('')
-  let deletingMachineId = $state('')
-  let editorOpen = $state(false)
-  let workspaceState = $state<MachineWorkspaceState>('loading')
-  let routeOrgId = $state('')
-  let listMessage = $state('')
-  let machines = $state<MachineItem[]>([])
-  let selectedId = $state('')
-  let mode = $state<'create' | 'edit'>('edit')
-  let searchQuery = $state('')
-  let draft = $state<MachineDraft>(createEmptyMachineDraft())
-  let snapshot = $state<MachineSnapshot | null>(null)
-  let probe = $state<MachineProbeResult | null>(null)
-
-  const selectedMachine = $derived(machines.find((machine) => machine.id === selectedId) ?? null)
-  const filteredMachines = $derived(filterMachines(machines, searchQuery))
+  let loading = $state(false),
+    refreshing = $state(false),
+    loadingHealth = $state(false),
+    saving = $state(false),
+    editorOpen = $state(false)
+  let refreshingHealthMachineId = $state(''),
+    testingMachineId = $state(''),
+    deletingMachineId = $state('')
+  let workspaceState = $state<MachineWorkspaceState>('loading'),
+    routeOrgId = $state(''),
+    listMessage = $state(''),
+    machines = $state<MachineItem[]>([]),
+    selectedId = $state(''),
+    mode = $state<'create' | 'edit'>('edit'),
+    searchQuery = $state('')
+  let draft = $state<MachineDraft>(createEmptyMachineDraft()),
+    snapshot = $state<MachineSnapshot | null>(null),
+    probe = $state<MachineProbeResult | null>(null)
+  const selectedMachine = $derived(machines.find((machine) => machine.id === selectedId) ?? null),
+    filteredMachines = $derived(filterMachines(machines, searchQuery))
 
   $effect(() => {
     const currentOrg = appStore.currentOrg
@@ -65,33 +65,8 @@
 
     let cancelled = false
     void loadMachineList(currentOrg.id, { background: false, cancelled: () => cancelled })
-
-    return () => {
-      cancelled = true
-    }
+    return () => (cancelled = true)
   })
-
-  async function syncFromMachineList(
-    orgId: string,
-    nextMachines: MachineItem[],
-    nextListError: string | null,
-  ) {
-    if (nextListError) {
-      editorOpen = false
-      return applyViewState(createListErrorState(nextListError))
-    }
-    if (nextMachines.length === 0) {
-      editorOpen = false
-      return applyViewState(createEmptyState(orgId))
-    }
-
-    const nextMachine = nextMachines.find((machine) => machine.id === selectedId) ?? nextMachines[0]
-    applyViewState({
-      ...createEditorSelectionState(orgId, nextMachines, nextMachine),
-      searchQuery,
-    })
-    await loadMachineResources(nextMachine.id)
-  }
 
   async function loadMachineList(
     orgId: string,
@@ -106,13 +81,32 @@
     try {
       const nextMachines = await loadMachines(orgId)
       if (options.cancelled?.()) return
-      await syncFromMachineList(orgId, nextMachines, null)
+      const nextState = syncMachineListState({
+        orgId,
+        nextMachines,
+        nextListError: null,
+        selectedId,
+        searchQuery,
+      })
+      editorOpen = nextState.selectedMachineId !== null
+      applyViewState(nextState.viewState)
+      if (nextState.selectedMachineId) {
+        await loadMachineResources(nextState.selectedMachineId)
+      }
     } catch (caughtError) {
       if (options.cancelled?.()) return
       if (options.background && machines.length > 0) {
         toastStore.error(machineErrorMessage(caughtError, 'Failed to refresh machines.'))
       } else {
-        await syncFromMachineList(orgId, [], 'Failed to load machines.')
+        const nextState = syncMachineListState({
+          orgId,
+          nextMachines: [],
+          nextListError: 'Failed to load machines.',
+          selectedId,
+          searchQuery,
+        })
+        editorOpen = false
+        applyViewState(nextState.viewState)
       }
     } finally {
       if (!options.cancelled?.()) {
@@ -123,30 +117,28 @@
   }
 
   function applyViewState(nextState: MachinesPageViewState) {
-    routeOrgId = nextState.routeOrgId
-    machines = nextState.machines
-    searchQuery = nextState.searchQuery
-    workspaceState = nextState.workspaceState
-    listMessage = nextState.listMessage
-    selectedId = nextState.selectedId
-    mode = nextState.mode
-    draft = nextState.draft
-    snapshot = nextState.snapshot
-    probe = nextState.probe
+    ;({
+      routeOrgId,
+      machines,
+      searchQuery,
+      workspaceState,
+      listMessage,
+      selectedId,
+      mode,
+      draft,
+      snapshot,
+      probe,
+    } = nextState)
   }
 
   async function openMachine(machine: MachineItem, openEditor = true) {
-    applyViewState({
-      ...createEditorSelectionState(routeOrgId, machines, machine),
-      searchQuery,
-    })
+    applyViewState({ ...createEditorSelectionState(routeOrgId, machines, machine), searchQuery })
     editorOpen = openEditor
     await loadMachineResources(machine.id)
   }
 
   async function loadMachineResources(machineId: string) {
     loadingHealth = true
-
     try {
       snapshot = await loadMachineSnapshot(machineId)
     } catch (caughtError) {
@@ -164,20 +156,12 @@
 
   function resetDraft(machineId?: string) {
     if (machineId && machineId !== selectedId) return
-
-    if (mode === 'create') {
-      draft = createEmptyMachineDraft()
-      return
-    }
-
-    if (selectedMachine) {
-      draft = machineToDraft(selectedMachine)
-    }
+    if (mode === 'create') return void (draft = createEmptyMachineDraft())
+    if (selectedMachine) draft = machineToDraft(selectedMachine)
   }
 
   async function handleRefresh() {
-    if (loading || refreshing) return
-    if (!routeOrgId) return
+    if (loading || refreshing || !routeOrgId) return
     await loadMachineList(routeOrgId, { background: workspaceState === 'ready' })
   }
 
@@ -209,7 +193,6 @@
     const machine = machines.find((item) => item.id === machineId)
     if (!machine) return
     testingMachineId = machineId
-
     try {
       const payload = await runMachineConnectionTest(machineId)
       machines = machines.map((machine) =>
@@ -227,11 +210,28 @@
     }
   }
 
+  async function handleRefreshHealth(machineId: string) {
+    const machine = machines.find((item) => item.id === machineId)
+    if (!machine) return
+    refreshingHealthMachineId = machineId
+    try {
+      const payload = await runMachineHealthRefresh(machineId)
+      machines = machines.map((item) => (item.id === payload.machine.id ? payload.machine : item))
+      if (selectedId === machineId) {
+        snapshot = payload.snapshot
+      }
+      toastStore.success('Machine health checks refreshed.')
+    } catch (caughtError) {
+      toastStore.error(machineErrorMessage(caughtError, 'Failed to refresh machine health.'))
+    } finally {
+      refreshingHealthMachineId = ''
+    }
+  }
+
   async function handleDelete(machineId: string) {
     const machine = machines.find((item) => item.id === machineId)
     if (!machine) return
     deletingMachineId = machineId
-
     try {
       await removeMachine(machineId)
       const nextMachines = machines.filter((item) => item.id !== machineId)
@@ -242,16 +242,15 @@
         probe = null
         snapshot = null
         editorOpen = false
-
-        const nextMachine = nextMachines[0] ?? null
-        if (nextMachine) {
-          applyViewState({
-            ...createEditorSelectionState(routeOrgId, nextMachines, nextMachine),
+        applyViewState(
+          syncMachineListState({
+            orgId: routeOrgId,
+            nextMachines,
+            nextListError: null,
+            selectedId: '',
             searchQuery,
-          })
-        } else {
-          applyViewState(createEmptyState(routeOrgId))
-        }
+          }).viewState,
+        )
       }
     } catch (caughtError) {
       toastStore.error(machineErrorMessage(caughtError, 'Failed to delete machine.'))
@@ -276,6 +275,7 @@
   {snapshot}
   {probe}
   {loadingHealth}
+  {refreshingHealthMachineId}
   {saving}
   {testingMachineId}
   {deletingMachineId}
@@ -289,6 +289,7 @@
   }}
   onDraftChange={(field, value) => (draft = { ...draft, [field]: value })}
   onRetry={() => void handleRefresh()}
+  onRefreshHealth={(machineId) => void handleRefreshHealth(machineId)}
   onSave={() => void handleSave()}
   onTest={(machineId) => void handleTest(machineId)}
   onDelete={(machineId) => void handleDelete(machineId)}
