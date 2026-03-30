@@ -157,11 +157,11 @@ func newTicketCommand() *cobra.Command {
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a ticket.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/tickets", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [ticketId]", Short: "Update a ticket.", Method: http.MethodPatch, Path: "/api/v1/tickets/{ticketId}", PositionalParams: []string{"ticketId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "detail [projectId] [ticketId]", Short: "Get ticket detail.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/detail", PositionalParams: []string{"projectId", "ticketId"}}))
-	command.AddCommand(newTicketCommentCommand())
+	command.AddCommand(newTypedTicketCommentCommand())
 	return command
 }
 
-func newTicketCommentCommand() *cobra.Command {
+func newTypedTicketCommentCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "comment",
 		Short: "Operate on ticket comments.",
@@ -171,7 +171,7 @@ func newTicketCommentCommand() *cobra.Command {
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [ticketId] [commentId]", Short: "Update a ticket comment.", Method: http.MethodPatch, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [ticketId] [commentId]", Short: "Delete a ticket comment.", Method: http.MethodDelete, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "revisions [ticketId] [commentId]", Short: "List ticket comment revisions.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}/revisions", PositionalParams: []string{"ticketId", "commentId"}}))
-	command.AddCommand(newTicketCommentWorkpadCommand())
+	command.AddCommand(newTypedTicketCommentWorkpadCommand())
 	return command
 }
 
@@ -325,7 +325,7 @@ func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {
 	return command
 }
 
-func newTicketCommentWorkpadCommand() *cobra.Command {
+func newTypedTicketCommentWorkpadCommand() *cobra.Command {
 	var apiOptions apiCommandOptions
 	var output apiOutputOptions
 	var body string
@@ -359,7 +359,7 @@ func newTicketCommentWorkpadCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			content = normalizeWorkpadBody(content)
+			content = normalizeTypedWorkpadBody(content)
 
 			deps := apiCommandDeps{httpClient: http.DefaultClient}
 			listResponse, err := apiContext.do(cmd.Context(), deps, apiRequest{
@@ -813,7 +813,7 @@ func resolveWorkpadBody(body string, bodyFile string) (string, error) {
 	return strings.TrimSpace(string(payload)), nil
 }
 
-func normalizeWorkpadBody(body string) string {
+func normalizeTypedWorkpadBody(body string) string {
 	trimmed := strings.TrimSpace(body)
 	if strings.HasPrefix(trimmed, "## Codex Workpad") {
 		return trimmed

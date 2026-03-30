@@ -175,7 +175,7 @@ func TestTicketCommentWorkpadCommandCreatesCommentWhenMissing(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"comment", "workpad", "--body", "Progress\n- started"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
@@ -219,7 +219,7 @@ func TestTicketCommentWorkpadCommandUpdatesExistingComment(t *testing.T) {
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
-	command := newTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"comment", "workpad", "--body", "Validation\n- npm test"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {

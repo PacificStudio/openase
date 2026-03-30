@@ -104,13 +104,13 @@ func TestTicketCommentWorkpadCreatesAndUpdatesSingleComment(t *testing.T) {
 	}))
 	defer server.Close()
 
-	command := newTicketCommentWorkpadCommand()
+	command := newTypedTicketCommentWorkpadCommand()
 	command.SetArgs([]string{"--api-url", server.URL + "/api/v1", "--body", "first pass", "ticket-1"})
 	if err := command.ExecuteContext(context.Background()); err != nil {
 		t.Fatalf("create workpad error = %v", err)
 	}
 
-	command = newTicketCommentWorkpadCommand()
+	command = newTypedTicketCommentWorkpadCommand()
 	command.SetArgs([]string{"--api-url", server.URL + "/api/v1", "--body", "second pass", "ticket-1"})
 	if err := command.ExecuteContext(context.Background()); err != nil {
 		t.Fatalf("update workpad error = %v", err)
