@@ -277,6 +277,16 @@ Body
 	if err := validateSkillDirectory(filepath.Join(skillsRoot, "missing-skill")); err == nil {
 		t.Fatal("validateSkillDirectory(missing SKILL.md) expected error")
 	}
+	invalidSkillDir := filepath.Join(skillsRoot, "invalid-skill")
+	if err := os.MkdirAll(invalidSkillDir, 0o750); err != nil {
+		t.Fatalf("mkdir invalid skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(invalidSkillDir, "SKILL.md"), []byte("# Invalid Skill\nbody"), 0o600); err != nil {
+		t.Fatalf("write invalid skill file: %v", err)
+	}
+	if err := validateSkillDirectory(invalidSkillDir); err == nil || !strings.Contains(err.Error(), "frontmatter") {
+		t.Fatalf("validateSkillDirectory(missing frontmatter) error = %v", err)
+	}
 
 	svc := &Service{}
 	storage := &projectStorage{skillRoot: skillsRoot}
@@ -1031,6 +1041,13 @@ func mustWriteSkill(t *testing.T, dir string, content string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("mkdir skill dir %s: %v", dir, err)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(content), "---") {
+		title := parseSkillTitle(content)
+		if title == "" {
+			title = filepath.Base(dir)
+		}
+		content = fmt.Sprintf("---\nname: %q\ndescription: %q\n---\n\n%s\n", filepath.Base(dir), title, strings.TrimSpace(content))
 	}
 	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o600); err != nil {
 		t.Fatalf("write SKILL.md in %s: %v", dir, err)

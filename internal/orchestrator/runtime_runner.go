@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -221,6 +222,10 @@ func (l *RuntimeLauncher) consumeTurn(
 	for {
 		event, ok := <-session.Events()
 		if !ok {
+			logCodexSessionClosed(l.logger, runID, turnID, session)
+			if sessionErr := session.Err(); sessionErr != nil {
+				return fmt.Errorf("codex session closed before turn %s completed: %w", turnID, sessionErr)
+			}
 			return fmt.Errorf("codex session closed before turn %s completed", turnID)
 		}
 
@@ -291,6 +296,32 @@ func (l *RuntimeLauncher) consumeTurn(
 			return nil
 		}
 	}
+}
+
+func logCodexSessionClosed(logger *slog.Logger, runID uuid.UUID, turnID string, session *codex.Session) {
+	if logger == nil {
+		return
+	}
+
+	diagnostic := session.Diagnostic()
+	attrs := []any{
+		"run_id", runID,
+		"turn_id", strings.TrimSpace(turnID),
+	}
+	if diagnostic.PID != 0 {
+		attrs = append(attrs, "codex_pid", diagnostic.PID)
+	}
+	if trimmed := strings.TrimSpace(diagnostic.ThreadID); trimmed != "" {
+		attrs = append(attrs, "codex_thread_id", trimmed)
+	}
+	if trimmed := strings.TrimSpace(diagnostic.Error); trimmed != "" {
+		attrs = append(attrs, "codex_session_error", trimmed)
+	}
+	if trimmed := strings.TrimSpace(diagnostic.Stderr); trimmed != "" {
+		attrs = append(attrs, "codex_stderr", trimmed)
+	}
+
+	logger.Error("codex session closed before turn completed", attrs...)
 }
 
 func (l *RuntimeLauncher) recordAgentOutput(

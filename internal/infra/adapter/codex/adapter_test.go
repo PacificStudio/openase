@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"sync"
 	"testing"
 	"time"
 
@@ -837,7 +838,9 @@ func TestSessionStopDropsLateNotificationsAfterShutdown(t *testing.T) {
 		}
 
 		close(process.stopOnce.ch)
-		process.done <- nil
+		process.waitMu.Lock()
+		process.waitErr = nil
+		process.waitMu.Unlock()
 		close(process.done)
 		return nil
 	}
@@ -928,6 +931,91 @@ func TestSessionStopDropsLateNotificationsAfterShutdown(t *testing.T) {
 	}
 }
 
+func TestAdapterPreservesExitErrorWhenStdoutClosesBeforeTurnCompleted(t *testing.T) {
+	process := newFakeProcess()
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: &fakeProcessManager{process: process}})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			if err := completeHandshake(decoder, encoder); err != nil {
+				return err
+			}
+
+			turnStart, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if turnStart.Method != methodTurnStart {
+				return errors.New("expected turn/start request")
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      turnStart.ID,
+				Result: mustMarshalJSON(wireTurnStartResponse{
+					Turn: wireTurn{ID: "turn-eof", Status: "inProgress"},
+				}),
+			}); err != nil {
+				return err
+			}
+
+			if _, err := io.WriteString(process.stderrWrite, "fatal: app-server crashed"); err != nil {
+				return err
+			}
+			process.finish(errors.New("exit status 2"))
+			return nil
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Thread: ThreadStartParams{
+			WorkingDirectory: "/tmp/openase",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Keep working.")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+	if turn.TurnID != "turn-eof" {
+		t.Fatalf("expected turn id turn-eof, got %q", turn.TurnID)
+	}
+
+	select {
+	case event, ok := <-session.Events():
+		if ok {
+			t.Fatalf("expected closed events channel, got %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for events channel to close")
+	}
+
+	if err := session.Err(); err == nil || err.Error() != "codex app server exited: exit status 2: fatal: app-server crashed" {
+		t.Fatalf("session.Err() = %v", err)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
 type fakeProcessManager struct {
 	process   *fakeProcess
 	startSpec provider.AgentCLIProcessSpec
@@ -950,9 +1038,12 @@ type fakeProcess struct {
 	stderrRead  *io.PipeReader
 	stderrWrite *io.PipeWriter
 
-	done     chan error
+	done     chan struct{}
 	stopOnce syncOnce
 	stopFn   func(context.Context) error
+
+	waitMu  sync.Mutex
+	waitErr error
 }
 
 type syncOnce struct {
@@ -972,7 +1063,7 @@ func newFakeProcess() *fakeProcess {
 		stdoutWrite: stdoutWrite,
 		stderrRead:  stderrRead,
 		stderrWrite: stderrWrite,
-		done:        make(chan error, 1),
+		done:        make(chan struct{}),
 		stopOnce:    syncOnce{ch: make(chan struct{}, 1)},
 	}
 }
@@ -981,7 +1072,12 @@ func (p *fakeProcess) PID() int              { return p.pid }
 func (p *fakeProcess) Stdin() io.WriteCloser { return p.stdinWrite }
 func (p *fakeProcess) Stdout() io.ReadCloser { return p.stdoutRead }
 func (p *fakeProcess) Stderr() io.ReadCloser { return p.stderrRead }
-func (p *fakeProcess) Wait() error           { return <-p.done }
+func (p *fakeProcess) Wait() error {
+	<-p.done
+	p.waitMu.Lock()
+	defer p.waitMu.Unlock()
+	return p.waitErr
+}
 func (p *fakeProcess) Stop(ctx context.Context) error {
 	if p.stopFn != nil {
 		return p.stopFn(ctx)
@@ -996,13 +1092,12 @@ func (p *fakeProcess) finish(err error) {
 		return
 	default:
 		close(p.stopOnce.ch)
-		_ = p.stdinRead.Close()
 		_ = p.stdinWrite.Close()
-		_ = p.stdoutRead.Close()
 		_ = p.stdoutWrite.Close()
-		_ = p.stderrRead.Close()
 		_ = p.stderrWrite.Close()
-		p.done <- err
+		p.waitMu.Lock()
+		p.waitErr = err
+		p.waitMu.Unlock()
 		close(p.done)
 	}
 }

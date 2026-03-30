@@ -176,6 +176,13 @@ type Session struct {
 	defaultSandboxPolicy        any
 }
 
+type SessionDiagnostic struct {
+	PID      int
+	ThreadID string
+	Error    string
+	Stderr   string
+}
+
 type callResult struct {
 	result json.RawMessage
 	err    *jsonRPCError
@@ -260,6 +267,36 @@ func (s *Session) Events() <-chan Event {
 	}
 
 	return s.events
+}
+
+func (s *Session) Err() error {
+	if s == nil {
+		return nil
+	}
+
+	return s.sessionError()
+}
+
+func (s *Session) Diagnostic() SessionDiagnostic {
+	if s == nil {
+		return SessionDiagnostic{}
+	}
+
+	diagnostic := SessionDiagnostic{
+		ThreadID: s.threadID,
+	}
+	if s.process != nil {
+		diagnostic.PID = s.process.PID()
+	}
+	if err := s.sessionError(); err != nil {
+		diagnostic.Error = err.Error()
+	}
+
+	s.stderrMu.Lock()
+	diagnostic.Stderr = strings.TrimSpace(s.stderr.String())
+	s.stderrMu.Unlock()
+
+	return diagnostic
 }
 
 func (s *Session) SendPrompt(ctx context.Context, prompt string) (TurnStartResult, error) {
@@ -531,7 +568,7 @@ func (s *Session) readLoop() {
 		var message jsonRPCMessage
 		if err := decoder.Decode(&message); err != nil {
 			if errors.Is(err, io.EOF) {
-				s.shutdown(s.sessionError())
+				s.shutdown(s.waitForExitCause())
 				return
 			}
 
@@ -868,6 +905,25 @@ func (s *Session) sessionError() error {
 	defer s.doneMu.RUnlock()
 
 	return s.doneErr
+}
+
+func (s *Session) waitForExitCause() error {
+	if s == nil {
+		return nil
+	}
+	if s.stopRequested.Load() {
+		return nil
+	}
+
+	err := s.process.Wait()
+	if s.stopRequested.Load() {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("codex app server exited: %w%s", err, s.stderrSuffix())
+	}
+
+	return nil
 }
 
 func (s *Session) stderrSuffix() string {
