@@ -52,6 +52,8 @@ var builtinSkills = []SkillTemplate{
 ./.openase/bin/openase ticket list --status-name Todo
 ./.openase/bin/openase ticket create --title "补充集成测试" --description "拆分后续工单"
 ./.openase/bin/openase ticket update --description "记录执行过程中的新发现"
+./.openase/bin/openase ticket comment create --body "记录当前阻塞"
+./.openase/bin/openase ticket comment workpad --body-file /tmp/workpad.md
 ./.openase/bin/openase project update --description "更新项目最新上下文"
 ./.openase/bin/openase project add-repo --name "worker-tools" --url "https://github.com/acme/worker-tools.git"
 `+"```"+`
@@ -59,8 +61,51 @@ var builtinSkills = []SkillTemplate{
 ## Notes
 
 - 该 wrapper 透传到已安装的 `+"`openase`"+` 二进制，并自动使用工作区中注入的 `+"`OPENASE_API_URL`"+`、`+"`OPENASE_AGENT_TOKEN`"+`、`+"`OPENASE_PROJECT_ID`"+`、`+"`OPENASE_TICKET_ID`"+`。
-- 当前最小实现覆盖已经落地的 agent platform API：工单列表 / 创建 / 更新，以及项目描述更新和 Repo 注册。
+- 当前最小实现覆盖已经落地的 agent platform API：工单列表 / 创建 / 更新 / 评论 workpad，以及项目描述更新和 Repo 注册。
 - 如果需要更底层调试，可直接对 `+"`$OPENASE_API_URL`"+` 发 HTTP 请求，并带上 `+"`Authorization: Bearer $OPENASE_AGENT_TOKEN`"+`。
+`) + "\n",
+	},
+	{
+		Name:        "ticket-workpad",
+		Title:       "Ticket Workpad",
+		Description: "Maintain a single ## Codex Workpad comment on the current ticket and use it as the execution log.",
+		Content: strings.TrimSpace(`
+# Ticket Workpad
+
+`+"`## Codex Workpad`"+` 是当前工单唯一的持久化进度板。开始执行前先创建或更新它，之后在关键节点持续刷新。
+
+推荐写法：
+
+`+"```bash"+`
+cat <<'EOF' >/tmp/workpad.md
+## Codex Workpad
+
+Environment
+- <host>:<abs-workdir>@<short-sha>
+
+Plan
+- step 1
+- step 2
+
+Progress
+- inspecting current implementation
+
+Validation
+- not run yet
+
+Notes
+- assumptions or blockers
+EOF
+
+./.openase/bin/openase ticket comment workpad --body-file /tmp/workpad.md
+`+"```"+`
+
+执行时遵循：
+
+- 开工前先写第一版 workpad，不要先改代码再补记录。
+- 每完成一个关键阶段就更新同一条评论，不要不断创建新评论。
+- 至少持续维护 `+"`Plan`"+`、`+"`Progress`"+`、`+"`Validation`"+`、`+"`Notes`"+` 这些段落。
+- 如果被阻塞，把阻塞原因和缺失前置条件写进 workpad，而不是静默退出。
 `) + "\n",
 	},
 	{

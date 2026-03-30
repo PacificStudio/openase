@@ -162,6 +162,8 @@ Agent workers can talk back to OpenASE through token-scoped platform commands:
 openase ticket list --status-name Todo
 openase ticket create --title "Add integration coverage" --description "Follow-up from coding ticket"
 openase ticket update --description "Recorded execution notes"
+openase ticket comment create --body "Logged a blocking dependency"
+openase ticket comment workpad --body-file /tmp/workpad.md
 openase project update --description "Latest project context"
 openase project add-repo --name "worker-tools" --url "https://github.com/acme/worker-tools.git"
 ```

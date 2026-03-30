@@ -483,6 +483,7 @@ def build_validation_workflow_harness(project_name: str) -> str:
           role: coding
         skills:
           - openase-platform
+          - ticket-workpad
         ---
 
         你正在处理 OpenASE 分配的 {project_name} 工单 `{{{{ ticket.identifier }}}}`。
@@ -561,6 +562,19 @@ def build_validation_workflow_harness(project_name: str) -> str:
         - 优先形成最小完整垂直切片：实现功能、补齐必要样式/DOM、补充或更新测试，然后验证。
         - 如果当前工单只要求其中一个子能力，例如 app shell、storage model、add/toggle/delete、filter/count、regression tests，就只把这一块做扎实。
 
+        工作台要求：
+
+        - 当前 harness 已绑定 `ticket-workpad` 和 `openase-platform` skill；开始执行前，先用 skill 在当前工单下创建或更新一条标题为 `## Codex Workpad` 的评论。
+        - `## Codex Workpad` 是当前工单唯一的持久化进度板；计划、当前进展、验证结果、剩余风险和阻塞都持续更新到这一条评论，不要每次新建评论。
+        - 第一版 workpad 至少包含：
+          - `Environment`：`<host>:<abs-workdir>@<short-sha>`
+          - `Plan`
+          - `Progress`
+          - `Validation`
+          - `Notes`
+        - 在开始改代码前先写第一版 workpad；每完成一个关键阶段后都刷新它，至少覆盖：完成阅读、完成实现、完成测试、准备结束工单。
+        - 如果执行过程中发现假设、scope 调整或阻塞，先更新 workpad，再继续动作或结束执行。
+
         全局规则：
 
         1. 这是无人值守执行，不要等待人类额外输入。
@@ -576,7 +590,7 @@ def build_validation_workflow_harness(project_name: str) -> str:
 
         平台状态控制要求：
 
-        - 当前 harness 已绑定 `openase-platform` skill；需要操作 OpenASE 平台时，优先通过该 skill 提供的 `./.openase/bin/openase ...` 包装命令完成，而不是自己拼接原始 HTTP 请求。
+        - 需要操作 OpenASE 平台时，优先通过 skill 提供的 `./.openase/bin/openase ...` 包装命令完成，而不是自己拼接原始 HTTP 请求。
         - 当前工单状态控制是交付的一部分，不要只改代码不回写平台。
         - 当且仅当当前工单的代码实现已经完成、相关验证已经通过、并且当前 ticket 可以结束时，使用 platform skill 将当前工单状态更新到 `{{{{ workflow.finish_status }}}}`。
         - 不要在实现尚未完成时提前把当前 ticket 改到非 pickup 状态；一旦移出 pickup，当前 workflow 会结束这张工单的领取与执行。
@@ -591,11 +605,12 @@ def build_validation_workflow_harness(project_name: str) -> str:
 
         建议执行顺序：
 
-        1. 先读取工单描述、README、当前源码和现有测试，确认当前切片的真实边界。
-        2. 找到最小实现路径，再动手改代码。
-        3. 实现后立即补齐或更新测试。
-        4. 运行相关验证命令，确认结果。
-        5. 最终只输出简洁的完成情况、变更点、验证命令与剩余风险。
+        1. 先创建或更新 `## Codex Workpad`，记录环境戳、计划和初始判断。
+        2. 再读取工单描述、README、当前源码和现有测试，确认当前切片的真实边界。
+        3. 找到最小实现路径，再动手改代码。
+        4. 实现后立即补齐或更新测试，并刷新 workpad。
+        5. 运行相关验证命令，确认结果，并把结果写入 workpad。
+        6. 最终只输出简洁的完成情况、变更点、验证命令与剩余风险。
 
         输出要求：
 

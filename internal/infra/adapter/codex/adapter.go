@@ -524,6 +524,8 @@ func (s *Session) send(message jsonRPCMessage) error {
 }
 
 func (s *Session) readLoop() {
+	defer close(s.events)
+
 	decoder := json.NewDecoder(s.process.Stdout())
 	for {
 		var message jsonRPCMessage
@@ -535,6 +537,11 @@ func (s *Session) readLoop() {
 
 			s.shutdown(fmt.Errorf("decode codex json-rpc message: %w", err))
 			return
+		}
+		select {
+		case <-s.done:
+			return
+		default:
 		}
 		if err := message.validate(); err != nil {
 			s.shutdown(fmt.Errorf("validate codex json-rpc message: %w", err))
@@ -853,7 +860,6 @@ func (s *Session) shutdown(err error) {
 		s.pendingMu.Unlock()
 
 		close(s.done)
-		close(s.events)
 	})
 }
 

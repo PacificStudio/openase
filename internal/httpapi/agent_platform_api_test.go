@@ -112,6 +112,61 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		t.Fatalf("unexpected updated ticket payload: %+v", updateResp.Ticket)
 	}
 
+	createCommentResp := struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", currentTicketID),
+		map[string]any{
+			"body": "## Codex Workpad\n\nProgress\n- inspected current code",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusCreated,
+		&createCommentResp,
+	)
+	if createCommentResp.Comment.CreatedBy != "agent:coding-01" {
+		t.Fatalf("unexpected created comment payload: %+v", createCommentResp.Comment)
+	}
+
+	listCommentsResp := struct {
+		Comments []ticketCommentResponse `json:"comments"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", currentTicketID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&listCommentsResp,
+	)
+	if len(listCommentsResp.Comments) != 1 || listCommentsResp.Comments[0].ID != createCommentResp.Comment.ID {
+		t.Fatalf("unexpected listed comments payload: %+v", listCommentsResp.Comments)
+	}
+
+	updateCommentResp := struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments/%s", currentTicketID, createCommentResp.Comment.ID),
+		map[string]any{
+			"body": "## Codex Workpad\n\nValidation\n- npm test",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusOK,
+		&updateCommentResp,
+	)
+	if updateCommentResp.Comment.Body != "## Codex Workpad\n\nValidation\n- npm test" || updateCommentResp.Comment.LastEditedBy == nil || *updateCommentResp.Comment.LastEditedBy != "agent:coding-01" {
+		t.Fatalf("unexpected updated comment payload: %+v", updateCommentResp.Comment)
+	}
+
 	statusUpdateResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
@@ -167,6 +222,18 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	)
 	if forbiddenRec.Code != http.StatusForbidden {
 		t.Fatalf("expected updating another ticket to return 403, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
+	}
+
+	forbiddenCommentRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", doneTicketID),
+		`{"body":"should fail"}`,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
+	)
+	if forbiddenCommentRec.Code != http.StatusForbidden {
+		t.Fatalf("expected commenting on another ticket to return 403, got %d: %s", forbiddenCommentRec.Code, forbiddenCommentRec.Body.String())
 	}
 }
 
