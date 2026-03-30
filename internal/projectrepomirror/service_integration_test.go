@@ -2,6 +2,7 @@ package projectrepomirror
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,11 +10,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
@@ -150,13 +153,15 @@ func TestServicePrepareDerivesRemoteMirrorPathFromWorkspaceRoot(t *testing.T) {
 	machine, err := client.Machine.UpdateOneID(machine.ID).
 		SetName("builder").
 		SetHost("10.0.0.12").
+		SetSSHUser("openase").
+		SetSSHKeyPath("keys/builder").
 		SetWorkspaceRoot(filepath.Join(t.TempDir(), "workspace")).
 		ClearMirrorRoot().
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("update machine: %v", err)
 	}
-	sourceRepoPath, _ := createGitRepository(t)
+	sourceRepoPath, headCommit := createGitRepository(t)
 	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
 		SetRepositoryURL(sourceRepoPath).
 		SetDefaultBranch("master").
@@ -165,6 +170,15 @@ func TestServicePrepareDerivesRemoteMirrorPathFromWorkspaceRoot(t *testing.T) {
 	}
 
 	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	sshSession := &mirrorTestSSHSession{output: []byte(headCommit + "\n")}
+	svc.ConfigureSSHPool(sshinfra.NewPool("/tmp/openase",
+		sshinfra.WithDialer(&mirrorTestSSHDialer{clients: []sshinfra.Client{
+			&mirrorTestSSHClient{session: sshSession},
+		}}),
+		sshinfra.WithReadFile(func(string) ([]byte, error) {
+			return []byte("key"), nil
+		}),
+	))
 	prepared, err := svc.Prepare(ctx, PrepareInput{
 		ProjectRepoID: projectRepo.ID,
 		MachineID:     machine.ID,
@@ -176,6 +190,12 @@ func TestServicePrepareDerivesRemoteMirrorPathFromWorkspaceRoot(t *testing.T) {
 	expected := filepath.Join(filepath.Dir(machine.WorkspaceRoot), "mirrors", "acme", "openase", "backend")
 	if prepared.LocalPath != expected {
 		t.Fatalf("Prepare() local_path = %q, want %q", prepared.LocalPath, expected)
+	}
+	if prepared.HeadCommit == nil || *prepared.HeadCommit != headCommit {
+		t.Fatalf("Prepare() head_commit = %v, want %q", prepared.HeadCommit, headCommit)
+	}
+	if !strings.Contains(sshSession.command, expected) {
+		t.Fatalf("remote mirror command = %q, want path %q", sshSession.command, expected)
 	}
 }
 
@@ -277,6 +297,78 @@ func createGitRepository(t *testing.T) (string, string) {
 	}
 
 	return repoPath, hash.String()
+}
+
+type mirrorTestSSHDialer struct {
+	clients []sshinfra.Client
+	calls   int
+}
+
+func (d *mirrorTestSSHDialer) DialContext(context.Context, sshinfra.DialConfig) (sshinfra.Client, error) {
+	if d.calls >= len(d.clients) {
+		return nil, errors.New("unexpected dial")
+	}
+	client := d.clients[d.calls]
+	d.calls++
+	return client, nil
+}
+
+type mirrorTestSSHClient struct {
+	session sshinfra.Session
+}
+
+func (c *mirrorTestSSHClient) NewSession() (sshinfra.Session, error) {
+	if c.session == nil {
+		c.session = &mirrorTestSSHSession{}
+	}
+	return c.session, nil
+}
+
+func (c *mirrorTestSSHClient) SendRequest(string, bool, []byte) (bool, []byte, error) {
+	return true, nil, nil
+}
+
+func (c *mirrorTestSSHClient) Close() error {
+	return nil
+}
+
+type mirrorTestSSHSession struct {
+	output  []byte
+	err     error
+	command string
+}
+
+func (s *mirrorTestSSHSession) CombinedOutput(cmd string) ([]byte, error) {
+	s.command = cmd
+	return s.output, s.err
+}
+
+func (s *mirrorTestSSHSession) StdinPipe() (io.WriteCloser, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) StdoutPipe() (io.Reader, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) StderrPipe() (io.Reader, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) Start(string) error {
+	return errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) Signal(string) error {
+	return errors.New("not implemented")
+}
+
+func (s *mirrorTestSSHSession) Wait() error {
+	return nil
+}
+
+func (s *mirrorTestSSHSession) Close() error {
+	return nil
 }
 
 func openTestEntClient(t *testing.T) *ent.Client {

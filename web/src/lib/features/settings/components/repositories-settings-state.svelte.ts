@@ -18,7 +18,6 @@ import {
   type RepositoryDraft,
 } from '../repositories-model'
 import {
-  createRepositoryMirrorDraft,
   mirrorActionContext,
   parseRepositoryMirrorDraft,
   type RepositoryMirrorDraft,
@@ -28,6 +27,10 @@ import {
   reloadReposAfterMutation,
   type RepositoryReloadAction,
 } from './repositories-settings-feedback'
+import {
+  openRepositoryMirrorDialog,
+  runRepositoryMirrorAction,
+} from './repositories-settings-mirror-actions'
 import {
   createRepositoriesSettingsUI,
   emptyMirrorContext,
@@ -218,10 +221,11 @@ export function createRepositoriesSettingsState() {
       ui.editorOpen = true
     },
     openMirrorDialog(repo: ProjectRepoRecord) {
-      ui.mirrorRepoId = repo.id
-      ui.mirrorDraft = createRepositoryMirrorDraft(ui.machines, repo)
-      ui.mirrorErrorMessage = ''
-      ui.mirrorDialogOpen = true
+      openRepositoryMirrorDialog(ui, repo)
+    },
+    async runMirrorAction(repo: ProjectRepoRecord) {
+      const projectId = appStore.currentProject?.id
+      await runRepositoryMirrorAction(ui, projectId, repo, () => reloadRepos(projectId ?? ''))
     },
     updateField(field: keyof RepositoryDraft, value: string | boolean) {
       ui.draft = { ...ui.draft, [field]: value }

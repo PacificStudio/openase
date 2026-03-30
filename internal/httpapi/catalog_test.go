@@ -2310,13 +2310,15 @@ func TestProjectRepoMirrorMaterializeContractWithEntRepository(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	mirrorRoot := filepath.Join(filepath.Dir(workspaceRoot), "mirrors")
 	machine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName("builder").
-		SetHost("10.0.0.10").
+		SetHost(domain.LocalMachineHost).
 		SetPort(22).
 		SetStatus("online").
 		SetWorkspaceRoot(workspaceRoot).
+		SetMirrorRoot(mirrorRoot).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create machine: %v", err)
@@ -2356,7 +2358,7 @@ func TestProjectRepoMirrorMaterializeContractWithEntRepository(t *testing.T) {
 		http.StatusCreated,
 		&preparePayload,
 	)
-	expectedPath := filepath.Join(filepath.Dir(workspaceRoot), "mirrors", "acme", "openase", "backend")
+	expectedPath := filepath.Join(mirrorRoot, "acme", "openase", "backend")
 	if preparePayload.Mirror.LocalPath != expectedPath {
 		t.Fatalf("prepare mirror local_path = %q, want %q", preparePayload.Mirror.LocalPath, expectedPath)
 	}

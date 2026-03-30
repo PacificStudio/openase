@@ -29,6 +29,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
+	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -54,6 +55,7 @@ type RuntimeLauncher struct {
 	processManager provider.AgentCLIProcessManager
 	sshPool        *sshinfra.Pool
 	workflow       *workflowservice.Service
+	mirrors        *projectrepomirrorsvc.Service
 	agentPlatform  runtimeAgentPlatform
 	platformAPIURL string
 	githubAuth     githubauthservice.TokenResolver
@@ -126,6 +128,13 @@ func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.
 		return
 	}
 	l.githubAuth = resolver
+}
+
+func (l *RuntimeLauncher) ConfigureMirrorService(service *projectrepomirrorsvc.Service) {
+	if l == nil {
+		return
+	}
+	l.mirrors = service
 }
 
 func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
@@ -570,6 +579,13 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 	if err != nil {
 		return nil, err
 	}
+	if err := l.ensureLaunchMirrors(ctx, launchContext, machine); err != nil {
+		return nil, err
+	}
+	launchContext, err = l.loadLaunchContext(ctx, assignment.agent.ID, assignment.ticket.ID)
+	if err != nil {
+		return nil, err
+	}
 
 	commandString := launchContext.agent.Edges.Provider.CliCommand
 	if machine.AgentCLIPath != nil {
@@ -678,6 +694,27 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 		return nil, err
 	}
 	return session, nil
+}
+
+func (l *RuntimeLauncher) ensureLaunchMirrors(ctx context.Context, launchContext runtimeLaunchContext, machine catalogdomain.Machine) error {
+	if l == nil || l.mirrors == nil {
+		return nil
+	}
+
+	for _, repo := range selectLaunchContextProjectRepos(launchContext.projectRepos, launchContext.ticketScopes) {
+		if repo == nil {
+			continue
+		}
+		if _, err := l.mirrors.Ensure(ctx, projectrepomirrorsvc.EnsureInput{
+			ProjectRepoID: repo.ID,
+			MachineID:     machine.ID,
+			Operation:     projectrepomirrorsvc.EnsureOperationExecute,
+		}); err != nil {
+			return fmt.Errorf("ensure execute mirror freshness for repo %s: %w", repo.Name, err)
+		}
+	}
+
+	return nil
 }
 
 func (l *RuntimeLauncher) buildAgentPlatformEnvironment(ctx context.Context, launchContext runtimeLaunchContext) ([]string, error) {
@@ -976,19 +1013,10 @@ func buildWorkspaceRepoPlans(
 	ticketScopes []*ent.TicketRepoScope,
 	machineID uuid.UUID,
 ) ([]repoWorkspacePlan, error) {
+	selectedRepos := selectLaunchContextProjectRepos(projectRepos, ticketScopes)
 	scopeByRepoID := make(map[uuid.UUID]*ent.TicketRepoScope, len(ticketScopes))
 	for _, scope := range ticketScopes {
 		scopeByRepoID[scope.RepoID] = scope
-	}
-
-	selectedRepos := projectRepos
-	if len(scopeByRepoID) > 0 {
-		selectedRepos = make([]*ent.ProjectRepo, 0, len(scopeByRepoID))
-		for _, repo := range projectRepos {
-			if _, ok := scopeByRepoID[repo.ID]; ok {
-				selectedRepos = append(selectedRepos, repo)
-			}
-		}
 	}
 
 	plans := make([]repoWorkspacePlan, 0, len(selectedRepos))
@@ -1022,6 +1050,31 @@ func buildWorkspaceRepoPlans(
 	}
 
 	return plans, nil
+}
+
+func selectLaunchContextProjectRepos(
+	projectRepos []*ent.ProjectRepo,
+	ticketScopes []*ent.TicketRepoScope,
+) []*ent.ProjectRepo {
+	if len(ticketScopes) == 0 {
+		return projectRepos
+	}
+
+	scopeByRepoID := make(map[uuid.UUID]struct{}, len(ticketScopes))
+	for _, scope := range ticketScopes {
+		scopeByRepoID[scope.RepoID] = struct{}{}
+	}
+
+	selectedRepos := make([]*ent.ProjectRepo, 0, len(scopeByRepoID))
+	for _, repo := range projectRepos {
+		if repo == nil {
+			continue
+		}
+		if _, ok := scopeByRepoID[repo.ID]; ok {
+			selectedRepos = append(selectedRepos, repo)
+		}
+	}
+	return selectedRepos
 }
 
 func selectReadyMirrorForMachine(mirrors []*ent.ProjectRepoMirror, machineID uuid.UUID) (*ent.ProjectRepoMirror, error) {

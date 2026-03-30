@@ -15,7 +15,7 @@
 
   function openPrimaryMirror() {
     if (state.selectedPrimaryRepo) {
-      state.openMirrorDialog(state.selectedPrimaryRepo)
+      void state.runMirrorAction(state.selectedPrimaryRepo)
     }
   }
 </script>
@@ -53,7 +53,7 @@
     onCreate={() => state.startCreate()}
     onOpenRepo={(repo) => state.openRepo(repo)}
     onDelete={(repo) => void state.deleteFromList(repo)}
-    onMaterialize={(repo) => state.openMirrorDialog(repo)}
+    onMaterialize={(repo) => void state.runMirrorAction(repo)}
   />
 
   <RepositoryEditorSheet
