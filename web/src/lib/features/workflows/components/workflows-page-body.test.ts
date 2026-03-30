@@ -77,6 +77,7 @@ describe('WorkflowsPageBody', () => {
     })
 
     // The list heading "Workflows" should not be present
+    expect(queryByText('Workflows')).toBeNull()
     // The editor should still render
     expect(getByText('Validate')).toBeTruthy()
     // Workflow list items won't render since the list is hidden
