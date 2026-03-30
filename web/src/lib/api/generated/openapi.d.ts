@@ -1043,7 +1043,8 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    get?: never
+    /** List ticket comments */
+    get: operations['listTicketComments']
     put?: never
     /** Create a ticket comment */
     post: operations['createTicketComment']
@@ -9002,6 +9003,81 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listTicketComments: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List ticket comments response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            comments?: {
+              body?: string
+              body_markdown?: string
+              created_at?: string
+              created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
+              id?: string
+              is_deleted?: boolean
+              last_edited_by?: string | null
+              ticket_id?: string
+              updated_at?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }
