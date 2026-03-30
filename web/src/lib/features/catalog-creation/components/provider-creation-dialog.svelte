@@ -1,11 +1,12 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation'
-  import type { Machine } from '$lib/api/contracts'
+  import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
-  import { createProvider, listMachines } from '$lib/api/openase'
+  import { createProvider, listMachines, listProviderModelOptions } from '$lib/api/openase'
   import {
     createEmptyProviderDraft,
     parseProviderDraft,
+    ProviderModelPicker,
     providerAdapterOptions,
   } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
@@ -28,6 +29,7 @@
   let draft = $state<ProviderDraft>(createEmptyProviderDraft())
   let creating = $state(false)
   let machines = $state<Machine[]>([])
+  let modelCatalog = $state<AgentProviderModelCatalogEntry[]>([])
 
   function reset() {
     draft = createEmptyProviderDraft()
@@ -40,17 +42,19 @@
     }
 
     let cancelled = false
-    void listMachines(orgId)
-      .then((payload) => {
+    void Promise.all([listMachines(orgId), listProviderModelOptions()])
+      .then(([machinesPayload, modelPayload]) => {
         if (cancelled) return
-        machines = payload.machines
+        machines = machinesPayload.machines
+        modelCatalog = modelPayload.adapter_model_options
         if (!draft.machineId) {
-          draft = { ...draft, machineId: payload.machines[0]?.id ?? '' }
+          draft = { ...draft, machineId: machinesPayload.machines[0]?.id ?? '' }
         }
       })
       .catch(() => {
         if (!cancelled) {
           machines = []
+          modelCatalog = []
         }
       })
 
@@ -161,13 +165,12 @@
         </div>
 
         <div class="space-y-2">
-          <Label for="provider-model">Model name</Label>
-          <Input
-            id="provider-model"
-            value={draft.modelName}
-            placeholder="gpt-5.4"
-            oninput={(event) =>
-              updateField('modelName', (event.currentTarget as HTMLInputElement).value)}
+          <ProviderModelPicker
+            adapterType={draft.adapterType}
+            modelName={draft.modelName}
+            {modelCatalog}
+            inputId="provider-model"
+            onModelNameChange={(value) => updateField('modelName', value)}
           />
         </div>
       </div>

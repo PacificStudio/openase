@@ -125,6 +125,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		catalogRepo,
 		executable.NewPathResolver(),
 		sshinfra.NewTester(sshPool),
+		catalogservice.WithMachineHealthCollector(sshinfra.NewMonitorCollector(sshPool)),
 		catalogservice.WithProjectStatusBootstrapper(catalogservice.ProjectStatusBootstrapperFunc(func(ctx context.Context, projectID uuid.UUID) error {
 			_, err := ticketStatusSvc.ResetToDefaultTemplate(ctx, projectID)
 			return err

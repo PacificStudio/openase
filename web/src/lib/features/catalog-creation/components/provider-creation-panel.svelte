@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Machine } from '$lib/api/contracts'
-  import { providerAdapterOptions } from '$lib/features/agents/public'
+  import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
+  import { ProviderModelPicker, providerAdapterOptions } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
@@ -11,6 +11,7 @@
 
   let {
     draft,
+    modelCatalog = [],
     machines = [],
     creating = false,
     onFieldChange,
@@ -18,6 +19,7 @@
     onSubmit,
   }: {
     draft: ProviderDraft
+    modelCatalog?: AgentProviderModelCatalogEntry[]
     machines?: Machine[]
     creating?: boolean
     onFieldChange?: (field: keyof ProviderDraft, value: string) => void
@@ -94,13 +96,12 @@
         </div>
 
         <div class="space-y-2">
-          <Label for="provider-model">Model name</Label>
-          <Input
-            id="provider-model"
-            value={draft.modelName}
-            placeholder="gpt-5.4"
-            oninput={(event) =>
-              onFieldChange?.('modelName', (event.currentTarget as HTMLInputElement).value)}
+          <ProviderModelPicker
+            adapterType={draft.adapterType}
+            modelName={draft.modelName}
+            {modelCatalog}
+            inputId="provider-model"
+            onModelNameChange={(value) => onFieldChange?.('modelName', value)}
           />
         </div>
       </div>

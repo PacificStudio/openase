@@ -96,6 +96,15 @@ func TestMonitorCollectorCollectAgentEnvironmentInjectsMachineEnvVars(t *testing
 
 func TestBuildAgentEnvironmentScriptUsesRelaxedCodexLoginMatch(t *testing.T) {
 	script := buildAgentEnvironmentScript(domain.Machine{})
+	if !strings.Contains(script, `claude auth status --json`) {
+		t.Fatalf("expected claude auth probe to prefer json status, got %q", script)
+	}
+	if !strings.Contains(script, `"loggedIn"[[:space:]]*:[[:space:]]*true`) {
+		t.Fatalf("expected claude auth probe to check loggedIn json field, got %q", script)
+	}
+	if !strings.Contains(script, `grep -Eq 'Logged in|Login method:'`) {
+		t.Fatalf("expected claude auth probe to keep legacy text fallback, got %q", script)
+	}
 	if !strings.Contains(script, `login status 2>&1 | grep -q 'Logged in'`) {
 		t.Fatalf("expected relaxed codex login match in script, got %q", script)
 	}

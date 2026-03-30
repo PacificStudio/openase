@@ -72,7 +72,7 @@ describe('WorkflowsPageBody', () => {
   })
 
   it('hides the workflow list when showList is false', () => {
-    const { queryByText, getByText } = render(WorkflowsPageBody, {
+    const { getByText, queryByText } = render(WorkflowsPageBody, {
       props: { ...defaultProps, showList: false },
     })
 

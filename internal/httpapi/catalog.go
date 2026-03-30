@@ -182,12 +182,14 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.POST("/orgs/:orgId/projects", s.createProject)
 	api.GET("/orgs/:orgId/machines", s.listMachines)
 	api.POST("/orgs/:orgId/machines", s.createMachine)
+	api.GET("/provider-model-options", s.listProviderModelOptions)
 	api.GET("/orgs/:orgId/providers", s.listAgentProviders)
 	api.POST("/orgs/:orgId/providers", s.createAgentProvider)
 	api.GET("/machines/:machineId", s.getMachine)
 	api.PATCH("/machines/:machineId", s.patchMachine)
 	api.DELETE("/machines/:machineId", s.deleteMachine)
 	api.POST("/machines/:machineId/test", s.testMachine)
+	api.POST("/machines/:machineId/refresh-health", s.refreshMachineHealth)
 	api.GET("/machines/:machineId/resources", s.getMachineResources)
 	api.GET("/projects/:projectId", s.getProject)
 	api.PATCH("/projects/:projectId", s.patchProject)
@@ -537,6 +539,22 @@ func (s *Server) testMachine(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"machine": mapMachineResponse(item),
 		"probe":   mapMachineProbeResponse(probe),
+	})
+}
+
+func (s *Server) refreshMachineHealth(c echo.Context) error {
+	machineID, err := parseUUIDPathParam(c, "machineId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.RefreshMachineHealth(c.Request().Context(), machineID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"machine": mapMachineResponse(item),
 	})
 }
 
@@ -1066,6 +1084,8 @@ func writeCatalogError(c echo.Context, err error) error {
 	case errors.Is(err, catalogservice.ErrMachineProbeFailed):
 		return c.JSON(http.StatusBadGateway, errorResponse(catalogErrorMessage(err)))
 	case errors.Is(err, catalogservice.ErrMachineTestingUnavailable):
+		return c.JSON(http.StatusServiceUnavailable, errorResponse(catalogErrorMessage(err)))
+	case errors.Is(err, catalogservice.ErrMachineHealthUnavailable):
 		return c.JSON(http.StatusServiceUnavailable, errorResponse(catalogErrorMessage(err)))
 	default:
 		return c.JSON(http.StatusInternalServerError, errorResponse("internal server error"))

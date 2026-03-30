@@ -9,12 +9,14 @@ import type {
   AgentResponse,
   AgentProvider,
   AgentProviderListPayload,
+  AgentProviderModelCatalogPayload,
   BuiltinRolePayload,
   HarnessPayload,
   HarnessVariableDictionaryPayload,
   HarnessValidationResponse,
   MachineCreateResponse,
   MachinePayload,
+  MachineHealthRefreshResponse,
   MachineResourcesResponse,
   MachineResponse,
   MachineTestResponse,
@@ -161,12 +163,20 @@ export function testMachineConnection(machineId: string) {
   return api.post<MachineTestResponse>(`/api/v1/machines/${machineId}/test`)
 }
 
+export function refreshMachineHealth(machineId: string) {
+  return api.post<MachineHealthRefreshResponse>(`/api/v1/machines/${machineId}/refresh-health`)
+}
+
 export function getMachineResources(machineId: string) {
   return api.get<MachineResourcesResponse>(`/api/v1/machines/${machineId}/resources`)
 }
 
 export function listProviders(orgId: string) {
   return api.get<AgentProviderListPayload>(`/api/v1/orgs/${orgId}/providers`)
+}
+
+export function listProviderModelOptions() {
+  return api.get<AgentProviderModelCatalogPayload>('/api/v1/provider-model-options')
 }
 
 export function createProvider(

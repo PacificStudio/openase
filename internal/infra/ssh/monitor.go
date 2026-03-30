@@ -56,10 +56,12 @@ fi
 
 if command -v claude >/dev/null 2>&1; then
   claude_version=$(sanitize_field "$(claude --version 2>/dev/null || echo unknown)")
-  if claude auth status --text 2>/dev/null | grep -q 'Logged in'; then
+  claude_auth=not_logged_in
+  claude_status_json=$(claude auth status --json 2>/dev/null || true)
+  if printf '%s' "$claude_status_json" | grep -Eq '"loggedIn"[[:space:]]*:[[:space:]]*true'; then
     claude_auth=logged_in
-  else
-    claude_auth=not_logged_in
+  elif claude auth status --text 2>/dev/null | grep -Eq 'Logged in|Login method:'; then
+    claude_auth=logged_in
   fi
   printf 'claude_code\ttrue\t%s\t%s\tlogin\n' "$claude_version" "$claude_auth"
 else

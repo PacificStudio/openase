@@ -27,6 +27,7 @@
     snapshot,
     probe,
     loadingHealth = false,
+    refreshingHealthMachineId = '',
     saving = false,
     testingMachineId = '',
     deletingMachineId = '',
@@ -37,6 +38,7 @@
     onDraftChange,
     onCreate,
     onRetry,
+    onRefreshHealth,
     onSave,
     onTest,
     onDelete,
@@ -53,6 +55,7 @@
     snapshot: MachineSnapshot | null
     probe: MachineProbeResult | null
     loadingHealth?: boolean
+    refreshingHealthMachineId?: string
     saving?: boolean
     testingMachineId?: string
     deletingMachineId?: string
@@ -63,6 +66,7 @@
     onDraftChange?: (field: MachineDraftField, value: string) => void
     onCreate?: () => void
     onRetry?: () => void
+    onRefreshHealth?: (machineId: string) => void
     onSave?: () => void
     onTest?: (machineId: string) => void
     onDelete?: (machineId: string) => void
@@ -174,7 +178,9 @@
   {snapshot}
   {probe}
   {loadingHealth}
+  refreshingHealth={selectedMachine ? refreshingHealthMachineId === selectedMachine.id : false}
   {saving}
   {onDraftChange}
+  onRefreshHealth={selectedMachine ? () => onRefreshHealth?.(selectedMachine.id) : undefined}
   {onSave}
 />

@@ -196,9 +196,10 @@ describe('AgentsPage', () => {
     listAgentSteps.mockResolvedValue(emptyStepFixture)
     connectEventStream.mockReturnValue(() => {})
 
-    const { findByLabelText } = render(AgentsPage)
+    const { findAllByLabelText } = render(AgentsPage)
 
-    await fireEvent.click(await findByLabelText('View output'))
+    const buttons = await findAllByLabelText('View output')
+    await fireEvent.click(buttons[0]!)
 
     await waitFor(() => {
       expect(connectEventStream).toHaveBeenCalledWith(

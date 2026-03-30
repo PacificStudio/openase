@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
@@ -74,8 +75,10 @@ func TestMapCodexAssistantOutputPrefersSnapshotTextForJSONResponses(t *testing.T
 }
 
 func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
+	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{
 		process: &fakeAgentCLIProcess{
+			stdin:  stdin,
 			stdout: "{\"response\":\"```json\\n{\\\"type\\\":\\\"action_proposal\\\",\\\"summary\\\":\\\"Create 2 tickets\\\",\\\"actions\\\":[{\\\"method\\\":\\\"POST\\\",\\\"path\\\":\\\"/api/v1/projects/p/tickets\\\"}]}\\n```\"}",
 		},
 	}
@@ -123,6 +126,54 @@ func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	if joined := strings.Join(manager.startSpec.Args, " "); !strings.Contains(joined, "--output-format json") {
 		t.Fatalf("process args = %v, want json output mode", manager.startSpec.Args)
 	}
+	if !stdin.closed {
+		t.Fatal("expected gemini stdin to be closed after start")
+	}
+}
+
+func TestGeminiRuntimeCloseSessionStopsProcess(t *testing.T) {
+	process := &fakeAgentCLIProcess{
+		stdin:         &trackingWriteCloser{},
+		stdout:        "{\"response\":\"\"}",
+		waitUntilStop: true,
+		stopped:       make(chan struct{}),
+		stopCalled:    make(chan struct{}),
+	}
+	manager := &fakeAgentCLIProcessManager{process: process}
+	runtime := NewGeminiRuntime(manager)
+
+	stream, err := runtime.StartTurn(context.Background(), RuntimeTurnInput{
+		SessionID:    SessionID("session-gemini-stop"),
+		Message:      "Stop this turn",
+		SystemPrompt: "You are OpenASE.",
+		Provider: catalogdomain.AgentProvider{
+			AdapterType: catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+			CliCommand:  "gemini",
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	if closed := runtime.CloseSession(SessionID("session-gemini-stop")); !closed {
+		t.Fatal("CloseSession() = false, want true")
+	}
+
+	select {
+	case <-process.stopCalled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected CloseSession to stop the running gemini process")
+	}
+
+	select {
+	case _, ok := <-stream.Events:
+		if ok {
+			for range stream.Events {
+			}
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected event stream to close after session shutdown")
+	}
 }
 
 type fakeAgentCLIProcessManager struct {
@@ -136,14 +187,23 @@ func (m *fakeAgentCLIProcessManager) Start(_ context.Context, spec provider.Agen
 }
 
 type fakeAgentCLIProcess struct {
-	stdout  string
-	stderr  string
-	waitErr error
+	stdin         io.WriteCloser
+	stdout        string
+	stderr        string
+	waitErr       error
+	waitUntilStop bool
+	stopped       chan struct{}
+	stopCalled    chan struct{}
 }
 
 func (p *fakeAgentCLIProcess) PID() int { return 4242 }
 
-func (p *fakeAgentCLIProcess) Stdin() io.WriteCloser { return nopWriteCloser{} }
+func (p *fakeAgentCLIProcess) Stdin() io.WriteCloser {
+	if p.stdin != nil {
+		return p.stdin
+	}
+	return nopWriteCloser{}
+}
 
 func (p *fakeAgentCLIProcess) Stdout() io.ReadCloser {
 	return io.NopCloser(strings.NewReader(p.stdout))
@@ -153,9 +213,44 @@ func (p *fakeAgentCLIProcess) Stderr() io.ReadCloser {
 	return io.NopCloser(strings.NewReader(p.stderr))
 }
 
-func (p *fakeAgentCLIProcess) Wait() error { return p.waitErr }
+func (p *fakeAgentCLIProcess) Wait() error {
+	if p.waitUntilStop {
+		if p.stopped == nil {
+			p.stopped = make(chan struct{})
+		}
+		<-p.stopped
+	}
+	return p.waitErr
+}
 
-func (p *fakeAgentCLIProcess) Stop(context.Context) error { return nil }
+func (p *fakeAgentCLIProcess) Stop(context.Context) error {
+	if p.stopCalled != nil {
+		select {
+		case <-p.stopCalled:
+		default:
+			close(p.stopCalled)
+		}
+	}
+	if p.stopped != nil {
+		select {
+		case <-p.stopped:
+		default:
+			close(p.stopped)
+		}
+	}
+	return nil
+}
+
+type trackingWriteCloser struct {
+	closed bool
+}
+
+func (w *trackingWriteCloser) Write(data []byte) (int, error) { return len(data), nil }
+
+func (w *trackingWriteCloser) Close() error {
+	w.closed = true
+	return nil
+}
 
 type nopWriteCloser struct{}
 

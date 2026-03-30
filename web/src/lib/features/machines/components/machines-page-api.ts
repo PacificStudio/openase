@@ -4,6 +4,7 @@ import {
   deleteMachine,
   getMachineResources,
   listMachines,
+  refreshMachineHealth,
   testMachineConnection,
   updateMachine,
 } from '$lib/api/openase'
@@ -53,6 +54,17 @@ export async function runMachineConnectionTest(machineId: string): Promise<{
   return {
     machine: payload.machine,
     probe: payload.probe,
+    snapshot: parseMachineSnapshot(payload.machine.resources),
+  }
+}
+
+export async function runMachineHealthRefresh(machineId: string): Promise<{
+  machine: MachineItem
+  snapshot: MachineSnapshot | null
+}> {
+  const payload = await refreshMachineHealth(machineId)
+  return {
+    machine: payload.machine,
     snapshot: parseMachineSnapshot(payload.machine.resources),
   }
 }

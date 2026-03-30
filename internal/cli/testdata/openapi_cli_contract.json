@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "4de659efd1a297e0a91550a998f36eed6675f5233dd0dcad55457d4159163fc5",
+  "openapi_sha256": "9a3a9a4ddf9a7d8e6fb8a9d23c1de9b76f9a89a0327e729ad3aff03d12964754",
   "commands": [
     {
       "use": "list [projectId]",

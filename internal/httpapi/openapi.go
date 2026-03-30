@@ -123,6 +123,19 @@ type OpenAPIAgentProvider struct {
 	CostPerOutputToken    float64        `json:"cost_per_output_token"`
 }
 
+type OpenAPIAgentProviderModelOption struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Recommended bool   `json:"recommended"`
+	Preview     bool   `json:"preview"`
+}
+
+type OpenAPIAgentProviderModelCatalogEntry struct {
+	AdapterType string                            `json:"adapter_type"`
+	Options     []OpenAPIAgentProviderModelOption `json:"options"`
+}
+
 type OpenAPIAgent struct {
 	ID                    string               `json:"id"`
 	ProviderID            string               `json:"provider_id"`
@@ -582,6 +595,10 @@ type OpenAPIMachineTestResponse struct {
 	Probe   OpenAPIMachineProbe `json:"probe"`
 }
 
+type OpenAPIMachineHealthRefreshResponse struct {
+	Machine OpenAPIMachine `json:"machine"`
+}
+
 type OpenAPIMachineResourcesResponse struct {
 	MachineID               string                                `json:"machine_id"`
 	Status                  string                                `json:"status"`
@@ -618,6 +635,10 @@ type OpenAPIAgentProvidersResponse struct {
 
 type OpenAPIAgentProviderResponse struct {
 	Provider OpenAPIAgentProvider `json:"provider"`
+}
+
+type OpenAPIAgentProviderModelCatalogResponse struct {
+	AdapterModelOptions []OpenAPIAgentProviderModelCatalogEntry `json:"adapter_model_options"`
 }
 
 type OpenAPIAgentsResponse struct {
@@ -1169,6 +1190,20 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	machinesPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/machines", http.MethodPost, machinesPost)
 
+	providerModelOptionsGet, err := b.jsonOperation(
+		"listProviderModelOptions",
+		"List builtin provider model options",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentProviderModelCatalogResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/provider-model-options", http.MethodGet, providerModelOptionsGet)
+
 	providersGet, err := b.jsonOperation(
 		"listAgentProviders",
 		"List agent providers for an organization",
@@ -1274,6 +1309,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	machineTest.AddParameter(uuidPathParameter("machineId", "Machine ID."))
 	b.doc.AddOperation("/api/v1/machines/{machineId}/test", http.MethodPost, machineTest)
+
+	machineHealthRefresh, err := b.jsonOperation(
+		"refreshMachineHealth",
+		"Refresh multi-level machine health checks",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineHealthRefreshResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineHealthRefresh.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}/refresh-health", http.MethodPost, machineHealthRefresh)
 
 	machineResources, err := b.jsonOperation(
 		"getMachineResources",
