@@ -874,7 +874,7 @@ func buildRemoteInspectMirrorScript(localPath string, expectedURL string, defaul
 	lines := make([]string, 0, 6)
 	lines = append(lines,
 		"set -eu",
-		"if [ ! -d " + sshinfra.ShellQuote(filepath.Join(localPath, ".git")) + " ]; then echo " + sshinfra.ShellQuote("repository path "+localPath+" is not a git repository") + " >&2; exit 1; fi",
+		"if [ ! -d "+sshinfra.ShellQuote(filepath.Join(localPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+localPath+" is not a git repository")+" >&2; exit 1; fi",
 	)
 	lines = append(lines, remoteOriginCheckLines(localPath, expectedURL)...)
 	lines = append(lines,
@@ -890,9 +890,9 @@ func buildRemoteSyncMirrorScript(localPath string, repositoryURL string, default
 	lines := make([]string, 0, 9)
 	lines = append(lines,
 		"set -eu",
-		"mkdir -p " + sshinfra.ShellQuote(filepath.Dir(localPath)),
-		"if [ -e " + sshinfra.ShellQuote(localPath) + " ] && [ ! -d " + sshinfra.ShellQuote(filepath.Join(localPath, ".git")) + " ]; then echo " + sshinfra.ShellQuote("repository path "+localPath+" is not a git repository") + " >&2; exit 1; fi",
-		"if [ ! -e " + sshinfra.ShellQuote(localPath) + " ]; then git clone --branch " + sshinfra.ShellQuote(branchName) + " --single-branch " + sshinfra.ShellQuote(repositoryURL) + " " + sshinfra.ShellQuote(localPath) + "; fi",
+		"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(localPath)),
+		"if [ -e "+sshinfra.ShellQuote(localPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(localPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+localPath+" is not a git repository")+" >&2; exit 1; fi",
+		"if [ ! -e "+sshinfra.ShellQuote(localPath)+" ]; then git clone --branch "+sshinfra.ShellQuote(branchName)+" --single-branch "+sshinfra.ShellQuote(repositoryURL)+" "+sshinfra.ShellQuote(localPath)+"; fi",
 	)
 	lines = append(lines, remoteOriginCheckLines(localPath, repositoryURL)...)
 	lines = append(lines,
