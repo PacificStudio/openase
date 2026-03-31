@@ -112,6 +112,7 @@ type TokenProbe struct {
 type ProjectContext struct {
 	ProjectID              uuid.UUID
 	OrganizationID         uuid.UUID
+	ProjectRepositoryURL   string
 	OrganizationCredential *StoredCredential
 	OrganizationProbe      *TokenProbe
 	ProjectCredential      *StoredCredential
@@ -283,6 +284,17 @@ func ResolveProjectCredential(context ProjectContext, decrypt func(StoredCredent
 		TokenPreview: strings.TrimSpace(selectedCredential.TokenPreview),
 		Probe:        NormalizeProbe(selectedProbe, true),
 	}, nil
+}
+
+func (c ProjectContext) CredentialForScope(scope Scope) (*StoredCredential, *TokenProbe, error) {
+	switch scope {
+	case ScopeOrganization:
+		return c.OrganizationCredential, c.OrganizationProbe, nil
+	case ScopeProject:
+		return c.ProjectCredential, c.ProjectProbe, nil
+	default:
+		return nil, nil, fmt.Errorf("invalid GitHub credential scope %q", scope)
+	}
 }
 
 func cloneTime(value *time.Time) *time.Time {

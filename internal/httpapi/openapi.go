@@ -1020,11 +1020,18 @@ type OpenAPIGitHubTokenProbe struct {
 	LastError   string   `json:"last_error,omitempty"`
 }
 
-type OpenAPIGitHubOutboundCredential struct {
+type OpenAPIGitHubCredentialSlot struct {
 	Scope        string                  `json:"scope,omitempty"`
+	Configured   bool                    `json:"configured"`
 	Source       string                  `json:"source,omitempty"`
 	TokenPreview string                  `json:"token_preview,omitempty"`
 	Probe        OpenAPIGitHubTokenProbe `json:"probe"`
+}
+
+type OpenAPIGitHubOutboundCredential struct {
+	Effective       OpenAPIGitHubCredentialSlot `json:"effective"`
+	Organization    OpenAPIGitHubCredentialSlot `json:"organization"`
+	ProjectOverride OpenAPIGitHubCredentialSlot `json:"project_override"`
 }
 
 type OpenAPISecuritySettings struct {
@@ -1060,6 +1067,8 @@ type OpenAPICreateMachineRequest catalogdomain.MachineInput
 type OpenAPIUpdateMachineRequest machinePatchRequest
 type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
+type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
+type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
 type OpenAPIMaterializeProjectRepoMirrorRequest projectRepoMirrorMaterializeRequest
 type OpenAPIProjectRepoMirrorMachineRequest projectRepoMirrorMachineRequest
 type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
@@ -1216,6 +1225,10 @@ var (
 	openAPIRepoMirrorMachineDescriptions = map[string]string{
 		"machine_id": "Machine ID whose mirror should be verified or synchronized.",
 	}
+	openAPIGitHubCredentialDescriptions = map[string]string{
+		"scope": "Credential scope to mutate. Supported values are organization and project.",
+		"token": "GitHub token value copied into platform-managed secret storage.",
+	}
 	openAPIAgentRequestDescriptions = map[string]string{
 		"name":        "Human-readable agent name.",
 		"provider_id": "Agent provider ID used to run the agent.",
@@ -1368,52 +1381,55 @@ var (
 		"harness_ids":  "Alias of workflow_ids kept for PRD terminology compatibility.",
 	}
 	openAPIRequestBodyDescriptions = map[string]map[string]string{
-		"POST /api/v1/orgs":                                                           openAPIOrganizationRequestDescriptions,
-		"PATCH /api/v1/orgs/{orgId}":                                                  openAPIOrganizationRequestDescriptions,
-		"POST /api/v1/orgs/{orgId}/channels":                                          openAPIChannelRequestDescriptions,
-		"PATCH /api/v1/channels/{channelId}":                                          openAPIChannelRequestDescriptions,
-		"POST /api/v1/orgs/{orgId}/machines":                                          openAPIMachineRequestDescriptions,
-		"PATCH /api/v1/machines/{machineId}":                                          openAPIMachineRequestDescriptions,
-		"POST /api/v1/orgs/{orgId}/projects":                                          openAPIProjectRequestDescriptions,
-		"PATCH /api/v1/projects/{projectId}":                                          openAPIProjectRequestDescriptions,
-		"POST /api/v1/orgs/{orgId}/providers":                                         openAPIProviderRequestDescriptions,
-		"PATCH /api/v1/providers/{providerId}":                                        openAPIProviderRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/repos":                                     openAPIRepoRequestDescriptions,
-		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                           openAPIRepoRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors":                    openAPIRepoMirrorMaterializeDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify":             openAPIRepoMirrorMachineDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync":               openAPIRepoMirrorMachineDescriptions,
-		"POST /api/v1/projects/{projectId}/agents":                                    openAPIAgentRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/workflows":                                 openAPIWorkflowRequestDescriptions,
-		"PATCH /api/v1/workflows/{workflowId}":                                        mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),
-		"PUT /api/v1/workflows/{workflowId}/harness":                                  openAPIHarnessContentDescriptions,
-		"POST /api/v1/harness/validate":                                               openAPIHarnessContentDescriptions,
-		"POST /api/v1/projects/{projectId}/scheduled-jobs":                            openAPIScheduledJobDescriptions,
-		"PATCH /api/v1/scheduled-jobs/{jobId}":                                        openAPIScheduledJobDescriptions,
-		"POST /api/v1/projects/{projectId}/tickets":                                   openAPITicketRequestDescriptions,
-		"PATCH /api/v1/tickets/{ticketId}":                                            openAPITicketRequestDescriptions,
-		"POST /api/v1/tickets/{ticketId}/comments":                                    openAPITicketCommentRequestDescriptions,
-		"PATCH /api/v1/tickets/{ticketId}/comments/{commentId}":                       openAPITicketCommentPatchDescriptions,
-		"POST /api/v1/tickets/{ticketId}/dependencies":                                openAPIDependencyRequestDescriptions,
-		"POST /api/v1/tickets/{ticketId}/external-links":                              openAPIExternalLinkRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/statuses":                                  openAPIStatusRequestDescriptions,
-		"PATCH /api/v1/statuses/{statusId}":                                           openAPIStatusRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/notification-rules":                        openAPINotificationRuleDescriptions,
-		"PATCH /api/v1/notification-rules/{ruleId}":                                   openAPINotificationRuleDescriptions,
-		"POST /api/v1/projects/{projectId}/connectors":                                openAPIIssueConnectorDescriptions,
-		"PATCH /api/v1/connectors/{connectorId}":                                      openAPIIssueConnectorDescriptions,
-		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":            openAPIRepoScopeCreateDescriptions,
-		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}": openAPIRepoScopePatchDescriptions,
-		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                       openAPIHRAdvisorActivateDescriptions,
-		"POST /api/v1/chat":                                                           openAPIChatRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/skills":                                    openAPISkillCreateDescriptions,
-		"POST /api/v1/projects/{projectId}/skills/refresh":                            openAPISkillSyncDescriptions,
-		"POST /api/v1/projects/{projectId}/skills/harvest":                            openAPISkillSyncDescriptions,
-		"PUT /api/v1/skills/{skillId}":                                                openAPISkillUpdateDescriptions,
-		"POST /api/v1/skills/{skillId}/bind":                                          openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/skills/{skillId}/unbind":                                        openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/bind":                             openAPISkillBindingDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/unbind":                           openAPISkillBindingDescriptions,
+		"POST /api/v1/orgs":                                                             openAPIOrganizationRequestDescriptions,
+		"PATCH /api/v1/orgs/{orgId}":                                                    openAPIOrganizationRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/channels":                                            openAPIChannelRequestDescriptions,
+		"PATCH /api/v1/channels/{channelId}":                                            openAPIChannelRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/machines":                                            openAPIMachineRequestDescriptions,
+		"PATCH /api/v1/machines/{machineId}":                                            openAPIMachineRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/projects":                                            openAPIProjectRequestDescriptions,
+		"PATCH /api/v1/projects/{projectId}":                                            openAPIProjectRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/providers":                                           openAPIProviderRequestDescriptions,
+		"PATCH /api/v1/providers/{providerId}":                                          openAPIProviderRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/repos":                                       openAPIRepoRequestDescriptions,
+		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                             openAPIRepoRequestDescriptions,
+		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential": openAPIGitHubCredentialDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors":                                     openAPIRepoMirrorMaterializeDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify":                              openAPIRepoMirrorMachineDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync":                                openAPIRepoMirrorMachineDescriptions,
+		"POST /api/v1/projects/{projectId}/agents":                                                     openAPIAgentRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/workflows":                                                  openAPIWorkflowRequestDescriptions,
+		"PATCH /api/v1/workflows/{workflowId}":                                                         mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),
+		"PUT /api/v1/workflows/{workflowId}/harness":                                                   openAPIHarnessContentDescriptions,
+		"POST /api/v1/harness/validate":                                                                openAPIHarnessContentDescriptions,
+		"POST /api/v1/projects/{projectId}/scheduled-jobs":                                             openAPIScheduledJobDescriptions,
+		"PATCH /api/v1/scheduled-jobs/{jobId}":                                                         openAPIScheduledJobDescriptions,
+		"POST /api/v1/projects/{projectId}/tickets":                                                    openAPITicketRequestDescriptions,
+		"PATCH /api/v1/tickets/{ticketId}":                                                             openAPITicketRequestDescriptions,
+		"POST /api/v1/tickets/{ticketId}/comments":                                                     openAPITicketCommentRequestDescriptions,
+		"PATCH /api/v1/tickets/{ticketId}/comments/{commentId}":                                        openAPITicketCommentPatchDescriptions,
+		"POST /api/v1/tickets/{ticketId}/dependencies":                                                 openAPIDependencyRequestDescriptions,
+		"POST /api/v1/tickets/{ticketId}/external-links":                                               openAPIExternalLinkRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/statuses":                                                   openAPIStatusRequestDescriptions,
+		"PATCH /api/v1/statuses/{statusId}":                                                            openAPIStatusRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/notification-rules":                                         openAPINotificationRuleDescriptions,
+		"PATCH /api/v1/notification-rules/{ruleId}":                                                    openAPINotificationRuleDescriptions,
+		"POST /api/v1/projects/{projectId}/connectors":                                                 openAPIIssueConnectorDescriptions,
+		"PATCH /api/v1/connectors/{connectorId}":                                                       openAPIIssueConnectorDescriptions,
+		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
+		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
+		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
+		"POST /api/v1/chat":                                 openAPIChatRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/skills":          openAPISkillCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/refresh":  openAPISkillSyncDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/harvest":  openAPISkillSyncDescriptions,
+		"PUT /api/v1/skills/{skillId}":                      openAPISkillUpdateDescriptions,
+		"POST /api/v1/skills/{skillId}/bind":                openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/skills/{skillId}/unbind":              openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/bind":   openAPISkillBindingDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/unbind": openAPISkillBindingDescriptions,
 	}
 )
 
@@ -3570,6 +3586,9 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 		OpenAPISecuritySettingsResponse{},
 		nil,
 		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
 		http.StatusInternalServerError,
 	)
 	if err != nil {
@@ -3577,6 +3596,86 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	}
 	securityGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings", http.MethodGet, securityGet)
+
+	securityPut, err := b.jsonOperation(
+		"saveGitHubOutboundCredential",
+		"Save a platform-managed GitHub outbound credential",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecuritySettingsResponse{},
+		OpenAPISaveGitHubOutboundCredentialRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	securityPut.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/github-outbound-credential", http.MethodPut, securityPut)
+
+	securityImport, err := b.jsonOperation(
+		"importGitHubOutboundCredentialFromGHCLI",
+		"Import the current gh auth token into platform-managed GitHub credential storage",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecuritySettingsResponse{},
+		OpenAPIGitHubCredentialScopeRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	securityImport.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli", http.MethodPost, securityImport)
+
+	securityRetest, err := b.jsonOperation(
+		"retestGitHubOutboundCredential",
+		"Retest a stored platform-managed GitHub outbound credential",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecuritySettingsResponse{},
+		OpenAPIGitHubCredentialScopeRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	securityRetest.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest", http.MethodPost, securityRetest)
+
+	securityDelete, err := b.jsonOperation(
+		"deleteGitHubOutboundCredential",
+		"Delete a stored platform-managed GitHub outbound credential",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecuritySettingsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	securityDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	securityDelete.AddParameter(openapi3.NewQueryParameter("scope").
+		WithDescription("Credential scope to delete. Supported values are organization and project.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/github-outbound-credential", http.MethodDelete, securityDelete)
 
 	return nil
 }

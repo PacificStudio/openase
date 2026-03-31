@@ -1,15 +1,29 @@
-import { cleanup, render } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 
-const { getSecuritySettings } = vi.hoisted(() => ({
+const {
+  deleteGitHubOutboundCredential,
+  getSecuritySettings,
+  importGitHubOutboundCredentialFromGHCLI,
+  retestGitHubOutboundCredential,
+  saveGitHubOutboundCredential,
+} = vi.hoisted(() => ({
+  deleteGitHubOutboundCredential: vi.fn(),
   getSecuritySettings: vi.fn(),
+  importGitHubOutboundCredentialFromGHCLI: vi.fn(),
+  retestGitHubOutboundCredential: vi.fn(),
+  saveGitHubOutboundCredential: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({
+  deleteGitHubOutboundCredential,
   getSecuritySettings,
+  importGitHubOutboundCredentialFromGHCLI,
+  retestGitHubOutboundCredential,
+  saveGitHubOutboundCredential,
 }))
 
 describe('Security settings', () => {
@@ -19,54 +33,169 @@ describe('Security settings', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the shipped security posture and explicit deferred scope', async () => {
-    appStore.currentProject = {
-      id: '9f34ff64-f08b-4a06-b555-f47b34957860',
-      organization_id: 'org-1',
-      name: 'Atlas',
-      slug: 'atlas',
-      description: '',
-      status: 'active',
-      default_workflow_id: null,
-      default_agent_provider_id: null,
-      accessible_machine_ids: [],
-      max_concurrent_agents: 4,
-    }
-
-    getSecuritySettings.mockResolvedValue({
-      security: {
-        project_id: appStore.currentProject.id,
-        agent_tokens: {
-          transport: 'Bearer token',
-          environment_variable: 'OPENASE_AGENT_TOKEN',
-          token_prefix: 'ase_agent_',
-          default_scopes: ['tickets.create', 'tickets.list'],
-          supported_project_scopes: ['projects.update', 'projects.add_repo'],
-        },
-        webhooks: {
-          legacy_github_endpoint: 'POST /api/v1/webhooks/github',
-          connector_endpoint: 'POST /api/v1/webhooks/:connector/:provider',
-          legacy_github_signature_required: true,
-        },
-        secret_hygiene: {
-          notification_channel_configs_redacted: true,
-        },
-        deferred: [
-          {
-            key: 'human-auth',
-            title: 'Human sign-in and OIDC',
-            summary: 'Deferred for a later control-plane surface.',
-          },
-        ],
-      },
-    })
+  it('renders the GitHub control plane alongside runtime boundaries', async () => {
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
 
     const { findByText } = render(SecuritySettings)
 
-    expect(await findByText('Agent runtime access')).toBeTruthy()
+    expect(await findByText('GitHub outbound credentials')).toBeTruthy()
+    expect(await findByText('Effective credential')).toBeTruthy()
+    expect(await findByText('Organization default')).toBeTruthy()
+    expect(await findByText('Project override')).toBeTruthy()
+    expect(await findByText('Device Flow')).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
-    expect(await findByText('POST /api/v1/webhooks/github')).toBeTruthy()
-    expect(await findByText('Response-safe notification configs')).toBeTruthy()
-    expect(await findByText('Human sign-in and OIDC')).toBeTruthy()
+  })
+
+  it('saves a project override token from the settings surface', async () => {
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    saveGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
+
+    const { findByLabelText, findByRole } = render(SecuritySettings)
+
+    const textarea = await findByLabelText('Paste token', { selector: 'textarea' })
+    await fireEvent.input(textarea, { target: { value: 'ghu_project_override' } })
+
+    const saveButton = await findByRole('button', { name: 'Save token' })
+    await fireEvent.click(saveButton)
+
+    await waitFor(() => {
+      expect(saveGitHubOutboundCredential).toHaveBeenCalledWith(appStore.currentProject?.id, {
+        scope: 'project',
+        token: 'ghu_project_override',
+      })
+    })
+  })
+
+  it('imports, retests, and deletes credentials through scoped actions', async () => {
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    importGitHubOutboundCredentialFromGHCLI.mockResolvedValue({ security: configuredSecurity() })
+    retestGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
+    deleteGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
+
+    const { findAllByText } = render(SecuritySettings)
+
+    const importButtons = await findAllByText('Import from gh')
+    await fireEvent.click(importButtons[0])
+    await waitFor(() => {
+      expect(importGitHubOutboundCredentialFromGHCLI).toHaveBeenCalledWith(
+        appStore.currentProject?.id,
+        { scope: 'organization' },
+      )
+    })
+
+    const retestButtons = await findAllByText('Retest')
+    await fireEvent.click(retestButtons[0])
+    await waitFor(() => {
+      expect(retestGitHubOutboundCredential).toHaveBeenCalledWith(appStore.currentProject?.id, {
+        scope: 'organization',
+      })
+    })
+
+    const deleteButtons = await findAllByText('Delete')
+    await fireEvent.click(deleteButtons[0])
+    await waitFor(() => {
+      expect(deleteGitHubOutboundCredential).toHaveBeenCalledWith(
+        appStore.currentProject?.id,
+        'organization',
+      )
+    })
   })
 })
+
+function currentProject() {
+  return {
+    id: '9f34ff64-f08b-4a06-b555-f47b34957860',
+    organization_id: 'org-1',
+    name: 'Atlas',
+    slug: 'atlas',
+    description: '',
+    status: 'active',
+    default_workflow_id: null,
+    default_agent_provider_id: null,
+    accessible_machine_ids: [],
+    max_concurrent_agents: 4,
+  }
+}
+
+function configuredSecurity() {
+  return {
+    project_id: currentProject().id,
+    agent_tokens: {
+      transport: 'Bearer token',
+      environment_variable: 'OPENASE_AGENT_TOKEN',
+      token_prefix: 'ase_agent_',
+      default_scopes: ['tickets.create', 'tickets.list'],
+      supported_project_scopes: ['projects.update', 'projects.add_repo'],
+    },
+    github: {
+      effective: {
+        scope: 'organization',
+        configured: true,
+        source: 'gh_cli_import',
+        token_preview: 'ghu_test...1234',
+        probe: {
+          state: 'valid',
+          configured: true,
+          valid: true,
+          permissions: ['repo', 'read:org'],
+          repo_access: 'granted',
+          checked_at: '2026-03-28T12:00:00Z',
+          last_error: '',
+        },
+      },
+      organization: {
+        scope: 'organization',
+        configured: true,
+        source: 'gh_cli_import',
+        token_preview: 'ghu_test...1234',
+        probe: {
+          state: 'valid',
+          configured: true,
+          valid: true,
+          permissions: ['repo', 'read:org'],
+          repo_access: 'granted',
+          checked_at: '2026-03-28T12:00:00Z',
+          last_error: '',
+        },
+      },
+      project_override: {
+        scope: 'project',
+        configured: false,
+        source: '',
+        token_preview: '',
+        probe: {
+          state: 'missing',
+          configured: false,
+          valid: false,
+          permissions: [],
+          repo_access: 'not_checked',
+          checked_at: undefined,
+          last_error: '',
+        },
+      },
+    },
+    webhooks: {
+      legacy_github_endpoint: 'POST /api/v1/webhooks/github',
+      connector_endpoint: 'POST /api/v1/webhooks/:connector/:provider',
+      legacy_github_signature_required: true,
+    },
+    secret_hygiene: {
+      notification_channel_configs_redacted: true,
+    },
+    deferred: [
+      {
+        key: 'github-device-flow',
+        title: 'GitHub Device Flow',
+        summary: 'Deferred until OAuth app wiring is available.',
+      },
+      {
+        key: 'human-auth',
+        title: 'Human sign-in and OIDC',
+        summary: 'Deferred for a later control-plane surface.',
+      },
+    ],
+  }
+}

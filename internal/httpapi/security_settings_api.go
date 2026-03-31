@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"slices"
 	"time"
@@ -54,11 +55,18 @@ type securityGitHubTokenProbeResponse struct {
 	LastError   string   `json:"last_error,omitempty"`
 }
 
-type securityGitHubOutboundCredentialResponse struct {
+type securityGitHubCredentialSlotResponse struct {
 	Scope        string                           `json:"scope,omitempty"`
+	Configured   bool                             `json:"configured"`
 	Source       string                           `json:"source,omitempty"`
 	TokenPreview string                           `json:"token_preview,omitempty"`
 	Probe        securityGitHubTokenProbeResponse `json:"probe"`
+}
+
+type securityGitHubOutboundCredentialResponse struct {
+	Effective       securityGitHubCredentialSlotResponse `json:"effective"`
+	Organization    securityGitHubCredentialSlotResponse `json:"organization"`
+	ProjectOverride securityGitHubCredentialSlotResponse `json:"project_override"`
 }
 
 type securitySettingsResponse struct {
@@ -72,32 +80,148 @@ type securitySettingsResponse struct {
 
 func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/security-settings", s.handleGetSecuritySettings)
+	api.PUT("/projects/:projectId/security-settings/github-outbound-credential", s.handlePutGitHubOutboundCredential)
+	api.POST("/projects/:projectId/security-settings/github-outbound-credential/import-gh-cli", s.handleImportGitHubOutboundCredential)
+	api.POST("/projects/:projectId/security-settings/github-outbound-credential/retest", s.handleRetestGitHubOutboundCredential)
+	api.DELETE("/projects/:projectId/security-settings/github-outbound-credential", s.handleDeleteGitHubOutboundCredential)
 }
 
 func (s *Server) handleGetSecuritySettings(c echo.Context) error {
-	if s.catalog == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
-	}
-
-	projectID, err := parseProjectID(c)
+	projectID, err := s.requireProjectSecurityContext(c)
 	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
-	}
-	if _, err := s.catalog.GetProject(c.Request().Context(), projectID); err != nil {
-		return writeCatalogError(c, err)
+		return err
 	}
 
 	githubSecurity := buildMissingGitHubSecurityResponse()
 	if s.githubAuthService != nil {
 		resolved, err := s.githubAuthService.ReadProjectSecurity(c.Request().Context(), projectID)
 		if err != nil {
-			return writeAPIError(c, http.StatusBadGateway, "GITHUB_AUTH_UNAVAILABLE", err.Error())
+			return writeGitHubAuthError(c, err)
 		}
 		githubSecurity = mapGitHubSecurityResponse(resolved)
 	}
 
+	return s.writeSecuritySettingsResponse(c, projectID, githubSecurity)
+}
+
+func (s *Server) handlePutGitHubOutboundCredential(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.githubAuthService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
+	}
+
+	var raw rawSaveGitHubOutboundCredentialRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+	input, err := parseSaveGitHubOutboundCredentialRequest(projectID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	security, err := s.githubAuthService.SaveManualCredential(c.Request().Context(), input)
+	if err != nil {
+		return writeGitHubAuthError(c, err)
+	}
+	return s.writeSecuritySettingsResponse(c, projectID, mapGitHubSecurityResponse(security))
+}
+
+func (s *Server) handleImportGitHubOutboundCredential(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.githubAuthService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
+	}
+
+	var raw rawGitHubCredentialScopeRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+	input, err := parseGitHubCredentialScopeRequest(projectID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	security, err := s.githubAuthService.ImportGHCLICredential(c.Request().Context(), input)
+	if err != nil {
+		return writeGitHubAuthError(c, err)
+	}
+	return s.writeSecuritySettingsResponse(c, projectID, mapGitHubSecurityResponse(security))
+}
+
+func (s *Server) handleRetestGitHubOutboundCredential(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.githubAuthService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
+	}
+
+	var raw rawGitHubCredentialScopeRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+	input, err := parseGitHubCredentialScopeRequest(projectID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	security, err := s.githubAuthService.RetestCredential(c.Request().Context(), input)
+	if err != nil {
+		return writeGitHubAuthError(c, err)
+	}
+	return s.writeSecuritySettingsResponse(c, projectID, mapGitHubSecurityResponse(security))
+}
+
+func (s *Server) handleDeleteGitHubOutboundCredential(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.githubAuthService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
+	}
+
+	input, err := parseGitHubCredentialScopeQuery(projectID, c.QueryParam("scope"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	security, err := s.githubAuthService.DeleteCredential(c.Request().Context(), input)
+	if err != nil {
+		return writeGitHubAuthError(c, err)
+	}
+	return s.writeSecuritySettingsResponse(c, projectID, mapGitHubSecurityResponse(security))
+}
+
+func (s *Server) requireProjectSecurityContext(c echo.Context) (uuid.UUID, error) {
+	if s.catalog == nil {
+		return uuid.UUID{}, writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return uuid.UUID{}, writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if _, err := s.catalog.GetProject(c.Request().Context(), projectID); err != nil {
+		return uuid.UUID{}, writeCatalogError(c, err)
+	}
+	return projectID, nil
+}
+
+func (s *Server) writeSecuritySettingsResponse(
+	c echo.Context,
+	projectID uuid.UUID,
+	github securityGitHubOutboundCredentialResponse,
+) error {
 	return c.JSON(http.StatusOK, map[string]any{
-		"security": buildSecuritySettingsResponse(projectID, githubSecurity, s.github.WebhookSecret != ""),
+		"security": buildSecuritySettingsResponse(projectID, github, s.github.WebhookSecret != ""),
 	})
 }
 
@@ -126,6 +250,11 @@ func buildSecuritySettingsResponse(
 		},
 		Deferred: []securityDeferredCapabilityResponse{
 			{
+				Key:     "github-device-flow",
+				Title:   "GitHub Device Flow",
+				Summary: "GitHub Device Flow remains deferred until the platform has OAuth app wiring for a fully managed browserless authorization hand-off.",
+			},
+			{
 				Key:     "human-auth",
 				Title:   "Human sign-in and OIDC",
 				Summary: "Browser-facing local token distribution and OIDC setup remain outside the shipped Settings boundary.",
@@ -146,12 +275,31 @@ func buildSecuritySettingsResponse(
 
 func buildMissingGitHubSecurityResponse() securityGitHubOutboundCredentialResponse {
 	return securityGitHubOutboundCredentialResponse{
-		Probe: mapGitHubTokenProbe(githubauthdomain.MissingProbe()),
+		Effective:       buildMissingGitHubCredentialSlot(""),
+		Organization:    buildMissingGitHubCredentialSlot(string(githubauthdomain.ScopeOrganization)),
+		ProjectOverride: buildMissingGitHubCredentialSlot(string(githubauthdomain.ScopeProject)),
+	}
+}
+
+func buildMissingGitHubCredentialSlot(scope string) securityGitHubCredentialSlotResponse {
+	return securityGitHubCredentialSlotResponse{
+		Scope:      scope,
+		Configured: false,
+		Probe:      mapGitHubTokenProbe(githubauthdomain.MissingProbe()),
 	}
 }
 
 func mapGitHubSecurityResponse(item githubauthservice.ProjectSecurity) securityGitHubOutboundCredentialResponse {
-	response := securityGitHubOutboundCredentialResponse{
+	return securityGitHubOutboundCredentialResponse{
+		Effective:       mapGitHubCredentialSlot(item.Effective),
+		Organization:    mapGitHubCredentialSlot(item.Organization),
+		ProjectOverride: mapGitHubCredentialSlot(item.ProjectOverride),
+	}
+}
+
+func mapGitHubCredentialSlot(item githubauthservice.ScopedSecurity) securityGitHubCredentialSlotResponse {
+	response := securityGitHubCredentialSlotResponse{
+		Configured:   item.Configured,
 		TokenPreview: item.TokenPreview,
 		Probe:        mapGitHubTokenProbe(item.Probe),
 	}
@@ -178,4 +326,19 @@ func mapGitHubTokenProbe(probe githubauthdomain.TokenProbe) securityGitHubTokenP
 		response.CheckedAt = &checkedAt
 	}
 	return response
+}
+
+func writeGitHubAuthError(c echo.Context, err error) error {
+	switch {
+	case errors.Is(err, githubauthservice.ErrUnavailable):
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
+	case errors.Is(err, githubauthservice.ErrInvalidInput):
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	case errors.Is(err, githubauthservice.ErrCredentialNotConfigured):
+		return writeAPIError(c, http.StatusNotFound, "GITHUB_CREDENTIAL_NOT_CONFIGURED", err.Error())
+	case errors.Is(err, githubauthservice.ErrGHCLIImportFailed):
+		return writeAPIError(c, http.StatusBadGateway, "GITHUB_AUTH_IMPORT_FAILED", err.Error())
+	default:
+		return writeAPIError(c, http.StatusBadGateway, "GITHUB_AUTH_UNAVAILABLE", err.Error())
+	}
 }

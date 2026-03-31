@@ -11,9 +11,11 @@ import type {
   AgentProviderListPayload,
   AgentProviderModelCatalogPayload,
   BuiltinRolePayload,
+  DeleteGitHubOutboundCredentialResponse,
   HarnessPayload,
   HarnessVariableDictionaryPayload,
   HarnessValidationResponse,
+  ImportGitHubOutboundCredentialResponse,
   MachineCreateResponse,
   MachinePayload,
   MachineHealthRefreshResponse,
@@ -42,6 +44,8 @@ import type {
   ScheduledJobTriggerResponse,
   ScheduledJobUpdateResponse,
   SecuritySettingsResponse,
+  RetestGitHubOutboundCredentialResponse,
+  SaveGitHubOutboundCredentialResponse,
   SkillListPayload,
   SkillCreateResponse,
   SkillDeleteResponse,
@@ -299,6 +303,53 @@ export function getProject(projectId: string) {
 
 export function getSecuritySettings(projectId: string) {
   return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+}
+
+export function saveGitHubOutboundCredential(
+  projectId: string,
+  body: {
+    scope: 'organization' | 'project'
+    token: string
+  },
+) {
+  return api.put<SaveGitHubOutboundCredentialResponse>(
+    `/api/v1/projects/${projectId}/security-settings/github-outbound-credential`,
+    { body },
+  )
+}
+
+export function importGitHubOutboundCredentialFromGHCLI(
+  projectId: string,
+  body: {
+    scope: 'organization' | 'project'
+  },
+) {
+  return api.post<ImportGitHubOutboundCredentialResponse>(
+    `/api/v1/projects/${projectId}/security-settings/github-outbound-credential/import-gh-cli`,
+    { body },
+  )
+}
+
+export function retestGitHubOutboundCredential(
+  projectId: string,
+  body: {
+    scope: 'organization' | 'project'
+  },
+) {
+  return api.post<RetestGitHubOutboundCredentialResponse>(
+    `/api/v1/projects/${projectId}/security-settings/github-outbound-credential/retest`,
+    { body },
+  )
+}
+
+export function deleteGitHubOutboundCredential(
+  projectId: string,
+  scope: 'organization' | 'project',
+) {
+  const params = new URLSearchParams({ scope })
+  return api.delete<DeleteGitHubOutboundCredentialResponse>(
+    `/api/v1/projects/${projectId}/security-settings/github-outbound-credential?${params.toString()}`,
+  )
 }
 
 export function listIssueConnectors(projectId: string) {

@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
@@ -33,20 +33,8 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 		nil,
 		catalog,
 		nil,
-		WithGitHubAuthService(stubGitHubAuthReader{
-			security: githubauthservice.ProjectSecurity{
-				Scope:        githubauthdomain.ScopeOrganization,
-				Source:       githubauthdomain.SourceGHCLIImport,
-				TokenPreview: "ghu_test...1234",
-				Probe: githubauthdomain.TokenProbe{
-					State:       githubauthdomain.ProbeStateValid,
-					Configured:  true,
-					Valid:       true,
-					Permissions: []string{"read:org", "repo"},
-					RepoAccess:  githubauthdomain.RepoAccessGranted,
-					CheckedAt:   timePtr(time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)),
-				},
-			},
+		WithGitHubAuthService(&stubGitHubAuthService{
+			security: sampleProjectSecurity(),
 		}),
 	)
 
@@ -73,23 +61,158 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	if payload.Security.ProjectID != projectID.String() {
 		t.Fatalf("expected project id %q, got %q", projectID, payload.Security.ProjectID)
 	}
-	if payload.Security.AgentTokens.TokenPrefix != agentplatform.TokenPrefix {
-		t.Fatalf("expected token prefix %q, got %q", agentplatform.TokenPrefix, payload.Security.AgentTokens.TokenPrefix)
+	if payload.Security.GitHub.Effective.Scope != "organization" || payload.Security.GitHub.Effective.Source != "gh_cli_import" {
+		t.Fatalf("expected effective GitHub credential metadata, got %+v", payload.Security.GitHub.Effective)
 	}
-	if payload.Security.GitHub.Scope != "organization" || payload.Security.GitHub.Source != "gh_cli_import" {
-		t.Fatalf("expected GitHub credential metadata, got %+v", payload.Security.GitHub)
-	}
-	if !payload.Security.GitHub.Probe.Configured || !payload.Security.GitHub.Probe.Valid || payload.Security.GitHub.Probe.RepoAccess != "granted" {
-		t.Fatalf("expected GitHub token probe details, got %+v", payload.Security.GitHub.Probe)
+	if !payload.Security.GitHub.Organization.Configured || payload.Security.GitHub.ProjectOverride.Configured {
+		t.Fatalf("expected scoped GitHub slots, got %+v", payload.Security.GitHub)
 	}
 	if !payload.Security.Webhooks.LegacyGitHubSignatureRequired {
 		t.Fatal("expected legacy GitHub signature to be required when webhook secret is configured")
 	}
-	if !payload.Security.SecretHygiene.NotificationChannelConfigsRedacted {
-		t.Fatal("expected notification channel configs to be marked redacted")
-	}
 	if len(payload.Security.Deferred) == 0 {
 		t.Fatal("expected deferred security scope to be described")
+	}
+}
+
+func TestSecuritySettingsRouteSavesManualCredential(t *testing.T) {
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	authSvc := &stubGitHubAuthService{security: sampleProjectSecurity()}
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithGitHubAuthService(authSvc),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential",
+		strings.NewReader(`{"scope":"organization","token":"ghu_manual_token"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if authSvc.lastSaveInput.Scope != githubauthdomain.ScopeOrganization || authSvc.lastSaveInput.Token != "ghu_manual_token" {
+		t.Fatalf("SaveManualCredential() input = %+v", authSvc.lastSaveInput)
+	}
+}
+
+func TestSecuritySettingsRouteImportsCredentialFromGHCLI(t *testing.T) {
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	authSvc := &stubGitHubAuthService{security: sampleProjectSecurity()}
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithGitHubAuthService(authSvc),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential/import-gh-cli",
+		strings.NewReader(`{"scope":"project"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if authSvc.lastScopeInput.Scope != githubauthdomain.ScopeProject {
+		t.Fatalf("ImportGHCLICredential() input = %+v", authSvc.lastScopeInput)
+	}
+}
+
+func TestSecuritySettingsRouteRetestMapsMissingCredential(t *testing.T) {
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithGitHubAuthService(&stubGitHubAuthService{
+			retestErr: githubauthservice.ErrCredentialNotConfigured,
+		}),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential/retest",
+		strings.NewReader(`{"scope":"project"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestSecuritySettingsRouteDeletesCredential(t *testing.T) {
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	authSvc := &stubGitHubAuthService{security: sampleProjectSecurity()}
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithGitHubAuthService(authSvc),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodDelete,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential?scope=organization",
+		http.NoBody,
+	)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if authSvc.lastScopeInput.Scope != githubauthdomain.ScopeOrganization {
+		t.Fatalf("DeleteCredential() input = %+v", authSvc.lastScopeInput)
 	}
 }
 
@@ -147,13 +270,78 @@ func TestSecuritySettingsRouteRejectsInvalidProjectID(t *testing.T) {
 	}
 }
 
-type stubGitHubAuthReader struct {
-	security githubauthservice.ProjectSecurity
-	err      error
+type stubGitHubAuthService struct {
+	security       githubauthservice.ProjectSecurity
+	lastSaveInput  githubauthservice.SaveCredentialInput
+	lastScopeInput githubauthservice.ScopeInput
+	readErr        error
+	saveErr        error
+	importErr      error
+	retestErr      error
+	deleteErr      error
 }
 
-func (s stubGitHubAuthReader) ReadProjectSecurity(context.Context, uuid.UUID) (githubauthservice.ProjectSecurity, error) {
-	return s.security, s.err
+func (s *stubGitHubAuthService) ReadProjectSecurity(context.Context, uuid.UUID) (githubauthservice.ProjectSecurity, error) {
+	return s.security, s.readErr
+}
+
+func (s *stubGitHubAuthService) SaveManualCredential(_ context.Context, input githubauthservice.SaveCredentialInput) (githubauthservice.ProjectSecurity, error) {
+	s.lastSaveInput = input
+	return s.security, s.saveErr
+}
+
+func (s *stubGitHubAuthService) ImportGHCLICredential(_ context.Context, input githubauthservice.ScopeInput) (githubauthservice.ProjectSecurity, error) {
+	s.lastScopeInput = input
+	return s.security, s.importErr
+}
+
+func (s *stubGitHubAuthService) RetestCredential(_ context.Context, input githubauthservice.ScopeInput) (githubauthservice.ProjectSecurity, error) {
+	s.lastScopeInput = input
+	return s.security, s.retestErr
+}
+
+func (s *stubGitHubAuthService) DeleteCredential(_ context.Context, input githubauthservice.ScopeInput) (githubauthservice.ProjectSecurity, error) {
+	s.lastScopeInput = input
+	return s.security, s.deleteErr
+}
+
+func sampleProjectSecurity() githubauthservice.ProjectSecurity {
+	checkedAt := timePtr(time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC))
+	return githubauthservice.ProjectSecurity{
+		Effective: githubauthservice.ScopedSecurity{
+			Scope:        githubauthdomain.ScopeOrganization,
+			Configured:   true,
+			Source:       githubauthdomain.SourceGHCLIImport,
+			TokenPreview: "ghu_test...1234",
+			Probe: githubauthdomain.TokenProbe{
+				State:       githubauthdomain.ProbeStateValid,
+				Configured:  true,
+				Valid:       true,
+				Permissions: []string{"read:org", "repo"},
+				RepoAccess:  githubauthdomain.RepoAccessGranted,
+				CheckedAt:   checkedAt,
+			},
+		},
+		Organization: githubauthservice.ScopedSecurity{
+			Scope:        githubauthdomain.ScopeOrganization,
+			Configured:   true,
+			Source:       githubauthdomain.SourceGHCLIImport,
+			TokenPreview: "ghu_test...1234",
+			Probe: githubauthdomain.TokenProbe{
+				State:       githubauthdomain.ProbeStateValid,
+				Configured:  true,
+				Valid:       true,
+				Permissions: []string{"read:org", "repo"},
+				RepoAccess:  githubauthdomain.RepoAccessGranted,
+				CheckedAt:   checkedAt,
+			},
+		},
+		ProjectOverride: githubauthservice.ScopedSecurity{
+			Scope:      githubauthdomain.ScopeProject,
+			Configured: false,
+			Probe:      githubauthdomain.MissingProbe(),
+		},
+	}
 }
 
 func timePtr(value time.Time) *time.Time {

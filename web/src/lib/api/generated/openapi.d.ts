@@ -892,6 +892,58 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/security-settings/github-outbound-credential': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Save a platform-managed GitHub outbound credential */
+    put: operations['saveGitHubOutboundCredential']
+    post?: never
+    /** Delete a stored platform-managed GitHub outbound credential */
+    delete: operations['deleteGitHubOutboundCredential']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Import the current gh auth token into platform-managed GitHub credential storage */
+    post: operations['importGitHubOutboundCredentialFromGHCLI']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Retest a stored platform-managed GitHub outbound credential */
+    post: operations['retestGitHubOutboundCredential']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/skills': {
     parameters: {
       query?: never
@@ -7689,18 +7741,51 @@ export interface operations {
                 title?: string
               }[]
               github?: {
-                probe?: {
-                  checked_at?: string | null
+                effective?: {
                   configured?: boolean
-                  last_error?: string
-                  permissions?: string[]
-                  repo_access?: string
-                  state?: string
-                  valid?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
                 }
-                scope?: string
-                source?: string
-                token_preview?: string
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
               }
               project_id?: string
               secret_hygiene?: {
@@ -7727,8 +7812,689 @@ export interface operations {
           }
         }
       }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  saveGitHubOutboundCredential: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Save a platform-managed GitHub outbound credential request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Credential scope to mutate. Supported values are organization and project. */
+          scope?: string
+          /** @description GitHub token value copied into platform-managed secret storage. */
+          token?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Save a platform-managed GitHub outbound credential response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            security?: {
+              agent_tokens?: {
+                default_scopes?: string[]
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                token_prefix?: string
+                transport?: string
+              }
+              deferred?: {
+                key?: string
+                summary?: string
+                title?: string
+              }[]
+              github?: {
+                effective?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+              }
+              project_id?: string
+              secret_hygiene?: {
+                notification_channel_configs_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+                legacy_github_endpoint?: string
+                legacy_github_signature_required?: boolean
+              }
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteGitHubOutboundCredential: {
+    parameters: {
+      query: {
+        /** @description Credential scope to delete. Supported values are organization and project. */
+        scope: string
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete a stored platform-managed GitHub outbound credential response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            security?: {
+              agent_tokens?: {
+                default_scopes?: string[]
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                token_prefix?: string
+                transport?: string
+              }
+              deferred?: {
+                key?: string
+                summary?: string
+                title?: string
+              }[]
+              github?: {
+                effective?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+              }
+              project_id?: string
+              secret_hygiene?: {
+                notification_channel_configs_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+                legacy_github_endpoint?: string
+                legacy_github_signature_required?: boolean
+              }
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  importGitHubOutboundCredentialFromGHCLI: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Import the current gh auth token into platform-managed GitHub credential storage request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Credential scope to mutate. Supported values are organization and project. */
+          scope?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Import the current gh auth token into platform-managed GitHub credential storage response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            security?: {
+              agent_tokens?: {
+                default_scopes?: string[]
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                token_prefix?: string
+                transport?: string
+              }
+              deferred?: {
+                key?: string
+                summary?: string
+                title?: string
+              }[]
+              github?: {
+                effective?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+              }
+              project_id?: string
+              secret_hygiene?: {
+                notification_channel_configs_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+                legacy_github_endpoint?: string
+                legacy_github_signature_required?: boolean
+              }
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  retestGitHubOutboundCredential: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Retest a stored platform-managed GitHub outbound credential request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Credential scope to mutate. Supported values are organization and project. */
+          scope?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Retest a stored platform-managed GitHub outbound credential response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            security?: {
+              agent_tokens?: {
+                default_scopes?: string[]
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                token_prefix?: string
+                transport?: string
+              }
+              deferred?: {
+                key?: string
+                summary?: string
+                title?: string
+              }[]
+              github?: {
+                effective?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+              }
+              project_id?: string
+              secret_hygiene?: {
+                notification_channel_configs_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+                legacy_github_endpoint?: string
+                legacy_github_signature_required?: boolean
+              }
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
         headers: {
           [name: string]: unknown
         }
