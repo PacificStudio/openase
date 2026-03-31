@@ -1472,6 +1472,7 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 		{"repo_pr", TicketRepoScopePRStatusMerged, TicketRepoScopePRStatusMerged.IsValid, "merged"},
 		{"repo_ci", TicketRepoScopeCIStatusPassing, TicketRepoScopeCIStatusPassing.IsValid, "passing"},
 		{"machine", MachineStatusOffline, MachineStatusOffline.IsValid, "offline"},
+		{"provider_capability", AgentProviderCapabilityStateUnsupported, AgentProviderCapabilityStateUnsupported.IsValid, "unsupported"},
 		{"adapter", AgentProviderAdapterTypeCustom, AgentProviderAdapterTypeCustom.IsValid, "custom"},
 		{"agent_status", AgentStatusPaused, AgentStatusPaused.IsValid, "paused"},
 		{"runtime_phase", AgentRuntimePhaseFailed, AgentRuntimePhaseFailed.IsValid, "failed"},
@@ -1484,9 +1485,9 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 		}
 	}
 	if OrganizationStatus("bad").IsValid() || ProjectStatus("bad").IsValid() || TicketRepoScopePRStatus("bad").IsValid() ||
-		TicketRepoScopeCIStatus("bad").IsValid() || MachineStatus("bad").IsValid() || AgentProviderAdapterType("bad").IsValid() ||
-		AgentStatus("bad").IsValid() || AgentRuntimePhase("bad").IsValid() || AgentRunStatus("bad").IsValid() ||
-		AgentRuntimeControlState("bad").IsValid() {
+		TicketRepoScopeCIStatus("bad").IsValid() || MachineStatus("bad").IsValid() || AgentProviderCapabilityState("bad").IsValid() ||
+		AgentProviderAdapterType("bad").IsValid() || AgentStatus("bad").IsValid() || AgentRuntimePhase("bad").IsValid() ||
+		AgentRunStatus("bad").IsValid() || AgentRuntimeControlState("bad").IsValid() {
 		t.Fatal("expected invalid enum values to be rejected")
 	}
 }

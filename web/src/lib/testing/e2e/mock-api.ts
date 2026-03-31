@@ -682,6 +682,12 @@ function createInitialState(): MockState {
       available: true,
       availability_checked_at: nowIso,
       availability_reason: null,
+      capabilities: {
+        ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+      },
       cli_command: 'codex',
       cli_args: ['app-server', '--listen', 'stdio://'],
       auth_config: { profile: 'default' },
@@ -706,6 +712,12 @@ function createInitialState(): MockState {
       available: true,
       availability_checked_at: nowIso,
       availability_reason: null,
+      capabilities: {
+        ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+      },
       cli_command: 'claude',
       cli_args: [],
       auth_config: {},

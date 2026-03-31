@@ -11,7 +11,11 @@ import {
   summarizeExecutionResults,
   type ChatActionExecutionResult,
 } from './action-proposal-executor'
-import { listEphemeralChatProviders, pickDefaultEphemeralChatProvider } from './provider-options'
+import {
+  listEphemeralChatProviders,
+  pickDefaultEphemeralChatProvider,
+  shouldKeepEphemeralChatProvider,
+} from './provider-options'
 import { formatEphemeralChatUsageSummary } from './session-policy'
 import {
   appendAssistantTextChunk,
@@ -93,7 +97,7 @@ export function createEphemeralChatSessionController(
       applyAssistantTextUpdate(
         finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
       )
-      reportError(event.payload.message)
+      input.onError?.(event.payload.message)
       pending = false
       return
     }
@@ -113,10 +117,6 @@ export function createEphemeralChatSessionController(
     }
 
     appendMappedEntry(messageEvent)
-  }
-
-  function reportError(message: string) {
-    input.onError?.(message)
   }
 
   async function closeActiveSession(options: CloseSessionOptions) {
@@ -143,7 +143,7 @@ export function createEphemeralChatSessionController(
       if (options.suppressError || closeRequestId !== requestId) {
         return
       }
-      reportError(
+      input.onError?.(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to close chat session.',
       )
     }
@@ -194,10 +194,7 @@ export function createEphemeralChatSessionController(
     syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
       providers = listEphemeralChatProviders(nextProviders)
 
-      if (
-        providerId &&
-        providers.some((provider) => provider.id === providerId && provider.available)
-      ) {
+      if (shouldKeepEphemeralChatProvider(providers, providerId)) {
         return
       }
 
@@ -242,7 +239,7 @@ export function createEphemeralChatSessionController(
         )
       } catch (caughtError) {
         if (activeRequestId === requestId && !isAbortError(caughtError)) {
-          reportError(
+          input.onError?.(
             caughtError instanceof ApiError ? caughtError.detail : 'Ephemeral chat request failed.',
           )
         }

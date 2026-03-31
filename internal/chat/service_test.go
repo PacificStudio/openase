@@ -684,6 +684,227 @@ func TestStartTurnAllowsUnlimitedProjectSidebarResume(t *testing.T) {
 	}
 }
 
+func TestStartTurnUsesProjectDefaultEphemeralChatProvider(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440101")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440101")
+	defaultProviderID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440101")
+	fallbackProviderID := uuid.MustParse("990e8400-e29b-41d4-a716-446655440101")
+	runtime := &fakeRuntime{
+		streamEvents: []StreamEvent{{
+			Event: "done",
+			Payload: donePayload{
+				SessionID: "sess-default-provider",
+				TurnsUsed: 1,
+			},
+		}},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:                     projectID,
+				OrganizationID:         orgID,
+				Name:                   "OpenASE",
+				DefaultAgentProviderID: &defaultProviderID,
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             defaultProviderID,
+					OrganizationID: orgID,
+					Name:           "Codex",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:     "codex",
+					Available:      true,
+				},
+				{
+					ID:             fallbackProviderID,
+					OrganizationID: orgID,
+					Name:           "Claude",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+					CliCommand:     "claude",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+
+	stream, err := service.StartTurn(context.Background(), UserID("user:test"), StartInput{
+		Message: "Summarize project",
+		Source:  SourceProjectSidebar,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	_ = collectStreamEvents(stream.Events)
+
+	if runtime.lastInput.Provider.ID != defaultProviderID {
+		t.Fatalf("provider id = %s, want default %s", runtime.lastInput.Provider.ID, defaultProviderID)
+	}
+}
+
+func TestStartTurnFallsBackWhenDefaultProviderDoesNotSupportEphemeralChat(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440102")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440102")
+	defaultProviderID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440102")
+	fallbackProviderID := uuid.MustParse("990e8400-e29b-41d4-a716-446655440102")
+	runtime := &fakeRuntime{
+		streamEvents: []StreamEvent{{
+			Event: "done",
+			Payload: donePayload{
+				SessionID: "sess-fallback-provider",
+				TurnsUsed: 1,
+			},
+		}},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:                     projectID,
+				OrganizationID:         orgID,
+				Name:                   "OpenASE",
+				DefaultAgentProviderID: &defaultProviderID,
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             defaultProviderID,
+					OrganizationID: orgID,
+					Name:           "Custom",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCustom,
+					CliCommand:     "custom-chat",
+					Available:      true,
+				},
+				{
+					ID:             fallbackProviderID,
+					OrganizationID: orgID,
+					Name:           "Gemini",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+					CliCommand:     "gemini",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+
+	stream, err := service.StartTurn(context.Background(), UserID("user:test"), StartInput{
+		Message: "Summarize project",
+		Source:  SourceProjectSidebar,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	_ = collectStreamEvents(stream.Events)
+
+	if runtime.lastInput.Provider.ID != fallbackProviderID {
+		t.Fatalf("provider id = %s, want fallback %s", runtime.lastInput.Provider.ID, fallbackProviderID)
+	}
+}
+
+func TestStartTurnRejectsExplicitUnsupportedEphemeralChatProvider(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440103")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440103")
+	providerID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440103")
+	service := NewService(
+		nil,
+		&fakeRuntime{},
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             providerID,
+					OrganizationID: orgID,
+					Name:           "Custom",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCustom,
+					CliCommand:     "custom-chat",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+
+	_, err := service.StartTurn(context.Background(), UserID("user:test"), StartInput{
+		Message:    "Summarize project",
+		Source:     SourceProjectSidebar,
+		ProviderID: &providerID,
+		Context:    Context{ProjectID: projectID},
+	})
+	if !errors.Is(err, ErrProviderUnsupported) {
+		t.Fatalf("StartTurn() error = %v, want %v", err, ErrProviderUnsupported)
+	}
+	if !strings.Contains(err.Error(), "reason=unsupported_adapter") {
+		t.Fatalf("expected unsupported reason in error, got %v", err)
+	}
+}
+
+func TestStartTurnRejectsExplicitUnavailableEphemeralChatProvider(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440104")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440104")
+	providerID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440104")
+	service := NewService(
+		nil,
+		&fakeRuntime{},
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:                 providerID,
+					OrganizationID:     orgID,
+					Name:               "Codex",
+					AdapterType:        catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:         "codex",
+					Available:          false,
+					AvailabilityReason: stringPointer("machine_offline"),
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+
+	_, err := service.StartTurn(context.Background(), UserID("user:test"), StartInput{
+		Message:    "Summarize project",
+		Source:     SourceProjectSidebar,
+		ProviderID: &providerID,
+		Context:    Context{ProjectID: projectID},
+	})
+	if !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("StartTurn() error = %v, want %v", err, ErrProviderUnavailable)
+	}
+	if !strings.Contains(err.Error(), "reason=machine_offline") {
+		t.Fatalf("expected unavailable reason in error, got %v", err)
+	}
+}
+
 func TestStartTurnRejectsResumeAfterBudgetExceeded(t *testing.T) {
 	t.Parallel()
 
@@ -930,9 +1151,13 @@ type fakeRuntime struct {
 	startErr     error
 	closeCalls   []SessionID
 	startFn      func(RuntimeTurnInput) []StreamEvent
+	supportFn    func(catalogdomain.AgentProvider) bool
 }
 
-func (r *fakeRuntime) Supports(catalogdomain.AgentProvider) bool {
+func (r *fakeRuntime) Supports(provider catalogdomain.AgentProvider) bool {
+	if r.supportFn != nil {
+		return r.supportFn(provider)
+	}
 	return true
 }
 

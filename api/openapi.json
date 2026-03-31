@@ -5408,6 +5408,23 @@
                           "available": {
                             "type": "boolean"
                           },
+                          "capabilities": {
+                            "properties": {
+                              "ephemeral_chat": {
+                                "properties": {
+                                  "reason": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
                           "cli_args": {
                             "items": {
                               "type": "string"
@@ -5654,6 +5671,23 @@
                         },
                         "available": {
                           "type": "boolean"
+                        },
+                        "capabilities": {
+                          "properties": {
+                            "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
                         },
                         "cli_args": {
                           "items": {
@@ -15785,6 +15819,23 @@
                         "available": {
                           "type": "boolean"
                         },
+                        "capabilities": {
+                          "properties": {
+                            "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "cli_args": {
                           "items": {
                             "type": "string"
@@ -16036,6 +16087,23 @@
                         },
                         "available": {
                           "type": "boolean"
+                        },
+                        "capabilities": {
+                          "properties": {
+                            "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
                         },
                         "cli_args": {
                           "items": {

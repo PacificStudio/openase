@@ -87,6 +87,12 @@ const providerFixtures: AgentProvider[] = [
     available: true,
     availability_checked_at: '2026-03-28T12:00:00Z',
     availability_reason: null,
+    capabilities: {
+      ephemeral_chat: {
+        state: 'available',
+        reason: null,
+      },
+    },
     cli_command: 'codex',
     cli_args: [],
     auth_config: {},
