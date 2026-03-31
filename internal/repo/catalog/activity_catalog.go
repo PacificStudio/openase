@@ -13,6 +13,7 @@ import (
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
 )
@@ -124,15 +125,17 @@ func mapActivityEvents(items []*ent.ActivityEvent) []domain.ActivityEvent {
 }
 
 func mapActivityEvent(item *ent.ActivityEvent) domain.ActivityEvent {
+	eventType, unknownRaw := activityevent.ParseStoredType(item.EventType, nil)
 	return domain.ActivityEvent{
-		ID:        item.ID,
-		ProjectID: item.ProjectID,
-		TicketID:  item.TicketID,
-		AgentID:   item.AgentID,
-		EventType: item.EventType,
-		Message:   item.Message,
-		Metadata:  cloneAnyMap(item.Metadata),
-		CreatedAt: cloneActivityCreatedAt(item.CreatedAt),
+		ID:                  item.ID,
+		ProjectID:           item.ProjectID,
+		TicketID:            item.TicketID,
+		AgentID:             item.AgentID,
+		EventType:           eventType,
+		UnknownEventTypeRaw: unknownRaw,
+		Message:             item.Message,
+		Metadata:            cloneAnyMap(item.Metadata),
+		CreatedAt:           cloneActivityCreatedAt(item.CreatedAt),
 	}
 }
 

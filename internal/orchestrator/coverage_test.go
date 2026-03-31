@@ -978,6 +978,17 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	if err := publishAgentLifecycleEvent(ctx, nil, nil, agentReadyType, state, "agent ready without persistence", map[string]any{"status": "running"}, lifecyclePublishedAt); err != nil {
 		t.Fatalf("publishAgentLifecycleEvent(nil client, nil events) error = %v", err)
 	}
+	if err := publishAgentLifecycleEvent(ctx, client, bus, agentHeartbeatType, state, "agent heartbeat", map[string]any{"status": "running"}, lifecyclePublishedAt.Add(time.Second)); err != nil {
+		t.Fatalf("publishAgentLifecycleEvent(heartbeat) error = %v", err)
+	}
+	select {
+	case event := <-lifecycleStream:
+		if event.Topic != agentLifecycleTopic || event.Type != agentHeartbeatType {
+			t.Fatalf("agent heartbeat lifecycle event = %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for agent heartbeat lifecycle event")
+	}
 	if err := publishAgentLifecycleEvent(ctx, client, nil, agentReadyType, agentLifecycleState{}, "missing agent", nil, lifecyclePublishedAt); err == nil || !strings.Contains(err.Error(), "agent lifecycle event requires an agent") {
 		t.Fatalf("publishAgentLifecycleEvent(missing agent) error = %v", err)
 	}
@@ -990,6 +1001,15 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	}
 	if len(lifecycleActivities) == 0 || lifecycleActivities[0].Message != "agent ready" || lifecycleActivities[0].Metadata["phase"] != "executing" {
 		t.Fatalf("agent lifecycle activities = %+v", lifecycleActivities)
+	}
+	heartbeatActivities, err := client.ActivityEvent.Query().
+		Where(entactivityevent.EventTypeEQ(agentHeartbeatType.String())).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query agent heartbeat activities: %v", err)
+	}
+	if len(heartbeatActivities) != 0 {
+		t.Fatalf("expected heartbeat lifecycle events to stay out of activity catalog, got %+v", heartbeatActivities)
 	}
 
 	launcher := &RuntimeLauncher{

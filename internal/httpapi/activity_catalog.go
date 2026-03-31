@@ -54,14 +54,22 @@ func mapActivityEventResponses(items []domain.ActivityEvent) []activityEventResp
 }
 
 func mapActivityEventResponse(item domain.ActivityEvent) activityEventResponse {
+	metadata := cloneMap(item.Metadata)
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	if item.UnknownEventTypeRaw != "" {
+		metadata["unknown_event_type_raw"] = item.UnknownEventTypeRaw
+	}
+
 	return activityEventResponse{
 		ID:        item.ID.String(),
 		ProjectID: item.ProjectID.String(),
 		TicketID:  uuidToStringPointer(item.TicketID),
 		AgentID:   uuidToStringPointer(item.AgentID),
-		EventType: item.EventType,
+		EventType: item.EventType.String(),
 		Message:   item.Message,
-		Metadata:  cloneMap(item.Metadata),
+		Metadata:  metadata,
 		CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }

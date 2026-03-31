@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -840,7 +841,13 @@ func renderActivityLines(items []catalogdomain.ActivityEvent) string {
 
 	var sb strings.Builder
 	for _, item := range items {
-		_, _ = fmt.Fprintf(&sb, "- [%s] %s (%s)\n", item.CreatedAt.UTC().Format(time.RFC3339), item.Message, item.EventType)
+		_, _ = fmt.Fprintf(
+			&sb,
+			"- [%s] %s (%s)\n",
+			item.CreatedAt.UTC().Format(time.RFC3339),
+			item.Message,
+			item.EventType.String(),
+		)
 	}
 	return sb.String()
 }
@@ -857,15 +864,12 @@ func filterHookActivityEvents(items []catalogdomain.ActivityEvent) []catalogdoma
 }
 
 func isHookActivityEvent(item catalogdomain.ActivityEvent) bool {
-	if strings.Contains(strings.ToLower(item.EventType), "hook") {
+	switch item.EventType {
+	case activityevent.TypeHookStarted, activityevent.TypeHookPassed, activityevent.TypeHookFailed:
 		return true
+	default:
+		return false
 	}
-	for _, key := range []string{"hook", "hook_name", "hook_stage", "hook_result", "hook_outcome"} {
-		if _, ok := item.Metadata[key]; ok {
-			return true
-		}
-	}
-	return false
 }
 
 func uuidPtrValue(value *uuid.UUID) uuid.UUID {

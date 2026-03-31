@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/google/uuid"
 	"github.com/nikolalohinski/gonja/v2"
 	"github.com/nikolalohinski/gonja/v2/exec"
@@ -15,9 +16,28 @@ import (
 type RuleEventType string
 
 const (
-	RuleEventTypeTicketCreated       RuleEventType = "ticket.created"
-	RuleEventTypeTicketUpdated       RuleEventType = "ticket.updated"
-	RuleEventTypeTicketStatusChanged RuleEventType = "ticket.status_changed"
+	RuleEventTypeTicketCreated         RuleEventType = RuleEventType(activityevent.TypeTicketCreated)
+	RuleEventTypeTicketUpdated         RuleEventType = RuleEventType(activityevent.TypeTicketUpdated)
+	RuleEventTypeTicketStatusChanged   RuleEventType = RuleEventType(activityevent.TypeTicketStatusChanged)
+	RuleEventTypeTicketCompleted       RuleEventType = RuleEventType(activityevent.TypeTicketCompleted)
+	RuleEventTypeTicketCancelled       RuleEventType = RuleEventType(activityevent.TypeTicketCancelled)
+	RuleEventTypeTicketRetryScheduled  RuleEventType = RuleEventType(activityevent.TypeTicketRetryScheduled)
+	RuleEventTypeTicketRetryPaused     RuleEventType = RuleEventType(activityevent.TypeTicketRetryPaused)
+	RuleEventTypeTicketBudgetExhausted RuleEventType = RuleEventType(activityevent.TypeTicketBudgetExhausted)
+	RuleEventTypeAgentClaimed          RuleEventType = RuleEventType(activityevent.TypeAgentClaimed)
+	RuleEventTypeAgentFailed           RuleEventType = RuleEventType(activityevent.TypeAgentFailed)
+	RuleEventTypeHookFailed            RuleEventType = RuleEventType(activityevent.TypeHookFailed)
+	RuleEventTypeHookPassed            RuleEventType = RuleEventType(activityevent.TypeHookPassed)
+	RuleEventTypePROpened              RuleEventType = RuleEventType(activityevent.TypePROpened)
+	RuleEventTypePRMerged              RuleEventType = RuleEventType(activityevent.TypePRMerged)
+	RuleEventTypePRClosed              RuleEventType = RuleEventType(activityevent.TypePRClosed)
+	RuleEventTypeTicketStalled         RuleEventType = "ticket.stalled"
+	RuleEventTypeTicketErrorRateHigh   RuleEventType = "ticket.error_rate_high"
+	RuleEventTypeMachineOffline        RuleEventType = "machine.offline"
+	RuleEventTypeMachineOnline         RuleEventType = "machine.online"
+	RuleEventTypeMachineDegraded       RuleEventType = "machine.degraded"
+	RuleEventTypeConnectorSyncError    RuleEventType = "connector.sync_error"
+	RuleEventTypeBudgetThreshold       RuleEventType = "budget.threshold"
 )
 
 // RuleEventCatalogEntry describes a selectable event type for UI/API consumers.
@@ -42,6 +62,101 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 		EventType:       RuleEventTypeTicketStatusChanged,
 		Label:           "Ticket Status Changed",
 		DefaultTemplate: "Ticket status changed: {{ ticket.identifier }}\n{{ ticket.title }}\nNew status: {{ new_status }}",
+	},
+	{
+		EventType:       RuleEventTypeTicketCompleted,
+		Label:           "Ticket Completed",
+		DefaultTemplate: "{{ ticket.identifier }} completed",
+	},
+	{
+		EventType:       RuleEventTypeTicketCancelled,
+		Label:           "Ticket Cancelled",
+		DefaultTemplate: "{{ ticket.identifier }} cancelled",
+	},
+	{
+		EventType:       RuleEventTypeTicketRetryScheduled,
+		Label:           "Ticket Retry Scheduled",
+		DefaultTemplate: "{{ ticket.identifier }} will retry at {{ next_retry_at }}",
+	},
+	{
+		EventType:       RuleEventTypeTicketRetryPaused,
+		Label:           "Ticket Retry Paused",
+		DefaultTemplate: "{{ ticket.identifier }} retry paused: {{ pause_reason }}",
+	},
+	{
+		EventType:       RuleEventTypeTicketBudgetExhausted,
+		Label:           "Ticket Budget Exhausted",
+		DefaultTemplate: "{{ ticket.identifier }} budget exhausted (${{ cost_amount }}/${{ budget_usd }})",
+	},
+	{
+		EventType:       RuleEventTypeAgentClaimed,
+		Label:           "Agent Claimed",
+		DefaultTemplate: "{{ agent.name }} claimed {{ ticket.identifier }}",
+	},
+	{
+		EventType:       RuleEventTypeAgentFailed,
+		Label:           "Agent Failed",
+		DefaultTemplate: "Agent {{ agent.name }} failed {{ ticket.identifier }}: {{ error }}",
+	},
+	{
+		EventType:       RuleEventTypeHookFailed,
+		Label:           "Hook Failed",
+		DefaultTemplate: "{{ ticket.identifier }} hook {{ hook_name }} failed: {{ error }}",
+	},
+	{
+		EventType:       RuleEventTypeHookPassed,
+		Label:           "Hook Passed",
+		DefaultTemplate: "{{ ticket.identifier }} hook {{ hook_name }} passed",
+	},
+	{
+		EventType:       RuleEventTypePROpened,
+		Label:           "PR Opened",
+		DefaultTemplate: "{{ ticket.identifier }} PR opened: {{ pull_request_url }}",
+	},
+	{
+		EventType:       RuleEventTypePRMerged,
+		Label:           "PR Merged",
+		DefaultTemplate: "{{ ticket.identifier }} PR merged: {{ pull_request_url }}",
+	},
+	{
+		EventType:       RuleEventTypePRClosed,
+		Label:           "PR Closed",
+		DefaultTemplate: "{{ ticket.identifier }} PR closed: {{ pull_request_url }}",
+	},
+	{
+		EventType:       RuleEventTypeTicketStalled,
+		Label:           "Ticket Stalled",
+		DefaultTemplate: "{{ ticket.identifier }} agent is stalled",
+	},
+	{
+		EventType:       RuleEventTypeTicketErrorRateHigh,
+		Label:           "Ticket Error Rate High",
+		DefaultTemplate: "{{ ticket.identifier }} failed {{ consecutive_errors }} times",
+	},
+	{
+		EventType:       RuleEventTypeMachineOffline,
+		Label:           "Machine Offline",
+		DefaultTemplate: "Machine {{ machine.name }} is offline",
+	},
+	{
+		EventType:       RuleEventTypeMachineOnline,
+		Label:           "Machine Online",
+		DefaultTemplate: "Machine {{ machine.name }} is online",
+	},
+	{
+		EventType:       RuleEventTypeMachineDegraded,
+		Label:           "Machine Degraded",
+		DefaultTemplate: "Machine {{ machine.name }} degraded: {{ disk_free_gb }}GB free",
+	},
+	{
+		EventType:       RuleEventTypeConnectorSyncError,
+		Label:           "Connector Sync Error",
+		DefaultTemplate: "Connector {{ connector.name }} sync failed: {{ error }}",
+	},
+	{
+		EventType:       RuleEventTypeBudgetThreshold,
+		Label:           "Budget Threshold",
+		DefaultTemplate: "Project {{ project.name }} spent ${{ cost_usd }}",
 	},
 }
 

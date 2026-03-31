@@ -10,6 +10,7 @@ import (
 	"time"
 
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
@@ -803,13 +804,16 @@ func buildTicketCommentTimelineItem(item ticketservice.Comment) ticketTimelineIt
 
 func buildTicketActivityTimelineItem(ticketID uuid.UUID, item domain.ActivityEvent) ticketTimelineItemResponse {
 	actorName, actorType := activityTimelineActor(item)
-	title := item.EventType
+	title := item.EventType.String()
 	bodyText := item.Message
 	metadata := cloneMap(item.Metadata)
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
-	metadata["event_type"] = item.EventType
+	metadata["event_type"] = item.EventType.String()
+	if item.UnknownEventTypeRaw != "" {
+		metadata["unknown_event_type_raw"] = item.UnknownEventTypeRaw
+	}
 
 	return ticketTimelineItemResponse{
 		ID:            fmt.Sprintf("activity:%s", item.ID),
@@ -923,7 +927,7 @@ func filterHookActivityEvents(items []domain.ActivityEvent) []domain.ActivityEve
 func filterNonCommentActivityEvents(items []domain.ActivityEvent) []domain.ActivityEvent {
 	filtered := make([]domain.ActivityEvent, 0, len(items))
 	for _, item := range items {
-		if item.EventType == ticketCommentEventType {
+		if item.EventType.String() == ticketCommentEventType || item.UnknownEventTypeRaw == ticketCommentEventType {
 			continue
 		}
 		filtered = append(filtered, item)
@@ -933,17 +937,12 @@ func filterNonCommentActivityEvents(items []domain.ActivityEvent) []domain.Activ
 }
 
 func isHookActivityEvent(item domain.ActivityEvent) bool {
-	if strings.Contains(strings.ToLower(item.EventType), "hook") {
+	switch item.EventType {
+	case activityevent.TypeHookStarted, activityevent.TypeHookPassed, activityevent.TypeHookFailed:
 		return true
+	default:
+		return false
 	}
-
-	for _, key := range []string{"hook", "hook_name", "hook_stage", "hook_result", "hook_outcome"} {
-		if _, ok := item.Metadata[key]; ok {
-			return true
-		}
-	}
-
-	return false
 }
 
 func mapTicketResponses(items []ticketservice.Ticket) []ticketResponse {

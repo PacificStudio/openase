@@ -2,6 +2,7 @@
   import { cn, formatRelativeTime } from '$lib/utils'
   import type { ActivityItem } from '../types'
   import { Bot, GitPullRequest, CheckCircle, Play, MessageSquare, Circle } from '@lucide/svelte'
+  import { activityEventTone } from '$lib/features/activity'
   import type { Component } from 'svelte'
 
   let {
@@ -13,29 +14,15 @@
   } = $props()
 
   const typeIcons: Record<string, Component> = {
+    'agent.claimed': Bot,
     'agent.launching': Play,
     'agent.ready': CheckCircle,
     'agent.failed': Bot,
-    'agent.heartbeat': Bot,
-    agent_started: Play,
-    agent_completed: CheckCircle,
-    pr_opened: GitPullRequest,
-    pr_merged: GitPullRequest,
+    'agent.completed': CheckCircle,
+    'pr.opened': GitPullRequest,
+    'pr.merged': GitPullRequest,
+    'pr.closed': GitPullRequest,
     comment: MessageSquare,
-    agent_assigned: Bot,
-  }
-
-  const typeColors: Record<string, string> = {
-    'agent.launching': 'text-blue-500',
-    'agent.ready': 'text-emerald-500',
-    'agent.failed': 'text-red-500',
-    'agent.heartbeat': 'text-blue-400',
-    agent_started: 'text-blue-500',
-    agent_completed: 'text-emerald-500',
-    pr_opened: 'text-purple-500',
-    pr_merged: 'text-emerald-500',
-    comment: 'text-muted-foreground',
-    agent_assigned: 'text-blue-400',
   }
 
   function getIcon(type: string): Component {
@@ -43,7 +30,18 @@
   }
 
   function getColor(type: string): string {
-    return typeColors[type] ?? 'text-muted-foreground'
+    switch (activityEventTone(type)) {
+      case 'success':
+        return 'text-emerald-500'
+      case 'warning':
+        return 'text-amber-500'
+      case 'danger':
+        return 'text-red-500'
+      case 'info':
+        return 'text-sky-500'
+      default:
+        return 'text-muted-foreground'
+    }
   }
 </script>
 

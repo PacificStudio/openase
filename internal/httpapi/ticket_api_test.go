@@ -19,6 +19,7 @@ import (
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -1378,7 +1379,7 @@ func TestBuildTicketTimelineKeepsDescriptionRootAndNormalizesActors(t *testing.T
 			ID:        activitySameTimeID,
 			ProjectID: projectID,
 			TicketID:  &ticketID,
-			EventType: "status.changed",
+			EventType: activityevent.TypeTicketStatusChanged,
 			Message:   "Moved to In Progress.",
 			Metadata:  map[string]any{"actor_name": "dispatcher"},
 			CreatedAt: baseTime.Add(2 * time.Minute),
@@ -1387,7 +1388,7 @@ func TestBuildTicketTimelineKeepsDescriptionRootAndNormalizesActors(t *testing.T
 			ID:        activityEarlierID,
 			ProjectID: projectID,
 			TicketID:  &ticketID,
-			EventType: "pr.opened",
+			EventType: activityevent.TypePROpened,
 			Message:   "Opened PR #333.",
 			Metadata:  map[string]any{"agent_name": "codex"},
 			CreatedAt: baseTime.Add(time.Minute),

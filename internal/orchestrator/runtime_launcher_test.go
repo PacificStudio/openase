@@ -557,8 +557,24 @@ Blocked lifecycle publish regression test.
 		activityCount, err := client.ActivityEvent.Query().
 			Where(entactivityevent.AgentIDEQ(agentItem.ID)).
 			Count(ctx)
-		return err == nil && activityCount >= 3
+		return err == nil && activityCount >= 2
 	})
+
+	activityTypes, err := client.ActivityEvent.Query().
+		Where(entactivityevent.AgentIDEQ(agentItem.ID)).
+		Order(ent.Asc(entactivityevent.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("list activity events after blocked publish: %v", err)
+	}
+	if len(activityTypes) != 2 {
+		t.Fatalf("expected only canonical lifecycle activity events to persist, got %+v", activityTypes)
+	}
+	for _, item := range activityTypes {
+		if item.EventType == agentHeartbeatType.String() {
+			t.Fatalf("expected heartbeat lifecycle event to stay out of activity persistence, got %+v", activityTypes)
+		}
+	}
 }
 
 func TestRuntimeLauncherStartRuntimeSessionSupportsGeminiProvider(t *testing.T) {

@@ -8,18 +8,8 @@
   import * as Select from '$ui/select'
   import { Search } from '@lucide/svelte'
   import type { ActivityEntry } from '../types'
+  import { activityEventFilterOptions } from '../event-catalog'
   import ActivityTimeline from './activity-timeline.svelte'
-
-  const eventTypes = [
-    { value: 'all', label: 'All events' },
-    { value: 'ticket_created', label: 'Ticket created' },
-    { value: 'agent_started', label: 'Agent started' },
-    { value: 'agent_completed', label: 'Agent completed' },
-    { value: 'hook_failed', label: 'Hook failed' },
-    { value: 'pr_opened', label: 'PR opened' },
-    { value: 'pr_merged', label: 'PR merged' },
-    { value: 'status_changed', label: 'Status changed' },
-  ]
 
   let entries = $state<ActivityEntry[]>([])
   let loading = $state(false)
@@ -68,7 +58,7 @@
 
         entries = activityPayload.events.map((event) => ({
           id: event.id,
-          eventType: normalizeEventType(event.event_type),
+          eventType: event.event_type,
           message: event.message,
           timestamp: event.created_at,
           ticketIdentifier: event.ticket_id
@@ -103,11 +93,6 @@
     }
   })
 
-  function normalizeEventType(eventType: string) {
-    if (eventType === 'comment_added') return 'comment'
-    return eventType
-  }
-
   function agentNameFromMetadata(metadata: Record<string, unknown>) {
     const value = metadata.agent_name
     return typeof value === 'string' ? value : undefined
@@ -128,10 +113,10 @@
         }}
       >
         <Select.Trigger class="w-44">
-          {eventTypes.find((t) => t.value === selectedType)?.label ?? 'All events'}
+          {activityEventFilterOptions.find((t) => t.value === selectedType)?.label ?? 'All events'}
         </Select.Trigger>
         <Select.Content>
-          {#each eventTypes as t (t.value)}
+          {#each activityEventFilterOptions as t (t.value)}
             <Select.Item value={t.value}>{t.label}</Select.Item>
           {/each}
         </Select.Content>

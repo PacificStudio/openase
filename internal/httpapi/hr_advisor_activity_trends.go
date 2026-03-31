@@ -64,7 +64,7 @@ func parseHRActivityTrends(items []catalogdomain.ActivityEvent) []hrdomain.Activ
 }
 
 func isMergeLikeActivity(item catalogdomain.ActivityEvent) bool {
-	eventType := normalizedActivityText(item.EventType)
+	eventType := normalizedActivityText(item.EventType.String())
 	message := normalizedActivityText(item.Message)
 	return strings.Contains(eventType, "pr.merged") ||
 		strings.Contains(eventType, "pull_request.merged") ||
@@ -76,7 +76,7 @@ func isMergeLikeActivity(item catalogdomain.ActivityEvent) bool {
 }
 
 func isDocumentationUpdateActivity(item catalogdomain.ActivityEvent) bool {
-	eventType := normalizedActivityText(item.EventType)
+	eventType := normalizedActivityText(item.EventType.String())
 	message := normalizedActivityText(item.Message)
 	if strings.Contains(eventType, "docs.") || strings.Contains(eventType, "doc.") || strings.Contains(eventType, "documentation") {
 		return true
@@ -113,7 +113,7 @@ func isDocumentationUpdateActivity(item catalogdomain.ActivityEvent) bool {
 }
 
 func isFailureActivity(item catalogdomain.ActivityEvent) bool {
-	eventType := normalizedActivityText(item.EventType)
+	eventType := normalizedActivityText(item.EventType.String())
 	return strings.Contains(eventType, "failed") || strings.Contains(eventType, "error")
 }
 

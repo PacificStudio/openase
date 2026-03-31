@@ -236,7 +236,7 @@ func TestHealthCheckerPausesRetryAfterThirdConsecutiveStall(t *testing.T) {
 	activityItems, err := client.ActivityEvent.Query().
 		Where(
 			entactivityevent.TicketIDEQ(ticketItem.ID),
-			entactivityevent.EventTypeEQ(stalledRetryPauseEventType),
+			entactivityevent.EventTypeEQ(stalledRetryPauseEventType.String()),
 		).
 		All(ctx)
 	if err != nil {

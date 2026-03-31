@@ -73,8 +73,8 @@ func TestParseCreateRuleRejectsInvalidChannelID(t *testing.T) {
 
 func TestRuleParsingAndTemplateHelpers(t *testing.T) {
 	events := SupportedRuleEvents()
-	if len(events) != 3 {
-		t.Fatalf("SupportedRuleEvents() length = %d, want 3", len(events))
+	if len(events) < 15 {
+		t.Fatalf("SupportedRuleEvents() length = %d, want expanded canonical catalog", len(events))
 	}
 	events[0].Label = "changed"
 	if SupportedRuleEvents()[0].Label == "changed" {

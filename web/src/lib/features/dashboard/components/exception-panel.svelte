@@ -13,17 +13,17 @@
   } = $props()
 
   const iconMap: Record<ExceptionItem['type'], Component> = {
-    hook_failed: XCircle,
-    budget_alert: DollarSign,
-    agent_stalled: Pause,
-    retry_paused: AlertTriangle,
+    'hook.failed': XCircle,
+    'ticket.budget_exhausted': DollarSign,
+    'agent.failed': Pause,
+    'ticket.retry_paused': AlertTriangle,
   }
 
   const colorMap: Record<ExceptionItem['type'], string> = {
-    hook_failed: 'text-red-500',
-    budget_alert: 'text-amber-500',
-    agent_stalled: 'text-orange-500',
-    retry_paused: 'text-yellow-500',
+    'hook.failed': 'text-red-500',
+    'ticket.budget_exhausted': 'text-amber-500',
+    'agent.failed': 'text-orange-500',
+    'ticket.retry_paused': 'text-yellow-500',
   }
 </script>
 

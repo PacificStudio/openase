@@ -7,6 +7,7 @@
   import MessageSquare from '@lucide/svelte/icons/message-square'
   import Settings from '@lucide/svelte/icons/settings'
   import { cn, formatRelativeTime } from '$lib/utils'
+  import { activityEventTone } from '$lib/features/activity'
   import type { TicketActivity } from '../types'
 
   let {
@@ -19,17 +20,21 @@
     emptyText?: string
   } = $props()
 
-  const typeIcons: Record<string, { icon: typeof Bot; class: string }> = {
-    agent_assigned: { icon: Bot, class: 'text-blue-400' },
-    pr_opened: { icon: GitPullRequest, class: 'text-green-400' },
-    started: { icon: Play, class: 'text-yellow-400' },
-    completed: { icon: CircleCheck, class: 'text-green-400' },
-    failed: { icon: AlertTriangle, class: 'text-red-400' },
-    comment: { icon: MessageSquare, class: 'text-muted-foreground' },
-    status_change: { icon: Settings, class: 'text-purple-400' },
-  }
+  function typeConfig(type: string) {
+    if (type.startsWith('pr.')) return { icon: GitPullRequest, class: 'text-green-400' }
+    if (type.startsWith('agent.')) return { icon: Bot, class: 'text-blue-400' }
+    if (type === 'hook.started') return { icon: Play, class: 'text-yellow-400' }
+    if (type === 'comment') return { icon: MessageSquare, class: 'text-muted-foreground' }
 
-  const fallbackIcon = { icon: Settings, class: 'text-muted-foreground' }
+    switch (activityEventTone(type)) {
+      case 'success':
+        return { icon: CircleCheck, class: 'text-green-400' }
+      case 'danger':
+        return { icon: AlertTriangle, class: 'text-red-400' }
+      default:
+        return { icon: Settings, class: 'text-muted-foreground' }
+    }
+  }
 </script>
 
 <div class="flex flex-col gap-0 px-6 py-4">
@@ -43,7 +48,7 @@
 
   <div class="relative">
     {#each activities as activity, i}
-      {@const config = typeIcons[activity.type] ?? fallbackIcon}
+      {@const config = typeConfig(activity.type)}
       <div class="relative flex gap-3 pb-3">
         {#if i < activities.length - 1}
           <div class="bg-border absolute top-5 bottom-0 left-[7px] w-px"></div>

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/google/uuid"
 )
 
@@ -15,14 +16,15 @@ const (
 )
 
 type ActivityEvent struct {
-	ID        uuid.UUID
-	ProjectID uuid.UUID
-	TicketID  *uuid.UUID
-	AgentID   *uuid.UUID
-	EventType string
-	Message   string
-	Metadata  map[string]any
-	CreatedAt time.Time
+	ID                  uuid.UUID
+	ProjectID           uuid.UUID
+	TicketID            *uuid.UUID
+	AgentID             *uuid.UUID
+	EventType           activityevent.Type
+	UnknownEventTypeRaw string
+	Message             string
+	Metadata            map[string]any
+	CreatedAt           time.Time
 }
 
 type ActivityEventListInput struct {

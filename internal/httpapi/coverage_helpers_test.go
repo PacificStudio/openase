@@ -15,6 +15,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
@@ -462,14 +463,14 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 
 		select {
 		case event := <-stream:
-			if event.Topic != ticketEventsTopic || event.Type != ticketUpdatedEventType {
+			if event.Topic != ticketEventsTopic || event.Type != provider.MustParseEventType(ticketUpdatedEventType.String()) {
 				t.Fatalf("ticket event = %+v", event)
 			}
 		case <-time.After(2 * time.Second):
 			t.Fatal("timed out waiting for ticket event")
 		}
 
-		if err := server.publishTicketEvent(context.Background(), provider.EventType(""), ticket); err == nil || !strings.Contains(err.Error(), "build ticket event") {
+		if err := server.publishTicketEvent(context.Background(), activityevent.TypeUnknown, ticket); err == nil || !strings.Contains(err.Error(), "parse ticket activity event type") {
 			t.Fatalf("publishTicketEvent(empty type) error = %v", err)
 		}
 
