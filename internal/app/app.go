@@ -119,6 +119,8 @@ func (a *App) RunServe(ctx context.Context) error {
 		return err
 	}
 	ticketSvc := ticketservice.NewService(client)
+	ticketSvc.ConfigureSSHPool(sshPool)
+	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
 	ticketStatusSvc := ticketstatus.NewService(client)
 	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
 	projectRepoMirrorSvc.ConfigureSSHPool(sshPool)
