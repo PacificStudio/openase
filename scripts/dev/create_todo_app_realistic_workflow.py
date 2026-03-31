@@ -499,6 +499,9 @@ def build_validation_workflow_harness(project_name: str) -> str:
         skills:
           - openase-platform
           - ticket-workpad
+          - commit
+          - push
+          - create-pr
         ---
 
         你正在处理 OpenASE 分配的 {project_name} 工单 `{{{{ ticket.identifier }}}}`。
@@ -515,6 +518,7 @@ def build_validation_workflow_harness(project_name: str) -> str:
 
         - 当前项目名称：`{{{{ project.name }}}}`。
         - 当前 Workflow：`{{{{ workflow.name }}}}`（type=`{{{{ workflow.type }}}}`，pickup=`{{{{ workflow.pickup_status }}}}`，finish=`{{{{ workflow.finish_status }}}}`）。
+        - 对这条 seeded coding workflow 来说，`{{{{ workflow.finish_status }}}}` 表示“代码已经提交并推送，关联 PR 已准备好进入 review”，不表示最终已经 merged。
         - 这是一个用于 OpenASE 端到端验证的独立 {project_name} 仓库，不是 OpenASE 主仓库。
         - 目标是在一个轻量、无复杂构建步骤的前端仓库里完成真实编码任务，验证工单 -> workflow -> agent -> workspace 这条链路能稳定落地。
         - 默认期望保留当前“纯静态页面 + 原生 JavaScript + `node --test`”的轻量结构，除非当前工单明确要求，否则不要引入额外框架、打包器或重型依赖。
@@ -602,12 +606,15 @@ def build_validation_workflow_harness(project_name: str) -> str:
         8. 如果发现现有代码与工单目标冲突，优先做局部、可解释的调整，并在最终说明中写清取舍。
         9. 如果你新增存储、过滤、计数或派生状态逻辑，优先让数据模型和渲染逻辑保持清晰，而不是把判断散落到多个事件处理器中。
         10. 若需要命令验证，优先使用仓库现有命令，例如 `npm test`；如果增加新的验证方式，必须保持轻量且与当前仓库结构匹配。
+        11. 对 Git 交付链路要有完整收口：代码改动完成后，要形成真实 commit、推送当前 ticket branch，并确认关联 PR 已包含最新变更；不要把仅存在于脏工作区的未提交改动当成交付完成。
 
         平台状态控制要求：
 
         - 需要操作 OpenASE 平台时，优先通过 skill 提供的 `./.openase/bin/openase ...` 包装命令完成，而不是自己拼接原始 HTTP 请求。
         - 当前工单状态控制是交付的一部分，不要只改代码不回写平台。
-        - 当且仅当当前工单的代码实现已经完成、相关验证已经通过、并且当前 ticket 可以结束时，使用 platform skill 将当前工单状态更新到 `{{{{ workflow.finish_status }}}}`。
+        - 当且仅当当前工单的代码实现已经完成、相关验证已经通过、已经形成至少一个覆盖本工单范围的 git commit、当前 ticket branch 已推送、并且关联 PR 已创建或更新到包含本次提交时，使用 platform skill 将当前工单状态更新到 `{{{{ workflow.finish_status }}}}`。
+        - 对这个 workflow，不要把 `{{{{ workflow.finish_status }}}}` 理解成最终完成；它代表“ready for review”。PR merged 之后才应该进入最终 `Done`。
+        - 如果你只验证了已有脏工作区、但没有形成新的提交和 PR 更新，不要推进状态到 `{{{{ workflow.finish_status }}}}`；应在 workpad 中明确说明仍未完成交付收口。
         - 不要在实现尚未完成时提前把当前 ticket 改到非 pickup 状态；一旦移出 pickup，当前 workflow 会结束这张工单的领取与执行。
         - 如果在执行中发现还需要额外的后续工作，可使用 platform skill 创建 follow-up ticket，但不要因为顺手拆分任务就提前结束当前 ticket。
 
@@ -736,7 +743,7 @@ def main() -> int:
         print("[6/12] seed default statuses, verify local machine, then create provider/agent/workflow")
         statuses = request_json(base_url, "POST", f"/api/v1/projects/{project['id']}/statuses/reset")["statuses"]
         todo = require_by_name(statuses, "name", "Todo")
-        done = require_by_name(statuses, "name", "Done")
+        in_review = require_by_name(statuses, "name", "In Review")
         local_machine = require_single_local_machine(base_url, org["id"])
         if args.provider_mode == "fake-codex":
             repo_root = Path(__file__).resolve().parents[2]
@@ -807,7 +814,7 @@ def main() -> int:
                 "name": workflow_name,
                 "type": "coding",
                 "pickup_status_ids": [todo["id"]],
-                "finish_status_ids": [done["id"]],
+                "finish_status_ids": [in_review["id"]],
                 "harness_content": build_validation_workflow_harness(project_name),
             },
         )["workflow"]
