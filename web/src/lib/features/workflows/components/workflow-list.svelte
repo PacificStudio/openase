@@ -25,11 +25,6 @@
     custom: 'bg-neutral-500/15 text-neutral-400',
   }
 
-  function rateColor(rate: number): string {
-    if (rate >= 80) return 'bg-emerald-500'
-    if (rate >= 50) return 'bg-amber-500'
-    return 'bg-red-500'
-  }
 </script>
 
 <div class={cn('border-border flex h-full flex-col overflow-hidden border-r', className)}>
@@ -68,19 +63,7 @@
           <span class="truncate">{wf.finishStatusLabel}</span>
         </div>
 
-        <div class="mt-1.5 flex items-center gap-2">
-          <div class="bg-muted h-1 flex-1 overflow-hidden rounded-full">
-            <div
-              class={cn('h-full rounded-full transition-all', rateColor(wf.recentSuccessRate))}
-              style="width: {wf.recentSuccessRate}%"
-            ></div>
-          </div>
-          <span class="text-muted-foreground text-[10px] tabular-nums">
-            {wf.recentSuccessRate}%
-          </span>
-        </div>
-
-        <div class="text-muted-foreground mt-1 text-[10px]">
+        <div class="text-muted-foreground mt-1.5 text-[10px]">
           {formatRelativeTime(wf.lastModified)}
         </div>
       </button>
