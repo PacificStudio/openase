@@ -495,7 +495,6 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectRepoState(t *testing.T
 		SetRepositoryURL("https://github.com/acme/todo-app.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("todo-app").
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create project repo without workspace: %v", err)
 	}
@@ -515,7 +514,6 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectRepoState(t *testing.T
 		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(repoRoot)).
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create ready project repo: %v", err)
 	}
@@ -1063,20 +1061,18 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	}
 
 	primaryRepo, err := client.ProjectRepo.Query().
-		Where(
-			entprojectrepo.ProjectIDEQ(fixture.projectID),
-			entprojectrepo.IsPrimary(true),
-		).
+		Where(entprojectrepo.ProjectIDEQ(fixture.projectID)).
+		Order(entprojectrepo.ByID()).
 		Only(ctx)
 	if err != nil {
-		t.Fatalf("load primary repo: %v", err)
+		t.Fatalf("load project repo: %v", err)
 	}
 	if _, err := client.ProjectRepo.UpdateOneID(primaryRepo.ID).
 		SetName("backend").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
 		Save(ctx); err != nil {
-		t.Fatalf("normalize primary repo metadata: %v", err)
+		t.Fatalf("normalize project repo metadata: %v", err)
 	}
 	frontendRepo, err := client.ProjectRepo.Create().
 		SetProjectID(fixture.projectID).
@@ -1182,7 +1178,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetTicketID(ticketItem.ID).
 		SetRepoID(primaryRepo.ID).
 		SetBranchName("agent/codex/ASE-42").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create primary ticket repo scope: %v", err)
 	}
@@ -1392,9 +1387,8 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(repoRoot)).
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
-		t.Fatalf("create primary project repo: %v", err)
+		t.Fatalf("create project repo: %v", err)
 	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)

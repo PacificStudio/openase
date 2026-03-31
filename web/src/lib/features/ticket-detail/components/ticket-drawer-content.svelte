@@ -99,7 +99,6 @@
       pullRequestUrl: string
       prStatus: string
       ciStatus: string
-      isPrimaryScope: boolean
     }) => Promise<boolean> | boolean
     onUpdateScope?: (
       scopeId: string,
@@ -108,7 +107,6 @@
         pullRequestUrl: string
         prStatus: string
         ciStatus: string
-        isPrimaryScope: boolean
       },
     ) => void
     onDeleteScope?: (scopeId: string) => void

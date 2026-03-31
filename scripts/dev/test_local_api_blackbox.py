@@ -184,7 +184,7 @@ def main() -> int:
             },
         )["project"]
 
-        print("[3/11] seed default statuses and register a local primary repo")
+        print("[3/11] seed default statuses and register a local project repo")
         statuses = request_json(
             base_url,
             "POST",
@@ -203,7 +203,6 @@ def main() -> int:
                 "name": primary_repo_name,
                 "repository_url": str(primary_repo_root),
                 "default_branch": "main",
-                "is_primary": True,
                 "labels": ["smoke", "main"],
             },
         )["repo"]
@@ -266,7 +265,6 @@ def main() -> int:
             {
                 "repo_id": repo["id"],
                 "branch_name": f"blackbox/{stamp}",
-                "is_primary_scope": True,
             },
         )["repo_scope"]
         detail = request_json(

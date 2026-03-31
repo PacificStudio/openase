@@ -29,8 +29,6 @@ type ProjectRepo struct {
 	DefaultBranch string `json:"default_branch,omitempty"`
 	// WorkspaceDirname holds the value of the "workspace_dirname" field.
 	WorkspaceDirname string `json:"workspace_dirname,omitempty"`
-	// IsPrimary holds the value of the "is_primary" field.
-	IsPrimary bool `json:"is_primary,omitempty"`
 	// Labels holds the value of the "labels" field.
 	Labels pgarray.StringArray `json:"labels,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -88,8 +86,6 @@ func (*ProjectRepo) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case projectrepo.FieldLabels:
 			values[i] = new(pgarray.StringArray)
-		case projectrepo.FieldIsPrimary:
-			values[i] = new(sql.NullBool)
 		case projectrepo.FieldName, projectrepo.FieldRepositoryURL, projectrepo.FieldDefaultBranch, projectrepo.FieldWorkspaceDirname:
 			values[i] = new(sql.NullString)
 		case projectrepo.FieldID, projectrepo.FieldProjectID:
@@ -144,12 +140,6 @@ func (_m *ProjectRepo) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field workspace_dirname", values[i])
 			} else if value.Valid {
 				_m.WorkspaceDirname = value.String
-			}
-		case projectrepo.FieldIsPrimary:
-			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field is_primary", values[i])
-			} else if value.Valid {
-				_m.IsPrimary = value.Bool
 			}
 		case projectrepo.FieldLabels:
 			if value, ok := values[i].(*pgarray.StringArray); !ok {
@@ -222,9 +212,6 @@ func (_m *ProjectRepo) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("workspace_dirname=")
 	builder.WriteString(_m.WorkspaceDirname)
-	builder.WriteString(", ")
-	builder.WriteString("is_primary=")
-	builder.WriteString(fmt.Sprintf("%v", _m.IsPrimary))
 	builder.WriteString(", ")
 	builder.WriteString("labels=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Labels))

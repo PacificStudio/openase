@@ -102,20 +102,6 @@ func (_u *ProjectRepoUpdate) SetNillableWorkspaceDirname(v *string) *ProjectRepo
 	return _u
 }
 
-// SetIsPrimary sets the "is_primary" field.
-func (_u *ProjectRepoUpdate) SetIsPrimary(v bool) *ProjectRepoUpdate {
-	_u.mutation.SetIsPrimary(v)
-	return _u
-}
-
-// SetNillableIsPrimary sets the "is_primary" field if the given value is not nil.
-func (_u *ProjectRepoUpdate) SetNillableIsPrimary(v *bool) *ProjectRepoUpdate {
-	if v != nil {
-		_u.SetIsPrimary(*v)
-	}
-	return _u
-}
-
 // SetLabels sets the "labels" field.
 func (_u *ProjectRepoUpdate) SetLabels(v pgarray.StringArray) *ProjectRepoUpdate {
 	_u.mutation.SetLabels(v)
@@ -284,9 +270,6 @@ func (_u *ProjectRepoUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	}
 	if value, ok := _u.mutation.WorkspaceDirname(); ok {
 		_spec.SetField(projectrepo.FieldWorkspaceDirname, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.IsPrimary(); ok {
-		_spec.SetField(projectrepo.FieldIsPrimary, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Labels(); ok {
 		_spec.SetField(projectrepo.FieldLabels, field.TypeOther, value)
@@ -503,20 +486,6 @@ func (_u *ProjectRepoUpdateOne) SetNillableWorkspaceDirname(v *string) *ProjectR
 	return _u
 }
 
-// SetIsPrimary sets the "is_primary" field.
-func (_u *ProjectRepoUpdateOne) SetIsPrimary(v bool) *ProjectRepoUpdateOne {
-	_u.mutation.SetIsPrimary(v)
-	return _u
-}
-
-// SetNillableIsPrimary sets the "is_primary" field if the given value is not nil.
-func (_u *ProjectRepoUpdateOne) SetNillableIsPrimary(v *bool) *ProjectRepoUpdateOne {
-	if v != nil {
-		_u.SetIsPrimary(*v)
-	}
-	return _u
-}
-
 // SetLabels sets the "labels" field.
 func (_u *ProjectRepoUpdateOne) SetLabels(v pgarray.StringArray) *ProjectRepoUpdateOne {
 	_u.mutation.SetLabels(v)
@@ -715,9 +684,6 @@ func (_u *ProjectRepoUpdateOne) sqlSave(ctx context.Context) (_node *ProjectRepo
 	}
 	if value, ok := _u.mutation.WorkspaceDirname(); ok {
 		_spec.SetField(projectrepo.FieldWorkspaceDirname, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.IsPrimary(); ok {
-		_spec.SetField(projectrepo.FieldIsPrimary, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Labels(); ok {
 		_spec.SetField(projectrepo.FieldLabels, field.TypeOther, value)

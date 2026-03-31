@@ -14,7 +14,7 @@ type scaffoldFileSpec struct {
 	mode    os.FileMode
 }
 
-func primaryRepoScaffold(repoRoot string) []scaffoldFileSpec {
+func projectRepoScaffold(repoRoot string) []scaffoldFileSpec {
 	files := make([]scaffoldFileSpec, 0, 3+len(builtin.Skills())+len(builtin.Roles()))
 	files = append(files,
 		scaffoldFileSpec{
@@ -30,7 +30,7 @@ status:
 
 # Coding
 
-You are implementing the assigned OpenASE ticket in the primary repository.
+You are implementing the assigned OpenASE ticket in the bound project repository.
 `,
 			mode: 0o644,
 		},

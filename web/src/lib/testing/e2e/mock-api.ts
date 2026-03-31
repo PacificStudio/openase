@@ -206,12 +206,6 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
       prerequisite: {
         kind: 'ready',
         repo_count: mockState.repos.length,
-        primary_repo_id:
-          (mockState.repos.find((r) => r.is_primary) as Record<string, unknown>)?.id ??
-          'repo-primary',
-        primary_repo_name:
-          (mockState.repos.find((r) => r.is_primary) as Record<string, unknown>)?.name ??
-          'todo-app',
         action: 'none',
       },
     })
@@ -265,35 +259,22 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     if (segments.length === 3 && request.method === 'POST') {
       const body = await readBody<Record<string, unknown>>(request)
       const repo = createRepoRecord(body)
-      if (asBoolean(body.is_primary)) {
-        demotePrimaryRepo()
-      }
       mockState.repos.push(repo)
       return jsonResponse({ repo: clone(repo) }, 201)
     }
     if (segments.length === 4) {
       const repoId = segments[3]
-      let repo = findById(mockState.repos, repoId)
+      const repo = findById(mockState.repos, repoId)
       if (!repo) {
         return notFound('Repository not found.')
       }
       if (request.method === 'PATCH') {
         const body = await readBody<Record<string, unknown>>(request)
-        if (asBoolean(body.is_primary)) {
-          demotePrimaryRepo()
-          repo = findById(mockState.repos, repoId)
-          if (!repo) {
-            return notFound('Repository not found.')
-          }
-        }
         applyRepoMutation(repo, body)
         return jsonResponse({ repo: clone(repo) })
       }
       if (request.method === 'DELETE') {
         mockState.repos = mockState.repos.filter((item) => item.id !== repoId)
-        if (!mockState.repos.some((item) => item.is_primary) && mockState.repos[0]) {
-          mockState.repos[0].is_primary = true
-        }
         return jsonResponse({ repo: clone(repo) })
       }
     }
@@ -613,6 +594,7 @@ function createInitialState(): MockState {
       labels: ['local', 'default'],
       status: 'online',
       workspace_root: '~/.openase/workspace',
+      mirror_root: '~/.openase/mirrors',
       agent_cli_path: '/usr/local/bin/codex',
       env_vars: ['OPENASE_ENV=dev'],
       last_heartbeat_at: nowIso,
@@ -639,6 +621,7 @@ function createInitialState(): MockState {
       labels: ['gpu', 'remote'],
       status: 'online',
       workspace_root: '/srv/openase/workspace',
+      mirror_root: '/srv/openase/mirrors',
       agent_cli_path: '/usr/bin/codex',
       env_vars: ['CUDA_VISIBLE_DEVICES=0'],
       last_heartbeat_at: nowIso,
@@ -790,7 +773,6 @@ function createInitialState(): MockState {
       default_branch: 'main',
       workspace_dirname: 'TodoApp',
       labels: [],
-      is_primary: true,
     },
   ]
 
@@ -924,6 +906,7 @@ function createMachineRecord(body: Record<string, unknown>) {
     labels: asStringArray(body.labels),
     status: asString(body.status) ?? 'maintenance',
     workspace_root: asString(body.workspace_root) ?? '',
+    mirror_root: asString(body.mirror_root) ?? '',
     agent_cli_path: asString(body.agent_cli_path) ?? '',
     env_vars: asStringArray(body.env_vars),
     last_heartbeat_at: null,
@@ -941,7 +924,6 @@ function createRepoRecord(body: Record<string, unknown>) {
     workspace_dirname:
       asString(body.workspace_dirname) ?? asString(body.name) ?? `repo-${mockState.counters.repo}`,
     labels: asStringArray(body.labels),
-    is_primary: asBoolean(body.is_primary) ?? false,
   }
 }
 
@@ -977,6 +959,7 @@ function applyMachineMutation(machine: Record<string, unknown>, body: Record<str
   machine.labels = asStringArray(body.labels)
   machine.status = asString(body.status) ?? machine.status
   machine.workspace_root = asString(body.workspace_root) ?? machine.workspace_root
+  machine.mirror_root = asString(body.mirror_root) ?? machine.mirror_root
   machine.agent_cli_path = asString(body.agent_cli_path) ?? machine.agent_cli_path
   machine.env_vars = asStringArray(body.env_vars)
 }
@@ -987,9 +970,6 @@ function applyRepoMutation(repo: Record<string, unknown>, body: Record<string, u
   repo.default_branch = asString(body.default_branch) ?? repo.default_branch
   repo.workspace_dirname = asString(body.workspace_dirname) ?? repo.workspace_dirname
   repo.labels = asStringArray(body.labels)
-  if (typeof body.is_primary === 'boolean') {
-    repo.is_primary = body.is_primary
-  }
 }
 
 function applyScheduledJobMutation(job: Record<string, unknown>, body: Record<string, unknown>) {
@@ -1011,10 +991,6 @@ function applyScheduledJobMutation(job: Record<string, unknown>, body: Record<st
     budget_usd: asNumber(ticketTemplate.budget_usd) ?? 0,
     created_by: asString(ticketTemplate.created_by) ?? null,
   }
-}
-
-function demotePrimaryRepo() {
-  mockState.repos = mockState.repos.map((repo) => ({ ...repo, is_primary: false }))
 }
 
 function machineResourceSnapshot(

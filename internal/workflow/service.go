@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
+	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entskill "github.com/BetterAndBetterII/openase/ent/skill"
 	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -33,7 +34,6 @@ import (
 var (
 	ErrUnavailable         = errors.New("workflow service unavailable")
 	ErrProjectNotFound     = errors.New("project not found")
-	ErrPrimaryRepoRequired = errors.New("workflow primary repo is required")
 	ErrWorkflowNotFound    = errors.New("workflow not found")
 	ErrStatusNotFound      = errors.New("workflow status not found in project")
 	ErrAgentNotFound       = errors.New("workflow agent not found in project")
@@ -49,23 +49,19 @@ var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
 type WorkflowRepositoryPrerequisiteKind string
 
 const (
-	WorkflowRepositoryPrerequisiteKindMissingPrimaryRepo WorkflowRepositoryPrerequisiteKind = "missing_primary_repo"
-	WorkflowRepositoryPrerequisiteKindReady              WorkflowRepositoryPrerequisiteKind = "ready"
+	WorkflowRepositoryPrerequisiteKindReady WorkflowRepositoryPrerequisiteKind = "ready"
 )
 
 type WorkflowRepositoryPrerequisiteAction string
 
 const (
-	WorkflowRepositoryPrerequisiteActionNone            WorkflowRepositoryPrerequisiteAction = "none"
-	WorkflowRepositoryPrerequisiteActionBindPrimaryRepo WorkflowRepositoryPrerequisiteAction = "bind_primary_repo"
+	WorkflowRepositoryPrerequisiteActionNone WorkflowRepositoryPrerequisiteAction = "none"
 )
 
 type WorkflowRepositoryPrerequisite struct {
-	Kind            WorkflowRepositoryPrerequisiteKind
-	RepoCount       int
-	PrimaryRepoID   *uuid.UUID
-	PrimaryRepoName string
-	Action          WorkflowRepositoryPrerequisiteAction
+	Kind      WorkflowRepositoryPrerequisiteKind
+	RepoCount int
+	Action    WorkflowRepositoryPrerequisiteAction
 }
 
 func (p WorkflowRepositoryPrerequisite) Ready() bool {
@@ -176,6 +172,11 @@ func (s *Service) seedLegacyWorkflowVersion(ctx context.Context, workflowID uuid
 	}
 
 	repoRoot := strings.TrimSpace(s.repoRoot)
+	if repoRoot == "" {
+		if resolvedRoot, resolveErr := s.projectStorageRoot(workflowItem.ProjectID); resolveErr == nil {
+			repoRoot = strings.TrimSpace(resolvedRoot)
+		}
+	}
 	if repoRoot == "" {
 		return nil, ErrWorkflowNotFound
 	}
@@ -579,15 +580,19 @@ func (s *Service) storageForProject(ctx context.Context, projectID uuid.UUID, us
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
 		return nil, err
 	}
+	repoRoot, err := s.projectStorageRoot(projectID)
+	if err != nil {
+		return nil, err
+	}
 
 	s.storageMu.Lock()
 	defer s.storageMu.Unlock()
 
-	if existing, ok := s.storages[projectID]; ok && existing.repoRoot == s.repoRoot {
+	if existing, ok := s.storages[projectID]; ok && existing.repoRoot == repoRoot {
 		return existing, nil
 	}
 
-	storage, err := newProjectStorage(projectID, s.repoRoot, s)
+	storage, err := newProjectStorage(projectID, repoRoot, s)
 	if err != nil {
 		return nil, err
 	}
@@ -603,26 +608,34 @@ func (s *Service) storageForProject(ctx context.Context, projectID uuid.UUID, us
 }
 
 func (s *Service) GetRepositoryPrerequisite(ctx context.Context, projectID uuid.UUID) (WorkflowRepositoryPrerequisite, error) {
+	if s.client == nil {
+		return WorkflowRepositoryPrerequisite{}, ErrUnavailable
+	}
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
 		return WorkflowRepositoryPrerequisite{}, err
 	}
+	repoCount, err := s.client.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectIDEQ(projectID)).
+		Count(ctx)
+	if err != nil {
+		return WorkflowRepositoryPrerequisite{}, fmt.Errorf("count project repos for workflow prerequisite: %w", err)
+	}
 	return WorkflowRepositoryPrerequisite{
-		Kind:   WorkflowRepositoryPrerequisiteKindReady,
-		Action: WorkflowRepositoryPrerequisiteActionNone,
+		Kind:      WorkflowRepositoryPrerequisiteKindReady,
+		RepoCount: repoCount,
+		Action:    WorkflowRepositoryPrerequisiteActionNone,
 	}, nil
 }
 
-func newWorkflowRepositoryPrerequisiteError(prerequisite WorkflowRepositoryPrerequisite) error {
-	switch prerequisite.Kind {
-	case WorkflowRepositoryPrerequisiteKindMissingPrimaryRepo:
-		return &WorkflowRepositoryPrerequisiteError{
-			prerequisite: prerequisite,
-			cause:        ErrPrimaryRepoRequired,
-			message:      "workflow operations require a primary project repo to be bound first",
-		}
-	default:
-		return ErrPrimaryRepoRequired
+func (s *Service) projectStorageRoot(projectID uuid.UUID) (string, error) {
+	if projectID == uuid.Nil {
+		return "", fmt.Errorf("project id must not be empty")
 	}
+	root := filepath.Join(s.repoRoot, ".openase-projects", projectID.String())
+	if err := os.MkdirAll(root, 0o750); err != nil {
+		return "", fmt.Errorf("create project storage root: %w", err)
+	}
+	return root, nil
 }
 
 func (s *Service) Close() error {

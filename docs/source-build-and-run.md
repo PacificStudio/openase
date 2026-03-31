@@ -7,7 +7,7 @@ This guide covers the current repository state for building OpenASE from source,
 - Go `1.26.1` on `PATH`
 - PostgreSQL reachable from the machine that will run OpenASE
 - `git`
-- A local checkout of the primary repository you want OpenASE to manage
+- A local checkout of a repository you want OpenASE to bind into the project
 - Optional: `pnpm` via `corepack pnpm` when you modify files under `web/`
 - Optional: `codex`, `claude`, or `gemini` on `PATH` if you want setup to seed detected agent providers
 
@@ -157,8 +157,8 @@ The wizard currently asks for:
 - workspace mode: `personal`, `team`, or `enterprise`
 - PostgreSQL host, port, database, user, password, and SSL mode
 - primary project name
-- primary repo path: must already exist locally and contain `.git/`
-- primary repo URL: optional
+- project repo path: must already exist locally and contain `.git/`
+- project repo URL: optional
 - default branch
 - detected agent CLIs to seed as providers
 
@@ -169,9 +169,9 @@ Successful setup does all of the following:
 - writes `~/.openase/openase.yaml` for legacy config discovery
 - writes `~/.openase/.env` with the generated platform auth token
 - creates `~/.openase/logs/` and `~/.openase/workspaces/`
-- scaffolds `.openase/` assets inside the selected primary repo
+- scaffolds `.openase/` assets inside the selected project repo
 
-The primary repo scaffold currently includes:
+The project repo scaffold currently includes:
 
 - `.openase/harnesses/coding.md`
 - `.openase/harnesses/roles/*.md`
@@ -268,7 +268,7 @@ curl -fsS http://127.0.0.1:19836/api/v1/healthz
 - `make build-web` is the safe source-build path because it regenerates the embedded UI before compiling the Go binary.
 - Rebuild `web/` before compiling if you changed the Svelte app, otherwise the binary will still embed the old frontend output.
 - `make build` only compiles the Go binary against the current contents of `internal/webui/static/`; with only the tracked placeholder present, the root UI will serve a 503 guidance response until you rebuild `web/`.
-- `setup` requires the primary repo path to be a real Git repository. A plain directory is rejected.
+- `setup` requires the project repo path to be a real Git repository. A plain directory is rejected.
 - `up` should be run from a compiled binary path you intend to keep, because the managed service stores the executable path it was installed with.
 - `serve`, `orchestrate`, and `all-in-one` all accept `--config`, and `serve` / `all-in-one` also accept host and port overrides.
 - If `all-in-one` fails with `bind: address already in use`, inspect the current listener with `lsof -nP -iTCP:<port> -sTCP:LISTEN`.

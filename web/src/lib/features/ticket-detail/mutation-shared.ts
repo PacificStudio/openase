@@ -49,7 +49,6 @@ export type RepoScopeDraft = {
   pullRequestUrl: string
   prStatus: string
   ciStatus: string
-  isPrimaryScope: boolean
 }
 
 export type ExistingRepoScopeDraft = Omit<RepoScopeDraft, 'repoId'>
@@ -73,14 +72,5 @@ export function nextRepoScopesForMutation(
   repoScopes: TicketDetail['repoScopes'],
   appendedScope?: TicketDetail['repoScopes'][number],
 ) {
-  const nextScopes = appendedScope ? [...repoScopes, appendedScope] : repoScopes
-  const primaryScope = nextScopes.find((scope) => scope.isPrimaryScope)
-  if (!primaryScope) {
-    return nextScopes
-  }
-
-  return nextScopes.map((scope) => ({
-    ...scope,
-    isPrimaryScope: scope.id === primaryScope.id,
-  }))
+  return appendedScope ? [...repoScopes, appendedScope] : repoScopes
 }

@@ -69,7 +69,7 @@ export function createRepositoriesSettingsState() {
       ui.selectedId = ''
       ui.editorOpen = false
       ui.mode = 'create'
-      ui.draft = createEmptyRepositoryDraft({ isPrimary: true })
+      ui.draft = createEmptyRepositoryDraft()
       return
     }
 
@@ -77,7 +77,7 @@ export function createRepositoriesSettingsState() {
       ui.selectedId = ''
       ui.editorOpen = false
       ui.mode = 'create'
-      ui.draft = createEmptyRepositoryDraft({ isPrimary: false })
+      ui.draft = createEmptyRepositoryDraft()
     }
   }
 
@@ -96,7 +96,7 @@ export function createRepositoriesSettingsState() {
 
     ui.saving = true
     try {
-      let successAction: RepositoryReloadAction
+      let successAction: Exclude<RepositoryReloadAction, 'deleted' | 'mirror_updated'>
 
       if (ui.mode === 'create') {
         const payload = await createProjectRepo(projectId, parsed.value)
@@ -161,7 +161,7 @@ export function createRepositoriesSettingsState() {
     startCreate() {
       ui.mode = 'create'
       ui.selectedId = ''
-      ui.draft = createEmptyRepositoryDraft({ isPrimary: ui.repos.length === 0 })
+      ui.draft = createEmptyRepositoryDraft()
       ui.editorOpen = true
     },
     updateField(field: keyof RepositoryDraft, value: string | boolean) {

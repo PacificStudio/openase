@@ -127,7 +127,6 @@ type ticketRepoScopeDetailResponse struct {
 	PullRequestURL *string              `json:"pull_request_url,omitempty"`
 	PrStatus       string               `json:"pr_status"`
 	CiStatus       string               `json:"ci_status"`
-	IsPrimaryScope bool                 `json:"is_primary_scope"`
 }
 
 type ticketAssignedAgentResponse struct {
@@ -611,6 +610,10 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrStatusNotAllowed):
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_ALLOWED", err.Error())
+	case errors.Is(err, ticketservice.ErrProjectRepoNotFound):
+		return writeAPIError(c, http.StatusBadRequest, "PROJECT_REPO_NOT_FOUND", err.Error())
+	case errors.Is(err, ticketservice.ErrRepoScopeRequired):
+		return writeAPIError(c, http.StatusBadRequest, "REPO_SCOPE_REQUIRED", err.Error())
 	case errors.Is(err, ticketservice.ErrWorkflowNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "WORKFLOW_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrTargetMachineNotFound):
@@ -659,7 +662,6 @@ func mapTicketRepoScopeDetailResponse(
 		PullRequestURL: item.PullRequestURL,
 		PrStatus:       item.PrStatus.String(),
 		CiStatus:       item.CiStatus.String(),
-		IsPrimaryScope: item.IsPrimaryScope,
 	}
 }
 

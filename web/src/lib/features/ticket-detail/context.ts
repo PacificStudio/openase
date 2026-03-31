@@ -117,7 +117,6 @@ export function buildTicketDetailContext(
         prUrl: scope.pull_request_url ?? undefined,
         prStatus: scope.pr_status ?? undefined,
         ciStatus: scope.ci_status ?? undefined,
-        isPrimaryScope: scope.is_primary_scope,
       })),
       attemptCount: detailTicket.attempt_count,
       costAmount: detailTicket.cost_amount,

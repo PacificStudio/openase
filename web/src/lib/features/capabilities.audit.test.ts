@@ -98,7 +98,7 @@ const settingsAuditCases: SettingsAuditCase[] = [
     section: 'repositories',
     capability: 'repositoriesSettings',
     expectedState: 'available',
-    summarySnippets: ['project repo list/create/update/delete', 'primary repo management'],
+    summarySnippets: ['project repo list/create/update/delete'],
     sources: [
       {
         file: './settings/components/repositories-settings-state.svelte.ts',

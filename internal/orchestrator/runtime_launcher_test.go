@@ -237,7 +237,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		t.Fatalf("expected non-whitelisted machine to stay out of developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
 	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); !os.IsNotExist(err) {
-		t.Fatalf("expected built-in platform skill to stay out of primary repo authority paths, stat err=%v", err)
+		t.Fatalf("expected built-in platform skill to stay out of repo authority paths, stat err=%v", err)
 	}
 	workspacePath, err := workspaceinfra.TicketWorkspacePath(
 		expectedLocalWorkspaceRoot,
@@ -2642,7 +2642,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetRepositoryURL("git@github.com:acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
@@ -2653,7 +2652,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetBranchName("agent/codex-01/ASE-401").
 		SetPrStatus("none").
 		SetCiStatus("pending").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket repo scope: %v", err)
 	}
@@ -2731,7 +2729,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
 	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
-		t.Fatalf("expected remote process to cd into primary repo workspace, got %q", processSession.startedCommand)
+		t.Fatalf("expected remote process to cd into repo workspace, got %q", processSession.startedCommand)
 	}
 	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
 		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
@@ -2784,7 +2782,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 		SetRepositoryURL("git@github.com:acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
@@ -2795,7 +2792,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 		SetBranchName("agent/codex-01/ASE-401A").
 		SetPrStatus("none").
 		SetCiStatus("pending").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket repo scope: %v", err)
 	}
@@ -3025,7 +3021,6 @@ func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIs
 		SetRepositoryURL("https://github.com/GrandCX/openase.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("openase").
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create project repo: %v", err)
 	}
@@ -3588,9 +3583,8 @@ func createRuntimeLauncherPrimaryRepo(
 		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(repoName).
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
-		t.Fatalf("create primary project repo: %v", err)
+		t.Fatalf("create project repo: %v", err)
 	}
 
 }

@@ -87,9 +87,15 @@
   <WorkflowsPageState
     {loading}
     {prerequisite}
-    {settingsHref}
     loadError={workflows.length === 0 ? loadError : ''}
   />
+  {#if settingsHref}
+    <div class="px-4 pb-4">
+      <a class="text-muted-foreground text-xs underline" href={settingsHref}>
+        Open workflow settings details
+      </a>
+    </div>
+  {/if}
 {:else}
   <div class="border-border/60 bg-card/60 flex min-h-0 flex-1 overflow-hidden rounded-xl border">
     {#if showList}

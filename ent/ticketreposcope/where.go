@@ -74,11 +74,6 @@ func PullRequestURL(v string) predicate.TicketRepoScope {
 	return predicate.TicketRepoScope(sql.FieldEQ(FieldPullRequestURL, v))
 }
 
-// IsPrimaryScope applies equality check predicate on the "is_primary_scope" field. It's identical to IsPrimaryScopeEQ.
-func IsPrimaryScope(v bool) predicate.TicketRepoScope {
-	return predicate.TicketRepoScope(sql.FieldEQ(FieldIsPrimaryScope, v))
-}
-
 // TicketIDEQ applies the EQ predicate on the "ticket_id" field.
 func TicketIDEQ(v uuid.UUID) predicate.TicketRepoScope {
 	return predicate.TicketRepoScope(sql.FieldEQ(FieldTicketID, v))
@@ -297,16 +292,6 @@ func CiStatusIn(vs ...CiStatus) predicate.TicketRepoScope {
 // CiStatusNotIn applies the NotIn predicate on the "ci_status" field.
 func CiStatusNotIn(vs ...CiStatus) predicate.TicketRepoScope {
 	return predicate.TicketRepoScope(sql.FieldNotIn(FieldCiStatus, vs...))
-}
-
-// IsPrimaryScopeEQ applies the EQ predicate on the "is_primary_scope" field.
-func IsPrimaryScopeEQ(v bool) predicate.TicketRepoScope {
-	return predicate.TicketRepoScope(sql.FieldEQ(FieldIsPrimaryScope, v))
-}
-
-// IsPrimaryScopeNEQ applies the NEQ predicate on the "is_primary_scope" field.
-func IsPrimaryScopeNEQ(v bool) predicate.TicketRepoScope {
-	return predicate.TicketRepoScope(sql.FieldNEQ(FieldIsPrimaryScope, v))
 }
 
 // HasTicket applies the HasEdge predicate on the "ticket" edge.

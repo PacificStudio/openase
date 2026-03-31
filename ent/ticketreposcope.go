@@ -31,8 +31,6 @@ type TicketRepoScope struct {
 	PrStatus ticketreposcope.PrStatus `json:"pr_status,omitempty"`
 	// CiStatus holds the value of the "ci_status" field.
 	CiStatus ticketreposcope.CiStatus `json:"ci_status,omitempty"`
-	// IsPrimaryScope holds the value of the "is_primary_scope" field.
-	IsPrimaryScope bool `json:"is_primary_scope,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TicketRepoScopeQuery when eager-loading is set.
 	Edges        TicketRepoScopeEdges `json:"edges"`
@@ -77,8 +75,6 @@ func (*TicketRepoScope) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case ticketreposcope.FieldIsPrimaryScope:
-			values[i] = new(sql.NullBool)
 		case ticketreposcope.FieldBranchName, ticketreposcope.FieldPullRequestURL, ticketreposcope.FieldPrStatus, ticketreposcope.FieldCiStatus:
 			values[i] = new(sql.NullString)
 		case ticketreposcope.FieldID, ticketreposcope.FieldTicketID, ticketreposcope.FieldRepoID:
@@ -139,12 +135,6 @@ func (_m *TicketRepoScope) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field ci_status", values[i])
 			} else if value.Valid {
 				_m.CiStatus = ticketreposcope.CiStatus(value.String)
-			}
-		case ticketreposcope.FieldIsPrimaryScope:
-			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field is_primary_scope", values[i])
-			} else if value.Valid {
-				_m.IsPrimaryScope = value.Bool
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -209,9 +199,6 @@ func (_m *TicketRepoScope) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("ci_status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CiStatus))
-	builder.WriteString(", ")
-	builder.WriteString("is_primary_scope=")
-	builder.WriteString(fmt.Sprintf("%v", _m.IsPrimaryScope))
 	builder.WriteByte(')')
 	return builder.String()
 }

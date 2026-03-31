@@ -156,8 +156,8 @@ func TestServerRouteErrorPathsAndRun(t *testing.T) {
 			User: "openase",
 		},
 		Project: RawProjectInput{
-			Name:            "Demo App",
-			PrimaryRepoPath: repoRoot,
+			Name:     "Demo App",
+			RepoPath: repoRoot,
 		},
 	})
 	if err != nil {

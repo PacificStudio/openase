@@ -15,7 +15,6 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
@@ -842,29 +841,6 @@ func (l *RuntimeLauncher) autoHarvestCompletedSkills(
 		return nil
 	}
 	return nil
-}
-
-func (l *RuntimeLauncher) resolveRuntimePrimaryRepoPath(ctx context.Context, runID uuid.UUID) (string, error) {
-	items, err := l.client.TicketRepoWorkspace.Query().
-		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
-		WithRepo().
-		All(ctx)
-	if err != nil {
-		return "", fmt.Errorf("list ticket repo workspaces for run %s: %w", runID, err)
-	}
-	if len(items) == 0 {
-		return "", nil
-	}
-
-	for _, item := range items {
-		if item.Edges.Repo != nil && item.Edges.Repo.IsPrimary {
-			return item.RepoPath, nil
-		}
-	}
-	if len(items) == 1 {
-		return items[0].RepoPath, nil
-	}
-	return "", nil
 }
 
 func resolveWorkflowFinishStatus(ticket *ent.Ticket) (uuid.UUID, error) {

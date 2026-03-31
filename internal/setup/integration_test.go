@@ -89,10 +89,10 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 			ModelName:   templates[1].ModelName,
 		}},
 		Project: ProjectConfig{
-			Name:            "Setup Coverage Repo",
-			PrimaryRepoPath: repoRoot,
-			PrimaryRepoURL:  "https://github.com/GrandCX/openase.git",
-			DefaultBranch:   "main",
+			Name:          "Setup Coverage Repo",
+			RepoPath:      repoRoot,
+			RepoURL:       "https://github.com/GrandCX/openase.git",
+			DefaultBranch: "main",
 		},
 	}
 

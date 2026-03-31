@@ -39,9 +39,6 @@
   >
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-foreground text-sm font-semibold hover:underline">{repo.name}</span>
-      {#if repo.is_primary}
-        <Badge variant="secondary" class="text-[10px]">Primary</Badge>
-      {/if}
     </div>
     <div class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
       <span>{repo.default_branch}</span>
@@ -54,6 +51,7 @@
     </div>
   </button>
 
+  <!-- Actions -->
   <div class="flex shrink-0 items-center gap-1">
     <Button
       variant="ghost"
@@ -90,7 +88,7 @@
           }}
         >
           <Trash2 class="mr-2 size-3.5" />
-          {deleting ? 'Deleting…' : 'Delete'}
+          {deleting ? 'Deleting\u2026' : 'Delete'}
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
@@ -102,8 +100,8 @@
     <Dialog.Header>
       <Dialog.Title>Delete repository?</Dialog.Title>
       <Dialog.Description>
-        This removes {repo.name} from the project. Existing ticket repo scopes or workflow defaults that
-        reference it may need to be updated.
+        This removes {repo.name} from the project. Existing ticket repo scopes that point to it may need
+        to be updated.
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="mt-6">
@@ -120,7 +118,7 @@
           onDelete?.()
         }}
       >
-        {deleting ? 'Deleting…' : 'Delete repository'}
+        {deleting ? 'Deleting\u2026' : 'Delete repository'}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

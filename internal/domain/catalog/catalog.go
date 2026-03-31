@@ -38,7 +38,6 @@ type ProjectRepo struct {
 	RepositoryURL    string
 	DefaultBranch    string
 	WorkspaceDirname string
-	IsPrimary        bool
 	Labels           []string
 }
 
@@ -50,7 +49,6 @@ type TicketRepoScope struct {
 	PullRequestURL *string
 	PrStatus       TicketRepoScopePRStatus
 	CiStatus       TicketRepoScopeCIStatus
-	IsPrimaryScope bool
 }
 
 type OrganizationInput struct {
@@ -75,7 +73,6 @@ type ProjectRepoInput struct {
 	RepositoryURL    string   `json:"repository_url"`
 	DefaultBranch    string   `json:"default_branch"`
 	WorkspaceDirname *string  `json:"workspace_dirname"`
-	IsPrimary        *bool    `json:"is_primary"`
 	Labels           []string `json:"labels"`
 }
 
@@ -85,7 +82,6 @@ type TicketRepoScopeInput struct {
 	PullRequestURL *string `json:"pull_request_url"`
 	PrStatus       string  `json:"pr_status"`
 	CiStatus       string  `json:"ci_status"`
-	IsPrimaryScope *bool   `json:"is_primary_scope"`
 }
 
 type CreateOrganization struct {
@@ -132,7 +128,6 @@ type CreateProjectRepo struct {
 	RepositoryURL    string
 	DefaultBranch    string
 	WorkspaceDirname string
-	RequestedPrimary *bool
 	Labels           []string
 }
 
@@ -143,19 +138,17 @@ type UpdateProjectRepo struct {
 	RepositoryURL    string
 	DefaultBranch    string
 	WorkspaceDirname string
-	IsPrimary        bool
 	Labels           []string
 }
 
 type CreateTicketRepoScope struct {
-	ProjectID        uuid.UUID
-	TicketID         uuid.UUID
-	RepoID           uuid.UUID
-	BranchName       *string
-	PullRequestURL   *string
-	PrStatus         TicketRepoScopePRStatus
-	CiStatus         TicketRepoScopeCIStatus
-	RequestedPrimary *bool
+	ProjectID      uuid.UUID
+	TicketID       uuid.UUID
+	RepoID         uuid.UUID
+	BranchName     *string
+	PullRequestURL *string
+	PrStatus       TicketRepoScopePRStatus
+	CiStatus       TicketRepoScopeCIStatus
 }
 
 type UpdateTicketRepoScope struct {
@@ -167,7 +160,6 @@ type UpdateTicketRepoScope struct {
 	PullRequestURL *string
 	PrStatus       TicketRepoScopePRStatus
 	CiStatus       TicketRepoScopeCIStatus
-	IsPrimaryScope bool
 }
 
 func ParseCreateOrganization(raw OrganizationInput) (CreateOrganization, error) {
@@ -304,7 +296,6 @@ func ParseCreateProjectRepo(projectID uuid.UUID, raw ProjectRepoInput) (CreatePr
 		RepositoryURL:    repositoryURL,
 		DefaultBranch:    defaultBranch,
 		WorkspaceDirname: workspaceDirname,
-		RequestedPrimary: raw.IsPrimary,
 		Labels:           labels,
 	}, nil
 }
@@ -315,11 +306,6 @@ func ParseUpdateProjectRepo(id uuid.UUID, projectID uuid.UUID, raw ProjectRepoIn
 		return UpdateProjectRepo{}, err
 	}
 
-	isPrimary := false
-	if input.RequestedPrimary != nil {
-		isPrimary = *input.RequestedPrimary
-	}
-
 	return UpdateProjectRepo{
 		ID:               id,
 		ProjectID:        input.ProjectID,
@@ -327,7 +313,6 @@ func ParseUpdateProjectRepo(id uuid.UUID, projectID uuid.UUID, raw ProjectRepoIn
 		RepositoryURL:    input.RepositoryURL,
 		DefaultBranch:    input.DefaultBranch,
 		WorkspaceDirname: input.WorkspaceDirname,
-		IsPrimary:        isPrimary,
 		Labels:           input.Labels,
 	}, nil
 }
@@ -349,14 +334,13 @@ func ParseCreateTicketRepoScope(projectID uuid.UUID, ticketID uuid.UUID, raw Tic
 	}
 
 	return CreateTicketRepoScope{
-		ProjectID:        projectID,
-		TicketID:         ticketID,
-		RepoID:           repoID,
-		BranchName:       parseOptionalText(raw.BranchName),
-		PullRequestURL:   parseOptionalText(raw.PullRequestURL),
-		PrStatus:         prStatus,
-		CiStatus:         ciStatus,
-		RequestedPrimary: raw.IsPrimaryScope,
+		ProjectID:      projectID,
+		TicketID:       ticketID,
+		RepoID:         repoID,
+		BranchName:     parseOptionalText(raw.BranchName),
+		PullRequestURL: parseOptionalText(raw.PullRequestURL),
+		PrStatus:       prStatus,
+		CiStatus:       ciStatus,
 	}, nil
 }
 
@@ -364,11 +348,6 @@ func ParseUpdateTicketRepoScope(id uuid.UUID, projectID uuid.UUID, ticketID uuid
 	input, err := ParseCreateTicketRepoScope(projectID, ticketID, raw)
 	if err != nil {
 		return UpdateTicketRepoScope{}, err
-	}
-
-	isPrimaryScope := false
-	if input.RequestedPrimary != nil {
-		isPrimaryScope = *input.RequestedPrimary
 	}
 
 	return UpdateTicketRepoScope{
@@ -380,7 +359,6 @@ func ParseUpdateTicketRepoScope(id uuid.UUID, projectID uuid.UUID, ticketID uuid
 		PullRequestURL: input.PullRequestURL,
 		PrStatus:       input.PrStatus,
 		CiStatus:       input.CiStatus,
-		IsPrimaryScope: isPrimaryScope,
 	}, nil
 }
 

@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation'
   import type { TicketStatus, Workflow } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
-  import { createTicket, listStatuses, listWorkflows } from '$lib/api/openase'
+  import { createTicket, listProjectRepos, listStatuses, listWorkflows } from '$lib/api/openase'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
@@ -13,18 +13,21 @@
   import { Textarea } from '$ui/textarea'
   import {
     createNewTicketDraft,
+    mapProjectRepoOptions,
     mapTicketStatusOptions,
     mapWorkflowOptions,
     parseNewTicketDraft,
+    type TicketRepoOption,
     ticketPriorityOptions,
     type NewTicketDraft,
   } from '../new-ticket'
 
   let statuses = $state<TicketStatus[]>([])
   let workflows = $state<Workflow[]>([])
+  let repoOptions = $state<TicketRepoOption[]>([])
   let loading = $state(false)
   let saving = $state(false)
-  let draft = $state<NewTicketDraft>(createNewTicketDraft([], []))
+  let draft = $state<NewTicketDraft>(createNewTicketDraft([], [], []))
   let openProjectId = $state('')
   let loadRequestId = 0
 
@@ -36,6 +39,9 @@
   )
   const selectedWorkflowLabel = $derived(
     workflowOptions.find((option) => option.id === draft.workflowId)?.label ?? 'Unassigned',
+  )
+  const selectedRepoLabel = $derived(
+    repoOptions.find((option) => option.id === draft.repoId)?.label ?? 'Select repository',
   )
 
   $effect(() => {
@@ -60,18 +66,21 @@
     loading = true
 
     try {
-      const [statusPayload, workflowPayload] = await Promise.all([
+      const [statusPayload, workflowPayload, repoPayload] = await Promise.all([
         listStatuses(projectId),
         listWorkflows(projectId),
+        listProjectRepos(projectId),
       ])
       if (requestId !== loadRequestId) return
 
+      const nextStatusOptions = mapTicketStatusOptions(statusPayload.statuses)
+      const nextWorkflowOptions = mapWorkflowOptions(workflowPayload.workflows)
+      const nextRepoOptions = mapProjectRepoOptions(repoPayload.repos)
+
       statuses = statusPayload.statuses
       workflows = workflowPayload.workflows
-      draft = createNewTicketDraft(
-        mapTicketStatusOptions(statusPayload.statuses),
-        mapWorkflowOptions(workflowPayload.workflows),
-      )
+      repoOptions = nextRepoOptions
+      draft = createNewTicketDraft(nextStatusOptions, nextWorkflowOptions, nextRepoOptions)
     } catch (caughtError) {
       if (requestId !== loadRequestId) return
       toastStore.error(
@@ -102,7 +111,7 @@
       return
     }
 
-    const parsedDraft = parseNewTicketDraft(draft)
+    const parsedDraft = parseNewTicketDraft(draft, repoOptions)
     if (!parsedDraft.ok) {
       toastStore.error(parsedDraft.error)
       return
@@ -115,7 +124,7 @@
       const createdTicketId = payload.ticket.id
 
       appStore.closeNewTicketDialog()
-      draft = createNewTicketDraft(statusOptions, workflowOptions)
+      draft = createNewTicketDraft(statusOptions, workflowOptions, repoOptions)
       await goto('/tickets')
       appStore.openRightPanel({ type: 'ticket', id: createdTicketId })
     } catch (caughtError) {
@@ -222,6 +231,33 @@
           </Select.Root>
         </div>
       </div>
+
+      {#if repoOptions.length > 1}
+        <div class="space-y-2">
+          <Label>Repository scope</Label>
+          <Select.Root
+            type="single"
+            value={draft.repoId}
+            disabled={loading || saving}
+            onValueChange={(value) => updateDraftField('repoId', value || '')}
+          >
+            <Select.Trigger class="w-full">{selectedRepoLabel}</Select.Trigger>
+            <Select.Content>
+              {#each repoOptions as option (option.id)}
+                <Select.Item value={option.id}>{option.label}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+          <p class="text-muted-foreground text-xs">
+            Multi-repo projects require an explicit repository scope when creating a ticket.
+          </p>
+        </div>
+      {:else if repoOptions.length === 1}
+        <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-sm">
+          <span class="text-muted-foreground">Repository scope:</span>
+          <span class="text-foreground ml-1 font-medium">{repoOptions[0].label}</span>
+        </div>
+      {/if}
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || loading || !appStore.currentProject?.id}>

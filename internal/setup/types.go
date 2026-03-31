@@ -58,10 +58,10 @@ type RawDatabaseInput struct {
 }
 
 type RawProjectInput struct {
-	Name            string `json:"name"`
-	PrimaryRepoPath string `json:"primary_repo_path"`
-	PrimaryRepoURL  string `json:"primary_repo_url"`
-	DefaultBranch   string `json:"default_branch"`
+	Name          string `json:"name"`
+	RepoPath      string `json:"repo_path"`
+	RepoURL       string `json:"repo_url"`
+	DefaultBranch string `json:"default_branch"`
 }
 
 type RawCompleteRequest struct {
@@ -81,10 +81,10 @@ type DatabaseConfig struct {
 }
 
 type ProjectConfig struct {
-	Name            string
-	PrimaryRepoPath string
-	PrimaryRepoURL  string
-	DefaultBranch   string
+	Name          string
+	RepoPath      string
+	RepoURL       string
+	DefaultBranch string
 }
 
 type CompleteRequest struct {
@@ -101,7 +101,7 @@ type DatabaseTestResult struct {
 type CompleteResult struct {
 	ConfigPath      string   `json:"config_path"`
 	EnvPath         string   `json:"env_path"`
-	PrimaryRepoPath string   `json:"primary_repo_path"`
+	RepoPath        string   `json:"repo_path"`
 	ScaffoldedFiles []string `json:"scaffolded_files"`
 	ProjectName     string   `json:"project_name"`
 	Mode            Mode     `json:"mode"`
@@ -182,24 +182,24 @@ func parseProjectInput(raw RawProjectInput) (ProjectConfig, error) {
 		return ProjectConfig{}, fmt.Errorf("project.name must not be empty")
 	}
 
-	repoPath := strings.TrimSpace(raw.PrimaryRepoPath)
+	repoPath := strings.TrimSpace(raw.RepoPath)
 	if repoPath == "" {
-		return ProjectConfig{}, fmt.Errorf("project.primary_repo_path must not be empty")
+		return ProjectConfig{}, fmt.Errorf("project.repo_path must not be empty")
 	}
 	absoluteRepoPath, err := filepath.Abs(repoPath)
 	if err != nil {
-		return ProjectConfig{}, fmt.Errorf("resolve project.primary_repo_path: %w", err)
+		return ProjectConfig{}, fmt.Errorf("resolve project.repo_path: %w", err)
 	}
 
 	info, err := os.Stat(absoluteRepoPath)
 	if err != nil {
-		return ProjectConfig{}, fmt.Errorf("stat project.primary_repo_path: %w", err)
+		return ProjectConfig{}, fmt.Errorf("stat project.repo_path: %w", err)
 	}
 	if !info.IsDir() {
-		return ProjectConfig{}, fmt.Errorf("project.primary_repo_path must be a directory")
+		return ProjectConfig{}, fmt.Errorf("project.repo_path must be a directory")
 	}
 	if _, err := os.Stat(filepath.Join(absoluteRepoPath, ".git")); err != nil {
-		return ProjectConfig{}, fmt.Errorf("project.primary_repo_path must point to a git repository")
+		return ProjectConfig{}, fmt.Errorf("project.repo_path must point to a git repository")
 	}
 
 	defaultBranch := strings.TrimSpace(raw.DefaultBranch)
@@ -208,10 +208,10 @@ func parseProjectInput(raw RawProjectInput) (ProjectConfig, error) {
 	}
 
 	return ProjectConfig{
-		Name:            name,
-		PrimaryRepoPath: absoluteRepoPath,
-		PrimaryRepoURL:  strings.TrimSpace(raw.PrimaryRepoURL),
-		DefaultBranch:   defaultBranch,
+		Name:          name,
+		RepoPath:      absoluteRepoPath,
+		RepoURL:       strings.TrimSpace(raw.RepoURL),
+		DefaultBranch: defaultBranch,
 	}, nil
 }
 

@@ -70,20 +70,6 @@ func (_c *ProjectRepoCreate) SetNillableWorkspaceDirname(v *string) *ProjectRepo
 	return _c
 }
 
-// SetIsPrimary sets the "is_primary" field.
-func (_c *ProjectRepoCreate) SetIsPrimary(v bool) *ProjectRepoCreate {
-	_c.mutation.SetIsPrimary(v)
-	return _c
-}
-
-// SetNillableIsPrimary sets the "is_primary" field if the given value is not nil.
-func (_c *ProjectRepoCreate) SetNillableIsPrimary(v *bool) *ProjectRepoCreate {
-	if v != nil {
-		_c.SetIsPrimary(*v)
-	}
-	return _c
-}
-
 // SetLabels sets the "labels" field.
 func (_c *ProjectRepoCreate) SetLabels(v pgarray.StringArray) *ProjectRepoCreate {
 	_c.mutation.SetLabels(v)
@@ -182,10 +168,6 @@ func (_c *ProjectRepoCreate) defaults() {
 		v := projectrepo.DefaultWorkspaceDirname
 		_c.mutation.SetWorkspaceDirname(v)
 	}
-	if _, ok := _c.mutation.IsPrimary(); !ok {
-		v := projectrepo.DefaultIsPrimary
-		_c.mutation.SetIsPrimary(v)
-	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := projectrepo.DefaultID()
 		_c.mutation.SetID(v)
@@ -218,9 +200,6 @@ func (_c *ProjectRepoCreate) check() error {
 	}
 	if _, ok := _c.mutation.WorkspaceDirname(); !ok {
 		return &ValidationError{Name: "workspace_dirname", err: errors.New(`ent: missing required field "ProjectRepo.workspace_dirname"`)}
-	}
-	if _, ok := _c.mutation.IsPrimary(); !ok {
-		return &ValidationError{Name: "is_primary", err: errors.New(`ent: missing required field "ProjectRepo.is_primary"`)}
 	}
 	if len(_c.mutation.ProjectIDs()) == 0 {
 		return &ValidationError{Name: "project", err: errors.New(`ent: missing required edge "ProjectRepo.project"`)}
@@ -275,10 +254,6 @@ func (_c *ProjectRepoCreate) createSpec() (*ProjectRepo, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.WorkspaceDirname(); ok {
 		_spec.SetField(projectrepo.FieldWorkspaceDirname, field.TypeString, value)
 		_node.WorkspaceDirname = value
-	}
-	if value, ok := _c.mutation.IsPrimary(); ok {
-		_spec.SetField(projectrepo.FieldIsPrimary, field.TypeBool, value)
-		_node.IsPrimary = value
 	}
 	if value, ok := _c.mutation.Labels(); ok {
 		_spec.SetField(projectrepo.FieldLabels, field.TypeOther, value)

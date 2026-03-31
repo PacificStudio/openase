@@ -379,7 +379,6 @@ func writeHRAdvisorActivationError(c echo.Context, err error) error {
 		return writeCatalogError(c, err)
 	case errors.Is(err, workflowservice.ErrUnavailable),
 		errors.Is(err, workflowservice.ErrProjectNotFound),
-		errors.Is(err, workflowservice.ErrPrimaryRepoRequired),
 		errors.Is(err, workflowservice.ErrWorkflowNotFound),
 		errors.Is(err, workflowservice.ErrStatusNotFound),
 		errors.Is(err, workflowservice.ErrAgentNotFound),

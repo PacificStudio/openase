@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import type { ProjectRepoRecord } from '$lib/api/contracts'
@@ -36,14 +35,9 @@
     <SheetHeader class="border-border border-b px-6 py-5 text-left">
       <div class="flex items-start justify-between gap-4 pr-10">
         <div class="min-w-0 space-y-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <SheetTitle>
-              {mode === 'create' ? 'Add repository' : (selectedRepo?.name ?? 'Edit repository')}
-            </SheetTitle>
-            {#if selectedRepo?.is_primary}
-              <Badge variant="secondary">Primary</Badge>
-            {/if}
-          </div>
+          <SheetTitle>
+            {mode === 'create' ? 'Add repository' : (selectedRepo?.name ?? 'Edit repository')}
+          </SheetTitle>
           <SheetDescription>
             Configure repository metadata that ticket repo scopes, workflows, and workspace
             preparation consume.

@@ -493,7 +493,6 @@ func TestHarnessTemplateHelpers(t *testing.T) {
 		Name:          "backend",
 		RepositoryURL: "https://example.com/backend.git",
 		DefaultBranch: "main",
-		IsPrimary:     true,
 		Labels:        pgarray.StringArray{"go", "api"},
 	}
 	scope := &ent.TicketRepoScope{
@@ -524,8 +523,8 @@ func TestHarnessTemplateHelpers(t *testing.T) {
 	if got := joinStatusNames([]*ent.TicketStatus{{Name: "Todo"}, {Name: "Done"}}); got != "Todo, Done" {
 		t.Fatalf("joinStatusNames() = %q", got)
 	}
-	if got := deriveDefaultBranch([]*ent.ProjectRepo{{DefaultBranch: "dev"}, repo}); got != "main" {
-		t.Fatalf("deriveDefaultBranch(primary) = %q", got)
+	if got := deriveDefaultBranch([]*ent.ProjectRepo{{DefaultBranch: "dev"}, repo}); got != "dev" {
+		t.Fatalf("deriveDefaultBranch(first repo) = %q", got)
 	}
 	if got := deriveDefaultBranch([]*ent.ProjectRepo{{DefaultBranch: "dev"}}); got != "dev" {
 		t.Fatalf("deriveDefaultBranch(fallback) = %q", got)

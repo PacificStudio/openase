@@ -98,6 +98,7 @@ type OpenAPIMachine struct {
 	Labels          []string       `json:"labels,omitempty"`
 	Status          string         `json:"status"`
 	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
+	MirrorRoot      *string        `json:"mirror_root,omitempty"`
 	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
 	EnvVars         []string       `json:"env_vars,omitempty"`
 	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
@@ -118,8 +119,13 @@ type OpenAPIProjectRepo struct {
 	RepositoryURL    string   `json:"repository_url"`
 	DefaultBranch    string   `json:"default_branch"`
 	WorkspaceDirname string   `json:"workspace_dirname"`
-	IsPrimary        bool     `json:"is_primary"`
 	Labels           []string `json:"labels,omitempty"`
+	MirrorCount      *int     `json:"mirror_count,omitempty"`
+	MirrorState      *string  `json:"mirror_state,omitempty"`
+	MirrorMachineID  *string  `json:"mirror_machine_id,omitempty"`
+	LastSyncedAt     *string  `json:"last_synced_at,omitempty"`
+	LastVerifiedAt   *string  `json:"last_verified_at,omitempty"`
+	LastError        *string  `json:"last_error,omitempty"`
 }
 
 type OpenAPIAgentProvider struct {
@@ -448,7 +454,6 @@ type OpenAPITicketRepoScopeDetail struct {
 	PullRequestURL *string             `json:"pull_request_url,omitempty"`
 	PrStatus       string              `json:"pr_status"`
 	CiStatus       string              `json:"ci_status"`
-	IsPrimaryScope bool                `json:"is_primary_scope"`
 }
 
 type OpenAPITicketRepoScope struct {
@@ -459,7 +464,6 @@ type OpenAPITicketRepoScope struct {
 	PullRequestURL *string `json:"pull_request_url,omitempty"`
 	PrStatus       string  `json:"pr_status"`
 	CiStatus       string  `json:"ci_status"`
-	IsPrimaryScope bool    `json:"is_primary_scope"`
 }
 
 type OpenAPITicketAssignedAgent struct {
@@ -517,11 +521,9 @@ type OpenAPIWorkflow struct {
 }
 
 type OpenAPIWorkflowRepositoryPrerequisite struct {
-	Kind            string  `json:"kind"`
-	RepoCount       int     `json:"repo_count"`
-	PrimaryRepoID   *string `json:"primary_repo_id,omitempty"`
-	PrimaryRepoName string  `json:"primary_repo_name,omitempty"`
-	Action          string  `json:"action"`
+	Kind      string `json:"kind"`
+	RepoCount int    `json:"repo_count"`
+	Action    string `json:"action"`
 }
 
 type OpenAPIHarnessDocument struct {
@@ -1232,6 +1234,7 @@ var (
 		"labels":         "Labels attached to the machine for operator reference.",
 		"status":         "Machine lifecycle status value.",
 		"workspace_root": "Filesystem root directory where ticket workspaces are created on the machine.",
+		"mirror_root":    "Filesystem root directory where repository mirrors are stored on the machine.",
 		"agent_cli_path": "Absolute path to the agent CLI executable on the machine.",
 		"env_vars":       "Environment variable entries exported when work runs on the machine.",
 	}
@@ -1264,8 +1267,15 @@ var (
 		"repository_url":    "Remote Git repository URL.",
 		"default_branch":    "Default branch name used for mirrors and workspaces.",
 		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
-		"is_primary":        "Whether this repository is the primary project repository.",
 		"labels":            "Labels attached to the repository for workflow selection and filtering.",
+	}
+	openAPIRepoMirrorMaterializeDescriptions = map[string]string{
+		"machine_id": "Machine ID where the repository mirror should be prepared or registered.",
+		"local_path": "Absolute filesystem path where the mirror exists or should be created.",
+		"mode":       "Mirror materialization mode, such as preparing a new mirror or registering an existing checkout.",
+	}
+	openAPIRepoMirrorMachineDescriptions = map[string]string{
+		"machine_id": "Machine ID whose mirror should be verified or synchronized.",
 	}
 	// #nosec G101 -- "token" is an OpenAPI field name/description, not a credential literal.
 	openAPIGitHubCredentialDescriptions = map[string]string{
@@ -1302,16 +1312,19 @@ var (
 		"is_enabled":      "Whether the scheduled job is enabled.",
 	}
 	openAPITicketRequestDescriptions = map[string]string{
-		"title":            "Human-readable ticket title.",
-		"description":      "Ticket description or problem statement.",
-		"status_id":        "Optional ticket status ID to assign explicitly.",
-		"priority":         "Ticket priority value.",
-		"type":             "Ticket type value.",
-		"workflow_id":      "Optional workflow ID that should handle the ticket.",
-		"parent_ticket_id": "Optional parent ticket ID for hierarchical ticket relationships.",
-		"external_ref":     "Optional external reference string associated with the ticket.",
-		"created_by":       "Actor identifier recorded as the creator of the ticket.",
-		"budget_usd":       "Optional budget limit for the ticket in USD.",
+		"title":                     "Human-readable ticket title.",
+		"description":               "Ticket description or problem statement.",
+		"status_id":                 "Optional ticket status ID to assign explicitly.",
+		"priority":                  "Ticket priority value.",
+		"type":                      "Ticket type value.",
+		"workflow_id":               "Optional workflow ID that should handle the ticket.",
+		"repo_scopes":               "Optional repository scopes attached at ticket creation time. Multi-repo projects must supply explicit repo scopes; single-repo projects auto-select the only repo when omitted.",
+		"repo_scopes[].repo_id":     "Repository ID attached to the ticket scope.",
+		"repo_scopes[].branch_name": "Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used.",
+		"parent_ticket_id":          "Optional parent ticket ID for hierarchical ticket relationships.",
+		"external_ref":              "Optional external reference string associated with the ticket.",
+		"created_by":                "Actor identifier recorded as the creator of the ticket.",
+		"budget_usd":                "Optional budget limit for the ticket in USD.",
 	}
 	openAPITicketCommentRequestDescriptions = map[string]string{
 		"body":       "Markdown body content for the ticket comment.",
@@ -1357,14 +1370,12 @@ var (
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 		"pr_status":        "Pull request status associated with the repository scope.",
 		"ci_status":        "Continuous integration status associated with the repository scope.",
-		"is_primary_scope": "Whether this scope is the primary repository scope for the ticket.",
 	}
 	openAPIRepoScopePatchDescriptions = map[string]string{
 		"branch_name":      "Branch name associated with the scoped repository checkout.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 		"pr_status":        "Pull request status associated with the repository scope.",
 		"ci_status":        "Continuous integration status associated with the repository scope.",
-		"is_primary_scope": "Whether this scope is the primary repository scope for the ticket.",
 	}
 	openAPIHRAdvisorActivateDescriptions = map[string]string{
 		"role_slug":               "HR advisor role slug to activate for the project.",
@@ -1452,6 +1463,9 @@ var (
 		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors":                                     openAPIRepoMirrorMaterializeDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify":                              openAPIRepoMirrorMachineDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync":                                openAPIRepoMirrorMachineDescriptions,
 		"POST /api/v1/projects/{projectId}/agents":                                                     openAPIAgentRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/workflows":                                                  openAPIWorkflowRequestDescriptions,
 		"PATCH /api/v1/workflows/{workflowId}":                                                         mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),
@@ -4099,6 +4113,13 @@ func applyRequestFieldDescriptions(schemaRef *openapi3.SchemaRef, prefix string,
 		return
 	}
 	schema := schemaRef.Value
+	if schema.Items != nil {
+		itemPrefix := prefix + "[]"
+		if prefix == "" {
+			itemPrefix = "[]"
+		}
+		applyRequestFieldDescriptions(schema.Items, itemPrefix, descriptions)
+	}
 	for name, property := range schema.Properties {
 		if property == nil || property.Value == nil {
 			continue

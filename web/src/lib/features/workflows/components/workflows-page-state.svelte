@@ -5,12 +5,10 @@
   let {
     loading = false,
     prerequisite = null,
-    settingsHref = null,
     loadError = '',
   }: {
     loading?: boolean
     prerequisite?: WorkflowRepositoryPrerequisite | null
-    settingsHref?: string | null
     loadError?: string
   } = $props()
 </script>
@@ -21,7 +19,7 @@
   </div>
 {:else if prerequisite && prerequisite.kind !== 'ready'}
   <div class="flex flex-1 p-4">
-    <WorkflowRepositoryPrerequisiteCard {prerequisite} {settingsHref} />
+    <WorkflowRepositoryPrerequisiteCard {prerequisite} />
   </div>
 {:else if loadError}
   <div

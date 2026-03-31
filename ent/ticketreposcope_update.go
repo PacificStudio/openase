@@ -120,20 +120,6 @@ func (_u *TicketRepoScopeUpdate) SetNillableCiStatus(v *ticketreposcope.CiStatus
 	return _u
 }
 
-// SetIsPrimaryScope sets the "is_primary_scope" field.
-func (_u *TicketRepoScopeUpdate) SetIsPrimaryScope(v bool) *TicketRepoScopeUpdate {
-	_u.mutation.SetIsPrimaryScope(v)
-	return _u
-}
-
-// SetNillableIsPrimaryScope sets the "is_primary_scope" field if the given value is not nil.
-func (_u *TicketRepoScopeUpdate) SetNillableIsPrimaryScope(v *bool) *TicketRepoScopeUpdate {
-	if v != nil {
-		_u.SetIsPrimaryScope(*v)
-	}
-	return _u
-}
-
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_u *TicketRepoScopeUpdate) SetTicket(v *Ticket) *TicketRepoScopeUpdate {
 	return _u.SetTicketID(v.ID)
@@ -240,9 +226,6 @@ func (_u *TicketRepoScopeUpdate) sqlSave(ctx context.Context) (_node int, err er
 	}
 	if value, ok := _u.mutation.CiStatus(); ok {
 		_spec.SetField(ticketreposcope.FieldCiStatus, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.IsPrimaryScope(); ok {
-		_spec.SetField(ticketreposcope.FieldIsPrimaryScope, field.TypeBool, value)
 	}
 	if _u.mutation.TicketCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -412,20 +395,6 @@ func (_u *TicketRepoScopeUpdateOne) SetNillableCiStatus(v *ticketreposcope.CiSta
 	return _u
 }
 
-// SetIsPrimaryScope sets the "is_primary_scope" field.
-func (_u *TicketRepoScopeUpdateOne) SetIsPrimaryScope(v bool) *TicketRepoScopeUpdateOne {
-	_u.mutation.SetIsPrimaryScope(v)
-	return _u
-}
-
-// SetNillableIsPrimaryScope sets the "is_primary_scope" field if the given value is not nil.
-func (_u *TicketRepoScopeUpdateOne) SetNillableIsPrimaryScope(v *bool) *TicketRepoScopeUpdateOne {
-	if v != nil {
-		_u.SetIsPrimaryScope(*v)
-	}
-	return _u
-}
-
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_u *TicketRepoScopeUpdateOne) SetTicket(v *Ticket) *TicketRepoScopeUpdateOne {
 	return _u.SetTicketID(v.ID)
@@ -562,9 +531,6 @@ func (_u *TicketRepoScopeUpdateOne) sqlSave(ctx context.Context) (_node *TicketR
 	}
 	if value, ok := _u.mutation.CiStatus(); ok {
 		_spec.SetField(ticketreposcope.FieldCiStatus, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.IsPrimaryScope(); ok {
-		_spec.SetField(ticketreposcope.FieldIsPrimaryScope, field.TypeBool, value)
 	}
 	if _u.mutation.TicketCleared() {
 		edge := &sqlgraph.EdgeSpec{

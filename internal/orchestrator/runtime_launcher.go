@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -39,6 +40,8 @@ const (
 	defaultLaunchCleanupTimeout    = 5 * time.Second
 	defaultLifecyclePublishTimeout = 2 * time.Second
 )
+
+var errExplicitRepoScopeRequired = errors.New("explicit repo scope required for multi-repo project")
 
 type RuntimeLauncher struct {
 	client         *ent.Client
@@ -1067,10 +1070,7 @@ func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UU
 	ticketItem, err := l.client.Ticket.Query().
 		Where(entticket.IDEQ(ticketID)).
 		WithRepoScopes(func(scopeQuery *ent.TicketRepoScopeQuery) {
-			scopeQuery.Order(
-				entticketreposcope.ByIsPrimaryScope(),
-				entticketreposcope.ByRepoID(),
-			)
+			scopeQuery.Order(entticketreposcope.ByRepoID())
 		}).
 		Only(ctx)
 	if err != nil {
@@ -1225,7 +1225,10 @@ func buildWorkspaceRepoPlans(
 	projectRepos []*ent.ProjectRepo,
 	ticketScopes []*ent.TicketRepoScope,
 ) ([]repoWorkspacePlan, error) {
-	selectedRepos := selectLaunchContextProjectRepos(projectRepos, ticketScopes)
+	selectedRepos, err := selectLaunchContextProjectRepos(projectRepos, ticketScopes)
+	if err != nil {
+		return nil, err
+	}
 	scopeByRepoID := make(map[uuid.UUID]*ent.TicketRepoScope, len(ticketScopes))
 	for _, scope := range ticketScopes {
 		scopeByRepoID[scope.RepoID] = scope
@@ -1282,9 +1285,16 @@ func repoPlansWithPreparedHeads(
 func selectLaunchContextProjectRepos(
 	projectRepos []*ent.ProjectRepo,
 	ticketScopes []*ent.TicketRepoScope,
-) []*ent.ProjectRepo {
+) ([]*ent.ProjectRepo, error) {
 	if len(ticketScopes) == 0 {
-		return projectRepos
+		switch len(projectRepos) {
+		case 0:
+			return nil, nil
+		case 1:
+			return projectRepos, nil
+		default:
+			return nil, errExplicitRepoScopeRequired
+		}
 	}
 
 	scopeByRepoID := make(map[uuid.UUID]struct{}, len(ticketScopes))
@@ -1301,7 +1311,7 @@ func selectLaunchContextProjectRepos(
 			selectedRepos = append(selectedRepos, repo)
 		}
 	}
-	return selectedRepos
+	return selectedRepos, nil
 }
 
 func resolvedWorkspaceDirname(repo *ent.ProjectRepo) string {
@@ -1488,13 +1498,9 @@ func (l *RuntimeLauncher) markTicketRepoWorkspacesReady(
 	return nil
 }
 
-func resolveAgentWorkingDirectory(launchContext runtimeLaunchContext, workspaceItem workspaceinfra.Workspace) string {
+func resolveAgentWorkingDirectory(_ runtimeLaunchContext, workspaceItem workspaceinfra.Workspace) string {
 	if len(workspaceItem.Repos) == 0 {
 		return workspaceItem.Path
-	}
-
-	if primaryPath, ok := primaryPreparedRepoPath(launchContext, workspaceItem.Repos); ok {
-		return primaryPath
 	}
 
 	if len(workspaceItem.Repos) == 1 {
@@ -1502,48 +1508,6 @@ func resolveAgentWorkingDirectory(launchContext runtimeLaunchContext, workspaceI
 	}
 
 	return workspaceItem.Path
-}
-
-func primaryPreparedRepoPath(
-	launchContext runtimeLaunchContext,
-	repos []workspaceinfra.PreparedRepo,
-) (string, bool) {
-	primaryWorkspaceDirname := primaryWorkspaceDirname(launchContext)
-	if primaryWorkspaceDirname == "" {
-		return "", false
-	}
-
-	for _, repo := range repos {
-		if repo.WorkspaceDirname == primaryWorkspaceDirname {
-			return repo.Path, true
-		}
-	}
-
-	return "", false
-}
-
-func primaryWorkspaceDirname(launchContext runtimeLaunchContext) string {
-	projectReposByID := make(map[uuid.UUID]*ent.ProjectRepo, len(launchContext.projectRepos))
-	for _, repo := range launchContext.projectRepos {
-		projectReposByID[repo.ID] = repo
-	}
-
-	for _, scope := range launchContext.ticketScopes {
-		if !scope.IsPrimaryScope {
-			continue
-		}
-		if repo := projectReposByID[scope.RepoID]; repo != nil {
-			return projectRepoWorkspaceDirname(repo)
-		}
-	}
-
-	for _, repo := range launchContext.projectRepos {
-		if repo.IsPrimary {
-			return projectRepoWorkspaceDirname(repo)
-		}
-	}
-
-	return ""
 }
 
 func projectRepoWorkspaceDirname(repo *ent.ProjectRepo) string {

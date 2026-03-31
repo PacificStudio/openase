@@ -234,7 +234,6 @@ func TestOpenReconcilesLegacyProjectRepoClonePathSemantics(t *testing.T) {
 		SetRepositoryURL("https://github.com/acme/mirror-repo.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("mirror-repo").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create mirror project repo: %v", err)
@@ -245,7 +244,6 @@ func TestOpenReconcilesLegacyProjectRepoClonePathSemantics(t *testing.T) {
 		SetRepositoryURL("https://github.com/acme/workspace-repo.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("workspace-repo").
-		SetIsPrimary(false).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workspace project repo: %v", err)
@@ -266,6 +264,12 @@ func TestOpenReconcilesLegacyProjectRepoClonePathSemantics(t *testing.T) {
 
 	if _, err := db.ExecContext(ctx, `ALTER TABLE "project_repos" ADD COLUMN "clone_path" TEXT`); err != nil {
 		t.Fatalf("add legacy clone_path column: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "project_repos" ADD COLUMN "is_primary" boolean NOT NULL DEFAULT false`); err != nil {
+		t.Fatalf("add legacy is_primary column: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "ticket_repo_scopes" ADD COLUMN "is_primary_scope" boolean NOT NULL DEFAULT false`); err != nil {
+		t.Fatalf("add legacy is_primary_scope column: %v", err)
 	}
 
 	legacyMirrorPath := filepath.Join(t.TempDir(), "legacy-mirror")
@@ -312,6 +316,16 @@ func TestOpenReconcilesLegacyProjectRepoClonePathSemantics(t *testing.T) {
 		t.Fatalf("workspace repo workspace_dirname = %q, want %q", workspaceRepoAfter.WorkspaceDirname, "services/backend")
 	}
 
+	if exists, err := columnExists(ctx, db, "project_repos", "is_primary"); err != nil {
+		t.Fatalf("check project_repos.is_primary column: %v", err)
+	} else if exists {
+		t.Fatal("expected runtime database open to drop legacy project_repos.is_primary column")
+	}
+	if exists, err := columnExists(ctx, db, "ticket_repo_scopes", "is_primary_scope"); err != nil {
+		t.Fatalf("check ticket_repo_scopes.is_primary_scope column: %v", err)
+	} else if exists {
+		t.Fatal("expected runtime database open to drop legacy ticket_repo_scopes.is_primary_scope column")
+	}
 }
 
 func TestOpenAddsMissingProjectAccessibleMachineIDsBeforeMigration(t *testing.T) {

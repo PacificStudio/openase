@@ -115,7 +115,6 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		RepositoryURL:    "https://github.com/GrandCX/openase.git",
 		DefaultBranch:    "main",
 		WorkspaceDirname: stageWorkspaceDirname,
-		IsPrimary:        true,
 		Labels:           []string{"backend", "automation"},
 	}
 	ticketRepoScope := &ent.TicketRepoScope{
@@ -126,7 +125,6 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		PullRequestURL: pullRequestURL,
 		PrStatus:       entticketreposcope.PrStatusOpen,
 		CiStatus:       entticketreposcope.CiStatusPassing,
-		IsPrimaryScope: true,
 	}
 	machine := &ent.Machine{
 		ID:              machineID,

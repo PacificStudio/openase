@@ -55,9 +55,8 @@ func createPrimaryProjectRepo(ctx context.Context, t *testing.T, client *ent.Cli
 		SetRepositoryURL(fmt.Sprintf("https://github.com/acme/%s.git", filepath.Base(repoRoot))).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(repoRoot)).
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
-		t.Fatalf("create primary project repo: %v", err)
+		t.Fatalf("create project repo: %v", err)
 	}
 }
 
@@ -77,10 +76,9 @@ func createPrimaryProjectRepoForCheckout(
 		SetRepositoryURL(fmt.Sprintf("https://github.com/acme/%s.git", filepath.Base(repoRoot))).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(repoRoot)).
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create primary project repo: %v", err)
+		t.Fatalf("create project repo: %v", err)
 	}
 
 	attachProjectRepoCheckout(ctx, t, client, projectRepo.ID, machineID, repoRoot)
@@ -113,13 +111,10 @@ func attachPrimaryProjectRepoCheckout(
 	t.Helper()
 
 	projectRepo, err := client.ProjectRepo.Query().
-		Where(
-			entprojectrepo.ProjectIDEQ(projectID),
-			entprojectrepo.IsPrimary(true),
-		).
+		Where(entprojectrepo.ProjectIDEQ(projectID)).
 		Only(ctx)
 	if err != nil {
-		t.Fatalf("query primary project repo: %v", err)
+		t.Fatalf("query project repo: %v", err)
 	}
 
 	attachProjectRepoCheckout(ctx, t, client, projectRepo.ID, machineID, repoRoot)

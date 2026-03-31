@@ -27,8 +27,6 @@ const (
 	FieldPrStatus = "pr_status"
 	// FieldCiStatus holds the string denoting the ci_status field in the database.
 	FieldCiStatus = "ci_status"
-	// FieldIsPrimaryScope holds the string denoting the is_primary_scope field in the database.
-	FieldIsPrimaryScope = "is_primary_scope"
 	// EdgeTicket holds the string denoting the ticket edge name in mutations.
 	EdgeTicket = "ticket"
 	// EdgeRepo holds the string denoting the repo edge name in mutations.
@@ -60,7 +58,6 @@ var Columns = []string{
 	FieldPullRequestURL,
 	FieldPrStatus,
 	FieldCiStatus,
-	FieldIsPrimaryScope,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -76,8 +73,6 @@ func ValidColumn(column string) bool {
 var (
 	// BranchNameValidator is a validator for the "branch_name" field. It is called by the builders before save.
 	BranchNameValidator func(string) error
-	// DefaultIsPrimaryScope holds the default value on creation for the "is_primary_scope" field.
-	DefaultIsPrimaryScope bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -175,11 +170,6 @@ func ByPrStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByCiStatus orders the results by the ci_status field.
 func ByCiStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCiStatus, opts...).ToFunc()
-}
-
-// ByIsPrimaryScope orders the results by the is_primary_scope field.
-func ByIsPrimaryScope(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldIsPrimaryScope, opts...).ToFunc()
 }
 
 // ByTicketField orders the results by ticket field.

@@ -18,10 +18,6 @@
   import StatusConcurrency from './status-concurrency.svelte'
   import { startStatusRuntimeSync } from './status-runtime-sync'
 
-  const props = $props<{
-    onOpenRepositories?: (() => void) | undefined
-  }>()
-
   let loading = $state(false)
   let error = $state('')
   let prerequisite = $state<WorkflowRepositoryPrerequisite | null>(null)
@@ -124,10 +120,7 @@
   {#if loading}
     <div class="text-muted-foreground text-sm">Loading workflows…</div>
   {:else if prerequisite && prerequisite.kind !== 'ready'}
-    <WorkflowRepositoryPrerequisiteCard
-      {prerequisite}
-      onOpenRepositories={props.onOpenRepositories}
-    />
+    <WorkflowRepositoryPrerequisiteCard {prerequisite} />
   {:else if error && workflows.length === 0}
     <div class="text-destructive text-sm">{error}</div>
   {:else if workflows.length === 0}

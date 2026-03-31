@@ -174,9 +174,6 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		t.Fatalf("create agent: %v", err)
 	}
 
-	writeSkillFixture(t, repoRoot, "commit", "# Commit\n\nWrite a conventional commit message.\n")
-	writeSkillFixture(t, repoRoot, "review-code", "# Review Code\n\nReview the patch before shipping.\n")
-
 	createdWorkflow, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
 		ProjectID:           project.ID,
 		AgentID:             agent.ID,

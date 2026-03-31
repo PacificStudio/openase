@@ -856,7 +856,6 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create backend repo: %v", err)
@@ -1065,7 +1064,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetTicketID(ticketItem.ID).
 		SetRepoID(frontendRepo.ID).
 		SetBranchName("agent/claude-01/ASE-42").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket repo scope: %v", err)
 	}

@@ -23,8 +23,6 @@ const (
 	FieldDefaultBranch = "default_branch"
 	// FieldWorkspaceDirname holds the string denoting the workspace_dirname field in the database.
 	FieldWorkspaceDirname = "workspace_dirname"
-	// FieldIsPrimary holds the string denoting the is_primary field in the database.
-	FieldIsPrimary = "is_primary"
 	// FieldLabels holds the string denoting the labels field in the database.
 	FieldLabels = "labels"
 	// EdgeProject holds the string denoting the project edge name in mutations.
@@ -66,7 +64,6 @@ var Columns = []string{
 	FieldRepositoryURL,
 	FieldDefaultBranch,
 	FieldWorkspaceDirname,
-	FieldIsPrimary,
 	FieldLabels,
 }
 
@@ -89,8 +86,6 @@ var (
 	DefaultDefaultBranch string
 	// DefaultWorkspaceDirname holds the default value on creation for the "workspace_dirname" field.
 	DefaultWorkspaceDirname string
-	// DefaultIsPrimary holds the default value on creation for the "is_primary" field.
-	DefaultIsPrimary bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -126,11 +121,6 @@ func ByDefaultBranch(opts ...sql.OrderTermOption) OrderOption {
 // ByWorkspaceDirname orders the results by the workspace_dirname field.
 func ByWorkspaceDirname(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWorkspaceDirname, opts...).ToFunc()
-}
-
-// ByIsPrimary orders the results by the is_primary field.
-func ByIsPrimary(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldIsPrimary, opts...).ToFunc()
 }
 
 // ByLabels orders the results by the labels field.

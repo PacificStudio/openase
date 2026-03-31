@@ -26,7 +26,6 @@ func (TicketRepoScope) Fields() []ent.Field {
 		field.Enum("ci_status").
 			Values("pending", "passing", "failing").
 			Default("pending"),
-		field.Bool("is_primary_scope").Default(false),
 	}
 }
 

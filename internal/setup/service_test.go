@@ -81,10 +81,10 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 		},
 		Agents: []string{"codex"},
 		Project: RawProjectInput{
-			Name:            "Demo App",
-			PrimaryRepoPath: repoRoot,
-			PrimaryRepoURL:  "https://github.com/acme/demo.git",
-			DefaultBranch:   "main",
+			Name:          "Demo App",
+			RepoPath:      repoRoot,
+			RepoURL:       "https://github.com/acme/demo.git",
+			DefaultBranch: "main",
 		},
 	})
 	if err != nil {
@@ -97,8 +97,8 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 	if installer.input.Project.Name != "Demo App" {
 		t.Fatalf("expected installer to receive project input, got %+v", installer.input)
 	}
-	if len(result.ScaffoldedFiles) != len(primaryRepoScaffold(repoRoot)) {
-		t.Fatalf("expected %d scaffolded files, got %d", len(primaryRepoScaffold(repoRoot)), len(result.ScaffoldedFiles))
+	if len(result.ScaffoldedFiles) != len(projectRepoScaffold(repoRoot)) {
+		t.Fatalf("expected %d scaffolded files, got %d", len(projectRepoScaffold(repoRoot)), len(result.ScaffoldedFiles))
 	}
 
 	//nolint:gosec // test reads files from a controlled temp home directory

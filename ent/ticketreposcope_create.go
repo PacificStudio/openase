@@ -82,20 +82,6 @@ func (_c *TicketRepoScopeCreate) SetNillableCiStatus(v *ticketreposcope.CiStatus
 	return _c
 }
 
-// SetIsPrimaryScope sets the "is_primary_scope" field.
-func (_c *TicketRepoScopeCreate) SetIsPrimaryScope(v bool) *TicketRepoScopeCreate {
-	_c.mutation.SetIsPrimaryScope(v)
-	return _c
-}
-
-// SetNillableIsPrimaryScope sets the "is_primary_scope" field if the given value is not nil.
-func (_c *TicketRepoScopeCreate) SetNillableIsPrimaryScope(v *bool) *TicketRepoScopeCreate {
-	if v != nil {
-		_c.SetIsPrimaryScope(*v)
-	}
-	return _c
-}
-
 // SetID sets the "id" field.
 func (_c *TicketRepoScopeCreate) SetID(v uuid.UUID) *TicketRepoScopeCreate {
 	_c.mutation.SetID(v)
@@ -163,10 +149,6 @@ func (_c *TicketRepoScopeCreate) defaults() {
 		v := ticketreposcope.DefaultCiStatus
 		_c.mutation.SetCiStatus(v)
 	}
-	if _, ok := _c.mutation.IsPrimaryScope(); !ok {
-		v := ticketreposcope.DefaultIsPrimaryScope
-		_c.mutation.SetIsPrimaryScope(v)
-	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := ticketreposcope.DefaultID()
 		_c.mutation.SetID(v)
@@ -204,9 +186,6 @@ func (_c *TicketRepoScopeCreate) check() error {
 		if err := ticketreposcope.CiStatusValidator(v); err != nil {
 			return &ValidationError{Name: "ci_status", err: fmt.Errorf(`ent: validator failed for field "TicketRepoScope.ci_status": %w`, err)}
 		}
-	}
-	if _, ok := _c.mutation.IsPrimaryScope(); !ok {
-		return &ValidationError{Name: "is_primary_scope", err: errors.New(`ent: missing required field "TicketRepoScope.is_primary_scope"`)}
 	}
 	if len(_c.mutation.TicketIDs()) == 0 {
 		return &ValidationError{Name: "ticket", err: errors.New(`ent: missing required edge "TicketRepoScope.ticket"`)}
@@ -264,10 +243,6 @@ func (_c *TicketRepoScopeCreate) createSpec() (*TicketRepoScope, *sqlgraph.Creat
 	if value, ok := _c.mutation.CiStatus(); ok {
 		_spec.SetField(ticketreposcope.FieldCiStatus, field.TypeEnum, value)
 		_node.CiStatus = value
-	}
-	if value, ok := _c.mutation.IsPrimaryScope(); ok {
-		_spec.SetField(ticketreposcope.FieldIsPrimaryScope, field.TypeBool, value)
-		_node.IsPrimaryScope = value
 	}
 	if nodes := _c.mutation.TicketIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
