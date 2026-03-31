@@ -73,6 +73,8 @@ export function mapWorkflowAgentOptions(
         providerName,
         modelName,
         machineName,
+        adapterType: provider?.adapter_type ?? 'custom',
+        available: provider?.available ?? false,
       }
     })
     .sort((left, right) => left.label.localeCompare(right.label))

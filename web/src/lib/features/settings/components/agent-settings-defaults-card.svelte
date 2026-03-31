@@ -1,138 +1,147 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
-  import { providerAvailabilityLabel, ProviderAvailabilityBadge } from '$lib/features/providers'
+  import {
+    adapterDisplayName,
+    adapterIconPath,
+    ProviderAvailabilityBadge,
+  } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import * as Card from '$ui/card'
-  import { Label } from '$ui/label'
-  import * as Select from '$ui/select'
-  import { Bot, Cpu } from '@lucide/svelte'
+  import { Settings, Star, Wrench } from '@lucide/svelte'
+  import { cn } from '$lib/utils'
   import type { ProviderOption } from './agent-settings-model'
-
-  const inheritProviderValue = '__org_default__'
-  const adapterIcons: Record<string, typeof Bot> = {
-    claude: Bot,
-    codex: Cpu,
-  }
 
   let {
     providers,
     selectedDefaultProviderId,
-    selectedDefaultProviderName = null,
     orgDefaultProviderId = null,
     orgDefaultProviderName = null,
     saving = false,
     onSelectionChange,
     onSave,
+    onConfigure,
   }: {
     providers: ProviderOption[]
     selectedDefaultProviderId: string
-    selectedDefaultProviderName?: string | null
     orgDefaultProviderId?: string | null
     orgDefaultProviderName?: string | null
     saving?: boolean
     onSelectionChange?: (value: string) => void
     onSave?: () => void
+    onConfigure?: (providerId: string) => void
   } = $props()
+
+  const effectiveDefaultId = $derived(selectedDefaultProviderId || orgDefaultProviderId || '')
+  const hasUnsavedChange = $derived(
+    selectedDefaultProviderId !== (appStore.currentProject?.default_agent_provider_id ?? ''),
+  )
 </script>
 
-<Card.Root>
-  <Card.Header>
-    <Card.Title>Defaults</Card.Title>
-    <Card.Description>
-      Set project-level routing defaults without duplicating runtime controls.
-    </Card.Description>
-  </Card.Header>
-  <Card.Content class="space-y-4">
-    <div class="space-y-2">
-      <Label>Default agent provider</Label>
-      <Select.Root
-        type="single"
-        value={selectedDefaultProviderId || inheritProviderValue}
-        onValueChange={(value) => {
-          onSelectionChange?.(value === inheritProviderValue ? '' : value || '')
-        }}
-      >
-        <Select.Trigger class="w-full">
-          {selectedDefaultProviderName ??
-            (selectedDefaultProviderId ? 'Unavailable provider' : 'Use organization default')}
-        </Select.Trigger>
-        <Select.Content>
-          <Select.Item value={inheritProviderValue}>
-            Use organization default
-            {#if orgDefaultProviderName}
-              · {orgDefaultProviderName}
-            {/if}
-          </Select.Item>
-          {#each providers as provider (provider.id)}
-            <Select.Item value={provider.id}>
-              {provider.name}
-              {' '}· {provider.machineName}
-              {' '}· {providerAvailabilityLabel(provider.availabilityState)}
-              {' '}· {provider.adapterType} · {provider.modelName}
-            </Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+<div class="space-y-4">
+  <!-- Header with save -->
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <h3 class="text-foreground text-sm font-semibold">Agent Providers</h3>
+      <p class="text-muted-foreground mt-0.5 text-xs">
+        Click the star to set the project default. Configure adapter and model settings per
+        provider.
+      </p>
     </div>
+    {#if hasUnsavedChange}
+      <Button size="sm" onclick={onSave} disabled={saving}>
+        {saving ? 'Saving…' : 'Save default'}
+      </Button>
+    {/if}
+  </div>
 
+  {#if providers.length === 0}
     <div
-      class="border-border bg-muted/20 text-muted-foreground rounded-md border px-3 py-3 text-xs"
+      class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
     >
-      Max concurrent agents remains in `Settings / General` and is currently set to
-      {` ${appStore.currentProject?.max_concurrent_agents ?? 0}`}.
+      No providers registered for this organization yet.
+    </div>
+  {:else}
+    <div class="space-y-2">
+      {#each providers as provider (provider.id)}
+        {@const iconPath = adapterIconPath(provider.adapterType)}
+        {@const isDefault = provider.id === effectiveDefaultId}
+        {@const isProjectDefault = provider.id === selectedDefaultProviderId}
+        {@const isOrgDefault = provider.id === orgDefaultProviderId}
+        <div
+          class={cn(
+            'border-border/60 bg-card/60 flex items-center gap-3 rounded-xl border px-4 py-3',
+            isDefault && 'border-primary/30 bg-primary/5',
+          )}
+        >
+          <!-- Set default button -->
+          <button
+            type="button"
+            class={cn(
+              'shrink-0 transition-colors',
+              isProjectDefault ? 'text-amber-500' : 'text-muted-foreground/40 hover:text-amber-400',
+            )}
+            title={isProjectDefault
+              ? 'Clear project default (inherit org)'
+              : `Set ${provider.name} as project default`}
+            onclick={() => {
+              onSelectionChange?.(isProjectDefault ? '' : provider.id)
+            }}
+          >
+            <Star class={cn('size-4', isProjectDefault && 'fill-current')} />
+          </button>
+
+          <!-- Provider icon -->
+          <div class="bg-muted flex size-8 shrink-0 items-center justify-center rounded-lg">
+            {#if iconPath}
+              <img src={iconPath} alt="" class="size-5" />
+            {:else}
+              <Wrench class="text-muted-foreground size-4" />
+            {/if}
+          </div>
+
+          <!-- Provider info -->
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-foreground text-sm font-semibold">{provider.name}</span>
+              <ProviderAvailabilityBadge
+                availabilityState={provider.availabilityState}
+                availabilityReason={provider.availabilityReason}
+                availabilityCheckedAt={provider.availabilityCheckedAt}
+                class="text-[10px]"
+              />
+              {#if isProjectDefault}
+                <Badge variant="outline" class="text-[10px]">Project default</Badge>
+              {:else if isOrgDefault && !selectedDefaultProviderId}
+                <Badge variant="secondary" class="text-[10px]">Org default</Badge>
+              {/if}
+            </div>
+            <div
+              class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs"
+            >
+              <span>{adapterDisplayName(provider.adapterType)}</span>
+              <span class="font-mono">{provider.modelName}</span>
+              <span>{provider.machineName}</span>
+              <span>{provider.agentCount} agent{provider.agentCount !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+
+          <!-- Configure button -->
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            title="Configure provider"
+            onclick={() => onConfigure?.(provider.id)}
+          >
+            <Settings class="size-3.5" />
+          </Button>
+        </div>
+      {/each}
     </div>
 
-    <div class="space-y-2">
-      <div class="text-foreground text-sm font-medium">Providers in scope</div>
-      {#if providers.length === 0}
-        <div class="text-muted-foreground text-xs">
-          No providers are registered for this organization yet.
-        </div>
-      {:else}
-        <div class="space-y-2">
-          {#each providers as provider (provider.id)}
-            {@const Icon = adapterIcons[provider.adapterType] ?? Bot}
-            <div
-              class="border-border flex items-start justify-between gap-3 rounded-md border px-3 py-2"
-            >
-              <div class="flex items-start gap-2">
-                <div class="bg-muted mt-0.5 flex size-7 items-center justify-center rounded-md">
-                  <Icon class="text-muted-foreground size-3.5" />
-                </div>
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2">
-                    <span class="text-foreground truncate text-sm font-medium">{provider.name}</span
-                    >
-                    <ProviderAvailabilityBadge
-                      availabilityState={provider.availabilityState}
-                      availabilityReason={provider.availabilityReason}
-                      availabilityCheckedAt={provider.availabilityCheckedAt}
-                      class="text-[10px]"
-                    />
-                    {#if selectedDefaultProviderId === provider.id}
-                      <Badge variant="outline" class="text-[10px]">Project default</Badge>
-                    {:else if orgDefaultProviderId === provider.id}
-                      <Badge variant="secondary" class="text-[10px]">Org default</Badge>
-                    {/if}
-                  </div>
-                  <div class="text-muted-foreground text-xs">
-                    {provider.adapterType} · {provider.modelName}
-                  </div>
-                </div>
-              </div>
-              <div class="text-muted-foreground text-right text-xs">
-                {provider.agentCount} agents
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </Card.Content>
-  <Card.Footer>
-    <Button onclick={onSave} disabled={saving || providers.length === 0}>
-      {saving ? 'Saving…' : 'Save default provider'}
-    </Button>
-  </Card.Footer>
-</Card.Root>
+    {#if !selectedDefaultProviderId && orgDefaultProviderName}
+      <p class="text-muted-foreground text-xs">
+        Inheriting org default: {orgDefaultProviderName}. Star a provider to override.
+      </p>
+    {/if}
+  {/if}
+</div>

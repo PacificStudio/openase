@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { preloadCode, preloadData } from '$app/navigation'
+  import { preloadCode } from '$app/navigation'
   import { buildGlobalNav, buildProjectNav, type SidebarNavItem } from './sidebar-nav'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
@@ -47,7 +47,6 @@
 
   function warmRoute(href: string) {
     void preloadCode(href)
-    void preloadData(href)
   }
 </script>
 
@@ -64,7 +63,6 @@
                   href={item.href}
                   {...props}
                   data-sveltekit-preload-code="hover"
-                  data-sveltekit-preload-data="tap"
                   class={cn(
                     'flex h-8 w-full items-center justify-center rounded-md text-sm transition-colors',
                     item.active
@@ -85,7 +83,6 @@
           <a
             href={item.href}
             data-sveltekit-preload-code="hover"
-            data-sveltekit-preload-data="tap"
             class={cn(
               'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
               item.active
@@ -153,7 +150,6 @@
                     href={item.href}
                     {...props}
                     data-sveltekit-preload-code="hover"
-                    data-sveltekit-preload-data="tap"
                     class={cn(
                       'flex h-8 w-full items-center justify-center rounded-md text-sm transition-colors',
                       item.active
@@ -182,7 +178,6 @@
             <a
               href={item.href}
               data-sveltekit-preload-code="hover"
-              data-sveltekit-preload-data="tap"
               class={cn(
                 'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
                 item.active

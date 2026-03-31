@@ -7,21 +7,21 @@
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
-  import { Pause, Play, Terminal, Trash2 } from '@lucide/svelte'
+  import { Pause, Pencil, Play, Trash2 } from '@lucide/svelte'
   import type { AgentInstance } from '../types'
 
   let {
     open = $bindable(false),
     agent,
     onOpenChange,
-    onViewOutput,
     onDeleted,
+    onEditProvider,
   }: {
     open?: boolean
     agent: AgentInstance | null
     onOpenChange?: (open: boolean) => void
-    onViewOutput?: (agentId: string) => void
     onDeleted?: (agentId: string) => void
+    onEditProvider?: (providerId: string) => void
   } = $props()
 
   let actionBusy = $state(false)
@@ -127,7 +127,7 @@
         </SheetDescription>
       </SheetHeader>
 
-      <div class="mt-6 space-y-5">
+      <div class="space-y-5 px-4">
         <div class="space-y-3">
           <div class="flex items-center justify-between text-sm">
             <span class="text-muted-foreground">Status</span>
@@ -202,10 +202,16 @@
         <Separator />
 
         <div class="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onclick={() => agent && onViewOutput?.(agent.id)}>
-            <Terminal class="size-3.5" />
-            View output
-          </Button>
+          {#if onEditProvider}
+            <Button
+              variant="outline"
+              size="sm"
+              onclick={() => onEditProvider?.(agent.providerId)}
+            >
+              <Pencil class="size-3.5" />
+              Edit Provider
+            </Button>
+          {/if}
           {#if canResume(agent)}
             <Button variant="outline" size="sm" disabled={actionBusy} onclick={handleResume}>
               <Play class="size-3.5" />

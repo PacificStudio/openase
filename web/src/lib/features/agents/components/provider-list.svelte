@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { adapterIconPath } from '$lib/features/providers'
   import { ProviderAvailabilityBadge } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
-  import { Bot, Cpu, Gem, Settings, Wrench } from '@lucide/svelte'
+  import { Settings, Wrench } from '@lucide/svelte'
   import type { ProviderConfig } from '../types'
 
   let {
@@ -13,23 +14,20 @@
     providers: ProviderConfig[]
     onConfigure?: (provider: ProviderConfig) => void
   } = $props()
-
-  const adapterIcons: Record<string, typeof Bot> = {
-    'claude-code-cli': Bot,
-    'codex-app-server': Cpu,
-    'gemini-cli': Gem,
-    custom: Wrench,
-  }
 </script>
 
 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
   {#each providers as provider (provider.id)}
-    {@const Icon = adapterIcons[provider.adapterType] ?? Bot}
+    {@const iconPath = adapterIconPath(provider.adapterType)}
     <Card.Root class="hover:border-border/80 transition-colors">
       <Card.Header class="flex-row items-start justify-between gap-3 space-y-0 pb-3">
         <div class="flex items-center gap-2.5">
           <div class="bg-muted flex size-8 items-center justify-center rounded-md">
-            <Icon class="text-muted-foreground size-4" />
+            {#if iconPath}
+              <img src={iconPath} alt="" class="size-5" />
+            {:else}
+              <Wrench class="text-muted-foreground size-4" />
+            {/if}
           </div>
           <div>
             <div class="flex items-center gap-2">

@@ -16,6 +16,7 @@ import {
   pickDefaultEphemeralChatProvider,
   shouldKeepEphemeralChatProvider,
 } from './provider-options'
+import { describeTurnFailure } from './ephemeral-chat-turn-failure'
 import { formatEphemeralChatUsageSummary } from './session-policy'
 import {
   appendAssistantTextChunk,
@@ -70,11 +71,15 @@ export function createEphemeralChatSessionController(
     entryCounter = update.entryCounter
   }
   function appendMappedEntry(event: Extract<ChatStreamEvent, { kind: 'message' }>) {
+    finalizeActiveAssistantText()
+    entryCounter += 1
+    entries = [...entries, mapChatPayloadToTranscriptEntry(`entry-${entryCounter}`, event.payload)]
+  }
+
+  function finalizeActiveAssistantText() {
     applyAssistantTextUpdate(
       finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
     )
-    entryCounter += 1
-    entries = [...entries, mapChatPayloadToTranscriptEntry(`entry-${entryCounter}`, event.payload)]
   }
 
   function handleStreamEvent(event: ChatStreamEvent) {
@@ -85,18 +90,14 @@ export function createEphemeralChatSessionController(
 
     if (event.kind === 'done') {
       sessionId = event.payload.sessionId
-      applyAssistantTextUpdate(
-        finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
-      )
+      finalizeActiveAssistantText()
       appendEntry('system', formatEphemeralChatUsageSummary(input.getSource(), event.payload))
       pending = false
       return
     }
 
     if (event.kind === 'error') {
-      applyAssistantTextUpdate(
-        finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
-      )
+      finalizeActiveAssistantText()
       input.onError?.(event.payload.message)
       pending = false
       return
@@ -239,9 +240,8 @@ export function createEphemeralChatSessionController(
         )
       } catch (caughtError) {
         if (activeRequestId === requestId && !isAbortError(caughtError)) {
-          input.onError?.(
-            caughtError instanceof ApiError ? caughtError.detail : 'Ephemeral chat request failed.',
-          )
+          finalizeActiveAssistantText()
+          input.onError?.(describeTurnFailure(caughtError))
         }
       } finally {
         if (activeRequestId === requestId && abortController === controller) {

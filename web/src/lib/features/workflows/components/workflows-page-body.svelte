@@ -120,7 +120,7 @@
   </div>
 
   <Sheet.Root bind:open={showDetail}>
-    <Sheet.Content side="right" class="w-[24rem] overflow-y-auto p-0 sm:max-w-[24rem]">
+    <Sheet.Content side="right" class="w-[60%] overflow-y-auto p-0 sm:max-w-[60%]">
       <Sheet.Header class="sr-only">
         <Sheet.Title>Workflow Settings</Sheet.Title>
         <Sheet.Description>Configure workflow lifecycle settings.</Sheet.Description>

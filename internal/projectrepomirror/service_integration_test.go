@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
@@ -211,6 +212,39 @@ func TestServiceRegisterExistingRequiresLocalPath(t *testing.T) {
 		MachineID:     machine.ID,
 	}); err == nil || err.Error() != "project repo mirror input is invalid: local_path must not be empty" {
 		t.Fatalf("RegisterExisting() missing local_path error = %v", err)
+	}
+}
+
+func TestServiceEnsureReadDoesNotPrepareMissingGitHubMirrorWithoutCredential(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	_, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
+		SetRepositoryURL("https://github.com/GrandCX/private-repo.git").
+		SetDefaultBranch("main").
+		Save(ctx); err != nil {
+		t.Fatalf("update project repo remote: %v", err)
+	}
+
+	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	if _, err := svc.Ensure(ctx, EnsureInput{
+		ProjectRepoID: projectRepo.ID,
+		MachineID:     machine.ID,
+		Operation:     EnsureOperationRead,
+	}); !errors.Is(err, ErrMirrorNotReady) {
+		t.Fatalf("Ensure(read) error = %v, want %v", err, ErrMirrorNotReady)
+	}
+
+	mirrorCount, err := client.ProjectRepoMirror.Query().
+		Where(entprojectrepomirror.ProjectRepoIDEQ(projectRepo.ID)).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count mirrors after Ensure(read): %v", err)
+	}
+	if mirrorCount != 0 {
+		t.Fatalf("Ensure(read) unexpectedly created %d mirrors", mirrorCount)
 	}
 }
 

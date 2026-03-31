@@ -364,6 +364,9 @@ func (s *Service) Ensure(ctx context.Context, input EnsureInput) (domain.Project
 	current, _, _, err := s.loadMirrorForUpdate(ctx, input.ProjectRepoID, input.MachineID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
+			if input.Operation == EnsureOperationRead {
+				return domain.ProjectRepoMirror{}, fmt.Errorf("%w: no mirror is registered", ErrMirrorNotReady)
+			}
 			return s.Prepare(ctx, PrepareInput{
 				ProjectRepoID: input.ProjectRepoID,
 				MachineID:     input.MachineID,
@@ -376,6 +379,9 @@ func (s *Service) Ensure(ctx context.Context, input EnsureInput) (domain.Project
 	case entprojectrepomirror.StateProvisioning, entprojectrepomirror.StateSyncing, entprojectrepomirror.StateDeleting:
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: current state %q", ErrMirrorNotReady, current.State)
 	case entprojectrepomirror.StateMissing:
+		if input.Operation == EnsureOperationRead {
+			return domain.ProjectRepoMirror{}, fmt.Errorf("%w: current state %q", ErrMirrorNotReady, current.State)
+		}
 		return s.Prepare(ctx, PrepareInput{
 			ProjectRepoID: input.ProjectRepoID,
 			MachineID:     input.MachineID,

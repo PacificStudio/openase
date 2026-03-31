@@ -13,10 +13,13 @@
     type WorkflowLifecycleDraft,
     type WorkflowLifecyclePayload,
   } from '../workflow-lifecycle'
+  import WorkflowAgentBindingCard from './workflow-agent-binding-card.svelte'
+  import WorkflowAgentSelectOption from './workflow-agent-select-option.svelte'
+  import WorkflowAgentSelectTrigger from './workflow-agent-select-trigger.svelte'
   import WorkflowDetailActions from './workflow-detail-actions.svelte'
   import WorkflowDetailHeader from './workflow-detail-header.svelte'
-  import WorkflowBindingSummary from './workflow-binding-summary.svelte'
   import WorkflowNumberField from './workflow-number-field.svelte'
+  import WorkflowStatusChipSelector from './workflow-status-chip-selector.svelte'
   let {
     workflow,
     statuses = [],
@@ -63,15 +66,7 @@
       draft.stallTimeoutMinutes !== baseDraft.stallTimeoutMinutes ||
       draft.isActive !== baseDraft.isActive,
   )
-  const selectedAgentLabel = $derived(
-    agentOptions.find((option) => option.id === draft.agentId)?.label ?? 'Select bound agent',
-  )
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
-  const machineSummary = $derived(
-    selectedAgent?.machineName
-      ? `Provider machine: ${selectedAgent.machineName}`
-      : 'Select bound agent',
-  )
 
   $effect(() => {
     const nextKey = [
@@ -154,9 +149,12 @@
   <Separator />
 
   <form class="flex flex-1 flex-col" onsubmit={handleSubmit}>
-    <div class="flex-1 space-y-4 px-4 py-4">
-      <div class="space-y-2">
-        <Label for="workflow-name">Name</Label>
+    <div class="flex-1 space-y-6 px-4 py-4">
+      <div class="space-y-1.5">
+        <Label
+          for="workflow-name"
+          class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Name</Label
+        >
         <Input
           id="workflow-name"
           value={draft.name}
@@ -166,106 +164,89 @@
         />
       </div>
 
-      <div class="space-y-2">
-        <Label>Bound Agent</Label>
+      <div class="space-y-1.5">
+        <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+          >Bound Agent</Label
+        >
         <Select.Root
           type="single"
           value={draft.agentId}
           disabled={saving || deleting || agentOptions.length === 0}
           onValueChange={(value) => updateDraftField('agentId', value || '')}
         >
-          <Select.Trigger class="w-full">{selectedAgentLabel}</Select.Trigger>
+          <Select.Trigger class="h-auto w-full py-2">
+            <WorkflowAgentSelectTrigger {selectedAgent} />
+          </Select.Trigger>
           <Select.Content>
             {#each agentOptions as option (option.id)}
-              <Select.Item value={option.id}>{option.label}</Select.Item>
+              <Select.Item value={option.id}>
+                <WorkflowAgentSelectOption {option} />
+              </Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        <WorkflowNumberField
-          id="workflow-max-concurrent"
-          label="Max Concurrent"
-          value={draft.maxConcurrent}
-          icon={Layers3}
-          disabled={saving || deleting}
-          oninput={(value) => updateDraftField('maxConcurrent', value)}
-        />
-        <WorkflowNumberField
-          id="workflow-max-retry"
-          label="Max Retry Attempts"
-          value={draft.maxRetryAttempts}
-          icon={RotateCcw}
-          disabled={saving || deleting}
-          oninput={(value) => updateDraftField('maxRetryAttempts', value)}
-        />
-        <WorkflowNumberField
-          id="workflow-timeout"
-          label="Timeout Minutes"
-          value={draft.timeoutMinutes}
-          icon={Clock3}
-          disabled={saving || deleting}
-          oninput={(value) => updateDraftField('timeoutMinutes', value)}
-        />
-        <WorkflowNumberField
-          id="workflow-stall-timeout"
-          label="Stall Timeout Minutes"
-          value={draft.stallTimeoutMinutes}
-          icon={Clock3}
-          disabled={saving || deleting}
-          oninput={(value) => updateDraftField('stallTimeoutMinutes', value)}
-        />
+      <WorkflowAgentBindingCard {selectedAgent} />
+
+      <Separator />
+
+      <div class="space-y-1.5">
+        <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Limits</span
+        >
+        <div class="grid gap-3 sm:grid-cols-2">
+          <WorkflowNumberField
+            id="workflow-max-concurrent"
+            label="Max Concurrent"
+            value={draft.maxConcurrent}
+            icon={Layers3}
+            disabled={saving || deleting}
+            oninput={(value) => updateDraftField('maxConcurrent', value)}
+          />
+          <WorkflowNumberField
+            id="workflow-max-retry"
+            label="Max Retry"
+            value={draft.maxRetryAttempts}
+            icon={RotateCcw}
+            disabled={saving || deleting}
+            oninput={(value) => updateDraftField('maxRetryAttempts', value)}
+          />
+          <WorkflowNumberField
+            id="workflow-timeout"
+            label="Timeout (min)"
+            value={draft.timeoutMinutes}
+            icon={Clock3}
+            disabled={saving || deleting}
+            oninput={(value) => updateDraftField('timeoutMinutes', value)}
+          />
+          <WorkflowNumberField
+            id="workflow-stall-timeout"
+            label="Stall Timeout (min)"
+            value={draft.stallTimeoutMinutes}
+            icon={Clock3}
+            disabled={saving || deleting}
+            oninput={(value) => updateDraftField('stallTimeoutMinutes', value)}
+          />
+        </div>
       </div>
 
-      <WorkflowBindingSummary
-        providerName={selectedAgent?.providerName}
-        modelName={selectedAgent?.modelName}
-        {machineSummary}
-      />
+      <Separator />
 
       <div class="space-y-4">
-        <div class="space-y-2">
-          <Label>Pickup Statuses</Label>
-          <div class="flex flex-wrap gap-2">
-            {#each statuses as status (status.id)}
-              <button
-                type="button"
-                class={cn(
-                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
-                  draft.pickupStatusIds.includes(status.id)
-                    ? 'border-primary/40 bg-primary/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted',
-                )}
-                disabled={saving || deleting}
-                onclick={() => togglePickupStatus(status.id)}
-              >
-                {status.name}
-              </button>
-            {/each}
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <Label>Finish Statuses</Label>
-          <div class="flex flex-wrap gap-2">
-            {#each statuses as status (status.id)}
-              <button
-                type="button"
-                class={cn(
-                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
-                  draft.finishStatusIds.includes(status.id)
-                    ? 'border-primary/40 bg-primary/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted',
-                )}
-                disabled={saving || deleting}
-                onclick={() => toggleFinishStatus(status.id)}
-              >
-                {status.name}
-              </button>
-            {/each}
-          </div>
-        </div>
+        <WorkflowStatusChipSelector
+          label="Pickup Statuses"
+          {statuses}
+          selectedStatusIds={draft.pickupStatusIds}
+          disabled={saving || deleting}
+          onToggle={togglePickupStatus}
+        />
+        <WorkflowStatusChipSelector
+          label="Finish Statuses"
+          {statuses}
+          selectedStatusIds={draft.finishStatusIds}
+          disabled={saving || deleting}
+          onToggle={toggleFinishStatus}
+        />
       </div>
     </div>
 

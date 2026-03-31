@@ -422,6 +422,14 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 	if err != nil {
 		t.Fatalf("create projectWithoutMirror: %v", err)
 	}
+	projectWithMissingMirrorRecord, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Mirror Missing Record").
+		SetSlug("mirror-missing-record").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create projectWithMissingMirrorRecord: %v", err)
+	}
 	projectReady, err := client.Project.Create().
 		SetOrganizationID(org.ID).
 		SetName("Ready Project").
@@ -441,6 +449,25 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		SetIsPrimary(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create primary repo without mirror: %v", err)
+	}
+	missingMirrorRepo, err := client.ProjectRepo.Create().
+		SetProjectID(projectWithMissingMirrorRecord.ID).
+		SetName("private-repo").
+		SetRepositoryURL("https://github.com/GrandCX/private-repo.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("private-repo").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create primary repo with missing mirror record: %v", err)
+	}
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(missingMirrorRepo.ID).
+		SetMachineID(localMachine.ID).
+		SetLocalPath(filepath.Join(t.TempDir(), "missing-mirror")).
+		SetState("missing").
+		Save(ctx); err != nil {
+		t.Fatalf("create missing mirror record: %v", err)
 	}
 	createPrimaryProjectRepoWithMirror(ctx, t, client, projectReady.ID, localMachine.ID, primaryRepoRoot)
 
@@ -500,6 +527,24 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		*pendingResp.Prerequisite.MirrorState != "missing" ||
 		pendingResp.Prerequisite.Action != "prepare_primary_mirror" {
 		t.Fatalf("pending prerequisite = %+v", pendingResp.Prerequisite)
+	}
+
+	missingMirrorRecordResp := workflowRepositoryPrerequisiteResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/workflows/prerequisite", projectWithMissingMirrorRecord.ID),
+		nil,
+		http.StatusOK,
+		&missingMirrorRecordResp,
+	)
+	if missingMirrorRecordResp.Prerequisite.Kind != "primary_mirror_not_ready" ||
+		missingMirrorRecordResp.Prerequisite.PrimaryRepoID == nil ||
+		missingMirrorRecordResp.Prerequisite.MirrorState == nil ||
+		*missingMirrorRecordResp.Prerequisite.MirrorState != "missing" ||
+		missingMirrorRecordResp.Prerequisite.Action != "prepare_primary_mirror" {
+		t.Fatalf("missing mirror record prerequisite = %+v", missingMirrorRecordResp.Prerequisite)
 	}
 
 	readyResp := workflowRepositoryPrerequisiteResponse{}

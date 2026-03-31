@@ -88,7 +88,31 @@ fi
 
 if command -v gemini >/dev/null 2>&1; then
   gemini_version=$(sanitize_field "$(gemini --version 2>/dev/null || echo unknown)")
-  printf 'gemini\ttrue\t%s\tunknown\tunknown\n' "$gemini_version"
+  gemini_auth=not_logged_in
+  gemini_auth_mode=unknown
+  if [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ] || { [ -n "${GOOGLE_CLOUD_PROJECT:-}" ] && [ -n "${GOOGLE_CLOUD_LOCATION:-}" ]; }; then
+    gemini_auth=unknown
+    gemini_auth_mode=api_key
+  else
+    gemini_settings_file="${HOME:-}/.gemini/settings.json"
+    gemini_accounts_file="${HOME:-}/.gemini/google_accounts.json"
+    gemini_oauth_file="${HOME:-}/.gemini/oauth_creds.json"
+    gemini_selected_auth=
+    if [ -f "$gemini_settings_file" ]; then
+      gemini_selected_auth=$(tr -d '\r\n' < "$gemini_settings_file" | sed -n 's/.*"selectedType"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+    fi
+    case "$gemini_selected_auth" in
+      oauth-personal|login_with_google|google)
+        if [ -f "$gemini_accounts_file" ] && [ -f "$gemini_oauth_file" ] &&
+          grep -Eq '"active"[[:space:]]*:[[:space:]]*"[^"]+"' "$gemini_accounts_file" &&
+          grep -Eq '"refresh_token"[[:space:]]*:[[:space:]]*"[^"]+"' "$gemini_oauth_file"; then
+          gemini_auth=logged_in
+          gemini_auth_mode=login
+        fi
+        ;;
+    esac
+  fi
+  printf 'gemini\ttrue\t%s\t%s\t%s\n' "$gemini_version" "$gemini_auth" "$gemini_auth_mode"
 else
   printf 'gemini\tfalse\t\tunknown\tunknown\n'
 fi

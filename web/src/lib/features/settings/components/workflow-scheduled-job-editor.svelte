@@ -5,15 +5,13 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import Bot from '@lucide/svelte/icons/bot'
+  import { ChevronDown, ChevronRight } from '@lucide/svelte'
   import * as Select from '$ui/select'
   import { Switch } from '$ui/switch'
-  import { Textarea } from '$ui/textarea'
-  import {
-    scheduledJobPriorityOptions,
-    scheduledJobTypeOptions,
-    type ScheduledJobDraft,
-  } from './workflow-scheduled-jobs'
+  import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
+  import { type ScheduledJobDraft } from './workflow-scheduled-jobs'
   import WorkflowScheduledJobCronHelperDialog from './workflow-scheduled-job-cron-helper-dialog.svelte'
+  import WorkflowScheduledJobTemplateFields from './workflow-scheduled-job-template-fields.svelte'
 
   type WorkflowOption = {
     value: string
@@ -21,6 +19,7 @@
   }
 
   let {
+    open = $bindable(false),
     draft,
     projectId,
     selectedJob = null,
@@ -32,7 +31,9 @@
     onSubmit,
     onDelete,
     onTrigger,
+    onOpenChange,
   }: {
+    open?: boolean
     draft: ScheduledJobDraft
     projectId: string
     selectedJob?: ScheduledJob | null
@@ -44,10 +45,12 @@
     onSubmit?: () => void
     onDelete?: () => void
     onTrigger?: () => void
+    onOpenChange?: (open: boolean) => void
   } = $props()
 
   const editorTitle = $derived(selectedJob ? 'Edit scheduled job' : 'New scheduled job')
   let assistantOpen = $state(false)
+  let templateExpanded = $state(false)
 
   const cronContextNote = $derived(
     draft.cronExpression.trim()
@@ -63,37 +66,53 @@
         ].join('\n')
       : 'The user is creating a scheduled job for this project and needs help drafting a cron expression.',
   )
+
+  const hasTemplateValues = $derived(
+    !!(
+      draft.ticketTitle ||
+      draft.ticketDescription ||
+      draft.ticketCreatedBy ||
+      draft.ticketBudgetUsd ||
+      draft.ticketPriority !== 'medium' ||
+      draft.ticketType !== 'feature'
+    ),
+  )
+
+  let lastReportedOpen = $state(open)
+
+  $effect(() => {
+    if (open === lastReportedOpen) return
+    lastReportedOpen = open
+    onOpenChange?.(open)
+  })
+
+  $effect(() => {
+    if (open) {
+      templateExpanded = hasTemplateValues
+    }
+  })
 </script>
 
-<div class="flex min-w-0 flex-1 flex-col">
-  <!-- Scrollable form area -->
-  <div class="flex-1 overflow-y-auto px-5 py-4">
-    <!-- Header -->
-    <div class="mb-4">
-      <h4 class="text-foreground text-sm font-medium">{editorTitle}</h4>
-      {#if selectedJob}
-        <div class="text-muted-foreground mt-1 flex flex-wrap gap-3 text-[11px]">
-          <span>
-            Last run {selectedJob.last_run_at
-              ? formatRelativeTime(selectedJob.last_run_at)
-              : 'never'}
-          </span>
-          <span>
-            Next run {selectedJob.next_run_at
-              ? formatRelativeTime(selectedJob.next_run_at)
-              : 'not scheduled'}
-          </span>
-        </div>
-      {/if}
-    </div>
+<Sheet bind:open>
+  <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
+    <SheetHeader class="border-border border-b px-6 py-5 text-left">
+      <SheetTitle>{editorTitle}</SheetTitle>
+      <SheetDescription>
+        {#if selectedJob}
+          Last run {selectedJob.last_run_at ? formatRelativeTime(selectedJob.last_run_at) : 'never'}
+          · Next run {selectedJob.next_run_at
+            ? formatRelativeTime(selectedJob.next_run_at)
+            : 'not scheduled'}
+        {:else}
+          Configure when and how this job creates tickets.
+        {/if}
+      </SheetDescription>
+    </SheetHeader>
 
-    <!-- Section: Job configuration -->
-    <fieldset class="space-y-3">
-      <legend class="text-muted-foreground mb-2 text-[11px] font-medium tracking-wider uppercase">
-        Job configuration
-      </legend>
-
-      <div class="grid gap-3 sm:grid-cols-2">
+    <!-- Scrollable form -->
+    <div class="flex-1 overflow-y-auto px-6 py-5">
+      <div class="space-y-4">
+        <!-- Job name -->
         <div class="space-y-1.5">
           <Label for="scheduled-job-name" class="text-xs">Job name</Label>
           <Input
@@ -105,6 +124,7 @@
           />
         </div>
 
+        <!-- Cron expression -->
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
             <Label for="scheduled-job-cron" class="text-xs">Cron expression</Label>
@@ -126,9 +146,8 @@
               onFieldChange?.('cronExpression', (event.currentTarget as HTMLInputElement).value)}
           />
         </div>
-      </div>
 
-      <div class="grid gap-3 sm:grid-cols-2">
+        <!-- Workflow -->
         <div class="space-y-1.5">
           <Label class="text-xs">Workflow</Label>
           <Select.Root
@@ -148,147 +167,72 @@
           </Select.Root>
         </div>
 
-        <div class="space-y-1.5">
-          <Label for="scheduled-job-enabled" class="text-xs">Status</Label>
-          <div class="flex h-9 items-center gap-3 px-1">
-            <Switch
-              id="scheduled-job-enabled"
-              checked={draft.isEnabled}
-              onCheckedChange={(checked) => onFieldChange?.('isEnabled', checked)}
-            />
-            <span class="text-foreground text-sm">
-              {draft.isEnabled ? 'Enabled' : 'Disabled'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </fieldset>
-
-    <!-- Divider -->
-    <div class="border-border my-4 border-t"></div>
-
-    <!-- Section: Ticket template -->
-    <fieldset class="space-y-3">
-      <legend class="text-muted-foreground mb-2 text-[11px] font-medium tracking-wider uppercase">
-        Ticket template
-      </legend>
-
-      <div class="grid gap-3 sm:grid-cols-2">
-        <div class="space-y-1.5">
-          <Label for="scheduled-job-ticket-title" class="text-xs">Title</Label>
-          <Input
-            id="scheduled-job-ticket-title"
-            value={draft.ticketTitle}
-            placeholder="Run scheduled validation"
-            oninput={(event) =>
-              onFieldChange?.('ticketTitle', (event.currentTarget as HTMLInputElement).value)}
+        <!-- Enabled switch -->
+        <div class="flex items-center justify-between">
+          <Label for="scheduled-job-enabled" class="text-xs">Enabled</Label>
+          <Switch
+            id="scheduled-job-enabled"
+            checked={draft.isEnabled}
+            onCheckedChange={(checked) => onFieldChange?.('isEnabled', checked)}
           />
         </div>
 
-        <div class="space-y-1.5">
-          <Label for="scheduled-job-ticket-created-by" class="text-xs">Created by</Label>
-          <Input
-            id="scheduled-job-ticket-created-by"
-            value={draft.ticketCreatedBy}
-            placeholder="scheduler"
-            oninput={(event) =>
-              onFieldChange?.('ticketCreatedBy', (event.currentTarget as HTMLInputElement).value)}
-          />
-        </div>
-      </div>
+        <!-- Divider -->
+        <div class="border-border border-t"></div>
 
-      <div class="space-y-1.5">
-        <Label for="scheduled-job-ticket-description" class="text-xs">Description</Label>
-        <Textarea
-          id="scheduled-job-ticket-description"
-          rows={3}
-          value={draft.ticketDescription}
-          placeholder="Include runbook notes, escalation hints, and expected outcome."
-          oninput={(event) =>
-            onFieldChange?.(
-              'ticketDescription',
-              (event.currentTarget as HTMLTextAreaElement).value,
-            )}
-        />
-      </div>
-
-      <div class="grid gap-3 sm:grid-cols-3">
-        <div class="space-y-1.5">
-          <Label class="text-xs">Priority</Label>
-          <Select.Root
-            type="single"
-            value={draft.ticketPriority}
-            onValueChange={(value) => onFieldChange?.('ticketPriority', value || 'medium')}
+        <!-- Ticket template (collapsible) -->
+        <div>
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground flex w-full items-center gap-1.5 py-1 text-xs font-medium transition-colors"
+            onclick={() => (templateExpanded = !templateExpanded)}
           >
-            <Select.Trigger class="w-full capitalize">{draft.ticketPriority}</Select.Trigger>
-            <Select.Content>
-              {#each scheduledJobPriorityOptions as priority (priority)}
-                <Select.Item value={priority} class="capitalize">{priority}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
+            {#if templateExpanded}
+              <ChevronDown class="size-3.5" />
+            {:else}
+              <ChevronRight class="size-3.5" />
+            {/if}
+            Ticket template
+            {#if !templateExpanded && hasTemplateValues}
+              <span class="text-muted-foreground/60 ml-1 font-normal"> (configured) </span>
+            {/if}
+          </button>
 
-        <div class="space-y-1.5">
-          <Label class="text-xs">Type</Label>
-          <Select.Root
-            type="single"
-            value={draft.ticketType}
-            onValueChange={(value) => onFieldChange?.('ticketType', value || 'feature')}
-          >
-            <Select.Trigger class="w-full capitalize">{draft.ticketType}</Select.Trigger>
-            <Select.Content>
-              {#each scheduledJobTypeOptions as ticketType (ticketType)}
-                <Select.Item value={ticketType} class="capitalize">{ticketType}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-
-        <div class="space-y-1.5">
-          <Label for="scheduled-job-ticket-budget" class="text-xs">Budget USD</Label>
-          <Input
-            id="scheduled-job-ticket-budget"
-            type="number"
-            min="0"
-            step="0.01"
-            value={draft.ticketBudgetUsd}
-            placeholder="Optional"
-            oninput={(event) =>
-              onFieldChange?.('ticketBudgetUsd', (event.currentTarget as HTMLInputElement).value)}
-          />
+          {#if templateExpanded}
+            <WorkflowScheduledJobTemplateFields {draft} {onFieldChange} />
+          {/if}
         </div>
       </div>
-    </fieldset>
-  </div>
+    </div>
 
-  <!-- Sticky action bar -->
-  <div class="border-border flex shrink-0 items-center justify-between border-t px-5 py-3">
-    <div class="flex items-center gap-2">
-      <Button size="sm" onclick={onSubmit} disabled={saving}>
-        {saving ? 'Saving…' : selectedJob ? 'Save job' : 'Create job'}
-      </Button>
+    <!-- Sticky action bar -->
+    <div class="border-border flex shrink-0 items-center justify-between border-t px-6 py-3">
+      <div class="flex items-center gap-2">
+        <Button size="sm" onclick={onSubmit} disabled={saving}>
+          {saving ? 'Saving…' : selectedJob ? 'Save' : 'Create'}
+        </Button>
+
+        {#if selectedJob}
+          <Button variant="outline" size="sm" onclick={onTrigger} disabled={triggering}>
+            {triggering ? 'Triggering…' : 'Run once'}
+          </Button>
+        {/if}
+      </div>
 
       {#if selectedJob}
-        <Button variant="outline" size="sm" onclick={onTrigger} disabled={triggering}>
-          {triggering ? 'Triggering…' : 'Run once'}
+        <Button
+          variant="ghost"
+          size="sm"
+          class="text-destructive hover:text-destructive hover:bg-destructive/10"
+          onclick={onDelete}
+          disabled={deleting}
+        >
+          {deleting ? 'Deleting…' : 'Delete'}
         </Button>
       {/if}
     </div>
-
-    {#if selectedJob}
-      <Button
-        variant="ghost"
-        size="sm"
-        class="text-destructive hover:text-destructive hover:bg-destructive/10"
-        onclick={onDelete}
-        disabled={deleting}
-      >
-        {deleting ? 'Deleting…' : 'Delete'}
-      </Button>
-    {/if}
-  </div>
-</div>
+  </SheetContent>
+</Sheet>
 
 <WorkflowScheduledJobCronHelperDialog
   bind:open={assistantOpen}

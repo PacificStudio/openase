@@ -52,19 +52,7 @@
   )}
 >
   <div class="grid gap-4 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] xl:items-start">
-    <div
-      data-testid={`machine-open-${machine.id}`}
-      class="min-w-0 cursor-pointer space-y-3"
-      role="button"
-      tabindex="0"
-      onclick={onOpen}
-      onkeydown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onOpen?.()
-        }
-      }}
-    >
+    <div data-testid={`machine-open-${machine.id}`} class="min-w-0 space-y-3">
       <div class="space-y-1">
         <div class="flex flex-wrap items-center gap-2">
           <h3 class="text-foreground truncate text-base font-semibold">{machine.name}</h3>
@@ -97,18 +85,7 @@
       </div>
     </div>
 
-    <div
-      data-testid={`machine-resources-${machine.id}`}
-      role="button"
-      tabindex="0"
-      onclick={onOpen}
-      onkeydown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onOpen?.()
-        }
-      }}
-    >
+    <div data-testid={`machine-resources-${machine.id}`}>
       <MachineResourceBars bars={resourceBars} />
     </div>
 

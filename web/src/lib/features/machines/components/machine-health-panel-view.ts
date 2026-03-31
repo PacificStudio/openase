@@ -17,8 +17,6 @@ export type HealthLevelCard = {
 
 export type TruthyState = 'yes' | 'no' | 'unknown'
 
-export type AuditTokenState = 'valid' | 'missing' | 'expired' | 'unknown'
-
 export type AuditNetworkEndpoint = {
   name: string
   reachable: TruthyState
@@ -36,13 +34,6 @@ export type HealthAuditRow =
       label: string
       installed: TruthyState
       authStatus: string | null
-    }
-  | {
-      kind: 'token-probe'
-      label: string
-      state: AuditTokenState
-      permissions: string[]
-      detail: string | null
     }
   | {
       kind: 'network'
@@ -174,7 +165,7 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
           ? 'ok'
           : 'unknown',
       value: snapshot.fullAudit?.checkedAt
-        ? 'Git, GitHub CLI observation, token probe, and network audit captured'
+        ? 'Git, GitHub CLI observation, and network audit captured'
         : 'No tooling audit snapshot yet',
       meta: checkedAtLabel(snapshot.monitor.l5?.checkedAt),
     },
@@ -190,12 +181,6 @@ export function buildAuditRows(snapshot: MachineSnapshot): HealthAuditRow[] {
     [snapshot.fullAudit.git?.userName, snapshot.fullAudit.git?.userEmail]
       .filter(Boolean)
       .join(' · ') || null
-
-  const tokenState = normalizeTokenState(snapshot.fullAudit.githubTokenProbe?.state)
-  const tokenPermissions = snapshot.fullAudit.githubTokenProbe?.permissions ?? []
-  const tokenDetail = tokenPermissions.length
-    ? null
-    : snapshot.fullAudit.githubTokenProbe?.lastError || 'No scopes recorded'
 
   const network = snapshot.fullAudit.network
 
@@ -213,13 +198,6 @@ export function buildAuditRows(snapshot: MachineSnapshot): HealthAuditRow[] {
       authStatus: snapshot.fullAudit.ghCLI?.authStatus ?? null,
     },
     {
-      kind: 'token-probe',
-      label: 'GitHub Token',
-      state: tokenState,
-      permissions: tokenPermissions,
-      detail: tokenDetail,
-    },
-    {
       kind: 'network',
       label: 'Network',
       endpoints: [
@@ -235,19 +213,6 @@ export function buildAuditRows(snapshot: MachineSnapshot): HealthAuditRow[] {
 export function toTruthyState(value: boolean | undefined): TruthyState {
   if (value === undefined) return 'unknown'
   return value ? 'yes' : 'no'
-}
-
-export function normalizeTokenState(raw: string | undefined): AuditTokenState {
-  switch (raw) {
-    case 'valid':
-      return 'valid'
-    case 'missing':
-      return 'missing'
-    case 'expired':
-      return 'expired'
-    default:
-      return 'unknown'
-  }
 }
 
 export function checkedAtLabel(value: string | undefined): string {
