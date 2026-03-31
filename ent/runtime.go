@@ -19,7 +19,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -226,7 +225,7 @@ func init() {
 	// machine.DefaultPort holds the default value on creation for the port field.
 	machine.DefaultPort = machineDescPort.Default.(int)
 	// machineDescResources is the schema descriptor for resources field.
-	machineDescResources := machineFields[15].Descriptor()
+	machineDescResources := machineFields[14].Descriptor()
 	// machine.DefaultResources holds the default value on creation for the resources field.
 	machine.DefaultResources = machineDescResources.Default.(func() map[string]interface{})
 	// machineDescID is the schema descriptor for id field.
@@ -351,26 +350,6 @@ func init() {
 	projectrepoDescID := projectrepoFields[0].Descriptor()
 	// projectrepo.DefaultID holds the default value on creation for the id field.
 	projectrepo.DefaultID = projectrepoDescID.Default.(func() uuid.UUID)
-	projectrepomirrorFields := schema.ProjectRepoMirror{}.Fields()
-	_ = projectrepomirrorFields
-	// projectrepomirrorDescLocalPath is the schema descriptor for local_path field.
-	projectrepomirrorDescLocalPath := projectrepomirrorFields[3].Descriptor()
-	// projectrepomirror.LocalPathValidator is a validator for the "local_path" field. It is called by the builders before save.
-	projectrepomirror.LocalPathValidator = projectrepomirrorDescLocalPath.Validators[0].(func(string) error)
-	// projectrepomirrorDescCreatedAt is the schema descriptor for created_at field.
-	projectrepomirrorDescCreatedAt := projectrepomirrorFields[9].Descriptor()
-	// projectrepomirror.DefaultCreatedAt holds the default value on creation for the created_at field.
-	projectrepomirror.DefaultCreatedAt = projectrepomirrorDescCreatedAt.Default.(func() time.Time)
-	// projectrepomirrorDescUpdatedAt is the schema descriptor for updated_at field.
-	projectrepomirrorDescUpdatedAt := projectrepomirrorFields[10].Descriptor()
-	// projectrepomirror.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	projectrepomirror.DefaultUpdatedAt = projectrepomirrorDescUpdatedAt.Default.(func() time.Time)
-	// projectrepomirror.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	projectrepomirror.UpdateDefaultUpdatedAt = projectrepomirrorDescUpdatedAt.UpdateDefault.(func() time.Time)
-	// projectrepomirrorDescID is the schema descriptor for id field.
-	projectrepomirrorDescID := projectrepomirrorFields[0].Descriptor()
-	// projectrepomirror.DefaultID holds the default value on creation for the id field.
-	projectrepomirror.DefaultID = projectrepomirrorDescID.Default.(func() uuid.UUID)
 	scheduledjobFields := schema.ScheduledJob{}.Fields()
 	_ = scheduledjobFields
 	// scheduledjobDescName is the schema descriptor for name field.
@@ -550,23 +529,23 @@ func init() {
 	ticketrepoworkspaceFields := schema.TicketRepoWorkspace{}.Fields()
 	_ = ticketrepoworkspaceFields
 	// ticketrepoworkspaceDescWorkspaceRoot is the schema descriptor for workspace_root field.
-	ticketrepoworkspaceDescWorkspaceRoot := ticketrepoworkspaceFields[5].Descriptor()
+	ticketrepoworkspaceDescWorkspaceRoot := ticketrepoworkspaceFields[4].Descriptor()
 	// ticketrepoworkspace.WorkspaceRootValidator is a validator for the "workspace_root" field. It is called by the builders before save.
 	ticketrepoworkspace.WorkspaceRootValidator = ticketrepoworkspaceDescWorkspaceRoot.Validators[0].(func(string) error)
 	// ticketrepoworkspaceDescRepoPath is the schema descriptor for repo_path field.
-	ticketrepoworkspaceDescRepoPath := ticketrepoworkspaceFields[6].Descriptor()
+	ticketrepoworkspaceDescRepoPath := ticketrepoworkspaceFields[5].Descriptor()
 	// ticketrepoworkspace.RepoPathValidator is a validator for the "repo_path" field. It is called by the builders before save.
 	ticketrepoworkspace.RepoPathValidator = ticketrepoworkspaceDescRepoPath.Validators[0].(func(string) error)
 	// ticketrepoworkspaceDescBranchName is the schema descriptor for branch_name field.
-	ticketrepoworkspaceDescBranchName := ticketrepoworkspaceFields[7].Descriptor()
+	ticketrepoworkspaceDescBranchName := ticketrepoworkspaceFields[6].Descriptor()
 	// ticketrepoworkspace.BranchNameValidator is a validator for the "branch_name" field. It is called by the builders before save.
 	ticketrepoworkspace.BranchNameValidator = ticketrepoworkspaceDescBranchName.Validators[0].(func(string) error)
 	// ticketrepoworkspaceDescCreatedAt is the schema descriptor for created_at field.
-	ticketrepoworkspaceDescCreatedAt := ticketrepoworkspaceFields[13].Descriptor()
+	ticketrepoworkspaceDescCreatedAt := ticketrepoworkspaceFields[12].Descriptor()
 	// ticketrepoworkspace.DefaultCreatedAt holds the default value on creation for the created_at field.
 	ticketrepoworkspace.DefaultCreatedAt = ticketrepoworkspaceDescCreatedAt.Default.(func() time.Time)
 	// ticketrepoworkspaceDescUpdatedAt is the schema descriptor for updated_at field.
-	ticketrepoworkspaceDescUpdatedAt := ticketrepoworkspaceFields[14].Descriptor()
+	ticketrepoworkspaceDescUpdatedAt := ticketrepoworkspaceFields[13].Descriptor()
 	// ticketrepoworkspace.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	ticketrepoworkspace.DefaultUpdatedAt = ticketrepoworkspaceDescUpdatedAt.Default.(func() time.Time)
 	// ticketrepoworkspace.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

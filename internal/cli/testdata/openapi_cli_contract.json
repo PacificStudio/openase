@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "336311a1b06e8fa68c1a963ed3bc914b4382f2da341ddbd93351cae0a545db8a",
+  "openapi_sha256": "864166eba2391601504e1850551569dcf2285e877e4a156b25fac38265afc055",
   "commands": [
     {
       "use": "list [projectId]",
@@ -981,11 +981,6 @@
           "kind": "string_slice"
         },
         {
-          "name": "mirror_root",
-          "description": "Filesystem root directory where repository mirrors are stored on the machine.",
-          "kind": "string"
-        },
-        {
           "name": "name",
           "description": "Human-readable machine name.",
           "kind": "string"
@@ -1058,11 +1053,6 @@
           "name": "labels",
           "description": "Labels attached to the machine for operator reference.",
           "kind": "string_slice"
-        },
-        {
-          "name": "mirror_root",
-          "description": "Filesystem root directory where repository mirrors are stored on the machine.",
-          "kind": "string"
         },
         {
           "name": "name",

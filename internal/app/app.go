@@ -26,7 +26,6 @@ import (
 	issueconnectorregistry "github.com/BetterAndBetterII/openase/internal/issueconnector"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
@@ -148,9 +147,6 @@ func (a *App) RunServe(ctx context.Context) error {
 	connectorSyncRunner.ConfigureGitHubCredentials(githubAuthSvc)
 	connectorSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	connectorSvc.ConfigureSyncRunner(connectorSyncRunner)
-	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
-	projectRepoMirrorSvc.ConfigureSSHPool(sshPool)
-	projectRepoMirrorSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	catalogSvc := catalogservice.New(
 		catalogRepo,
 		executable.NewPathResolver(),
@@ -169,7 +165,6 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	workflowSvc.ConfigureMirrorService(projectRepoMirrorSvc)
 	scheduledJobSvc := scheduledjobservice.NewService(client, ticketSvc, a.logger)
 	defer func() {
 		if closeErr := workflowSvc.Close(); closeErr != nil {
@@ -207,7 +202,6 @@ func (a *App) RunServe(ctx context.Context) error {
 		agentplatform.NewService(client),
 		catalogSvc,
 		workflowSvc,
-		httpapi.WithProjectRepoMirrorService(projectRepoMirrorSvc),
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithIssueConnectorService(connectorSvc),
 		httpapi.WithTraceProvider(a.trace),
@@ -262,10 +256,6 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
-	projectRepoMirrorSvc.ConfigureSSHPool(sshPool)
-	projectRepoMirrorSvc.ConfigureGitHubCredentials(githubAuthSvc)
-	workflowSvc.ConfigureMirrorService(projectRepoMirrorSvc)
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
 	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, sshinfra.NewMonitorCollector(sshPool))
@@ -282,7 +272,6 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	healthChecker.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureGitHubCredentials(githubAuthSvc)
-	runtimeLauncher.ConfigureMirrorService(projectRepoMirrorSvc)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

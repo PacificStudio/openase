@@ -16,14 +16,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
-	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/fsnotify/fsnotify"
 	git "github.com/go-git/go-git/v5"
@@ -373,7 +369,7 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): delete deploy-docker")
 }
 
-func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing.T) {
+func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectRepoState(t *testing.T) {
 	ctx := context.Background()
 	client := openWorkflowTestEntClient(t)
 	repoRoot := createWorkflowTestGitRepo(t)
@@ -397,24 +393,24 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing
 		t.Fatalf("create machine: %v", err)
 	}
 
-	projectWithoutMirror, err := client.Project.Create().
+	projectWithoutRepoWorkspace, err := client.Project.Create().
 		SetOrganizationID(org.ID).
-		SetName("Mirror Pending").
-		SetSlug("mirror-pending").
+		SetName("Repo Workspace Pending").
+		SetSlug("repo-workspace-pending").
 		SetStatus("In Progress").
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create projectWithoutMirror: %v", err)
+		t.Fatalf("create projectWithoutRepoWorkspace: %v", err)
 	}
 	if _, err := client.ProjectRepo.Create().
-		SetProjectID(projectWithoutMirror.ID).
+		SetProjectID(projectWithoutRepoWorkspace.ID).
 		SetName("todo-app").
 		SetRepositoryURL("https://github.com/acme/todo-app.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("todo-app").
 		SetIsPrimary(true).
 		Save(ctx); err != nil {
-		t.Fatalf("create primary repo without mirror: %v", err)
+		t.Fatalf("create project repo without workspace: %v", err)
 	}
 
 	readyProject, err := client.Project.Create().
@@ -426,24 +422,15 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing
 	if err != nil {
 		t.Fatalf("create readyProject: %v", err)
 	}
-	projectRepo, err := client.ProjectRepo.Create().
+	if _, err := client.ProjectRepo.Create().
 		SetProjectID(readyProject.ID).
 		SetName(filepath.Base(repoRoot)).
-		SetRepositoryURL("https://github.com/GrandCX/openase.git").
+		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(repoRoot)).
 		SetIsPrimary(true).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create ready project repo: %v", err)
-	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(machine.ID).
-		SetLocalPath(repoRoot).
-		SetState(entprojectrepomirror.StateReady).
 		Save(ctx); err != nil {
-		t.Fatalf("create ready project mirror: %v", err)
+		t.Fatalf("create ready project repo: %v", err)
 	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, readyProject.ID)
@@ -527,140 +514,6 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing
 	}
 	if len(skillNames) != 0 {
 		t.Fatalf("ParseHarnessSkills() after unbind = %v, want empty", skillNames)
-	}
-}
-
-func TestWorkflowServiceUsesMirrorFreshnessPolicyForReadAndWritePaths(t *testing.T) {
-	ctx := context.Background()
-	client := openWorkflowTestEntClient(t)
-	sourceRepoPath := createWorkflowSourceRepository(t)
-	mirrorPath := filepath.Join(t.TempDir(), "mirror")
-	service := newWorkflowTestService(t, client, mirrorPath)
-	fixture := seedWorkflowServiceFixture(ctx, t, client, mirrorPath)
-
-	projectRepo, err := client.ProjectRepo.Query().
-		Where(entprojectrepo.ProjectIDEQ(fixture.projectID), entprojectrepo.IsPrimary(true)).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("load primary repo: %v", err)
-	}
-	projectItem, err := client.Project.Get(ctx, fixture.projectID)
-	if err != nil {
-		t.Fatalf("load project: %v", err)
-	}
-	localMachine, err := client.Machine.Query().
-		Where(
-			entmachine.OrganizationIDEQ(projectItem.OrganizationID),
-			entmachine.NameEQ(catalogdomain.LocalMachineName),
-		).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("load local machine: %v", err)
-	}
-	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
-		SetRepositoryURL(sourceRepoPath).
-		SetDefaultBranch("master").
-		Save(ctx); err != nil {
-		t.Fatalf("update primary repo remote: %v", err)
-	}
-
-	mirrorService := projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	service.ConfigureMirrorService(mirrorService)
-	if _, err := mirrorService.Prepare(ctx, projectrepomirrorsvc.PrepareInput{
-		ProjectRepoID: projectRepo.ID,
-		MachineID:     localMachine.ID,
-		LocalPath:     mirrorPath,
-	}); err != nil {
-		t.Fatalf("prepare mirror: %v", err)
-	}
-	if _, err := client.ProjectRepoMirror.Update().
-		Where(
-			entprojectrepomirror.ProjectRepoIDEQ(projectRepo.ID),
-			entprojectrepomirror.MachineIDEQ(localMachine.ID),
-		).
-		ClearLastSyncedAt().
-		ClearLastVerifiedAt().
-		SetState(entprojectrepomirror.StateReady).
-		Save(ctx); err != nil {
-		t.Fatalf("clear mirror timestamps: %v", err)
-	}
-
-	created, err := service.Create(ctx, CreateInput{
-		ProjectID:           fixture.projectID,
-		AgentID:             fixture.agentID,
-		Name:                "Freshness Workflow",
-		Type:                entworkflow.TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Freshness\n",
-		MaxConcurrent:       1,
-		MaxRetryAttempts:    1,
-		TimeoutMinutes:      30,
-		StallTimeoutMinutes: 5,
-		IsActive:            false,
-		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Todo"]),
-		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
-	})
-	if err != nil {
-		t.Fatalf("Create() error = %v", err)
-	}
-
-	mirrorAfterCreate, err := client.ProjectRepoMirror.Query().
-		Where(
-			entprojectrepomirror.ProjectRepoIDEQ(projectRepo.ID),
-			entprojectrepomirror.MachineIDEQ(localMachine.ID),
-		).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("load mirror after create: %v", err)
-	}
-	if mirrorAfterCreate.LastSyncedAt == nil || mirrorAfterCreate.LastVerifiedAt == nil {
-		t.Fatalf("expected create to sync mirror, got %+v", mirrorAfterCreate)
-	}
-	syncedAfterCreate := *mirrorAfterCreate.LastSyncedAt
-	verifiedAfterCreate := *mirrorAfterCreate.LastVerifiedAt
-
-	time.Sleep(20 * time.Millisecond)
-
-	if _, err := service.GetHarness(ctx, created.ID); err != nil {
-		t.Fatalf("GetHarness() error = %v", err)
-	}
-
-	mirrorAfterRead, err := client.ProjectRepoMirror.Query().
-		Where(
-			entprojectrepomirror.ProjectRepoIDEQ(projectRepo.ID),
-			entprojectrepomirror.MachineIDEQ(localMachine.ID),
-		).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("load mirror after read: %v", err)
-	}
-	if mirrorAfterRead.LastSyncedAt == nil || !mirrorAfterRead.LastSyncedAt.Equal(syncedAfterCreate) {
-		t.Fatalf("expected read path to avoid sync, got %+v", mirrorAfterRead)
-	}
-	if mirrorAfterRead.LastVerifiedAt == nil || !mirrorAfterRead.LastVerifiedAt.After(verifiedAfterCreate) {
-		t.Fatalf("expected read path to verify mirror, got %+v", mirrorAfterRead)
-	}
-
-	commitWorkflowSourceFile(t, sourceRepoPath, created.HarnessPath, created.HarnessContent)
-	time.Sleep(20 * time.Millisecond)
-
-	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
-		WorkflowID: created.ID,
-		Content:    "---\nworkflow:\n  role: coding\n---\n\n# Freshness updated\n",
-	}); err != nil {
-		t.Fatalf("UpdateHarness() error = %v", err)
-	}
-
-	mirrorAfterWrite, err := client.ProjectRepoMirror.Query().
-		Where(
-			entprojectrepomirror.ProjectRepoIDEQ(projectRepo.ID),
-			entprojectrepomirror.MachineIDEQ(localMachine.ID),
-		).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("load mirror after write: %v", err)
-	}
-	if mirrorAfterWrite.LastSyncedAt == nil || !mirrorAfterWrite.LastSyncedAt.After(syncedAfterCreate) {
-		t.Fatalf("expected write path to sync mirror, got %+v", mirrorAfterWrite)
 	}
 }
 
@@ -807,18 +660,11 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	if detected, err := DetectRepoRoot(childDir); err != nil || detected != repoRoot {
 		t.Fatalf("DetectRepoRoot() = %q, %v", detected, err)
 	}
-	if detected, err := ResolveReadyMirrorRepoRoot([]*ent.ProjectRepoMirror{{LocalPath: repoRoot}}); err != nil || detected != repoRoot {
-		t.Fatalf("ResolveReadyMirrorRepoRoot(abs) = %q, %v", detected, err)
-	}
-	if _, err := ResolveReadyMirrorRepoRoot([]*ent.ProjectRepoMirror{{LocalPath: "https://example.com/repo.git"}}); err == nil {
-		t.Fatal("ResolveReadyMirrorRepoRoot(https) expected error")
-	}
-
 	readyPrerequisite, err := service.GetRepositoryPrerequisite(ctx, fixture.projectID)
 	if err != nil {
 		t.Fatalf("GetRepositoryPrerequisite() ready error = %v", err)
 	}
-	if !readyPrerequisite.Ready() || readyPrerequisite.PrimaryRepoID == nil || readyPrerequisite.MirrorState == nil || *readyPrerequisite.MirrorState != catalogdomain.ProjectRepoMirrorStateReady {
+	if !readyPrerequisite.Ready() || readyPrerequisite.Action != WorkflowRepositoryPrerequisiteActionNone {
 		t.Fatalf("GetRepositoryPrerequisite() ready = %+v", readyPrerequisite)
 	}
 
@@ -826,43 +672,8 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRepositoryPrerequisite() missing repo error = %v", err)
 	}
-	if missingPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindMissingPrimaryRepo || missingPrerequisite.Action != WorkflowRepositoryPrerequisiteActionBindPrimaryRepo {
-		t.Fatalf("GetRepositoryPrerequisite() missing repo = %+v", missingPrerequisite)
-	}
-
-	projectItem, err := client.Project.Get(ctx, fixture.projectID)
-	if err != nil {
-		t.Fatalf("load project for no-mirror fixture: %v", err)
-	}
-	projectWithoutMirror, err := client.Project.Create().
-		SetOrganizationID(projectItem.OrganizationID).
-		SetName("Mirror Pending").
-		SetSlug("mirror-pending").
-		SetStatus("In Progress").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create projectWithoutMirror: %v", err)
-	}
-	if _, err := client.ProjectRepo.Create().
-		SetProjectID(projectWithoutMirror.ID).
-		SetName("pending-repo").
-		SetRepositoryURL("https://github.com/acme/pending.git").
-		SetDefaultBranch("main").
-		SetWorkspaceDirname("pending-repo").
-		SetIsPrimary(true).
-		Save(ctx); err != nil {
-		t.Fatalf("create primary repo without mirror: %v", err)
-	}
-
-	notReadyPrerequisite, err := service.GetRepositoryPrerequisite(ctx, projectWithoutMirror.ID)
-	if err != nil {
-		t.Fatalf("GetRepositoryPrerequisite() mirror pending error = %v", err)
-	}
-	if notReadyPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindPrimaryMirrorNotReady ||
-		notReadyPrerequisite.MirrorState == nil ||
-		*notReadyPrerequisite.MirrorState != catalogdomain.ProjectRepoMirrorStateMissing ||
-		notReadyPrerequisite.Action != WorkflowRepositoryPrerequisiteActionPrepareMirror {
-		t.Fatalf("GetRepositoryPrerequisite() mirror pending = %+v", notReadyPrerequisite)
+	if missingPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindReady || missingPrerequisite.Action != WorkflowRepositoryPrerequisiteActionNone {
+		t.Fatalf("GetRepositoryPrerequisite() repo-less project = %+v", missingPrerequisite)
 	}
 
 	if _, err := service.List(ctx, uuid.New()); !errors.Is(err, ErrProjectNotFound) {
@@ -893,11 +704,8 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		t.Fatalf("UpdateHarness() invalid content error = %v, want %v", err, ErrHarnessInvalid)
 	}
 
-	if _, err := service.storageForProject(ctx, fixture.projectWithoutRepoID, workflowStorageUsageRead); !errors.Is(err, ErrPrimaryRepoRequired) {
-		t.Fatalf("storageForProject() missing repo error = %v, want %v", err, ErrPrimaryRepoRequired)
-	}
-	if _, err := service.storageForProject(ctx, projectWithoutMirror.ID, workflowStorageUsageRead); !errors.Is(err, ErrPrimaryMirrorNotReady) {
-		t.Fatalf("storageForProject() mirror pending error = %v, want %v", err, ErrPrimaryMirrorNotReady)
+	if _, err := service.storageForProject(ctx, fixture.projectWithoutRepoID, workflowStorageUsageRead); err != nil {
+		t.Fatalf("storageForProject() repo-less project error = %v", err)
 	}
 
 	if _, err := service.Create(ctx, CreateInput{
@@ -1510,24 +1318,15 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 	if err != nil {
 		t.Fatalf("create projectWithoutRepo: %v", err)
 	}
-	projectRepo, err := client.ProjectRepo.Create().
+	if _, err := client.ProjectRepo.Create().
 		SetProjectID(project.ID).
 		SetName(filepath.Base(repoRoot)).
-		SetRepositoryURL("https://github.com/GrandCX/openase.git").
+		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(repoRoot)).
 		SetIsPrimary(true).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create primary project repo: %v", err)
-	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(machine.ID).
-		SetLocalPath(repoRoot).
-		SetState("ready").
 		Save(ctx); err != nil {
-		t.Fatalf("create primary project repo mirror: %v", err)
+		t.Fatalf("create primary project repo: %v", err)
 	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)

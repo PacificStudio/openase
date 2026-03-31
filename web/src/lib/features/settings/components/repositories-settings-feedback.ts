@@ -1,7 +1,7 @@
 import { ApiError } from '$lib/api/client'
 import { toastStore } from '$lib/stores/toast.svelte'
 
-export type RepositoryReloadAction = 'created' | 'updated' | 'deleted' | 'mirror_updated'
+export type RepositoryReloadAction = 'created' | 'updated' | 'deleted'
 
 export async function reloadReposAfterMutation(
   reloadRepos: () => Promise<void>,
@@ -23,7 +23,6 @@ export async function reloadReposAfterMutation(
 }
 
 function reloadFailureMessage(action: RepositoryReloadAction, detail?: string) {
-  const subject = action === 'mirror_updated' ? 'Repository mirror updated' : `Repository ${action}`
-  const message = `${subject}, but reloading the repository list failed.`
+  const message = `Repository ${action}, but reloading the repository list failed.`
   return detail ? `${message} ${detail}` : message
 }

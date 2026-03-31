@@ -98,7 +98,6 @@ type OpenAPIMachine struct {
 	Labels          []string       `json:"labels,omitempty"`
 	Status          string         `json:"status"`
 	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
-	MirrorRoot      *string        `json:"mirror_root,omitempty"`
 	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
 	EnvVars         []string       `json:"env_vars,omitempty"`
 	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
@@ -121,27 +120,6 @@ type OpenAPIProjectRepo struct {
 	WorkspaceDirname string   `json:"workspace_dirname"`
 	IsPrimary        bool     `json:"is_primary"`
 	Labels           []string `json:"labels,omitempty"`
-	MirrorCount      *int     `json:"mirror_count,omitempty"`
-	MirrorState      *string  `json:"mirror_state,omitempty"`
-	MirrorMachineID  *string  `json:"mirror_machine_id,omitempty"`
-	LastSyncedAt     *string  `json:"last_synced_at,omitempty"`
-	LastVerifiedAt   *string  `json:"last_verified_at,omitempty"`
-	LastError        *string  `json:"last_error,omitempty"`
-}
-
-type OpenAPIProjectRepoMirror struct {
-	ID             string  `json:"id"`
-	ProjectID      string  `json:"project_id"`
-	ProjectRepoID  string  `json:"project_repo_id"`
-	MachineID      string  `json:"machine_id"`
-	LocalPath      string  `json:"local_path"`
-	State          string  `json:"state"`
-	HeadCommit     *string `json:"head_commit,omitempty"`
-	LastSyncedAt   *string `json:"last_synced_at,omitempty"`
-	LastVerifiedAt *string `json:"last_verified_at,omitempty"`
-	LastError      *string `json:"last_error,omitempty"`
-	CreatedAt      string  `json:"created_at"`
-	UpdatedAt      string  `json:"updated_at"`
 }
 
 type OpenAPIAgentProvider struct {
@@ -456,10 +434,6 @@ type OpenAPIWorkflowRepositoryPrerequisite struct {
 	RepoCount       int     `json:"repo_count"`
 	PrimaryRepoID   *string `json:"primary_repo_id,omitempty"`
 	PrimaryRepoName string  `json:"primary_repo_name,omitempty"`
-	MirrorCount     int     `json:"mirror_count"`
-	MirrorState     *string `json:"mirror_state,omitempty"`
-	MirrorMachineID *string `json:"mirror_machine_id,omitempty"`
-	MirrorLastError *string `json:"mirror_last_error,omitempty"`
 	Action          string  `json:"action"`
 }
 
@@ -781,14 +755,6 @@ type OpenAPIProjectRepoResponse struct {
 	Repo OpenAPIProjectRepo `json:"repo"`
 }
 
-type OpenAPIProjectRepoMirrorsResponse struct {
-	Mirrors []OpenAPIProjectRepoMirror `json:"mirrors"`
-}
-
-type OpenAPIProjectRepoMirrorResponse struct {
-	Mirror OpenAPIProjectRepoMirror `json:"mirror"`
-}
-
 type OpenAPITicketRepoScopesResponse struct {
 	RepoScopes []OpenAPITicketRepoScope `json:"repo_scopes"`
 }
@@ -1069,8 +1035,6 @@ type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
 type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
 type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
-type OpenAPIMaterializeProjectRepoMirrorRequest projectRepoMirrorMaterializeRequest
-type OpenAPIProjectRepoMirrorMachineRequest projectRepoMirrorMachineRequest
 type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
 type OpenAPIUpdateTicketRepoScopeRequest ticketRepoScopePatchRequest
 type OpenAPICreateAgentRequest catalogdomain.AgentInput
@@ -1181,7 +1145,6 @@ var (
 		"labels":         "Labels attached to the machine for operator reference.",
 		"status":         "Machine lifecycle status value.",
 		"workspace_root": "Filesystem root directory where ticket workspaces are created on the machine.",
-		"mirror_root":    "Filesystem root directory where repository mirrors are stored on the machine.",
 		"agent_cli_path": "Absolute path to the agent CLI executable on the machine.",
 		"env_vars":       "Environment variable entries exported when work runs on the machine.",
 	}
@@ -1216,14 +1179,6 @@ var (
 		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
 		"is_primary":        "Whether this repository is the primary project repository.",
 		"labels":            "Labels attached to the repository for workflow selection and filtering.",
-	}
-	openAPIRepoMirrorMaterializeDescriptions = map[string]string{
-		"machine_id": "Machine ID where the repository mirror should be prepared or registered.",
-		"local_path": "Absolute filesystem path where the mirror exists or should be created.",
-		"mode":       "Mirror materialization mode, such as preparing a new mirror or registering an existing checkout.",
-	}
-	openAPIRepoMirrorMachineDescriptions = map[string]string{
-		"machine_id": "Machine ID whose mirror should be verified or synchronized.",
 	}
 	// #nosec G101 -- "token" is an OpenAPI field name/description, not a credential literal.
 	openAPIGitHubCredentialDescriptions = map[string]string{
@@ -1397,9 +1352,6 @@ var (
 		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors":                                     openAPIRepoMirrorMaterializeDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify":                              openAPIRepoMirrorMachineDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync":                                openAPIRepoMirrorMachineDescriptions,
 		"POST /api/v1/projects/{projectId}/agents":                                                     openAPIAgentRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/workflows":                                                  openAPIWorkflowRequestDescriptions,
 		"PATCH /api/v1/workflows/{workflowId}":                                                         mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),
@@ -1967,87 +1919,6 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	projectReposGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/repos", http.MethodGet, projectReposGet)
-
-	projectRepoMirrorsGet, err := b.jsonOperation(
-		"listProjectRepoMirrors",
-		"List project repository mirrors",
-		[]string{"catalog"},
-		http.StatusOK,
-		OpenAPIProjectRepoMirrorsResponse{},
-		nil,
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectRepoMirrorsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	projectRepoMirrorsGet.AddParameter(uuidPathParameter("repoId", "Repository ID."))
-	projectRepoMirrorsGet.AddParameter(uuidQueryParameter("machine_id", "Optional machine filter."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors", http.MethodGet, projectRepoMirrorsGet)
-
-	projectRepoMirrorsPost, err := b.jsonOperation(
-		"materializeProjectRepoMirror",
-		"Register or prepare a project repository mirror",
-		[]string{"catalog"},
-		http.StatusCreated,
-		OpenAPIProjectRepoMirrorResponse{},
-		OpenAPIMaterializeProjectRepoMirrorRequest{},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectRepoMirrorsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	projectRepoMirrorsPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors", http.MethodPost, projectRepoMirrorsPost)
-
-	projectRepoMirrorVerifyPost, err := b.jsonOperation(
-		"verifyProjectRepoMirror",
-		"Verify a project repository mirror",
-		[]string{"catalog"},
-		http.StatusOK,
-		OpenAPIProjectRepoMirrorResponse{},
-		OpenAPIProjectRepoMirrorMachineRequest{},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectRepoMirrorVerifyPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	projectRepoMirrorVerifyPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify", http.MethodPost, projectRepoMirrorVerifyPost)
-
-	projectRepoMirrorSyncPost, err := b.jsonOperation(
-		"syncProjectRepoMirror",
-		"Sync a project repository mirror",
-		[]string{"catalog"},
-		http.StatusOK,
-		OpenAPIProjectRepoMirrorResponse{},
-		OpenAPIProjectRepoMirrorMachineRequest{},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectRepoMirrorSyncPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	projectRepoMirrorSyncPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync", http.MethodPost, projectRepoMirrorSyncPost)
 
 	projectReposPost, err := b.jsonOperation(
 		"createProjectRepo",

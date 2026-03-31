@@ -24,21 +24,18 @@ import (
 	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
@@ -298,7 +295,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if repoWorkspace.State != entticketrepoworkspace.StateReady {
 		t.Fatalf("expected ready ticket repo workspace, got %+v", repoWorkspace)
 	}
-	if repoWorkspace.MirrorID == uuid.Nil || repoWorkspace.PreparedAt == nil {
+	if repoWorkspace.PreparedAt == nil {
 		t.Fatalf("expected persisted ticket repo workspace metadata, got %+v", repoWorkspace)
 	}
 }
@@ -2674,16 +2671,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(repoItem.ID).
-		SetMachineID(remoteMachine.ID).
-		SetLocalPath("/srv/openase/mirrors/backend").
-		SetState(entprojectrepomirror.StateReady).
-		SetHeadCommit("abc123remote").
-		Save(ctx); err != nil {
-		t.Fatalf("create ready remote mirror: %v", err)
-	}
-
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
@@ -2722,7 +2709,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if runAfter.SessionID != "thread-runtime-1" {
 		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch '/srv/openase/mirrors/backend' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
+	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
 	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
@@ -2737,12 +2724,12 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if err != nil {
 		t.Fatalf("load remote ticket repo workspace: %v", err)
 	}
-	if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.HeadCommit != "abc123remote" {
+	if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.HeadCommit != "" {
 		t.Fatalf("unexpected remote ticket repo workspace %+v", repoWorkspace)
 	}
 }
 
-func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t *testing.T) {
+func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -2763,7 +2750,7 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetIdentifier("ASE-401A").
-		SetTitle("Sync stale remote mirror before launch").
+		SetTitle("Prepare remote workspace directly from repository URL").
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetWorkflowID(workflowItem.ID).
 		SetPriority(entticket.PriorityHigh).
@@ -2826,16 +2813,6 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(repoItem.ID).
-		SetMachineID(remoteMachine.ID).
-		SetLocalPath("/srv/openase/mirrors/backend").
-		SetState(entprojectrepomirror.StateStale).
-		SetHeadCommit("abc123stale").
-		Save(ctx); err != nil {
-		t.Fatalf("create stale remote mirror: %v", err)
-	}
-
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
@@ -2846,26 +2823,14 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 	}
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
-	syncSession := &runtimeSSHCommandSession{output: []byte("def456fresh\n")}
 	prepareSession := &runtimeSSHPrepareSession{}
 	processSession := newRuntimeSSHProcessSession()
 	sshPool := sshinfra.NewPool("/tmp/openase",
-		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{syncSession, prepareSession, processSession}}}),
+		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{prepareSession, processSession}}}),
 		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
 	)
 
-	mirrorService := projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	mirrorService.ConfigureSSHPool(sshPool)
-	mirrorService.ConfigureGitHubCredentials(stubTokenResolver{
-		projectID: fixture.projectID,
-		resolved: githubauthdomain.ResolvedCredential{
-			Scope: githubauthdomain.ScopeProject,
-			Token: "runtime-launcher-test-token",
-		},
-	})
-
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
-	launcher.ConfigureMirrorService(mirrorService)
 	t.Cleanup(func() {
 		if err := launcher.Close(context.Background()); err != nil {
 			t.Errorf("close launcher: %v", err)
@@ -2883,24 +2848,11 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 	if runAfter.Status != entagentrun.StatusReady {
 		t.Fatalf("expected ready run, got %+v", runAfter)
 	}
-	if !strings.Contains(syncSession.command, "/srv/openase/mirrors/backend") || !strings.Contains(syncSession.command, "fetch origin") {
-		t.Fatalf("expected remote mirror sync command, got %q", syncSession.command)
-	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch '/srv/openase/mirrors/backend' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend'") {
+	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
-
-	mirrorAfter, err := client.ProjectRepoMirror.Query().
-		Where(
-			entprojectrepomirror.ProjectRepoIDEQ(repoItem.ID),
-			entprojectrepomirror.MachineIDEQ(remoteMachine.ID),
-		).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("reload project repo mirror: %v", err)
-	}
-	if mirrorAfter.State != entprojectrepomirror.StateReady || mirrorAfter.HeadCommit != "def456fresh" || mirrorAfter.LastSyncedAt == nil {
-		t.Fatalf("expected synced remote mirror, got %+v", mirrorAfter)
+	if !strings.Contains(prepareSession.command, "git -C '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend' fetch origin") {
+		t.Fatalf("expected remote workspace fetch command, got %q", prepareSession.command)
 	}
 }
 
@@ -3049,15 +3001,14 @@ func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIs
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	projectRepo, err := client.ProjectRepo.Create().
+	if _, err := client.ProjectRepo.Create().
 		SetProjectID(fixture.projectID).
 		SetName("openase").
 		SetRepositoryURL("https://github.com/GrandCX/openase.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("openase").
 		SetIsPrimary(true).
-		Save(ctx)
-	if err != nil {
+		Save(ctx); err != nil {
 		t.Fatalf("create project repo: %v", err)
 	}
 
@@ -3090,16 +3041,6 @@ func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIs
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(remoteMachine.ID).
-		SetLocalPath("/srv/openase/mirrors/openase").
-		SetState(entprojectrepomirror.StateReady).
-		SetHeadCommit("abc123remote").
-		Save(ctx); err != nil {
-		t.Fatalf("create ready remote mirror: %v", err)
-	}
-
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
@@ -3622,39 +3563,17 @@ func createRuntimeLauncherPrimaryRepo(
 	t.Helper()
 
 	repoName := "repo-" + strings.ReplaceAll(projectID.String(), "-", "")[:8]
-	projectRepo, err := client.ProjectRepo.Create().
+	if _, err := client.ProjectRepo.Create().
 		SetProjectID(projectID).
 		SetName(repoName).
-		SetRepositoryURL(fmt.Sprintf("https://github.com/acme/%s.git", repoName)).
+		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(repoName).
 		SetIsPrimary(true).
-		Save(ctx)
-	if err != nil {
+		Save(ctx); err != nil {
 		t.Fatalf("create primary project repo: %v", err)
 	}
 
-	project, err := client.Project.Get(ctx, projectID)
-	if err != nil {
-		t.Fatalf("load project: %v", err)
-	}
-	localMachine, err := client.Machine.Query().
-		Where(
-			entmachine.OrganizationIDEQ(project.OrganizationID),
-			entmachine.NameEQ(catalogdomain.LocalMachineName),
-		).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("load local machine: %v", err)
-	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(localMachine.ID).
-		SetLocalPath(repoRoot).
-		SetState(entprojectrepomirror.StateReady).
-		Save(ctx); err != nil {
-		t.Fatalf("create ready project repo mirror: %v", err)
-	}
 }
 
 func initRuntimeLauncherRepo(t *testing.T, repoRoot string) {

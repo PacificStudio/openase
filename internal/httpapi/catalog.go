@@ -6,12 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -52,7 +50,6 @@ type machineResponse struct {
 	Labels          []string       `json:"labels"`
 	Status          string         `json:"status"`
 	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
-	MirrorRoot      *string        `json:"mirror_root,omitempty"`
 	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
 	EnvVars         []string       `json:"env_vars"`
 	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
@@ -75,44 +72,6 @@ type projectRepoResponse struct {
 	WorkspaceDirname string   `json:"workspace_dirname"`
 	IsPrimary        bool     `json:"is_primary"`
 	Labels           []string `json:"labels"`
-	MirrorCount      *int     `json:"mirror_count,omitempty"`
-	MirrorState      *string  `json:"mirror_state,omitempty"`
-	MirrorMachineID  *string  `json:"mirror_machine_id,omitempty"`
-	LastSyncedAt     *string  `json:"last_synced_at,omitempty"`
-	LastVerifiedAt   *string  `json:"last_verified_at,omitempty"`
-	LastError        *string  `json:"last_error,omitempty"`
-}
-
-type projectRepoMirrorResponse struct {
-	ID             string  `json:"id"`
-	ProjectID      string  `json:"project_id"`
-	ProjectRepoID  string  `json:"project_repo_id"`
-	MachineID      string  `json:"machine_id"`
-	LocalPath      string  `json:"local_path"`
-	State          string  `json:"state"`
-	HeadCommit     *string `json:"head_commit,omitempty"`
-	LastSyncedAt   *string `json:"last_synced_at,omitempty"`
-	LastVerifiedAt *string `json:"last_verified_at,omitempty"`
-	LastError      *string `json:"last_error,omitempty"`
-	CreatedAt      string  `json:"created_at"`
-	UpdatedAt      string  `json:"updated_at"`
-}
-
-type projectRepoMirrorMaterializeMode string
-
-const (
-	projectRepoMirrorMaterializeModeRegisterExisting projectRepoMirrorMaterializeMode = "register_existing"
-	projectRepoMirrorMaterializeModePrepare          projectRepoMirrorMaterializeMode = "prepare"
-)
-
-type projectRepoMirrorMaterializeRequest struct {
-	MachineID string  `json:"machine_id"`
-	LocalPath *string `json:"local_path,omitempty"`
-	Mode      string  `json:"mode"`
-}
-
-type projectRepoMirrorMachineRequest struct {
-	MachineID string `json:"machine_id"`
 }
 
 type ticketRepoScopeResponse struct {
@@ -153,7 +112,6 @@ type machinePatchRequest struct {
 	Labels        *[]string `json:"labels"`
 	Status        *string   `json:"status"`
 	WorkspaceRoot *string   `json:"workspace_root"`
-	MirrorRoot    *string   `json:"mirror_root"`
 	AgentCLIPath  *string   `json:"agent_cli_path"`
 	EnvVars       *[]string `json:"env_vars"`
 }
@@ -202,10 +160,6 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.PATCH("/projects/:projectId", s.patchProject)
 	api.DELETE("/projects/:projectId", s.archiveProject)
 	api.GET("/projects/:projectId/repos", s.listProjectRepos)
-	api.GET("/projects/:projectId/repos/:repoId/mirrors", s.listProjectRepoMirrors)
-	api.POST("/projects/:projectId/repos/:repoId/mirrors", s.materializeProjectRepoMirror)
-	api.POST("/projects/:projectId/repos/:repoId/mirrors/verify", s.verifyProjectRepoMirror)
-	api.POST("/projects/:projectId/repos/:repoId/mirrors/sync", s.syncProjectRepoMirror)
 	api.POST("/projects/:projectId/repos", s.createProjectRepo)
 	api.PATCH("/projects/:projectId/repos/:repoId", s.patchProjectRepo)
 	api.DELETE("/projects/:projectId/repos/:repoId", s.deleteProjectRepo)
@@ -462,7 +416,6 @@ func (s *Server) patchMachine(c echo.Context) error {
 		Labels:        cloneStringSlice(current.Labels),
 		Status:        current.Status.String(),
 		WorkspaceRoot: current.WorkspaceRoot,
-		MirrorRoot:    current.MirrorRoot,
 		AgentCLIPath:  current.AgentCLIPath,
 		EnvVars:       cloneStringSlice(current.EnvVars),
 	}
@@ -492,9 +445,6 @@ func (s *Server) patchMachine(c echo.Context) error {
 	}
 	if patch.WorkspaceRoot != nil {
 		request.WorkspaceRoot = patch.WorkspaceRoot
-	}
-	if patch.MirrorRoot != nil {
-		request.MirrorRoot = patch.MirrorRoot
 	}
 	if patch.AgentCLIPath != nil {
 		request.AgentCLIPath = patch.AgentCLIPath
@@ -696,160 +646,8 @@ func (s *Server) listProjectRepos(c echo.Context) error {
 		return writeCatalogError(c, err)
 	}
 
-	response, err := s.mapProjectRepoResponsesWithMirrorSummary(c.Request().Context(), items)
-	if err != nil {
-		return writeProjectRepoMirrorError(c, err)
-	}
-
 	return c.JSON(http.StatusOK, map[string]any{
-		"repos": response,
-	})
-}
-
-func (s *Server) listProjectRepoMirrors(c echo.Context) error {
-	if s.projectRepoMirrors == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project repo mirror service unavailable")
-	}
-
-	projectID, err := parseUUIDPathParam(c, "projectId")
-	if err != nil {
-		return err
-	}
-	repoID, err := parseUUIDPathParam(c, "repoId")
-	if err != nil {
-		return err
-	}
-
-	var machineID *uuid.UUID
-	if rawMachineID := strings.TrimSpace(c.QueryParam("machine_id")); rawMachineID != "" {
-		parsedMachineID, parseErr := uuid.Parse(rawMachineID)
-		if parseErr != nil {
-			return writeAPIError(c, http.StatusBadRequest, "INVALID_MACHINE_ID", "machine_id must be a valid UUID")
-		}
-		machineID = &parsedMachineID
-	}
-
-	items, err := s.projectRepoMirrors.List(c.Request().Context(), projectrepomirrorsvc.ListFilter{
-		ProjectID:     projectID,
-		ProjectRepoID: repoID,
-		MachineID:     machineID,
-	})
-	if err != nil {
-		return writeProjectRepoMirrorError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{
-		"mirrors": mapProjectRepoMirrorResponses(items),
-	})
-}
-
-func (s *Server) materializeProjectRepoMirror(c echo.Context) error {
-	if s.projectRepoMirrors == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project repo mirror service unavailable")
-	}
-
-	projectID, err := parseUUIDPathParam(c, "projectId")
-	if err != nil {
-		return err
-	}
-	repoID, err := parseUUIDPathParam(c, "repoId")
-	if err != nil {
-		return err
-	}
-	if _, err := s.catalog.GetProjectRepo(c.Request().Context(), projectID, repoID); err != nil {
-		return writeCatalogError(c, err)
-	}
-
-	var request projectRepoMirrorMaterializeRequest
-	if err := decodeJSON(c, &request); err != nil {
-		return err
-	}
-
-	machineID, localPath, mode, err := parseProjectRepoMirrorMaterializeRequest(request)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	var mirror domain.ProjectRepoMirror
-	switch mode {
-	case projectRepoMirrorMaterializeModeRegisterExisting:
-		mirror, err = s.projectRepoMirrors.RegisterExisting(c.Request().Context(), projectrepomirrorsvc.RegisterExistingInput{
-			ProjectRepoID: repoID,
-			MachineID:     machineID,
-			LocalPath:     localPath,
-		})
-	case projectRepoMirrorMaterializeModePrepare:
-		mirror, err = s.projectRepoMirrors.Prepare(c.Request().Context(), projectrepomirrorsvc.PrepareInput{
-			ProjectRepoID: repoID,
-			MachineID:     machineID,
-			LocalPath:     localPath,
-		})
-	default:
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "mode must be one of register_existing or prepare")
-	}
-	if err != nil {
-		return writeProjectRepoMirrorError(c, err)
-	}
-
-	return c.JSON(http.StatusCreated, map[string]any{
-		"mirror": mapProjectRepoMirrorResponse(mirror),
-	})
-}
-
-func (s *Server) verifyProjectRepoMirror(c echo.Context) error {
-	return s.runProjectRepoMirrorAction(c, func(ctx context.Context, repoID uuid.UUID, machineID uuid.UUID) (domain.ProjectRepoMirror, error) {
-		return s.projectRepoMirrors.Verify(ctx, projectrepomirrorsvc.VerifyInput{
-			ProjectRepoID: repoID,
-			MachineID:     machineID,
-		})
-	})
-}
-
-func (s *Server) syncProjectRepoMirror(c echo.Context) error {
-	return s.runProjectRepoMirrorAction(c, func(ctx context.Context, repoID uuid.UUID, machineID uuid.UUID) (domain.ProjectRepoMirror, error) {
-		return s.projectRepoMirrors.Sync(ctx, projectrepomirrorsvc.SyncInput{
-			ProjectRepoID: repoID,
-			MachineID:     machineID,
-		})
-	})
-}
-
-func (s *Server) runProjectRepoMirrorAction(
-	c echo.Context,
-	action func(context.Context, uuid.UUID, uuid.UUID) (domain.ProjectRepoMirror, error),
-) error {
-	if s.projectRepoMirrors == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project repo mirror service unavailable")
-	}
-
-	projectID, err := parseUUIDPathParam(c, "projectId")
-	if err != nil {
-		return err
-	}
-	repoID, err := parseUUIDPathParam(c, "repoId")
-	if err != nil {
-		return err
-	}
-	if _, err := s.catalog.GetProjectRepo(c.Request().Context(), projectID, repoID); err != nil {
-		return writeCatalogError(c, err)
-	}
-
-	var request projectRepoMirrorMachineRequest
-	if err := decodeJSON(c, &request); err != nil {
-		return err
-	}
-	machineID, err := parseProjectRepoMirrorMachineRequest(request)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	mirror, err := action(c.Request().Context(), repoID, machineID)
-	if err != nil {
-		return writeProjectRepoMirrorError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{
-		"mirror": mapProjectRepoMirrorResponse(mirror),
+		"repos": mapProjectRepoResponses(items),
 	})
 }
 
@@ -1158,23 +956,6 @@ func writeCatalogError(c echo.Context, err error) error {
 	}
 }
 
-func writeProjectRepoMirrorError(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, projectrepomirrorsvc.ErrInvalidInput):
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	case errors.Is(err, projectrepomirrorsvc.ErrNotFound):
-		return writeAPIError(c, http.StatusNotFound, "PROJECT_REPO_MIRROR_NOT_FOUND", err.Error())
-	case errors.Is(err, projectrepomirrorsvc.ErrMirrorNotReady):
-		return writeAPIError(c, http.StatusConflict, "PROJECT_REPO_MIRROR_NOT_READY", err.Error())
-	case errors.Is(err, projectrepomirrorsvc.ErrMirrorSyncFailed):
-		return writeAPIError(c, http.StatusBadGateway, "PROJECT_REPO_MIRROR_SYNC_FAILED", err.Error())
-	case errors.Is(err, projectrepomirrorsvc.ErrInvalidTransition):
-		return writeAPIError(c, http.StatusConflict, "PROJECT_REPO_MIRROR_STATE_CONFLICT", err.Error())
-	default:
-		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error")
-	}
-}
-
 func errorResponse(message string) map[string]string {
 	return map[string]string{"error": message}
 }
@@ -1262,7 +1043,6 @@ func mapMachineResponse(item domain.Machine) machineResponse {
 		Labels:          cloneStringSlice(item.Labels),
 		Status:          item.Status.String(),
 		WorkspaceRoot:   item.WorkspaceRoot,
-		MirrorRoot:      item.MirrorRoot,
 		AgentCLIPath:    item.AgentCLIPath,
 		EnvVars:         cloneStringSlice(item.EnvVars),
 		LastHeartbeatAt: timeToStringPointer(item.LastHeartbeatAt),
@@ -1296,219 +1076,25 @@ func mapProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 	return baseProjectRepoResponse(item)
 }
 
-type projectRepoMirrorSummary struct {
-	MirrorCount    *int
-	MirrorState    *string
-	MirrorMachine  *string
-	LastSyncedAt   *string
-	LastVerifiedAt *string
-	LastError      *string
+func mapProjectRepoResponses(items []domain.ProjectRepo) []projectRepoResponse {
+	response := make([]projectRepoResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapProjectRepoResponse(item))
+	}
+	return response
 }
 
 func (s *Server) mapProjectRepoResponsesWithMirrorSummary(ctx context.Context, items []domain.ProjectRepo) ([]projectRepoResponse, error) {
 	response := make([]projectRepoResponse, 0, len(items))
 	for _, item := range items {
-		mapped, err := s.mapProjectRepoResponseWithMirrorSummary(ctx, item)
-		if err != nil {
-			return nil, err
-		}
-		response = append(response, mapped)
+		response = append(response, s.mapProjectRepoResponseWithMirrorSummary(ctx, item))
 	}
 
 	return response, nil
 }
 
-func (s *Server) mapProjectRepoResponseWithMirrorSummary(ctx context.Context, item domain.ProjectRepo) (projectRepoResponse, error) {
-	response := baseProjectRepoResponse(item)
-	if s.projectRepoMirrors == nil {
-		return response, nil
-	}
-
-	summary, err := s.summarizeProjectRepoMirror(ctx, item)
-	if err != nil {
-		return projectRepoResponse{}, err
-	}
-	response.MirrorCount = summary.MirrorCount
-	response.MirrorState = summary.MirrorState
-	response.MirrorMachineID = summary.MirrorMachine
-	response.LastSyncedAt = summary.LastSyncedAt
-	response.LastVerifiedAt = summary.LastVerifiedAt
-	response.LastError = summary.LastError
-	return response, nil
-}
-
-func (s *Server) summarizeProjectRepoMirror(ctx context.Context, item domain.ProjectRepo) (projectRepoMirrorSummary, error) {
-	summary := projectRepoMirrorSummary{}
-	if s.projectRepoMirrors == nil {
-		return summary, nil
-	}
-
-	mirrors, err := s.projectRepoMirrors.List(ctx, projectrepomirrorsvc.ListFilter{
-		ProjectID:     item.ProjectID,
-		ProjectRepoID: item.ID,
-	})
-	if err != nil {
-		if errors.Is(err, projectrepomirrorsvc.ErrNotFound) {
-			return summary, nil
-		}
-		return projectRepoMirrorSummary{}, err
-	}
-
-	summary.MirrorCount = intPointer(len(mirrors))
-	selected := selectRepresentativeProjectRepoMirror(mirrors)
-	if selected == nil {
-		missing := domain.ProjectRepoMirrorStateMissing.String()
-		summary.MirrorState = &missing
-		return summary, nil
-	}
-
-	state := selected.State.String()
-	summary.MirrorState = &state
-	summary.LastSyncedAt = timeStringPointer(selected.LastSyncedAt)
-	summary.LastVerifiedAt = timeStringPointer(selected.LastVerifiedAt)
-	summary.LastError = cloneStringPointerValue(selected.LastError)
-
-	machineID := selected.MachineID.String()
-	summary.MirrorMachine = &machineID
-
-	return summary, nil
-}
-
-func selectRepresentativeProjectRepoMirror(mirrors []domain.ProjectRepoMirror) *domain.ProjectRepoMirror {
-	if len(mirrors) == 0 {
-		return nil
-	}
-
-	readyMirrors := make([]domain.ProjectRepoMirror, 0, len(mirrors))
-	for _, mirror := range mirrors {
-		if mirror.State == domain.ProjectRepoMirrorStateReady {
-			readyMirrors = append(readyMirrors, mirror)
-		}
-	}
-
-	ordered := append([]domain.ProjectRepoMirror(nil), mirrors...)
-	if len(readyMirrors) > 0 {
-		ordered = readyMirrors
-		slices.SortStableFunc(ordered, compareProjectRepoMirrorRecency)
-		return &ordered[0]
-	}
-
-	slices.SortStableFunc(ordered, compareProjectRepoMirrorSummaryPriority)
-	return &ordered[0]
-}
-
-func compareProjectRepoMirrorSummaryPriority(left domain.ProjectRepoMirror, right domain.ProjectRepoMirror) int {
-	leftPriority := projectRepoMirrorSummaryPriority(left.State)
-	rightPriority := projectRepoMirrorSummaryPriority(right.State)
-	switch {
-	case leftPriority < rightPriority:
-		return -1
-	case leftPriority > rightPriority:
-		return 1
-	default:
-		return compareProjectRepoMirrorRecency(left, right)
-	}
-}
-
-func projectRepoMirrorSummaryPriority(state domain.ProjectRepoMirrorState) int {
-	switch state {
-	case domain.ProjectRepoMirrorStateError, domain.ProjectRepoMirrorStateStale:
-		return 0
-	case domain.ProjectRepoMirrorStateSyncing, domain.ProjectRepoMirrorStateProvisioning:
-		return 1
-	case domain.ProjectRepoMirrorStateDeleting:
-		return 2
-	case domain.ProjectRepoMirrorStateMissing:
-		return 3
-	case domain.ProjectRepoMirrorStateReady:
-		return 4
-	default:
-		return 5
-	}
-}
-
-func compareProjectRepoMirrorRecency(left domain.ProjectRepoMirror, right domain.ProjectRepoMirror) int {
-	leftTime := projectRepoMirrorSummaryTime(left)
-	rightTime := projectRepoMirrorSummaryTime(right)
-	switch {
-	case leftTime.After(rightTime):
-		return -1
-	case leftTime.Before(rightTime):
-		return 1
-	default:
-		return strings.Compare(left.MachineID.String(), right.MachineID.String())
-	}
-}
-
-func projectRepoMirrorSummaryTime(mirror domain.ProjectRepoMirror) time.Time {
-	if mirror.LastVerifiedAt != nil {
-		return mirror.LastVerifiedAt.UTC()
-	}
-	if mirror.LastSyncedAt != nil {
-		return mirror.LastSyncedAt.UTC()
-	}
-	return mirror.UpdatedAt.UTC()
-}
-
-func mapProjectRepoMirrorResponses(items []domain.ProjectRepoMirror) []projectRepoMirrorResponse {
-	response := make([]projectRepoMirrorResponse, 0, len(items))
-	for _, item := range items {
-		response = append(response, mapProjectRepoMirrorResponse(item))
-	}
-	return response
-}
-
-func mapProjectRepoMirrorResponse(item domain.ProjectRepoMirror) projectRepoMirrorResponse {
-	return projectRepoMirrorResponse{
-		ID:             item.ID.String(),
-		ProjectID:      item.ProjectID.String(),
-		ProjectRepoID:  item.ProjectRepoID.String(),
-		MachineID:      item.MachineID.String(),
-		LocalPath:      item.LocalPath,
-		State:          item.State.String(),
-		HeadCommit:     cloneStringPointerValue(item.HeadCommit),
-		LastSyncedAt:   timeStringPointer(item.LastSyncedAt),
-		LastVerifiedAt: timeStringPointer(item.LastVerifiedAt),
-		LastError:      cloneStringPointerValue(item.LastError),
-		CreatedAt:      item.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt:      item.UpdatedAt.UTC().Format(time.RFC3339),
-	}
-}
-
-func parseProjectRepoMirrorMaterializeRequest(raw projectRepoMirrorMaterializeRequest) (uuid.UUID, string, projectRepoMirrorMaterializeMode, error) {
-	machineID, err := uuid.Parse(strings.TrimSpace(raw.MachineID))
-	if err != nil {
-		return uuid.UUID{}, "", "", fmt.Errorf("machine_id must be a valid UUID")
-	}
-
-	mode := projectRepoMirrorMaterializeMode(strings.TrimSpace(raw.Mode))
-	switch mode {
-	case projectRepoMirrorMaterializeModeRegisterExisting:
-		localPath := ""
-		if raw.LocalPath != nil {
-			localPath = strings.TrimSpace(*raw.LocalPath)
-		}
-		if localPath == "" {
-			return uuid.UUID{}, "", "", fmt.Errorf("local_path must not be empty for register_existing mode")
-		}
-		return machineID, localPath, mode, nil
-	case projectRepoMirrorMaterializeModePrepare:
-		localPath := ""
-		if raw.LocalPath != nil {
-			localPath = strings.TrimSpace(*raw.LocalPath)
-		}
-		return machineID, localPath, mode, nil
-	default:
-		return uuid.UUID{}, "", "", fmt.Errorf("mode must be one of register_existing or prepare")
-	}
-}
-
-func parseProjectRepoMirrorMachineRequest(raw projectRepoMirrorMachineRequest) (uuid.UUID, error) {
-	machineID, err := uuid.Parse(strings.TrimSpace(raw.MachineID))
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("machine_id must be a valid UUID")
-	}
-	return machineID, nil
+func (s *Server) mapProjectRepoResponseWithMirrorSummary(_ context.Context, item domain.ProjectRepo) projectRepoResponse {
+	return baseProjectRepoResponse(item)
 }
 
 func mapTicketRepoScopeResponses(items []domain.TicketRepoScope) []ticketRepoScopeResponse {

@@ -212,8 +212,6 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
         primary_repo_name:
           (mockState.repos.find((r) => r.is_primary) as Record<string, unknown>)?.name ??
           'todo-app',
-        mirror_count: 1,
-        mirror_state: 'ready',
         action: 'none',
       },
     })
@@ -615,7 +613,6 @@ function createInitialState(): MockState {
       labels: ['local', 'default'],
       status: 'online',
       workspace_root: '~/.openase/workspace',
-      mirror_root: '~/.openase/mirrors',
       agent_cli_path: '/usr/local/bin/codex',
       env_vars: ['OPENASE_ENV=dev'],
       last_heartbeat_at: nowIso,
@@ -642,7 +639,6 @@ function createInitialState(): MockState {
       labels: ['gpu', 'remote'],
       status: 'online',
       workspace_root: '/srv/openase/workspace',
-      mirror_root: '/srv/openase/mirrors',
       agent_cli_path: '/usr/bin/codex',
       env_vars: ['CUDA_VISIBLE_DEVICES=0'],
       last_heartbeat_at: nowIso,
@@ -928,7 +924,6 @@ function createMachineRecord(body: Record<string, unknown>) {
     labels: asStringArray(body.labels),
     status: asString(body.status) ?? 'maintenance',
     workspace_root: asString(body.workspace_root) ?? '',
-    mirror_root: asString(body.mirror_root) ?? '',
     agent_cli_path: asString(body.agent_cli_path) ?? '',
     env_vars: asStringArray(body.env_vars),
     last_heartbeat_at: null,
@@ -982,7 +977,6 @@ function applyMachineMutation(machine: Record<string, unknown>, body: Record<str
   machine.labels = asStringArray(body.labels)
   machine.status = asString(body.status) ?? machine.status
   machine.workspace_root = asString(body.workspace_root) ?? machine.workspace_root
-  machine.mirror_root = asString(body.mirror_root) ?? machine.mirror_root
   machine.agent_cli_path = asString(body.agent_cli_path) ?? machine.agent_cli_path
   machine.env_vars = asStringArray(body.env_vars)
 }

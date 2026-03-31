@@ -15,7 +15,6 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -427,14 +426,6 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 			RepositoryURL:    "https://github.com/acme/backend.git",
 			DefaultBranch:    "main",
 			WorkspaceDirname: "services/backend",
-			Edges: ent.ProjectRepoEdges{
-				Mirrors: []*ent.ProjectRepoMirror{{
-					ID:        uuid.New(),
-					MachineID: remoteMachineID,
-					LocalPath: "/srv/openase/mirrors/backend",
-					State:     entprojectrepomirror.StateReady,
-				}},
-			},
 		}},
 		ticketScopes: []*ent.TicketRepoScope{{
 			RepoID:     repoID,
@@ -460,7 +451,7 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 	if len(request.Repos) != 1 || request.Repos[0].BranchName != "agent/codex-01/ASE-77" {
 		t.Fatalf("buildWorkspaceRequest().Repos = %+v", request.Repos)
 	}
-	if len(plans) != 1 || plans[0].MirrorPath != "/srv/openase/mirrors/backend" {
+	if len(plans) != 1 || plans[0].Input.RepositoryURL != "https://github.com/acme/backend.git" {
 		t.Fatalf("buildWorkspaceRequest().Plans = %+v", plans)
 	}
 

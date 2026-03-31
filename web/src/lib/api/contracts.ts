@@ -166,13 +166,6 @@ export type ProjectRepoResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/repos', 'post'>
 >
 export type ProjectRepoRecord = ItemOf<ProjectRepoPayload['repos']>
-export type ProjectRepoMirrorPayload = DeepRequired<
-  ResponseFor<'/api/v1/projects/{projectId}/repos/{repoId}/mirrors', 'get'>
->
-export type ProjectRepoMirrorResponse = DeepRequired<
-  ResponseFor<'/api/v1/projects/{projectId}/repos/{repoId}/mirrors', 'post'>
->
-export type ProjectRepoMirrorRecord = ItemOf<ProjectRepoMirrorPayload['mirrors']>
 
 export type TicketRepoScopePayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes', 'get'>

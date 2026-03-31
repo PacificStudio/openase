@@ -136,7 +136,6 @@ func machineCreateBuilder(builder *ent.MachineCreate, input domain.CreateMachine
 		SetNillableSSHUser(input.SSHUser).
 		SetNillableSSHKeyPath(input.SSHKeyPath).
 		SetNillableWorkspaceRoot(input.WorkspaceRoot).
-		SetNillableMirrorRoot(input.MirrorRoot).
 		SetNillableAgentCliPath(input.AgentCLIPath)
 	if len(input.Labels) > 0 {
 		builder.SetLabels(pgarray.StringArray(input.Labels))
@@ -175,11 +174,6 @@ func machineUpdateBuilder(builder *ent.MachineUpdateOne, input domain.UpdateMach
 	} else {
 		builder.ClearWorkspaceRoot()
 	}
-	if input.MirrorRoot != nil {
-		builder.SetMirrorRoot(*input.MirrorRoot)
-	} else {
-		builder.ClearMirrorRoot()
-	}
 	if input.AgentCLIPath != nil {
 		builder.SetAgentCliPath(*input.AgentCLIPath)
 	} else {
@@ -216,7 +210,6 @@ func mapMachine(item *ent.Machine) domain.Machine {
 		Labels:          append([]string(nil), item.Labels...),
 		Status:          toDomainMachineStatus(item.Status),
 		WorkspaceRoot:   optionalString(item.WorkspaceRoot),
-		MirrorRoot:      optionalString(item.MirrorRoot),
 		AgentCLIPath:    optionalString(item.AgentCliPath),
 		EnvVars:         append([]string(nil), item.EnvVars...),
 		LastHeartbeatAt: cloneTimePointer(item.LastHeartbeatAt),

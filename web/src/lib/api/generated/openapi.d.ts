@@ -805,58 +805,6 @@ export interface paths {
     patch: operations['updateProjectRepo']
     trace?: never
   }
-  '/api/v1/projects/{projectId}/repos/{repoId}/mirrors': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** List project repository mirrors */
-    get: operations['listProjectRepoMirrors']
-    put?: never
-    /** Register or prepare a project repository mirror */
-    post: operations['materializeProjectRepoMirror']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Sync a project repository mirror */
-    post: operations['syncProjectRepoMirror']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Verify a project repository mirror */
-    post: operations['verifyProjectRepoMirror']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/api/v1/projects/{projectId}/scheduled-jobs': {
     parameters: {
       query?: never
@@ -2947,7 +2895,6 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
-              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -3027,7 +2974,6 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
-              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -3116,8 +3062,6 @@ export interface operations {
           host?: string | null
           /** @description Labels attached to the machine for operator reference. */
           labels?: string[] | null
-          /** @description Filesystem root directory where repository mirrors are stored on the machine. */
-          mirror_root?: string | null
           /** @description Human-readable machine name. */
           name?: string | null
           /** @description SSH port used to connect to the machine. */
@@ -3149,7 +3093,6 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
-              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -3241,7 +3184,6 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
-              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -3418,7 +3360,6 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
-              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -4213,7 +4154,6 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
-              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -4290,8 +4230,6 @@ export interface operations {
           host?: string
           /** @description Labels attached to the machine for operator reference. */
           labels?: string[]
-          /** @description Filesystem root directory where repository mirrors are stored on the machine. */
-          mirror_root?: string | null
           /** @description Human-readable machine name. */
           name?: string
           /** @description SSH port used to connect to the machine. */
@@ -4323,7 +4261,6 @@ export interface operations {
               id?: string
               labels?: string[]
               last_heartbeat_at?: string | null
-              mirror_root?: string | null
               name?: string
               organization_id?: string
               port?: number
@@ -6743,12 +6680,6 @@ export interface operations {
               id?: string
               is_primary?: boolean
               labels?: string[]
-              last_error?: string | null
-              last_synced_at?: string | null
-              last_verified_at?: string | null
-              mirror_count?: number | null
-              mirror_machine_id?: string | null
-              mirror_state?: string | null
               name?: string
               project_id?: string
               repository_url?: string
@@ -6837,12 +6768,6 @@ export interface operations {
               id?: string
               is_primary?: boolean
               labels?: string[]
-              last_error?: string | null
-              last_synced_at?: string | null
-              last_verified_at?: string | null
-              mirror_count?: number | null
-              mirror_machine_id?: string | null
-              mirror_state?: string | null
               name?: string
               project_id?: string
               repository_url?: string
@@ -6927,12 +6852,6 @@ export interface operations {
               id?: string
               is_primary?: boolean
               labels?: string[]
-              last_error?: string | null
-              last_synced_at?: string | null
-              last_verified_at?: string | null
-              mirror_count?: number | null
-              mirror_machine_id?: string | null
-              mirror_state?: string | null
               name?: string
               project_id?: string
               repository_url?: string
@@ -7035,12 +6954,6 @@ export interface operations {
               id?: string
               is_primary?: boolean
               labels?: string[]
-              last_error?: string | null
-              last_synced_at?: string | null
-              last_verified_at?: string | null
-              mirror_count?: number | null
-              mirror_machine_id?: string | null
-              mirror_state?: string | null
               name?: string
               project_id?: string
               repository_url?: string
@@ -7087,437 +7000,6 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  listProjectRepoMirrors: {
-    parameters: {
-      query?: {
-        /** @description Optional machine filter. */
-        machine_id?: string
-      }
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-        /** @description Repository ID. */
-        repoId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description List project repository mirrors response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            mirrors?: {
-              created_at?: string
-              head_commit?: string | null
-              id?: string
-              last_error?: string | null
-              last_synced_at?: string | null
-              last_verified_at?: string | null
-              local_path?: string
-              machine_id?: string
-              project_id?: string
-              project_repo_id?: string
-              state?: string
-              updated_at?: string
-            }[]
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Conflict response. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Bad Gateway response. */
-      502: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  materializeProjectRepoMirror: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-        /** @description Repository ID. */
-        repoId: string
-      }
-      cookie?: never
-    }
-    /** @description Register or prepare a project repository mirror request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Absolute filesystem path where the mirror exists or should be created. */
-          local_path?: string | null
-          /** @description Machine ID where the repository mirror should be prepared or registered. */
-          machine_id?: string
-          /** @description Mirror materialization mode, such as preparing a new mirror or registering an existing checkout. */
-          mode?: string
-        }
-      }
-    }
-    responses: {
-      /** @description Register or prepare a project repository mirror response. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            mirror?: {
-              created_at?: string
-              head_commit?: string | null
-              id?: string
-              last_error?: string | null
-              last_synced_at?: string | null
-              last_verified_at?: string | null
-              local_path?: string
-              machine_id?: string
-              project_id?: string
-              project_repo_id?: string
-              state?: string
-              updated_at?: string
-            }
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Conflict response. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Bad Gateway response. */
-      502: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  syncProjectRepoMirror: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-        /** @description Repository ID. */
-        repoId: string
-      }
-      cookie?: never
-    }
-    /** @description Sync a project repository mirror request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Machine ID whose mirror should be verified or synchronized. */
-          machine_id?: string
-        }
-      }
-    }
-    responses: {
-      /** @description Sync a project repository mirror response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            mirror?: {
-              created_at?: string
-              head_commit?: string | null
-              id?: string
-              last_error?: string | null
-              last_synced_at?: string | null
-              last_verified_at?: string | null
-              local_path?: string
-              machine_id?: string
-              project_id?: string
-              project_repo_id?: string
-              state?: string
-              updated_at?: string
-            }
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Conflict response. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Bad Gateway response. */
-      502: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  verifyProjectRepoMirror: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-        /** @description Repository ID. */
-        repoId: string
-      }
-      cookie?: never
-    }
-    /** @description Verify a project repository mirror request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Machine ID whose mirror should be verified or synchronized. */
-          machine_id?: string
-        }
-      }
-    }
-    responses: {
-      /** @description Verify a project repository mirror response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            mirror?: {
-              created_at?: string
-              head_commit?: string | null
-              id?: string
-              last_error?: string | null
-              last_synced_at?: string | null
-              last_verified_at?: string | null
-              local_path?: string
-              machine_id?: string
-              project_id?: string
-              project_repo_id?: string
-              state?: string
-              updated_at?: string
-            }
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Conflict response. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Bad Gateway response. */
-      502: {
         headers: {
           [name: string]: unknown
         }
@@ -9500,12 +8982,6 @@ export interface operations {
                 id?: string
                 is_primary?: boolean
                 labels?: string[]
-                last_error?: string | null
-                last_synced_at?: string | null
-                last_verified_at?: string | null
-                mirror_count?: number | null
-                mirror_machine_id?: string | null
-                mirror_state?: string | null
                 name?: string
                 project_id?: string
                 repository_url?: string
@@ -10230,10 +9706,6 @@ export interface operations {
             prerequisite?: {
               action?: string
               kind?: string
-              mirror_count?: number
-              mirror_last_error?: string | null
-              mirror_machine_id?: string | null
-              mirror_state?: string | null
               primary_repo_id?: string | null
               primary_repo_name?: string
               repo_count?: number

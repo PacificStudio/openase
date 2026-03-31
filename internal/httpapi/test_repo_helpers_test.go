@@ -10,7 +10,6 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/uuid"
@@ -62,7 +61,7 @@ func createPrimaryProjectRepo(ctx context.Context, t *testing.T, client *ent.Cli
 	}
 }
 
-func createPrimaryProjectRepoWithMirror(
+func createPrimaryProjectRepoForCheckout(
 	ctx context.Context,
 	t *testing.T,
 	client *ent.Client,
@@ -84,10 +83,10 @@ func createPrimaryProjectRepoWithMirror(
 		t.Fatalf("create primary project repo: %v", err)
 	}
 
-	createReadyProjectRepoMirror(ctx, t, client, projectRepo.ID, machineID, repoRoot)
+	attachProjectRepoCheckout(ctx, t, client, projectRepo.ID, machineID, repoRoot)
 }
 
-func createReadyProjectRepoMirror(
+func attachProjectRepoCheckout(
 	ctx context.Context,
 	t *testing.T,
 	client *ent.Client,
@@ -96,18 +95,14 @@ func createReadyProjectRepoMirror(
 	repoRoot string,
 ) {
 	t.Helper()
-
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepoID).
-		SetMachineID(machineID).
-		SetLocalPath(repoRoot).
-		SetState(entprojectrepomirror.StateReady).
-		Save(ctx); err != nil {
-		t.Fatalf("create ready project repo mirror: %v", err)
-	}
+	_ = ctx
+	_ = client
+	_ = projectRepoID
+	_ = machineID
+	_ = repoRoot
 }
 
-func createReadyPrimaryProjectRepoMirror(
+func attachPrimaryProjectRepoCheckout(
 	ctx context.Context,
 	t *testing.T,
 	client *ent.Client,
@@ -127,5 +122,5 @@ func createReadyPrimaryProjectRepoMirror(
 		t.Fatalf("query primary project repo: %v", err)
 	}
 
-	createReadyProjectRepoMirror(ctx, t, client, projectRepo.ID, machineID, repoRoot)
+	attachProjectRepoCheckout(ctx, t, client, projectRepo.ID, machineID, repoRoot)
 }

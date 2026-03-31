@@ -34,7 +34,6 @@ func (ProjectRepo) Edges() []ent.Edge {
 			Required(),
 		edge.To("ticket_scopes", TicketRepoScope.Type),
 		edge.To("ticket_repo_workspaces", TicketRepoWorkspace.Type),
-		edge.To("mirrors", ProjectRepoMirror.Type),
 	}
 }
 

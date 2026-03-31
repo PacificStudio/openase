@@ -29,7 +29,6 @@ func (Machine) Fields() []ent.Field {
 			Values("online", "offline", "degraded", "maintenance").
 			Default("maintenance"),
 		field.String("workspace_root").Optional(),
-		field.String("mirror_root").Optional(),
 		field.String("agent_cli_path").Optional(),
 		textArrayField("env_vars"),
 		field.Time("last_heartbeat_at").Optional().Nillable(),
@@ -46,7 +45,6 @@ func (Machine) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("providers", AgentProvider.Type),
-		edge.To("project_repo_mirrors", ProjectRepoMirror.Type),
 		edge.To("target_tickets", Ticket.Type),
 	}
 }

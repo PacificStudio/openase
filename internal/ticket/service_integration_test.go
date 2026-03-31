@@ -12,7 +12,6 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
@@ -597,15 +596,6 @@ func TestTicketServiceRunsCancelHookWhenNonFinishStatusChangeReleasesCurrentRun(
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
 	}
-	mirrorItem, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(repoItem.ID).
-		SetMachineID(localMachine.ID).
-		SetLocalPath(filepath.Join(t.TempDir(), "mirror-backend")).
-		SetState(entprojectrepomirror.StateReady).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project repo mirror: %v", err)
-	}
 	workspaceRoot := t.TempDir()
 	repoPath := filepath.Join(workspaceRoot, "backend")
 	if err := os.MkdirAll(repoPath, 0o750); err != nil {
@@ -615,7 +605,6 @@ func TestTicketServiceRunsCancelHookWhenNonFinishStatusChangeReleasesCurrentRun(
 		SetTicketID(ticketItem.ID).
 		SetAgentRunID(runID).
 		SetRepoID(repoItem.ID).
-		SetMirrorID(mirrorItem.ID).
 		SetWorkspaceRoot(workspaceRoot).
 		SetRepoPath(repoPath).
 		SetBranchName("agent/planner/ASE-cancel").
@@ -711,15 +700,6 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
 	}
-	mirrorItem, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(repoItem.ID).
-		SetMachineID(localMachine.ID).
-		SetLocalPath(filepath.Join(t.TempDir(), "mirror-backend")).
-		SetState(entprojectrepomirror.StateReady).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project repo mirror: %v", err)
-	}
 	workspaceRoot := t.TempDir()
 	repoPath := filepath.Join(workspaceRoot, "backend")
 	if err := os.MkdirAll(repoPath, 0o750); err != nil {
@@ -729,7 +709,6 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 		SetTicketID(ticketItem.ID).
 		SetAgentRunID(runID).
 		SetRepoID(repoItem.ID).
-		SetMirrorID(mirrorItem.ID).
 		SetWorkspaceRoot(workspaceRoot).
 		SetRepoPath(repoPath).
 		SetBranchName("agent/planner/ASE-done").
