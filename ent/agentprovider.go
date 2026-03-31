@@ -41,6 +41,8 @@ type AgentProvider struct {
 	ModelTemperature float64 `json:"model_temperature,omitempty"`
 	// ModelMaxTokens holds the value of the "model_max_tokens" field.
 	ModelMaxTokens int `json:"model_max_tokens,omitempty"`
+	// MaxParallelRuns holds the value of the "max_parallel_runs" field.
+	MaxParallelRuns int `json:"max_parallel_runs,omitempty"`
 	// CostPerInputToken holds the value of the "cost_per_input_token" field.
 	CostPerInputToken float64 `json:"cost_per_input_token,omitempty"`
 	// CostPerOutputToken holds the value of the "cost_per_output_token" field.
@@ -117,7 +119,7 @@ func (*AgentProvider) scanValues(columns []string) ([]any, error) {
 			values[i] = new(pgarray.StringArray)
 		case agentprovider.FieldModelTemperature, agentprovider.FieldCostPerInputToken, agentprovider.FieldCostPerOutputToken:
 			values[i] = new(sql.NullFloat64)
-		case agentprovider.FieldModelMaxTokens:
+		case agentprovider.FieldModelMaxTokens, agentprovider.FieldMaxParallelRuns:
 			values[i] = new(sql.NullInt64)
 		case agentprovider.FieldName, agentprovider.FieldAdapterType, agentprovider.FieldCliCommand, agentprovider.FieldModelName:
 			values[i] = new(sql.NullString)
@@ -205,6 +207,12 @@ func (_m *AgentProvider) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field model_max_tokens", values[i])
 			} else if value.Valid {
 				_m.ModelMaxTokens = int(value.Int64)
+			}
+		case agentprovider.FieldMaxParallelRuns:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field max_parallel_runs", values[i])
+			} else if value.Valid {
+				_m.MaxParallelRuns = int(value.Int64)
 			}
 		case agentprovider.FieldCostPerInputToken:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -303,6 +311,9 @@ func (_m *AgentProvider) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("model_max_tokens=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ModelMaxTokens))
+	builder.WriteString(", ")
+	builder.WriteString("max_parallel_runs=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MaxParallelRuns))
 	builder.WriteString(", ")
 	builder.WriteString("cost_per_input_token=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CostPerInputToken))

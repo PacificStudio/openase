@@ -434,6 +434,7 @@ async function handleProviderRoutes(request: Request, segments: string[]) {
   provider.model_name = asString(body.model_name) ?? provider.model_name
   provider.model_temperature = asNumber(body.model_temperature) ?? provider.model_temperature
   provider.model_max_tokens = asNumber(body.model_max_tokens) ?? provider.model_max_tokens
+  provider.max_parallel_runs = asNumber(body.max_parallel_runs) ?? provider.max_parallel_runs
   provider.cost_per_input_token =
     asNumber(body.cost_per_input_token) ?? provider.cost_per_input_token
   provider.cost_per_output_token =
@@ -687,6 +688,7 @@ function createInitialState(): MockState {
       model_name: 'gpt-5.4',
       model_temperature: 0.2,
       model_max_tokens: 8192,
+      max_parallel_runs: 5,
       cost_per_input_token: 0.000001,
       cost_per_output_token: 0.000002,
     },
@@ -710,6 +712,7 @@ function createInitialState(): MockState {
       model_name: 'claude-sonnet-4',
       model_temperature: 0.1,
       model_max_tokens: 4096,
+      max_parallel_runs: 5,
       cost_per_input_token: 0.000002,
       cost_per_output_token: 0.000004,
     },

@@ -144,7 +144,7 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
           ? 'ok'
           : 'unknown',
       value: snapshot.fullAudit?.checkedAt
-        ? 'Git, GitHub CLI, token, and network audit captured'
+        ? 'Git, GitHub CLI observation, token probe, and network audit captured'
         : 'No tooling audit snapshot yet',
       meta: checkedAtLabel(snapshot.monitor.l5?.checkedAt),
     },
@@ -168,14 +168,16 @@ export function buildAuditRows(snapshot: MachineSnapshot): HealthAuditRow[] {
     {
       label: 'GitHub CLI',
       value: truthyLabel(snapshot.fullAudit.ghCLI?.installed),
-      detail: snapshot.fullAudit.ghCLI?.authStatus ?? 'No auth status recorded',
+      detail: snapshot.fullAudit.ghCLI?.authStatus
+        ? `Observational only · ${snapshot.fullAudit.ghCLI.authStatus}`
+        : 'Observational only · no auth status recorded',
     },
     {
-      label: 'GitHub token',
+      label: 'GitHub token probe',
       value: snapshot.fullAudit.githubTokenProbe?.state ?? 'Unknown',
       detail: snapshot.fullAudit.githubTokenProbe?.permissions.length
-        ? snapshot.fullAudit.githubTokenProbe.permissions.join(', ')
-        : (snapshot.fullAudit.githubTokenProbe?.lastError ?? 'No scopes recorded'),
+        ? `Readiness signal · ${snapshot.fullAudit.githubTokenProbe.permissions.join(', ')}`
+        : `Readiness signal · ${snapshot.fullAudit.githubTokenProbe?.lastError ?? 'No scopes recorded'}`,
     },
     {
       label: 'Network',

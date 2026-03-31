@@ -111,6 +111,7 @@ var (
 		{Name: "model_name", Type: field.TypeString},
 		{Name: "model_temperature", Type: field.TypeFloat64, Default: 0},
 		{Name: "model_max_tokens", Type: field.TypeInt, Default: 16384},
+		{Name: "max_parallel_runs", Type: field.TypeInt, Default: 5},
 		{Name: "cost_per_input_token", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(18,8)"}},
 		{Name: "cost_per_output_token", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(18,8)"}},
 		{Name: "machine_id", Type: field.TypeUUID},
@@ -124,13 +125,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_providers_machines_providers",
-				Columns:    []*schema.Column{AgentProvidersColumns[11]},
+				Columns:    []*schema.Column{AgentProvidersColumns[12]},
 				RefColumns: []*schema.Column{MachinesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_providers_organizations_providers",
-				Columns:    []*schema.Column{AgentProvidersColumns[12]},
+				Columns:    []*schema.Column{AgentProvidersColumns[13]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -139,7 +140,7 @@ var (
 			{
 				Name:    "agentprovider_organization_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{AgentProvidersColumns[12], AgentProvidersColumns[1]},
+				Columns: []*schema.Column{AgentProvidersColumns[13], AgentProvidersColumns[1]},
 			},
 		},
 	}

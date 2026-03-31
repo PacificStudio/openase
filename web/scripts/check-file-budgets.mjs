@@ -14,6 +14,8 @@ const budgetRules = [
     allowlist: {
       'src/routes/+page.svelte':
         'Legacy dashboard route remains oversized until frontend refactor phase 1.',
+      'src/routes/(app)/orgs/[orgId]/+page.svelte':
+        'Legacy organization overview route remains oversized until org dashboard extraction lands.',
       'src/routes/ticket/+page.svelte':
         'Legacy ticket detail route remains oversized until ticket feature extraction lands.',
     },

@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -1953,9 +1954,9 @@ Exercise successful ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("load assignment: %v", err)
 	}
-	session, err := launcher.startCodexSession(ctx, assignment)
+	session, err := launcher.startRuntimeSession(ctx, assignment)
 	if err != nil {
-		t.Fatalf("start codex session: %v", err)
+		t.Fatalf("start runtime session: %v", err)
 	}
 	launcher.storeSession(runItem.ID, session)
 
@@ -2421,6 +2422,13 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 
 	mirrorService := projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	mirrorService.ConfigureSSHPool(sshPool)
+	mirrorService.ConfigureGitHubCredentials(stubTokenResolver{
+		projectID: fixture.projectID,
+		resolved: githubauthdomain.ResolvedCredential{
+			Scope: githubauthdomain.ScopeProject,
+			Token: "runtime-launcher-test-token",
+		},
+	})
 
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
 	launcher.ConfigureMirrorService(mirrorService)
