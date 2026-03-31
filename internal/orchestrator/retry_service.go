@@ -10,6 +10,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
 
@@ -72,20 +73,20 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 	nextAttemptCount := current.AttemptCount + 1
 	nextConsecutiveErrors := current.ConsecutiveErrors + 1
 	nextRetryAt := s.now().UTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount))
-
-	update := tx.Ticket.UpdateOneID(current.ID).
-		ClearCurrentRunID().
-		SetAttemptCount(nextAttemptCount).
-		SetConsecutiveErrors(nextConsecutiveErrors).
-		SetStallCount(0).
-		SetNextRetryAt(nextRetryAt)
-
 	pauseReason := ticketing.PauseReason("")
 	if ticketing.ShouldPauseForBudget(current.CostAmount, current.BudgetUsd) {
 		pauseReason = ticketing.PauseReasonBudgetExhausted
-		update.SetRetryPaused(true).
-			SetPauseReason(pauseReason.String())
 	}
+
+	update := ticketservice.ScheduleRetryOne(
+		tx.Ticket.UpdateOneID(current.ID).
+			ClearCurrentRunID().
+			SetAttemptCount(nextAttemptCount).
+			SetConsecutiveErrors(nextConsecutiveErrors).
+			SetStallCount(0),
+		nextRetryAt,
+		pauseReason.String(),
+	)
 
 	if _, err := update.Save(ctx); err != nil {
 		return RetryResult{}, fmt.Errorf("update ticket %s retry state: %w", ticketID, err)

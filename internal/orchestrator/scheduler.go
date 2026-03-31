@@ -13,6 +13,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
@@ -446,17 +447,22 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 		return "", fmt.Errorf("create agent run for ticket %s: %w", ticket.ID, err)
 	}
 
+	claimPredicates := []predicate.Ticket{
+		entticket.IDEQ(ticket.ID),
+		entticket.StatusIDIn(ticketStatusIDs(workflow.Edges.PickupStatuses)...),
+		entticket.CurrentRunIDIsNil(),
+		entticket.RetryPaused(false),
+		entticket.Or(
+			entticket.NextRetryAtIsNil(),
+			entticket.NextRetryAtLTE(now),
+		),
+	}
+	if ticket.NextRetryAt != nil && strings.TrimSpace(ticket.RetryToken) != "" {
+		claimPredicates = append(claimPredicates, entticket.RetryTokenEQ(ticket.RetryToken))
+	}
+
 	claimedTickets, err := tx.Ticket.Update().
-		Where(
-			entticket.IDEQ(ticket.ID),
-			entticket.StatusIDIn(ticketStatusIDs(workflow.Edges.PickupStatuses)...),
-			entticket.CurrentRunIDIsNil(),
-			entticket.RetryPaused(false),
-			entticket.Or(
-				entticket.NextRetryAtIsNil(),
-				entticket.NextRetryAtLTE(now),
-			),
-		).
+		Where(claimPredicates...).
 		SetCurrentRunID(runItem.ID).
 		SetWorkflowID(workflow.ID).
 		SetTargetMachineID(machine.ID).
