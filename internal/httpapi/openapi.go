@@ -1225,6 +1225,7 @@ var (
 	openAPIRepoMirrorMachineDescriptions = map[string]string{
 		"machine_id": "Machine ID whose mirror should be verified or synchronized.",
 	}
+	// #nosec G101 -- "token" is an OpenAPI field name/description, not a credential literal.
 	openAPIGitHubCredentialDescriptions = map[string]string{
 		"scope": "Credential scope to mutate. Supported values are organization and project.",
 		"token": "GitHub token value copied into platform-managed secret storage.",

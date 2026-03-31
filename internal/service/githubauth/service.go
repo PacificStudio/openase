@@ -252,7 +252,7 @@ func (s *Service) RetestCredential(ctx context.Context, input ScopeInput) (Proje
 	if err := s.saveScopedProbe(ctx, projectContext, input.Scope, probingProbe()); err != nil {
 		return ProjectSecurity{}, err
 	}
-	if _, err := s.probeAndPersistScopedCredential(ctx, projectContext, input.Scope, token); err != nil {
+	if err := s.probeAndPersistScopedCredential(ctx, projectContext, input.Scope, token); err != nil {
 		return ProjectSecurity{}, err
 	}
 	return s.ReadProjectSecurity(ctx, input.ProjectID)
@@ -300,7 +300,7 @@ func (s *Service) saveCredential(
 	if err := s.saveScopedProbe(ctx, projectContext, scope, probingProbe()); err != nil {
 		return ProjectSecurity{}, err
 	}
-	if _, err := s.probeAndPersistScopedCredential(ctx, projectContext, scope, token); err != nil {
+	if err := s.probeAndPersistScopedCredential(ctx, projectContext, scope, token); err != nil {
 		return ProjectSecurity{}, err
 	}
 	return s.ReadProjectSecurity(ctx, projectID)
@@ -354,15 +354,15 @@ func (s *Service) probeAndPersistScopedCredential(
 	projectContext domain.ProjectContext,
 	scope domain.Scope,
 	token string,
-) (domain.TokenProbe, error) {
+) error {
 	probe, err := s.probeToken(ctx, token, projectContext.ProjectRepositoryURL)
 	if err != nil {
-		return domain.TokenProbe{}, err
+		return err
 	}
 	if err := s.saveScopedProbe(ctx, projectContext, scope, probe); err != nil {
-		return domain.TokenProbe{}, err
+		return err
 	}
-	return probe, nil
+	return nil
 }
 
 func (s *Service) SealToken(token string, source domain.Source) (domain.StoredCredential, error) {
