@@ -1,5 +1,8 @@
-import type { ActivityEvent, Agent, Ticket, TicketStatus, Workflow } from '$lib/api/contracts'
-import type { BoardColumn, BoardFilter, BoardTicket } from './types'
+import type { ActivityEvent, Agent, StatusPayload, Ticket, Workflow } from '$lib/api/contracts'
+import { buildBoardGroups } from './grouping'
+import type { BoardColumn, BoardFilter, BoardGroup, BoardTicket } from './types'
+
+export { projectBoardGroups } from './grouping'
 
 export type PendingTicketMove = {
   fromColumnId: string
@@ -8,6 +11,7 @@ export type PendingTicketMove = {
 
 export type BoardData = {
   columns: BoardColumn[]
+  groups: BoardGroup[]
   workflowTypes: string[]
   agentOptions: string[]
 }
@@ -48,7 +52,7 @@ function matchesAnomalyFilter(ticket: BoardTicket, anomalyOnly: boolean | undefi
 }
 
 export function buildBoardData(
-  statuses: TicketStatus[],
+  statusPayload: Pick<StatusPayload, 'stage_groups' | 'statuses'>,
   tickets: Ticket[],
   workflows: Workflow[],
   agents: Agent[],
@@ -56,37 +60,12 @@ export function buildBoardData(
 ): BoardData {
   const workflowTypeById = new Map(workflows.map((workflow) => [workflow.id, workflow.type]))
   const runtimeByTicketId = buildTicketRuntimeById(agents, activity)
-
-  const columns = statuses
-    .slice()
-    .sort((left, right) => left.position - right.position)
-    .map((status) => ({
-      id: status.id,
-      name: status.name,
-      color: status.color || '#94a3b8',
-      tickets: tickets
-        .filter((ticket) => ticket.status_id === status.id)
-        .map((ticket) => {
-          const runtime = runtimeByTicketId.get(ticket.id)
-
-          return {
-            id: ticket.id,
-            statusId: ticket.status_id,
-            identifier: ticket.identifier,
-            title: ticket.title,
-            priority: normalizePriority(ticket.priority),
-            workflowType: ticket.workflow_id
-              ? (workflowTypeById.get(ticket.workflow_id) ?? undefined)
-              : undefined,
-            agentName: runtime?.agentName,
-            updatedAt: runtime?.updatedAt ?? ticket.created_at,
-            labels: [],
-            anomaly: inferAnomaly(ticket),
-          }
-        }),
-    }))
+  const ticketsByStatusId = buildBoardTicketsByStatusId(tickets, workflowTypeById, runtimeByTicketId)
+  const groups = buildBoardGroups(statusPayload, ticketsByStatusId)
+  const columns = groups.flatMap((group) => group.columns)
 
   return {
+    groups,
     workflowTypes: Array.from(new Set(workflows.map((workflow) => workflow.type))),
     agentOptions: Array.from(
       new Set(
@@ -219,6 +198,42 @@ function buildTicketRuntimeById(agents: Agent[], activity: ActivityEvent[]) {
   }
 
   return runtimeByTicketId
+}
+
+function buildBoardTicketsByStatusId(
+  tickets: Ticket[],
+  workflowTypeById: Map<string, string>,
+  runtimeByTicketId: Map<string, { agentName: string; updatedAt: string; timestamp: number }>,
+) {
+  const ticketsByStatusId = new Map<string, BoardTicket[]>()
+
+  for (const ticket of tickets) {
+    const runtime = runtimeByTicketId.get(ticket.id)
+    const boardTicket: BoardTicket = {
+      id: ticket.id,
+      statusId: ticket.status_id,
+      identifier: ticket.identifier,
+      title: ticket.title,
+      priority: normalizePriority(ticket.priority),
+      workflowType: ticket.workflow_id
+        ? (workflowTypeById.get(ticket.workflow_id) ?? undefined)
+        : undefined,
+      agentName: runtime?.agentName,
+      updatedAt: runtime?.updatedAt ?? ticket.created_at,
+      labels: [],
+      anomaly: inferAnomaly(ticket),
+    }
+
+    const current = ticketsByStatusId.get(ticket.status_id)
+    if (current) {
+      current.push(boardTicket)
+      continue
+    }
+
+    ticketsByStatusId.set(ticket.status_id, [boardTicket])
+  }
+
+  return ticketsByStatusId
 }
 
 function getActivityAgentName(

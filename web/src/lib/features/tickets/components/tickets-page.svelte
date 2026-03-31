@@ -23,9 +23,11 @@
     filterBoardColumns,
     findTicketLocation,
     patchTicket,
+    projectBoardGroups,
     relocateTicket,
     type BoardColumnType,
     type BoardFilter,
+    type BoardGroupType,
     type BoardTicket,
     type PendingTicketMove,
   } from '$lib/features/board'
@@ -34,6 +36,7 @@
   let loading = $state(false)
   let error = $state('')
   let allColumns = $state<BoardColumnType[]>([])
+  let allGroups = $state<BoardGroupType[]>([])
   let workflows = $state<string[]>([])
   let agentOptions = $state<string[]>([])
   let draggingTicketId = $state<string | null>(null)
@@ -45,6 +48,7 @@
   let queuedReload = false
   let reloadInFlight = false
   let filteredColumns = $derived(filterBoardColumns(allColumns, filter))
+  let filteredGroups = $derived(projectBoardGroups(allGroups, filteredColumns))
 
   function isStaleLoad(projectId: string, requestVersion: number) {
     return activeProjectId !== projectId || requestVersion !== loadRequestVersion
@@ -93,7 +97,7 @@
       }
 
       const nextBoard = buildBoardData(
-        statusPayload.statuses,
+        statusPayload,
         ticketPayload.tickets,
         workflowPayload.workflows,
         agentPayload.agents,
@@ -102,6 +106,7 @@
 
       workflows = nextBoard.workflowTypes
       agentOptions = nextBoard.agentOptions
+      allGroups = nextBoard.groups
       allColumns = nextBoard.columns
     } catch (caughtError) {
       if (isStaleLoad(projectId, requestVersion)) return
@@ -149,6 +154,7 @@
     dropColumnId = null
     if (!projectId) {
       allColumns = []
+      allGroups = []
       workflows = []
       agentOptions = []
       error = ''
@@ -276,7 +282,7 @@
       </div>
     {:else if ticketViewStore.mode === 'board'}
       <BoardView
-        columns={filteredColumns}
+        groups={filteredGroups}
         onticketclick={handleTicketClick}
         ondragstartticket={handleTicketDragStart}
         ondragendticket={handleTicketDragEnd}
