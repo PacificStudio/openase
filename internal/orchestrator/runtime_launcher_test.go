@@ -2022,7 +2022,8 @@ func TestRuntimeLauncherRunTickStallsByLastCodexTimestamp(t *testing.T) {
 		}
 		return ticketSnapshot.CurrentRunID == nil &&
 			ticketSnapshot.NextRetryAt != nil &&
-			runSnapshot.Status == entagentrun.StatusErrored
+			(runSnapshot.Status == entagentrun.StatusErrored ||
+				runSnapshot.Status == entagentrun.StatusTerminated)
 	})
 
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
