@@ -151,16 +151,27 @@ func TestClaudeCodeAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 	}
 }
 
-func TestDefaultAgentAdapterRegistryRegistersGeminiUnsupportedPath(t *testing.T) {
+func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T) {
+	process := newRuntimeRunnerFakeProcess()
+	manager := &geminiAdapterTestProcessManager{process: process}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runGeminiRuntimeProtocol(process)
+	}()
+
 	registry := newDefaultAgentAdapterRegistry()
 	adapter, err := registry.adapterFor(entagentprovider.AdapterTypeGeminiCli)
 	if err != nil {
 		t.Fatalf("adapterFor(gemini) returned error: %v", err)
 	}
+	if _, ok := adapter.(geminiAgentAdapter); !ok {
+		t.Fatalf("adapterFor(gemini) = %T, want geminiAgentAdapter", adapter)
+	}
 
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		provider.MustParseAgentCLICommand("gemini"),
-		nil,
+		[]string{"--sandbox", "danger-full-access"},
 		nil,
 		nil,
 	)
@@ -168,11 +179,55 @@ func TestDefaultAgentAdapterRegistryRegistersGeminiUnsupportedPath(t *testing.T)
 		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
 	}
 
-	_, err = adapter.Start(context.Background(), agentSessionStartSpec{
-		Process: processSpec,
+	session, err := adapter.Start(context.Background(), agentSessionStartSpec{
+		Process:        processSpec,
+		ProcessManager: manager,
+		Model:          "gemini-2.5-pro",
 	})
-	if err == nil || !strings.Contains(err.Error(), "Gemini CLI is not yet wired into the orchestrator runtime") {
-		t.Fatalf("gemini Start() error = %v", err)
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Implement the fix.")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+	if turn.TurnID == "" {
+		t.Fatal("SendPrompt() turn id = empty, want generated Gemini turn id")
+	}
+
+	first := requireAgentEvent(t, session.Events())
+	if first.Type != agentEventTypeOutputProduced || first.Output == nil || first.Output.Text != "Implemented the shared contract." {
+		t.Fatalf("unexpected first event: %+v", first)
+	}
+	if first.Output.Stream != "assistant" || !first.Output.Snapshot || first.Output.TurnID != turn.TurnID {
+		t.Fatalf("unexpected first output metadata: %+v", first.Output)
+	}
+
+	second := requireAgentEvent(t, session.Events())
+	if second.Type != agentEventTypeTurnCompleted || second.Turn == nil || second.Turn.Status != "completed" || second.Turn.TurnID != turn.TurnID {
+		t.Fatalf("unexpected second event: %+v", second)
+	}
+
+	if manager.capturedSpec.Command != provider.MustParseAgentCLICommand("gemini") {
+		t.Fatalf("process command = %q, want gemini", manager.capturedSpec.Command)
+	}
+	joinedArgs := strings.Join(manager.capturedSpec.Args, " ")
+	if !strings.Contains(joinedArgs, "-m gemini-2.5-pro") {
+		t.Fatalf("process args = %v, want model flag", manager.capturedSpec.Args)
+	}
+	if !strings.Contains(joinedArgs, "--output-format json") {
+		t.Fatalf("process args = %v, want json output mode", manager.capturedSpec.Args)
+	}
+	if !strings.Contains(joinedArgs, "-p") {
+		t.Fatalf("process args = %v, want prompt flag", manager.capturedSpec.Args)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
 	}
 }
 
@@ -204,6 +259,27 @@ func runClaudeRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
 		return err
 	}
 	if _, err := io.WriteString(process.stdoutWrite, `{"type":"result","subtype":"success","session_id":"claude-session-1","result":"done","num_turns":1}`+"\n"); err != nil {
+		return err
+	}
+	process.finish(nil)
+	return nil
+}
+
+type geminiAdapterTestProcessManager struct {
+	process      provider.AgentCLIProcess
+	capturedSpec provider.AgentCLIProcessSpec
+}
+
+func (m *geminiAdapterTestProcessManager) Start(_ context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
+	m.capturedSpec = spec
+	return m.process, nil
+}
+
+func runGeminiRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
+	if _, err := io.ReadAll(process.stdinRead); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(process.stdoutWrite, `{"response":"Implemented the shared contract."}`); err != nil {
 		return err
 	}
 	process.finish(nil)

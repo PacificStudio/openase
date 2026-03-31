@@ -132,10 +132,7 @@ func newDefaultAgentAdapterRegistry() *agentAdapterRegistry {
 		adapters: map[entagentprovider.AdapterType]agentAdapter{
 			entagentprovider.AdapterTypeCodexAppServer: codexAgentAdapter{},
 			entagentprovider.AdapterTypeClaudeCodeCli:  claudeCodeAgentAdapter{},
-			entagentprovider.AdapterTypeGeminiCli: unsupportedAgentAdapter{
-				adapterType: entagentprovider.AdapterTypeGeminiCli,
-				reason:      "Gemini CLI is not yet wired into the orchestrator runtime",
-			},
+			entagentprovider.AdapterTypeGeminiCli:      geminiAgentAdapter{},
 		},
 	}
 }
