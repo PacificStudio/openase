@@ -170,7 +170,7 @@ func (s *Service) RegisterExisting(ctx context.Context, input RegisterExistingIn
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	transport, err := s.resolveRepositoryTransport(ctx, target.projectRepo)
+	transport, err := s.resolveRepositoryTransport(ctx, target.projectRepo, false)
 	if err != nil {
 		s.recordFailure(ctx, current.ID, target.localPath, err)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
@@ -217,7 +217,7 @@ func (s *Service) Prepare(ctx context.Context, input PrepareInput) (mirror domai
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	transport, err := s.resolveRepositoryTransport(ctx, target.projectRepo)
+	transport, err := s.resolveRepositoryTransport(ctx, target.projectRepo, true)
 	if err != nil {
 		s.recordFailure(ctx, current.ID, target.localPath, err)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
@@ -270,7 +270,7 @@ func (s *Service) Sync(ctx context.Context, input SyncInput) (mirror domain.Proj
 		return domain.ProjectRepoMirror{}, fmt.Errorf("mark project repo mirror syncing: %w", err)
 	}
 
-	transport, err := s.resolveRepositoryTransport(ctx, projectRepo)
+	transport, err := s.resolveRepositoryTransport(ctx, projectRepo, true)
 	if err != nil {
 		s.recordFailure(ctx, current.ID, current.LocalPath, err)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
@@ -314,7 +314,7 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (mirror domain.
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	transport, err := s.resolveRepositoryTransport(ctx, projectRepo)
+	transport, err := s.resolveRepositoryTransport(ctx, projectRepo, false)
 	if err != nil {
 		s.recordFailure(ctx, current.ID, current.LocalPath, err)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
@@ -743,7 +743,7 @@ func (s *Service) deleteRepository(ctx context.Context, machine *rootent.Machine
 	return err
 }
 
-func (s *Service) resolveRepositoryTransport(ctx context.Context, projectRepo *rootent.ProjectRepo) (repositoryTransportConfig, error) {
+func (s *Service) resolveRepositoryTransport(ctx context.Context, projectRepo *rootent.ProjectRepo, requireAuth bool) (repositoryTransportConfig, error) {
 	if projectRepo == nil {
 		return repositoryTransportConfig{}, fmt.Errorf("%w: project repo is required", ErrInvalidInput)
 	}
@@ -756,6 +756,9 @@ func (s *Service) resolveRepositoryTransport(ctx context.Context, projectRepo *r
 	}
 
 	transport.transportURL = normalizedURL
+	if !requireAuth {
+		return transport, nil
+	}
 	if s == nil || s.githubAuth == nil {
 		return repositoryTransportConfig{}, fmt.Errorf("resolve GitHub outbound credential: resolver unavailable")
 	}

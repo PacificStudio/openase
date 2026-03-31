@@ -237,7 +237,7 @@ func TestServicePrepareRemoteGitHubMirrorProjectsManagedCredential(t *testing.T)
 		t.Fatalf("update project repo remote: %v", err)
 	}
 
-	resolver := configureOrganizationGitHubCredential(t, ctx, client, project.OrganizationID, "ghu_project_repo_token")
+	resolver := configureOrganizationGitHubCredential(ctx, t, client, project.OrganizationID, "ghu_project_repo_token")
 	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	svc.ConfigureGitHubCredentials(resolver)
 	sshSession := &mirrorTestSSHSession{output: []byte("deadbeef\n")}
@@ -305,7 +305,7 @@ func TestServiceRegisterExistingAcceptsEquivalentGitHubTransport(t *testing.T) {
 	}
 
 	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	svc.ConfigureGitHubCredentials(configureOrganizationGitHubCredential(t, ctx, client, project.OrganizationID, "ghu_registered_repo_token"))
+	svc.ConfigureGitHubCredentials(configureOrganizationGitHubCredential(ctx, t, client, project.OrganizationID, "ghu_registered_repo_token"))
 
 	registered, err := svc.RegisterExisting(ctx, RegisterExistingInput{
 		ProjectRepoID: projectRepo.ID,
@@ -477,7 +477,7 @@ func (s *mirrorTestSSHSession) Close() error {
 	return nil
 }
 
-func configureOrganizationGitHubCredential(t *testing.T, ctx context.Context, client *ent.Client, organizationID uuid.UUID, token string) githubauthservice.TokenResolver {
+func configureOrganizationGitHubCredential(ctx context.Context, t *testing.T, client *ent.Client, organizationID uuid.UUID, token string) githubauthservice.TokenResolver {
 	t.Helper()
 
 	service, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), nil, "postgres://openase:test@localhost/openase")
