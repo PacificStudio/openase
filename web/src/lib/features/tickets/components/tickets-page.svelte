@@ -24,10 +24,10 @@
     findTicketLocation,
     patchTicket,
     relocateTicket,
-    type PendingTicketMove,
     type BoardColumnType,
     type BoardFilter,
     type BoardTicket,
+    type PendingTicketMove,
   } from '$lib/features/board'
 
   let filter = $state<BoardFilter>({ search: '' })

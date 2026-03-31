@@ -36,6 +36,16 @@ export type OrganizationArchiveResponse = DeepRequired<
   ResponseFor<'/api/v1/orgs/{orgId}', 'delete'>
 >
 export type Organization = ItemOf<OrganizationPayload['organizations']>
+export type WorkspaceSummaryResponse = ResponseFor<'/api/v1/workspace/summary', 'get'>
+export type WorkspaceDashboardSummary = NonNullable<WorkspaceSummaryResponse['workspace']>
+export type WorkspaceOrganizationSummary = ItemOf<
+  NonNullable<WorkspaceSummaryResponse['organizations']>
+>
+export type OrganizationSummaryResponse = ResponseFor<'/api/v1/orgs/{orgId}/summary', 'get'>
+export type OrganizationDashboardSummary = NonNullable<OrganizationSummaryResponse['organization']>
+export type OrganizationProjectSummary = ItemOf<
+  NonNullable<OrganizationSummaryResponse['projects']>
+>
 
 export type AgentProviderListPayload = DeepRequired<
   ResponseFor<'/api/v1/orgs/{orgId}/providers', 'get'>

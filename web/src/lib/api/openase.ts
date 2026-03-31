@@ -70,6 +70,7 @@ import type {
   HRAdvisorActivationResponse,
   HRAdvisorResponse,
   Organization,
+  OrganizationSummaryResponse,
   OrganizationArchiveResponse,
   OrganizationResponse,
   OrganizationUpdateResponse,
@@ -79,6 +80,7 @@ import type {
   WorkflowDeleteResponse,
   WorkflowListPayload,
   WorkflowUpdateResponse,
+  WorkspaceSummaryResponse,
 } from './contracts'
 
 type MachineMutationBody = {
@@ -102,6 +104,14 @@ export function getSystemDashboard() {
 
 export function listOrganizations() {
   return api.get<{ organizations?: Organization[] }>('/api/v1/orgs')
+}
+
+export function getWorkspaceSummary(opts?: { signal?: AbortSignal }) {
+  return api.get<WorkspaceSummaryResponse>('/api/v1/workspace/summary', opts)
+}
+
+export function getOrganizationSummary(orgId: string, opts?: { signal?: AbortSignal }) {
+  return api.get<OrganizationSummaryResponse>(`/api/v1/orgs/${orgId}/summary`, opts)
 }
 
 export function createOrganization(body: {

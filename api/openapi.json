@@ -4861,6 +4861,164 @@
         ]
       }
     },
+    "/api/v1/orgs/{orgId}/summary": {
+      "get": {
+        "operationId": "getOrganizationSummary",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "organization": {
+                      "properties": {
+                        "active_project_count": {
+                          "type": "integer"
+                        },
+                        "active_tickets": {
+                          "type": "integer"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_count": {
+                          "type": "integer"
+                        },
+                        "provider_count": {
+                          "type": "integer"
+                        },
+                        "running_agents": {
+                          "type": "integer"
+                        },
+                        "today_cost": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "total_tokens": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "projects": {
+                      "items": {
+                        "properties": {
+                          "active_tickets": {
+                            "type": "integer"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "last_activity_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "running_agents": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "today_cost": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "total_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get organization dashboard summary metrics response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get organization dashboard summary metrics",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}": {
       "delete": {
         "operationId": "archiveProject",
@@ -19775,6 +19933,112 @@
         "summary": "Unbind skills from a workflow harness",
         "tags": [
           "skills"
+        ]
+      }
+    },
+    "/api/v1/workspace/summary": {
+      "get": {
+        "operationId": "getWorkspaceSummary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "organizations": {
+                      "items": {
+                        "properties": {
+                          "active_tickets": {
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization_id": {
+                            "type": "string"
+                          },
+                          "project_count": {
+                            "type": "integer"
+                          },
+                          "provider_count": {
+                            "type": "integer"
+                          },
+                          "running_agents": {
+                            "type": "integer"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "today_cost": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "total_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "workspace": {
+                      "properties": {
+                        "active_tickets": {
+                          "type": "integer"
+                        },
+                        "organization_count": {
+                          "type": "integer"
+                        },
+                        "project_count": {
+                          "type": "integer"
+                        },
+                        "provider_count": {
+                          "type": "integer"
+                        },
+                        "running_agents": {
+                          "type": "integer"
+                        },
+                        "today_cost": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "total_tokens": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get workspace dashboard summary metrics response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get workspace dashboard summary metrics",
+        "tags": [
+          "catalog"
         ]
       }
     }

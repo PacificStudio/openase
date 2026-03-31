@@ -41,6 +41,51 @@ type OpenAPIProject struct {
 	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
 }
 
+type OpenAPIWorkspaceDashboardMetrics struct {
+	OrganizationCount int     `json:"organization_count"`
+	ProjectCount      int     `json:"project_count"`
+	ProviderCount     int     `json:"provider_count"`
+	RunningAgents     int     `json:"running_agents"`
+	ActiveTickets     int     `json:"active_tickets"`
+	TodayCost         float64 `json:"today_cost"`
+	TotalTokens       int64   `json:"total_tokens"`
+}
+
+type OpenAPIWorkspaceOrganizationSummary struct {
+	OrganizationID string  `json:"organization_id"`
+	Name           string  `json:"name"`
+	Slug           string  `json:"slug"`
+	ProjectCount   int     `json:"project_count"`
+	ProviderCount  int     `json:"provider_count"`
+	RunningAgents  int     `json:"running_agents"`
+	ActiveTickets  int     `json:"active_tickets"`
+	TodayCost      float64 `json:"today_cost"`
+	TotalTokens    int64   `json:"total_tokens"`
+}
+
+type OpenAPIOrganizationDashboardMetrics struct {
+	OrganizationID     string  `json:"organization_id"`
+	ProjectCount       int     `json:"project_count"`
+	ActiveProjectCount int     `json:"active_project_count"`
+	ProviderCount      int     `json:"provider_count"`
+	RunningAgents      int     `json:"running_agents"`
+	ActiveTickets      int     `json:"active_tickets"`
+	TodayCost          float64 `json:"today_cost"`
+	TotalTokens        int64   `json:"total_tokens"`
+}
+
+type OpenAPIOrganizationProjectSummary struct {
+	ProjectID      string  `json:"project_id"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	Status         string  `json:"status"`
+	RunningAgents  int     `json:"running_agents"`
+	ActiveTickets  int     `json:"active_tickets"`
+	TodayCost      float64 `json:"today_cost"`
+	TotalTokens    int64   `json:"total_tokens"`
+	LastActivityAt *string `json:"last_activity_at,omitempty"`
+}
+
 type OpenAPIMachine struct {
 	ID              string         `json:"id"`
 	OrganizationID  string         `json:"organization_id"`
@@ -579,12 +624,22 @@ type OpenAPIOrganizationResponse struct {
 	Organization OpenAPIOrganization `json:"organization"`
 }
 
+type OpenAPIWorkspaceSummaryResponse struct {
+	Workspace     OpenAPIWorkspaceDashboardMetrics      `json:"workspace"`
+	Organizations []OpenAPIWorkspaceOrganizationSummary `json:"organizations"`
+}
+
 type OpenAPIProjectsResponse struct {
 	Projects []OpenAPIProject `json:"projects"`
 }
 
 type OpenAPIProjectResponse struct {
 	Project OpenAPIProject `json:"project"`
+}
+
+type OpenAPIOrganizationSummaryResponse struct {
+	Organization OpenAPIOrganizationDashboardMetrics `json:"organization"`
+	Projects     []OpenAPIOrganizationProjectSummary `json:"projects"`
 }
 
 type OpenAPIMachinesResponse struct {
@@ -1378,6 +1433,20 @@ func (b openAPISpecBuilder) addSystemOperations() error {
 }
 
 func (b openAPISpecBuilder) addCatalogOperations() error {
+	workspaceSummaryGet, err := b.jsonOperation(
+		"getWorkspaceSummary",
+		"Get workspace dashboard summary metrics",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIWorkspaceSummaryResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/workspace/summary", http.MethodGet, workspaceSummaryGet)
+
 	orgsGet, err := b.jsonOperation(
 		"listOrganizations",
 		"List organizations",
@@ -1407,6 +1476,23 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 		return err
 	}
 	b.doc.AddOperation("/api/v1/orgs", http.MethodPost, orgsPost)
+
+	orgSummaryGet, err := b.jsonOperation(
+		"getOrganizationSummary",
+		"Get organization dashboard summary metrics",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIOrganizationSummaryResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSummaryGet.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/summary", http.MethodGet, orgSummaryGet)
 
 	orgProjectsGet, err := b.jsonOperation(
 		"listProjects",

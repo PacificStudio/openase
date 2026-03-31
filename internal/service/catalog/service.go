@@ -92,6 +92,8 @@ type Service interface {
 	GetTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error)
 	UpdateTicketRepoScope(ctx context.Context, input domain.UpdateTicketRepoScope) (domain.TicketRepoScope, error)
 	DeleteTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error)
+	GetWorkspaceDashboardSummary(ctx context.Context) (domain.WorkspaceDashboardSummary, error)
+	GetOrganizationDashboardSummary(ctx context.Context, organizationID uuid.UUID) (domain.OrganizationDashboardSummary, error)
 	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error)
 	CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
@@ -189,6 +191,14 @@ func (s *service) UpdateMachine(ctx context.Context, input domain.UpdateMachine)
 
 func (s *service) DeleteMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error) {
 	return s.repo.DeleteMachine(ctx, id)
+}
+
+func (s *service) GetWorkspaceDashboardSummary(ctx context.Context) (domain.WorkspaceDashboardSummary, error) {
+	return s.repo.GetWorkspaceDashboardSummary(ctx)
+}
+
+func (s *service) GetOrganizationDashboardSummary(ctx context.Context, organizationID uuid.UUID) (domain.OrganizationDashboardSummary, error) {
+	return s.repo.GetOrganizationDashboardSummary(ctx, organizationID)
 }
 
 func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (domain.Machine, domain.MachineProbe, error) {

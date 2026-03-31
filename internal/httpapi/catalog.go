@@ -177,9 +177,11 @@ type ticketRepoScopePatchRequest struct {
 
 func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.GET("/app-context", s.handleGetAppContext)
+	api.GET("/workspace/summary", s.handleGetWorkspaceSummary)
 	api.GET("/orgs", s.listOrganizations)
 	api.POST("/orgs", s.createOrganization)
 	api.GET("/orgs/:orgId", s.getOrganization)
+	api.GET("/orgs/:orgId/summary", s.handleGetOrganizationSummary)
 	api.PATCH("/orgs/:orgId", s.patchOrganization)
 	api.DELETE("/orgs/:orgId", s.archiveOrganization)
 	api.GET("/orgs/:orgId/projects", s.listProjects)
