@@ -26,9 +26,9 @@ type HealthCheckReport struct {
 
 // HealthChecker inspects orchestrator state and reports unhealthy agents or tickets.
 type HealthChecker struct {
-	client *ent.Client
-	logger *slog.Logger
-	now    func() time.Time
+	client  *ent.Client
+	logger  *slog.Logger
+	now     func() time.Time
 	runtime *runtimeStateStore
 }
 
@@ -47,9 +47,9 @@ func NewHealthChecker(client *ent.Client, logger *slog.Logger) *HealthChecker {
 	}
 
 	return &HealthChecker{
-		client: client,
-		logger: logger.With("component", "health-checker"),
-		now:    time.Now,
+		client:  client,
+		logger:  logger.With("component", "health-checker"),
+		now:     time.Now,
 		runtime: NewRuntimeStateStore(),
 	}
 }

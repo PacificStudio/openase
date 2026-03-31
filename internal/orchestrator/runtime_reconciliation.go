@@ -29,21 +29,21 @@ type runtimeFactSnapshot struct {
 }
 
 type runtimeRunSnapshot struct {
-	RunID               uuid.UUID
-	AgentID             uuid.UUID
-	TicketID            uuid.UUID
-	WorkflowID          uuid.UUID
-	StartedAt           time.Time
-	LastCodexTimestamp  time.Time
-	LastCodexEvent      string
-	SessionID           string
-	TurnCount           int
-	PendingRuntimeFact  *runtimeFactSnapshot
+	RunID              uuid.UUID
+	AgentID            uuid.UUID
+	TicketID           uuid.UUID
+	WorkflowID         uuid.UUID
+	StartedAt          time.Time
+	LastCodexTimestamp time.Time
+	LastCodexEvent     string
+	SessionID          string
+	TurnCount          int
+	PendingRuntimeFact *runtimeFactSnapshot
 }
 
 type runtimeStateStore struct {
-	mu    sync.Mutex
-	runs  map[uuid.UUID]runtimeRunSnapshot
+	mu   sync.Mutex
+	runs map[uuid.UUID]runtimeRunSnapshot
 }
 
 func NewRuntimeStateStore() *runtimeStateStore {
@@ -154,11 +154,11 @@ func (s *runtimeStateStore) snapshots() []runtimeRunSnapshot {
 type runtimeTicketDisposition string
 
 const (
-	runtimeTicketActive         runtimeTicketDisposition = "active"
-	runtimeTicketTerminal       runtimeTicketDisposition = "terminal"
-	runtimeTicketWorkflowDrift  runtimeTicketDisposition = "workflow_drift"
-	runtimeTicketInactive       runtimeTicketDisposition = "inactive"
-	runtimeTicketLostOwnership  runtimeTicketDisposition = "lost_ownership"
+	runtimeTicketActive        runtimeTicketDisposition = "active"
+	runtimeTicketTerminal      runtimeTicketDisposition = "terminal"
+	runtimeTicketWorkflowDrift runtimeTicketDisposition = "workflow_drift"
+	runtimeTicketInactive      runtimeTicketDisposition = "inactive"
+	runtimeTicketLostOwnership runtimeTicketDisposition = "lost_ownership"
 )
 
 func classifyRuntimeTicket(ticket *ent.Ticket, runID uuid.UUID, runWorkflowID uuid.UUID) runtimeTicketDisposition {
