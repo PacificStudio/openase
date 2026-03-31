@@ -6304,9 +6304,11 @@ export interface operations {
               provider_id?: string
               runtime_started_at?: string | null
               session_id?: string
+              skill_version_ids?: string[]
               status?: string
               ticket_id?: string
               workflow_id?: string
+              workflow_version_id?: string | null
             }[]
           }
         }

@@ -20,10 +20,14 @@ const (
 	FieldAgentID = "agent_id"
 	// FieldWorkflowID holds the string denoting the workflow_id field in the database.
 	FieldWorkflowID = "workflow_id"
+	// FieldWorkflowVersionID holds the string denoting the workflow_version_id field in the database.
+	FieldWorkflowVersionID = "workflow_version_id"
 	// FieldTicketID holds the string denoting the ticket_id field in the database.
 	FieldTicketID = "ticket_id"
 	// FieldProviderID holds the string denoting the provider_id field in the database.
 	FieldProviderID = "provider_id"
+	// FieldSkillVersionIds holds the string denoting the skill_version_ids field in the database.
+	FieldSkillVersionIds = "skill_version_ids"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldSessionID holds the string denoting the session_id field in the database.
@@ -46,6 +50,8 @@ const (
 	EdgeAgent = "agent"
 	// EdgeWorkflow holds the string denoting the workflow edge name in mutations.
 	EdgeWorkflow = "workflow"
+	// EdgeWorkflowVersion holds the string denoting the workflow_version edge name in mutations.
+	EdgeWorkflowVersion = "workflow_version"
 	// EdgeTicket holds the string denoting the ticket edge name in mutations.
 	EdgeTicket = "ticket"
 	// EdgeProvider holds the string denoting the provider edge name in mutations.
@@ -74,6 +80,13 @@ const (
 	WorkflowInverseTable = "workflows"
 	// WorkflowColumn is the table column denoting the workflow relation/edge.
 	WorkflowColumn = "workflow_id"
+	// WorkflowVersionTable is the table that holds the workflow_version relation/edge.
+	WorkflowVersionTable = "agent_runs"
+	// WorkflowVersionInverseTable is the table name for the WorkflowVersion entity.
+	// It exists in this package in order to avoid circular dependency with the "workflowversion" package.
+	WorkflowVersionInverseTable = "workflow_versions"
+	// WorkflowVersionColumn is the table column denoting the workflow_version relation/edge.
+	WorkflowVersionColumn = "workflow_version_id"
 	// TicketTable is the table that holds the ticket relation/edge.
 	TicketTable = "agent_runs"
 	// TicketInverseTable is the table name for the Ticket entity.
@@ -123,8 +136,10 @@ var Columns = []string{
 	FieldID,
 	FieldAgentID,
 	FieldWorkflowID,
+	FieldWorkflowVersionID,
 	FieldTicketID,
 	FieldProviderID,
+	FieldSkillVersionIds,
 	FieldStatus,
 	FieldSessionID,
 	FieldRuntimeStartedAt,
@@ -198,6 +213,11 @@ func ByWorkflowID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWorkflowID, opts...).ToFunc()
 }
 
+// ByWorkflowVersionID orders the results by the workflow_version_id field.
+func ByWorkflowVersionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWorkflowVersionID, opts...).ToFunc()
+}
+
 // ByTicketID orders the results by the ticket_id field.
 func ByTicketID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTicketID, opts...).ToFunc()
@@ -206,6 +226,11 @@ func ByTicketID(opts ...sql.OrderTermOption) OrderOption {
 // ByProviderID orders the results by the provider_id field.
 func ByProviderID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProviderID, opts...).ToFunc()
+}
+
+// BySkillVersionIds orders the results by the skill_version_ids field.
+func BySkillVersionIds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSkillVersionIds, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.
@@ -264,6 +289,13 @@ func ByAgentField(field string, opts ...sql.OrderTermOption) OrderOption {
 func ByWorkflowField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newWorkflowStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByWorkflowVersionField orders the results by workflow_version field.
+func ByWorkflowVersionField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newWorkflowVersionStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -348,6 +380,13 @@ func newWorkflowStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(WorkflowInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, WorkflowTable, WorkflowColumn),
+	)
+}
+func newWorkflowVersionStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(WorkflowVersionInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, WorkflowVersionTable, WorkflowVersionColumn),
 	)
 }
 func newTicketStep() *sqlgraph.Step {

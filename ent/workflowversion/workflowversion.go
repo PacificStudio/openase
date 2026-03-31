@@ -29,8 +29,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// EdgeWorkflow holds the string denoting the workflow edge name in mutations.
 	EdgeWorkflow = "workflow"
-	// EdgeRequiredByBindings holds the string denoting the required_by_bindings edge name in mutations.
-	EdgeRequiredByBindings = "required_by_bindings"
+	// EdgeAgentRuns holds the string denoting the agent_runs edge name in mutations.
+	EdgeAgentRuns = "agent_runs"
 	// Table holds the table name of the workflowversion in the database.
 	Table = "workflow_versions"
 	// WorkflowTable is the table that holds the workflow relation/edge.
@@ -40,13 +40,13 @@ const (
 	WorkflowInverseTable = "workflows"
 	// WorkflowColumn is the table column denoting the workflow relation/edge.
 	WorkflowColumn = "workflow_id"
-	// RequiredByBindingsTable is the table that holds the required_by_bindings relation/edge.
-	RequiredByBindingsTable = "workflow_skill_bindings"
-	// RequiredByBindingsInverseTable is the table name for the WorkflowSkillBinding entity.
-	// It exists in this package in order to avoid circular dependency with the "workflowskillbinding" package.
-	RequiredByBindingsInverseTable = "workflow_skill_bindings"
-	// RequiredByBindingsColumn is the table column denoting the required_by_bindings relation/edge.
-	RequiredByBindingsColumn = "required_version_id"
+	// AgentRunsTable is the table that holds the agent_runs relation/edge.
+	AgentRunsTable = "agent_runs"
+	// AgentRunsInverseTable is the table name for the AgentRun entity.
+	// It exists in this package in order to avoid circular dependency with the "agentrun" package.
+	AgentRunsInverseTable = "agent_runs"
+	// AgentRunsColumn is the table column denoting the agent_runs relation/edge.
+	AgentRunsColumn = "workflow_version_id"
 )
 
 // Columns holds all SQL columns for workflowversion fields.
@@ -126,17 +126,17 @@ func ByWorkflowField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
-// ByRequiredByBindingsCount orders the results by required_by_bindings count.
-func ByRequiredByBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+// ByAgentRunsCount orders the results by agent_runs count.
+func ByAgentRunsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newRequiredByBindingsStep(), opts...)
+		sqlgraph.OrderByNeighborsCount(s, newAgentRunsStep(), opts...)
 	}
 }
 
-// ByRequiredByBindings orders the results by required_by_bindings terms.
-func ByRequiredByBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+// ByAgentRuns orders the results by agent_runs terms.
+func ByAgentRuns(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newRequiredByBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+		sqlgraph.OrderByNeighborTerms(s, newAgentRunsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 func newWorkflowStep() *sqlgraph.Step {
@@ -146,10 +146,10 @@ func newWorkflowStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.M2O, true, WorkflowTable, WorkflowColumn),
 	)
 }
-func newRequiredByBindingsStep() *sqlgraph.Step {
+func newAgentRunsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(RequiredByBindingsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, RequiredByBindingsTable, RequiredByBindingsColumn),
+		sqlgraph.To(AgentRunsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentRunsTable, AgentRunsColumn),
 	)
 }

@@ -401,6 +401,9 @@ func TestListAgentRunsRouteExposesConcurrentRuns(t *testing.T) {
 	providerID := uuid.New()
 	agentID := uuid.New()
 	workflowID := uuid.New()
+	workflowVersionID := uuid.New()
+	skillVersionOneID := uuid.New()
+	skillVersionTwoID := uuid.New()
 	ticketOneID := uuid.New()
 	ticketTwoID := uuid.New()
 	runOneID := uuid.New()
@@ -419,22 +422,26 @@ func TestListAgentRunsRouteExposesConcurrentRuns(t *testing.T) {
 		RuntimeControlState: domain.AgentRuntimeControlStateActive,
 	}
 	service.agentRuns[runOneID] = domain.AgentRun{
-		ID:         runOneID,
-		AgentID:    agentID,
-		WorkflowID: workflowID,
-		TicketID:   ticketOneID,
-		ProviderID: providerID,
-		Status:     domain.AgentRunStatusExecuting,
-		CreatedAt:  runOneCreatedAt,
+		ID:                runOneID,
+		AgentID:           agentID,
+		WorkflowID:        workflowID,
+		WorkflowVersionID: &workflowVersionID,
+		TicketID:          ticketOneID,
+		ProviderID:        providerID,
+		SkillVersionIDs:   []uuid.UUID{skillVersionOneID, skillVersionTwoID},
+		Status:            domain.AgentRunStatusExecuting,
+		CreatedAt:         runOneCreatedAt,
 	}
 	service.agentRuns[runTwoID] = domain.AgentRun{
-		ID:         runTwoID,
-		AgentID:    agentID,
-		WorkflowID: workflowID,
-		TicketID:   ticketTwoID,
-		ProviderID: providerID,
-		Status:     domain.AgentRunStatusReady,
-		CreatedAt:  runTwoCreatedAt,
+		ID:                runTwoID,
+		AgentID:           agentID,
+		WorkflowID:        workflowID,
+		WorkflowVersionID: &workflowVersionID,
+		TicketID:          ticketTwoID,
+		ProviderID:        providerID,
+		SkillVersionIDs:   []uuid.UUID{skillVersionTwoID},
+		Status:            domain.AgentRunStatusReady,
+		CreatedAt:         runTwoCreatedAt,
 	}
 
 	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/projects/"+projectID.String()+"/agent-runs", "")
@@ -454,6 +461,12 @@ func TestListAgentRunsRouteExposesConcurrentRuns(t *testing.T) {
 	}
 	if payload.AgentRuns[0].TicketID != ticketTwoID.String() || payload.AgentRuns[1].TicketID != ticketOneID.String() {
 		t.Fatalf("expected run ticket IDs to round-trip, got %+v", payload.AgentRuns)
+	}
+	if payload.AgentRuns[1].WorkflowVersionID == nil || *payload.AgentRuns[1].WorkflowVersionID != workflowVersionID.String() {
+		t.Fatalf("expected workflow version usage to round-trip, got %+v", payload.AgentRuns[1])
+	}
+	if len(payload.AgentRuns[1].SkillVersionIDs) != 2 || payload.AgentRuns[1].SkillVersionIDs[0] != skillVersionOneID.String() || payload.AgentRuns[1].SkillVersionIDs[1] != skillVersionTwoID.String() {
+		t.Fatalf("expected skill version usage to round-trip, got %+v", payload.AgentRuns[1])
 	}
 }
 

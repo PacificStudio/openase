@@ -10,9 +10,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
-	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
@@ -112,19 +112,19 @@ func (_u *WorkflowVersionUpdate) SetWorkflow(v *Workflow) *WorkflowVersionUpdate
 	return _u.SetWorkflowID(v.ID)
 }
 
-// AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
-func (_u *WorkflowVersionUpdate) AddRequiredByBindingIDs(ids ...uuid.UUID) *WorkflowVersionUpdate {
-	_u.mutation.AddRequiredByBindingIDs(ids...)
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by IDs.
+func (_u *WorkflowVersionUpdate) AddAgentRunIDs(ids ...uuid.UUID) *WorkflowVersionUpdate {
+	_u.mutation.AddAgentRunIDs(ids...)
 	return _u
 }
 
-// AddRequiredByBindings adds the "required_by_bindings" edges to the WorkflowSkillBinding entity.
-func (_u *WorkflowVersionUpdate) AddRequiredByBindings(v ...*WorkflowSkillBinding) *WorkflowVersionUpdate {
+// AddAgentRuns adds the "agent_runs" edges to the AgentRun entity.
+func (_u *WorkflowVersionUpdate) AddAgentRuns(v ...*AgentRun) *WorkflowVersionUpdate {
 	ids := make([]uuid.UUID, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
-	return _u.AddRequiredByBindingIDs(ids...)
+	return _u.AddAgentRunIDs(ids...)
 }
 
 // Mutation returns the WorkflowVersionMutation object of the builder.
@@ -138,25 +138,25 @@ func (_u *WorkflowVersionUpdate) ClearWorkflow() *WorkflowVersionUpdate {
 	return _u
 }
 
-// ClearRequiredByBindings clears all "required_by_bindings" edges to the WorkflowSkillBinding entity.
-func (_u *WorkflowVersionUpdate) ClearRequiredByBindings() *WorkflowVersionUpdate {
-	_u.mutation.ClearRequiredByBindings()
+// ClearAgentRuns clears all "agent_runs" edges to the AgentRun entity.
+func (_u *WorkflowVersionUpdate) ClearAgentRuns() *WorkflowVersionUpdate {
+	_u.mutation.ClearAgentRuns()
 	return _u
 }
 
-// RemoveRequiredByBindingIDs removes the "required_by_bindings" edge to WorkflowSkillBinding entities by IDs.
-func (_u *WorkflowVersionUpdate) RemoveRequiredByBindingIDs(ids ...uuid.UUID) *WorkflowVersionUpdate {
-	_u.mutation.RemoveRequiredByBindingIDs(ids...)
+// RemoveAgentRunIDs removes the "agent_runs" edge to AgentRun entities by IDs.
+func (_u *WorkflowVersionUpdate) RemoveAgentRunIDs(ids ...uuid.UUID) *WorkflowVersionUpdate {
+	_u.mutation.RemoveAgentRunIDs(ids...)
 	return _u
 }
 
-// RemoveRequiredByBindings removes "required_by_bindings" edges to WorkflowSkillBinding entities.
-func (_u *WorkflowVersionUpdate) RemoveRequiredByBindings(v ...*WorkflowSkillBinding) *WorkflowVersionUpdate {
+// RemoveAgentRuns removes "agent_runs" edges to AgentRun entities.
+func (_u *WorkflowVersionUpdate) RemoveAgentRuns(v ...*AgentRun) *WorkflowVersionUpdate {
 	ids := make([]uuid.UUID, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
-	return _u.RemoveRequiredByBindingIDs(ids...)
+	return _u.RemoveAgentRunIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -255,28 +255,28 @@ func (_u *WorkflowVersionUpdate) sqlSave(ctx context.Context) (_node int, err er
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.RequiredByBindingsCleared() {
+	if _u.mutation.AgentRunsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workflowversion.RequiredByBindingsTable,
-			Columns: []string{workflowversion.RequiredByBindingsColumn},
+			Table:   workflowversion.AgentRunsTable,
+			Columns: []string{workflowversion.AgentRunsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.RemovedRequiredByBindingsIDs(); len(nodes) > 0 && !_u.mutation.RequiredByBindingsCleared() {
+	if nodes := _u.mutation.RemovedAgentRunsIDs(); len(nodes) > 0 && !_u.mutation.AgentRunsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workflowversion.RequiredByBindingsTable,
-			Columns: []string{workflowversion.RequiredByBindingsColumn},
+			Table:   workflowversion.AgentRunsTable,
+			Columns: []string{workflowversion.AgentRunsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -284,15 +284,15 @@ func (_u *WorkflowVersionUpdate) sqlSave(ctx context.Context) (_node int, err er
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.RequiredByBindingsIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.AgentRunsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workflowversion.RequiredByBindingsTable,
-			Columns: []string{workflowversion.RequiredByBindingsColumn},
+			Table:   workflowversion.AgentRunsTable,
+			Columns: []string{workflowversion.AgentRunsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -402,19 +402,19 @@ func (_u *WorkflowVersionUpdateOne) SetWorkflow(v *Workflow) *WorkflowVersionUpd
 	return _u.SetWorkflowID(v.ID)
 }
 
-// AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
-func (_u *WorkflowVersionUpdateOne) AddRequiredByBindingIDs(ids ...uuid.UUID) *WorkflowVersionUpdateOne {
-	_u.mutation.AddRequiredByBindingIDs(ids...)
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by IDs.
+func (_u *WorkflowVersionUpdateOne) AddAgentRunIDs(ids ...uuid.UUID) *WorkflowVersionUpdateOne {
+	_u.mutation.AddAgentRunIDs(ids...)
 	return _u
 }
 
-// AddRequiredByBindings adds the "required_by_bindings" edges to the WorkflowSkillBinding entity.
-func (_u *WorkflowVersionUpdateOne) AddRequiredByBindings(v ...*WorkflowSkillBinding) *WorkflowVersionUpdateOne {
+// AddAgentRuns adds the "agent_runs" edges to the AgentRun entity.
+func (_u *WorkflowVersionUpdateOne) AddAgentRuns(v ...*AgentRun) *WorkflowVersionUpdateOne {
 	ids := make([]uuid.UUID, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
-	return _u.AddRequiredByBindingIDs(ids...)
+	return _u.AddAgentRunIDs(ids...)
 }
 
 // Mutation returns the WorkflowVersionMutation object of the builder.
@@ -428,25 +428,25 @@ func (_u *WorkflowVersionUpdateOne) ClearWorkflow() *WorkflowVersionUpdateOne {
 	return _u
 }
 
-// ClearRequiredByBindings clears all "required_by_bindings" edges to the WorkflowSkillBinding entity.
-func (_u *WorkflowVersionUpdateOne) ClearRequiredByBindings() *WorkflowVersionUpdateOne {
-	_u.mutation.ClearRequiredByBindings()
+// ClearAgentRuns clears all "agent_runs" edges to the AgentRun entity.
+func (_u *WorkflowVersionUpdateOne) ClearAgentRuns() *WorkflowVersionUpdateOne {
+	_u.mutation.ClearAgentRuns()
 	return _u
 }
 
-// RemoveRequiredByBindingIDs removes the "required_by_bindings" edge to WorkflowSkillBinding entities by IDs.
-func (_u *WorkflowVersionUpdateOne) RemoveRequiredByBindingIDs(ids ...uuid.UUID) *WorkflowVersionUpdateOne {
-	_u.mutation.RemoveRequiredByBindingIDs(ids...)
+// RemoveAgentRunIDs removes the "agent_runs" edge to AgentRun entities by IDs.
+func (_u *WorkflowVersionUpdateOne) RemoveAgentRunIDs(ids ...uuid.UUID) *WorkflowVersionUpdateOne {
+	_u.mutation.RemoveAgentRunIDs(ids...)
 	return _u
 }
 
-// RemoveRequiredByBindings removes "required_by_bindings" edges to WorkflowSkillBinding entities.
-func (_u *WorkflowVersionUpdateOne) RemoveRequiredByBindings(v ...*WorkflowSkillBinding) *WorkflowVersionUpdateOne {
+// RemoveAgentRuns removes "agent_runs" edges to AgentRun entities.
+func (_u *WorkflowVersionUpdateOne) RemoveAgentRuns(v ...*AgentRun) *WorkflowVersionUpdateOne {
 	ids := make([]uuid.UUID, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
-	return _u.RemoveRequiredByBindingIDs(ids...)
+	return _u.RemoveAgentRunIDs(ids...)
 }
 
 // Where appends a list predicates to the WorkflowVersionUpdate builder.
@@ -575,28 +575,28 @@ func (_u *WorkflowVersionUpdateOne) sqlSave(ctx context.Context) (_node *Workflo
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.RequiredByBindingsCleared() {
+	if _u.mutation.AgentRunsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workflowversion.RequiredByBindingsTable,
-			Columns: []string{workflowversion.RequiredByBindingsColumn},
+			Table:   workflowversion.AgentRunsTable,
+			Columns: []string{workflowversion.AgentRunsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.RemovedRequiredByBindingsIDs(); len(nodes) > 0 && !_u.mutation.RequiredByBindingsCleared() {
+	if nodes := _u.mutation.RemovedAgentRunsIDs(); len(nodes) > 0 && !_u.mutation.AgentRunsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workflowversion.RequiredByBindingsTable,
-			Columns: []string{workflowversion.RequiredByBindingsColumn},
+			Table:   workflowversion.AgentRunsTable,
+			Columns: []string{workflowversion.AgentRunsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -604,15 +604,15 @@ func (_u *WorkflowVersionUpdateOne) sqlSave(ctx context.Context) (_node *Workflo
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.RequiredByBindingsIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.AgentRunsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workflowversion.RequiredByBindingsTable,
-			Columns: []string{workflowversion.RequiredByBindingsColumn},
+			Table:   workflowversion.AgentRunsTable,
+			Columns: []string{workflowversion.AgentRunsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

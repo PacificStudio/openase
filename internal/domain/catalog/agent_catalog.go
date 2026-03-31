@@ -67,8 +67,10 @@ type AgentRun struct {
 	ID                   uuid.UUID
 	AgentID              uuid.UUID
 	WorkflowID           uuid.UUID
+	WorkflowVersionID    *uuid.UUID
 	TicketID             uuid.UUID
 	ProviderID           uuid.UUID
+	SkillVersionIDs      []uuid.UUID
 	Status               AgentRunStatus
 	SessionID            string
 	RuntimeStartedAt     *time.Time

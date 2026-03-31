@@ -29,6 +29,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// EdgeSkill holds the string denoting the skill edge name in mutations.
 	EdgeSkill = "skill"
+	// EdgeRequiredByBindings holds the string denoting the required_by_bindings edge name in mutations.
+	EdgeRequiredByBindings = "required_by_bindings"
 	// Table holds the table name of the skillversion in the database.
 	Table = "skill_versions"
 	// SkillTable is the table that holds the skill relation/edge.
@@ -38,6 +40,13 @@ const (
 	SkillInverseTable = "skills"
 	// SkillColumn is the table column denoting the skill relation/edge.
 	SkillColumn = "skill_id"
+	// RequiredByBindingsTable is the table that holds the required_by_bindings relation/edge.
+	RequiredByBindingsTable = "workflow_skill_bindings"
+	// RequiredByBindingsInverseTable is the table name for the WorkflowSkillBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "workflowskillbinding" package.
+	RequiredByBindingsInverseTable = "workflow_skill_bindings"
+	// RequiredByBindingsColumn is the table column denoting the required_by_bindings relation/edge.
+	RequiredByBindingsColumn = "required_version_id"
 )
 
 // Columns holds all SQL columns for skillversion fields.
@@ -116,10 +125,31 @@ func BySkillField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSkillStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByRequiredByBindingsCount orders the results by required_by_bindings count.
+func ByRequiredByBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRequiredByBindingsStep(), opts...)
+	}
+}
+
+// ByRequiredByBindings orders the results by required_by_bindings terms.
+func ByRequiredByBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRequiredByBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newSkillStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SkillInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, SkillTable, SkillColumn),
+	)
+}
+func newRequiredByBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RequiredByBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RequiredByBindingsTable, RequiredByBindingsColumn),
 	)
 }

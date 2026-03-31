@@ -41,8 +41,8 @@ type WorkflowVersion struct {
 type WorkflowVersionEdges struct {
 	// Workflow holds the value of the workflow edge.
 	Workflow *Workflow `json:"workflow,omitempty"`
-	// RequiredByBindings holds the value of the required_by_bindings edge.
-	RequiredByBindings []*WorkflowSkillBinding `json:"required_by_bindings,omitempty"`
+	// AgentRuns holds the value of the agent_runs edge.
+	AgentRuns []*AgentRun `json:"agent_runs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [2]bool
@@ -59,13 +59,13 @@ func (e WorkflowVersionEdges) WorkflowOrErr() (*Workflow, error) {
 	return nil, &NotLoadedError{edge: "workflow"}
 }
 
-// RequiredByBindingsOrErr returns the RequiredByBindings value or an error if the edge
+// AgentRunsOrErr returns the AgentRuns value or an error if the edge
 // was not loaded in eager-loading.
-func (e WorkflowVersionEdges) RequiredByBindingsOrErr() ([]*WorkflowSkillBinding, error) {
+func (e WorkflowVersionEdges) AgentRunsOrErr() ([]*AgentRun, error) {
 	if e.loadedTypes[1] {
-		return e.RequiredByBindings, nil
+		return e.AgentRuns, nil
 	}
-	return nil, &NotLoadedError{edge: "required_by_bindings"}
+	return nil, &NotLoadedError{edge: "agent_runs"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -156,9 +156,9 @@ func (_m *WorkflowVersion) QueryWorkflow() *WorkflowQuery {
 	return NewWorkflowVersionClient(_m.config).QueryWorkflow(_m)
 }
 
-// QueryRequiredByBindings queries the "required_by_bindings" edge of the WorkflowVersion entity.
-func (_m *WorkflowVersion) QueryRequiredByBindings() *WorkflowSkillBindingQuery {
-	return NewWorkflowVersionClient(_m.config).QueryRequiredByBindings(_m)
+// QueryAgentRuns queries the "agent_runs" edge of the WorkflowVersion entity.
+func (_m *WorkflowVersion) QueryAgentRuns() *AgentRunQuery {
+	return NewWorkflowVersionClient(_m.config).QueryAgentRuns(_m)
 }
 
 // Update returns a builder for updating this WorkflowVersion.
