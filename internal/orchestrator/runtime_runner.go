@@ -148,7 +148,7 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 					return
 				}
 				if !shouldContinueExecution(reloaded, state.run.ID) {
-					if err := l.finishResolvedExecution(ctx, state.run.ID, state.agent.ID, reloaded); err != nil {
+					if err := l.releaseExecutionOwnership(ctx, state.run.ID, state.agent.ID, reloaded); err != nil {
 						l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, reloaded.ID, err)
 					}
 					return
@@ -167,7 +167,7 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 		}
 
 		if !shouldContinueExecution(reloaded, state.run.ID) {
-			if err := l.finishResolvedExecution(ctx, state.run.ID, state.agent.ID, reloaded); err != nil {
+			if err := l.releaseExecutionOwnership(ctx, state.run.ID, state.agent.ID, reloaded); err != nil {
 				l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, reloaded.ID, err)
 			}
 			return
@@ -631,6 +631,63 @@ func shouldContinueExecution(ticket *ent.Ticket, runID uuid.UUID) bool {
 	return ticket.Edges.Workflow != nil &&
 		slices.Contains(ticketStatusIDs(ticket.Edges.Workflow.Edges.PickupStatuses), ticket.StatusID) &&
 		!ticket.RetryPaused
+}
+
+func (l *RuntimeLauncher) releaseExecutionOwnership(ctx context.Context, runID uuid.UUID, agentID uuid.UUID, ticket *ent.Ticket) error {
+	if ticket == nil {
+		return fmt.Errorf("ticket missing for execution release")
+	}
+
+	stopSession(context.Background(), l.loadSession(runID))
+	l.deleteSession(runID)
+
+	tx, err := l.client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("start execution release tx: %w", err)
+	}
+	defer rollback(tx)
+
+	if _, err := tx.Ticket.Update().
+		Where(
+			entticket.IDEQ(ticket.ID),
+			entticket.CurrentRunIDEQ(runID),
+		).
+		ClearCurrentRunID().
+		Save(ctx); err != nil {
+		return fmt.Errorf("release ticket %s execution ownership: %w", ticket.ID, err)
+	}
+
+	if _, err := tx.Agent.Update().
+		Where(entagent.IDEQ(agentID)).
+		SetRuntimeControlState(entagent.RuntimeControlStateActive).
+		Save(ctx); err != nil {
+		return fmt.Errorf("reset agent %s after execution release: %w", agentID, err)
+	}
+
+	if _, err := clearRuntimeStateOne(
+		tx.AgentRun.UpdateOneID(runID).
+			SetStatus(entagentrun.StatusTerminated),
+	).Save(ctx); err != nil {
+		return fmt.Errorf("reset run %s after execution release: %w", runID, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit execution release tx: %w", err)
+	}
+
+	reloaded, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID)
+	if err != nil {
+		return err
+	}
+	l.publishLifecycleEvent(
+		ctx,
+		agentTerminatedType,
+		reloaded,
+		lifecycleMessage(agentTerminatedType, reloaded.agent.Name),
+		runtimeEventMetadataForState(reloaded),
+		l.now().UTC(),
+	)
+	return nil
 }
 
 func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uuid.UUID, agentID uuid.UUID, ticket *ent.Ticket) error {
