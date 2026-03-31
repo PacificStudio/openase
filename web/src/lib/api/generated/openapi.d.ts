@@ -422,6 +422,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/machines/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream organization machine events */
+    get: operations['streamOrganizationMachines']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/orgs/{orgId}/projects': {
     parameters: {
       query?: never
@@ -452,6 +469,23 @@ export interface paths {
     put?: never
     /** Create an agent provider */
     post: operations['createAgentProvider']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/providers/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream organization provider events */
+    get: operations['streamOrganizationProviders']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -4203,6 +4237,53 @@ export interface operations {
       }
     }
   }
+  streamOrganizationMachines: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listProjects: {
     parameters: {
       query?: never
@@ -4566,6 +4647,53 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamOrganizationProviders: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
         headers: {
           [name: string]: unknown
         }
