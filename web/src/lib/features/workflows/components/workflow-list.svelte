@@ -24,7 +24,6 @@
     'refine-harness': 'bg-cyan-500/15 text-cyan-400',
     custom: 'bg-neutral-500/15 text-neutral-400',
   }
-
 </script>
 
 <div class={cn('border-border flex h-full flex-col overflow-hidden border-r', className)}>

@@ -7,8 +7,6 @@
   import { Separator } from '$ui/separator'
   import { KeyRound, LockKeyhole, ShieldCheck, Webhook } from '@lucide/svelte'
 
-
-
   let security = $state<SecuritySettingsResponse['security'] | null>(null)
   let loading = $state(false)
   let error = $state('')
