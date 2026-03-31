@@ -1,6 +1,6 @@
 <script lang="ts">
   import { PageScaffold } from '$lib/components/layout'
-  import { formatBytes, formatCount } from '$lib/utils'
+  import { cn, formatBytes, formatCount } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import {
@@ -13,8 +13,8 @@
     updateProject,
   } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
+  import * as Select from '$ui/select'
   import StatCard from './stat-card.svelte'
-  import ProjectSummaryCard from './project-summary-card.svelte'
   import ExceptionPanel from './exception-panel.svelte'
   import ActivityFeedPanel from './activity-feed-panel.svelte'
   import CostSnapshotPanel from './cost-snapshot-panel.svelte'
@@ -25,7 +25,6 @@
     buildActivityItems,
     buildDashboardStats,
     buildExceptionItems,
-    buildProjectSummary,
     findTopCostTicket,
     findTopTokenAgent,
   } from '../model'
@@ -35,10 +34,33 @@
     DashboardUsageLeader,
     HRAdvisorSnapshot,
     MemorySnapshot,
-    ProjectSummary,
   } from '../types'
 
   const dashboardPollIntervalMs = 5000
+
+  const projectStatusOptions: ProjectStatus[] = [
+    'Backlog',
+    'Planned',
+    'In Progress',
+    'Completed',
+    'Canceled',
+    'Archived',
+  ]
+
+  const statusClassName: Record<ProjectStatus, string> = {
+    Backlog:
+      'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200',
+    Planned:
+      'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200',
+    'In Progress':
+      'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200',
+    Completed:
+      'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-200',
+    Canceled:
+      'border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200',
+    Archived:
+      'border-border bg-background text-muted-foreground hover:bg-muted dark:hover:bg-muted/60',
+  }
 
   let loading = $state(false)
   let error = $state('')
@@ -56,45 +78,38 @@
     avgCycleMinutes: 0,
     prMergeRate: 0,
   })
-  let projectSummary = $state<ProjectSummary | null>(null)
   let exceptions = $state<ReturnType<typeof buildExceptionItems>>([])
   let activities = $state<ReturnType<typeof buildActivityItems>>([])
   let hrAdvisor = $state<HRAdvisorSnapshot | null>(null)
   let memory = $state<MemorySnapshot | null>(null)
   let topCostTicket = $state<DashboardUsageLeader | null>(null)
   let topTokenAgent = $state<DashboardUsageLeader | null>(null)
-  let savingProjectStatusId = $state<string | null>(null)
+  let savingStatus = $state(false)
   const totalTicketTokens = $derived(stats.ticketInputTokens + stats.ticketOutputTokens)
+  const currentStatus = $derived((appStore.currentProject?.status ?? 'Planned') as ProjectStatus)
 
-  async function handleProjectStatusChange(projectId: string, status: ProjectStatus) {
-    if (savingProjectStatusId === projectId) return
+  async function handleProjectStatusChange(status: ProjectStatus) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || savingStatus) return
 
-    savingProjectStatusId = projectId
+    savingStatus = true
 
     try {
       const payload = await updateProject(projectId, { status })
       appStore.currentProject = payload.project
-      if (projectSummary?.id === projectId) {
-        projectSummary = {
-          ...projectSummary,
-          description: payload.project.description,
-          status: payload.project.status,
-        }
-      }
       toastStore.success('Project status updated.')
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to update project status.',
       )
     } finally {
-      savingProjectStatusId = null
+      savingStatus = false
     }
   }
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      projectSummary = null
       activities = []
       exceptions = []
       hrAdvisor = null
@@ -147,11 +162,6 @@
             }
           : null
 
-        projectSummary = buildProjectSummary(
-          projectPayload.project,
-          stats,
-          activityPayload.events[0]?.created_at ?? null,
-        )
         activities = buildActivityItems(activityPayload.events)
         exceptions = buildExceptionItems(activityPayload.events)
 
@@ -184,6 +194,31 @@
 </script>
 
 <PageScaffold title="Dashboard" description="Project overview">
+  {#snippet actions()}
+    <Select.Root
+      type="single"
+      value={currentStatus}
+      onValueChange={(value) => {
+        if (value && value !== currentStatus) void handleProjectStatusChange(value as ProjectStatus)
+      }}
+    >
+      <Select.Trigger
+        class={cn(
+          'h-auto min-h-5 w-auto rounded-full border px-2.5 py-1 text-xs font-medium shadow-none',
+          statusClassName[currentStatus],
+        )}
+        disabled={savingStatus}
+      >
+        {currentStatus}
+      </Select.Trigger>
+      <Select.Content>
+        {#each projectStatusOptions as status (status)}
+          <Select.Item value={status}>{status}</Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
+  {/snippet}
+
   <div class="space-y-6">
     {#if loading}
       <div
@@ -205,14 +240,7 @@
         <StatCard label="Heap In Use" value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'} />
       </div>
 
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {#if projectSummary}
-          <ProjectSummaryCard
-            project={projectSummary}
-            {savingProjectStatusId}
-            onUpdateStatus={handleProjectStatusChange}
-          />
-        {/if}
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CostSnapshotPanel
           newTicketsTodayCost={stats.newTicketsTodayCost}
           projectCost={stats.projectCost}
