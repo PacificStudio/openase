@@ -6,7 +6,7 @@
   import EphemeralChatActionProposalCard from './ephemeral-chat-action-proposal-card.svelte'
   import EphemeralChatDiffCard from './ephemeral-chat-diff-card.svelte'
   import ChatMarkdownContent from './chat-markdown-content.svelte'
-  import type { ProjectConversationTranscriptEntry } from './project-conversation-controller.svelte'
+  import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
 
   let {
     entries,
