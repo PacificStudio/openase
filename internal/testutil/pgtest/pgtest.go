@@ -24,6 +24,7 @@ const defaultDatabase = "postgres"
 
 const sharedServerStartAttempts = 5
 const sharedServerAssetsRootEnv = "OPENASE_PGTEST_SHARED_ROOT"
+const isolatedDatabaseCleanupTimeout = 60 * time.Second
 
 type postgresController interface {
 	Start() error
@@ -228,7 +229,9 @@ func (s *Server) newIsolatedDatabase(t *testing.T, dbName string, templateName s
 	}
 
 	t.Cleanup(func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		// DROP DATABASE ... WITH (FORCE) can block behind checkpoints on slower CI
+		// runners, so keep the cleanup budget comfortably above that window.
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), isolatedDatabaseCleanupTimeout)
 		defer cleanupCancel()
 		if _, err := s.admin.ExecContext(cleanupCtx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbName)+" WITH (FORCE)"); err != nil {
 			t.Errorf("drop isolated database %s: %v", dbName, err)
