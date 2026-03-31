@@ -243,6 +243,25 @@ export type SkillListPayload = DeepRequired<
 >
 export type Skill = ItemOf<SkillListPayload['skills']>
 export type SkillBinding = ItemOf<Skill['bound_workflows']>
+export type SkillDetailResponse = DeepRequired<ResponseFor<'/api/v1/skills/{skillId}', 'get'>>
+export type SkillDetail = SkillDetailResponse['skill']
+export type SkillCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/skills', 'post'>
+>
+export type SkillUpdateResponse = DeepRequired<ResponseFor<'/api/v1/skills/{skillId}', 'put'>>
+export type SkillDeleteResponse = DeepRequired<ResponseFor<'/api/v1/skills/{skillId}', 'delete'>>
+export type SkillToggleResponse = DeepRequired<
+  ResponseFor<'/api/v1/skills/{skillId}/enable', 'post'>
+>
+export type SkillBindingUpdateResponse = DeepRequired<
+  ResponseFor<'/api/v1/skills/{skillId}/bind', 'post'>
+>
+export type SkillRefreshResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/skills/refresh', 'post'>
+>
+export type SkillHarvestResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/skills/harvest', 'post'>
+>
 
 export type BuiltinRolePayload = DeepRequired<ResponseFor<'/api/v1/roles/builtin', 'get'>>
 export type BuiltinRole = ItemOf<BuiltinRolePayload['roles']>

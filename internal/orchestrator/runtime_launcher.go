@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -645,13 +646,27 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 	}
 
 	workingDirectoryValue := resolveAgentWorkingDirectory(launchContext, workspaceItem)
-	if !remote && l.workflow != nil {
-		if _, err := l.workflow.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
-			ProjectID:     launchContext.project.ID,
-			WorkspaceRoot: workingDirectoryValue,
-			AdapterType:   string(launchContext.agent.Edges.Provider.AdapterType),
-		}); err != nil {
-			return nil, fmt.Errorf("prepare local codex workspace skills: %w", err)
+	if l.workflow != nil {
+		if remote {
+			if err := l.refreshRemoteWorkspaceSkills(
+				ctx,
+				launchContext.project.ID,
+				launchContext.ticket.WorkflowID,
+				machine,
+				workingDirectoryValue,
+				string(launchContext.agent.Edges.Provider.AdapterType),
+			); err != nil {
+				return nil, fmt.Errorf("prepare remote codex workspace skills: %w", err)
+			}
+		} else {
+			if _, err := l.workflow.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
+				ProjectID:     launchContext.project.ID,
+				WorkspaceRoot: workingDirectoryValue,
+				AdapterType:   string(launchContext.agent.Edges.Provider.AdapterType),
+				WorkflowID:    launchContext.ticket.WorkflowID,
+			}); err != nil {
+				return nil, fmt.Errorf("prepare local codex workspace skills: %w", err)
+			}
 		}
 	}
 	workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
@@ -766,6 +781,102 @@ func buildLocalOpenASEEnvironment() ([]string, error) {
 	}
 
 	return []string{"OPENASE_REAL_BIN=" + executable}, nil
+}
+
+func (l *RuntimeLauncher) refreshRemoteWorkspaceSkills(
+	ctx context.Context,
+	projectID uuid.UUID,
+	workflowID *uuid.UUID,
+	machine catalogdomain.Machine,
+	workspaceRoot string,
+	adapterType string,
+) error {
+	if l == nil || l.workflow == nil {
+		return nil
+	}
+	if l.sshPool == nil {
+		return fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+	}
+
+	skillNames, err := l.resolveLaunchSkillNames(ctx, projectID, workflowID)
+	if err != nil {
+		return err
+	}
+	target, err := workflowservice.ResolveSkillTargetForRuntime(workspaceRoot, adapterType)
+	if err != nil {
+		return err
+	}
+
+	client, err := l.sshPool.Get(ctx, machine)
+	if err != nil {
+		return fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
+	}
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("open ssh session for machine %s: %w", machine.Name, err)
+	}
+	defer func() {
+		_ = session.Close()
+	}()
+
+	command := buildRemoteRefreshSkillsCommand(workspaceRoot, target.SkillsDir, skillNames)
+	if output, err := session.CombinedOutput(command); err != nil {
+		return fmt.Errorf("refresh remote skills: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func (l *RuntimeLauncher) resolveLaunchSkillNames(
+	ctx context.Context,
+	projectID uuid.UUID,
+	workflowID *uuid.UUID,
+) ([]string, error) {
+	items, err := l.workflow.ListSkills(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	selected := make([]string, 0, len(items))
+	for _, item := range items {
+		if !item.IsEnabled {
+			continue
+		}
+		if workflowID == nil {
+			selected = append(selected, item.Name)
+			continue
+		}
+		if item.Name == "openase-platform" {
+			selected = append(selected, item.Name)
+			continue
+		}
+		for _, binding := range item.BoundWorkflows {
+			if binding.ID == *workflowID {
+				selected = append(selected, item.Name)
+				break
+			}
+		}
+	}
+	sort.Strings(selected)
+	return selected, nil
+}
+
+func buildRemoteRefreshSkillsCommand(workspaceRoot string, skillsDir string, skillNames []string) string {
+	lines := make([]string, 0, 3+len(skillNames))
+	lines = append(lines,
+		"set -eu",
+		"rm -rf "+sshinfra.ShellQuote(skillsDir),
+		"mkdir -p "+sshinfra.ShellQuote(skillsDir),
+	)
+
+	for _, skillName := range skillNames {
+		src := filepath.Join(workspaceRoot, ".openase", "skills", skillName)
+		dst := filepath.Join(skillsDir, skillName)
+		lines = append(lines,
+			"if [ -d "+sshinfra.ShellQuote(src)+" ]; then cp -R "+sshinfra.ShellQuote(src)+" "+sshinfra.ShellQuote(dst)+"; fi",
+		)
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func (l *RuntimeLauncher) buildDeveloperInstructions(

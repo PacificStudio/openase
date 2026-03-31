@@ -2,17 +2,27 @@ package httpapi
 
 import (
 	"net/http"
+	"time"
 
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
 )
 
 type skillResponse struct {
+	ID             string                         `json:"id"`
 	Name           string                         `json:"name"`
 	Description    string                         `json:"description"`
 	Path           string                         `json:"path"`
 	IsBuiltin      bool                           `json:"is_builtin"`
+	IsEnabled      bool                           `json:"is_enabled"`
+	CreatedBy      string                         `json:"created_by"`
+	CreatedAt      string                         `json:"created_at"`
 	BoundWorkflows []skillWorkflowBindingResponse `json:"bound_workflows"`
+}
+
+type skillDetailResponse struct {
+	Skill   skillResponse `json:"skill"`
+	Content string        `json:"content"`
 }
 
 type skillWorkflowBindingResponse struct {
@@ -30,8 +40,16 @@ type skillSyncResponse struct {
 
 func (s *Server) registerSkillRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/skills", s.handleListSkills)
+	api.POST("/projects/:projectId/skills", s.handleCreateSkill)
 	api.POST("/projects/:projectId/skills/refresh", s.handleRefreshSkills)
 	api.POST("/projects/:projectId/skills/harvest", s.handleHarvestSkills)
+	api.GET("/skills/:skillId", s.handleGetSkill)
+	api.PUT("/skills/:skillId", s.handleUpdateSkill)
+	api.DELETE("/skills/:skillId", s.handleDeleteSkill)
+	api.POST("/skills/:skillId/enable", s.handleEnableSkill)
+	api.POST("/skills/:skillId/disable", s.handleDisableSkill)
+	api.POST("/skills/:skillId/bind", s.handleBindSkill)
+	api.POST("/skills/:skillId/unbind", s.handleUnbindSkill)
 	api.POST("/workflows/:workflowId/skills/bind", s.handleBindWorkflowSkills)
 	api.POST("/workflows/:workflowId/skills/unbind", s.handleUnbindWorkflowSkills)
 }
@@ -54,6 +72,34 @@ func (s *Server) handleListSkills(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"skills": mapSkillResponses(items),
 	})
+}
+
+func (s *Server) handleCreateSkill(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+
+	var raw rawCreateSkillRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseCreateSkillRequest(projectID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.workflowService.CreateSkill(c.Request().Context(), input)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, mapSkillDetailResponse(item))
 }
 
 func (s *Server) handleRefreshSkills(c echo.Context) error {
@@ -117,6 +163,143 @@ func (s *Server) handleHarvestSkills(c echo.Context) error {
 		HarvestedSkills: result.HarvestedSkills,
 		UpdatedSkills:   result.UpdatedSkills,
 	})
+}
+
+func (s *Server) handleGetSkill(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	skillID, err := parseUUIDPathParamValue(c, "skillId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
+	}
+
+	item, err := s.workflowService.GetSkill(c.Request().Context(), skillID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, mapSkillDetailResponse(item))
+}
+
+func (s *Server) handleUpdateSkill(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	skillID, err := parseUUIDPathParamValue(c, "skillId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
+	}
+
+	var raw rawUpdateSkillRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseUpdateSkillRequest(skillID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.workflowService.UpdateSkill(c.Request().Context(), input)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, mapSkillDetailResponse(item))
+}
+
+func (s *Server) handleDeleteSkill(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	skillID, err := parseUUIDPathParamValue(c, "skillId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
+	}
+
+	if err := s.workflowService.DeleteSkill(c.Request().Context(), skillID); err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"deleted_skill_id": skillID.String(),
+	})
+}
+
+func (s *Server) handleEnableSkill(c echo.Context) error {
+	return s.handleSkillEnabledState(c, true)
+}
+
+func (s *Server) handleDisableSkill(c echo.Context) error {
+	return s.handleSkillEnabledState(c, false)
+}
+
+func (s *Server) handleSkillEnabledState(c echo.Context, enabled bool) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	skillID, err := parseUUIDPathParamValue(c, "skillId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
+	}
+
+	var item workflowservice.SkillDetail
+	if enabled {
+		item, err = s.workflowService.EnableSkill(c.Request().Context(), skillID)
+	} else {
+		item, err = s.workflowService.DisableSkill(c.Request().Context(), skillID)
+	}
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, mapSkillDetailResponse(item))
+}
+
+func (s *Server) handleBindSkill(c echo.Context) error {
+	return s.handleSkillBindings(c, true)
+}
+
+func (s *Server) handleUnbindSkill(c echo.Context) error {
+	return s.handleSkillBindings(c, false)
+}
+
+func (s *Server) handleSkillBindings(c echo.Context, bind bool) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	skillID, err := parseUUIDPathParamValue(c, "skillId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
+	}
+
+	var raw rawUpdateSkillBindingsRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseUpdateSkillBindingsRequest(skillID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	var item workflowservice.SkillDetail
+	if bind {
+		item, err = s.workflowService.BindSkill(c.Request().Context(), input)
+	} else {
+		item, err = s.workflowService.UnbindSkill(c.Request().Context(), input)
+	}
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, mapSkillDetailResponse(item))
 }
 
 func (s *Server) handleBindWorkflowSkills(c echo.Context) error {
@@ -189,11 +372,22 @@ func mapSkillResponses(items []workflowservice.Skill) []skillResponse {
 
 func mapSkillResponse(item workflowservice.Skill) skillResponse {
 	return skillResponse{
+		ID:             item.ID.String(),
 		Name:           item.Name,
 		Description:    item.Description,
 		Path:           item.Path,
 		IsBuiltin:      item.IsBuiltin,
+		IsEnabled:      item.IsEnabled,
+		CreatedBy:      item.CreatedBy,
+		CreatedAt:      item.CreatedAt.UTC().Format(time.RFC3339),
 		BoundWorkflows: mapSkillWorkflowBindings(item.BoundWorkflows),
+	}
+}
+
+func mapSkillDetailResponse(item workflowservice.SkillDetail) skillDetailResponse {
+	return skillDetailResponse{
+		Skill:   mapSkillResponse(item.Skill),
+		Content: item.Content,
 	}
 }
 

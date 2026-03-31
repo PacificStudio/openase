@@ -79,6 +79,18 @@
       "reason": "Project pages use summary/list/update flows and do not currently fetch a standalone project detail payload."
     },
     {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/skills/harvest",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Skill harvest is a runtime and CLI lifecycle action; the settings UI manages the skill library after those flows persist changes."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/skills/refresh",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Skill refresh targets the active agent workspace and is triggered by CLI/runtime flows rather than the browser settings page."
+    },
+    {
       "method": "get",
       "path": "/api/v1/projects/{projectId}/repos/{repoId}/mirrors",
       "categories": ["wrapped_but_unused"],

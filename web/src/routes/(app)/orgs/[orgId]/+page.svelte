@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { OrganizationOverviewPage } from '$lib/features/dashboard'
+  import { OrganizationDashboardPage } from '$lib/features/organizations'
 </script>
 
-<OrganizationOverviewPage />
+<OrganizationDashboardPage />

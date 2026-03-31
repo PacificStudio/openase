@@ -673,7 +673,7 @@ Launch starvation regression test.
 
 	select {
 	case <-manager.SecondStarted():
-	case <-time.After(5 * time.Second):
+	case <-time.After(2 * time.Second):
 		manager.ReleaseFirst()
 		t.Fatal("timed out waiting for second launch to start while the first launch was blocked")
 	}
