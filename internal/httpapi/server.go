@@ -50,7 +50,7 @@ type Server struct {
 	scheduledJobService *scheduledjobservice.Service
 	notificationService *notificationservice.Service
 	chatService         *chatservice.Service
-	githubAuthService   githubauthservice.SecurityReader
+	githubAuthService   githubauthservice.SecurityManager
 	issueConnectorSvc   *issueconnectorservice.Service
 	memoryCollector     runtimeobservability.ProcessMemoryCollector
 }
@@ -75,7 +75,7 @@ func WithChatService(service *chatservice.Service) ServerOption {
 	}
 }
 
-func WithGitHubAuthService(service githubauthservice.SecurityReader) ServerOption {
+func WithGitHubAuthService(service githubauthservice.SecurityManager) ServerOption {
 	return func(server *Server) {
 		server.githubAuthService = service
 	}

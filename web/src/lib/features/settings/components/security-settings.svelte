@@ -1,15 +1,32 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
-  import { getSecuritySettings } from '$lib/api/openase'
+  import {
+    deleteGitHubOutboundCredential,
+    getSecuritySettings,
+    importGitHubOutboundCredentialFromGHCLI,
+    retestGitHubOutboundCredential,
+    saveGitHubOutboundCredential,
+  } from '$lib/api/openase'
   import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import * as Card from '$ui/card'
   import { Separator } from '$ui/separator'
-  import { KeyRound, LockKeyhole, ShieldCheck, Webhook } from '@lucide/svelte'
+  import { KeyRound, LockKeyhole, Webhook } from '@lucide/svelte'
 
-  let security = $state<SecuritySettingsResponse['security'] | null>(null)
+  import GitHubOutboundCredentialsPanel from './security-settings-github-outbound-credentials.svelte'
+
+  type Security = SecuritySettingsResponse['security']
+  type GitHubScope = 'organization' | 'project'
+
+  let security = $state<Security | null>(null)
   let loading = $state(false)
   let error = $state('')
+  let actionKey = $state('')
+  let manualTokens = $state<Record<GitHubScope, string>>({
+    organization: '',
+    project: '',
+  })
 
   const signatureLabel = $derived(
     security?.webhooks.legacy_github_signature_required ? 'Required' : 'Optional until configured',
@@ -36,8 +53,7 @@
       } catch (caughtError) {
         if (cancelled) return
         security = null
-        error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load security settings.'
+        error = formatError(caughtError, 'Failed to load security settings.')
       } finally {
         if (!cancelled) {
           loading = false
@@ -51,13 +67,66 @@
       cancelled = true
     }
   })
+
+  function formatError(caughtError: unknown, fallback: string) {
+    return caughtError instanceof ApiError ? caughtError.detail : fallback
+  }
+
+  function scopeLabel(scope: GitHubScope) {
+    return scope === 'organization' ? 'organization' : 'project override'
+  }
+
+  function handleManualTokenChange(scope: GitHubScope, value: string) {
+    manualTokens[scope] = value
+  }
+
+  async function mutateScope(scope: GitHubScope, action: 'save' | 'import' | 'retest' | 'delete') {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+
+    const key = `${scope}:${action}`
+    actionKey = key
+    error = ''
+
+    try {
+      let payload: SecuritySettingsResponse
+      if (action === 'save') {
+        const token = manualTokens[scope].trim()
+        if (!token) {
+          toastStore.error('GitHub token is required.')
+          return
+        }
+        payload = await saveGitHubOutboundCredential(projectId, { scope, token })
+        manualTokens[scope] = ''
+        toastStore.success(`Saved ${scopeLabel(scope)} GitHub credential.`)
+      } else if (action === 'import') {
+        payload = await importGitHubOutboundCredentialFromGHCLI(projectId, { scope })
+        toastStore.success(`Imported ${scopeLabel(scope)} credential from gh.`)
+      } else if (action === 'retest') {
+        payload = await retestGitHubOutboundCredential(projectId, { scope })
+        toastStore.success(`Retested ${scopeLabel(scope)} GitHub credential.`)
+      } else {
+        payload = await deleteGitHubOutboundCredential(projectId, scope)
+        manualTokens[scope] = ''
+        toastStore.success(`Deleted ${scopeLabel(scope)} GitHub credential.`)
+      }
+      security = payload.security
+    } catch (caughtError) {
+      const message = formatError(caughtError, 'GitHub credential update failed.')
+      error = message
+      toastStore.error(message)
+    } finally {
+      actionKey = ''
+    }
+  }
 </script>
 
 <div class="space-y-6">
   <div>
     <h2 class="text-foreground text-base font-semibold">Security</h2>
     <p class="text-muted-foreground mt-1 max-w-3xl text-sm">
-      Runtime security boundaries and access controls.
+      Manage the platform-managed GH_TOKEN control plane alongside the runtime boundaries already
+      enforced by OpenASE.
     </p>
   </div>
 
@@ -68,7 +137,15 @@
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>
   {:else if security}
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.35fr),minmax(0,1fr)]">
+      <GitHubOutboundCredentialsPanel
+        {security}
+        {actionKey}
+        {manualTokens}
+        onAction={mutateScope}
+        onManualTokenChange={handleManualTokenChange}
+      />
+
       <Card.Root>
         <Card.Header>
           <Card.Title class="flex items-center gap-2">
@@ -110,85 +187,63 @@
         </Card.Content>
       </Card.Root>
 
-      <Card.Root>
-        <Card.Header>
-          <Card.Title class="flex items-center gap-2">
-            <Webhook class="size-4" />
-            Inbound webhooks
-          </Card.Title>
-          <Card.Description>
-            The current settings surface documents the webhook routes that exist today and whether
-            legacy GitHub delivery signatures are enforced in this deployment.
-          </Card.Description>
-        </Card.Header>
-        <Card.Content class="space-y-4">
-          <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
-            <div class="font-medium">Legacy GitHub route</div>
-            <p class="text-muted-foreground mt-2">
-              <code>{security.webhooks.legacy_github_endpoint}</code>
-            </p>
-            <p class="text-muted-foreground mt-2">Signature verification: {signatureLabel}</p>
-          </div>
-
-          <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
-            <div class="font-medium">Connector ingress route</div>
-            <p class="text-muted-foreground mt-2">
-              <code>{security.webhooks.connector_endpoint}</code>
-            </p>
-            <p class="text-muted-foreground mt-2">
-              Connector-specific verification still lives with each registered inbound receiver.
-            </p>
-          </div>
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root>
-        <Card.Header>
-          <Card.Title class="flex items-center gap-2">
-            <ShieldCheck class="size-4" />
-            Secret hygiene
-          </Card.Title>
-          <Card.Description>
-            This boundary calls out the secret-handling behavior already exported by the current app
-            surface.
-          </Card.Description>
-        </Card.Header>
-        <Card.Content>
-          <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
-            <div class="flex items-center gap-2 font-medium">
-              <LockKeyhole class="size-4" />
-              Response-safe notification configs
-            </div>
-            <p class="text-muted-foreground mt-2">
-              Notification channel payloads return masked secrets instead of raw values.
-            </p>
-            <p class="text-muted-foreground mt-2">
-              Current state:{' '}
-              {security.secret_hygiene.notification_channel_configs_redacted
-                ? 'Enabled'
-                : 'Disabled'}
-            </p>
-          </div>
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root>
-        <Card.Header>
-          <Card.Title>Explicitly deferred</Card.Title>
-          <Card.Description>
-            This settings slice is concrete, but it does not pretend the broader security control
-            plane is already shipped.
-          </Card.Description>
-        </Card.Header>
-        <Card.Content class="space-y-3">
-          {#each security.deferred as item (item.key)}
+      <div class="space-y-6">
+        <Card.Root>
+          <Card.Header>
+            <Card.Title class="flex items-center gap-2">
+              <Webhook class="size-4" />
+              Inbound webhooks
+            </Card.Title>
+            <Card.Description>
+              Legacy GitHub delivery verification remains separate from the outbound GH_TOKEN
+              control plane.
+            </Card.Description>
+          </Card.Header>
+          <Card.Content class="space-y-4">
             <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
-              <div class="font-medium">{item.title}</div>
-              <p class="text-muted-foreground mt-2">{item.summary}</p>
+              <div class="font-medium">Legacy GitHub route</div>
+              <p class="text-muted-foreground mt-2">
+                <code>{security.webhooks.legacy_github_endpoint}</code>
+              </p>
+              <p class="text-muted-foreground mt-2">Signature verification: {signatureLabel}</p>
             </div>
-          {/each}
-        </Card.Content>
-      </Card.Root>
+
+            <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
+              <div class="font-medium">Connector ingress route</div>
+              <p class="text-muted-foreground mt-2">
+                <code>{security.webhooks.connector_endpoint}</code>
+              </p>
+              <p class="text-muted-foreground mt-2">
+                Connector-specific verification still lives with each registered inbound receiver.
+              </p>
+            </div>
+          </Card.Content>
+        </Card.Root>
+
+        <Card.Root>
+          <Card.Header>
+            <Card.Title class="flex items-center gap-2">
+              <LockKeyhole class="size-4" />
+              Secret hygiene
+            </Card.Title>
+            <Card.Description>
+              Security-sensitive response surfaces stay redacted even while operators manage
+              platform credentials.
+            </Card.Description>
+          </Card.Header>
+          <Card.Content>
+            <div class="border-border bg-muted/20 rounded-lg border p-4 text-sm">
+              <div class="font-medium">Notification channel configs</div>
+              <p class="text-muted-foreground mt-2">
+                Current state:{' '}
+                {security.secret_hygiene.notification_channel_configs_redacted
+                  ? 'Secrets are redacted'
+                  : 'Secrets may be exposed'}
+              </p>
+            </div>
+          </Card.Content>
+        </Card.Root>
+      </div>
     </div>
   {/if}
 </div>

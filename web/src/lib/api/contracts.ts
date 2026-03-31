@@ -320,3 +320,21 @@ export type NotificationRule = ItemOf<NotificationRulePayload['rules']>
 export type SecuritySettingsResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings', 'get'>
 >
+export type SaveGitHubOutboundCredentialResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/github-outbound-credential', 'put'>
+>
+export type ImportGitHubOutboundCredentialResponse = DeepRequired<
+  ResponseFor<
+    '/api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli',
+    'post'
+  >
+>
+export type RetestGitHubOutboundCredentialResponse = DeepRequired<
+  ResponseFor<
+    '/api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest',
+    'post'
+  >
+>
+export type DeleteGitHubOutboundCredentialResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/github-outbound-credential', 'delete'>
+>

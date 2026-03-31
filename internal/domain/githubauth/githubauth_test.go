@@ -275,6 +275,35 @@ func TestResolveProjectCredentialDecryptError(t *testing.T) {
 	}
 }
 
+func TestProjectContextCredentialForScope(t *testing.T) {
+	t.Parallel()
+
+	orgCredential := &StoredCredential{TokenPreview: "org"}
+	orgProbe := &TokenProbe{State: ProbeStateConfigured}
+	projectCredential := &StoredCredential{TokenPreview: "project"}
+	projectProbe := &TokenProbe{State: ProbeStateValid}
+	projectContext := ProjectContext{
+		OrganizationCredential: orgCredential,
+		OrganizationProbe:      orgProbe,
+		ProjectCredential:      projectCredential,
+		ProjectProbe:           projectProbe,
+	}
+
+	gotCredential, gotProbe, err := projectContext.CredentialForScope(ScopeOrganization)
+	if err != nil || gotCredential != orgCredential || gotProbe != orgProbe {
+		t.Fatalf("CredentialForScope(organization) = %#v, %#v, %v", gotCredential, gotProbe, err)
+	}
+
+	gotCredential, gotProbe, err = projectContext.CredentialForScope(ScopeProject)
+	if err != nil || gotCredential != projectCredential || gotProbe != projectProbe {
+		t.Fatalf("CredentialForScope(project) = %#v, %#v, %v", gotCredential, gotProbe, err)
+	}
+
+	if _, _, err := projectContext.CredentialForScope(Scope("invalid")); err == nil {
+		t.Fatal("CredentialForScope(invalid) expected error")
+	}
+}
+
 func assertProbe(t *testing.T, got TokenProbe, want TokenProbe) {
 	t.Helper()
 

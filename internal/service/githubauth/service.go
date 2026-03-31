@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"slices"
 	"strings"
 	"time"
@@ -22,27 +23,61 @@ import (
 //nolint:gosec // Algorithm identifier for persisted metadata; not a credential or key.
 const credentialAlgorithm = "aes-256-gcm"
 
+var (
+	ErrUnavailable             = errors.New("github auth service unavailable")
+	ErrInvalidInput            = errors.New("invalid GitHub auth input")
+	ErrCredentialNotConfigured = errors.New("GitHub credential is not configured")
+	ErrGHCLIImportFailed       = errors.New("failed to import gh auth token")
+)
+
 type TokenResolver interface {
 	ResolveProjectCredential(ctx context.Context, projectID uuid.UUID) (domain.ResolvedCredential, error)
 }
 
-type SecurityReader interface {
+type SecurityManager interface {
 	ReadProjectSecurity(ctx context.Context, projectID uuid.UUID) (ProjectSecurity, error)
+	SaveManualCredential(ctx context.Context, input SaveCredentialInput) (ProjectSecurity, error)
+	ImportGHCLICredential(ctx context.Context, input ScopeInput) (ProjectSecurity, error)
+	RetestCredential(ctx context.Context, input ScopeInput) (ProjectSecurity, error)
+	DeleteCredential(ctx context.Context, input ScopeInput) (ProjectSecurity, error)
 }
 
-type ProjectSecurity struct {
+type ScopedSecurity struct {
 	Scope        domain.Scope
+	Configured   bool
 	Source       domain.Source
 	TokenPreview string
 	Probe        domain.TokenProbe
 }
 
+type ProjectSecurity struct {
+	Effective       ScopedSecurity
+	Organization    ScopedSecurity
+	ProjectOverride ScopedSecurity
+}
+
+type SaveCredentialInput struct {
+	ProjectID uuid.UUID
+	Scope     domain.Scope
+	Token     string
+}
+
+type ScopeInput struct {
+	ProjectID uuid.UUID
+	Scope     domain.Scope
+}
+
+type tokenImporter interface {
+	ReadToken(ctx context.Context) (string, error)
+}
+
 type Service struct {
-	repo       repo.Repository
-	httpClient *http.Client
-	block      cipher.Block
-	baseURL    string
-	now        func() time.Time
+	repo          repo.Repository
+	httpClient    *http.Client
+	block         cipher.Block
+	baseURL       string
+	now           func() time.Time
+	tokenImporter tokenImporter
 }
 
 func New(repository repo.Repository, httpClient *http.Client, cipherSeed string) (*Service, error) {
@@ -63,43 +98,74 @@ func New(repository repo.Repository, httpClient *http.Client, cipherSeed string)
 	}
 
 	return &Service{
-		repo:       repository,
-		httpClient: httpClient,
-		block:      block,
-		baseURL:    "https://api.github.com",
-		now:        time.Now,
+		repo:          repository,
+		httpClient:    httpClient,
+		block:         block,
+		baseURL:       "https://api.github.com",
+		now:           time.Now,
+		tokenImporter: ghCLITokenImporter{},
 	}, nil
 }
 
 func (s *Service) ReadProjectSecurity(ctx context.Context, projectID uuid.UUID) (ProjectSecurity, error) {
-	resolved, err := s.ResolveProjectCredential(ctx, projectID)
+	if s.repo == nil {
+		return ProjectSecurity{}, ErrUnavailable
+	}
+	projectContext, err := s.repo.GetProjectContext(ctx, projectID)
+	if err != nil {
+		return ProjectSecurity{}, err
+	}
+	resolved, err := domain.ResolveProjectCredential(projectContext, s.decryptStoredCredential)
 	if err != nil {
 		return ProjectSecurity{}, err
 	}
 
 	return ProjectSecurity{
-		Scope:        resolved.Scope,
-		Source:       resolved.Source,
-		TokenPreview: resolved.TokenPreview,
-		Probe:        resolved.Probe,
+		Effective: ScopedSecurity{
+			Scope:        resolved.Scope,
+			Configured:   strings.TrimSpace(resolved.Token) != "",
+			Source:       resolved.Source,
+			TokenPreview: resolved.TokenPreview,
+			Probe:        resolved.Probe,
+		},
+		Organization: readScopedSecurity(
+			domain.ScopeOrganization,
+			projectContext.OrganizationCredential,
+			projectContext.OrganizationProbe,
+		),
+		ProjectOverride: readScopedSecurity(
+			domain.ScopeProject,
+			projectContext.ProjectCredential,
+			projectContext.ProjectProbe,
+		),
 	}, nil
 }
 
 func (s *Service) ResolveProjectCredential(ctx context.Context, projectID uuid.UUID) (domain.ResolvedCredential, error) {
-	context, err := s.repo.GetProjectContext(ctx, projectID)
+	if s.repo == nil {
+		return domain.ResolvedCredential{}, ErrUnavailable
+	}
+	projectContext, err := s.repo.GetProjectContext(ctx, projectID)
 	if err != nil {
 		return domain.ResolvedCredential{}, err
 	}
-	return domain.ResolveProjectCredential(context, s.decryptStoredCredential)
+	return domain.ResolveProjectCredential(projectContext, s.decryptStoredCredential)
 }
 
 func (s *Service) ProbeResolvedCredential(ctx context.Context, projectID uuid.UUID, repositoryURL string) (domain.TokenProbe, error) {
-	resolved, err := s.ResolveProjectCredential(ctx, projectID)
+	projectContext, err := s.repo.GetProjectContext(ctx, projectID)
+	if err != nil {
+		return domain.TokenProbe{}, err
+	}
+	resolved, err := domain.ResolveProjectCredential(projectContext, s.decryptStoredCredential)
 	if err != nil {
 		return domain.TokenProbe{}, err
 	}
 	if strings.TrimSpace(resolved.Token) == "" {
 		return resolved.Probe, nil
+	}
+	if strings.TrimSpace(repositoryURL) == "" {
+		repositoryURL = projectContext.ProjectRepositoryURL
 	}
 
 	probe, err := s.probeToken(ctx, resolved.Token, repositoryURL)
@@ -112,15 +178,191 @@ func (s *Service) ProbeResolvedCredential(ctx context.Context, projectID uuid.UU
 			return domain.TokenProbe{}, fmt.Errorf("save project GitHub token probe: %w", err)
 		}
 	case domain.ScopeOrganization:
-		context, ctxErr := s.repo.GetProjectContext(ctx, projectID)
-		if ctxErr != nil {
-			return domain.TokenProbe{}, ctxErr
-		}
-		if err := s.repo.SaveOrganizationProbe(ctx, context.OrganizationID, probe); err != nil {
+		if err := s.repo.SaveOrganizationProbe(ctx, projectContext.OrganizationID, probe); err != nil {
 			return domain.TokenProbe{}, fmt.Errorf("save organization GitHub token probe: %w", err)
 		}
 	}
 	return probe, nil
+}
+
+func (s *Service) SaveManualCredential(ctx context.Context, input SaveCredentialInput) (ProjectSecurity, error) {
+	if s.repo == nil {
+		return ProjectSecurity{}, ErrUnavailable
+	}
+	token := strings.TrimSpace(input.Token)
+	if token == "" {
+		return ProjectSecurity{}, fmt.Errorf("%w: token must not be empty", ErrInvalidInput)
+	}
+	if !input.Scope.IsValid() {
+		return ProjectSecurity{}, fmt.Errorf("%w: invalid GitHub credential scope %q", ErrInvalidInput, input.Scope)
+	}
+
+	sealed, err := s.SealToken(token, domain.SourceManualPaste)
+	if err != nil {
+		return ProjectSecurity{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	return s.saveCredential(ctx, input.ProjectID, input.Scope, sealed, token)
+}
+
+func (s *Service) ImportGHCLICredential(ctx context.Context, input ScopeInput) (ProjectSecurity, error) {
+	if s.repo == nil {
+		return ProjectSecurity{}, ErrUnavailable
+	}
+	if !input.Scope.IsValid() {
+		return ProjectSecurity{}, fmt.Errorf("%w: invalid GitHub credential scope %q", ErrInvalidInput, input.Scope)
+	}
+	if s.tokenImporter == nil {
+		return ProjectSecurity{}, ErrUnavailable
+	}
+
+	token, err := s.tokenImporter.ReadToken(ctx)
+	if err != nil {
+		return ProjectSecurity{}, fmt.Errorf("%w: %s", ErrGHCLIImportFailed, err)
+	}
+	sealed, err := s.SealToken(token, domain.SourceGHCLIImport)
+	if err != nil {
+		return ProjectSecurity{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	return s.saveCredential(ctx, input.ProjectID, input.Scope, sealed, token)
+}
+
+func (s *Service) RetestCredential(ctx context.Context, input ScopeInput) (ProjectSecurity, error) {
+	if s.repo == nil {
+		return ProjectSecurity{}, ErrUnavailable
+	}
+	if !input.Scope.IsValid() {
+		return ProjectSecurity{}, fmt.Errorf("%w: invalid GitHub credential scope %q", ErrInvalidInput, input.Scope)
+	}
+
+	projectContext, err := s.repo.GetProjectContext(ctx, input.ProjectID)
+	if err != nil {
+		return ProjectSecurity{}, err
+	}
+	stored, _, err := projectContext.CredentialForScope(input.Scope)
+	if err != nil {
+		return ProjectSecurity{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	if stored == nil {
+		return ProjectSecurity{}, ErrCredentialNotConfigured
+	}
+	token, err := s.decryptStoredCredential(*stored)
+	if err != nil {
+		return ProjectSecurity{}, err
+	}
+	if err := s.saveScopedProbe(ctx, projectContext, input.Scope, probingProbe()); err != nil {
+		return ProjectSecurity{}, err
+	}
+	if err := s.probeAndPersistScopedCredential(ctx, projectContext, input.Scope, token); err != nil {
+		return ProjectSecurity{}, err
+	}
+	return s.ReadProjectSecurity(ctx, input.ProjectID)
+}
+
+func (s *Service) DeleteCredential(ctx context.Context, input ScopeInput) (ProjectSecurity, error) {
+	if s.repo == nil {
+		return ProjectSecurity{}, ErrUnavailable
+	}
+	if !input.Scope.IsValid() {
+		return ProjectSecurity{}, fmt.Errorf("%w: invalid GitHub credential scope %q", ErrInvalidInput, input.Scope)
+	}
+	projectContext, err := s.repo.GetProjectContext(ctx, input.ProjectID)
+	if err != nil {
+		return ProjectSecurity{}, err
+	}
+
+	switch input.Scope {
+	case domain.ScopeOrganization:
+		if err := s.repo.ClearOrganizationCredential(ctx, projectContext.OrganizationID); err != nil {
+			return ProjectSecurity{}, fmt.Errorf("clear organization GitHub credential: %w", err)
+		}
+	case domain.ScopeProject:
+		if err := s.repo.ClearProjectCredential(ctx, input.ProjectID); err != nil {
+			return ProjectSecurity{}, fmt.Errorf("clear project GitHub credential: %w", err)
+		}
+	}
+	return s.ReadProjectSecurity(ctx, input.ProjectID)
+}
+
+func (s *Service) saveCredential(
+	ctx context.Context,
+	projectID uuid.UUID,
+	scope domain.Scope,
+	sealed domain.StoredCredential,
+	token string,
+) (ProjectSecurity, error) {
+	projectContext, err := s.repo.GetProjectContext(ctx, projectID)
+	if err != nil {
+		return ProjectSecurity{}, err
+	}
+	if err := s.persistScopedCredential(ctx, projectContext, scope, sealed, domain.ConfiguredProbe()); err != nil {
+		return ProjectSecurity{}, err
+	}
+	if err := s.saveScopedProbe(ctx, projectContext, scope, probingProbe()); err != nil {
+		return ProjectSecurity{}, err
+	}
+	if err := s.probeAndPersistScopedCredential(ctx, projectContext, scope, token); err != nil {
+		return ProjectSecurity{}, err
+	}
+	return s.ReadProjectSecurity(ctx, projectID)
+}
+
+func (s *Service) persistScopedCredential(
+	ctx context.Context,
+	projectContext domain.ProjectContext,
+	scope domain.Scope,
+	credential domain.StoredCredential,
+	probe domain.TokenProbe,
+) error {
+	switch scope {
+	case domain.ScopeOrganization:
+		if err := s.repo.SaveOrganizationCredential(ctx, projectContext.OrganizationID, credential, probe); err != nil {
+			return fmt.Errorf("save organization GitHub credential: %w", err)
+		}
+	case domain.ScopeProject:
+		if err := s.repo.SaveProjectCredential(ctx, projectContext.ProjectID, credential, probe); err != nil {
+			return fmt.Errorf("save project GitHub credential: %w", err)
+		}
+	default:
+		return fmt.Errorf("%w: invalid GitHub credential scope %q", ErrInvalidInput, scope)
+	}
+	return nil
+}
+
+func (s *Service) saveScopedProbe(
+	ctx context.Context,
+	projectContext domain.ProjectContext,
+	scope domain.Scope,
+	probe domain.TokenProbe,
+) error {
+	switch scope {
+	case domain.ScopeOrganization:
+		if err := s.repo.SaveOrganizationProbe(ctx, projectContext.OrganizationID, probe); err != nil {
+			return fmt.Errorf("save organization GitHub token probe: %w", err)
+		}
+	case domain.ScopeProject:
+		if err := s.repo.SaveProjectProbe(ctx, projectContext.ProjectID, probe); err != nil {
+			return fmt.Errorf("save project GitHub token probe: %w", err)
+		}
+	default:
+		return fmt.Errorf("%w: invalid GitHub credential scope %q", ErrInvalidInput, scope)
+	}
+	return nil
+}
+
+func (s *Service) probeAndPersistScopedCredential(
+	ctx context.Context,
+	projectContext domain.ProjectContext,
+	scope domain.Scope,
+	token string,
+) error {
+	probe, err := s.probeToken(ctx, token, projectContext.ProjectRepositoryURL)
+	if err != nil {
+		return err
+	}
+	if err := s.saveScopedProbe(ctx, projectContext, scope, probe); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) SealToken(token string, source domain.Source) (domain.StoredCredential, error) {
@@ -280,4 +522,50 @@ func parseScopeHeader(raw string) []string {
 	}
 	slices.Sort(permissions)
 	return slices.Compact(permissions)
+}
+
+func readScopedSecurity(
+	scope domain.Scope,
+	credential *domain.StoredCredential,
+	probe *domain.TokenProbe,
+) ScopedSecurity {
+	state := ScopedSecurity{
+		Scope:      scope,
+		Configured: credential != nil,
+		Probe:      domain.NormalizeProbe(probe, credential != nil),
+	}
+	if credential == nil {
+		return state
+	}
+	state.Source = credential.Source
+	state.TokenPreview = strings.TrimSpace(credential.TokenPreview)
+	return state
+}
+
+func probingProbe() domain.TokenProbe {
+	return domain.TokenProbe{
+		State:      domain.ProbeStateProbing,
+		Configured: true,
+		Valid:      false,
+		RepoAccess: domain.RepoAccessNotChecked,
+	}
+}
+
+type ghCLITokenImporter struct{}
+
+func (ghCLITokenImporter) ReadToken(ctx context.Context) (string, error) {
+	command := exec.CommandContext(ctx, "gh", "auth", "token")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		message := strings.TrimSpace(string(output))
+		if message == "" {
+			message = err.Error()
+		}
+		return "", fmt.Errorf("gh auth token: %s", message)
+	}
+	token := strings.TrimSpace(string(output))
+	if token == "" {
+		return "", errors.New("gh auth token returned empty output")
+	}
+	return token, nil
 }

@@ -11376,44 +11376,146 @@
                         },
                         "github": {
                           "properties": {
-                            "probe": {
+                            "effective": {
                               "properties": {
-                                "checked_at": {
-                                  "nullable": true,
-                                  "type": "string"
-                                },
                                 "configured": {
                                   "type": "boolean"
                                 },
-                                "last_error": {
-                                  "type": "string"
-                                },
-                                "permissions": {
-                                  "items": {
-                                    "type": "string"
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
                                   },
-                                  "type": "array"
+                                  "type": "object"
                                 },
-                                "repo_access": {
+                                "scope": {
                                   "type": "string"
                                 },
-                                "state": {
+                                "source": {
                                   "type": "string"
                                 },
-                                "valid": {
-                                  "type": "boolean"
+                                "token_preview": {
+                                  "type": "string"
                                 }
                               },
                               "type": "object"
                             },
-                            "scope": {
-                              "type": "string"
+                            "organization": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
                             },
-                            "source": {
-                              "type": "string"
-                            },
-                            "token_preview": {
-                              "type": "string"
+                            "project_override": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
                             }
                           },
                           "type": "object"
@@ -11471,6 +11573,24 @@
             },
             "description": "Bad Request response."
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
           "500": {
             "content": {
               "application/json": {
@@ -11488,9 +11608,1483 @@
               }
             },
             "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
           }
         },
         "summary": "Get project security settings posture",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/github-outbound-credential": {
+      "delete": {
+        "operationId": "deleteGitHubOutboundCredential",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Credential scope to delete. Supported values are organization and project.",
+            "in": "query",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "security": {
+                      "properties": {
+                        "agent_tokens": {
+                          "properties": {
+                            "default_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "environment_variable": {
+                              "type": "string"
+                            },
+                            "supported_project_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
+                            },
+                            "transport": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "deferred": {
+                          "items": {
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "github": {
+                          "properties": {
+                            "effective": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "organization": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "project_override": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "secret_hygiene": {
+                          "properties": {
+                            "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "webhooks": {
+                          "properties": {
+                            "connector_endpoint": {
+                              "type": "string"
+                            },
+                            "legacy_github_endpoint": {
+                              "type": "string"
+                            },
+                            "legacy_github_signature_required": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete a stored platform-managed GitHub outbound credential response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Delete a stored platform-managed GitHub outbound credential",
+        "tags": [
+          "security-settings"
+        ]
+      },
+      "put": {
+        "operationId": "saveGitHubOutboundCredential",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "scope": {
+                    "description": "Credential scope to mutate. Supported values are organization and project.",
+                    "type": "string"
+                  },
+                  "token": {
+                    "description": "GitHub token value copied into platform-managed secret storage.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Save a platform-managed GitHub outbound credential request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "security": {
+                      "properties": {
+                        "agent_tokens": {
+                          "properties": {
+                            "default_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "environment_variable": {
+                              "type": "string"
+                            },
+                            "supported_project_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
+                            },
+                            "transport": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "deferred": {
+                          "items": {
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "github": {
+                          "properties": {
+                            "effective": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "organization": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "project_override": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "secret_hygiene": {
+                          "properties": {
+                            "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "webhooks": {
+                          "properties": {
+                            "connector_endpoint": {
+                              "type": "string"
+                            },
+                            "legacy_github_endpoint": {
+                              "type": "string"
+                            },
+                            "legacy_github_signature_required": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Save a platform-managed GitHub outbound credential response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Save a platform-managed GitHub outbound credential",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": {
+      "post": {
+        "operationId": "importGitHubOutboundCredentialFromGHCLI",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "scope": {
+                    "description": "Credential scope to mutate. Supported values are organization and project.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Import the current gh auth token into platform-managed GitHub credential storage request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "security": {
+                      "properties": {
+                        "agent_tokens": {
+                          "properties": {
+                            "default_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "environment_variable": {
+                              "type": "string"
+                            },
+                            "supported_project_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
+                            },
+                            "transport": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "deferred": {
+                          "items": {
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "github": {
+                          "properties": {
+                            "effective": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "organization": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "project_override": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "secret_hygiene": {
+                          "properties": {
+                            "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "webhooks": {
+                          "properties": {
+                            "connector_endpoint": {
+                              "type": "string"
+                            },
+                            "legacy_github_endpoint": {
+                              "type": "string"
+                            },
+                            "legacy_github_signature_required": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Import the current gh auth token into platform-managed GitHub credential storage response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Import the current gh auth token into platform-managed GitHub credential storage",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest": {
+      "post": {
+        "operationId": "retestGitHubOutboundCredential",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "scope": {
+                    "description": "Credential scope to mutate. Supported values are organization and project.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Retest a stored platform-managed GitHub outbound credential request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "security": {
+                      "properties": {
+                        "agent_tokens": {
+                          "properties": {
+                            "default_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "environment_variable": {
+                              "type": "string"
+                            },
+                            "supported_project_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
+                            },
+                            "transport": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "deferred": {
+                          "items": {
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "github": {
+                          "properties": {
+                            "effective": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "organization": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "project_override": {
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "probe": {
+                                  "properties": {
+                                    "checked_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "configured": {
+                                      "type": "boolean"
+                                    },
+                                    "last_error": {
+                                      "type": "string"
+                                    },
+                                    "permissions": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "repo_access": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "valid": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "scope": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "token_preview": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "secret_hygiene": {
+                          "properties": {
+                            "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "webhooks": {
+                          "properties": {
+                            "connector_endpoint": {
+                              "type": "string"
+                            },
+                            "legacy_github_endpoint": {
+                              "type": "string"
+                            },
+                            "legacy_github_signature_required": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Retest a stored platform-managed GitHub outbound credential response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Retest a stored platform-managed GitHub outbound credential",
         "tags": [
           "security-settings"
         ]

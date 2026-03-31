@@ -1030,9 +1030,10 @@ AgentProvider 表示**某台 Machine 上一个可被 OpenASE 调用的 Coding Ag
   - GitHub Issue / Pull Request / Project API 调用
   - GitHub Connector 的 pull / sync-back
 - `GH_TOKEN` 是平台统一管理的加密 Secret，不允许分散存放在 ProjectRepo、脚本、用户 shell profile 或 repo 文件中。
-- `GH_TOKEN` 的来源支持两种：
+- `GH_TOKEN` 的来源支持三种：
   - 平台发起 GitHub Device Flow 授权
   - 导入当前用户已有的 `gh auth token`
+  - 用户手动粘贴 Personal Access Token 交由平台托管
 - 对 GitHub 的**入站** Webhook 验签仍然单独使用 `GITHUB_WEBHOOK_SECRET`；`GH_TOKEN` 不参与 Webhook HMAC 校验。
 
 **归属范围（Scope of Ownership）：**
@@ -1056,7 +1057,7 @@ AgentProvider 表示**某台 Machine 上一个可被 OpenASE 调用的 Coding Ag
 
 **来源语义（Source Semantics）：**
 
-- `device_flow`：平台自己完成 GitHub 授权流程，最终保存一份平台托管 token。
+- `device_flow`：平台自己完成 GitHub 授权流程，最终保存一份平台托管 token。在 OAuth App / Device Flow wiring 落地前，UI 可显式展示为 deferred，而不是伪装成已可用入口。
 - `gh_cli_import`：平台在导入瞬间读取 `gh auth token` 的当前值并复制保存；导入完成后，该 token 与本机 `gh` 登录态**解耦**。
 - `manual_paste`：用户显式粘贴 token，由平台保存。
 - 一旦 token 已被平台保存，后续所有调度与运行时行为都读取平台 Secret 存储，而不是再次依赖执行机上的 `gh auth token` 命令输出。
