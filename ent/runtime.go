@@ -12,6 +12,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
@@ -31,6 +32,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/domain/issueconnector"
 	"github.com/google/uuid"
 )
 
@@ -180,6 +182,32 @@ func init() {
 	agenttraceeventDescID := agenttraceeventFields[0].Descriptor()
 	// agenttraceevent.DefaultID holds the default value on creation for the id field.
 	agenttraceevent.DefaultID = agenttraceeventDescID.Default.(func() uuid.UUID)
+	entissueconnectorFields := schema.IssueConnector{}.Fields()
+	_ = entissueconnectorFields
+	// entissueconnectorDescType is the schema descriptor for type field.
+	entissueconnectorDescType := entissueconnectorFields[2].Descriptor()
+	// entissueconnector.TypeValidator is a validator for the "type" field. It is called by the builders before save.
+	entissueconnector.TypeValidator = entissueconnectorDescType.Validators[0].(func(string) error)
+	// entissueconnectorDescName is the schema descriptor for name field.
+	entissueconnectorDescName := entissueconnectorFields[3].Descriptor()
+	// entissueconnector.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	entissueconnector.NameValidator = entissueconnectorDescName.Validators[0].(func(string) error)
+	// entissueconnectorDescStatus is the schema descriptor for status field.
+	entissueconnectorDescStatus := entissueconnectorFields[4].Descriptor()
+	// entissueconnector.DefaultStatus holds the default value on creation for the status field.
+	entissueconnector.DefaultStatus = entissueconnectorDescStatus.Default.(string)
+	// entissueconnectorDescStats is the schema descriptor for stats field.
+	entissueconnectorDescStats := entissueconnectorFields[8].Descriptor()
+	// entissueconnector.DefaultStats holds the default value on creation for the stats field.
+	entissueconnector.DefaultStats = entissueconnectorDescStats.Default.(func() issueconnector.SyncStats)
+	// entissueconnectorDescCreatedAt is the schema descriptor for created_at field.
+	entissueconnectorDescCreatedAt := entissueconnectorFields[9].Descriptor()
+	// entissueconnector.DefaultCreatedAt holds the default value on creation for the created_at field.
+	entissueconnector.DefaultCreatedAt = entissueconnectorDescCreatedAt.Default.(func() time.Time)
+	// entissueconnectorDescID is the schema descriptor for id field.
+	entissueconnectorDescID := entissueconnectorFields[0].Descriptor()
+	// entissueconnector.DefaultID holds the default value on creation for the id field.
+	entissueconnector.DefaultID = entissueconnectorDescID.Default.(func() uuid.UUID)
 	machineFields := schema.Machine{}.Fields()
 	_ = machineFields
 	// machineDescName is the schema descriptor for name field.
