@@ -3846,6 +3846,7 @@ export interface operations {
               machine_ssh_user?: string | null
               machine_status?: string
               machine_workspace_root?: string | null
+              max_parallel_runs?: number
               model_max_tokens?: number
               model_name?: string
               /** Format: double */
@@ -3930,6 +3931,8 @@ export interface operations {
           cost_per_output_token?: number | null
           /** @description Machine ID where this provider runs. */
           machine_id?: string
+          /** @description Maximum number of concurrent runs allowed for the provider. */
+          max_parallel_runs?: number | null
           /** @description Maximum number of output tokens allowed for the provider model. */
           model_max_tokens?: number | null
           /** @description Model name configured for the provider. */
@@ -3974,6 +3977,7 @@ export interface operations {
               machine_ssh_user?: string | null
               machine_status?: string
               machine_workspace_root?: string | null
+              max_parallel_runs?: number
               model_max_tokens?: number
               model_name?: string
               /** Format: double */
@@ -8501,6 +8505,8 @@ export interface operations {
           cost_per_output_token?: number | null
           /** @description Machine ID where this provider runs. */
           machine_id?: string | null
+          /** @description Maximum number of concurrent runs allowed for the provider. */
+          max_parallel_runs?: number | null
           /** @description Maximum number of output tokens allowed for the provider model. */
           model_max_tokens?: number | null
           /** @description Model name configured for the provider. */
@@ -8545,6 +8551,7 @@ export interface operations {
               machine_ssh_user?: string | null
               machine_status?: string
               machine_workspace_root?: string | null
+              max_parallel_runs?: number
               model_max_tokens?: number
               model_name?: string
               /** Format: double */

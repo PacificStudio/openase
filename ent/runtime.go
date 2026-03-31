@@ -100,12 +100,16 @@ func init() {
 	agentproviderDescModelMaxTokens := agentproviderFields[10].Descriptor()
 	// agentprovider.DefaultModelMaxTokens holds the default value on creation for the model_max_tokens field.
 	agentprovider.DefaultModelMaxTokens = agentproviderDescModelMaxTokens.Default.(int)
+	// agentproviderDescMaxParallelRuns is the schema descriptor for max_parallel_runs field.
+	agentproviderDescMaxParallelRuns := agentproviderFields[11].Descriptor()
+	// agentprovider.DefaultMaxParallelRuns holds the default value on creation for the max_parallel_runs field.
+	agentprovider.DefaultMaxParallelRuns = agentproviderDescMaxParallelRuns.Default.(int)
 	// agentproviderDescCostPerInputToken is the schema descriptor for cost_per_input_token field.
-	agentproviderDescCostPerInputToken := agentproviderFields[11].Descriptor()
+	agentproviderDescCostPerInputToken := agentproviderFields[12].Descriptor()
 	// agentprovider.DefaultCostPerInputToken holds the default value on creation for the cost_per_input_token field.
 	agentprovider.DefaultCostPerInputToken = agentproviderDescCostPerInputToken.Default.(float64)
 	// agentproviderDescCostPerOutputToken is the schema descriptor for cost_per_output_token field.
-	agentproviderDescCostPerOutputToken := agentproviderFields[12].Descriptor()
+	agentproviderDescCostPerOutputToken := agentproviderFields[13].Descriptor()
 	// agentprovider.DefaultCostPerOutputToken holds the default value on creation for the cost_per_output_token field.
 	agentprovider.DefaultCostPerOutputToken = agentproviderDescCostPerOutputToken.Default.(float64)
 	// agentproviderDescID is the schema descriptor for id field.

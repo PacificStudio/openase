@@ -885,16 +885,17 @@ func TestAppContextAggregatesOrganizationsProjectsProvidersAndAgentCount(t *test
 		Status:         domain.MachineStatusOnline,
 	}
 	svc.providers[providerID] = domain.AgentProvider{
-		ID:             providerID,
-		OrganizationID: orgID,
-		MachineID:      machineID,
-		MachineName:    "runner-1",
-		MachineHost:    "runner-1.internal",
-		MachineStatus:  domain.MachineStatusOnline,
-		Name:           "OpenAI Codex",
-		AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
-		CliCommand:     "/usr/bin/codex",
-		ModelName:      "gpt-5.4",
+		ID:              providerID,
+		OrganizationID:  orgID,
+		MachineID:       machineID,
+		MachineName:     "runner-1",
+		MachineHost:     "runner-1.internal",
+		MachineStatus:   domain.MachineStatusOnline,
+		Name:            "OpenAI Codex",
+		AdapterType:     domain.AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:      "/usr/bin/codex",
+		ModelName:       "gpt-5.4",
+		MaxParallelRuns: domain.DefaultAgentProviderMaxParallelRuns,
 	}
 	svc.agents[agentID] = domain.Agent{
 		ID:         agentID,
@@ -1210,18 +1211,19 @@ func (f *fakeCatalogService) CreateOrganization(_ context.Context, input domain.
 	for _, template := range domain.BuiltinAgentProviderTemplates() {
 		providerID := uuid.New()
 		f.providers[providerID] = domain.AgentProvider{
-			ID:             providerID,
-			OrganizationID: item.ID,
-			MachineID:      localID,
-			MachineName:    domain.LocalMachineName,
-			MachineHost:    domain.LocalMachineHost,
-			MachineStatus:  domain.MachineStatusOnline,
-			Name:           template.Name,
-			AdapterType:    template.AdapterType,
-			CliCommand:     template.Command,
-			CliArgs:        append([]string(nil), template.CliArgs...),
-			AuthConfig:     map[string]any{},
-			ModelName:      template.ModelName,
+			ID:              providerID,
+			OrganizationID:  item.ID,
+			MachineID:       localID,
+			MachineName:     domain.LocalMachineName,
+			MachineHost:     domain.LocalMachineHost,
+			MachineStatus:   domain.MachineStatusOnline,
+			Name:            template.Name,
+			AdapterType:     template.AdapterType,
+			CliCommand:      template.Command,
+			CliArgs:         append([]string(nil), template.CliArgs...),
+			AuthConfig:      map[string]any{},
+			ModelName:       template.ModelName,
+			MaxParallelRuns: domain.DefaultAgentProviderMaxParallelRuns,
 		}
 	}
 

@@ -65,6 +65,7 @@ func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.Cr
 		SetModelName(input.ModelName).
 		SetModelTemperature(input.ModelTemperature).
 		SetModelMaxTokens(input.ModelMaxTokens).
+		SetMaxParallelRuns(input.MaxParallelRuns).
 		SetCostPerInputToken(input.CostPerInputToken).
 		SetCostPerOutputToken(input.CostPerOutputToken).
 		Save(ctx)
@@ -107,6 +108,7 @@ func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.Up
 		SetModelName(input.ModelName).
 		SetModelTemperature(input.ModelTemperature).
 		SetModelMaxTokens(input.ModelMaxTokens).
+		SetMaxParallelRuns(input.MaxParallelRuns).
 		SetCostPerInputToken(input.CostPerInputToken).
 		SetCostPerOutputToken(input.CostPerOutputToken).
 		Save(ctx)
@@ -308,6 +310,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		ModelName:            item.ModelName,
 		ModelTemperature:     item.ModelTemperature,
 		ModelMaxTokens:       item.ModelMaxTokens,
+		MaxParallelRuns:      item.MaxParallelRuns,
 		CostPerInputToken:    item.CostPerInputToken,
 		CostPerOutputToken:   item.CostPerOutputToken,
 	}
