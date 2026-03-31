@@ -1,42 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  derivePrimaryRepositoryReadiness,
+  deriveRepositoryBindingsReadiness,
   formatMirrorTimestamp,
   projectRepoMirrorProjection,
 } from './repositories-readiness'
 
 describe('repositories readiness', () => {
-  it('treats repo bindings without a primary repo as missing_primary_repo', () => {
-    expect(
-      derivePrimaryRepositoryReadiness([
-        {
-          id: 'repo-1',
-          project_id: 'project-1',
-          name: 'frontend',
-          repository_url: 'https://github.com/acme/frontend.git',
-          default_branch: 'main',
-          workspace_dirname: 'frontend',
-          is_primary: false,
-          labels: [],
-          mirror_count: null,
-          mirror_state: null,
-          mirror_machine_id: null,
-          last_synced_at: null,
-          last_verified_at: null,
-          last_error: null,
-        },
-      ]),
-    ).toEqual({
-      kind: 'missing_primary_repo',
-      repoCount: 1,
-      action: 'bind_primary_repo',
+  it('reports missing_repo only when no repositories are configured', () => {
+    expect(deriveRepositoryBindingsReadiness([])).toEqual({
+      kind: 'missing_repo',
+      repoCount: 0,
+      action: 'add_repo',
     })
   })
 
-  it('maps a ready primary mirror into a ready readiness projection', () => {
+  it('reports ready once at least one repository binding exists', () => {
     expect(
-      derivePrimaryRepositoryReadiness([
+      deriveRepositoryBindingsReadiness([
         {
           id: 'repo-1',
           project_id: 'project-1',
@@ -44,7 +25,6 @@ describe('repositories readiness', () => {
           repository_url: 'https://github.com/acme/backend.git',
           default_branch: 'main',
           workspace_dirname: 'backend',
-          is_primary: true,
           labels: [],
           mirror_count: 2,
           mirror_state: 'ready',
@@ -52,15 +32,10 @@ describe('repositories readiness', () => {
           last_synced_at: '2026-03-29T12:00:00Z',
           last_verified_at: '2026-03-29T12:05:00Z',
         },
-      ] as unknown as Parameters<typeof derivePrimaryRepositoryReadiness>[0]),
-    ).toMatchObject({
+      ] as unknown as Parameters<typeof deriveRepositoryBindingsReadiness>[0]),
+    ).toEqual({
       kind: 'ready',
-      primaryRepoId: 'repo-1',
-      primaryRepoName: 'backend',
-      mirrorCount: 2,
-      mirrorState: 'ready',
-      mirrorMachineId: 'machine-1',
-      action: 'none',
+      repoCount: 1,
     })
   })
 
@@ -73,7 +48,6 @@ describe('repositories readiness', () => {
         repository_url: 'https://github.com/acme/backend.git',
         default_branch: 'main',
         workspace_dirname: 'backend',
-        is_primary: true,
         labels: [],
       } as unknown as Parameters<typeof projectRepoMirrorProjection>[0]),
     ).toEqual({
@@ -96,7 +70,6 @@ describe('repositories readiness', () => {
         repository_url: 'https://github.com/acme/backend.git',
         default_branch: 'main',
         workspace_dirname: 'backend',
-        is_primary: true,
         labels: [],
         mirror_count: 1,
         mirror_state: 'stale',

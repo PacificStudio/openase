@@ -116,19 +116,6 @@ func (r *EntRepository) SaveProjectProbe(ctx context.Context, projectID uuid.UUI
 }
 
 func (r *EntRepository) loadProjectRepositoryURL(ctx context.Context, projectID uuid.UUID) (string, error) {
-	primaryRepo, err := r.client.ProjectRepo.Query().
-		Where(
-			entprojectrepo.ProjectIDEQ(projectID),
-			entprojectrepo.IsPrimary(true),
-		).
-		Only(ctx)
-	if err == nil {
-		return primaryRepo.RepositoryURL, nil
-	}
-	if !ent.IsNotFound(err) {
-		return "", fmt.Errorf("load primary project repository for GitHub auth context: %w", err)
-	}
-
 	fallbackRepo, err := r.client.ProjectRepo.Query().
 		Where(entprojectrepo.ProjectIDEQ(projectID)).
 		Order(ent.Asc(entprojectrepo.FieldName)).

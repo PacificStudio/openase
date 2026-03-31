@@ -79,7 +79,7 @@ export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?ss
 
 ### 2. Run setup or start the managed service
 
-First-run setup opens a local wizard that creates the home directory layout, writes config under `~/.openase/`, migrates the database, seeds the initial org/project/provider data, and scaffolds `.openase/` inside the primary repo.
+First-run setup opens a local wizard that creates the home directory layout, writes config under `~/.openase/`, migrates the database, seeds the initial org/project/provider data, and scaffolds `.openase/` inside the selected project repository.
 
 ```bash
 ./bin/openase setup
@@ -129,7 +129,7 @@ Under `~/.openase/`:
 - `.env` with the local auth token used by the managed service
 - `logs/` and `workspaces/`
 
-Inside the primary repository:
+Inside the selected project repository:
 
 - `.openase/harnesses/coding.md`
 - `.openase/harnesses/roles/*.md` for built-in role templates

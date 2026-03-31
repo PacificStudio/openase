@@ -6741,7 +6741,6 @@ export interface operations {
             repos?: {
               default_branch?: string
               id?: string
-              is_primary?: boolean
               labels?: string[]
               last_error?: string | null
               last_synced_at?: string | null
@@ -6811,8 +6810,6 @@ export interface operations {
         'application/json': {
           /** @description Default branch name used for mirrors and workspaces. */
           default_branch?: string
-          /** @description Whether this repository is the primary project repository. */
-          is_primary?: boolean | null
           /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[]
           /** @description Human-readable repository name within the project. */
@@ -6835,7 +6832,6 @@ export interface operations {
             repo?: {
               default_branch?: string
               id?: string
-              is_primary?: boolean
               labels?: string[]
               last_error?: string | null
               last_synced_at?: string | null
@@ -6925,7 +6921,6 @@ export interface operations {
             repo?: {
               default_branch?: string
               id?: string
-              is_primary?: boolean
               labels?: string[]
               last_error?: string | null
               last_synced_at?: string | null
@@ -7009,8 +7004,6 @@ export interface operations {
         'application/json': {
           /** @description Default branch name used for mirrors and workspaces. */
           default_branch?: string | null
-          /** @description Whether this repository is the primary project repository. */
-          is_primary?: boolean | null
           /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[] | null
           /** @description Human-readable repository name within the project. */
@@ -7033,7 +7026,6 @@ export interface operations {
             repo?: {
               default_branch?: string
               id?: string
-              is_primary?: boolean
               labels?: string[]
               last_error?: string | null
               last_synced_at?: string | null
@@ -9235,6 +9227,13 @@ export interface operations {
           parent_ticket_id?: string | null
           /** @description Ticket priority value. */
           priority?: string | null
+          /** @description Optional repository scopes attached at ticket creation time. Multi-repo projects must supply explicit repo scopes; single-repo projects auto-select the only repo when omitted. */
+          repo_scopes?: {
+            /** @description Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used. */
+            branch_name?: string | null
+            /** @description Repository ID attached to the ticket scope. */
+            repo_id?: string
+          }[]
           /** @description Optional ticket status ID to assign explicitly. */
           status_id?: string | null
           /** @description Human-readable ticket title. */
@@ -9492,13 +9491,11 @@ export interface operations {
               branch_name?: string
               ci_status?: string
               id?: string
-              is_primary_scope?: boolean
               pr_status?: string
               pull_request_url?: string | null
               repo?: {
                 default_branch?: string
                 id?: string
-                is_primary?: boolean
                 labels?: string[]
                 last_error?: string | null
                 last_synced_at?: string | null
@@ -9665,7 +9662,6 @@ export interface operations {
               branch_name?: string
               ci_status?: string
               id?: string
-              is_primary_scope?: boolean
               pr_status?: string
               pull_request_url?: string | null
               repo_id?: string
@@ -9732,8 +9728,6 @@ export interface operations {
           branch_name?: string | null
           /** @description Continuous integration status associated with the repository scope. */
           ci_status?: string
-          /** @description Whether this scope is the primary repository scope for the ticket. */
-          is_primary_scope?: boolean | null
           /** @description Pull request status associated with the repository scope. */
           pr_status?: string
           /** @description Pull request URL associated with the repository scope. */
@@ -9755,7 +9749,6 @@ export interface operations {
               branch_name?: string
               ci_status?: string
               id?: string
-              is_primary_scope?: boolean
               pr_status?: string
               pull_request_url?: string | null
               repo_id?: string
@@ -9841,7 +9834,6 @@ export interface operations {
               branch_name?: string
               ci_status?: string
               id?: string
-              is_primary_scope?: boolean
               pr_status?: string
               pull_request_url?: string | null
               repo_id?: string
@@ -9922,8 +9914,6 @@ export interface operations {
           branch_name?: string | null
           /** @description Continuous integration status associated with the repository scope. */
           ci_status?: string | null
-          /** @description Whether this scope is the primary repository scope for the ticket. */
-          is_primary_scope?: boolean | null
           /** @description Pull request status associated with the repository scope. */
           pr_status?: string | null
           /** @description Pull request URL associated with the repository scope. */
@@ -9943,7 +9933,6 @@ export interface operations {
               branch_name?: string
               ci_status?: string
               id?: string
-              is_primary_scope?: boolean
               pr_status?: string
               pull_request_url?: string | null
               repo_id?: string
@@ -10230,12 +10219,6 @@ export interface operations {
             prerequisite?: {
               action?: string
               kind?: string
-              mirror_count?: number
-              mirror_last_error?: string | null
-              mirror_machine_id?: string | null
-              mirror_state?: string | null
-              primary_repo_id?: string | null
-              primary_repo_name?: string
               repo_count?: number
             }
           }

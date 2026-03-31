@@ -337,12 +337,12 @@
     <aside class="rail">
       <p class="eyebrow">OpenASE Onboarding</p>
       <h1>Setup Wizard</h1>
-      <p class="lede">A narrow first-run slice: choose mode, prove database reachability, confirm agent CLIs, and generate the primary repository scaffold.</p>
+      <p class="lede">A narrow first-run slice: choose mode, prove database reachability, confirm agent CLIs, and generate the project repository scaffold.</p>
       <div class="step-list" id="step-list">
         <div class="step-pill active"><strong>Step 1</strong><span>Choose the operating mode for this workspace.</span></div>
         <div class="step-pill"><strong>Step 2</strong><span>Test PostgreSQL before anything is written.</span></div>
         <div class="step-pill"><strong>Step 3</strong><span>Confirm which local agent CLIs are available.</span></div>
-        <div class="step-pill"><strong>Step 4</strong><span>Pick the primary repository and finish setup.</span></div>
+        <div class="step-pill"><strong>Step 4</strong><span>Pick the project repository and finish setup.</span></div>
       </div>
     </aside>
 
@@ -382,11 +382,11 @@
       </section>
 
       <section class="step" data-step="3">
-        <h2>Primary repository</h2>
-        <p class="subhead">For this vertical slice, the wizard writes directly into a local primary repository checkout instead of cloning and pushing a remote mirror.</p>
+        <h2>Project repository</h2>
+        <p class="subhead">For this vertical slice, the wizard writes directly into a local project repository checkout instead of cloning and pushing a remote mirror.</p>
         <div class="grid">
           <div class="field full"><label for="project-name">Project name</label><input id="project-name" placeholder="my-awesome-app"></div>
-          <div class="field full"><label for="repo-path">Primary repo path</label><input id="repo-path" placeholder="/absolute/path/to/your/repo"></div>
+          <div class="field full"><label for="repo-path">Repository path</label><input id="repo-path" placeholder="/absolute/path/to/your/repo"></div>
           <div class="field full"><label for="repo-url">Repository URL (optional)</label><input id="repo-url" placeholder="https://github.com/you/repo.git"></div>
           <div class="field"><label for="default-branch">Default branch</label><input id="default-branch" value="main"></div>
         </div>
@@ -458,8 +458,8 @@
     function projectPayload() {
       return {
         name: document.getElementById('project-name').value.trim(),
-        primary_repo_path: document.getElementById('repo-path').value.trim(),
-        primary_repo_url: document.getElementById('repo-url').value.trim(),
+        repo_path: document.getElementById('repo-path').value.trim(),
+        repo_url: document.getElementById('repo-url').value.trim(),
         default_branch: document.getElementById('default-branch').value.trim()
       };
     }
@@ -544,8 +544,8 @@
       }
       if (activeStep === 3) {
         const project = projectPayload();
-        if (!project.name || !project.primary_repo_path) {
-          showNotice('bad', 'Project name and primary repo path are required.');
+        if (!project.name || !project.repo_path) {
+          showNotice('bad', 'Project name and repository path are required.');
           return false;
         }
       }
@@ -607,7 +607,7 @@
         let html = '<strong>Setup complete.</strong><ul class="compact">';
         html += '<li>Config: <code>' + payload.config_path + '</code></li>';
         html += '<li>Env: <code>' + payload.env_path + '</code></li>';
-        html += '<li>Primary repo: <code>' + payload.primary_repo_path + '</code></li>';
+        html += '<li>Repository: <code>' + payload.repo_path + '</code></li>';
         html += '<li>Scaffolded files: ';
         html += payload.scaffolded_files.length
           ? payload.scaffolded_files.map((item) => '<code>' + item + '</code>').join(', ')

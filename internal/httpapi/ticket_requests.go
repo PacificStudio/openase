@@ -20,10 +20,16 @@ type rawCreateTicketRequest struct {
 	Priority       *string  `json:"priority"`
 	Type           *string  `json:"type"`
 	WorkflowID     *string  `json:"workflow_id"`
+	RepoScopes     []rawCreateTicketRepoScopeRequest `json:"repo_scopes"`
 	CreatedBy      *string  `json:"created_by"`
 	ParentTicketID *string  `json:"parent_ticket_id"`
 	ExternalRef    *string  `json:"external_ref"`
 	BudgetUSD      *float64 `json:"budget_usd"`
+}
+
+type rawCreateTicketRepoScopeRequest struct {
+	RepoID     string  `json:"repo_id"`
+	BranchName *string `json:"branch_name"`
 }
 
 type rawUpdateTicketRequest struct {
@@ -108,6 +114,27 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 		Type:           ticketType,
 		WorkflowID:     workflowID,
 		ParentTicketID: parentTicketID,
+	}
+	if len(raw.RepoScopes) > 0 {
+		input.RepoScopes = make([]ticketservice.CreateRepoScopeInput, 0, len(raw.RepoScopes))
+		for index, scope := range raw.RepoScopes {
+			repoID, err := parseUUIDString(fmt.Sprintf("repo_scopes[%d].repo_id", index), scope.RepoID)
+			if err != nil {
+				return ticketservice.CreateInput{}, err
+			}
+			var branchName *string
+			if scope.BranchName != nil {
+				trimmed := strings.TrimSpace(*scope.BranchName)
+				if trimmed == "" {
+					return ticketservice.CreateInput{}, fmt.Errorf("repo_scopes[%d].branch_name must not be empty when provided", index)
+				}
+				branchName = &trimmed
+			}
+			input.RepoScopes = append(input.RepoScopes, ticketservice.CreateRepoScopeInput{
+				RepoID:     repoID,
+				BranchName: branchName,
+			})
+		}
 	}
 	if raw.CreatedBy != nil {
 		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)

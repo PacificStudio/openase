@@ -592,7 +592,6 @@ func TestTicketServiceRunsCancelHookWhenNonFinishStatusChangeReleasesCurrentRun(
 		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
@@ -706,7 +705,6 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
@@ -901,19 +899,26 @@ func TestTicketServiceSyncRepoScopePRStatusTransitionsRetryAndFinish(t *testing.
 		WorkflowID: &fixture.workflowID,
 		Priority:   "high",
 		Type:       "feature",
+		RepoScopes: []CreateRepoScopeInput{{
+			RepoID:     backendRepo.ID,
+			BranchName: stringPtr("agent/codex/retry-ticket"),
+		}},
 	})
 	if err != nil {
 		t.Fatalf("Create(retryTicket) error = %v", err)
 	}
 	retryRunID := seedTicketCurrentRun(ctx, t, client, fixture, retryTicket.ID)
-	retryScope, err := client.TicketRepoScope.Create().
-		SetTicketID(retryTicket.ID).
-		SetRepoID(backendRepo.ID).
-		SetBranchName("agent/codex/retry-ticket").
+	retryScope, err := client.TicketRepoScope.Query().
+		Where(ticketreposcope.TicketIDEQ(retryTicket.ID), ticketreposcope.RepoIDEQ(backendRepo.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load retry repo scope: %v", err)
+	}
+	retryScope, err = client.TicketRepoScope.UpdateOneID(retryScope.ID).
 		SetPrStatus(ticketreposcope.PrStatusOpen).
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create retry repo scope: %v", err)
+		t.Fatalf("set retry repo scope pr status: %v", err)
 	}
 
 	retryResult, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
@@ -960,27 +965,43 @@ func TestTicketServiceSyncRepoScopePRStatusTransitionsRetryAndFinish(t *testing.
 		WorkflowID: &fixture.workflowID,
 		Priority:   "high",
 		Type:       "feature",
+		RepoScopes: []CreateRepoScopeInput{
+			{
+				RepoID:     backendRepo.ID,
+				BranchName: stringPtr("agent/codex/finish-ticket"),
+			},
+			{
+				RepoID:     frontendRepo.ID,
+				BranchName: stringPtr("agent/codex/finish-ticket"),
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("Create(finishTicket) error = %v", err)
 	}
 	finishRunID := seedTicketCurrentRun(ctx, t, client, fixture, finishTicket.ID)
-	finishScopeOne, err := client.TicketRepoScope.Create().
-		SetTicketID(finishTicket.ID).
-		SetRepoID(backendRepo.ID).
-		SetBranchName("agent/codex/finish-ticket").
+	finishScopeOne, err := client.TicketRepoScope.Query().
+		Where(ticketreposcope.TicketIDEQ(finishTicket.ID), ticketreposcope.RepoIDEQ(backendRepo.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load finish scope one: %v", err)
+	}
+	finishScopeOne, err = client.TicketRepoScope.UpdateOneID(finishScopeOne.ID).
 		SetPrStatus(ticketreposcope.PrStatusOpen).
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create finish scope one: %v", err)
+		t.Fatalf("set finish scope one pr status: %v", err)
 	}
-	if _, err := client.TicketRepoScope.Create().
-		SetTicketID(finishTicket.ID).
-		SetRepoID(frontendRepo.ID).
-		SetBranchName("agent/codex/finish-ticket").
+	finishScopeTwo, err := client.TicketRepoScope.Query().
+		Where(ticketreposcope.TicketIDEQ(finishTicket.ID), ticketreposcope.RepoIDEQ(frontendRepo.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load finish scope two: %v", err)
+	}
+	if _, err := client.TicketRepoScope.UpdateOneID(finishScopeTwo.ID).
 		SetPrStatus(ticketreposcope.PrStatusMerged).
 		Save(ctx); err != nil {
-		t.Fatalf("create finish scope two: %v", err)
+		t.Fatalf("set finish scope two pr status: %v", err)
 	}
 
 	unfinishedResult, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
@@ -1092,18 +1113,31 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		WorkflowID: &fixture.workflowID,
 		Priority:   "high",
 		Type:       "feature",
+		RepoScopes: []CreateRepoScopeInput{
+			{
+				RepoID:     backendRepo.ID,
+				BranchName: stringPtr("agent/codex/ambiguous-ticket"),
+			},
+			{
+				RepoID:     backendAliasRepo.ID,
+				BranchName: stringPtr("agent/codex/ambiguous-ticket"),
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("Create(ambiguousTicket) error = %v", err)
 	}
 	for _, repoID := range []uuid.UUID{backendRepo.ID, backendAliasRepo.ID} {
-		if _, err := client.TicketRepoScope.Create().
-			SetTicketID(ambiguousTicket.ID).
-			SetRepoID(repoID).
-			SetBranchName("agent/codex/ambiguous-ticket").
+		scope, err := client.TicketRepoScope.Query().
+			Where(ticketreposcope.TicketIDEQ(ambiguousTicket.ID), ticketreposcope.RepoIDEQ(repoID)).
+			Only(ctx)
+		if err != nil {
+			t.Fatalf("load ambiguous repo scope for %s: %v", repoID, err)
+		}
+		if _, err := client.TicketRepoScope.UpdateOneID(scope.ID).
 			SetPrStatus(ticketreposcope.PrStatusOpen).
 			Save(ctx); err != nil {
-			t.Fatalf("create ambiguous repo scope for %s: %v", repoID, err)
+			t.Fatalf("set ambiguous repo scope pr status for %s: %v", repoID, err)
 		}
 	}
 	if _, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
@@ -1122,6 +1156,10 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		Priority:   "high",
 		Type:       "feature",
 		BudgetUSD:  5,
+		RepoScopes: []CreateRepoScopeInput{{
+			RepoID:     backendRepo.ID,
+			BranchName: stringPtr("agent/codex/budget-retry"),
+		}},
 	})
 	if err != nil {
 		t.Fatalf("Create(budgetRetryTicket) error = %v", err)
@@ -1132,13 +1170,16 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		t.Fatalf("set exhausted budget cost: %v", err)
 	}
 	budgetRunID := seedTicketCurrentRun(ctx, t, client, fixture, budgetRetryTicket.ID)
-	if _, err := client.TicketRepoScope.Create().
-		SetTicketID(budgetRetryTicket.ID).
-		SetRepoID(backendRepo.ID).
-		SetBranchName("agent/codex/budget-retry").
+	budgetRetryScope, err := client.TicketRepoScope.Query().
+		Where(ticketreposcope.TicketIDEQ(budgetRetryTicket.ID), ticketreposcope.RepoIDEQ(backendRepo.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load budget retry repo scope: %v", err)
+	}
+	if _, err := client.TicketRepoScope.UpdateOneID(budgetRetryScope.ID).
 		SetPrStatus(ticketreposcope.PrStatusOpen).
 		Save(ctx); err != nil {
-		t.Fatalf("create budget retry repo scope: %v", err)
+		t.Fatalf("set budget retry repo scope pr status: %v", err)
 	}
 
 	budgetRetryResult, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
@@ -1169,17 +1210,24 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		StatusID:  &fixture.todoID,
 		Priority:  "high",
 		Type:      "feature",
+		RepoScopes: []CreateRepoScopeInput{{
+			RepoID:     backendRepo.ID,
+			BranchName: stringPtr("agent/codex/no-workflow-finish"),
+		}},
 	})
 	if err != nil {
 		t.Fatalf("Create(noWorkflowTicket) error = %v", err)
 	}
-	if _, err := client.TicketRepoScope.Create().
-		SetTicketID(noWorkflowTicket.ID).
-		SetRepoID(backendRepo.ID).
-		SetBranchName("agent/codex/no-workflow-finish").
+	noWorkflowScope, err := client.TicketRepoScope.Query().
+		Where(ticketreposcope.TicketIDEQ(noWorkflowTicket.ID), ticketreposcope.RepoIDEQ(backendRepo.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load missing workflow repo scope: %v", err)
+	}
+	if _, err := client.TicketRepoScope.UpdateOneID(noWorkflowScope.ID).
 		SetPrStatus(ticketreposcope.PrStatusOpen).
 		Save(ctx); err != nil {
-		t.Fatalf("create missing workflow repo scope: %v", err)
+		t.Fatalf("set missing workflow repo scope pr status: %v", err)
 	}
 	if _, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
 		RepositoryURL: backendRepo.RepositoryURL,
@@ -1196,6 +1244,10 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		WorkflowID: &fixture.workflowID,
 		Priority:   "high",
 		Type:       "feature",
+		RepoScopes: []CreateRepoScopeInput{{
+			RepoID:     backendRepo.ID,
+			BranchName: stringPtr("agent/codex/finish-clears-retry-state"),
+		}},
 	})
 	if err != nil {
 		t.Fatalf("Create(retryPausedFinishTicket) error = %v", err)
@@ -1212,13 +1264,16 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		Save(ctx); err != nil {
 		t.Fatalf("mark retry paused finish ticket: %v", err)
 	}
-	if _, err := client.TicketRepoScope.Create().
-		SetTicketID(retryPausedFinishTicket.ID).
-		SetRepoID(backendRepo.ID).
-		SetBranchName("agent/codex/finish-clears-retry-state").
+	retryPausedFinishScope, err := client.TicketRepoScope.Query().
+		Where(ticketreposcope.TicketIDEQ(retryPausedFinishTicket.ID), ticketreposcope.RepoIDEQ(backendRepo.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load retry-paused finish scope: %v", err)
+	}
+	if _, err := client.TicketRepoScope.UpdateOneID(retryPausedFinishScope.ID).
 		SetPrStatus(ticketreposcope.PrStatusOpen).
 		Save(ctx); err != nil {
-		t.Fatalf("create retry-paused finish scope: %v", err)
+		t.Fatalf("set retry-paused finish scope pr status: %v", err)
 	}
 	retryPausedFinishResult, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
 		RepositoryURL: backendRepo.RepositoryURL,
@@ -1268,17 +1323,24 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		WorkflowID: &ambiguousFinishWorkflow.ID,
 		Priority:   "high",
 		Type:       "feature",
+		RepoScopes: []CreateRepoScopeInput{{
+			RepoID:     backendRepo.ID,
+			BranchName: stringPtr("agent/codex/ambiguous-finish-selection"),
+		}},
 	})
 	if err != nil {
 		t.Fatalf("Create(ambiguousFinishTicket) error = %v", err)
 	}
-	if _, err := client.TicketRepoScope.Create().
-		SetTicketID(ambiguousFinishTicket.ID).
-		SetRepoID(backendRepo.ID).
-		SetBranchName("agent/codex/ambiguous-finish-selection").
+	ambiguousFinishScope, err := client.TicketRepoScope.Query().
+		Where(ticketreposcope.TicketIDEQ(ambiguousFinishTicket.ID), ticketreposcope.RepoIDEQ(backendRepo.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load ambiguous finish repo scope: %v", err)
+	}
+	if _, err := client.TicketRepoScope.UpdateOneID(ambiguousFinishScope.ID).
 		SetPrStatus(ticketreposcope.PrStatusOpen).
 		Save(ctx); err != nil {
-		t.Fatalf("create ambiguous finish repo scope: %v", err)
+		t.Fatalf("set ambiguous finish repo scope pr status: %v", err)
 	}
 	if _, err := service.SyncRepoScopePRStatus(ctx, SyncRepoScopePRStatusInput{
 		RepositoryURL: backendRepo.RepositoryURL,

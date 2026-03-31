@@ -15643,7 +15643,6 @@ type ProjectRepoMutation struct {
 	repository_url                *string
 	default_branch                *string
 	workspace_dirname             *string
-	is_primary                    *bool
 	labels                        *pgarray.StringArray
 	clearedFields                 map[string]struct{}
 	project                       *uuid.UUID
@@ -15946,42 +15945,6 @@ func (m *ProjectRepoMutation) ResetWorkspaceDirname() {
 	m.workspace_dirname = nil
 }
 
-// SetIsPrimary sets the "is_primary" field.
-func (m *ProjectRepoMutation) SetIsPrimary(b bool) {
-	m.is_primary = &b
-}
-
-// IsPrimary returns the value of the "is_primary" field in the mutation.
-func (m *ProjectRepoMutation) IsPrimary() (r bool, exists bool) {
-	v := m.is_primary
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldIsPrimary returns the old "is_primary" field's value of the ProjectRepo entity.
-// If the ProjectRepo object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectRepoMutation) OldIsPrimary(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldIsPrimary is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldIsPrimary requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldIsPrimary: %w", err)
-	}
-	return oldValue.IsPrimary, nil
-}
-
-// ResetIsPrimary resets all changes to the "is_primary" field.
-func (m *ProjectRepoMutation) ResetIsPrimary() {
-	m.is_primary = nil
-}
-
 // SetLabels sets the "labels" field.
 func (m *ProjectRepoMutation) SetLabels(pa pgarray.StringArray) {
 	m.labels = &pa
@@ -16254,7 +16217,7 @@ func (m *ProjectRepoMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectRepoMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 6)
 	if m.project != nil {
 		fields = append(fields, projectrepo.FieldProjectID)
 	}
@@ -16269,9 +16232,6 @@ func (m *ProjectRepoMutation) Fields() []string {
 	}
 	if m.workspace_dirname != nil {
 		fields = append(fields, projectrepo.FieldWorkspaceDirname)
-	}
-	if m.is_primary != nil {
-		fields = append(fields, projectrepo.FieldIsPrimary)
 	}
 	if m.labels != nil {
 		fields = append(fields, projectrepo.FieldLabels)
@@ -16294,8 +16254,6 @@ func (m *ProjectRepoMutation) Field(name string) (ent.Value, bool) {
 		return m.DefaultBranch()
 	case projectrepo.FieldWorkspaceDirname:
 		return m.WorkspaceDirname()
-	case projectrepo.FieldIsPrimary:
-		return m.IsPrimary()
 	case projectrepo.FieldLabels:
 		return m.Labels()
 	}
@@ -16317,8 +16275,6 @@ func (m *ProjectRepoMutation) OldField(ctx context.Context, name string) (ent.Va
 		return m.OldDefaultBranch(ctx)
 	case projectrepo.FieldWorkspaceDirname:
 		return m.OldWorkspaceDirname(ctx)
-	case projectrepo.FieldIsPrimary:
-		return m.OldIsPrimary(ctx)
 	case projectrepo.FieldLabels:
 		return m.OldLabels(ctx)
 	}
@@ -16364,13 +16320,6 @@ func (m *ProjectRepoMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetWorkspaceDirname(v)
-		return nil
-	case projectrepo.FieldIsPrimary:
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetIsPrimary(v)
 		return nil
 	case projectrepo.FieldLabels:
 		v, ok := value.(pgarray.StringArray)
@@ -16451,9 +16400,6 @@ func (m *ProjectRepoMutation) ResetField(name string) error {
 		return nil
 	case projectrepo.FieldWorkspaceDirname:
 		m.ResetWorkspaceDirname()
-		return nil
-	case projectrepo.FieldIsPrimary:
-		m.ResetIsPrimary()
 		return nil
 	case projectrepo.FieldLabels:
 		m.ResetLabels()
@@ -25362,7 +25308,6 @@ type TicketRepoScopeMutation struct {
 	pull_request_url *string
 	pr_status        *ticketreposcope.PrStatus
 	ci_status        *ticketreposcope.CiStatus
-	is_primary_scope *bool
 	clearedFields    map[string]struct{}
 	ticket           *uuid.UUID
 	clearedticket    bool
@@ -25706,42 +25651,6 @@ func (m *TicketRepoScopeMutation) ResetCiStatus() {
 	m.ci_status = nil
 }
 
-// SetIsPrimaryScope sets the "is_primary_scope" field.
-func (m *TicketRepoScopeMutation) SetIsPrimaryScope(b bool) {
-	m.is_primary_scope = &b
-}
-
-// IsPrimaryScope returns the value of the "is_primary_scope" field in the mutation.
-func (m *TicketRepoScopeMutation) IsPrimaryScope() (r bool, exists bool) {
-	v := m.is_primary_scope
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldIsPrimaryScope returns the old "is_primary_scope" field's value of the TicketRepoScope entity.
-// If the TicketRepoScope object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *TicketRepoScopeMutation) OldIsPrimaryScope(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldIsPrimaryScope is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldIsPrimaryScope requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldIsPrimaryScope: %w", err)
-	}
-	return oldValue.IsPrimaryScope, nil
-}
-
-// ResetIsPrimaryScope resets all changes to the "is_primary_scope" field.
-func (m *TicketRepoScopeMutation) ResetIsPrimaryScope() {
-	m.is_primary_scope = nil
-}
-
 // ClearTicket clears the "ticket" edge to the Ticket entity.
 func (m *TicketRepoScopeMutation) ClearTicket() {
 	m.clearedticket = true
@@ -25830,7 +25739,7 @@ func (m *TicketRepoScopeMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TicketRepoScopeMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 6)
 	if m.ticket != nil {
 		fields = append(fields, ticketreposcope.FieldTicketID)
 	}
@@ -25848,9 +25757,6 @@ func (m *TicketRepoScopeMutation) Fields() []string {
 	}
 	if m.ci_status != nil {
 		fields = append(fields, ticketreposcope.FieldCiStatus)
-	}
-	if m.is_primary_scope != nil {
-		fields = append(fields, ticketreposcope.FieldIsPrimaryScope)
 	}
 	return fields
 }
@@ -25872,8 +25778,6 @@ func (m *TicketRepoScopeMutation) Field(name string) (ent.Value, bool) {
 		return m.PrStatus()
 	case ticketreposcope.FieldCiStatus:
 		return m.CiStatus()
-	case ticketreposcope.FieldIsPrimaryScope:
-		return m.IsPrimaryScope()
 	}
 	return nil, false
 }
@@ -25895,8 +25799,6 @@ func (m *TicketRepoScopeMutation) OldField(ctx context.Context, name string) (en
 		return m.OldPrStatus(ctx)
 	case ticketreposcope.FieldCiStatus:
 		return m.OldCiStatus(ctx)
-	case ticketreposcope.FieldIsPrimaryScope:
-		return m.OldIsPrimaryScope(ctx)
 	}
 	return nil, fmt.Errorf("unknown TicketRepoScope field %s", name)
 }
@@ -25947,13 +25849,6 @@ func (m *TicketRepoScopeMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCiStatus(v)
-		return nil
-	case ticketreposcope.FieldIsPrimaryScope:
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetIsPrimaryScope(v)
 		return nil
 	}
 	return fmt.Errorf("unknown TicketRepoScope field %s", name)
@@ -26030,9 +25925,6 @@ func (m *TicketRepoScopeMutation) ResetField(name string) error {
 		return nil
 	case ticketreposcope.FieldCiStatus:
 		m.ResetCiStatus()
-		return nil
-	case ticketreposcope.FieldIsPrimaryScope:
-		m.ResetIsPrimaryScope()
 		return nil
 	}
 	return fmt.Errorf("unknown TicketRepoScope field %s", name)

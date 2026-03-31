@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
@@ -21,7 +20,6 @@
       pullRequestUrl: string
       prStatus: string
       ciStatus: string
-      isPrimaryScope: boolean
     }) => Promise<boolean> | boolean
     onCancel?: () => void
   } = $props()
@@ -31,7 +29,6 @@
   let createPullRequestUrl = $state('')
   let createPrStatus = $state('')
   let createCiStatus = $state('')
-  let createIsPrimaryScope = $state(false)
 
   $effect(() => {
     if (!repos.length) {
@@ -59,14 +56,12 @@
         pullRequestUrl: createPullRequestUrl,
         prStatus: createPrStatus,
         ciStatus: createCiStatus,
-        isPrimaryScope: createIsPrimaryScope,
       })) ?? false
 
     if (accepted) {
       createPullRequestUrl = ''
       createPrStatus = ''
       createCiStatus = ''
-      createIsPrimaryScope = false
     }
   }
 </script>
@@ -144,11 +139,6 @@
         </Select.Content>
       </Select.Root>
     </div>
-  </div>
-
-  <div class="flex items-center gap-2 text-xs">
-    <Checkbox id="new-scope-primary" bind:checked={createIsPrimaryScope} />
-    <Label for="new-scope-primary" class="text-xs font-medium">Mark as primary scope</Label>
   </div>
 
   <div class="flex justify-end gap-2">

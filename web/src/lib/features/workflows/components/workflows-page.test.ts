@@ -77,7 +77,7 @@ const projectFixture: Project = {
 }
 
 const pageDataFixture = {
-  prerequisite: { kind: 'ready' as const },
+  prerequisite: { kind: 'ready' as const, repoCount: 1, action: 'none' as const },
   workflows: [
     {
       id: 'wf-1',

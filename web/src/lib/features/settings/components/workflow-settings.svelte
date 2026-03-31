@@ -124,10 +124,7 @@
   {#if loading}
     <div class="text-muted-foreground text-sm">Loading workflows…</div>
   {:else if prerequisite && prerequisite.kind !== 'ready'}
-    <WorkflowRepositoryPrerequisiteCard
-      {prerequisite}
-      onOpenRepositories={props.onOpenRepositories}
-    />
+    <WorkflowRepositoryPrerequisiteCard {prerequisite} />
   {:else if error && workflows.length === 0}
     <div class="text-destructive text-sm">{error}</div>
   {:else if workflows.length === 0}

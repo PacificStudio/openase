@@ -181,7 +181,7 @@ func (s *Service) Complete(ctx context.Context, raw RawCompleteRequest) (Complet
 		return CompleteResult{}, fmt.Errorf("migrate database schema: %w", err)
 	}
 
-	scaffoldedFiles, err := ensurePrimaryRepoScaffold(request.Project.PrimaryRepoPath)
+	scaffoldedFiles, err := ensureProjectRepoScaffold(request.Project.RepoPath)
 	if err != nil {
 		return CompleteResult{}, err
 	}
@@ -214,7 +214,7 @@ func (s *Service) Complete(ctx context.Context, raw RawCompleteRequest) (Complet
 	return CompleteResult{
 		ConfigPath:      s.configPath(),
 		EnvPath:         s.envPath(),
-		PrimaryRepoPath: request.Project.PrimaryRepoPath,
+		RepoPath:        request.Project.RepoPath,
 		ScaffoldedFiles: scaffoldedFiles,
 		ProjectName:     request.Project.Name,
 		Mode:            request.Mode,
@@ -267,12 +267,12 @@ func (s *Service) writeConfigFile(request CompleteRequest) error {
 		Format string `yaml:"format"`
 	}
 	type setupConfig struct {
-		Mode            Mode     `yaml:"mode"`
-		ProjectName     string   `yaml:"project_name"`
-		PrimaryRepoPath string   `yaml:"primary_repo_path"`
-		PrimaryRepoURL  string   `yaml:"primary_repo_url,omitempty"`
-		DefaultBranch   string   `yaml:"default_branch"`
-		Agents          []string `yaml:"agents,omitempty"`
+		Mode          Mode     `yaml:"mode"`
+		ProjectName   string   `yaml:"project_name"`
+		RepoPath      string   `yaml:"repo_path"`
+		RepoURL       string   `yaml:"repo_url,omitempty"`
+		DefaultBranch string   `yaml:"default_branch"`
+		Agents        []string `yaml:"agents,omitempty"`
 	}
 	payload := struct {
 		Server        serverConfig        `yaml:"server"`
@@ -304,12 +304,12 @@ func (s *Service) writeConfigFile(request CompleteRequest) error {
 		},
 		Log: logConfig{Level: "info", Format: "text"},
 		Setup: setupConfig{
-			Mode:            request.Mode,
-			ProjectName:     request.Project.Name,
-			PrimaryRepoPath: request.Project.PrimaryRepoPath,
-			PrimaryRepoURL:  request.Project.PrimaryRepoURL,
-			DefaultBranch:   request.Project.DefaultBranch,
-			Agents:          slices.Clone(request.Agents),
+			Mode:          request.Mode,
+			ProjectName:   request.Project.Name,
+			RepoPath:      request.Project.RepoPath,
+			RepoURL:       request.Project.RepoURL,
+			DefaultBranch: request.Project.DefaultBranch,
+			Agents:        slices.Clone(request.Agents),
 		},
 	}
 
@@ -386,8 +386,8 @@ func detectAgentOptions(resolver provider.ExecutableResolver) []AgentOption {
 	return options
 }
 
-func ensurePrimaryRepoScaffold(repoRoot string) ([]string, error) {
-	files := primaryRepoScaffold(repoRoot)
+func ensureProjectRepoScaffold(repoRoot string) ([]string, error) {
+	files := projectRepoScaffold(repoRoot)
 	created := make([]string, 0, len(files))
 	for _, file := range files {
 		if err := os.MkdirAll(filepath.Dir(file.path), 0o750); err != nil {
@@ -488,16 +488,14 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 		}
 	}
 
-	repositoryURL := resolvePrimaryRepoRemoteURL(input.Project)
+	repositoryURL := resolveProjectRepoRemoteURL(input.Project)
 	if repositoryURL == "" {
 		return nil
 	}
-	isPrimary := true
 	projectRepoCreate, err := catalogdomain.ParseCreateProjectRepo(project.ID, catalogdomain.ProjectRepoInput{
-		Name:          filepath.Base(input.Project.PrimaryRepoPath),
+		Name:          filepath.Base(input.Project.RepoPath),
 		RepositoryURL: repositoryURL,
 		DefaultBranch: input.Project.DefaultBranch,
-		IsPrimary:     &isPrimary,
 	})
 	if err != nil {
 		return err
@@ -520,7 +518,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	if _, err := projectrepomirrorsvc.NewService(client, nil).RegisterExisting(ctx, projectrepomirrorsvc.RegisterExistingInput{
 		ProjectRepoID: projectRepo.ID,
 		MachineID:     localMachine.ID,
-		LocalPath:     filepath.Clean(input.Project.PrimaryRepoPath),
+		LocalPath:     filepath.Clean(input.Project.RepoPath),
 	}); err != nil {
 		return fmt.Errorf("register setup project repo mirror: %w", err)
 	}
@@ -528,12 +526,12 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	return nil
 }
 
-func resolvePrimaryRepoRemoteURL(project ProjectConfig) string {
-	if remoteURL := strings.TrimSpace(project.PrimaryRepoURL); remoteURL != "" {
+func resolveProjectRepoRemoteURL(project ProjectConfig) string {
+	if remoteURL := strings.TrimSpace(project.RepoURL); remoteURL != "" {
 		return remoteURL
 	}
 
-	repository, err := git.PlainOpen(project.PrimaryRepoPath)
+	repository, err := git.PlainOpen(project.RepoPath)
 	if err != nil {
 		return ""
 	}

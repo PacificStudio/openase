@@ -38,9 +38,10 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
 	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+	projectRoot := mustProjectStorageRoot(t, service, fixture.projectID)
 
-	activateMarkerPath := filepath.Join(repoRoot, "activate.marker")
-	reloadMarkerPath := filepath.Join(repoRoot, "reload.marker")
+	activateMarkerPath := filepath.Join(projectRoot, "activate.marker")
+	reloadMarkerPath := filepath.Join(projectRoot, "reload.marker")
 	workflowHooks := map[string]any{
 		"workflow_hooks": map[string]any{
 			"on_activate": []map[string]any{{
@@ -76,7 +77,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if got := mustReadWorkflowFile(t, activateMarkerPath); got != "Coding Workflow:1" {
 		t.Fatalf("activate marker = %q", got)
 	}
-	if got := mustReadWorkflowFile(t, filepath.Join(repoRoot, filepath.FromSlash(created.HarnessPath))); got != created.HarnessContent {
+	if got := mustReadWorkflowFile(t, filepath.Join(projectRoot, filepath.FromSlash(created.HarnessPath))); got != created.HarnessContent {
 		t.Fatalf("created harness content = %q, want %q", got, created.HarnessContent)
 	}
 
@@ -108,8 +109,8 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		t.Fatalf("GetHarness() = %+v", harnessDoc)
 	}
 
-	mustWriteSkill(t, filepath.Join(repoRoot, ".openase", "skills", "skill-one"), "# Skill One\nbody")
-	mustWriteSkill(t, filepath.Join(repoRoot, ".openase", "skills", "skill-two"), "# Skill Two\nbody")
+	mustWriteSkill(t, filepath.Join(projectRoot, ".openase", "skills", "skill-one"), "# Skill One\nbody")
+	mustWriteSkill(t, filepath.Join(projectRoot, ".openase", "skills", "skill-two"), "# Skill Two\nbody")
 
 	boundDoc, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
 		WorkflowID: created.ID,
@@ -208,7 +209,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if updated.Name != "Core Coding Workflow" || updated.HarnessPath != ".openase/harnesses/platform/core-coding.md" || updated.MaxConcurrent != 7 {
 		t.Fatalf("Update() = %+v", updated)
 	}
-	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "harnesses", "coding-workflow.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(projectRoot, ".openase", "harnesses", "coding-workflow.md")); !os.IsNotExist(err) {
 		t.Fatalf("old harness path still exists, stat err = %v", err)
 	}
 
@@ -254,7 +255,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		t.Fatalf("set default workflow: %v", err)
 	}
 
-	commitMessages := readWorkflowGitCommitMessages(t, repoRoot)
+	commitMessages := readWorkflowGitCommitMessages(t, projectRoot)
 	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): bind skill-one and skill-two for Coding Workflow")
 	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): persist skill-one and skill-three")
 	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): unbind skill-two for Coding Workflow")
@@ -294,6 +295,7 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
 	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+	projectRoot := mustProjectStorageRoot(t, service, fixture.projectID)
 
 	createdWorkflow, err := service.Create(ctx, CreateInput{
 		ProjectID:           fixture.projectID,
@@ -363,7 +365,7 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 		t.Fatalf("DeleteSkill() error = %v", err)
 	}
 
-	commitMessages := readWorkflowGitCommitMessages(t, repoRoot)
+	commitMessages := readWorkflowGitCommitMessages(t, projectRoot)
 	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): create deploy-docker")
 	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): disable deploy-docker")
 	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): enable deploy-docker")
@@ -412,9 +414,8 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing
 		SetRepositoryURL("https://github.com/acme/todo-app.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("todo-app").
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
-		t.Fatalf("create primary repo without mirror: %v", err)
+		t.Fatalf("create repo without mirror: %v", err)
 	}
 
 	readyProject, err := client.Project.Create().
@@ -432,7 +433,6 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing
 		SetRepositoryURL("https://github.com/GrandCX/openase.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(repoRoot)).
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create ready project repo: %v", err)
@@ -539,10 +539,11 @@ func TestWorkflowServiceUsesMirrorFreshnessPolicyForReadAndWritePaths(t *testing
 	fixture := seedWorkflowServiceFixture(ctx, t, client, mirrorPath)
 
 	projectRepo, err := client.ProjectRepo.Query().
-		Where(entprojectrepo.ProjectIDEQ(fixture.projectID), entprojectrepo.IsPrimary(true)).
-		Only(ctx)
+		Where(entprojectrepo.ProjectIDEQ(fixture.projectID)).
+		Order(entprojectrepo.ByName(), entprojectrepo.ByID()).
+		First(ctx)
 	if err != nil {
-		t.Fatalf("load primary repo: %v", err)
+		t.Fatalf("load project repo: %v", err)
 	}
 	projectItem, err := client.Project.Get(ctx, fixture.projectID)
 	if err != nil {
@@ -561,7 +562,7 @@ func TestWorkflowServiceUsesMirrorFreshnessPolicyForReadAndWritePaths(t *testing
 		SetRepositoryURL(sourceRepoPath).
 		SetDefaultBranch("master").
 		Save(ctx); err != nil {
-		t.Fatalf("update primary repo remote: %v", err)
+		t.Fatalf("update project repo remote: %v", err)
 	}
 
 	mirrorService := projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -612,11 +613,9 @@ func TestWorkflowServiceUsesMirrorFreshnessPolicyForReadAndWritePaths(t *testing
 	if err != nil {
 		t.Fatalf("load mirror after create: %v", err)
 	}
-	if mirrorAfterCreate.LastSyncedAt == nil || mirrorAfterCreate.LastVerifiedAt == nil {
-		t.Fatalf("expected create to sync mirror, got %+v", mirrorAfterCreate)
+	if mirrorAfterCreate.LastSyncedAt != nil || mirrorAfterCreate.LastVerifiedAt != nil {
+		t.Fatalf("expected project-scoped workflow storage to leave mirror timestamps untouched on create, got %+v", mirrorAfterCreate)
 	}
-	syncedAfterCreate := *mirrorAfterCreate.LastSyncedAt
-	verifiedAfterCreate := *mirrorAfterCreate.LastVerifiedAt
 
 	time.Sleep(20 * time.Millisecond)
 
@@ -633,11 +632,8 @@ func TestWorkflowServiceUsesMirrorFreshnessPolicyForReadAndWritePaths(t *testing
 	if err != nil {
 		t.Fatalf("load mirror after read: %v", err)
 	}
-	if mirrorAfterRead.LastSyncedAt == nil || !mirrorAfterRead.LastSyncedAt.Equal(syncedAfterCreate) {
-		t.Fatalf("expected read path to avoid sync, got %+v", mirrorAfterRead)
-	}
-	if mirrorAfterRead.LastVerifiedAt == nil || !mirrorAfterRead.LastVerifiedAt.After(verifiedAfterCreate) {
-		t.Fatalf("expected read path to verify mirror, got %+v", mirrorAfterRead)
+	if mirrorAfterRead.LastSyncedAt != nil || mirrorAfterRead.LastVerifiedAt != nil {
+		t.Fatalf("expected project-scoped workflow storage to avoid mirror freshness updates on read, got %+v", mirrorAfterRead)
 	}
 
 	commitWorkflowSourceFile(t, sourceRepoPath, created.HarnessPath, created.HarnessContent)
@@ -659,8 +655,8 @@ func TestWorkflowServiceUsesMirrorFreshnessPolicyForReadAndWritePaths(t *testing
 	if err != nil {
 		t.Fatalf("load mirror after write: %v", err)
 	}
-	if mirrorAfterWrite.LastSyncedAt == nil || !mirrorAfterWrite.LastSyncedAt.After(syncedAfterCreate) {
-		t.Fatalf("expected write path to sync mirror, got %+v", mirrorAfterWrite)
+	if mirrorAfterWrite.LastSyncedAt != nil || mirrorAfterWrite.LastVerifiedAt != nil {
+		t.Fatalf("expected project-scoped workflow storage to avoid mirror freshness updates on write, got %+v", mirrorAfterWrite)
 	}
 }
 
@@ -670,6 +666,7 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
 	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+	projectRoot := mustProjectStorageRoot(t, service, fixture.projectID)
 
 	created, err := service.Create(ctx, CreateInput{
 		ProjectID:           fixture.projectID,
@@ -690,7 +687,7 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	mustWriteSkill(t, filepath.Join(repoRoot, ".openase", "skills", "skill-one"), "# Skill One\nbody")
+	mustWriteSkill(t, filepath.Join(projectRoot, ".openase", "skills", "skill-one"), "# Skill One\nbody")
 	boundDoc, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
 		WorkflowID: created.ID,
 		Skills:     []string{"skill-one"},
@@ -730,7 +727,7 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 		t.Fatalf("BindSkills(missing) error = %v, want %v", err, ErrSkillNotFound)
 	}
 
-	if err := os.RemoveAll(filepath.Join(repoRoot, ".openase", "skills", "skill-one")); err != nil {
+	if err := os.RemoveAll(filepath.Join(projectRoot, ".openase", "skills", "skill-one")); err != nil {
 		t.Fatalf("remove skill-one: %v", err)
 	}
 	skills, err := service.ListSkills(ctx, fixture.projectID)
@@ -818,7 +815,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRepositoryPrerequisite() ready error = %v", err)
 	}
-	if !readyPrerequisite.Ready() || readyPrerequisite.PrimaryRepoID == nil || readyPrerequisite.MirrorState == nil || *readyPrerequisite.MirrorState != catalogdomain.ProjectRepoMirrorStateReady {
+	if !readyPrerequisite.Ready() || readyPrerequisite.Action != WorkflowRepositoryPrerequisiteActionNone {
 		t.Fatalf("GetRepositoryPrerequisite() ready = %+v", readyPrerequisite)
 	}
 
@@ -826,7 +823,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRepositoryPrerequisite() missing repo error = %v", err)
 	}
-	if missingPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindMissingPrimaryRepo || missingPrerequisite.Action != WorkflowRepositoryPrerequisiteActionBindPrimaryRepo {
+	if missingPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindReady || missingPrerequisite.Action != WorkflowRepositoryPrerequisiteActionNone {
 		t.Fatalf("GetRepositoryPrerequisite() missing repo = %+v", missingPrerequisite)
 	}
 
@@ -849,19 +846,16 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		SetRepositoryURL("https://github.com/acme/pending.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("pending-repo").
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
-		t.Fatalf("create primary repo without mirror: %v", err)
+		t.Fatalf("create repo without mirror: %v", err)
 	}
 
 	notReadyPrerequisite, err := service.GetRepositoryPrerequisite(ctx, projectWithoutMirror.ID)
 	if err != nil {
 		t.Fatalf("GetRepositoryPrerequisite() mirror pending error = %v", err)
 	}
-	if notReadyPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindPrimaryMirrorNotReady ||
-		notReadyPrerequisite.MirrorState == nil ||
-		*notReadyPrerequisite.MirrorState != catalogdomain.ProjectRepoMirrorStateMissing ||
-		notReadyPrerequisite.Action != WorkflowRepositoryPrerequisiteActionPrepareMirror {
+	if notReadyPrerequisite.Kind != WorkflowRepositoryPrerequisiteKindReady ||
+		notReadyPrerequisite.Action != WorkflowRepositoryPrerequisiteActionNone {
 		t.Fatalf("GetRepositoryPrerequisite() mirror pending = %+v", notReadyPrerequisite)
 	}
 
@@ -893,11 +887,11 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		t.Fatalf("UpdateHarness() invalid content error = %v, want %v", err, ErrHarnessInvalid)
 	}
 
-	if _, err := service.storageForProject(ctx, fixture.projectWithoutRepoID, workflowStorageUsageRead); !errors.Is(err, ErrPrimaryRepoRequired) {
-		t.Fatalf("storageForProject() missing repo error = %v, want %v", err, ErrPrimaryRepoRequired)
+	if _, err := service.storageForProject(ctx, fixture.projectWithoutRepoID, workflowStorageUsageRead); err != nil {
+		t.Fatalf("storageForProject() missing repo error = %v", err)
 	}
-	if _, err := service.storageForProject(ctx, projectWithoutMirror.ID, workflowStorageUsageRead); !errors.Is(err, ErrPrimaryMirrorNotReady) {
-		t.Fatalf("storageForProject() mirror pending error = %v, want %v", err, ErrPrimaryMirrorNotReady)
+	if _, err := service.storageForProject(ctx, projectWithoutMirror.ID, workflowStorageUsageRead); err != nil {
+		t.Fatalf("storageForProject() mirror pending error = %v", err)
 	}
 
 	if _, err := service.Create(ctx, CreateInput{
@@ -1187,20 +1181,18 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	}
 
 	primaryRepo, err := client.ProjectRepo.Query().
-		Where(
-			entprojectrepo.ProjectIDEQ(fixture.projectID),
-			entprojectrepo.IsPrimary(true),
-		).
-		Only(ctx)
+		Where(entprojectrepo.ProjectIDEQ(fixture.projectID)).
+		Order(entprojectrepo.ByName(), entprojectrepo.ByID()).
+		First(ctx)
 	if err != nil {
-		t.Fatalf("load primary repo: %v", err)
+		t.Fatalf("load project repo: %v", err)
 	}
 	if _, err := client.ProjectRepo.UpdateOneID(primaryRepo.ID).
 		SetName("backend").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
 		Save(ctx); err != nil {
-		t.Fatalf("normalize primary repo metadata: %v", err)
+		t.Fatalf("normalize project repo metadata: %v", err)
 	}
 	frontendRepo, err := client.ProjectRepo.Create().
 		SetProjectID(fixture.projectID).
@@ -1306,9 +1298,8 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetTicketID(ticketItem.ID).
 		SetRepoID(primaryRepo.ID).
 		SetBranchName("agent/codex/ASE-42").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
-		t.Fatalf("create primary ticket repo scope: %v", err)
+		t.Fatalf("create ticket repo scope: %v", err)
 	}
 	if _, err := client.TicketRepoScope.Create().
 		SetTicketID(ticketItem.ID).
@@ -1516,10 +1507,9 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 		SetRepositoryURL("https://github.com/GrandCX/openase.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(repoRoot)).
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create primary project repo: %v", err)
+		t.Fatalf("create project repo: %v", err)
 	}
 	if _, err := client.ProjectRepoMirror.Create().
 		SetProjectRepoID(projectRepo.ID).
@@ -1527,7 +1517,7 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 		SetLocalPath(repoRoot).
 		SetState("ready").
 		Save(ctx); err != nil {
-		t.Fatalf("create primary project repo mirror: %v", err)
+		t.Fatalf("create project repo mirror: %v", err)
 	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
@@ -1582,6 +1572,16 @@ func newWorkflowTestService(t *testing.T, client *ent.Client, repoRoot string) *
 	})
 
 	return service
+}
+
+func mustProjectStorageRoot(t *testing.T, service *Service, projectID uuid.UUID) string {
+	t.Helper()
+
+	root, err := service.projectStorageRoot(projectID)
+	if err != nil {
+		t.Fatalf("projectStorageRoot() error = %v", err)
+	}
+	return root
 }
 
 func openWorkflowTestEntClient(t *testing.T) *ent.Client {

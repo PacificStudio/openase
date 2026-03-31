@@ -59,7 +59,6 @@ export type TicketDetail = {
     prUrl?: string
     prStatus?: string
     ciStatus?: string
-    isPrimaryScope: boolean
   }>
   attemptCount: number
   costAmount: number

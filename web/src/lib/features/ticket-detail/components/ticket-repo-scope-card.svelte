@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
@@ -26,7 +25,6 @@
     pullRequestUrl: string
     prStatus: string
     ciStatus: string
-    isPrimaryScope: boolean
   }
 
   const summaryLabelClass = 'text-muted-foreground text-[10px] font-medium uppercase tracking-wide'
@@ -49,7 +47,6 @@
         pullRequestUrl: string
         prStatus: string
         ciStatus: string
-        isPrimaryScope: boolean
       },
     ) => void
     onDelete?: (scopeId: string) => void
@@ -60,7 +57,6 @@
     pullRequestUrl: '',
     prStatus: '',
     ciStatus: '',
-    isPrimaryScope: false,
   })
   let editing = $state(false)
 
@@ -69,7 +65,6 @@
     draft.pullRequestUrl = scope.prUrl ?? ''
     draft.prStatus = scope.prStatus ?? ''
     draft.ciStatus = scope.ciStatus ?? ''
-    draft.isPrimaryScope = scope.isPrimaryScope
   })
 
   function updateDraft(key: keyof ScopeDraft, value: string | boolean) {
@@ -85,7 +80,6 @@
       pullRequestUrl: scope.prUrl ?? '',
       prStatus: scope.prStatus ?? '',
       ciStatus: scope.ciStatus ?? '',
-      isPrimaryScope: scope.isPrimaryScope,
     }
   }
 
@@ -111,9 +105,6 @@
       <div class="text-foreground flex items-center gap-2 text-sm font-medium">
         <GitBranch class="text-muted-foreground size-3.5" />
         <span class="truncate">{scope.repoName}</span>
-        {#if scope.isPrimaryScope}
-          <Badge variant="outline" class="h-4 py-0 text-[10px]">Primary</Badge>
-        {/if}
       </div>
     </div>
 
@@ -267,15 +258,6 @@
             </Select.Content>
           </Select.Root>
         </div>
-      </div>
-
-      <div class="flex items-center gap-2 text-xs">
-        <Checkbox
-          id={`scope-primary-${scope.id}`}
-          checked={draft.isPrimaryScope}
-          onCheckedChange={(checked) => updateDraft('isPrimaryScope', checked)}
-        />
-        <Label for={`scope-primary-${scope.id}`} class="text-xs font-medium">Primary scope</Label>
       </div>
 
       <div class="flex justify-end gap-2">

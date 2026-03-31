@@ -12,7 +12,6 @@ const scope: TicketDetail['repoScopes'][number] = {
   prUrl: 'https://github.com/GrandCX/openase/pull/329',
   prStatus: 'open',
   ciStatus: 'pass',
-  isPrimaryScope: true,
 }
 
 describe('TicketRepoScopeCard', () => {
@@ -29,7 +28,6 @@ describe('TicketRepoScopeCard', () => {
     expect(getByText('fix/openase-329-read-first')).toBeTruthy()
     expect(getByText('Open')).toBeTruthy()
     expect(getByText('Passing')).toBeTruthy()
-    expect(getByText('Primary')).toBeTruthy()
     expect(getByRole('button', { name: 'Edit openase-web scope' })).toBeTruthy()
     expect(queryByLabelText('Branch')).toBeNull()
     expect(queryByText('Save scope')).toBeNull()
@@ -55,7 +53,6 @@ describe('TicketRepoScopeCard', () => {
       pullRequestUrl: 'https://github.com/GrandCX/openase/pull/329',
       prStatus: 'open',
       ciStatus: 'pass',
-      isPrimaryScope: true,
     })
   })
 })

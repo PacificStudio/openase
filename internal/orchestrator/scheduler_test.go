@@ -320,7 +320,6 @@ func TestSchedulerRunTickSkipsTicketWhenRequiredMirrorIsNotReady(t *testing.T) {
 		SetRepositoryURL("https://github.com/GrandCX/openase.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("openase").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)

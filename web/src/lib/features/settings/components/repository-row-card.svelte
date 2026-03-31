@@ -75,9 +75,6 @@
   >
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-foreground text-sm font-semibold hover:underline">{repo.name}</span>
-      {#if repo.is_primary}
-        <Badge variant="secondary" class="text-[10px]">Primary</Badge>
-      {/if}
       <Tooltip.Root>
         <Tooltip.Trigger>
           {#snippet child({ props })}
@@ -188,8 +185,8 @@
     <Dialog.Header>
       <Dialog.Title>Delete repository?</Dialog.Title>
       <Dialog.Description>
-        This removes {repo.name} from the project. Existing ticket repo scopes or workflow defaults that
-        reference it may need to be updated.
+        This removes {repo.name} from the project. Existing ticket repo scopes or mirror references that
+        point to it may need to be updated.
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="mt-6">

@@ -280,6 +280,19 @@ func reconcileLegacyProjectRepoSemantics(ctx context.Context, dsn string) error 
 
 	if _, err := db.ExecContext(
 		ctx,
+		`ALTER TABLE "project_repos" DROP COLUMN IF EXISTS "is_primary"`,
+	); err != nil {
+		return fmt.Errorf("drop legacy project_repos.is_primary column: %w", err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`ALTER TABLE "ticket_repo_scopes" DROP COLUMN IF EXISTS "is_primary_scope"`,
+	); err != nil {
+		return fmt.Errorf("drop legacy ticket_repo_scopes.is_primary_scope column: %w", err)
+	}
+
+	if _, err := db.ExecContext(
+		ctx,
 		`UPDATE "project_repos" SET "workspace_dirname" = "name" WHERE COALESCE("workspace_dirname", '') = ''`,
 	); err != nil {
 		return fmt.Errorf("backfill project repo workspace_dirname defaults: %w", err)

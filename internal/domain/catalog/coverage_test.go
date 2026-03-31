@@ -664,7 +664,6 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 		RepositoryURL:    " https://github.com/GrandCX/openase ",
 		DefaultBranch:    " trunk ",
 		WorkspaceDirname: &clonePath,
-		IsPrimary:        boolPtr(true),
 		Labels:           []string{" backend ", "backend", " coverage "},
 	})
 	if err != nil {
@@ -691,14 +690,14 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseUpdateProjectRepo() error = %v", err)
 	}
-	if updateRepo.DefaultBranch != "main" || updateRepo.IsPrimary {
+	if updateRepo.DefaultBranch != "main" {
 		t.Fatalf("ParseUpdateProjectRepo() defaults = %+v", updateRepo)
 	}
-	updateRepo, err = ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: "https://github.com/GrandCX/openase", IsPrimary: boolPtr(true)})
+	updateRepo, err = ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: "https://github.com/GrandCX/openase", Labels: []string{"alpha"}})
 	if err != nil {
 		t.Fatalf("ParseUpdateProjectRepo(success) error = %v", err)
 	}
-	if !updateRepo.IsPrimary {
+	if len(updateRepo.Labels) != 1 || updateRepo.Labels[0] != "alpha" {
 		t.Fatalf("ParseUpdateProjectRepo(success) = %+v", updateRepo)
 	}
 	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: " ", RepositoryURL: "https://github.com"}); err == nil {
@@ -738,7 +737,6 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 		PullRequestURL: &prURL,
 		PrStatus:       " open ",
 		CiStatus:       " passing ",
-		IsPrimaryScope: boolPtr(true),
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateTicketRepoScope() error = %v", err)
@@ -750,14 +748,14 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseUpdateTicketRepoScope() error = %v", err)
 	}
-	if updateScope.PrStatus != DefaultTicketRepoScopePRStatus || updateScope.CiStatus != DefaultTicketRepoScopeCIStatus || updateScope.IsPrimaryScope {
+	if updateScope.PrStatus != DefaultTicketRepoScopePRStatus || updateScope.CiStatus != DefaultTicketRepoScopeCIStatus {
 		t.Fatalf("ParseUpdateTicketRepoScope() defaults = %+v", updateScope)
 	}
-	updateScope, err = ParseUpdateTicketRepoScope(uuid.New(), projectID, ticketID, TicketRepoScopeInput{RepoID: repoID.String(), IsPrimaryScope: boolPtr(true)})
+	updateScope, err = ParseUpdateTicketRepoScope(uuid.New(), projectID, ticketID, TicketRepoScopeInput{RepoID: repoID.String(), BranchName: stringPtr("feature/demo")})
 	if err != nil {
 		t.Fatalf("ParseUpdateTicketRepoScope(success) error = %v", err)
 	}
-	if !updateScope.IsPrimaryScope {
+	if updateScope.BranchName == nil || *updateScope.BranchName != "feature/demo" {
 		t.Fatalf("ParseUpdateTicketRepoScope(success) = %+v", updateScope)
 	}
 	if _, err := ParseCreateTicketRepoScope(projectID, ticketID, TicketRepoScopeInput{RepoID: "bad"}); err == nil {

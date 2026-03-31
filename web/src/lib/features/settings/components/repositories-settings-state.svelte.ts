@@ -22,7 +22,6 @@ import {
   parseRepositoryMirrorDraft,
   type RepositoryMirrorDraft,
 } from '../repository-mirror-model'
-import { derivePrimaryRepositoryReadiness } from '../repositories-readiness'
 import {
   reloadReposAfterMutation,
   type RepositoryReloadAction,
@@ -42,17 +41,6 @@ export function createRepositoriesSettingsState() {
 
   const selectedRepo = $derived(ui.repos.find((repo) => repo.id === ui.selectedId) ?? null)
   const selectedMirrorRepo = $derived(ui.repos.find((repo) => repo.id === ui.mirrorRepoId) ?? null)
-  const primaryReadiness = $derived(derivePrimaryRepositoryReadiness(ui.repos))
-  const selectedPrimaryRepo = $derived(
-    primaryReadiness.kind === 'missing_primary_repo'
-      ? null
-      : (ui.repos.find((repo) => repo.id === primaryReadiness.primaryRepoId) ?? null),
-  )
-  const primaryMirrorActionLabel = $derived.by(() =>
-    primaryReadiness.kind === 'primary_mirror_not_ready' && selectedPrimaryRepo
-      ? mirrorActionContext(selectedPrimaryRepo).buttonLabel
-      : 'Set up mirror',
-  )
   const mirrorActionLabelByRepoId = $derived.by(() =>
     Object.fromEntries(ui.repos.map((repo) => [repo.id, mirrorActionContext(repo).buttonLabel])),
   )
@@ -107,7 +95,7 @@ export function createRepositoriesSettingsState() {
       ui.selectedId = ''
       ui.editorOpen = false
       ui.mode = 'create'
-      ui.draft = createEmptyRepositoryDraft({ isPrimary: true })
+      ui.draft = createEmptyRepositoryDraft()
       return
     }
 
@@ -115,7 +103,7 @@ export function createRepositoriesSettingsState() {
       ui.selectedId = ''
       ui.editorOpen = false
       ui.mode = 'create'
-      ui.draft = createEmptyRepositoryDraft({ isPrimary: false })
+      ui.draft = createEmptyRepositoryDraft()
     }
   }
 
@@ -193,15 +181,6 @@ export function createRepositoriesSettingsState() {
     get selectedMirrorRepo() {
       return selectedMirrorRepo
     },
-    get selectedPrimaryRepo() {
-      return selectedPrimaryRepo
-    },
-    get primaryReadiness() {
-      return primaryReadiness
-    },
-    get primaryMirrorActionLabel() {
-      return primaryMirrorActionLabel
-    },
     get mirrorActionLabelByRepoId() {
       return mirrorActionLabelByRepoId
     },
@@ -217,7 +196,7 @@ export function createRepositoriesSettingsState() {
     startCreate() {
       ui.mode = 'create'
       ui.selectedId = ''
-      ui.draft = createEmptyRepositoryDraft({ isPrimary: ui.repos.length === 0 })
+      ui.draft = createEmptyRepositoryDraft()
       ui.editorOpen = true
     },
     openMirrorDialog(repo: ProjectRepoRecord) {

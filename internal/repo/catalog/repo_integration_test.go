@@ -124,38 +124,30 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		t.Fatalf("UpdateProject() = %+v", updatedProject)
 	}
 
-	primaryRequested := true
 	repoOne, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
 		ProjectID:        project.ID,
 		Name:             "openase-main",
 		RepositoryURL:    "https://github.com/GrandCX/openase.git",
 		DefaultBranch:    "main",
 		WorkspaceDirname: "openase-main",
-		RequestedPrimary: &primaryRequested,
 		Labels:           []string{"backend", "automation"},
 	})
 	if err != nil {
 		t.Fatalf("CreateProjectRepo() repoOne error = %v", err)
 	}
-	if !repoOne.IsPrimary || repoOne.WorkspaceDirname != "openase-main" {
+	if repoOne.WorkspaceDirname != "openase-main" {
 		t.Fatalf("CreateProjectRepo() repoOne = %+v", repoOne)
 	}
 
-	notPrimary := false
 	repoTwo, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
 		ProjectID:        project.ID,
 		Name:             "worker-tools",
 		RepositoryURL:    "https://github.com/GrandCX/worker-tools.git",
 		DefaultBranch:    "develop",
-		RequestedPrimary: &notPrimary,
 	})
 	if err != nil {
 		t.Fatalf("CreateProjectRepo() repoTwo error = %v", err)
 	}
-	if repoTwo.IsPrimary {
-		t.Fatalf("repoTwo should not start primary: %+v", repoTwo)
-	}
-
 	projectRepos, err := repo.ListProjectRepos(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("ListProjectRepos() error = %v", err)
@@ -180,21 +172,13 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		RepositoryURL:    repoTwo.RepositoryURL,
 		DefaultBranch:    "release",
 		WorkspaceDirname: repoTwoWorkspaceDirname,
-		IsPrimary:        true,
 		Labels:           []string{"worker", "ops"},
 	})
 	if err != nil {
 		t.Fatalf("UpdateProjectRepo() repoTwo error = %v", err)
 	}
-	if !updatedRepoTwo.IsPrimary || updatedRepoTwo.WorkspaceDirname != repoTwoWorkspaceDirname || len(updatedRepoTwo.Labels) != 2 {
+	if updatedRepoTwo.WorkspaceDirname != repoTwoWorkspaceDirname || len(updatedRepoTwo.Labels) != 2 {
 		t.Fatalf("UpdateProjectRepo() repoTwo = %+v", updatedRepoTwo)
-	}
-	gotRepoOneAfterPrimarySwitch, err := repo.GetProjectRepo(ctx, project.ID, repoOne.ID)
-	if err != nil {
-		t.Fatalf("GetProjectRepo() repoOne after primary switch error = %v", err)
-	}
-	if gotRepoOneAfterPrimarySwitch.IsPrimary {
-		t.Fatalf("repoOne should be cleared when repoTwo is promoted primary: %+v", gotRepoOneAfterPrimarySwitch)
 	}
 
 	updatedRepoOne, err := repo.UpdateProjectRepo(ctx, domain.UpdateProjectRepo{
@@ -204,21 +188,13 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		RepositoryURL:    repoOne.RepositoryURL,
 		DefaultBranch:    "main",
 		WorkspaceDirname: "openase-main",
-		IsPrimary:        false,
 		Labels:           nil,
 	})
 	if err != nil {
 		t.Fatalf("UpdateProjectRepo() error = %v", err)
 	}
-	if updatedRepoOne.IsPrimary || updatedRepoOne.WorkspaceDirname != "openase-main" || len(updatedRepoOne.Labels) != 0 {
+	if updatedRepoOne.WorkspaceDirname != "openase-main" || len(updatedRepoOne.Labels) != 0 {
 		t.Fatalf("UpdateProjectRepo() = %+v", updatedRepoOne)
-	}
-	gotRepoTwo, err := repo.GetProjectRepo(ctx, project.ID, repoTwo.ID)
-	if err != nil {
-		t.Fatalf("GetProjectRepo() repoTwo error = %v", err)
-	}
-	if !gotRepoTwo.IsPrimary {
-		t.Fatalf("repoTwo should be promoted primary: %+v", gotRepoTwo)
 	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
@@ -238,34 +214,32 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	}
 
 	scopeOne, err := repo.CreateTicketRepoScope(ctx, domain.CreateTicketRepoScope{
-		ProjectID:        project.ID,
-		TicketID:         ticketItem.ID,
-		RepoID:           repoOne.ID,
-		RequestedPrimary: &primaryRequested,
-		PrStatus:         domain.TicketRepoScopePRStatusOpen,
-		CiStatus:         domain.TicketRepoScopeCIStatusPending,
+		ProjectID: project.ID,
+		TicketID:  ticketItem.ID,
+		RepoID:    repoOne.ID,
+		PrStatus:  domain.TicketRepoScopePRStatusOpen,
+		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	})
 	if err != nil {
 		t.Fatalf("CreateTicketRepoScope() scopeOne error = %v", err)
 	}
-	if !scopeOne.IsPrimaryScope || scopeOne.BranchName != "main" {
+	if scopeOne.BranchName != "main" {
 		t.Fatalf("CreateTicketRepoScope() scopeOne = %+v", scopeOne)
 	}
 
 	scopeTwo, err := repo.CreateTicketRepoScope(ctx, domain.CreateTicketRepoScope{
-		ProjectID:        project.ID,
-		TicketID:         ticketItem.ID,
-		RepoID:           repoTwo.ID,
-		BranchName:       strPtr("fix/openase-278-coverage"),
-		PullRequestURL:   strPtr("https://github.com/GrandCX/openase/pull/278"),
-		RequestedPrimary: &primaryRequested,
-		PrStatus:         domain.TicketRepoScopePRStatusOpen,
-		CiStatus:         domain.TicketRepoScopeCIStatusPassing,
+		ProjectID:      project.ID,
+		TicketID:       ticketItem.ID,
+		RepoID:         repoTwo.ID,
+		BranchName:     strPtr("fix/openase-278-coverage"),
+		PullRequestURL: strPtr("https://github.com/GrandCX/openase/pull/278"),
+		PrStatus:       domain.TicketRepoScopePRStatusOpen,
+		CiStatus:       domain.TicketRepoScopeCIStatusPassing,
 	})
 	if err != nil {
 		t.Fatalf("CreateTicketRepoScope() scopeTwo error = %v", err)
 	}
-	if !scopeTwo.IsPrimaryScope || scopeTwo.BranchName != "fix/openase-278-coverage" {
+	if scopeTwo.BranchName != "fix/openase-278-coverage" {
 		t.Fatalf("CreateTicketRepoScope() scopeTwo = %+v", scopeTwo)
 	}
 
@@ -273,7 +247,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTicketRepoScopes() error = %v", err)
 	}
-	if len(scopes) != 2 || scopes[0].ID != scopeTwo.ID {
+	if len(scopes) != 2 || scopes[0].ID != scopeOne.ID {
 		t.Fatalf("ListTicketRepoScopes() = %+v", scopes)
 	}
 
@@ -294,20 +268,12 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		PullRequestURL: strPtr("https://github.com/GrandCX/openase/pull/279"),
 		PrStatus:       domain.TicketRepoScopePRStatusApproved,
 		CiStatus:       domain.TicketRepoScopeCIStatusPassing,
-		IsPrimaryScope: true,
 	})
 	if err != nil {
 		t.Fatalf("UpdateTicketRepoScope() scopeOne error = %v", err)
 	}
-	if !updatedScopeOne.IsPrimaryScope || updatedScopeOne.PullRequestURL == nil || *updatedScopeOne.PullRequestURL == "" || updatedScopeOne.BranchName != "fix/openase-278-core" {
+	if updatedScopeOne.PullRequestURL == nil || *updatedScopeOne.PullRequestURL == "" || updatedScopeOne.BranchName != "fix/openase-278-core" {
 		t.Fatalf("UpdateTicketRepoScope() scopeOne = %+v", updatedScopeOne)
-	}
-	gotScopeTwoAfterPrimarySwitch, err := repo.GetTicketRepoScope(ctx, project.ID, ticketItem.ID, scopeTwo.ID)
-	if err != nil {
-		t.Fatalf("GetTicketRepoScope() scopeTwo after primary switch error = %v", err)
-	}
-	if gotScopeTwoAfterPrimarySwitch.IsPrimaryScope {
-		t.Fatalf("scopeTwo should be cleared when scopeOne is promoted primary: %+v", gotScopeTwoAfterPrimarySwitch)
 	}
 
 	updatedScopeTwo, err := repo.UpdateTicketRepoScope(ctx, domain.UpdateTicketRepoScope{
@@ -319,20 +285,12 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		PullRequestURL: nil,
 		PrStatus:       domain.TicketRepoScopePRStatusMerged,
 		CiStatus:       domain.TicketRepoScopeCIStatusPassing,
-		IsPrimaryScope: false,
 	})
 	if err != nil {
 		t.Fatalf("UpdateTicketRepoScope() error = %v", err)
 	}
-	if updatedScopeTwo.IsPrimaryScope || updatedScopeTwo.PullRequestURL != nil || updatedScopeTwo.BranchName != "fix/openase-278-coverage" {
+	if updatedScopeTwo.PullRequestURL != nil || updatedScopeTwo.BranchName != "fix/openase-278-coverage" {
 		t.Fatalf("UpdateTicketRepoScope() = %+v", updatedScopeTwo)
-	}
-	gotScopeOne, err := repo.GetTicketRepoScope(ctx, project.ID, ticketItem.ID, scopeOne.ID)
-	if err != nil {
-		t.Fatalf("GetTicketRepoScope() scopeOne error = %v", err)
-	}
-	if !gotScopeOne.IsPrimaryScope {
-		t.Fatalf("scopeOne should be promoted primary: %+v", gotScopeOne)
 	}
 
 	deletedScopeOne, err := repo.DeleteTicketRepoScope(ctx, project.ID, ticketItem.ID, scopeOne.ID)
@@ -342,14 +300,6 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	if deletedScopeOne.ID != scopeOne.ID {
 		t.Fatalf("DeleteTicketRepoScope() = %+v", deletedScopeOne)
 	}
-	gotScopeTwoAfterDelete, err := repo.GetTicketRepoScope(ctx, project.ID, ticketItem.ID, scopeTwo.ID)
-	if err != nil {
-		t.Fatalf("GetTicketRepoScope() scopeTwo after delete error = %v", err)
-	}
-	if !gotScopeTwoAfterDelete.IsPrimaryScope {
-		t.Fatalf("scopeTwo should be promoted after deleting scopeOne: %+v", gotScopeTwoAfterDelete)
-	}
-
 	deletedScopeTwo, err := repo.DeleteTicketRepoScope(ctx, project.ID, ticketItem.ID, scopeTwo.ID)
 	if err != nil {
 		t.Fatalf("DeleteTicketRepoScope() scopeTwo error = %v", err)
@@ -365,14 +315,6 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	if deletedRepoTwo.ID != repoTwo.ID {
 		t.Fatalf("DeleteProjectRepo() = %+v", deletedRepoTwo)
 	}
-	gotRepoOneAfterDelete, err := repo.GetProjectRepo(ctx, project.ID, repoOne.ID)
-	if err != nil {
-		t.Fatalf("GetProjectRepo() repoOne after delete error = %v", err)
-	}
-	if !gotRepoOneAfterDelete.IsPrimary {
-		t.Fatalf("repoOne should be promoted after deleting repoTwo: %+v", gotRepoOneAfterDelete)
-	}
-
 	archivedProject, err := repo.ArchiveProject(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("ArchiveProject() error = %v", err)
@@ -415,38 +357,18 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 		t.Fatalf("CreateProject() error = %v", err)
 	}
 
-	requestPrimary := false
 	projectRepo, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
 		ProjectID:        project.ID,
 		Name:             "openase-main",
 		RepositoryURL:    "https://github.com/GrandCX/openase.git",
 		DefaultBranch:    "main",
-		RequestedPrimary: &requestPrimary,
 	})
 	if err != nil {
 		t.Fatalf("CreateProjectRepo() error = %v", err)
 	}
-	if err := client.ProjectRepo.UpdateOneID(projectRepo.ID).SetIsPrimary(false).Exec(ctx); err != nil {
-		t.Fatalf("clear repo primary: %v", err)
-	}
-
-	tx, err := client.Tx(ctx)
-	if err != nil {
-		t.Fatalf("start repo tx: %v", err)
-	}
-	if err := ensureProjectPrimaryRepo(ctx, tx, project.ID, projectRepo.ID); err != nil {
-		t.Fatalf("ensureProjectPrimaryRepo() error = %v", err)
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatalf("commit repo tx: %v", err)
-	}
-
 	projectRepo, err = repo.GetProjectRepo(ctx, project.ID, projectRepo.ID)
 	if err != nil {
 		t.Fatalf("GetProjectRepo() error = %v", err)
-	}
-	if !projectRepo.IsPrimary {
-		t.Fatalf("expected fallback project repo promotion, got %+v", projectRepo)
 	}
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
@@ -457,7 +379,7 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(project.ID).
 		SetIdentifier("ASE-279").
-		SetTitle("Exercise primary fallback").
+		SetTitle("Exercise repo scope persistence").
 		SetStatusID(todoID).
 		SetCreatedBy("codex").
 		Save(ctx)
@@ -466,37 +388,22 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 	}
 
 	scope, err := repo.CreateTicketRepoScope(ctx, domain.CreateTicketRepoScope{
-		ProjectID:        project.ID,
-		TicketID:         ticketItem.ID,
-		RepoID:           projectRepo.ID,
-		RequestedPrimary: &requestPrimary,
-		PrStatus:         domain.TicketRepoScopePRStatusOpen,
-		CiStatus:         domain.TicketRepoScopeCIStatusPending,
+		ProjectID: project.ID,
+		TicketID:  ticketItem.ID,
+		RepoID:    projectRepo.ID,
+		PrStatus:  domain.TicketRepoScopePRStatusOpen,
+		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	})
 	if err != nil {
 		t.Fatalf("CreateTicketRepoScope() error = %v", err)
-	}
-	if err := client.TicketRepoScope.UpdateOneID(scope.ID).SetIsPrimaryScope(false).Exec(ctx); err != nil {
-		t.Fatalf("clear scope primary: %v", err)
-	}
-
-	tx, err = client.Tx(ctx)
-	if err != nil {
-		t.Fatalf("start scope tx: %v", err)
-	}
-	if err := ensureTicketPrimaryRepoScope(ctx, tx, ticketItem.ID, scope.ID); err != nil {
-		t.Fatalf("ensureTicketPrimaryRepoScope() error = %v", err)
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatalf("commit scope tx: %v", err)
 	}
 
 	scope, err = repo.GetTicketRepoScope(ctx, project.ID, ticketItem.ID, scope.ID)
 	if err != nil {
 		t.Fatalf("GetTicketRepoScope() error = %v", err)
 	}
-	if !scope.IsPrimaryScope {
-		t.Fatalf("expected fallback scope promotion, got %+v", scope)
+	if scope.RepoID != projectRepo.ID || scope.BranchName != "main" {
+		t.Fatalf("expected repo scope to persist, got %+v", scope)
 	}
 }
 
@@ -707,7 +614,6 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		Name:          projectRepo.Name,
 		RepositoryURL: secondaryRepo.RepositoryURL,
 		DefaultBranch: secondaryRepo.DefaultBranch,
-		IsPrimary:     false,
 	}); !errors.Is(err, ErrConflict) {
 		t.Fatalf("UpdateProjectRepo(duplicate name) error = %v, want %v", err, ErrConflict)
 	}
@@ -717,7 +623,6 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		Name:          "missing",
 		RepositoryURL: "https://github.com/GrandCX/missing.git",
 		DefaultBranch: "main",
-		IsPrimary:     false,
 	}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("UpdateProjectRepo(missing) error = %v, want %v", err, ErrNotFound)
 	}
@@ -781,7 +686,6 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		RepoID:         projectRepo.ID,
 		PrStatus:       domain.TicketRepoScopePRStatusOpen,
 		CiStatus:       domain.TicketRepoScopeCIStatusPending,
-		IsPrimaryScope: false,
 	}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("UpdateTicketRepoScope(missing) error = %v, want %v", err, ErrNotFound)
 	}

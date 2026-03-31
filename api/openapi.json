@@ -9477,9 +9477,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "is_primary": {
-                            "type": "boolean"
-                          },
                           "labels": {
                             "items": {
                               "type": "string"
@@ -9617,11 +9614,6 @@
                     "description": "Default branch name used for mirrors and workspaces.",
                     "type": "string"
                   },
-                  "is_primary": {
-                    "description": "Whether this repository is the primary project repository.",
-                    "nullable": true,
-                    "type": "boolean"
-                  },
                   "labels": {
                     "description": "Labels attached to the repository for workflow selection and filtering.",
                     "items": {
@@ -9663,9 +9655,6 @@
                         },
                         "id": {
                           "type": "string"
-                        },
-                        "is_primary": {
-                          "type": "boolean"
                         },
                         "labels": {
                           "items": {
@@ -9837,9 +9826,6 @@
                         "id": {
                           "type": "string"
                         },
-                        "is_primary": {
-                          "type": "boolean"
-                        },
                         "labels": {
                           "items": {
                             "type": "string"
@@ -10004,11 +9990,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "is_primary": {
-                    "description": "Whether this repository is the primary project repository.",
-                    "nullable": true,
-                    "type": "boolean"
-                  },
                   "labels": {
                     "description": "Labels attached to the repository for workflow selection and filtering.",
                     "items": {
@@ -10053,9 +10034,6 @@
                         },
                         "id": {
                           "type": "string"
-                        },
-                        "is_primary": {
-                          "type": "boolean"
                         },
                         "labels": {
                           "items": {
@@ -14467,6 +14445,24 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "repo_scopes": {
+                    "description": "Optional repository scopes attached at ticket creation time. Multi-repo projects must supply explicit repo scopes; single-repo projects auto-select the only repo when omitted.",
+                    "items": {
+                      "properties": {
+                        "branch_name": {
+                          "description": "Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used.",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "repo_id": {
+                          "description": "Repository ID attached to the ticket scope.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
                   "status_id": {
                     "description": "Optional ticket status ID to assign explicitly.",
                     "nullable": true,
@@ -15045,9 +15041,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "is_primary_scope": {
-                            "type": "boolean"
-                          },
                           "pr_status": {
                             "type": "string"
                           },
@@ -15063,9 +15056,6 @@
                               },
                               "id": {
                                 "type": "string"
-                              },
-                              "is_primary": {
-                                "type": "boolean"
                               },
                               "labels": {
                                 "items": {
@@ -15492,9 +15482,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "is_primary_scope": {
-                            "type": "boolean"
-                          },
                           "pr_status": {
                             "type": "string"
                           },
@@ -15618,11 +15605,6 @@
                     "description": "Continuous integration status associated with the repository scope.",
                     "type": "string"
                   },
-                  "is_primary_scope": {
-                    "description": "Whether this scope is the primary repository scope for the ticket.",
-                    "nullable": true,
-                    "type": "boolean"
-                  },
                   "pr_status": {
                     "description": "Pull request status associated with the repository scope.",
                     "type": "string"
@@ -15660,9 +15642,6 @@
                         },
                         "id": {
                           "type": "string"
-                        },
-                        "is_primary_scope": {
-                          "type": "boolean"
                         },
                         "pr_status": {
                           "type": "string"
@@ -15818,9 +15797,6 @@
                         "id": {
                           "type": "string"
                         },
-                        "is_primary_scope": {
-                          "type": "boolean"
-                        },
                         "pr_status": {
                           "type": "string"
                         },
@@ -15971,11 +15947,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "is_primary_scope": {
-                    "description": "Whether this scope is the primary repository scope for the ticket.",
-                    "nullable": true,
-                    "type": "boolean"
-                  },
                   "pr_status": {
                     "description": "Pull request status associated with the repository scope.",
                     "nullable": true,
@@ -16010,9 +15981,6 @@
                         },
                         "id": {
                           "type": "string"
-                        },
-                        "is_primary_scope": {
-                          "type": "boolean"
                         },
                         "pr_status": {
                           "type": "string"
@@ -16542,28 +16510,6 @@
                           "type": "string"
                         },
                         "kind": {
-                          "type": "string"
-                        },
-                        "mirror_count": {
-                          "type": "integer"
-                        },
-                        "mirror_last_error": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_machine_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_state": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "primary_repo_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "primary_repo_name": {
                           "type": "string"
                         },
                         "repo_count": {

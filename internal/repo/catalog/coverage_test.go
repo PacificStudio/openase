@@ -109,26 +109,24 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		AccessibleMachineIds:   []uuid.UUID{machineID},
 		MaxConcurrentAgents:    4,
 	}
-	projectRepo := &ent.ProjectRepo{
-		ID:               repoID,
-		ProjectID:        projectID,
-		Name:             "openase",
-		RepositoryURL:    "https://github.com/GrandCX/openase.git",
-		DefaultBranch:    "main",
-		WorkspaceDirname: stageWorkspaceDirname,
-		IsPrimary:        true,
-		Labels:           []string{"backend", "automation"},
-	}
+		projectRepo := &ent.ProjectRepo{
+			ID:               repoID,
+			ProjectID:        projectID,
+			Name:             "openase",
+			RepositoryURL:    "https://github.com/GrandCX/openase.git",
+			DefaultBranch:    "main",
+			WorkspaceDirname: stageWorkspaceDirname,
+			Labels:           []string{"backend", "automation"},
+		}
 	ticketRepoScope := &ent.TicketRepoScope{
 		ID:             uuid.New(),
 		TicketID:       ticketID,
 		RepoID:         repoID,
-		BranchName:     "fix/openase-278-coverage",
-		PullRequestURL: pullRequestURL,
-		PrStatus:       entticketreposcope.PrStatusOpen,
-		CiStatus:       entticketreposcope.CiStatusPassing,
-		IsPrimaryScope: true,
-	}
+			BranchName:     "fix/openase-278-coverage",
+			PullRequestURL: pullRequestURL,
+			PrStatus:       entticketreposcope.PrStatusOpen,
+			CiStatus:       entticketreposcope.CiStatusPassing,
+		}
 	machine := &ent.Machine{
 		ID:              machineID,
 		OrganizationID:  orgID,

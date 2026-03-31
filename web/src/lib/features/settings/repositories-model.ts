@@ -6,7 +6,6 @@ export type RepositoryDraft = {
   defaultBranch: string
   workspaceDirname: string
   labels: string
-  isPrimary: boolean
 }
 
 export type RepositoryMutationInput = {
@@ -15,7 +14,6 @@ export type RepositoryMutationInput = {
   default_branch: string
   workspace_dirname: string | null
   labels: string[]
-  is_primary: boolean
 }
 
 export type RepositoryDraftParseResult =
@@ -24,14 +22,13 @@ export type RepositoryDraftParseResult =
 
 export type RepositoryEditorMode = 'create' | 'edit'
 
-export function createEmptyRepositoryDraft(options: { isPrimary?: boolean } = {}): RepositoryDraft {
+export function createEmptyRepositoryDraft(): RepositoryDraft {
   return {
     name: '',
     repositoryURL: '',
     defaultBranch: 'main',
     workspaceDirname: '',
     labels: '',
-    isPrimary: options.isPrimary ?? false,
   }
 }
 
@@ -44,7 +41,6 @@ export function projectRepoToDraft(repo: ProjectRepoRecord): RepositoryDraft {
     defaultBranch: repo.default_branch || 'main',
     workspaceDirname: repo.workspace_dirname ?? '',
     labels: labels.join(', '),
-    isPrimary: repo.is_primary,
   }
 }
 
@@ -67,7 +63,6 @@ export function parseRepositoryDraft(draft: RepositoryDraft): RepositoryDraftPar
       default_branch: draft.defaultBranch.trim() || 'main',
       workspace_dirname: draft.workspaceDirname.trim() || null,
       labels: splitLabels(draft.labels),
-      is_primary: draft.isPrimary,
     },
   }
 }
@@ -75,11 +70,7 @@ export function parseRepositoryDraft(draft: RepositoryDraft): RepositoryDraftPar
 export function sortProjectRepos(repos: ProjectRepoRecord[]): ProjectRepoRecord[] {
   return repos
     .slice()
-    .sort(
-      (left, right) =>
-        Number(right.is_primary) - Number(left.is_primary) ||
-        left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
-    )
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }))
 }
 
 function splitLabels(raw: string): string[] {

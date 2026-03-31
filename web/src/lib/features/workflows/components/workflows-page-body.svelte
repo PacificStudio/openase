@@ -87,7 +87,6 @@
   <WorkflowsPageState
     {loading}
     {prerequisite}
-    {settingsHref}
     loadError={workflows.length === 0 ? loadError : ''}
   />
 {:else}

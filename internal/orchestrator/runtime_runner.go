@@ -851,7 +851,7 @@ func (l *RuntimeLauncher) autoHarvestCompletedSkills(
 		return nil
 	}
 
-	repoPath, err := l.resolveRuntimePrimaryRepoPath(ctx, runID)
+	repoPath, err := l.resolveRuntimeSingleRepoPath(ctx, runID)
 	if err != nil {
 		return err
 	}
@@ -869,7 +869,7 @@ func (l *RuntimeLauncher) autoHarvestCompletedSkills(
 	return err
 }
 
-func (l *RuntimeLauncher) resolveRuntimePrimaryRepoPath(ctx context.Context, runID uuid.UUID) (string, error) {
+func (l *RuntimeLauncher) resolveRuntimeSingleRepoPath(ctx context.Context, runID uuid.UUID) (string, error) {
 	items, err := l.client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
 		WithRepo().
@@ -879,12 +879,6 @@ func (l *RuntimeLauncher) resolveRuntimePrimaryRepoPath(ctx context.Context, run
 	}
 	if len(items) == 0 {
 		return "", nil
-	}
-
-	for _, item := range items {
-		if item.Edges.Repo != nil && item.Edges.Repo.IsPrimary {
-			return item.RepoPath, nil
-		}
 	}
 	if len(items) == 1 {
 		return items[0].RepoPath, nil

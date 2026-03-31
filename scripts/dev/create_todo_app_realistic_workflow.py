@@ -199,7 +199,7 @@ def require_workflow_repository_ready(base_url: str, project_id: str) -> dict:
         raise RuntimeError(f"workflow prerequisite returned an unexpected payload: {response!r}")
     if prerequisite.get("kind") != "ready":
         raise RuntimeError(
-            "project primary repository is not ready for workflows: "
+            "project workflow repository prerequisite is not ready: "
             + json.dumps(prerequisite, sort_keys=True)
         )
     return prerequisite
@@ -519,7 +519,7 @@ def build_validation_workflow_harness(project_name: str) -> str:
         - 当前项目名称：`{{{{ project.name }}}}`。
         - 当前 Workflow：`{{{{ workflow.name }}}}`（type=`{{{{ workflow.type }}}}`，pickup=`{{{{ workflow.pickup_status }}}}`，finish=`{{{{ workflow.finish_status }}}}`）。
         - 对这条 seeded coding workflow 来说，`{{{{ workflow.finish_status }}}}` 表示“代码已经提交并推送，关联 PR 已准备好进入 review”，不表示最终已经 merged。
-        - 这是一个用于 OpenASE 端到端验证的独立 {project_name} 仓库，不是 OpenASE 主仓库。
+        - 这是一个用于 OpenASE 端到端验证的独立 {project_name} 仓库，不是 OpenASE 平台仓库本体。
         - 目标是在一个轻量、无复杂构建步骤的前端仓库里完成真实编码任务，验证工单 -> workflow -> agent -> workspace 这条链路能稳定落地。
         - 默认期望保留当前“纯静态页面 + 原生 JavaScript + `node --test`”的轻量结构，除非当前工单明确要求，否则不要引入额外框架、打包器或重型依赖。
 
@@ -564,14 +564,14 @@ def build_validation_workflow_harness(project_name: str) -> str:
         {{% if repos %}}
         当前工单涉及以下仓库：
         {{% for repo in repos %}}
-        - `{{{{ repo.name }}}}`{{% if repo.is_primary %}} [primary]{{% endif %}}
+        - `{{{{ repo.name }}}}`
           path=`{{{{ repo.path }}}}`
           branch=`{{{{ repo.branch | default(repo.default_branch) }}}}`
           default_branch=`{{{{ repo.default_branch }}}}`
           labels=`{{{{ repo.labels | join(", ") | default("none") }}}}`
         {{% endfor %}}
         {{% else %}}
-        当前工单没有显式 repo scope；默认在当前工作区内按主仓库完成任务。
+        当前工单没有显式 repo scope；如果项目只有一个仓库，可直接使用该仓库；否则必须先明确 repo scope。
         {{% endif %}}
 
         执行目标：
@@ -597,7 +597,7 @@ def build_validation_workflow_harness(project_name: str) -> str:
         全局规则：
 
         1. 这是无人值守执行，不要等待人类额外输入。
-        2. 只在当前 Todo App 工作区及其相关仓库中修改文件，不要去改 OpenASE 主仓库。
+        2. 只在当前 Todo App 工作区及其相关仓库中修改文件，不要去改 OpenASE 仓库本体。
         3. 开工前先阅读与当前工单直接相关的文件，至少包括 `README.md`、`package.json`、`src/`、`test/`。
         4. 默认遵守现有技术路线：原生 HTML/CSS/JS、小而清晰的模块边界、最少依赖、无额外构建步骤。
         5. 保持实现面向真实用户体验：交互清晰、命名明确、结构可维护，不要只做能糊过测试的最小字符串修改。
@@ -714,7 +714,7 @@ def main() -> int:
         else:
             print("[3/12] skip GitHub Project and issue creation")
 
-        print("[4/12] using the fixed GitHub repository and a local seed clone for the project primary repo")
+        print("[4/12] using the fixed GitHub repository and a local seed clone for the project repo")
         print(f"repository={FIXED_GITHUB_REPO_URL}")
 
         print("[5/12] create isolated OpenASE organization and project")
@@ -791,7 +791,6 @@ def main() -> int:
                 "name": slugify(project_name),
                 "repository_url": github_repo_preparation["clone_url"],
                 "default_branch": github_repo_preparation["default_branch"],
-                "is_primary": True,
                 "labels": ["todo-app", "validation", "github"],
             },
         )["repo"]
@@ -803,7 +802,7 @@ def main() -> int:
             github_repo_preparation["repo_dir"],
         )
         if mirror.get("state") != "ready":
-            raise RuntimeError(f"registered primary mirror is not ready: {mirror!r}")
+            raise RuntimeError(f"registered project mirror is not ready: {mirror!r}")
         require_workflow_repository_ready(base_url, project["id"])
         workflow = request_json(
             base_url,
@@ -899,7 +898,6 @@ def main() -> int:
                     "pull_request_url": github_pr["url"],
                     "pr_status": "open",
                     "ci_status": "pending",
-                    "is_primary_scope": True,
                 },
             )
             request_json(

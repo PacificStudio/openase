@@ -664,7 +664,6 @@ var (
 		{Name: "repository_url", Type: field.TypeString},
 		{Name: "default_branch", Type: field.TypeString, Default: "main"},
 		{Name: "workspace_dirname", Type: field.TypeString, Default: ""},
-		{Name: "is_primary", Type: field.TypeBool, Default: false},
 		{Name: "labels", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "project_id", Type: field.TypeUUID},
 	}
@@ -676,7 +675,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "project_repos_projects_repos",
-				Columns:    []*schema.Column{ProjectReposColumns[7]},
+				Columns:    []*schema.Column{ProjectReposColumns[6]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -685,12 +684,12 @@ var (
 			{
 				Name:    "projectrepo_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{ProjectReposColumns[7], ProjectReposColumns[1]},
+				Columns: []*schema.Column{ProjectReposColumns[6], ProjectReposColumns[1]},
 			},
 			{
 				Name:    "projectrepo_labels",
 				Unique:  false,
-				Columns: []*schema.Column{ProjectReposColumns[6]},
+				Columns: []*schema.Column{ProjectReposColumns[5]},
 				Annotation: &entsql.IndexAnnotation{
 					Type: "GIN",
 				},
@@ -1050,7 +1049,6 @@ var (
 		{Name: "pull_request_url", Type: field.TypeString, Nullable: true},
 		{Name: "pr_status", Type: field.TypeEnum, Enums: []string{"none", "open", "changes_requested", "approved", "merged", "closed"}, Default: "none"},
 		{Name: "ci_status", Type: field.TypeEnum, Enums: []string{"pending", "passing", "failing"}, Default: "pending"},
-		{Name: "is_primary_scope", Type: field.TypeBool, Default: false},
 		{Name: "repo_id", Type: field.TypeUUID},
 		{Name: "ticket_id", Type: field.TypeUUID},
 	}
@@ -1062,13 +1060,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "ticket_repo_scopes_project_repos_ticket_scopes",
-				Columns:    []*schema.Column{TicketRepoScopesColumns[6]},
+				Columns:    []*schema.Column{TicketRepoScopesColumns[5]},
 				RefColumns: []*schema.Column{ProjectReposColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "ticket_repo_scopes_tickets_repo_scopes",
-				Columns:    []*schema.Column{TicketRepoScopesColumns[7]},
+				Columns:    []*schema.Column{TicketRepoScopesColumns[6]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1077,17 +1075,17 @@ var (
 			{
 				Name:    "ticketreposcope_ticket_id_repo_id",
 				Unique:  true,
-				Columns: []*schema.Column{TicketRepoScopesColumns[7], TicketRepoScopesColumns[6]},
+				Columns: []*schema.Column{TicketRepoScopesColumns[6], TicketRepoScopesColumns[5]},
 			},
 			{
 				Name:    "ticketreposcope_repo_id_branch_name",
 				Unique:  false,
-				Columns: []*schema.Column{TicketRepoScopesColumns[6], TicketRepoScopesColumns[1]},
+				Columns: []*schema.Column{TicketRepoScopesColumns[5], TicketRepoScopesColumns[1]},
 			},
 			{
 				Name:    "ticketreposcope_ticket_id",
 				Unique:  false,
-				Columns: []*schema.Column{TicketRepoScopesColumns[7]},
+				Columns: []*schema.Column{TicketRepoScopesColumns[6]},
 			},
 		},
 	}

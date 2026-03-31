@@ -21,13 +21,9 @@ export type RepositoryMirrorProjection = {
   action: RepositoryMirrorAction
 }
 
-export type PrimaryRepositoryReadiness =
-  | { kind: 'missing_primary_repo'; repoCount: number; action: 'bind_primary_repo' }
-  | ({
-      kind: 'ready' | 'primary_mirror_not_ready'
-      primaryRepoId: string
-      primaryRepoName: string
-    } & RepositoryMirrorProjection)
+export type RepositoryBindingsReadiness =
+  | { kind: 'missing_repo'; repoCount: number; action: 'add_repo' }
+  | { kind: 'ready'; repoCount: number }
 
 const knownMirrorStates = new Set<RepositoryMirrorState>([
   'missing',
@@ -53,26 +49,20 @@ export function projectRepoMirrorProjection(repo: ProjectRepoRecord): Repository
   }
 }
 
-export function derivePrimaryRepositoryReadiness(
+export function deriveRepositoryBindingsReadiness(
   repos: ProjectRepoRecord[],
-): PrimaryRepositoryReadiness {
-  const primaryRepo = repos.find((repo) => repo.is_primary)
-
-  if (!primaryRepo) {
+): RepositoryBindingsReadiness {
+  if (repos.length === 0) {
     return {
-      kind: 'missing_primary_repo',
-      repoCount: repos.length,
-      action: 'bind_primary_repo',
+      kind: 'missing_repo',
+      repoCount: 0,
+      action: 'add_repo',
     }
   }
 
-  const projection = projectRepoMirrorProjection(primaryRepo)
-
   return {
-    kind: projection.mirrorState === 'ready' ? 'ready' : 'primary_mirror_not_ready',
-    primaryRepoId: primaryRepo.id,
-    primaryRepoName: primaryRepo.name,
-    ...projection,
+    kind: 'ready',
+    repoCount: repos.length,
   }
 }
 

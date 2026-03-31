@@ -89,10 +89,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -232,11 +229,12 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "dev-01=") {
 		t.Fatalf("expected non-whitelisted machine to stay out of developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
-	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
-		t.Fatalf("expected built-in platform skill in primary repo: %v", err)
+	projectStorageRoot := filepath.Join(repoRoot, ".openase-projects", fixture.projectID.String())
+	if _, err := os.Stat(filepath.Join(projectStorageRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
+		t.Fatalf("expected built-in platform skill in repo workspace: %v", err)
 	}
 	// #nosec G304 -- test reads a fixture from the temp repo root created above.
-	repoSkillContent, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"))
+	repoSkillContent, err := os.ReadFile(filepath.Join(projectStorageRoot, ".openase", "skills", "openase-platform", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read repo platform skill: %v", err)
 	}
@@ -339,10 +337,7 @@ workflow:
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -492,10 +487,7 @@ Blocked lifecycle publish regression test.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -697,10 +689,7 @@ Launch starvation regression test.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -828,10 +817,7 @@ Blocked launch should time out cleanly.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1351,10 +1337,7 @@ Runtime reconcile test
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1468,10 +1451,7 @@ Implement the ticket using the current workspace.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1644,10 +1624,7 @@ Emit visible runtime output.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2185,10 +2162,7 @@ Handle a failing runtime turn.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2342,10 +2316,7 @@ Exercise successful ticket hook lifecycle.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2514,10 +2485,7 @@ Exercise failing ticket hook lifecycle.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2627,7 +2595,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetRepositoryURL("git@github.com:acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
@@ -2638,7 +2605,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		SetBranchName("agent/codex-01/ASE-401").
 		SetPrStatus("none").
 		SetCiStatus("pending").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket repo scope: %v", err)
 	}
@@ -2726,7 +2692,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
 	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
-		t.Fatalf("expected remote process to cd into primary repo workspace, got %q", processSession.startedCommand)
+		t.Fatalf("expected remote process to cd into the single scoped repo workspace, got %q", processSession.startedCommand)
 	}
 	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
 		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
@@ -2779,7 +2745,6 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 		SetRepositoryURL("git@github.com:acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
@@ -2790,7 +2755,6 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 		SetBranchName("agent/codex-01/ASE-401A").
 		SetPrStatus("none").
 		SetCiStatus("pending").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket repo scope: %v", err)
 	}
@@ -3055,7 +3019,6 @@ func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIs
 		SetRepositoryURL("https://github.com/GrandCX/openase.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("openase").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
@@ -3509,10 +3472,7 @@ func newRuntimeExecutionFixture(
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
+	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -3628,10 +3588,9 @@ func createRuntimeLauncherPrimaryRepo(
 		SetRepositoryURL(fmt.Sprintf("https://github.com/acme/%s.git", repoName)).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(repoName).
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create primary project repo: %v", err)
+		t.Fatalf("create project repo: %v", err)
 	}
 
 	project, err := client.Project.Get(ctx, projectID)
@@ -3654,6 +3613,91 @@ func createRuntimeLauncherPrimaryRepo(
 		SetState(entprojectrepomirror.StateReady).
 		Save(ctx); err != nil {
 		t.Fatalf("create ready project repo mirror: %v", err)
+	}
+}
+
+func newRuntimeLauncherWorkflowService(
+	t *testing.T,
+	client *ent.Client,
+	repoRoot string,
+	projectID uuid.UUID,
+) *workflowservice.Service {
+	t.Helper()
+
+	service, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+
+	projectStorageRoot := filepath.Join(repoRoot, ".openase-projects", projectID.String())
+
+	copyRuntimeLauncherDir(t, filepath.Join(repoRoot, ".openase"), filepath.Join(projectStorageRoot, ".openase"))
+	defaultHarnessPath := filepath.Join(projectStorageRoot, ".openase", "harnesses", "coding.md")
+	if _, statErr := os.Stat(defaultHarnessPath); os.IsNotExist(statErr) {
+		if err := os.MkdirAll(filepath.Dir(defaultHarnessPath), 0o750); err != nil {
+			t.Fatalf("create default harness dir: %v", err)
+		}
+		if err := os.WriteFile(defaultHarnessPath, []byte("---\nworkflow:\n  role: coding\n---\n\n# Coding\n"), 0o600); err != nil {
+			t.Fatalf("write default harness: %v", err)
+		}
+	} else if statErr != nil {
+		t.Fatalf("stat default harness: %v", statErr)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(projectStorageRoot, ".git")); os.IsNotExist(statErr) {
+		initRuntimeLauncherRepo(t, projectStorageRoot)
+		commitRuntimeLauncherRepo(t, projectStorageRoot)
+	} else if statErr != nil {
+		t.Fatalf("stat project storage git dir: %v", statErr)
+	} else {
+		runRuntimeLauncherGit(t, projectStorageRoot, "add", ".")
+		runRuntimeLauncherGit(t, projectStorageRoot, "commit", "--allow-empty", "-m", "Sync project storage")
+	}
+
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	return service
+}
+
+func copyRuntimeLauncherDir(t *testing.T, sourceRoot string, targetRoot string) {
+	t.Helper()
+
+	info, err := os.Stat(sourceRoot)
+	if os.IsNotExist(err) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("stat source dir %s: %v", sourceRoot, err)
+	}
+	if !info.IsDir() {
+		return
+	}
+	if err := filepath.Walk(sourceRoot, func(path string, entry os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relativePath, err := filepath.Rel(sourceRoot, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(targetRoot, relativePath)
+		if entry.IsDir() {
+			return os.MkdirAll(targetPath, 0o750)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o750); err != nil {
+			return err
+		}
+		return os.WriteFile(targetPath, data, 0o600)
+	}); err != nil {
+		t.Fatalf("copy %s to %s: %v", sourceRoot, targetRoot, err)
 	}
 }
 

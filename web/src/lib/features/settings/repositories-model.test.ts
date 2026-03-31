@@ -10,7 +10,6 @@ describe('repositories model', () => {
       name: 'TodoApp',
       repository_url: 'https://github.com/BetterAndBetterII/TodoApp.git',
       default_branch: 'main',
-      is_primary: true,
     } as unknown as Parameters<typeof projectRepoToDraft>[0])
 
     expect(draft).toMatchObject({
@@ -18,7 +17,6 @@ describe('repositories model', () => {
       repositoryURL: 'https://github.com/BetterAndBetterII/TodoApp.git',
       defaultBranch: 'main',
       labels: '',
-      isPrimary: true,
     })
   })
 })

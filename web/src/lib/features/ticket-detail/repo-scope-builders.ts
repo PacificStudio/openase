@@ -18,7 +18,6 @@ export function buildCreateRepoScopeMutation(
     pull_request_url: string | null
     pr_status?: string
     ci_status?: string
-    is_primary_scope: boolean
   }
   optimisticScope: TicketDetail['repoScopes'][number]
   successMessage: string
@@ -62,7 +61,6 @@ export function buildCreateRepoScopeMutation(
         pull_request_url: pullRequestUrl,
         pr_status: prStatus.value ?? undefined,
         ci_status: ciStatus.value ?? undefined,
-        is_primary_scope: draft.isPrimaryScope,
       },
       optimisticScope: {
         id: `pending-${repo.id}`,
@@ -72,7 +70,6 @@ export function buildCreateRepoScopeMutation(
         prUrl: pullRequestUrl ?? undefined,
         prStatus: prStatus.value ?? undefined,
         ciStatus: ciStatus.value ?? undefined,
-        isPrimaryScope: draft.isPrimaryScope,
       },
       successMessage: `Repo scope added for ${repo.name}.`,
     },
@@ -89,7 +86,6 @@ export function buildUpdateRepoScopeMutation(
     pull_request_url: string | null
     pr_status: string | null
     ci_status: string | null
-    is_primary_scope: boolean
   }
   optimisticUpdate: (ticket: TicketDetail) => TicketDetail
   successMessage: string
@@ -132,7 +128,6 @@ export function buildUpdateRepoScopeMutation(
         pull_request_url: pullRequestUrl,
         pr_status: prStatus.value,
         ci_status: ciStatus.value,
-        is_primary_scope: draft.isPrimaryScope,
       },
       optimisticUpdate: (ticket) => ({
         ...ticket,
@@ -145,7 +140,6 @@ export function buildUpdateRepoScopeMutation(
                   prUrl: pullRequestUrl ?? undefined,
                   prStatus: prStatus.value ?? undefined,
                   ciStatus: ciStatus.value ?? undefined,
-                  isPrimaryScope: draft.isPrimaryScope,
                 }
               : item,
           ),

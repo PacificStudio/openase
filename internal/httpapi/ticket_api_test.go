@@ -1108,7 +1108,6 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetName("backend").
 		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create backend repo: %v", err)
@@ -1118,7 +1117,6 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetName("frontend").
 		SetRepositoryURL("https://github.com/acme/frontend.git").
 		SetDefaultBranch("develop").
-		SetIsPrimary(false).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create frontend repo: %v", err)
@@ -1131,7 +1129,6 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetPullRequestURL("https://github.com/acme/frontend/pull/9").
 		SetPrStatus("open").
 		SetCiStatus("pending").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create frontend repo scope: %v", err)
 	}
@@ -1141,7 +1138,6 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetBranchName("main").
 		SetPrStatus("approved").
 		SetCiStatus("passing").
-		SetIsPrimaryScope(false).
 		Save(ctx); err != nil {
 		t.Fatalf("create backend repo scope: %v", err)
 	}
@@ -1309,11 +1305,19 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if len(payload.Ticket.ExternalLinks) != 1 || payload.Ticket.ExternalLinks[0].ExternalID != "acme/frontend#9" {
 		t.Fatalf("expected ticket detail to include external links, got %+v", payload.Ticket.ExternalLinks)
 	}
-	if len(payload.RepoScopes) != 2 || payload.RepoScopes[0].Repo == nil || payload.RepoScopes[0].Repo.Name != "frontend" {
+	if len(payload.RepoScopes) != 2 {
 		t.Fatalf("expected repo scopes with repo metadata, got %+v", payload.RepoScopes)
 	}
-	if payload.RepoScopes[0].PullRequestURL == nil || *payload.RepoScopes[0].PullRequestURL != "https://github.com/acme/frontend/pull/9" {
-		t.Fatalf("expected frontend pull request URL, got %+v", payload.RepoScopes[0])
+	repoScopesByName := map[string]ticketRepoScopeDetailResponse{}
+	for _, scope := range payload.RepoScopes {
+		if scope.Repo == nil {
+			t.Fatalf("expected repo scope metadata, got %+v", payload.RepoScopes)
+		}
+		repoScopesByName[scope.Repo.Name] = scope
+	}
+	frontendScope, ok := repoScopesByName["frontend"]
+	if !ok || frontendScope.PullRequestURL == nil || *frontendScope.PullRequestURL != "https://github.com/acme/frontend/pull/9" {
+		t.Fatalf("expected frontend pull request URL, got %+v", payload.RepoScopes)
 	}
 	if len(payload.Comments) != 1 || payload.Comments[0].CreatedBy != "user:product" || payload.Comments[0].EditCount != 1 || payload.Comments[0].EditedAt == nil {
 		t.Fatalf("expected ticket detail to include comments, got %+v", payload.Comments)

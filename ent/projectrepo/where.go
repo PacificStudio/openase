@@ -80,11 +80,6 @@ func WorkspaceDirname(v string) predicate.ProjectRepo {
 	return predicate.ProjectRepo(sql.FieldEQ(FieldWorkspaceDirname, v))
 }
 
-// IsPrimary applies equality check predicate on the "is_primary" field. It's identical to IsPrimaryEQ.
-func IsPrimary(v bool) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldEQ(FieldIsPrimary, v))
-}
-
 // Labels applies equality check predicate on the "labels" field. It's identical to LabelsEQ.
 func Labels(v pgarray.StringArray) predicate.ProjectRepo {
 	return predicate.ProjectRepo(sql.FieldEQ(FieldLabels, v))
@@ -368,16 +363,6 @@ func WorkspaceDirnameEqualFold(v string) predicate.ProjectRepo {
 // WorkspaceDirnameContainsFold applies the ContainsFold predicate on the "workspace_dirname" field.
 func WorkspaceDirnameContainsFold(v string) predicate.ProjectRepo {
 	return predicate.ProjectRepo(sql.FieldContainsFold(FieldWorkspaceDirname, v))
-}
-
-// IsPrimaryEQ applies the EQ predicate on the "is_primary" field.
-func IsPrimaryEQ(v bool) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldEQ(FieldIsPrimary, v))
-}
-
-// IsPrimaryNEQ applies the NEQ predicate on the "is_primary" field.
-func IsPrimaryNEQ(v bool) predicate.ProjectRepo {
-	return predicate.ProjectRepo(sql.FieldNEQ(FieldIsPrimary, v))
 }
 
 // LabelsEQ applies the EQ predicate on the "labels" field.

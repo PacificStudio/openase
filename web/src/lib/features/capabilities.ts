@@ -94,7 +94,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   repositoriesSettings: {
     state: 'available',
     summary:
-      'Repository settings now wire project repo list/create/update/delete flows and primary repo management to the existing catalog API.',
+      'Repository settings now wire project repo list/create/update/delete flows to the existing catalog API.',
   },
   skillsSettings: {
     state: 'available',

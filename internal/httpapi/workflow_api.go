@@ -48,15 +48,9 @@ type workflowRepositoryPrerequisiteResponse struct {
 }
 
 type workflowRepositoryPrerequisite struct {
-	Kind            string  `json:"kind"`
-	RepoCount       int     `json:"repo_count"`
-	PrimaryRepoID   *string `json:"primary_repo_id,omitempty"`
-	PrimaryRepoName string  `json:"primary_repo_name,omitempty"`
-	MirrorCount     int     `json:"mirror_count"`
-	MirrorState     *string `json:"mirror_state,omitempty"`
-	MirrorMachineID *string `json:"mirror_machine_id,omitempty"`
-	MirrorLastError *string `json:"mirror_last_error,omitempty"`
-	Action          string  `json:"action"`
+	Kind      string `json:"kind"`
+	RepoCount int    `json:"repo_count"`
+	Action    string `json:"action"`
 }
 
 func (s *Server) registerWorkflowRoutes(api *echo.Group) {
@@ -282,38 +276,11 @@ func (s *Server) handleListHarnessVariables(c echo.Context) error {
 }
 
 func writeWorkflowError(c echo.Context, err error) error {
-	var prerequisiteErr *workflowservice.WorkflowRepositoryPrerequisiteError
-	if errors.As(err, &prerequisiteErr) {
-		prerequisite := mapWorkflowRepositoryPrerequisite(prerequisiteErr.Prerequisite())
-		switch {
-		case errors.Is(err, workflowservice.ErrPrimaryRepoRequired):
-			return writeAPIErrorWithDetails(
-				c,
-				http.StatusConflict,
-				"PRIMARY_REPO_REQUIRED",
-				err.Error(),
-				map[string]any{"prerequisite": prerequisite},
-			)
-		case errors.Is(err, workflowservice.ErrPrimaryMirrorNotReady):
-			return writeAPIErrorWithDetails(
-				c,
-				http.StatusConflict,
-				"PRIMARY_MIRROR_NOT_READY",
-				err.Error(),
-				map[string]any{"prerequisite": prerequisite},
-			)
-		}
-	}
-
 	switch {
 	case errors.Is(err, workflowservice.ErrUnavailable):
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
 	case errors.Is(err, workflowservice.ErrProjectNotFound):
 		return writeAPIError(c, http.StatusNotFound, "PROJECT_NOT_FOUND", err.Error())
-	case errors.Is(err, workflowservice.ErrPrimaryRepoRequired):
-		return writeAPIError(c, http.StatusConflict, "PRIMARY_REPO_REQUIRED", err.Error())
-	case errors.Is(err, workflowservice.ErrPrimaryMirrorNotReady):
-		return writeAPIError(c, http.StatusConflict, "PRIMARY_MIRROR_NOT_READY", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowNotFound):
 		return writeAPIError(c, http.StatusNotFound, "WORKFLOW_NOT_FOUND", err.Error())
 	case errors.Is(err, workflowservice.ErrStatusNotFound):
@@ -340,27 +307,11 @@ func writeWorkflowError(c echo.Context, err error) error {
 }
 
 func mapWorkflowRepositoryPrerequisite(item workflowservice.WorkflowRepositoryPrerequisite) workflowRepositoryPrerequisite {
-	response := workflowRepositoryPrerequisite{
-		Kind:            string(item.Kind),
-		RepoCount:       item.RepoCount,
-		PrimaryRepoName: item.PrimaryRepoName,
-		MirrorCount:     item.MirrorCount,
-		Action:          string(item.Action),
-		MirrorLastError: cloneStringPointerValue(item.MirrorLastError),
+	return workflowRepositoryPrerequisite{
+		Kind:      string(item.Kind),
+		RepoCount: item.RepoCount,
+		Action:    string(item.Action),
 	}
-	if item.PrimaryRepoID != nil {
-		value := item.PrimaryRepoID.String()
-		response.PrimaryRepoID = &value
-	}
-	if item.MirrorState != nil {
-		value := item.MirrorState.String()
-		response.MirrorState = &value
-	}
-	if item.MirrorMachineID != nil {
-		value := item.MirrorMachineID.String()
-		response.MirrorMachineID = &value
-	}
-	return response
 }
 
 func mapWorkflowResponses(items []workflowservice.Workflow) []workflowResponse {

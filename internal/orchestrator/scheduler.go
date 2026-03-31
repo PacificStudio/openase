@@ -38,6 +38,7 @@ const (
 	skipReasonProviderStale       = "provider_stale"
 	skipReasonProviderBusy        = "provider_busy"
 	skipReasonMirrorNotReady      = "mirror_not_ready"
+	skipReasonRepoScopeRequired   = "repo_scope_required"
 	skipReasonMaxConcurrency      = "max_concurrency"
 	skipReasonStatusCapacity      = "status_capacity"
 )
@@ -243,16 +244,16 @@ func (s *Scheduler) requiredRepoMirrorsReady(
 
 	ticketScopes, err := s.client.TicketRepoScope.Query().
 		Where(entticketreposcope.TicketIDEQ(ticketID)).
-		Order(
-			entticketreposcope.ByIsPrimaryScope(),
-			entticketreposcope.ByRepoID(),
-		).
+		Order(entticketreposcope.ByRepoID(), entticketreposcope.ByID()).
 		All(ctx)
 	if err != nil {
 		return false, "", fmt.Errorf("list ticket repo scopes: %w", err)
 	}
 
 	if _, err := buildWorkspaceRepoPlans(projectRepos, ticketScopes, machineID); err != nil {
+		if errors.Is(err, errExplicitRepoScopeRequired) {
+			return false, skipReasonRepoScopeRequired, nil
+		}
 		if errors.Is(err, errNoReadyMirrorForMachine) {
 			return false, skipReasonMirrorNotReady, nil
 		}

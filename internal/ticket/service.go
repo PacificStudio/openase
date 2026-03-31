@@ -22,6 +22,7 @@ import (
 	entticketcommentrevision "github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
+	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
@@ -43,6 +44,8 @@ var (
 	// Ticket service errors describe invalid or missing ticket resources.
 	ErrUnavailable           = errors.New("ticket service unavailable")
 	ErrProjectNotFound       = errors.New("project not found")
+	ErrProjectRepoNotFound   = errors.New("project repo not found")
+	ErrRepoScopeRequired     = errors.New("explicit repo scope is required when a project has multiple repos")
 	ErrTicketNotFound        = errors.New("ticket not found")
 	ErrTicketConflict        = errors.New("ticket identifier already exists in project")
 	ErrStatusNotFound        = errors.New("ticket status not found")
@@ -180,6 +183,12 @@ type CreateInput struct {
 	ParentTicketID  *uuid.UUID
 	ExternalRef     string
 	BudgetUSD       float64
+	RepoScopes      []CreateRepoScopeInput
+}
+
+type CreateRepoScopeInput struct {
+	RepoID     uuid.UUID
+	BranchName *string
 }
 
 // UpdateInput carries a partial ticket update request.
@@ -568,12 +577,79 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error)
 			return Ticket{}, err
 		}
 	}
+	if err := s.createTicketRepoScopes(ctx, tx, created.ProjectID, created.ID, input.RepoScopes); err != nil {
+		return Ticket{}, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return Ticket{}, fmt.Errorf("commit ticket create tx: %w", err)
 	}
 
 	return s.Get(ctx, created.ID)
+}
+
+func (s *Service) createTicketRepoScopes(
+	ctx context.Context,
+	tx *ent.Tx,
+	projectID uuid.UUID,
+	ticketID uuid.UUID,
+	requested []CreateRepoScopeInput,
+) error {
+	projectRepos, err := tx.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectID(projectID)).
+		Order(entprojectrepo.ByName(), entprojectrepo.ByID()).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("list project repos for ticket create: %w", err)
+	}
+
+	repoByID := make(map[uuid.UUID]*ent.ProjectRepo, len(projectRepos))
+	for _, repo := range projectRepos {
+		repoByID[repo.ID] = repo
+	}
+
+	if len(requested) == 0 {
+		if len(projectRepos) <= 1 {
+			if len(projectRepos) == 0 {
+				return nil
+			}
+			requested = []CreateRepoScopeInput{{RepoID: projectRepos[0].ID}}
+		} else {
+			return ErrRepoScopeRequired
+		}
+	}
+
+	seenRepoIDs := make(map[uuid.UUID]struct{}, len(requested))
+	for _, scope := range requested {
+		repo := repoByID[scope.RepoID]
+		if repo == nil {
+			return ErrProjectRepoNotFound
+		}
+		if _, duplicate := seenRepoIDs[scope.RepoID]; duplicate {
+			return fmt.Errorf("repo_scopes must not contain duplicate repo_id values")
+		}
+		seenRepoIDs[scope.RepoID] = struct{}{}
+
+		branchName := strings.TrimSpace(repo.DefaultBranch)
+		if scope.BranchName != nil {
+			branchName = strings.TrimSpace(*scope.BranchName)
+		}
+		if branchName == "" {
+			branchName = "main"
+		}
+
+		if _, err := tx.TicketRepoScope.Create().
+			SetTicketID(ticketID).
+			SetRepoID(scope.RepoID).
+			SetBranchName(branchName).
+			SetPrStatus(entticketreposcope.PrStatusNone).
+			SetCiStatus(entticketreposcope.CiStatusPending).
+			Save(ctx); err != nil {
+			return s.mapTicketWriteError("create ticket repo scope", err)
+		}
+	}
+
+	return nil
 }
 
 // Update applies a partial update to an existing ticket.

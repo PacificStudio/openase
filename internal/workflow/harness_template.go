@@ -150,7 +150,6 @@ type HarnessRepoData struct {
 	Branch        string
 	DefaultBranch string
 	Labels        []string
-	IsPrimary     bool
 }
 
 type HarnessAgentData struct {
@@ -489,7 +488,6 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "repos[].branch", Type: "string", Description: "当前工作分支", Example: "agent/claude-01/ASE-42"},
 				{Path: "repos[].default_branch", Type: "string", Description: "仓库默认分支", Example: "main"},
 				{Path: "repos[].labels", Type: "list", Description: "仓库标签", Example: "[\"go\", \"backend\", \"api\"]"},
-				{Path: "repos[].is_primary", Type: "bool", Description: "是否主仓库", Example: "true"},
 				{Path: "all_repos", Type: "list", Description: "项目下的全部仓库"},
 			},
 		},
@@ -644,7 +642,6 @@ func mapHarnessScopedRepos(scopes []*ent.TicketRepoScope, workspace string) ([]H
 			Branch:        scope.BranchName,
 			DefaultBranch: repo.DefaultBranch,
 			Labels:        append([]string(nil), repo.Labels...),
-			IsPrimary:     repo.IsPrimary,
 		})
 	}
 	return repos, branches
@@ -664,7 +661,6 @@ func mapHarnessAllRepos(repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]s
 			Branch:        branch,
 			DefaultBranch: repo.DefaultBranch,
 			Labels:        append([]string(nil), repo.Labels...),
-			IsPrimary:     repo.IsPrimary,
 		})
 	}
 	return items
@@ -911,11 +907,6 @@ func normalizePlatformData(input HarnessPlatformData, projectID uuid.UUID, ticke
 
 func deriveDefaultBranch(repos []*ent.ProjectRepo) string {
 	for _, repo := range repos {
-		if repo.IsPrimary && strings.TrimSpace(repo.DefaultBranch) != "" {
-			return repo.DefaultBranch
-		}
-	}
-	for _, repo := range repos {
 		if strings.TrimSpace(repo.DefaultBranch) != "" {
 			return repo.DefaultBranch
 		}
@@ -1036,7 +1027,6 @@ func repoMaps(items []HarnessRepoData) []map[string]any {
 			"branch":         item.Branch,
 			"default_branch": item.DefaultBranch,
 			"labels":         append([]string(nil), item.Labels...),
-			"is_primary":     item.IsPrimary,
 		})
 	}
 	return result

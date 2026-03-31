@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	entsql "entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -260,7 +259,7 @@ func (r *EntRepository) ListProjectRepos(ctx context.Context, projectID uuid.UUI
 
 	items, err := r.client.ProjectRepo.Query().
 		Where(entprojectrepo.ProjectID(projectID)).
-		Order(entprojectrepo.ByIsPrimary(entsql.OrderDesc()), entprojectrepo.ByName()).
+		Order(entprojectrepo.ByName(), entprojectrepo.ByID()).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list project repos: %w", err)
@@ -286,30 +285,12 @@ func (r *EntRepository) CreateProjectRepo(ctx context.Context, input domain.Crea
 		return domain.ProjectRepo{}, ErrNotFound
 	}
 
-	repoCount, err := tx.ProjectRepo.Query().
-		Where(entprojectrepo.ProjectID(input.ProjectID)).
-		Count(ctx)
-	if err != nil {
-		return domain.ProjectRepo{}, fmt.Errorf("count project repos before create: %w", err)
-	}
-
-	makePrimary := repoCount == 0
-	if input.RequestedPrimary != nil {
-		makePrimary = *input.RequestedPrimary || repoCount == 0
-	}
-	if makePrimary {
-		if err := clearPrimaryRepo(ctx, tx, input.ProjectID); err != nil {
-			return domain.ProjectRepo{}, err
-		}
-	}
-
 	builder := tx.ProjectRepo.Create().
 		SetProjectID(input.ProjectID).
 		SetName(input.Name).
 		SetRepositoryURL(input.RepositoryURL).
 		SetDefaultBranch(input.DefaultBranch).
-		SetWorkspaceDirname(input.WorkspaceDirname).
-		SetIsPrimary(makePrimary)
+		SetWorkspaceDirname(input.WorkspaceDirname)
 	if len(input.Labels) > 0 {
 		builder.SetLabels(pgarray.StringArray(input.Labels))
 	}
@@ -344,26 +325,17 @@ func (r *EntRepository) UpdateProjectRepo(ctx context.Context, input domain.Upda
 	}
 	defer rollbackOnError(ctx, tx, &err)
 
-	current, err := tx.ProjectRepo.Query().
+	if _, err := tx.ProjectRepo.Query().
 		Where(entprojectrepo.ID(input.ID), entprojectrepo.ProjectID(input.ProjectID)).
-		Only(ctx)
-	if err != nil {
+		Only(ctx); err != nil {
 		return domain.ProjectRepo{}, mapReadError("get project repo for update", err)
-	}
-
-	makePrimary := input.IsPrimary
-	if makePrimary {
-		if err := clearPrimaryRepo(ctx, tx, input.ProjectID, input.ID); err != nil {
-			return domain.ProjectRepo{}, err
-		}
 	}
 
 	builder := tx.ProjectRepo.UpdateOneID(input.ID).
 		SetName(input.Name).
 		SetRepositoryURL(input.RepositoryURL).
 		SetDefaultBranch(input.DefaultBranch).
-		SetWorkspaceDirname(input.WorkspaceDirname).
-		SetIsPrimary(makePrimary)
+		SetWorkspaceDirname(input.WorkspaceDirname)
 	if len(input.Labels) > 0 {
 		builder.SetLabels(pgarray.StringArray(input.Labels))
 	} else {
@@ -373,16 +345,6 @@ func (r *EntRepository) UpdateProjectRepo(ctx context.Context, input domain.Upda
 	item, err := builder.Save(ctx)
 	if err != nil {
 		return domain.ProjectRepo{}, mapWriteError("update project repo", err)
-	}
-
-	if current.IsPrimary && !item.IsPrimary {
-		if err := ensureProjectPrimaryRepo(ctx, tx, input.ProjectID, item.ID); err != nil {
-			return domain.ProjectRepo{}, err
-		}
-		item, err = tx.ProjectRepo.Get(ctx, item.ID)
-		if err != nil {
-			return domain.ProjectRepo{}, mapReadError("reload project repo after update", err)
-		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -411,12 +373,6 @@ func (r *EntRepository) DeleteProjectRepo(ctx context.Context, projectID uuid.UU
 		return domain.ProjectRepo{}, mapWriteError("delete project repo", err)
 	}
 
-	if item.IsPrimary {
-		if err := ensureProjectPrimaryRepo(ctx, tx, projectID); err != nil {
-			return domain.ProjectRepo{}, err
-		}
-	}
-
 	if err := tx.Commit(); err != nil {
 		return domain.ProjectRepo{}, fmt.Errorf("commit delete project repo: %w", err)
 	}
@@ -438,7 +394,6 @@ func (r *EntRepository) ListTicketRepoScopes(ctx context.Context, projectID uuid
 	items, err := r.client.TicketRepoScope.Query().
 		Where(entticketreposcope.TicketID(ticketID)).
 		Order(
-			entticketreposcope.ByIsPrimaryScope(entsql.OrderDesc()),
 			entticketreposcope.ByRepoField(entprojectrepo.FieldName),
 			entticketreposcope.ByID(),
 		).
@@ -471,23 +426,6 @@ func (r *EntRepository) CreateTicketRepoScope(ctx context.Context, input domain.
 		return domain.TicketRepoScope{}, mapReadError("get project repo for repo scope create", err)
 	}
 
-	scopeCount, err := tx.TicketRepoScope.Query().
-		Where(entticketreposcope.TicketID(input.TicketID)).
-		Count(ctx)
-	if err != nil {
-		return domain.TicketRepoScope{}, fmt.Errorf("count ticket repo scopes before create: %w", err)
-	}
-
-	makePrimary := scopeCount == 0
-	if input.RequestedPrimary != nil {
-		makePrimary = *input.RequestedPrimary || scopeCount == 0
-	}
-	if makePrimary {
-		if err := clearPrimaryTicketRepoScope(ctx, tx, input.TicketID); err != nil {
-			return domain.TicketRepoScope{}, err
-		}
-	}
-
 	branchName := repoItem.DefaultBranch
 	if input.BranchName != nil {
 		branchName = *input.BranchName
@@ -498,8 +436,7 @@ func (r *EntRepository) CreateTicketRepoScope(ctx context.Context, input domain.
 		SetRepoID(input.RepoID).
 		SetBranchName(branchName).
 		SetPrStatus(toEntTicketRepoScopePRStatus(input.PrStatus)).
-		SetCiStatus(toEntTicketRepoScopeCIStatus(input.CiStatus)).
-		SetIsPrimaryScope(makePrimary)
+		SetCiStatus(toEntTicketRepoScopeCIStatus(input.CiStatus))
 	if input.PullRequestURL != nil {
 		builder.SetPullRequestURL(*input.PullRequestURL)
 	}
@@ -549,13 +486,6 @@ func (r *EntRepository) UpdateTicketRepoScope(ctx context.Context, input domain.
 		return domain.TicketRepoScope{}, mapReadError("get ticket repo scope for update", err)
 	}
 
-	makePrimary := input.IsPrimaryScope
-	if makePrimary {
-		if err := clearPrimaryTicketRepoScope(ctx, tx, input.TicketID, input.ID); err != nil {
-			return domain.TicketRepoScope{}, err
-		}
-	}
-
 	branchName := current.BranchName
 	if input.BranchName != nil {
 		branchName = *input.BranchName
@@ -564,8 +494,7 @@ func (r *EntRepository) UpdateTicketRepoScope(ctx context.Context, input domain.
 	builder := tx.TicketRepoScope.UpdateOneID(input.ID).
 		SetBranchName(branchName).
 		SetPrStatus(toEntTicketRepoScopePRStatus(input.PrStatus)).
-		SetCiStatus(toEntTicketRepoScopeCIStatus(input.CiStatus)).
-		SetIsPrimaryScope(makePrimary)
+		SetCiStatus(toEntTicketRepoScopeCIStatus(input.CiStatus))
 	if input.PullRequestURL != nil {
 		builder.SetPullRequestURL(*input.PullRequestURL)
 	} else {
@@ -575,16 +504,6 @@ func (r *EntRepository) UpdateTicketRepoScope(ctx context.Context, input domain.
 	item, err := builder.Save(ctx)
 	if err != nil {
 		return domain.TicketRepoScope{}, mapWriteError("update ticket repo scope", err)
-	}
-
-	if current.IsPrimaryScope && !item.IsPrimaryScope {
-		if err := ensureTicketPrimaryRepoScope(ctx, tx, input.TicketID, item.ID); err != nil {
-			return domain.TicketRepoScope{}, err
-		}
-		item, err = tx.TicketRepoScope.Get(ctx, item.ID)
-		if err != nil {
-			return domain.TicketRepoScope{}, mapReadError("reload ticket repo scope after update", err)
-		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -615,12 +534,6 @@ func (r *EntRepository) DeleteTicketRepoScope(ctx context.Context, projectID uui
 	deleted := mapTicketRepoScope(item)
 	if err := tx.TicketRepoScope.DeleteOne(item).Exec(ctx); err != nil {
 		return domain.TicketRepoScope{}, mapWriteError("delete ticket repo scope", err)
-	}
-
-	if item.IsPrimaryScope {
-		if err := ensureTicketPrimaryRepoScope(ctx, tx, ticketID); err != nil {
-			return domain.TicketRepoScope{}, err
-		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -720,26 +633,6 @@ func rollbackOnError(_ context.Context, tx *ent.Tx, errp *error) {
 	_ = tx.Rollback()
 }
 
-func clearPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, excludeIDs ...uuid.UUID) error {
-	predicates := make([]predicate.ProjectRepo, 0, 2+len(excludeIDs))
-	predicates = append(predicates,
-		entprojectrepo.ProjectID(projectID),
-		entprojectrepo.IsPrimary(true),
-	)
-	for _, id := range excludeIDs {
-		predicates = append(predicates, entprojectrepo.IDNEQ(id))
-	}
-
-	if _, err := tx.ProjectRepo.Update().
-		Where(predicates...).
-		SetIsPrimary(false).
-		Save(ctx); err != nil {
-		return fmt.Errorf("clear primary project repo: %w", err)
-	}
-
-	return nil
-}
-
 func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID uuid.UUID, machineID uuid.UUID) error {
 	for _, template := range domain.BuiltinAgentProviderTemplates() {
 		builder := tx.AgentProvider.Create().
@@ -754,126 +647,6 @@ func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID
 		if _, err := builder.Save(ctx); err != nil {
 			return mapWriteError("create builtin agent provider", err)
 		}
-	}
-
-	return nil
-}
-
-func ensureProjectPrimaryRepo(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, excludeIDs ...uuid.UUID) error {
-	exists, err := tx.ProjectRepo.Query().
-		Where(entprojectrepo.ProjectID(projectID), entprojectrepo.IsPrimary(true)).
-		Exist(ctx)
-	if err != nil {
-		return fmt.Errorf("check primary project repo: %w", err)
-	}
-	if exists {
-		return nil
-	}
-
-	predicates := []predicate.ProjectRepo{
-		entprojectrepo.ProjectID(projectID),
-	}
-	for _, id := range excludeIDs {
-		predicates = append(predicates, entprojectrepo.IDNEQ(id))
-	}
-
-	fallback, err := tx.ProjectRepo.Query().
-		Where(predicates...).
-		Order(entprojectrepo.ByName(), entprojectrepo.ByID()).
-		First(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			if len(excludeIDs) == 0 {
-				return nil
-			}
-
-			fallback, err = tx.ProjectRepo.Query().
-				Where(entprojectrepo.ProjectID(projectID)).
-				Order(entprojectrepo.ByName(), entprojectrepo.ByID()).
-				First(ctx)
-			if err != nil {
-				if ent.IsNotFound(err) {
-					return nil
-				}
-				return fmt.Errorf("select fallback primary project repo: %w", err)
-			}
-		} else {
-			return fmt.Errorf("select fallback primary project repo: %w", err)
-		}
-	}
-
-	if err := tx.ProjectRepo.UpdateOneID(fallback.ID).SetIsPrimary(true).Exec(ctx); err != nil {
-		return fmt.Errorf("promote fallback primary project repo: %w", err)
-	}
-
-	return nil
-}
-
-func clearPrimaryTicketRepoScope(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID, excludeIDs ...uuid.UUID) error {
-	predicates := make([]predicate.TicketRepoScope, 0, 2+len(excludeIDs))
-	predicates = append(predicates,
-		entticketreposcope.TicketID(ticketID),
-		entticketreposcope.IsPrimaryScope(true),
-	)
-	for _, id := range excludeIDs {
-		predicates = append(predicates, entticketreposcope.IDNEQ(id))
-	}
-
-	if _, err := tx.TicketRepoScope.Update().
-		Where(predicates...).
-		SetIsPrimaryScope(false).
-		Save(ctx); err != nil {
-		return fmt.Errorf("clear primary ticket repo scope: %w", err)
-	}
-
-	return nil
-}
-
-func ensureTicketPrimaryRepoScope(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID, excludeIDs ...uuid.UUID) error {
-	exists, err := tx.TicketRepoScope.Query().
-		Where(entticketreposcope.TicketID(ticketID), entticketreposcope.IsPrimaryScope(true)).
-		Exist(ctx)
-	if err != nil {
-		return fmt.Errorf("check primary ticket repo scope: %w", err)
-	}
-	if exists {
-		return nil
-	}
-
-	predicates := []predicate.TicketRepoScope{
-		entticketreposcope.TicketID(ticketID),
-	}
-	for _, id := range excludeIDs {
-		predicates = append(predicates, entticketreposcope.IDNEQ(id))
-	}
-
-	fallback, err := tx.TicketRepoScope.Query().
-		Where(predicates...).
-		Order(entticketreposcope.ByRepoField(entprojectrepo.FieldName), entticketreposcope.ByID()).
-		First(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			if len(excludeIDs) == 0 {
-				return nil
-			}
-
-			fallback, err = tx.TicketRepoScope.Query().
-				Where(entticketreposcope.TicketID(ticketID)).
-				Order(entticketreposcope.ByRepoField(entprojectrepo.FieldName), entticketreposcope.ByID()).
-				First(ctx)
-			if err != nil {
-				if ent.IsNotFound(err) {
-					return nil
-				}
-				return fmt.Errorf("select fallback primary ticket repo scope: %w", err)
-			}
-		} else {
-			return fmt.Errorf("select fallback primary ticket repo scope: %w", err)
-		}
-	}
-
-	if err := tx.TicketRepoScope.UpdateOneID(fallback.ID).SetIsPrimaryScope(true).Exec(ctx); err != nil {
-		return fmt.Errorf("promote fallback primary ticket repo scope: %w", err)
 	}
 
 	return nil
@@ -896,7 +669,6 @@ func mapProjectRepo(item *ent.ProjectRepo) domain.ProjectRepo {
 		RepositoryURL:    item.RepositoryURL,
 		DefaultBranch:    item.DefaultBranch,
 		WorkspaceDirname: item.WorkspaceDirname,
-		IsPrimary:        item.IsPrimary,
 		Labels:           append([]string(nil), item.Labels...),
 	}
 }
@@ -919,7 +691,6 @@ func mapTicketRepoScope(item *ent.TicketRepoScope) domain.TicketRepoScope {
 		PullRequestURL: optionalString(item.PullRequestURL),
 		PrStatus:       toDomainTicketRepoScopePRStatus(item.PrStatus),
 		CiStatus:       toDomainTicketRepoScopeCIStatus(item.CiStatus),
-		IsPrimaryScope: item.IsPrimaryScope,
 	}
 }
 

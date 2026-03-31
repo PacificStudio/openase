@@ -343,10 +343,6 @@ func init() {
 	projectrepoDescWorkspaceDirname := projectrepoFields[5].Descriptor()
 	// projectrepo.DefaultWorkspaceDirname holds the default value on creation for the workspace_dirname field.
 	projectrepo.DefaultWorkspaceDirname = projectrepoDescWorkspaceDirname.Default.(string)
-	// projectrepoDescIsPrimary is the schema descriptor for is_primary field.
-	projectrepoDescIsPrimary := projectrepoFields[6].Descriptor()
-	// projectrepo.DefaultIsPrimary holds the default value on creation for the is_primary field.
-	projectrepo.DefaultIsPrimary = projectrepoDescIsPrimary.Default.(bool)
 	// projectrepoDescID is the schema descriptor for id field.
 	projectrepoDescID := projectrepoFields[0].Descriptor()
 	// projectrepo.DefaultID holds the default value on creation for the id field.
@@ -539,10 +535,6 @@ func init() {
 	ticketreposcopeDescBranchName := ticketreposcopeFields[3].Descriptor()
 	// ticketreposcope.BranchNameValidator is a validator for the "branch_name" field. It is called by the builders before save.
 	ticketreposcope.BranchNameValidator = ticketreposcopeDescBranchName.Validators[0].(func(string) error)
-	// ticketreposcopeDescIsPrimaryScope is the schema descriptor for is_primary_scope field.
-	ticketreposcopeDescIsPrimaryScope := ticketreposcopeFields[7].Descriptor()
-	// ticketreposcope.DefaultIsPrimaryScope holds the default value on creation for the is_primary_scope field.
-	ticketreposcope.DefaultIsPrimaryScope = ticketreposcopeDescIsPrimaryScope.Default.(bool)
 	// ticketreposcopeDescID is the schema descriptor for id field.
 	ticketreposcopeDescID := ticketreposcopeFields[0].Descriptor()
 	// ticketreposcope.DefaultID holds the default value on creation for the id field.

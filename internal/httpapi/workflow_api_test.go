@@ -88,6 +88,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 	createPrimaryProjectRepoWithMirror(ctx, t, client, project.ID, localMachine.ID, primaryRepoRoot)
+	projectStorageRoot := projectStorageRootForTest(serviceRepoRoot, project.ID)
 
 	statusSvc := ticketstatus.NewService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
@@ -96,8 +97,8 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
-	activateMarkerPath := filepath.Join(primaryRepoRoot, "activate.marker")
-	reloadMarkerPath := filepath.Join(primaryRepoRoot, "reload.marker")
+	activateMarkerPath := filepath.Join(projectStorageRoot, "activate.marker")
+	reloadMarkerPath := filepath.Join(projectStorageRoot, "reload.marker")
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
 		SetMachineID(localMachine.ID).
@@ -157,7 +158,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		t.Fatalf("expected harness content in create response, got %+v", createResp.Workflow)
 	}
 	if createResp.Workflow.HarnessPath != ".openase/harnesses/coding-workflow.md" {
-		t.Fatalf("expected default harness path under primary repo root, got %q", createResp.Workflow.HarnessPath)
+		t.Fatalf("expected default harness path under project storage root, got %q", createResp.Workflow.HarnessPath)
 	}
 	//nolint:gosec // test reads files from a controlled temp repository
 	activateMarker, err := os.ReadFile(activateMarkerPath)
@@ -168,7 +169,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		t.Fatalf("expected activate marker to capture workflow context, got %q", string(activateMarker))
 	}
 
-	harnessAbsPath := filepath.Join(primaryRepoRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))
+	harnessAbsPath := filepath.Join(projectStorageRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))
 	//nolint:gosec // test reads files from a controlled temp repository
 	fileContent, err := os.ReadFile(harnessAbsPath)
 	if err != nil {
@@ -359,7 +360,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	}
 }
 
-func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.T) {
+func TestWorkflowRepositoryPrerequisiteRouteAndWorkflowCreateNoLongerDependOnMirrorReadiness(t *testing.T) {
 	client := openTestEntClient(t)
 	serviceRepoRoot := createTestGitRepo(t)
 	primaryRepoRoot := createTestGitRepo(t)
@@ -446,9 +447,8 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		SetRepositoryURL("https://github.com/acme/mirror-pending.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(filepath.Base(mirrorPendingRepoRoot)).
-		SetIsPrimary(true).
 		Save(ctx); err != nil {
-		t.Fatalf("create primary repo without mirror: %v", err)
+		t.Fatalf("create project repo without mirror: %v", err)
 	}
 	missingMirrorRepo, err := client.ProjectRepo.Create().
 		SetProjectID(projectWithMissingMirrorRecord.ID).
@@ -456,10 +456,9 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		SetRepositoryURL("https://github.com/GrandCX/private-repo.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("private-repo").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create primary repo with missing mirror record: %v", err)
+		t.Fatalf("create project repo with missing mirror record: %v", err)
 	}
 	if _, err := client.ProjectRepoMirror.Create().
 		SetProjectRepoID(missingMirrorRepo.ID).
@@ -507,7 +506,7 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		http.StatusOK,
 		&missingResp,
 	)
-	if missingResp.Prerequisite.Kind != "missing_primary_repo" || missingResp.Prerequisite.Action != "bind_primary_repo" {
+	if missingResp.Prerequisite.Kind != "ready" || missingResp.Prerequisite.Action != "none" || missingResp.Prerequisite.RepoCount != 0 {
 		t.Fatalf("missing prerequisite = %+v", missingResp.Prerequisite)
 	}
 
@@ -521,11 +520,7 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		http.StatusOK,
 		&pendingResp,
 	)
-	if pendingResp.Prerequisite.Kind != "primary_mirror_not_ready" ||
-		pendingResp.Prerequisite.PrimaryRepoID == nil ||
-		pendingResp.Prerequisite.MirrorState == nil ||
-		*pendingResp.Prerequisite.MirrorState != "missing" ||
-		pendingResp.Prerequisite.Action != "prepare_primary_mirror" {
+	if pendingResp.Prerequisite.Kind != "ready" || pendingResp.Prerequisite.Action != "none" || pendingResp.Prerequisite.RepoCount != 1 {
 		t.Fatalf("pending prerequisite = %+v", pendingResp.Prerequisite)
 	}
 
@@ -539,11 +534,9 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		http.StatusOK,
 		&missingMirrorRecordResp,
 	)
-	if missingMirrorRecordResp.Prerequisite.Kind != "primary_mirror_not_ready" ||
-		missingMirrorRecordResp.Prerequisite.PrimaryRepoID == nil ||
-		missingMirrorRecordResp.Prerequisite.MirrorState == nil ||
-		*missingMirrorRecordResp.Prerequisite.MirrorState != "missing" ||
-		missingMirrorRecordResp.Prerequisite.Action != "prepare_primary_mirror" {
+	if missingMirrorRecordResp.Prerequisite.Kind != "ready" ||
+		missingMirrorRecordResp.Prerequisite.Action != "none" ||
+		missingMirrorRecordResp.Prerequisite.RepoCount != 1 {
 		t.Fatalf("missing mirror record prerequisite = %+v", missingMirrorRecordResp.Prerequisite)
 	}
 
@@ -557,7 +550,7 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		http.StatusOK,
 		&readyResp,
 	)
-	if readyResp.Prerequisite.Kind != "ready" || readyResp.Prerequisite.MirrorState == nil || *readyResp.Prerequisite.MirrorState != "ready" {
+	if readyResp.Prerequisite.Kind != "ready" || readyResp.Prerequisite.Action != "none" || readyResp.Prerequisite.RepoCount != 1 {
 		t.Fatalf("ready prerequisite = %+v", readyResp.Prerequisite)
 	}
 
@@ -568,31 +561,12 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		fmt.Sprintf("/api/v1/projects/%s/workflows", projectWithoutMirror.ID),
 		fmt.Sprintf(`{"agent_id":"%s","name":"Coding Workflow","type":"coding","pickup_status_ids":["%s"],"finish_status_ids":["%s"],"harness_content":"---\nworkflow:\n  role: coding\n---\n\n# Coding\n"}`, agent.ID, todoID, doneID),
 	)
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("create workflow without ready mirror status = %d, body=%s", rec.Code, rec.Body.String())
-	}
-
-	var errorPayload struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-		Details struct {
-			Prerequisite workflowRepositoryPrerequisite `json:"prerequisite"`
-		} `json:"details"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &errorPayload); err != nil {
-		t.Fatalf("decode mirror readiness error: %v", err)
-	}
-	if errorPayload.Code != "PRIMARY_MIRROR_NOT_READY" ||
-		errorPayload.Details.Prerequisite.Kind != "primary_mirror_not_ready" ||
-		errorPayload.Details.Prerequisite.Action != "prepare_primary_mirror" {
-		t.Fatalf("mirror readiness error payload = %+v", errorPayload)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create workflow without mirror status = %d, body=%s", rec.Code, rec.Body.String())
 	}
 
 	projectRepo, err := client.ProjectRepo.Query().
-		Where(
-			entprojectrepo.ProjectIDEQ(projectWithoutMirror.ID),
-			entprojectrepo.IsPrimary(true),
-		).
+		Where(entprojectrepo.ProjectIDEQ(projectWithoutMirror.ID)).
 		Only(ctx)
 	if err != nil {
 		t.Fatalf("load project repo without mirror: %v", err)
@@ -629,8 +603,8 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		&pendingResp,
 	)
 	if pendingResp.Prerequisite.Kind != "ready" ||
-		pendingResp.Prerequisite.MirrorState == nil ||
-		*pendingResp.Prerequisite.MirrorState != "ready" {
+		pendingResp.Prerequisite.Action != "none" ||
+		pendingResp.Prerequisite.RepoCount != 1 {
 		t.Fatalf("prerequisite after mirror registration = %+v", pendingResp.Prerequisite)
 	}
 
@@ -644,7 +618,7 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		fmt.Sprintf("/api/v1/projects/%s/workflows", projectWithoutMirror.ID),
 		map[string]any{
 			"agent_id":          agent.ID.String(),
-			"name":              "Coding Workflow",
+			"name":              "Coding Workflow After Mirror",
 			"type":              "coding",
 			"pickup_status_ids": []string{todoID.String()},
 			"finish_status_ids": []string{doneID.String()},
@@ -653,7 +627,7 @@ func TestWorkflowRepositoryPrerequisiteRouteAndMirrorReadinessErrors(t *testing.
 		http.StatusCreated,
 		&workflowCreate,
 	)
-	if workflowCreate.Workflow.Name != "Coding Workflow" {
+	if workflowCreate.Workflow.Name != "Coding Workflow After Mirror" {
 		t.Fatalf("workflow create after mirror registration = %+v", workflowCreate.Workflow)
 	}
 }
@@ -1052,7 +1026,6 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create backend repo: %v", err)
@@ -1255,7 +1228,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetTicketID(ticketItem.ID).
 		SetRepoID(frontendRepo.ID).
 		SetBranchName("agent/claude-01/ASE-42").
-		SetIsPrimaryScope(true).
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket repo scope: %v", err)
 	}

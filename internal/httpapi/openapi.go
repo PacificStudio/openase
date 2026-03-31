@@ -119,7 +119,6 @@ type OpenAPIProjectRepo struct {
 	RepositoryURL    string   `json:"repository_url"`
 	DefaultBranch    string   `json:"default_branch"`
 	WorkspaceDirname string   `json:"workspace_dirname"`
-	IsPrimary        bool     `json:"is_primary"`
 	Labels           []string `json:"labels,omitempty"`
 	MirrorCount      *int     `json:"mirror_count,omitempty"`
 	MirrorState      *string  `json:"mirror_state,omitempty"`
@@ -383,7 +382,6 @@ type OpenAPITicketRepoScopeDetail struct {
 	PullRequestURL *string             `json:"pull_request_url,omitempty"`
 	PrStatus       string              `json:"pr_status"`
 	CiStatus       string              `json:"ci_status"`
-	IsPrimaryScope bool                `json:"is_primary_scope"`
 }
 
 type OpenAPITicketRepoScope struct {
@@ -394,7 +392,6 @@ type OpenAPITicketRepoScope struct {
 	PullRequestURL *string `json:"pull_request_url,omitempty"`
 	PrStatus       string  `json:"pr_status"`
 	CiStatus       string  `json:"ci_status"`
-	IsPrimaryScope bool    `json:"is_primary_scope"`
 }
 
 type OpenAPITicketAssignedAgent struct {
@@ -452,15 +449,9 @@ type OpenAPIWorkflow struct {
 }
 
 type OpenAPIWorkflowRepositoryPrerequisite struct {
-	Kind            string  `json:"kind"`
-	RepoCount       int     `json:"repo_count"`
-	PrimaryRepoID   *string `json:"primary_repo_id,omitempty"`
-	PrimaryRepoName string  `json:"primary_repo_name,omitempty"`
-	MirrorCount     int     `json:"mirror_count"`
-	MirrorState     *string `json:"mirror_state,omitempty"`
-	MirrorMachineID *string `json:"mirror_machine_id,omitempty"`
-	MirrorLastError *string `json:"mirror_last_error,omitempty"`
-	Action          string  `json:"action"`
+	Kind      string `json:"kind"`
+	RepoCount int    `json:"repo_count"`
+	Action    string `json:"action"`
 }
 
 type OpenAPIHarnessDocument struct {
@@ -1214,7 +1205,6 @@ var (
 		"repository_url":    "Remote Git repository URL.",
 		"default_branch":    "Default branch name used for mirrors and workspaces.",
 		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
-		"is_primary":        "Whether this repository is the primary project repository.",
 		"labels":            "Labels attached to the repository for workflow selection and filtering.",
 	}
 	openAPIRepoMirrorMaterializeDescriptions = map[string]string{
@@ -1266,6 +1256,9 @@ var (
 		"priority":         "Ticket priority value.",
 		"type":             "Ticket type value.",
 		"workflow_id":      "Optional workflow ID that should handle the ticket.",
+		"repo_scopes":      "Optional repository scopes attached at ticket creation time. Multi-repo projects must supply explicit repo scopes; single-repo projects auto-select the only repo when omitted.",
+		"repo_scopes[].repo_id": "Repository ID attached to the ticket scope.",
+		"repo_scopes[].branch_name": "Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used.",
 		"parent_ticket_id": "Optional parent ticket ID for hierarchical ticket relationships.",
 		"external_ref":     "Optional external reference string associated with the ticket.",
 		"created_by":       "Actor identifier recorded as the creator of the ticket.",
@@ -1315,14 +1308,12 @@ var (
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 		"pr_status":        "Pull request status associated with the repository scope.",
 		"ci_status":        "Continuous integration status associated with the repository scope.",
-		"is_primary_scope": "Whether this scope is the primary repository scope for the ticket.",
 	}
 	openAPIRepoScopePatchDescriptions = map[string]string{
 		"branch_name":      "Branch name associated with the scoped repository checkout.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 		"pr_status":        "Pull request status associated with the repository scope.",
 		"ci_status":        "Continuous integration status associated with the repository scope.",
-		"is_primary_scope": "Whether this scope is the primary repository scope for the ticket.",
 	}
 	openAPIHRAdvisorActivateDescriptions = map[string]string{
 		"role_slug":               "HR advisor role slug to activate for the project.",
@@ -3955,6 +3946,13 @@ func applyRequestFieldDescriptions(schemaRef *openapi3.SchemaRef, prefix string,
 		return
 	}
 	schema := schemaRef.Value
+	if schema.Items != nil {
+		itemPrefix := prefix + "[]"
+		if prefix == "" {
+			itemPrefix = "[]"
+		}
+		applyRequestFieldDescriptions(schema.Items, itemPrefix, descriptions)
+	}
 	for name, property := range schema.Properties {
 		if property == nil || property.Value == nil {
 			continue

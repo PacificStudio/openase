@@ -610,6 +610,10 @@ export function createTicket(
     parent_ticket_id?: string | null
     external_ref?: string | null
     budget_usd?: number | null
+    repo_scopes?: Array<{
+      repo_id: string
+      branch_name?: string | null
+    }>
   },
 ) {
   return api.post<TicketCreateResponse>(`/api/v1/projects/${projectId}/tickets`, { body })
@@ -723,7 +727,6 @@ export function createProjectRepo(
     repository_url: string
     default_branch: string
     workspace_dirname?: string | null
-    is_primary?: boolean
     labels?: string[]
   },
 ) {
@@ -738,7 +741,6 @@ export function updateProjectRepo(
     repository_url?: string | null
     default_branch?: string | null
     workspace_dirname?: string | null
-    is_primary?: boolean | null
     labels?: string[] | null
   },
 ) {
@@ -816,7 +818,6 @@ export function createTicketRepoScope(
     pull_request_url?: string | null
     pr_status?: string
     ci_status?: string
-    is_primary_scope?: boolean
   },
 ) {
   return api.post<TicketRepoScopeResponse>(
@@ -834,7 +835,6 @@ export function updateTicketRepoScope(
     pull_request_url?: string | null
     pr_status?: string | null
     ci_status?: string | null
-    is_primary_scope?: boolean | null
   },
 ) {
   return api.patch<TicketRepoScopeResponse>(
@@ -858,12 +858,6 @@ export function getWorkflowRepositoryPrerequisite(projectId: string) {
     prerequisite: {
       kind: string
       repo_count: number
-      primary_repo_id?: string
-      primary_repo_name?: string
-      mirror_count: number
-      mirror_state?: string
-      mirror_machine_id?: string
-      mirror_last_error?: string
       action: string
     }
   }>(`/api/v1/projects/${projectId}/workflows/prerequisite`)

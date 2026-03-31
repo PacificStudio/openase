@@ -9,12 +9,19 @@ export type TicketOption = {
   label: string
 }
 
+export type TicketRepoOption = {
+  id: string
+  label: string
+  defaultBranch: string
+}
+
 export type NewTicketDraft = {
   title: string
   description: string
   statusId: string
   priority: TicketPriorityOption
   workflowId: string
+  repoId: string
 }
 
 export type NewTicketPayload = {
@@ -23,6 +30,10 @@ export type NewTicketPayload = {
   status_id?: string | null
   priority: TicketPriorityOption
   workflow_id?: string | null
+  repo_scopes?: Array<{
+    repo_id: string
+    branch_name?: string | null
+  }>
 }
 
 type ParsedDraft = { ok: true; payload: NewTicketPayload } | { ok: false; error: string }
@@ -48,9 +59,27 @@ export function mapWorkflowOptions(workflows: Workflow[]): TicketOption[] {
     }))
 }
 
+export function mapProjectRepoOptions(
+  repos: Array<{
+    id: string
+    name: string
+    default_branch: string
+  }>,
+): TicketRepoOption[] {
+  return repos
+    .slice()
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((repo) => ({
+      id: repo.id,
+      label: repo.name,
+      defaultBranch: repo.default_branch || 'main',
+    }))
+}
+
 export function createNewTicketDraft(
   statusOptions: TicketOption[],
   workflowOptions: TicketOption[],
+  repoOptions: TicketRepoOption[],
 ): NewTicketDraft {
   return {
     title: '',
@@ -58,10 +87,14 @@ export function createNewTicketDraft(
     statusId: statusOptions[0]?.id ?? '',
     priority: 'medium',
     workflowId: workflowOptions[0]?.id ?? '',
+    repoId: repoOptions.length === 1 ? repoOptions[0].id : '',
   }
 }
 
-export function parseNewTicketDraft(draft: NewTicketDraft): ParsedDraft {
+export function parseNewTicketDraft(
+  draft: NewTicketDraft,
+  repoOptions: TicketRepoOption[],
+): ParsedDraft {
   const title = draft.title.trim()
   if (!title) {
     return {
@@ -71,6 +104,13 @@ export function parseNewTicketDraft(draft: NewTicketDraft): ParsedDraft {
   }
 
   const description = draft.description.trim()
+  const repoScopes = buildRepoScopes(repoOptions, draft.repoId)
+  if ('error' in repoScopes) {
+    return {
+      ok: false,
+      error: repoScopes.error,
+    }
+  }
 
   return {
     ok: true,
@@ -80,6 +120,33 @@ export function parseNewTicketDraft(draft: NewTicketDraft): ParsedDraft {
       status_id: draft.statusId || null,
       priority: draft.priority,
       workflow_id: draft.workflowId || null,
+      repo_scopes: repoScopes.value,
     },
+  }
+}
+
+function buildRepoScopes(
+  repoOptions: TicketRepoOption[],
+  selectedRepoId: string,
+): { value: NewTicketPayload['repo_scopes'] } | { error: string } {
+  if (repoOptions.length === 0) {
+    return { value: undefined }
+  }
+
+  const selectedRepo =
+    repoOptions.length === 1
+      ? repoOptions[0]
+      : (repoOptions.find((repo) => repo.id === selectedRepoId) ?? null)
+  if (!selectedRepo) {
+    return { error: 'Select a repository for this ticket.' }
+  }
+
+  return {
+    value: [
+      {
+        repo_id: selectedRepo.id,
+        branch_name: selectedRepo.defaultBranch || 'main',
+      },
+    ],
   }
 }

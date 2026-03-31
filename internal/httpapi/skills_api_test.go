@@ -136,6 +136,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
+	projectRepoRoot := projectStorageRootForTest(repoRoot, project.ID)
 	localMachine, err := client.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName("local").
@@ -174,8 +175,8 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		t.Fatalf("create agent: %v", err)
 	}
 
-	writeSkillFixture(t, repoRoot, "commit", "# Commit\n\nWrite a conventional commit message.\n")
-	writeSkillFixture(t, repoRoot, "review-code", "# Review Code\n\nReview the patch before shipping.\n")
+	writeSkillFixture(t, projectRepoRoot, "commit", "# Commit\n\nWrite a conventional commit message.\n")
+	writeSkillFixture(t, projectRepoRoot, "review-code", "# Review Code\n\nReview the patch before shipping.\n")
 
 	createdWorkflow, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
 		ProjectID:           project.ID,
@@ -245,8 +246,8 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if !platformSkill.IsBuiltin {
 		t.Fatalf("expected openase-platform to be marked as built-in, got %+v", platformSkill)
 	}
-	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
-		t.Fatalf("expected built-in platform skill to materialize in repo: %v", err)
+	if _, err := os.Stat(filepath.Join(projectRepoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
+		t.Fatalf("expected built-in platform skill to materialize in project storage: %v", err)
 	}
 
 	workspaceRoot := t.TempDir()
@@ -305,7 +306,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	}
 
 	//nolint:gosec // test reads a file from a controlled temp repository
-	harvestedSkill, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "deploy-docker", "SKILL.md"))
+	harvestedSkill, err := os.ReadFile(filepath.Join(projectRepoRoot, ".openase", "skills", "deploy-docker", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read harvested skill: %v", err)
 	}
@@ -313,7 +314,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		t.Fatalf("expected harvested skill content")
 	}
 	//nolint:gosec // test reads a file from a controlled temp repository
-	updatedCommit, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "commit", "SKILL.md"))
+	updatedCommit, err := os.ReadFile(filepath.Join(projectRepoRoot, ".openase", "skills", "commit", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read updated commit skill: %v", err)
 	}

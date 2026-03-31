@@ -20,7 +20,6 @@ func (ProjectRepo) Fields() []ent.Field {
 		field.String("repository_url").NotEmpty(),
 		field.String("default_branch").Default("main"),
 		field.String("workspace_dirname").Default(""),
-		field.Bool("is_primary").Default(false),
 		textArrayField("labels"),
 	}
 }

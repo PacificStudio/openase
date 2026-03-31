@@ -223,7 +223,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, repoRec, &createRepoPayload)
-	if !createRepoPayload.Repo.IsPrimary || createRepoPayload.Repo.DefaultBranch != "main" {
+	if createRepoPayload.Repo.DefaultBranch != "main" {
 		t.Fatalf("unexpected created repo payload: %+v", createRepoPayload.Repo)
 	}
 
@@ -232,7 +232,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos",
-		`{"name":"frontend","repository_url":"https://github.com/acme/frontend.git","default_branch":"develop","is_primary":true}`,
+		`{"name":"frontend","repository_url":"https://github.com/acme/frontend.git","default_branch":"develop"}`,
 	)
 	if secondRepoRec.Code != http.StatusCreated {
 		t.Fatalf("expected second repo create 201, got %d: %s", secondRepoRec.Code, secondRepoRec.Body.String())
@@ -242,8 +242,8 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, secondRepoRec, &secondRepoPayload)
-	if !secondRepoPayload.Repo.IsPrimary {
-		t.Fatalf("expected second repo to become primary, got %+v", secondRepoPayload.Repo)
+	if secondRepoPayload.Repo.DefaultBranch != "develop" {
+		t.Fatalf("unexpected second repo payload: %+v", secondRepoPayload.Repo)
 	}
 	if !strings.Contains(secondRepoRec.Body.String(), `"labels":[]`) {
 		t.Fatalf("expected second repo response to include empty labels array, got %s", secondRepoRec.Body.String())
@@ -264,7 +264,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repos []projectRepoResponse `json:"repos"`
 	}
 	decodeResponse(t, listRepoRec, &listRepoPayload)
-	if len(listRepoPayload.Repos) != 2 || !listRepoPayload.Repos[0].IsPrimary {
+	if len(listRepoPayload.Repos) != 2 {
 		t.Fatalf("unexpected repo list payload: %+v", listRepoPayload.Repos)
 	}
 	if !strings.Contains(listRepoRec.Body.String(), `"labels":[]`) {
@@ -276,7 +276,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos/"+createRepoPayload.Repo.ID,
-		`{"workspace_dirname":"services/backend","is_primary":true}`,
+		`{"workspace_dirname":"services/backend"}`,
 	)
 	if patchRepoRec.Code != http.StatusOK {
 		t.Fatalf("expected repo patch 200, got %d: %s", patchRepoRec.Code, patchRepoRec.Body.String())
@@ -286,7 +286,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, patchRepoRec, &patchRepoPayload)
-	if !patchRepoPayload.Repo.IsPrimary || patchRepoPayload.Repo.WorkspaceDirname != "services/backend" {
+	if patchRepoPayload.Repo.WorkspaceDirname != "services/backend" {
 		t.Fatalf("unexpected patched repo payload: %+v", patchRepoPayload.Repo)
 	}
 
@@ -359,17 +359,15 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		Name:          "backend",
 		RepositoryURL: "https://github.com/acme/backend.git",
 		DefaultBranch: "main",
-		IsPrimary:     true,
 	}
 	service.tickets[ticketID] = fakeCatalogTicket{ID: ticketID, ProjectID: projectID}
 	service.ticketScopes[scopeID] = domain.TicketRepoScope{
-		ID:             scopeID,
-		TicketID:       ticketID,
-		RepoID:         repoID,
-		BranchName:     "main",
-		PrStatus:       "open",
-		CiStatus:       "pending",
-		IsPrimaryScope: true,
+		ID:         scopeID,
+		TicketID:   ticketID,
+		RepoID:     repoID,
+		BranchName: "main",
+		PrStatus:   "open",
+		CiStatus:   "pending",
 	}
 
 	for _, testCase := range []struct {
@@ -982,7 +980,6 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		SetName("backend").
 		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create backend repo: %v", err)
@@ -992,7 +989,6 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		SetName("frontend").
 		SetRepositoryURL("https://github.com/acme/frontend.git").
 		SetDefaultBranch("develop").
-		SetIsPrimary(false).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create frontend repo: %v", err)
@@ -1012,7 +1008,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		http.StatusCreated,
 		&backendCreate,
 	)
-	if !backendCreate.RepoScope.IsPrimaryScope || backendCreate.RepoScope.BranchName != "main" {
+	if backendCreate.RepoScope.BranchName != "main" {
 		t.Fatalf("unexpected backend scope payload: %+v", backendCreate.RepoScope)
 	}
 
@@ -1030,12 +1026,11 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 			"pull_request_url": "https://github.com/acme/frontend/pull/8",
 			"pr_status":        "open",
 			"ci_status":        "pending",
-			"is_primary_scope": true,
 		},
 		http.StatusCreated,
 		&frontendCreate,
 	)
-	if !frontendCreate.RepoScope.IsPrimaryScope || frontendCreate.RepoScope.BranchName != "agent/codex/ASE-8" {
+	if frontendCreate.RepoScope.BranchName != "agent/codex/ASE-8" {
 		t.Fatalf("unexpected frontend scope payload: %+v", frontendCreate.RepoScope)
 	}
 
@@ -1051,7 +1046,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		http.StatusOK,
 		&scopeList,
 	)
-	if len(scopeList.RepoScopes) != 2 || scopeList.RepoScopes[0].ID != frontendCreate.RepoScope.ID || !scopeList.RepoScopes[0].IsPrimaryScope {
+	if len(scopeList.RepoScopes) != 2 || scopeList.RepoScopes[0].ID != backendCreate.RepoScope.ID {
 		t.Fatalf("unexpected scope ordering: %+v", scopeList.RepoScopes)
 	}
 
@@ -1066,12 +1061,11 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		map[string]any{
 			"pr_status":        "approved",
 			"ci_status":        "passing",
-			"is_primary_scope": true,
 		},
 		http.StatusOK,
 		&backendUpdate,
 	)
-	if !backendUpdate.RepoScope.IsPrimaryScope || backendUpdate.RepoScope.PrStatus != "approved" || backendUpdate.RepoScope.CiStatus != "passing" {
+	if backendUpdate.RepoScope.PrStatus != "approved" || backendUpdate.RepoScope.CiStatus != "passing" {
 		t.Fatalf("unexpected backend scope after update: %+v", backendUpdate.RepoScope)
 	}
 
@@ -1097,8 +1091,8 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		http.StatusOK,
 		&finalList,
 	)
-	if len(finalList.RepoScopes) != 1 || finalList.RepoScopes[0].ID != frontendCreate.RepoScope.ID || !finalList.RepoScopes[0].IsPrimaryScope {
-		t.Fatalf("expected surviving scope to stay primary, got %+v", finalList.RepoScopes)
+	if len(finalList.RepoScopes) != 1 || finalList.RepoScopes[0].ID != frontendCreate.RepoScope.ID {
+		t.Fatalf("unexpected surviving scope payload, got %+v", finalList.RepoScopes)
 	}
 
 	otherProject, err := client.Project.Create().
@@ -1114,7 +1108,6 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		SetName("shared").
 		SetRepositoryURL("https://github.com/acme/shared.git").
 		SetDefaultBranch("main").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create other repo: %v", err)
@@ -1550,9 +1543,6 @@ func (f *fakeCatalogService) ListProjectRepos(_ context.Context, projectID uuid.
 		}
 	}
 	sort.Slice(items, func(i, j int) bool {
-		if items[i].IsPrimary != items[j].IsPrimary {
-			return items[i].IsPrimary
-		}
 		return items[i].Name < items[j].Name
 	})
 
@@ -1570,14 +1560,6 @@ func (f *fakeCatalogService) CreateProjectRepo(_ context.Context, input domain.C
 		}
 	}
 
-	isPrimary := !f.hasProjectRepos(input.ProjectID)
-	if input.RequestedPrimary != nil {
-		isPrimary = *input.RequestedPrimary || !f.hasProjectRepos(input.ProjectID)
-	}
-	if isPrimary {
-		f.clearPrimary(input.ProjectID, uuid.Nil)
-	}
-
 	item := domain.ProjectRepo{
 		ID:               uuid.New(),
 		ProjectID:        input.ProjectID,
@@ -1585,7 +1567,6 @@ func (f *fakeCatalogService) CreateProjectRepo(_ context.Context, input domain.C
 		RepositoryURL:    input.RepositoryURL,
 		DefaultBranch:    input.DefaultBranch,
 		WorkspaceDirname: input.WorkspaceDirname,
-		IsPrimary:        isPrimary,
 		Labels:           append([]string(nil), input.Labels...),
 	}
 	f.projectRepos[item.ID] = item
@@ -1608,22 +1589,12 @@ func (f *fakeCatalogService) UpdateProjectRepo(_ context.Context, input domain.U
 		return domain.ProjectRepo{}, catalogservice.ErrNotFound
 	}
 
-	if input.IsPrimary {
-		f.clearPrimary(input.ProjectID, input.ID)
-	}
-
 	item.Name = input.Name
 	item.RepositoryURL = input.RepositoryURL
 	item.DefaultBranch = input.DefaultBranch
 	item.WorkspaceDirname = input.WorkspaceDirname
-	item.IsPrimary = input.IsPrimary
 	item.Labels = append([]string(nil), input.Labels...)
 	f.projectRepos[item.ID] = item
-
-	if !item.IsPrimary {
-		f.ensurePrimary(input.ProjectID, item.ID)
-		item = f.projectRepos[item.ID]
-	}
 
 	return item, nil
 }
@@ -1635,9 +1606,6 @@ func (f *fakeCatalogService) DeleteProjectRepo(_ context.Context, projectID uuid
 	}
 
 	delete(f.projectRepos, id)
-	if item.IsPrimary {
-		f.ensurePrimary(projectID, uuid.Nil)
-	}
 
 	return item, nil
 }
@@ -1655,9 +1623,6 @@ func (f *fakeCatalogService) ListTicketRepoScopes(_ context.Context, projectID u
 		}
 	}
 	sort.Slice(items, func(i, j int) bool {
-		if items[i].IsPrimaryScope != items[j].IsPrimaryScope {
-			return items[i].IsPrimaryScope
-		}
 		return items[i].ID.String() < items[j].ID.String()
 	})
 
@@ -1679,14 +1644,6 @@ func (f *fakeCatalogService) CreateTicketRepoScope(_ context.Context, input doma
 		}
 	}
 
-	isPrimary := !f.hasTicketRepoScopes(input.TicketID)
-	if input.RequestedPrimary != nil {
-		isPrimary = *input.RequestedPrimary || !f.hasTicketRepoScopes(input.TicketID)
-	}
-	if isPrimary {
-		f.clearPrimaryScope(input.TicketID, uuid.Nil)
-	}
-
 	branchName := repo.DefaultBranch
 	if input.BranchName != nil {
 		branchName = *input.BranchName
@@ -1699,7 +1656,6 @@ func (f *fakeCatalogService) CreateTicketRepoScope(_ context.Context, input doma
 		PullRequestURL: input.PullRequestURL,
 		PrStatus:       input.PrStatus,
 		CiStatus:       input.CiStatus,
-		IsPrimaryScope: isPrimary,
 	}
 	f.ticketScopes[item.ID] = item
 
@@ -1729,22 +1685,13 @@ func (f *fakeCatalogService) UpdateTicketRepoScope(_ context.Context, input doma
 		return domain.TicketRepoScope{}, catalogservice.ErrNotFound
 	}
 
-	if input.IsPrimaryScope {
-		f.clearPrimaryScope(input.TicketID, input.ID)
-	}
 	if input.BranchName != nil {
 		item.BranchName = *input.BranchName
 	}
 	item.PullRequestURL = input.PullRequestURL
 	item.PrStatus = input.PrStatus
 	item.CiStatus = input.CiStatus
-	item.IsPrimaryScope = input.IsPrimaryScope
 	f.ticketScopes[item.ID] = item
-
-	if !item.IsPrimaryScope {
-		f.ensurePrimaryScope(input.TicketID, item.ID)
-		item = f.ticketScopes[item.ID]
-	}
 
 	return item, nil
 }
@@ -1760,9 +1707,6 @@ func (f *fakeCatalogService) DeleteTicketRepoScope(_ context.Context, projectID 
 	}
 
 	delete(f.ticketScopes, id)
-	if item.IsPrimaryScope {
-		f.ensurePrimaryScope(ticketID, uuid.Nil)
-	}
 
 	return item, nil
 }
@@ -1795,93 +1739,7 @@ func (f *fakeCatalogService) hasTicketRepoScopes(ticketID uuid.UUID) bool {
 	return false
 }
 
-func (f *fakeCatalogService) clearPrimary(projectID uuid.UUID, exclude uuid.UUID) {
-	for id, item := range f.projectRepos {
-		if item.ProjectID == projectID && id != exclude {
-			item.IsPrimary = false
-			f.projectRepos[id] = item
-		}
-	}
-}
-
-func (f *fakeCatalogService) ensurePrimary(projectID uuid.UUID, preferredExclude uuid.UUID) {
-	for _, item := range f.projectRepos {
-		if item.ProjectID == projectID && item.IsPrimary {
-			return
-		}
-	}
-
-	var fallback *domain.ProjectRepo
-	for _, item := range f.projectRepos {
-		if item.ProjectID == projectID && item.ID != preferredExclude {
-			copied := item
-			if fallback == nil || copied.Name < fallback.Name {
-				fallback = &copied
-			}
-		}
-	}
-	if fallback == nil {
-		for _, item := range f.projectRepos {
-			if item.ProjectID == projectID {
-				copied := item
-				if fallback == nil || copied.Name < fallback.Name {
-					fallback = &copied
-				}
-			}
-		}
-	}
-	if fallback == nil {
-		return
-	}
-
-	fallback.IsPrimary = true
-	f.projectRepos[fallback.ID] = *fallback
-}
-
-func (f *fakeCatalogService) clearPrimaryScope(ticketID uuid.UUID, exclude uuid.UUID) {
-	for id, item := range f.ticketScopes {
-		if item.TicketID == ticketID && id != exclude {
-			item.IsPrimaryScope = false
-			f.ticketScopes[id] = item
-		}
-	}
-}
-
-func (f *fakeCatalogService) ensurePrimaryScope(ticketID uuid.UUID, preferredExclude uuid.UUID) {
-	for _, item := range f.ticketScopes {
-		if item.TicketID == ticketID && item.IsPrimaryScope {
-			return
-		}
-	}
-
-	var fallback *domain.TicketRepoScope
-	for _, item := range f.ticketScopes {
-		if item.TicketID == ticketID && item.ID != preferredExclude {
-			copied := item
-			if fallback == nil || copied.ID.String() < fallback.ID.String() {
-				fallback = &copied
-			}
-		}
-	}
-	if fallback == nil {
-		for _, item := range f.ticketScopes {
-			if item.TicketID == ticketID {
-				copied := item
-				if fallback == nil || copied.ID.String() < fallback.ID.String() {
-					fallback = &copied
-				}
-			}
-		}
-	}
-	if fallback == nil {
-		return
-	}
-
-	fallback.IsPrimaryScope = true
-	f.ticketScopes[fallback.ID] = *fallback
-}
-
-func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
+func TestProjectRepoLifecycleWithEntRepository(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
@@ -1927,8 +1785,8 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		http.StatusCreated,
 		&backendCreate,
 	)
-	if !backendCreate.Repo.IsPrimary {
-		t.Fatalf("expected first repo to be primary, got %+v", backendCreate.Repo)
+	if backendCreate.Repo.Name != "backend" {
+		t.Fatalf("unexpected backend repo payload, got %+v", backendCreate.Repo)
 	}
 
 	var frontendCreate struct {
@@ -1942,13 +1800,12 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		map[string]any{
 			"name":           "frontend",
 			"repository_url": "https://github.com/acme/frontend.git",
-			"is_primary":     true,
 		},
 		http.StatusCreated,
 		&frontendCreate,
 	)
-	if !frontendCreate.Repo.IsPrimary {
-		t.Fatalf("expected frontend repo to be primary, got %+v", frontendCreate.Repo)
+	if frontendCreate.Repo.Name != "frontend" {
+		t.Fatalf("unexpected frontend repo payload, got %+v", frontendCreate.Repo)
 	}
 
 	var backendUpdate struct {
@@ -1960,13 +1817,13 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		http.MethodPatch,
 		"/api/v1/projects/"+project.ID.String()+"/repos/"+backendCreate.Repo.ID,
 		map[string]any{
-			"is_primary": true,
+			"workspace_dirname": "services/backend",
 		},
 		http.StatusOK,
 		&backendUpdate,
 	)
-	if !backendUpdate.Repo.IsPrimary {
-		t.Fatalf("expected backend repo to regain primary, got %+v", backendUpdate.Repo)
+	if backendUpdate.Repo.WorkspaceDirname != "services/backend" {
+		t.Fatalf("expected backend repo workspace_dirname to update, got %+v", backendUpdate.Repo)
 	}
 
 	executeJSON(
@@ -1991,8 +1848,8 @@ func TestProjectRepoPrimaryLifecycleWithEntRepository(t *testing.T) {
 		http.StatusOK,
 		&repoList,
 	)
-	if len(repoList.Repos) != 1 || repoList.Repos[0].Name != "frontend" || !repoList.Repos[0].IsPrimary {
-		t.Fatalf("expected surviving repo to stay primary, got %+v", repoList.Repos)
+	if len(repoList.Repos) != 1 || repoList.Repos[0].Name != "frontend" {
+		t.Fatalf("unexpected surviving repo payload, got %+v", repoList.Repos)
 	}
 }
 
@@ -2053,10 +1910,9 @@ func TestProjectRepoListIncludesMirrorReadinessProjection(t *testing.T) {
 		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create primary project repo: %v", err)
+		t.Fatalf("create backend project repo: %v", err)
 	}
 	secondaryRepo, err := client.ProjectRepo.Create().
 		SetProjectID(project.ID).
@@ -2064,10 +1920,9 @@ func TestProjectRepoListIncludesMirrorReadinessProjection(t *testing.T) {
 		SetRepositoryURL("https://github.com/acme/frontend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("frontend").
-		SetIsPrimary(false).
 		Save(ctx)
 	if err != nil {
-		t.Fatalf("create secondary project repo: %v", err)
+		t.Fatalf("create frontend project repo: %v", err)
 	}
 
 	readySyncedAt := time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)
@@ -2081,7 +1936,7 @@ func TestProjectRepoListIncludesMirrorReadinessProjection(t *testing.T) {
 		SetLastSyncedAt(readySyncedAt).
 		SetLastVerifiedAt(readyVerifiedAt).
 		Save(ctx); err != nil {
-		t.Fatalf("create ready primary mirror: %v", err)
+		t.Fatalf("create ready backend mirror: %v", err)
 	}
 	if _, err := client.ProjectRepoMirror.Create().
 		SetProjectRepoID(primaryRepo.ID).
@@ -2090,7 +1945,7 @@ func TestProjectRepoListIncludesMirrorReadinessProjection(t *testing.T) {
 		SetState(entprojectrepomirror.StateError).
 		SetLastError("fetch failed").
 		Save(ctx); err != nil {
-		t.Fatalf("create error primary mirror: %v", err)
+		t.Fatalf("create error backend mirror: %v", err)
 	}
 	staleSyncedAt := readySyncedAt.Add(-2 * time.Hour)
 	if _, err := client.ProjectRepoMirror.Create().
@@ -2121,22 +1976,22 @@ func TestProjectRepoListIncludesMirrorReadinessProjection(t *testing.T) {
 	}
 
 	if repoList.Repos[0].MirrorCount == nil || *repoList.Repos[0].MirrorCount != 2 {
-		t.Fatalf("expected primary repo mirror_count=2, got %+v", repoList.Repos[0])
+		t.Fatalf("expected backend repo mirror_count=2, got %+v", repoList.Repos[0])
 	}
 	if repoList.Repos[0].MirrorState == nil || *repoList.Repos[0].MirrorState != "ready" {
-		t.Fatalf("expected primary repo mirror_state=ready, got %+v", repoList.Repos[0])
+		t.Fatalf("expected backend repo mirror_state=ready, got %+v", repoList.Repos[0])
 	}
 	if repoList.Repos[0].MirrorMachineID == nil || *repoList.Repos[0].MirrorMachineID != machineOne.ID.String() {
-		t.Fatalf("expected primary repo representative machine %s, got %+v", machineOne.ID, repoList.Repos[0])
+		t.Fatalf("expected backend repo representative machine %s, got %+v", machineOne.ID, repoList.Repos[0])
 	}
 	if repoList.Repos[0].LastSyncedAt == nil || *repoList.Repos[0].LastSyncedAt != readySyncedAt.Format(time.RFC3339) {
-		t.Fatalf("expected primary repo last_synced_at=%s, got %+v", readySyncedAt.Format(time.RFC3339), repoList.Repos[0])
+		t.Fatalf("expected backend repo last_synced_at=%s, got %+v", readySyncedAt.Format(time.RFC3339), repoList.Repos[0])
 	}
 	if repoList.Repos[0].LastVerifiedAt == nil || *repoList.Repos[0].LastVerifiedAt != readyVerifiedAt.Format(time.RFC3339) {
-		t.Fatalf("expected primary repo last_verified_at=%s, got %+v", readyVerifiedAt.Format(time.RFC3339), repoList.Repos[0])
+		t.Fatalf("expected backend repo last_verified_at=%s, got %+v", readyVerifiedAt.Format(time.RFC3339), repoList.Repos[0])
 	}
 	if repoList.Repos[0].LastError != nil {
-		t.Fatalf("expected ready primary repo summary to clear last_error, got %+v", repoList.Repos[0])
+		t.Fatalf("expected ready backend repo summary to clear last_error, got %+v", repoList.Repos[0])
 	}
 
 	if repoList.Repos[1].MirrorCount == nil || *repoList.Repos[1].MirrorCount != 1 {
@@ -2213,7 +2068,6 @@ func TestProjectRepoMirrorListingWithEntRepository(t *testing.T) {
 		SetRepositoryURL("https://github.com/acme/backend.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)
@@ -2329,7 +2183,6 @@ func TestProjectRepoMirrorMaterializeContractWithEntRepository(t *testing.T) {
 		SetRepositoryURL("https://example.invalid/backend.git").
 		SetDefaultBranch("master").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)

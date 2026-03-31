@@ -73,7 +73,6 @@ type projectRepoResponse struct {
 	RepositoryURL    string   `json:"repository_url"`
 	DefaultBranch    string   `json:"default_branch"`
 	WorkspaceDirname string   `json:"workspace_dirname"`
-	IsPrimary        bool     `json:"is_primary"`
 	Labels           []string `json:"labels"`
 	MirrorCount      *int     `json:"mirror_count,omitempty"`
 	MirrorState      *string  `json:"mirror_state,omitempty"`
@@ -123,7 +122,6 @@ type ticketRepoScopeResponse struct {
 	PullRequestURL *string `json:"pull_request_url,omitempty"`
 	PrStatus       string  `json:"pr_status"`
 	CiStatus       string  `json:"ci_status"`
-	IsPrimaryScope bool    `json:"is_primary_scope"`
 }
 
 type organizationPatchRequest struct {
@@ -163,7 +161,6 @@ type projectRepoPatchRequest struct {
 	RepositoryURL    *string   `json:"repository_url"`
 	DefaultBranch    *string   `json:"default_branch"`
 	WorkspaceDirname *string   `json:"workspace_dirname"`
-	IsPrimary        *bool     `json:"is_primary"`
 	Labels           *[]string `json:"labels"`
 }
 
@@ -172,7 +169,6 @@ type ticketRepoScopePatchRequest struct {
 	PullRequestURL *string `json:"pull_request_url"`
 	PrStatus       *string `json:"pr_status"`
 	CiStatus       *string `json:"ci_status"`
-	IsPrimaryScope *bool   `json:"is_primary_scope"`
 }
 
 func (s *Server) registerCatalogRoutes(api *echo.Group) {
@@ -904,7 +900,6 @@ func (s *Server) patchProjectRepo(c echo.Context) error {
 		RepositoryURL:    current.RepositoryURL,
 		DefaultBranch:    current.DefaultBranch,
 		WorkspaceDirname: stringPointer(current.WorkspaceDirname),
-		IsPrimary:        boolPointer(current.IsPrimary),
 		Labels:           append([]string(nil), current.Labels...),
 	}
 	if patch.Name != nil {
@@ -918,9 +913,6 @@ func (s *Server) patchProjectRepo(c echo.Context) error {
 	}
 	if patch.WorkspaceDirname != nil {
 		request.WorkspaceDirname = patch.WorkspaceDirname
-	}
-	if patch.IsPrimary != nil {
-		request.IsPrimary = patch.IsPrimary
 	}
 	if patch.Labels != nil {
 		request.Labels = *patch.Labels
@@ -1041,7 +1033,6 @@ func (s *Server) patchTicketRepoScope(c echo.Context) error {
 		PullRequestURL: current.PullRequestURL,
 		PrStatus:       current.PrStatus.String(),
 		CiStatus:       current.CiStatus.String(),
-		IsPrimaryScope: boolPointer(current.IsPrimaryScope),
 	}
 	if patch.BranchName != nil {
 		request.BranchName = patch.BranchName
@@ -1055,10 +1046,6 @@ func (s *Server) patchTicketRepoScope(c echo.Context) error {
 	if patch.CiStatus != nil {
 		request.CiStatus = *patch.CiStatus
 	}
-	if patch.IsPrimaryScope != nil {
-		request.IsPrimaryScope = patch.IsPrimaryScope
-	}
-
 	input, err := domain.ParseUpdateTicketRepoScope(scopeID, projectID, ticketID, request)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
@@ -1287,7 +1274,6 @@ func baseProjectRepoResponse(item domain.ProjectRepo) projectRepoResponse {
 		RepositoryURL:    item.RepositoryURL,
 		DefaultBranch:    item.DefaultBranch,
 		WorkspaceDirname: item.WorkspaceDirname,
-		IsPrimary:        item.IsPrimary,
 		Labels:           cloneStringSlice(item.Labels),
 	}
 }
@@ -1529,7 +1515,6 @@ func mapTicketRepoScopeResponse(item domain.TicketRepoScope) ticketRepoScopeResp
 		PullRequestURL: item.PullRequestURL,
 		PrStatus:       item.PrStatus.String(),
 		CiStatus:       item.CiStatus.String(),
-		IsPrimaryScope: item.IsPrimaryScope,
 	}
 }
 
