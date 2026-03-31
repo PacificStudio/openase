@@ -50,3 +50,13 @@ export function pickDefaultEphemeralChatProvider(
 
   return providers.find((provider) => hasAvailableEphemeralChat(provider))?.id ?? ''
 }
+
+export function shouldKeepEphemeralChatProvider(
+  providers: AgentProvider[],
+  providerId: string,
+): boolean {
+  return (
+    !!providerId &&
+    providers.some((provider) => provider.id === providerId && hasAvailableEphemeralChat(provider))
+  )
+}
