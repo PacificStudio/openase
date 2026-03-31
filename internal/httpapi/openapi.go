@@ -250,6 +250,91 @@ type OpenAPIActivityEvent struct {
 	CreatedAt string         `json:"created_at"`
 }
 
+type OpenAPIProjectConversationContext struct {
+	ProjectID string `json:"project_id"`
+}
+
+type OpenAPIProjectConversationCreateRequest struct {
+	Source     string                            `json:"source"`
+	ProviderID string                            `json:"provider_id"`
+	Context    OpenAPIProjectConversationContext `json:"context"`
+}
+
+type OpenAPIProjectConversationTurnRequest struct {
+	Message string `json:"message"`
+}
+
+type OpenAPIProjectConversationInterruptResponseRequest struct {
+	Decision *string        `json:"decision,omitempty"`
+	Answer   map[string]any `json:"answer,omitempty"`
+}
+
+type OpenAPIProjectConversation struct {
+	ID             string `json:"id"`
+	ProjectID      string `json:"project_id"`
+	UserID         string `json:"user_id"`
+	Source         string `json:"source"`
+	ProviderID     string `json:"provider_id"`
+	Status         string `json:"status"`
+	RollingSummary string `json:"rolling_summary"`
+	LastActivityAt string `json:"last_activity_at"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+type OpenAPIProjectConversationResponse struct {
+	Conversation OpenAPIProjectConversation `json:"conversation"`
+}
+
+type OpenAPIProjectConversationListResponse struct {
+	Conversations []OpenAPIProjectConversation `json:"conversations"`
+}
+
+type OpenAPIProjectConversationEntry struct {
+	ID             string         `json:"id"`
+	ConversationID string         `json:"conversation_id"`
+	TurnID         *string        `json:"turn_id,omitempty"`
+	Seq            int            `json:"seq"`
+	Kind           string         `json:"kind"`
+	Payload        map[string]any `json:"payload"`
+	CreatedAt      string         `json:"created_at"`
+}
+
+type OpenAPIProjectConversationEntriesResponse struct {
+	Entries []OpenAPIProjectConversationEntry `json:"entries"`
+}
+
+type OpenAPIProjectConversationTurn struct {
+	ID        string `json:"id"`
+	TurnIndex int    `json:"turn_index"`
+	Status    string `json:"status"`
+}
+
+type OpenAPIProjectConversationTurnResponse struct {
+	Turn OpenAPIProjectConversationTurn `json:"turn"`
+}
+
+type OpenAPIProjectConversationInterruptResponse struct {
+	ID                string         `json:"id"`
+	ConversationID    string         `json:"conversation_id"`
+	TurnID            string         `json:"turn_id"`
+	ProviderRequestID string         `json:"provider_request_id"`
+	Kind              string         `json:"kind"`
+	Payload           map[string]any `json:"payload"`
+	Status            string         `json:"status"`
+	Decision          *string        `json:"decision,omitempty"`
+	ResolvedAt        *string        `json:"resolved_at,omitempty"`
+}
+
+type OpenAPIProjectConversationInterruptEnvelope struct {
+	Interrupt OpenAPIProjectConversationInterruptResponse `json:"interrupt"`
+}
+
+type OpenAPIProjectConversationActionProposalExecutionResponse struct {
+	ResultEntry OpenAPIProjectConversationEntry `json:"result_entry"`
+	Results     []map[string]any                `json:"results"`
+}
+
 type OpenAPIAgentOutputEntry struct {
 	ID         string  `json:"id"`
 	ProjectID  string  `json:"project_id"`
@@ -1358,6 +1443,19 @@ var (
 		"context.ticket_id":   "Optional ticket ID supplied to ground the chat request.",
 		"context.workflow_id": "Optional workflow ID supplied to ground the chat request.",
 	}
+	openAPIProjectConversationCreateDescriptions = map[string]string{
+		"source":             "Project conversation source and currently must be project_sidebar.",
+		"provider_id":        "Provider ID used to run this persistent project conversation.",
+		"context":            "Project conversation context.",
+		"context.project_id": "Project ID that owns the conversation workspace and transcript.",
+	}
+	openAPIProjectConversationTurnDescriptions = map[string]string{
+		"message": "User message content appended as the next project conversation turn.",
+	}
+	openAPIProjectConversationInterruptResponseDescriptions = map[string]string{
+		"decision": "Provider-native interrupt decision identifier such as approve_once.",
+		"answer":   "Structured answer payload for requestUserInput interrupts.",
+	}
 	openAPISkillBindingDescriptions = map[string]string{
 		"skills": "Skill names included in this workflow skill binding request.",
 	}
@@ -1422,15 +1520,18 @@ var (
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
-		"POST /api/v1/chat":                                 openAPIChatRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/skills":          openAPISkillCreateDescriptions,
-		"POST /api/v1/projects/{projectId}/skills/refresh":  openAPISkillSyncDescriptions,
-		"POST /api/v1/projects/{projectId}/skills/harvest":  openAPISkillSyncDescriptions,
-		"PUT /api/v1/skills/{skillId}":                      openAPISkillUpdateDescriptions,
-		"POST /api/v1/skills/{skillId}/bind":                openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/skills/{skillId}/unbind":              openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/bind":   openAPISkillBindingDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/unbind": openAPISkillBindingDescriptions,
+		"POST /api/v1/chat":                                      openAPIChatRequestDescriptions,
+		"POST /api/v1/chat/conversations":                        openAPIProjectConversationCreateDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/turns": openAPIProjectConversationTurnDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": openAPIProjectConversationInterruptResponseDescriptions,
+		"POST /api/v1/projects/{projectId}/skills":                                          openAPISkillCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/refresh":                                  openAPISkillSyncDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/harvest":                                  openAPISkillSyncDescriptions,
+		"PUT /api/v1/skills/{skillId}":                                                      openAPISkillUpdateDescriptions,
+		"POST /api/v1/skills/{skillId}/bind":                                                openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/skills/{skillId}/unbind":                                              openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/bind":                                   openAPISkillBindingDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                 openAPISkillBindingDescriptions,
 	}
 )
 
@@ -3725,6 +3826,176 @@ func (b openAPISpecBuilder) addChatOperations() error {
 		WithSchema(openapi3.NewStringSchema()),
 	)
 	b.doc.AddOperation("/api/v1/chat/{sessionId}", http.MethodDelete, chatDelete)
+
+	projectConversationCreate, err := b.jsonOperation(
+		"createProjectConversation",
+		"Create a project conversation",
+		[]string{"chat"},
+		http.StatusCreated,
+		OpenAPIProjectConversationResponse{},
+		OpenAPIProjectConversationCreateRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/chat/conversations", http.MethodPost, projectConversationCreate)
+
+	projectConversationList, err := b.jsonOperation(
+		"listProjectConversations",
+		"List project conversations",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationListResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationList.AddParameter(uuidQueryParameter("project_id", "Project ID that scopes the conversation list."))
+	projectConversationList.AddParameter(openapi3.NewQueryParameter("provider_id").
+		WithDescription("Optional provider ID used to filter conversations.").
+		WithSchema(openapi3.NewStringSchema().WithFormat("uuid")),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations", http.MethodGet, projectConversationList)
+
+	projectConversationGet, err := b.jsonOperation(
+		"getProjectConversation",
+		"Get a project conversation",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationGet.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}", http.MethodGet, projectConversationGet)
+
+	projectConversationEntries, err := b.jsonOperation(
+		"listProjectConversationEntries",
+		"List project conversation transcript entries",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationEntriesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationEntries.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/entries", http.MethodGet, projectConversationEntries)
+
+	projectConversationTurn, err := b.jsonOperation(
+		"startProjectConversationTurn",
+		"Start a project conversation turn",
+		[]string{"chat"},
+		http.StatusAccepted,
+		OpenAPIProjectConversationTurnResponse{},
+		OpenAPIProjectConversationTurnRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationTurn.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/turns", http.MethodPost, projectConversationTurn)
+
+	projectConversationStream, err := b.streamOperation(
+		"streamProjectConversation",
+		"Watch project conversation events",
+		[]string{"chat"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationStream.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/stream", http.MethodGet, projectConversationStream)
+
+	projectConversationInterrupt, err := b.jsonOperation(
+		"respondProjectConversationInterrupt",
+		"Respond to a project conversation interrupt",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationInterruptEnvelope{},
+		OpenAPIProjectConversationInterruptResponseRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationInterrupt.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationInterrupt.AddParameter(uuidPathParameter("interruptId", "Stable OpenASE interrupt ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond", http.MethodPost, projectConversationInterrupt)
+
+	projectConversationActionExecute, err := b.jsonOperation(
+		"executeProjectConversationActionProposal",
+		"Execute a project conversation action proposal",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationActionProposalExecutionResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationActionExecute.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationActionExecute.AddParameter(uuidPathParameter("entryId", "Transcript entry ID for the action proposal."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/action-proposals/{entryId}/execute", http.MethodPost, projectConversationActionExecute)
+
+	projectConversationRuntimeDelete := openapi3.NewOperation()
+	projectConversationRuntimeDelete.OperationID = "closeProjectConversationRuntime"
+	projectConversationRuntimeDelete.Summary = "Close a project conversation live runtime"
+	projectConversationRuntimeDelete.Tags = []string{"chat"}
+	projectConversationRuntimeDelete.Responses = openapi3.NewResponsesWithCapacity(6)
+	projectConversationRuntimeDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Project conversation live runtime closed."))
+	for _, code := range []int{
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		projectConversationRuntimeDelete.AddResponse(code, errorResponse)
+	}
+	projectConversationRuntimeDelete.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/runtime", http.MethodDelete, projectConversationRuntimeDelete)
 
 	return nil
 }

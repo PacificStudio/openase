@@ -23,6 +23,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
+	"github.com/BetterAndBetterII/openase/ent/chatentry"
+	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
+	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -62,6 +66,14 @@ type Client struct {
 	AgentToken *AgentTokenClient
 	// AgentTraceEvent is the client for interacting with the AgentTraceEvent builders.
 	AgentTraceEvent *AgentTraceEventClient
+	// ChatConversation is the client for interacting with the ChatConversation builders.
+	ChatConversation *ChatConversationClient
+	// ChatEntry is the client for interacting with the ChatEntry builders.
+	ChatEntry *ChatEntryClient
+	// ChatPendingInterrupt is the client for interacting with the ChatPendingInterrupt builders.
+	ChatPendingInterrupt *ChatPendingInterruptClient
+	// ChatTurn is the client for interacting with the ChatTurn builders.
+	ChatTurn *ChatTurnClient
 	// IssueConnector is the client for interacting with the IssueConnector builders.
 	IssueConnector *IssueConnectorClient
 	// Machine is the client for interacting with the Machine builders.
@@ -116,6 +128,10 @@ func (c *Client) init() {
 	c.AgentStepEvent = NewAgentStepEventClient(c.config)
 	c.AgentToken = NewAgentTokenClient(c.config)
 	c.AgentTraceEvent = NewAgentTraceEventClient(c.config)
+	c.ChatConversation = NewChatConversationClient(c.config)
+	c.ChatEntry = NewChatEntryClient(c.config)
+	c.ChatPendingInterrupt = NewChatPendingInterruptClient(c.config)
+	c.ChatTurn = NewChatTurnClient(c.config)
 	c.IssueConnector = NewIssueConnectorClient(c.config)
 	c.Machine = NewMachineClient(c.config)
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
@@ -233,6 +249,10 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AgentStepEvent:        NewAgentStepEventClient(cfg),
 		AgentToken:            NewAgentTokenClient(cfg),
 		AgentTraceEvent:       NewAgentTraceEventClient(cfg),
+		ChatConversation:      NewChatConversationClient(cfg),
+		ChatEntry:             NewChatEntryClient(cfg),
+		ChatPendingInterrupt:  NewChatPendingInterruptClient(cfg),
+		ChatTurn:              NewChatTurnClient(cfg),
 		IssueConnector:        NewIssueConnectorClient(cfg),
 		Machine:               NewMachineClient(cfg),
 		NotificationChannel:   NewNotificationChannelClient(cfg),
@@ -277,6 +297,10 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AgentStepEvent:        NewAgentStepEventClient(cfg),
 		AgentToken:            NewAgentTokenClient(cfg),
 		AgentTraceEvent:       NewAgentTraceEventClient(cfg),
+		ChatConversation:      NewChatConversationClient(cfg),
+		ChatEntry:             NewChatEntryClient(cfg),
+		ChatPendingInterrupt:  NewChatPendingInterruptClient(cfg),
+		ChatTurn:              NewChatTurnClient(cfg),
 		IssueConnector:        NewIssueConnectorClient(cfg),
 		Machine:               NewMachineClient(cfg),
 		NotificationChannel:   NewNotificationChannelClient(cfg),
@@ -325,7 +349,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
-		c.AgentToken, c.AgentTraceEvent, c.IssueConnector, c.Machine,
+		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
+		c.ChatPendingInterrupt, c.ChatTurn, c.IssueConnector, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
 		c.ProjectRepo, c.ProjectRepoMirror, c.ScheduledJob, c.Ticket, c.TicketComment,
 		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
@@ -340,7 +365,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
-		c.AgentToken, c.AgentTraceEvent, c.IssueConnector, c.Machine,
+		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
+		c.ChatPendingInterrupt, c.ChatTurn, c.IssueConnector, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
 		c.ProjectRepo, c.ProjectRepoMirror, c.ScheduledJob, c.Ticket, c.TicketComment,
 		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
@@ -367,6 +393,14 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AgentToken.mutate(ctx, m)
 	case *AgentTraceEventMutation:
 		return c.AgentTraceEvent.mutate(ctx, m)
+	case *ChatConversationMutation:
+		return c.ChatConversation.mutate(ctx, m)
+	case *ChatEntryMutation:
+		return c.ChatEntry.mutate(ctx, m)
+	case *ChatPendingInterruptMutation:
+		return c.ChatPendingInterrupt.mutate(ctx, m)
+	case *ChatTurnMutation:
+		return c.ChatTurn.mutate(ctx, m)
 	case *IssueConnectorMutation:
 		return c.IssueConnector.mutate(ctx, m)
 	case *MachineMutation:
@@ -1915,6 +1949,714 @@ func (c *AgentTraceEventClient) mutate(ctx context.Context, m *AgentTraceEventMu
 	}
 }
 
+// ChatConversationClient is a client for the ChatConversation schema.
+type ChatConversationClient struct {
+	config
+}
+
+// NewChatConversationClient returns a client for the ChatConversation from the given config.
+func NewChatConversationClient(c config) *ChatConversationClient {
+	return &ChatConversationClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `chatconversation.Hooks(f(g(h())))`.
+func (c *ChatConversationClient) Use(hooks ...Hook) {
+	c.hooks.ChatConversation = append(c.hooks.ChatConversation, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `chatconversation.Intercept(f(g(h())))`.
+func (c *ChatConversationClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ChatConversation = append(c.inters.ChatConversation, interceptors...)
+}
+
+// Create returns a builder for creating a ChatConversation entity.
+func (c *ChatConversationClient) Create() *ChatConversationCreate {
+	mutation := newChatConversationMutation(c.config, OpCreate)
+	return &ChatConversationCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ChatConversation entities.
+func (c *ChatConversationClient) CreateBulk(builders ...*ChatConversationCreate) *ChatConversationCreateBulk {
+	return &ChatConversationCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChatConversationClient) MapCreateBulk(slice any, setFunc func(*ChatConversationCreate, int)) *ChatConversationCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChatConversationCreateBulk{err: fmt.Errorf("calling to ChatConversationClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChatConversationCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChatConversationCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ChatConversation.
+func (c *ChatConversationClient) Update() *ChatConversationUpdate {
+	mutation := newChatConversationMutation(c.config, OpUpdate)
+	return &ChatConversationUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChatConversationClient) UpdateOne(_m *ChatConversation) *ChatConversationUpdateOne {
+	mutation := newChatConversationMutation(c.config, OpUpdateOne, withChatConversation(_m))
+	return &ChatConversationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChatConversationClient) UpdateOneID(id uuid.UUID) *ChatConversationUpdateOne {
+	mutation := newChatConversationMutation(c.config, OpUpdateOne, withChatConversationID(id))
+	return &ChatConversationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ChatConversation.
+func (c *ChatConversationClient) Delete() *ChatConversationDelete {
+	mutation := newChatConversationMutation(c.config, OpDelete)
+	return &ChatConversationDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ChatConversationClient) DeleteOne(_m *ChatConversation) *ChatConversationDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ChatConversationClient) DeleteOneID(id uuid.UUID) *ChatConversationDeleteOne {
+	builder := c.Delete().Where(chatconversation.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChatConversationDeleteOne{builder}
+}
+
+// Query returns a query builder for ChatConversation.
+func (c *ChatConversationClient) Query() *ChatConversationQuery {
+	return &ChatConversationQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChatConversation},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ChatConversation entity by its id.
+func (c *ChatConversationClient) Get(ctx context.Context, id uuid.UUID) (*ChatConversation, error) {
+	return c.Query().Where(chatconversation.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChatConversationClient) GetX(ctx context.Context, id uuid.UUID) *ChatConversation {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a ChatConversation.
+func (c *ChatConversationClient) QueryProject(_m *ChatConversation) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatconversation.Table, chatconversation.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, chatconversation.ProjectTable, chatconversation.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTurns queries the turns edge of a ChatConversation.
+func (c *ChatConversationClient) QueryTurns(_m *ChatConversation) *ChatTurnQuery {
+	query := (&ChatTurnClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatconversation.Table, chatconversation.FieldID, id),
+			sqlgraph.To(chatturn.Table, chatturn.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, chatconversation.TurnsTable, chatconversation.TurnsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEntries queries the entries edge of a ChatConversation.
+func (c *ChatConversationClient) QueryEntries(_m *ChatConversation) *ChatEntryQuery {
+	query := (&ChatEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatconversation.Table, chatconversation.FieldID, id),
+			sqlgraph.To(chatentry.Table, chatentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, chatconversation.EntriesTable, chatconversation.EntriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPendingInterrupts queries the pending_interrupts edge of a ChatConversation.
+func (c *ChatConversationClient) QueryPendingInterrupts(_m *ChatConversation) *ChatPendingInterruptQuery {
+	query := (&ChatPendingInterruptClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatconversation.Table, chatconversation.FieldID, id),
+			sqlgraph.To(chatpendinginterrupt.Table, chatpendinginterrupt.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, chatconversation.PendingInterruptsTable, chatconversation.PendingInterruptsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ChatConversationClient) Hooks() []Hook {
+	return c.hooks.ChatConversation
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChatConversationClient) Interceptors() []Interceptor {
+	return c.inters.ChatConversation
+}
+
+func (c *ChatConversationClient) mutate(ctx context.Context, m *ChatConversationMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChatConversationCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChatConversationUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChatConversationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChatConversationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ChatConversation mutation op: %q", m.Op())
+	}
+}
+
+// ChatEntryClient is a client for the ChatEntry schema.
+type ChatEntryClient struct {
+	config
+}
+
+// NewChatEntryClient returns a client for the ChatEntry from the given config.
+func NewChatEntryClient(c config) *ChatEntryClient {
+	return &ChatEntryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `chatentry.Hooks(f(g(h())))`.
+func (c *ChatEntryClient) Use(hooks ...Hook) {
+	c.hooks.ChatEntry = append(c.hooks.ChatEntry, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `chatentry.Intercept(f(g(h())))`.
+func (c *ChatEntryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ChatEntry = append(c.inters.ChatEntry, interceptors...)
+}
+
+// Create returns a builder for creating a ChatEntry entity.
+func (c *ChatEntryClient) Create() *ChatEntryCreate {
+	mutation := newChatEntryMutation(c.config, OpCreate)
+	return &ChatEntryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ChatEntry entities.
+func (c *ChatEntryClient) CreateBulk(builders ...*ChatEntryCreate) *ChatEntryCreateBulk {
+	return &ChatEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChatEntryClient) MapCreateBulk(slice any, setFunc func(*ChatEntryCreate, int)) *ChatEntryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChatEntryCreateBulk{err: fmt.Errorf("calling to ChatEntryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChatEntryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChatEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ChatEntry.
+func (c *ChatEntryClient) Update() *ChatEntryUpdate {
+	mutation := newChatEntryMutation(c.config, OpUpdate)
+	return &ChatEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChatEntryClient) UpdateOne(_m *ChatEntry) *ChatEntryUpdateOne {
+	mutation := newChatEntryMutation(c.config, OpUpdateOne, withChatEntry(_m))
+	return &ChatEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChatEntryClient) UpdateOneID(id uuid.UUID) *ChatEntryUpdateOne {
+	mutation := newChatEntryMutation(c.config, OpUpdateOne, withChatEntryID(id))
+	return &ChatEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ChatEntry.
+func (c *ChatEntryClient) Delete() *ChatEntryDelete {
+	mutation := newChatEntryMutation(c.config, OpDelete)
+	return &ChatEntryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ChatEntryClient) DeleteOne(_m *ChatEntry) *ChatEntryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ChatEntryClient) DeleteOneID(id uuid.UUID) *ChatEntryDeleteOne {
+	builder := c.Delete().Where(chatentry.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChatEntryDeleteOne{builder}
+}
+
+// Query returns a query builder for ChatEntry.
+func (c *ChatEntryClient) Query() *ChatEntryQuery {
+	return &ChatEntryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChatEntry},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ChatEntry entity by its id.
+func (c *ChatEntryClient) Get(ctx context.Context, id uuid.UUID) (*ChatEntry, error) {
+	return c.Query().Where(chatentry.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChatEntryClient) GetX(ctx context.Context, id uuid.UUID) *ChatEntry {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryConversation queries the conversation edge of a ChatEntry.
+func (c *ChatEntryClient) QueryConversation(_m *ChatEntry) *ChatConversationQuery {
+	query := (&ChatConversationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatentry.Table, chatentry.FieldID, id),
+			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, chatentry.ConversationTable, chatentry.ConversationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTurn queries the turn edge of a ChatEntry.
+func (c *ChatEntryClient) QueryTurn(_m *ChatEntry) *ChatTurnQuery {
+	query := (&ChatTurnClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatentry.Table, chatentry.FieldID, id),
+			sqlgraph.To(chatturn.Table, chatturn.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, chatentry.TurnTable, chatentry.TurnColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ChatEntryClient) Hooks() []Hook {
+	return c.hooks.ChatEntry
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChatEntryClient) Interceptors() []Interceptor {
+	return c.inters.ChatEntry
+}
+
+func (c *ChatEntryClient) mutate(ctx context.Context, m *ChatEntryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChatEntryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChatEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChatEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChatEntryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ChatEntry mutation op: %q", m.Op())
+	}
+}
+
+// ChatPendingInterruptClient is a client for the ChatPendingInterrupt schema.
+type ChatPendingInterruptClient struct {
+	config
+}
+
+// NewChatPendingInterruptClient returns a client for the ChatPendingInterrupt from the given config.
+func NewChatPendingInterruptClient(c config) *ChatPendingInterruptClient {
+	return &ChatPendingInterruptClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `chatpendinginterrupt.Hooks(f(g(h())))`.
+func (c *ChatPendingInterruptClient) Use(hooks ...Hook) {
+	c.hooks.ChatPendingInterrupt = append(c.hooks.ChatPendingInterrupt, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `chatpendinginterrupt.Intercept(f(g(h())))`.
+func (c *ChatPendingInterruptClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ChatPendingInterrupt = append(c.inters.ChatPendingInterrupt, interceptors...)
+}
+
+// Create returns a builder for creating a ChatPendingInterrupt entity.
+func (c *ChatPendingInterruptClient) Create() *ChatPendingInterruptCreate {
+	mutation := newChatPendingInterruptMutation(c.config, OpCreate)
+	return &ChatPendingInterruptCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ChatPendingInterrupt entities.
+func (c *ChatPendingInterruptClient) CreateBulk(builders ...*ChatPendingInterruptCreate) *ChatPendingInterruptCreateBulk {
+	return &ChatPendingInterruptCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChatPendingInterruptClient) MapCreateBulk(slice any, setFunc func(*ChatPendingInterruptCreate, int)) *ChatPendingInterruptCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChatPendingInterruptCreateBulk{err: fmt.Errorf("calling to ChatPendingInterruptClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChatPendingInterruptCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChatPendingInterruptCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ChatPendingInterrupt.
+func (c *ChatPendingInterruptClient) Update() *ChatPendingInterruptUpdate {
+	mutation := newChatPendingInterruptMutation(c.config, OpUpdate)
+	return &ChatPendingInterruptUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChatPendingInterruptClient) UpdateOne(_m *ChatPendingInterrupt) *ChatPendingInterruptUpdateOne {
+	mutation := newChatPendingInterruptMutation(c.config, OpUpdateOne, withChatPendingInterrupt(_m))
+	return &ChatPendingInterruptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChatPendingInterruptClient) UpdateOneID(id uuid.UUID) *ChatPendingInterruptUpdateOne {
+	mutation := newChatPendingInterruptMutation(c.config, OpUpdateOne, withChatPendingInterruptID(id))
+	return &ChatPendingInterruptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ChatPendingInterrupt.
+func (c *ChatPendingInterruptClient) Delete() *ChatPendingInterruptDelete {
+	mutation := newChatPendingInterruptMutation(c.config, OpDelete)
+	return &ChatPendingInterruptDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ChatPendingInterruptClient) DeleteOne(_m *ChatPendingInterrupt) *ChatPendingInterruptDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ChatPendingInterruptClient) DeleteOneID(id uuid.UUID) *ChatPendingInterruptDeleteOne {
+	builder := c.Delete().Where(chatpendinginterrupt.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChatPendingInterruptDeleteOne{builder}
+}
+
+// Query returns a query builder for ChatPendingInterrupt.
+func (c *ChatPendingInterruptClient) Query() *ChatPendingInterruptQuery {
+	return &ChatPendingInterruptQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChatPendingInterrupt},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ChatPendingInterrupt entity by its id.
+func (c *ChatPendingInterruptClient) Get(ctx context.Context, id uuid.UUID) (*ChatPendingInterrupt, error) {
+	return c.Query().Where(chatpendinginterrupt.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChatPendingInterruptClient) GetX(ctx context.Context, id uuid.UUID) *ChatPendingInterrupt {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryConversation queries the conversation edge of a ChatPendingInterrupt.
+func (c *ChatPendingInterruptClient) QueryConversation(_m *ChatPendingInterrupt) *ChatConversationQuery {
+	query := (&ChatConversationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatpendinginterrupt.Table, chatpendinginterrupt.FieldID, id),
+			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, chatpendinginterrupt.ConversationTable, chatpendinginterrupt.ConversationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTurn queries the turn edge of a ChatPendingInterrupt.
+func (c *ChatPendingInterruptClient) QueryTurn(_m *ChatPendingInterrupt) *ChatTurnQuery {
+	query := (&ChatTurnClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatpendinginterrupt.Table, chatpendinginterrupt.FieldID, id),
+			sqlgraph.To(chatturn.Table, chatturn.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, chatpendinginterrupt.TurnTable, chatpendinginterrupt.TurnColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ChatPendingInterruptClient) Hooks() []Hook {
+	return c.hooks.ChatPendingInterrupt
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChatPendingInterruptClient) Interceptors() []Interceptor {
+	return c.inters.ChatPendingInterrupt
+}
+
+func (c *ChatPendingInterruptClient) mutate(ctx context.Context, m *ChatPendingInterruptMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChatPendingInterruptCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChatPendingInterruptUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChatPendingInterruptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChatPendingInterruptDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ChatPendingInterrupt mutation op: %q", m.Op())
+	}
+}
+
+// ChatTurnClient is a client for the ChatTurn schema.
+type ChatTurnClient struct {
+	config
+}
+
+// NewChatTurnClient returns a client for the ChatTurn from the given config.
+func NewChatTurnClient(c config) *ChatTurnClient {
+	return &ChatTurnClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `chatturn.Hooks(f(g(h())))`.
+func (c *ChatTurnClient) Use(hooks ...Hook) {
+	c.hooks.ChatTurn = append(c.hooks.ChatTurn, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `chatturn.Intercept(f(g(h())))`.
+func (c *ChatTurnClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ChatTurn = append(c.inters.ChatTurn, interceptors...)
+}
+
+// Create returns a builder for creating a ChatTurn entity.
+func (c *ChatTurnClient) Create() *ChatTurnCreate {
+	mutation := newChatTurnMutation(c.config, OpCreate)
+	return &ChatTurnCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ChatTurn entities.
+func (c *ChatTurnClient) CreateBulk(builders ...*ChatTurnCreate) *ChatTurnCreateBulk {
+	return &ChatTurnCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChatTurnClient) MapCreateBulk(slice any, setFunc func(*ChatTurnCreate, int)) *ChatTurnCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChatTurnCreateBulk{err: fmt.Errorf("calling to ChatTurnClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChatTurnCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChatTurnCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ChatTurn.
+func (c *ChatTurnClient) Update() *ChatTurnUpdate {
+	mutation := newChatTurnMutation(c.config, OpUpdate)
+	return &ChatTurnUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChatTurnClient) UpdateOne(_m *ChatTurn) *ChatTurnUpdateOne {
+	mutation := newChatTurnMutation(c.config, OpUpdateOne, withChatTurn(_m))
+	return &ChatTurnUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChatTurnClient) UpdateOneID(id uuid.UUID) *ChatTurnUpdateOne {
+	mutation := newChatTurnMutation(c.config, OpUpdateOne, withChatTurnID(id))
+	return &ChatTurnUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ChatTurn.
+func (c *ChatTurnClient) Delete() *ChatTurnDelete {
+	mutation := newChatTurnMutation(c.config, OpDelete)
+	return &ChatTurnDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ChatTurnClient) DeleteOne(_m *ChatTurn) *ChatTurnDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ChatTurnClient) DeleteOneID(id uuid.UUID) *ChatTurnDeleteOne {
+	builder := c.Delete().Where(chatturn.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChatTurnDeleteOne{builder}
+}
+
+// Query returns a query builder for ChatTurn.
+func (c *ChatTurnClient) Query() *ChatTurnQuery {
+	return &ChatTurnQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChatTurn},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ChatTurn entity by its id.
+func (c *ChatTurnClient) Get(ctx context.Context, id uuid.UUID) (*ChatTurn, error) {
+	return c.Query().Where(chatturn.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChatTurnClient) GetX(ctx context.Context, id uuid.UUID) *ChatTurn {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryConversation queries the conversation edge of a ChatTurn.
+func (c *ChatTurnClient) QueryConversation(_m *ChatTurn) *ChatConversationQuery {
+	query := (&ChatConversationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatturn.Table, chatturn.FieldID, id),
+			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, chatturn.ConversationTable, chatturn.ConversationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEntries queries the entries edge of a ChatTurn.
+func (c *ChatTurnClient) QueryEntries(_m *ChatTurn) *ChatEntryQuery {
+	query := (&ChatEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatturn.Table, chatturn.FieldID, id),
+			sqlgraph.To(chatentry.Table, chatentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, chatturn.EntriesTable, chatturn.EntriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPendingInterrupts queries the pending_interrupts edge of a ChatTurn.
+func (c *ChatTurnClient) QueryPendingInterrupts(_m *ChatTurn) *ChatPendingInterruptQuery {
+	query := (&ChatPendingInterruptClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatturn.Table, chatturn.FieldID, id),
+			sqlgraph.To(chatpendinginterrupt.Table, chatpendinginterrupt.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, chatturn.PendingInterruptsTable, chatturn.PendingInterruptsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ChatTurnClient) Hooks() []Hook {
+	return c.hooks.ChatTurn
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChatTurnClient) Interceptors() []Interceptor {
+	return c.inters.ChatTurn
+}
+
+func (c *ChatTurnClient) mutate(ctx context.Context, m *ChatTurnMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChatTurnCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChatTurnUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChatTurnUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChatTurnDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ChatTurn mutation op: %q", m.Op())
+	}
+}
+
 // IssueConnectorClient is a client for the IssueConnector schema.
 type IssueConnectorClient struct {
 	config
@@ -3081,6 +3823,22 @@ func (c *ProjectClient) QueryActivityEvents(_m *Project) *ActivityEventQuery {
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(activityevent.Table, activityevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ActivityEventsTable, project.ActivityEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryChatConversations queries the chat_conversations edge of a Project.
+func (c *ProjectClient) QueryChatConversations(_m *Project) *ChatConversationQuery {
+	query := (&ChatConversationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.ChatConversationsTable, project.ChatConversationsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -5577,18 +6335,18 @@ func (c *WorkflowClient) mutate(ctx context.Context, m *WorkflowMutation) (Value
 type (
 	hooks struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
-		AgentTraceEvent, IssueConnector, Machine, NotificationChannel,
-		NotificationRule, Organization, Project, ProjectRepo, ProjectRepoMirror,
-		ScheduledJob, Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow []ent.Hook
+		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
+		IssueConnector, Machine, NotificationChannel, NotificationRule, Organization,
+		Project, ProjectRepo, ProjectRepoMirror, ScheduledJob, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
-		AgentTraceEvent, IssueConnector, Machine, NotificationChannel,
-		NotificationRule, Organization, Project, ProjectRepo, ProjectRepoMirror,
-		ScheduledJob, Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow []ent.Interceptor
+		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
+		IssueConnector, Machine, NotificationChannel, NotificationRule, Organization,
+		Project, ProjectRepo, ProjectRepoMirror, ScheduledJob, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow []ent.Interceptor
 	}
 )

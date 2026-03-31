@@ -42,6 +42,7 @@ export type ChatErrorPayload = {
 
 export type ChatActionProposalPayload = {
   type: 'action_proposal'
+  entryId?: string
   summary?: string
   actions: ChatActionProposalAction[]
 }
@@ -63,6 +64,7 @@ export type ChatDiffHunk = {
 
 export type ChatDiffPayload = {
   type: 'diff'
+  entryId?: string
   file: string
   hunks: ChatDiffHunk[]
 }
@@ -90,6 +92,66 @@ export type ChatStreamEvent =
   | { kind: 'session'; payload: ChatSessionPayload }
   | { kind: 'message'; payload: ChatMessagePayload }
   | { kind: 'done'; payload: ChatDonePayload }
+  | { kind: 'error'; payload: ChatErrorPayload }
+
+export type ProjectConversation = {
+  id: string
+  projectId: string
+  userId: string
+  source: 'project_sidebar'
+  providerId: string
+  status: string
+  rollingSummary: string
+  lastActivityAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type ProjectConversationEntry = {
+  id: string
+  conversationId: string
+  turnId?: string
+  seq: number
+  kind: string
+  payload: Record<string, unknown>
+  createdAt: string
+}
+
+export type ProjectConversationInterruptOption = {
+  id: string
+  label: string
+}
+
+export type ProjectConversationInterruptRequestedPayload = {
+  interruptId: string
+  provider: string
+  kind: string
+  options: ProjectConversationInterruptOption[]
+  payload: Record<string, unknown>
+}
+
+export type ProjectConversationInterruptResolvedPayload = {
+  interruptId: string
+  decision?: string
+}
+
+export type ProjectConversationTurnDonePayload = {
+  conversationId: string
+  turnId: string
+  costUSD?: number
+}
+
+export type ProjectConversationSessionPayload = {
+  conversationId: string
+  runtimeState: string
+}
+
+export type ProjectConversationStreamEvent =
+  | { kind: 'session'; payload: ProjectConversationSessionPayload }
+  | { kind: 'message'; payload: ChatMessagePayload }
+  | { kind: 'interrupt_requested'; payload: ProjectConversationInterruptRequestedPayload }
+  | { kind: 'interrupt_resolved'; payload: ProjectConversationInterruptResolvedPayload }
+  | { kind: 'turn_done'; payload: ProjectConversationTurnDonePayload }
   | { kind: 'error'; payload: ChatErrorPayload }
 
 export async function streamChatTurn(
@@ -152,6 +214,129 @@ export async function closeChatSession(sessionId: string) {
   }
 }
 
+export function createProjectConversation(request: { providerId: string; projectId: string }) {
+  return fetchJSON<{ conversation: ProjectConversation }>('/api/v1/chat/conversations', {
+    method: 'POST',
+    body: {
+      source: 'project_sidebar',
+      provider_id: request.providerId,
+      context: { project_id: request.projectId },
+    },
+  })
+}
+
+export function listProjectConversations(request: { projectId: string; providerId?: string }) {
+  return fetchJSON<{ conversations: ProjectConversation[] }>('/api/v1/chat/conversations', {
+    params: {
+      project_id: request.projectId,
+      provider_id: request.providerId,
+    },
+  })
+}
+
+export function getProjectConversation(conversationId: string) {
+  return fetchJSON<{ conversation: ProjectConversation }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}`,
+  )
+}
+
+export function listProjectConversationEntries(conversationId: string) {
+  return fetchJSON<{ entries: ProjectConversationEntry[] }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/entries`,
+  )
+}
+
+export function startProjectConversationTurn(conversationId: string, message: string) {
+  return fetchJSON<{ turn: { id: string; turn_index: number; status: string } }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/turns`,
+    {
+      method: 'POST',
+      body: { message },
+    },
+  )
+}
+
+export async function watchProjectConversation(
+  conversationId: string,
+  handlers: {
+    signal?: AbortSignal
+    onEvent: (event: ProjectConversationStreamEvent) => void
+  },
+) {
+  const response = await fetch(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/stream`,
+    {
+      method: 'GET',
+      headers: {
+        accept: 'text/event-stream',
+        [chatUserHeader]: resolveEphemeralChatUserId(),
+      },
+      credentials: 'same-origin',
+      signal: handlers.signal,
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText)
+    throw new ApiError(response.status, detail)
+  }
+  if (!response.body) {
+    throw new Error('project conversation stream response body is unavailable')
+  }
+
+  await consumeEventStream(response.body, (frame) => {
+    const event = parseProjectConversationStreamEvent(frame)
+    if (event) {
+      handlers.onEvent(event)
+    }
+  })
+}
+
+export function respondProjectConversationInterrupt(
+  conversationId: string,
+  interruptId: string,
+  body: {
+    decision?: string | null
+    answer?: Record<string, unknown> | null
+  },
+) {
+  return fetchJSON<{ interrupt: Record<string, unknown> }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/interrupts/${encodeURIComponent(interruptId)}/respond`,
+    {
+      method: 'POST',
+      body: {
+        decision: body.decision ?? undefined,
+        answer: body.answer ?? undefined,
+      },
+    },
+  )
+}
+
+export function executeProjectConversationActionProposal(conversationId: string, entryId: string) {
+  return fetchJSON<{ result_entry: ProjectConversationEntry; results: Record<string, unknown>[] }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/action-proposals/${encodeURIComponent(entryId)}/execute`,
+    { method: 'POST' },
+  )
+}
+
+export async function closeProjectConversationRuntime(conversationId: string) {
+  const response = await fetch(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/runtime`,
+    {
+      method: 'DELETE',
+      headers: {
+        [chatUserHeader]: resolveEphemeralChatUserId(),
+      },
+      credentials: 'same-origin',
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText)
+    throw new ApiError(response.status, detail)
+  }
+}
+
 function resolveEphemeralChatUserId() {
   if (cachedChatUserId) {
     return cachedChatUserId
@@ -197,7 +382,7 @@ function parseChatStreamEvent(frame: SSEFrame): ChatStreamEvent | null {
     case 'session':
       return { kind: 'session', payload: parseSessionPayload(payload) }
     case 'message':
-      return parseMessageEvent(payload)
+      return { kind: 'message', payload: parseMessagePayload(payload) }
     case 'done':
       return { kind: 'done', payload: parseDonePayload(payload) }
     case 'error':
@@ -207,48 +392,100 @@ function parseChatStreamEvent(frame: SSEFrame): ChatStreamEvent | null {
   }
 }
 
-function parseMessageEvent(payload: unknown): ChatStreamEvent {
+function parseProjectConversationStreamEvent(
+  frame: SSEFrame,
+): ProjectConversationStreamEvent | null {
+  const payload = parseJSONObject(frame.data)
+  if (payload == null) {
+    return null
+  }
+
+  switch (frame.event) {
+    case 'session': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'session',
+        payload: {
+          conversationId: readRequiredString(object, 'conversation_id'),
+          runtimeState: readRequiredString(object, 'runtime_state'),
+        },
+      }
+    }
+    case 'message':
+      return { kind: 'message', payload: parseMessagePayload(payload) }
+    case 'interrupt_requested': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'interrupt_requested',
+        payload: {
+          interruptId: readRequiredString(object, 'interrupt_id'),
+          provider: readRequiredString(object, 'provider'),
+          kind: readRequiredString(object, 'kind'),
+          options: readInterruptOptions(object),
+          payload: readOptionalObject(object, 'payload') ?? {},
+        },
+      }
+    }
+    case 'interrupt_resolved': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'interrupt_resolved',
+        payload: {
+          interruptId: readRequiredString(object, 'interrupt_id'),
+          decision: readOptionalString(object, 'decision'),
+        },
+      }
+    }
+    case 'turn_done': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'turn_done',
+        payload: {
+          conversationId: readRequiredString(object, 'conversation_id'),
+          turnId: readRequiredString(object, 'turn_id'),
+          costUSD: readOptionalNumber(object, 'cost_usd'),
+        },
+      }
+    }
+    case 'error':
+      return { kind: 'error', payload: parseErrorPayload(payload) }
+    default:
+      return null
+  }
+}
+
+function parseMessagePayload(payload: unknown): ChatMessagePayload {
   const object = parseRequiredObject(payload)
   const type = readRequiredString(object, 'type')
 
   if (type === 'text') {
     return {
-      kind: 'message',
-      payload: {
-        type,
-        content: readRequiredString(object, 'content'),
-      },
+      type,
+      content: readRequiredString(object, 'content'),
     }
   }
 
   if (type === 'action_proposal') {
     return {
-      kind: 'message',
-      payload: {
-        type,
-        summary: readOptionalString(object, 'summary'),
-        actions: readActionProposalActions(object),
-      },
+      type,
+      entryId: readOptionalString(object, 'entry_id'),
+      summary: readOptionalString(object, 'summary'),
+      actions: readActionProposalActions(object),
     }
   }
 
   if (type === 'diff') {
     return {
-      kind: 'message',
-      payload: {
-        type,
-        file: readRequiredString(object, 'file'),
-        hunks: readDiffHunks(object),
-      },
+      type,
+      entryId: readOptionalString(object, 'entry_id'),
+      file: readRequiredString(object, 'file'),
+      hunks: readDiffHunks(object),
     }
   }
 
   return {
-    kind: 'message',
-    payload: {
-      type,
-      raw: object.raw,
-    },
+    type,
+    raw: object,
   }
 }
 
@@ -316,6 +553,33 @@ function readRequiredNumber(object: Record<string, unknown>, key: string): numbe
 function readOptionalNumber(object: Record<string, unknown>, key: string): number | undefined {
   const value = object[key]
   return typeof value === 'number' && !Number.isNaN(value) ? value : undefined
+}
+
+function readOptionalObject(
+  object: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> | undefined {
+  const value = object[key]
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
+function readInterruptOptions(
+  object: Record<string, unknown>,
+): ProjectConversationInterruptOption[] {
+  const value = object.options
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.map((item) => {
+    const option = parseRequiredObject(item)
+    return {
+      id: readRequiredString(option, 'id'),
+      label: readRequiredString(option, 'label'),
+    }
+  })
 }
 
 function readActionProposalActions(object: Record<string, unknown>): ChatActionProposalAction[] {
@@ -413,4 +677,38 @@ function parseDiffLine(value: unknown, hunkIndex: number, lineIndex: number): Ch
 
 function isDiffLineOp(value: string): value is ChatDiffLineOp {
   return value === 'context' || value === 'add' || value === 'remove'
+}
+
+async function fetchJSON<T>(
+  path: string,
+  options?: {
+    method?: 'GET' | 'POST' | 'DELETE'
+    params?: Record<string, string | undefined>
+    body?: unknown
+  },
+) {
+  const url = new URL(path, window.location.origin)
+  for (const [key, value] of Object.entries(options?.params ?? {})) {
+    if (value) {
+      url.searchParams.set(key, value)
+    }
+  }
+
+  const response = await fetch(url.toString(), {
+    method: options?.method ?? 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      [chatUserHeader]: resolveEphemeralChatUserId(),
+    },
+    body: options?.body ? JSON.stringify(options.body) : undefined,
+    credentials: 'same-origin',
+  })
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText)
+    throw new ApiError(response.status, detail)
+  }
+  if (response.status === 204) {
+    return undefined as T
+  }
+  return response.json() as Promise<T>
 }

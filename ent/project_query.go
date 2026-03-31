@@ -18,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -49,6 +50,7 @@ type ProjectQuery struct {
 	withAgentStepEvents      *AgentStepEventQuery
 	withScheduledJobs        *ScheduledJobQuery
 	withActivityEvents       *ActivityEventQuery
+	withChatConversations    *ChatConversationQuery
 	withNotificationRules    *NotificationRuleQuery
 	withIssueConnectors      *IssueConnectorQuery
 	withDefaultWorkflow      *WorkflowQuery
@@ -324,6 +326,28 @@ func (_q *ProjectQuery) QueryActivityEvents() *ActivityEventQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(activityevent.Table, activityevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ActivityEventsTable, project.ActivityEventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryChatConversations chains the current query on the "chat_conversations" edge.
+func (_q *ProjectQuery) QueryChatConversations() *ChatConversationQuery {
+	query := (&ChatConversationClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.ChatConversationsTable, project.ChatConversationsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -622,6 +646,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withAgentStepEvents:      _q.withAgentStepEvents.Clone(),
 		withScheduledJobs:        _q.withScheduledJobs.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
+		withChatConversations:    _q.withChatConversations.Clone(),
 		withNotificationRules:    _q.withNotificationRules.Clone(),
 		withIssueConnectors:      _q.withIssueConnectors.Clone(),
 		withDefaultWorkflow:      _q.withDefaultWorkflow.Clone(),
@@ -753,6 +778,17 @@ func (_q *ProjectQuery) WithActivityEvents(opts ...func(*ActivityEventQuery)) *P
 	return _q
 }
 
+// WithChatConversations tells the query-builder to eager-load the nodes that are connected to
+// the "chat_conversations" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithChatConversations(opts ...func(*ChatConversationQuery)) *ProjectQuery {
+	query := (&ChatConversationClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withChatConversations = query
+	return _q
+}
+
 // WithNotificationRules tells the query-builder to eager-load the nodes that are connected to
 // the "notification_rules" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *ProjectQuery) WithNotificationRules(opts ...func(*NotificationRuleQuery)) *ProjectQuery {
@@ -875,7 +911,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [16]bool{
 			_q.withOrganization != nil,
 			_q.withRepos != nil,
 			_q.withStatuses != nil,
@@ -887,6 +923,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withAgentStepEvents != nil,
 			_q.withScheduledJobs != nil,
 			_q.withActivityEvents != nil,
+			_q.withChatConversations != nil,
 			_q.withNotificationRules != nil,
 			_q.withIssueConnectors != nil,
 			_q.withDefaultWorkflow != nil,
@@ -984,6 +1021,15 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadActivityEvents(ctx, query, nodes,
 			func(n *Project) { n.Edges.ActivityEvents = []*ActivityEvent{} },
 			func(n *Project, e *ActivityEvent) { n.Edges.ActivityEvents = append(n.Edges.ActivityEvents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withChatConversations; query != nil {
+		if err := _q.loadChatConversations(ctx, query, nodes,
+			func(n *Project) { n.Edges.ChatConversations = []*ChatConversation{} },
+			func(n *Project, e *ChatConversation) {
+				n.Edges.ChatConversations = append(n.Edges.ChatConversations, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1332,6 +1378,36 @@ func (_q *ProjectQuery) loadActivityEvents(ctx context.Context, query *ActivityE
 	}
 	query.Where(predicate.ActivityEvent(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.ActivityEventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadChatConversations(ctx context.Context, query *ChatConversationQuery, nodes []*Project, init func(*Project), assign func(*Project, *ChatConversation)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(chatconversation.FieldProjectID)
+	}
+	query.Where(predicate.ChatConversation(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.ChatConversationsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

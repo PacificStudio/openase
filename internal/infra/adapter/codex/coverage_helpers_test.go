@@ -2,6 +2,7 @@ package codex
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -189,13 +190,14 @@ func TestSessionApprovalAndUserInputResponses(t *testing.T) {
 
 	inputBuffer := bytes.NewBuffer(nil)
 	inputSession := &Session{encoder: json.NewEncoder(inputBuffer), autoApproveRequests: true}
-	if err := inputSession.respondToolRequestUserInput(requestID, json.RawMessage(`{
-		"questions":[
-			{"id":"approval","options":[{"label":"Deny"},{"label":"Approve Once"}]},
-			{"id":"fallback","options":[{"label":"Deny"}]}
-		]
-	}`)); err != nil {
-		t.Fatalf("respondToolRequestUserInput() error = %v", err)
+	inputPayloadMap := map[string]any{
+		"questions": []any{
+			map[string]any{"id": "approval", "options": []any{map[string]any{"label": "Deny"}, map[string]any{"label": "Approve Once"}}},
+			map[string]any{"id": "fallback", "options": []any{map[string]any{"label": "Deny"}}},
+		},
+	}
+	if err := inputSession.RespondUserInput(context.Background(), UserInputRequest{RequestID: requestID}, defaultToolRequestUserInputAnswers(inputPayloadMap)); err != nil {
+		t.Fatalf("RespondUserInput() error = %v", err)
 	}
 	var inputMessage jsonRPCMessage
 	if err := json.Unmarshal(bytes.TrimSpace(inputBuffer.Bytes()), &inputMessage); err != nil {
@@ -218,8 +220,8 @@ func TestSessionApprovalAndUserInputResponses(t *testing.T) {
 
 	errorBuffer := bytes.NewBuffer(nil)
 	errorSession := &Session{encoder: json.NewEncoder(errorBuffer)}
-	if err := errorSession.respondToolRequestUserInput(requestID, json.RawMessage(`{"questions":[{"id":"   ","options":[]} ]}`)); err != nil {
-		t.Fatalf("respondToolRequestUserInput(empty IDs) error = %v", err)
+	if err := errorSession.RespondUserInput(context.Background(), UserInputRequest{RequestID: requestID}, map[string]any{}); err != nil {
+		t.Fatalf("RespondUserInput(empty answers) error = %v", err)
 	}
 	var errorMessage jsonRPCMessage
 	if err := json.Unmarshal(bytes.TrimSpace(errorBuffer.Bytes()), &errorMessage); err != nil {

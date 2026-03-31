@@ -20,16 +20,34 @@ type CodexRuntime struct {
 }
 
 type codexRuntimeSession struct {
-	session   *codexadapter.Session
-	costUSD   *float64
-	turnsUsed int
-	running   bool
+	session    *codexadapter.Session
+	costUSD    *float64
+	turnsUsed  int
+	running    bool
+	lastTurnID string
 }
 
 type codexAssistantItemState struct {
 	text              strings.Builder
 	emittedText       bool
 	waitingOnSnapshot bool
+}
+
+type RuntimeInterruptEvent struct {
+	RequestID string                     `json:"request_id"`
+	Kind      string                     `json:"kind"`
+	Options   []RuntimeInterruptDecision `json:"options,omitempty"`
+	Payload   map[string]any             `json:"payload,omitempty"`
+}
+
+type RuntimeInterruptDecision struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+type RuntimeSessionAnchor struct {
+	ProviderThreadID string
+	LastTurnID       string
 }
 
 func NewCodexRuntime(adapter *codexadapter.Adapter) *CodexRuntime {
@@ -139,15 +157,15 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 			Model:                  input.Provider.ModelName,
 			ServiceName:            "openase",
 			DeveloperInstructions:  input.SystemPrompt,
-			ApprovalPolicy:         "never",
+			ApprovalPolicy:         codexApprovalPolicy(input.PersistentConversation),
 			Sandbox:                "danger-full-access",
-			Ephemeral:              boolPointer(true),
+			Ephemeral:              boolPointer(!input.PersistentConversation),
 			PersistExtendedHistory: true,
 		},
 		Turn: codexadapter.TurnConfig{
 			WorkingDirectory: input.WorkingDirectory.String(),
-			Title:            "OpenASE Ephemeral Chat",
-			ApprovalPolicy:   "never",
+			Title:            codexTurnTitle(input.PersistentConversation),
+			ApprovalPolicy:   codexApprovalPolicy(input.PersistentConversation),
 			SandboxPolicy: map[string]any{
 				"type":          "dangerFullAccess",
 				"networkAccess": true,
@@ -198,6 +216,9 @@ func (r *CodexRuntime) bridgeTurn(
 			if event.Turn == nil || event.Turn.TurnID != turnID {
 				continue
 			}
+			r.mu.Lock()
+			state.lastTurnID = event.Turn.TurnID
+			r.mu.Unlock()
 			events <- newTaskMessageEvent(chatMessageTypeTaskStarted, map[string]any{
 				"thread_id": event.Turn.ThreadID,
 				"turn_id":   event.Turn.TurnID,
@@ -227,6 +248,31 @@ func (r *CodexRuntime) bridgeTurn(
 				"tool":      event.ToolCall.Tool,
 				"arguments": decodeRawJSON(event.ToolCall.Arguments),
 			})
+		case codexadapter.EventTypeApprovalRequested:
+			if event.Approval == nil || event.Approval.TurnID != turnID {
+				continue
+			}
+			events <- StreamEvent{
+				Event: "interrupt_requested",
+				Payload: RuntimeInterruptEvent{
+					RequestID: event.Approval.RequestID.String(),
+					Kind:      string(event.Approval.Kind),
+					Options:   mapRuntimeInterruptOptions(event.Approval.Options),
+					Payload:   cloneAnyMap(event.Approval.Payload),
+				},
+			}
+		case codexadapter.EventTypeUserInputRequested:
+			if event.UserInput == nil || event.UserInput.TurnID != turnID {
+				continue
+			}
+			events <- StreamEvent{
+				Event: "interrupt_requested",
+				Payload: RuntimeInterruptEvent{
+					RequestID: event.UserInput.RequestID.String(),
+					Kind:      "user_input",
+					Payload:   cloneAnyMap(event.UserInput.Payload),
+				},
+			}
 		case codexadapter.EventTypeTokenUsageUpdated:
 			if event.TokenUsage == nil || event.TokenUsage.TurnID != turnID {
 				continue
@@ -359,4 +405,89 @@ func (s *codexAssistantItemState) append(text string, snapshot bool) string {
 
 func boolPointer(value bool) *bool {
 	return &value
+}
+
+func codexApprovalPolicy(persistent bool) any {
+	if persistent {
+		return nil
+	}
+	return "never"
+}
+
+func codexTurnTitle(persistent bool) string {
+	if persistent {
+		return "OpenASE Project Conversation"
+	}
+	return "OpenASE Ephemeral Chat"
+}
+
+func (r *CodexRuntime) RespondInterrupt(
+	ctx context.Context,
+	sessionID SessionID,
+	requestID string,
+	kind string,
+	decision string,
+	answer map[string]any,
+) error {
+	r.mu.Lock()
+	state := r.sessions[sessionID]
+	r.mu.Unlock()
+	if state == nil || state.session == nil {
+		return fmt.Errorf("codex chat session %s not found", sessionID)
+	}
+
+	parsedRequestID, err := codexadapter.ParseRequestIDString(requestID)
+	if err != nil {
+		return err
+	}
+
+	switch kind {
+	case "command_execution", "file_change":
+		return state.session.RespondApproval(ctx, codexadapter.ApprovalRequest{
+			RequestID: parsedRequestID,
+			Kind:      codexadapter.ApprovalRequestKind(kind),
+		}, decision)
+	case "user_input":
+		return state.session.RespondUserInput(ctx, codexadapter.UserInputRequest{
+			RequestID: parsedRequestID,
+		}, answer)
+	default:
+		return fmt.Errorf("unsupported interrupt kind %q", kind)
+	}
+}
+
+func (r *CodexRuntime) SessionAnchor(sessionID SessionID) RuntimeSessionAnchor {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	state := r.sessions[sessionID]
+	if state == nil || state.session == nil {
+		return RuntimeSessionAnchor{}
+	}
+	return RuntimeSessionAnchor{
+		ProviderThreadID: strings.TrimSpace(state.session.ThreadID()),
+		LastTurnID:       strings.TrimSpace(state.lastTurnID),
+	}
+}
+
+func mapRuntimeInterruptOptions(options []codexadapter.ApprovalOption) []RuntimeInterruptDecision {
+	decisions := make([]RuntimeInterruptDecision, 0, len(options))
+	for _, option := range options {
+		decisions = append(decisions, RuntimeInterruptDecision{
+			ID:    option.ID,
+			Label: option.Label,
+		})
+	}
+	return decisions
+}
+
+func cloneAnyMap(value map[string]any) map[string]any {
+	if len(value) == 0 {
+		return map[string]any{}
+	}
+	copied := make(map[string]any, len(value))
+	for key, item := range value {
+		copied[key] = item
+	}
+	return copied
 }
