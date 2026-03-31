@@ -508,6 +508,10 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	}
 	if statusChanged {
 		builder.ClearCurrentRunID()
+		builder.SetStallCount(0)
+	}
+	if targetMachineChanged {
+		builder.SetStallCount(0)
 	}
 
 	if _, err := builder.Save(ctx); err != nil {

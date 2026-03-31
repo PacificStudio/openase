@@ -277,6 +277,9 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	}
 
 	runID := seedTicketCurrentRun(ctx, t, client, fixture, parent.ID)
+	if _, err := client.Ticket.UpdateOneID(parent.ID).SetStallCount(2).Save(ctx); err != nil {
+		t.Fatalf("seed ticket stall count: %v", err)
+	}
 	updatedParent, err := service.Update(ctx, UpdateInput{
 		TicketID:                          parent.ID,
 		StatusID:                          Some(fixture.doneID),
@@ -288,6 +291,13 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	}
 	if updatedParent.CurrentRunID != nil || updatedParent.StatusID != fixture.doneID || updatedParent.TargetMachineID == nil || *updatedParent.TargetMachineID != fixture.workerTwoID {
 		t.Fatalf("Update(status transition) = %+v", updatedParent)
+	}
+	updatedParentEntity, err := client.Ticket.Get(ctx, parent.ID)
+	if err != nil {
+		t.Fatalf("reload updated parent: %v", err)
+	}
+	if updatedParentEntity.StallCount != 0 {
+		t.Fatalf("expected status transition to reset stall count, got %+v", updatedParentEntity)
 	}
 
 	runAfterRelease, err := client.AgentRun.Get(ctx, runID)
@@ -945,6 +955,7 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 		SetNextRetryAt(nextRetryAt).
 		SetRetryPaused(true).
 		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		SetStallCount(2).
 		Save(ctx); err != nil {
 		t.Fatalf("mark retry paused finish ticket: %v", err)
 	}
@@ -969,6 +980,13 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 	}
 	if retryPausedFinishResult.Ticket.NextRetryAt != nil || retryPausedFinishResult.Ticket.RetryPaused || retryPausedFinishResult.Ticket.PauseReason != "" {
 		t.Fatalf("retry-paused finish ticket after sync = %+v", retryPausedFinishResult.Ticket)
+	}
+	retryPausedFinishTicketAfter, err := client.Ticket.Get(ctx, retryPausedFinishTicket.ID)
+	if err != nil {
+		t.Fatalf("reload retry-paused finish ticket: %v", err)
+	}
+	if retryPausedFinishTicketAfter.StallCount != 0 {
+		t.Fatalf("expected repo-scope finish to reset stall count, got %+v", retryPausedFinishTicketAfter)
 	}
 	retryPausedFinishRunAfter, err := client.AgentRun.Get(ctx, retryPausedFinishRunID)
 	if err != nil {

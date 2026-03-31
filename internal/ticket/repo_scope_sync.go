@@ -161,6 +161,7 @@ func (s *Service) scheduleRepoScopeRetry(ctx context.Context, tx *ent.Tx, ticket
 		ClearCurrentRunID().
 		SetAttemptCount(nextAttemptCount).
 		SetConsecutiveErrors(current.ConsecutiveErrors + 1).
+		SetStallCount(0).
 		SetNextRetryAt(timeNowUTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount)))
 
 	if ticketing.ShouldPauseForBudget(current.CostAmount, current.BudgetUsd) {
@@ -202,6 +203,7 @@ func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.T
 	update := tx.Ticket.UpdateOneID(current.ID).
 		SetStatusID(finishStatusID).
 		SetCompletedAt(timeNowUTC()).
+		SetStallCount(0).
 		ClearCurrentRunID()
 	if current.NextRetryAt != nil {
 		update.ClearNextRetryAt()
