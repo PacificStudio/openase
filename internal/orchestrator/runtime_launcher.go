@@ -847,11 +847,12 @@ func (l *RuntimeLauncher) resolveLaunchSkillNames(
 }
 
 func buildRemoteRefreshSkillsCommand(workspaceRoot string, skillsDir string, skillNames []string) string {
-	lines := []string{
+	lines := make([]string, 0, 3+len(skillNames))
+	lines = append(lines,
 		"set -eu",
-		"rm -rf " + sshinfra.ShellQuote(skillsDir),
-		"mkdir -p " + sshinfra.ShellQuote(skillsDir),
-	}
+		"rm -rf "+sshinfra.ShellQuote(skillsDir),
+		"mkdir -p "+sshinfra.ShellQuote(skillsDir),
+	)
 
 	for _, skillName := range skillNames {
 		src := filepath.Join(workspaceRoot, ".openase", "skills", skillName)

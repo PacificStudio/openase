@@ -8,14 +8,7 @@
   import { Button } from '$ui/button'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { Input } from '$ui/input'
-  import {
-    ArrowDown,
-    ArrowUp,
-    CircleDot,
-    Ellipsis,
-    Save,
-    Trash2,
-  } from '@lucide/svelte'
+  import { ArrowDown, ArrowUp, CircleDot, Ellipsis, Save, Trash2 } from '@lucide/svelte'
 
   let {
     status,
@@ -109,12 +102,7 @@
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         {#snippet child({ props })}
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-8 w-8 shrink-0 p-0"
-            {...props}
-          >
+          <Button variant="ghost" size="sm" class="h-8 w-8 shrink-0 p-0" {...props}>
             <Ellipsis class="size-3.5" />
             <span class="sr-only">More actions</span>
           </Button>
@@ -127,17 +115,11 @@
             Set as default
           </DropdownMenu.Item>
         {/if}
-        <DropdownMenu.Item
-          disabled={busy || !canMoveUp}
-          onclick={() => onMoveUp(status.id)}
-        >
+        <DropdownMenu.Item disabled={busy || !canMoveUp} onclick={() => onMoveUp(status.id)}>
           <ArrowUp class="mr-2 size-3.5" />
           Move up
         </DropdownMenu.Item>
-        <DropdownMenu.Item
-          disabled={busy || !canMoveDown}
-          onclick={() => onMoveDown(status.id)}
-        >
+        <DropdownMenu.Item disabled={busy || !canMoveDown} onclick={() => onMoveDown(status.id)}>
           <ArrowDown class="mr-2 size-3.5" />
           Move down
         </DropdownMenu.Item>

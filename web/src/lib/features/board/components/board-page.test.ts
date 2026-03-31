@@ -10,7 +10,7 @@ import type {
   WorkflowListPayload,
 } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
-import TicketsPage from '$lib/features/tickets/components/tickets-page.svelte'
+import { TicketsPage } from '$lib/features/tickets'
 
 const {
   listActivity,

@@ -1,1 +1,5 @@
 export { default as OrgDashboard } from './components/org-dashboard.svelte'
+export { default as OrgProjectCard } from './components/org-project-card.svelte'
+export { default as StatCard } from './components/stat-card.svelte'
+export { buildDashboardStats } from './model'
+export type { DashboardStats } from './types'

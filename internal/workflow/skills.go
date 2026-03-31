@@ -531,7 +531,8 @@ func (s *Service) buildSkillDetail(ctx context.Context, record resolvedSkillReco
 		if item.ID != record.entry.ID {
 			continue
 		}
-		contentPath := filepath.Join(s.skillDirectoryPath(record.storage, record.entry.Name), "SKILL.md")
+		contentPath := filepath.Join(filepath.Clean(s.skillDirectoryPath(record.storage, record.entry.Name)), "SKILL.md")
+		//nolint:gosec // contentPath is derived from the validated project skill root and indexed skill name.
 		data, err := os.ReadFile(contentPath)
 		if err != nil {
 			return SkillDetail{}, fmt.Errorf("read skill %s content: %w", record.entry.Name, err)

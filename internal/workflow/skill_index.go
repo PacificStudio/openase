@@ -30,7 +30,8 @@ type skillIndexEntry struct {
 }
 
 func loadSkillIndex(skillRoot string) (map[string]skillIndexEntry, error) {
-	indexPath := filepath.Join(skillRoot, skillIndexFilename)
+	indexPath := filepath.Join(filepath.Clean(skillRoot), skillIndexFilename)
+	//nolint:gosec // indexPath always targets the service-owned skill root plus a fixed filename.
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
 		if errorsIsNotExist(err) {
