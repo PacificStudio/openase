@@ -1,9 +1,11 @@
 <script lang="ts">
-  import type { EditableStatus, StatusDraft } from '$lib/features/statuses/public'
+  import type { EditableStage } from '$lib/features/stages/public'
+  import type { EditableStatus, ParsedStatusDraft } from '$lib/features/statuses/public'
   import StatusSettingsRow from './status-settings-row.svelte'
 
   let {
     statuses,
+    stages,
     loading = false,
     resetting = false,
     busyStatusId = '',
@@ -13,10 +15,11 @@
     onSetDefault,
   }: {
     statuses: EditableStatus[]
+    stages: EditableStage[]
     loading?: boolean
     resetting?: boolean
     busyStatusId?: string
-    onSave: (statusId: string, draft: StatusDraft) => Promise<void> | void
+    onSave: (statusId: string, draft: ParsedStatusDraft) => Promise<void> | void
     onDelete: (status: EditableStatus) => Promise<void> | void
     onMove: (statusId: string, direction: 'up' | 'down') => Promise<void> | void
     onSetDefault: (statusId: string) => Promise<void> | void
@@ -34,6 +37,7 @@
     {#each statuses as status, index (status.id)}
       <StatusSettingsRow
         {status}
+        {stages}
         order={index}
         busy={busyStatusId === status.id || resetting || loading}
         canMoveUp={index > 0}

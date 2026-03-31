@@ -113,6 +113,9 @@ export type ActivityEvent = ItemOf<ActivityPayload['events']>
 export type StatusPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/statuses', 'get'>
 >
+export type StagePayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/stages', 'get'>>
+export type StageResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/stages', 'post'>>
+export type StageDeleteResponse = DeepRequired<ResponseFor<'/api/v1/stages/{stageId}', 'delete'>>
 export type StatusResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/statuses', 'post'>
 >
@@ -122,6 +125,7 @@ export type StatusResetPayload = DeepRequired<
 export type StatusDeleteResponse = DeepRequired<
   ResponseFor<'/api/v1/statuses/{statusId}', 'delete'>
 >
+export type TicketStage = ItemOf<StagePayload['stages']>
 export type TicketStatus = ItemOf<StatusPayload['statuses']>
 
 export type TicketPayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/tickets', 'get'>>
