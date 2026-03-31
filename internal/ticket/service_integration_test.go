@@ -2,6 +2,8 @@ package ticket
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -10,10 +12,12 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
@@ -497,6 +501,116 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	}
 	if _, err := service.RemoveComment(ctx, parent.ID, comment.ID); err != nil {
 		t.Fatalf("RemoveComment(existing) error = %v", err)
+	}
+}
+
+func TestTicketServiceRunsCancelHookWhenStatusChangeReleasesCurrentRun(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := NewService(client)
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(localMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider to local machine: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_cancel": []any{
+					map[string]any{"cmd": `printf 'cancel\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set workflow cancel hooks: %v", err)
+	}
+
+	ticketItem, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Cancel current run",
+		StatusID:   &fixture.todoID,
+		Priority:   "high",
+		Type:       "feature",
+		WorkflowID: &fixture.workflowID,
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, ticketItem.ID)
+
+	repoItem, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+	mirrorItem, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(repoItem.ID).
+		SetMachineID(localMachine.ID).
+		SetLocalPath(filepath.Join(t.TempDir(), "mirror-backend")).
+		SetState(entprojectrepomirror.StateReady).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo mirror: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	repoPath := filepath.Join(workspaceRoot, "backend")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("create repo path: %v", err)
+	}
+	if _, err := client.TicketRepoWorkspace.Create().
+		SetTicketID(ticketItem.ID).
+		SetAgentRunID(runID).
+		SetRepoID(repoItem.ID).
+		SetMirrorID(mirrorItem.ID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName("agent/planner/ASE-cancel").
+		SetState(entticketrepoworkspace.StateReady).
+		SetPreparedAt(time.Now().UTC()).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket repo workspace: %v", err)
+	}
+
+	updated, err := service.Update(ctx, UpdateInput{
+		TicketID:                          ticketItem.ID,
+		StatusID:                          Some(fixture.doneID),
+		RestrictStatusToWorkflowFinishSet: true,
+	})
+	if err != nil {
+		t.Fatalf("update ticket status: %v", err)
+	}
+	if updated.CurrentRunID != nil {
+		t.Fatalf("expected released current run, got %+v", updated.CurrentRunID)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(workspaceRoot, "hook.log"))
+	if err != nil {
+		t.Fatalf("read cancel hook log: %v", err)
+	}
+	if string(raw) != "cancel\n" {
+		t.Fatalf("unexpected cancel hook log %q", string(raw))
 	}
 }
 

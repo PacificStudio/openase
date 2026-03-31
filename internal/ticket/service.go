@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/google/uuid"
 )
 
@@ -241,12 +243,19 @@ type DeleteCommentResult struct {
 
 // Service provides ticket CRUD and dependency orchestration.
 type Service struct {
-	client *ent.Client
+	client         *ent.Client
+	logger         *slog.Logger
+	sshPool        ticketHookSSHPool
+	agentPlatform  ticketHookAgentPlatform
+	platformAPIURL string
 }
 
 // NewService constructs a ticket service backed by the provided ent client.
 func NewService(client *ent.Client) *Service {
-	return &Service{client: client}
+	return &Service{
+		client: client,
+		logger: slog.Default().With("component", "ticket-service"),
+	}
 }
 
 // List returns tickets in a project ordered for UI consumption.
@@ -427,6 +436,8 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	builder := tx.Ticket.UpdateOneID(current.ID)
 	statusChanged := false
 	targetMachineChanged := false
+	releasedRunID := current.CurrentRunID
+	releasedWorkflowID := current.WorkflowID
 
 	if input.Title.Set {
 		builder.SetTitle(input.Title.Value)
@@ -527,6 +538,14 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 
 	if err := tx.Commit(); err != nil {
 		return Ticket{}, fmt.Errorf("commit ticket update tx: %w", err)
+	}
+	if releasedRunID != nil && (statusChanged || targetMachineChanged) {
+		s.RunLifecycleHookBestEffort(ctx, RunLifecycleHookInput{
+			TicketID:   current.ID,
+			RunID:      *releasedRunID,
+			HookName:   infrahook.TicketHookOnCancel,
+			WorkflowID: releasedWorkflowID,
+		})
 	}
 
 	return s.Get(ctx, current.ID)
