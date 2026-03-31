@@ -60,7 +60,11 @@ export function buildBoardData(
 ): BoardData {
   const workflowTypeById = new Map(workflows.map((workflow) => [workflow.id, workflow.type]))
   const runtimeByTicketId = buildTicketRuntimeById(agents, activity)
-  const ticketsByStatusId = buildBoardTicketsByStatusId(tickets, workflowTypeById, runtimeByTicketId)
+  const ticketsByStatusId = buildBoardTicketsByStatusId(
+    tickets,
+    workflowTypeById,
+    runtimeByTicketId,
+  )
   const groups = buildBoardGroups(statusPayload, ticketsByStatusId)
   const columns = groups.flatMap((group) => group.columns)
 

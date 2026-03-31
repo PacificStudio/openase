@@ -195,7 +195,9 @@ describe('TicketsPage', () => {
     expect(executionHeading.compareDocumentPosition(ungroupedHeading)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
-    expect(await findByText('Statuses without a stage always render after staged groups.')).toBeTruthy()
+    expect(
+      await findByText('Statuses without a stage always render after staged groups.'),
+    ).toBeTruthy()
     expect(await findByText('1 / 1 active')).toBeTruthy()
     expect(queryByRole('table')).toBeNull()
 

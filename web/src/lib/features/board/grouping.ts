@@ -30,7 +30,9 @@ export function projectBoardGroups(groups: BoardGroup[], columns: BoardColumn[])
   }))
 }
 
-function normalizeBoardStatusGroups(statusPayload: Pick<StatusPayload, 'stage_groups' | 'statuses'>) {
+function normalizeBoardStatusGroups(
+  statusPayload: Pick<StatusPayload, 'stage_groups' | 'statuses'>,
+) {
   const sortedStatuses = statusPayload.statuses.slice().sort(compareTicketStatuses)
   if (statusPayload.stage_groups.length === 0) {
     return sortedStatuses.length === 0 ? [] : [{ stage: null, statuses: sortedStatuses }]
