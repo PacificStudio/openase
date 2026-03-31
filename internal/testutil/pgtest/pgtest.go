@@ -23,6 +23,7 @@ import (
 const defaultDatabase = "postgres"
 
 const sharedServerStartAttempts = 5
+const sharedServerAssetsRootEnv = "OPENASE_PGTEST_SHARED_ROOT"
 
 type postgresController interface {
 	Start() error
@@ -39,8 +40,22 @@ var (
 	createSharedServerRootDir = func(prefix string) (string, error) {
 		return os.MkdirTemp("", prefix)
 	}
-	allocateSharedServerPort = freePort
-	newPostgresController    = func(rootDir string, port uint32) postgresController {
+	allocateSharedServerPort      = freePort
+	resolveSharedServerAssetsRoot = func() (string, error) {
+		if override := strings.TrimSpace(os.Getenv(sharedServerAssetsRootEnv)); override != "" {
+			return override, nil
+		}
+		cacheDir, err := os.UserCacheDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve user cache dir: %w", err)
+		}
+		return filepath.Join(cacheDir, "openase", "pgtest"), nil
+	}
+	newPostgresController = func(rootDir string, port uint32) (postgresController, error) {
+		paths, err := sharedServerPaths(rootDir)
+		if err != nil {
+			return nil, err
+		}
 		return embeddedpostgres.NewDatabase(
 			embeddedpostgres.DefaultConfig().
 				Version(embeddedpostgres.V16).
@@ -48,22 +63,31 @@ var (
 				Username("postgres").
 				Password("postgres").
 				Database(defaultDatabase).
-				RuntimePath(filepath.Join(rootDir, "runtime")).
-				BinariesPath(filepath.Join(rootDir, "binaries")).
-				DataPath(filepath.Join(rootDir, "data")),
-		)
+				CachePath(paths.cachePath).
+				RuntimePath(paths.runtimePath).
+				BinariesPath(paths.binariesPath).
+				DataPath(paths.dataPath),
+		), nil
 	}
 )
 
+type sharedServerPathsResult struct {
+	cachePath    string
+	runtimePath  string
+	binariesPath string
+	dataPath     string
+}
+
 type Server struct {
-	admin    *sql.DB
-	baseDSN  string
-	port     uint32
-	rootDir  string
-	pg       postgresController
-	prefix   string
-	nextID   atomic.Uint64
-	schemaMu sync.Mutex
+	admin            *sql.DB
+	baseDSN          string
+	port             uint32
+	rootDir          string
+	pg               postgresController
+	prefix           string
+	nextID           atomic.Uint64
+	templateMu       sync.Mutex
+	templateDatabase string
 }
 
 type Database struct {
@@ -143,7 +167,11 @@ func startSharedServerProcess(prefix string) (sharedServerStartResult, error) {
 			return sharedServerStartResult{}, fmt.Errorf("allocate free port: %w", err)
 		}
 
-		pg := newPostgresController(rootDir, port)
+		pg, err := newPostgresController(rootDir, port)
+		if err != nil {
+			_ = os.RemoveAll(rootDir)
+			return sharedServerStartResult{}, fmt.Errorf("create embedded postgres controller: %w", err)
+		}
 		if err := pg.Start(); err != nil {
 			lastErr = err
 			_ = pg.Stop()
@@ -179,10 +207,23 @@ func (s *Server) NewIsolatedDatabase(t *testing.T) Database {
 	}
 
 	dbName := s.nextDatabaseName()
+	return s.newIsolatedDatabase(t, dbName, "")
+}
+
+func (s *Server) newIsolatedDatabase(t *testing.T, dbName string, templateName string) Database {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	if _, err := s.admin.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(dbName)); err != nil {
+	statement := "CREATE DATABASE " + pq.QuoteIdentifier(dbName)
+	if templateName != "" {
+		statement += " TEMPLATE " + pq.QuoteIdentifier(templateName)
+	}
+	if _, err := s.admin.ExecContext(ctx, statement); err != nil {
+		if templateName != "" {
+			t.Fatalf("create isolated database %s from template %s: %v", dbName, templateName, err)
+		}
 		t.Fatalf("create isolated database %s: %v", dbName, err)
 	}
 
@@ -204,7 +245,12 @@ func (s *Server) NewIsolatedDatabase(t *testing.T) Database {
 func (s *Server) NewIsolatedEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
-	database := s.NewIsolatedDatabase(t)
+	templateName, err := s.ensureEntTemplateDatabase()
+	if err != nil {
+		t.Fatalf("prepare ent template database: %v", err)
+	}
+
+	database := s.newIsolatedDatabase(t, s.nextDatabaseName(), templateName)
 	client, err := ent.Open("postgres", database.DSN)
 	if err != nil {
 		t.Fatalf("open ent client for %s: %v", database.Name, err)
@@ -215,13 +261,48 @@ func (s *Server) NewIsolatedEntClient(t *testing.T) *ent.Client {
 		}
 	})
 
-	s.schemaMu.Lock()
-	defer s.schemaMu.Unlock()
-	if err := client.Schema.Create(context.Background()); err != nil {
-		t.Fatalf("create schema for %s: %v", database.Name, err)
+	return client
+}
+
+func (s *Server) ensureEntTemplateDatabase() (string, error) {
+	s.templateMu.Lock()
+	defer s.templateMu.Unlock()
+
+	if s.templateDatabase != "" {
+		return s.templateDatabase, nil
 	}
 
-	return client
+	templateName := s.nextDatabaseName() + "_template"
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if _, err := s.admin.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(templateName)); err != nil {
+		return "", fmt.Errorf("create template database %s: %w", templateName, err)
+	}
+
+	templateDSN := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/%s?sslmode=disable", s.port, templateName)
+	client, err := ent.Open("postgres", templateDSN)
+	if err != nil {
+		return "", fmt.Errorf("open ent client for template %s: %w", templateName, err)
+	}
+
+	closeClient := true
+	defer func() {
+		if closeClient {
+			_ = client.Close()
+		}
+	}()
+
+	if err := client.Schema.Create(context.Background()); err != nil {
+		return "", fmt.Errorf("create schema for template %s: %w", templateName, err)
+	}
+	if err := client.Close(); err != nil {
+		return "", fmt.Errorf("close ent client for template %s: %w", templateName, err)
+	}
+	closeClient = false
+
+	s.templateDatabase = templateName
+	return templateName, nil
 }
 
 func (s *Server) Close() error {
@@ -316,4 +397,18 @@ func isRetryablePortStartupError(err error) bool {
 	default:
 		return false
 	}
+}
+
+func sharedServerPaths(rootDir string) (sharedServerPathsResult, error) {
+	sharedAssetsRoot, err := resolveSharedServerAssetsRoot()
+	if err != nil {
+		return sharedServerPathsResult{}, err
+	}
+	sharedVersionRoot := filepath.Join(sharedAssetsRoot, "postgres-"+string(embeddedpostgres.V16))
+	return sharedServerPathsResult{
+		cachePath:    filepath.Join(sharedVersionRoot, "cache"),
+		runtimePath:  filepath.Join(rootDir, "runtime"),
+		binariesPath: filepath.Join(sharedVersionRoot, "binaries"),
+		dataPath:     filepath.Join(rootDir, "data"),
+	}, nil
 }

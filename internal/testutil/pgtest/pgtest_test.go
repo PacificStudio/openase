@@ -1,10 +1,13 @@
 package pgtest
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 )
 
 type fakePostgresController struct {
@@ -29,10 +32,12 @@ func TestStartSharedServerProcessRetriesPortConflicts(t *testing.T) {
 
 	originalCreateRootDir := createSharedServerRootDir
 	originalAllocatePort := allocateSharedServerPort
+	originalResolveAssetsRoot := resolveSharedServerAssetsRoot
 	originalNewPostgres := newPostgresController
 	t.Cleanup(func() {
 		createSharedServerRootDir = originalCreateRootDir
 		allocateSharedServerPort = originalAllocatePort
+		resolveSharedServerAssetsRoot = originalResolveAssetsRoot
 		newPostgresController = originalNewPostgres
 	})
 
@@ -75,13 +80,16 @@ func TestStartSharedServerProcessRetriesPortConflicts(t *testing.T) {
 		{},
 	}
 	controllerCalls := 0
-	newPostgresController = func(rootDir string, port uint32) postgresController {
+	resolveSharedServerAssetsRoot = func() (string, error) {
+		return filepath.Join(rootBase, "shared"), nil
+	}
+	newPostgresController = func(rootDir string, port uint32) (postgresController, error) {
 		if controllerCalls >= len(controllers) {
 			t.Fatalf("unexpected extra postgres controller request %d", controllerCalls+1)
 		}
 		controller := controllers[controllerCalls]
 		controllerCalls++
-		return controller
+		return controller, nil
 	}
 
 	started, err := startSharedServerProcess("retry")
@@ -113,10 +121,12 @@ func TestStartSharedServerProcessDoesNotRetryNonPortErrors(t *testing.T) {
 
 	originalCreateRootDir := createSharedServerRootDir
 	originalAllocatePort := allocateSharedServerPort
+	originalResolveAssetsRoot := resolveSharedServerAssetsRoot
 	originalNewPostgres := newPostgresController
 	t.Cleanup(func() {
 		createSharedServerRootDir = originalCreateRootDir
 		allocateSharedServerPort = originalAllocatePort
+		resolveSharedServerAssetsRoot = originalResolveAssetsRoot
 		newPostgresController = originalNewPostgres
 	})
 
@@ -138,8 +148,11 @@ func TestStartSharedServerProcessDoesNotRetryNonPortErrors(t *testing.T) {
 	}
 
 	controller := &fakePostgresController{startErr: errors.New("timed out waiting for database to become available")}
-	newPostgresController = func(rootDir string, port uint32) postgresController {
-		return controller
+	resolveSharedServerAssetsRoot = func() (string, error) {
+		return filepath.Join(rootDir, "shared"), nil
+	}
+	newPostgresController = func(rootDir string, port uint32) (postgresController, error) {
+		return controller, nil
 	}
 
 	_, err := startSharedServerProcess("nonretry")
@@ -154,6 +167,78 @@ func TestStartSharedServerProcessDoesNotRetryNonPortErrors(t *testing.T) {
 	}
 	if _, statErr := os.Stat(rootDir); !os.IsNotExist(statErr) {
 		t.Fatalf("expected failed attempt dir %s to be removed, stat err = %v", rootDir, statErr)
+	}
+}
+
+func TestSharedServerPathsUseSharedBinariesPath(t *testing.T) {
+	t.Parallel()
+
+	originalResolveAssetsRoot := resolveSharedServerAssetsRoot
+	t.Cleanup(func() {
+		resolveSharedServerAssetsRoot = originalResolveAssetsRoot
+	})
+
+	sharedRoot := filepath.Join(t.TempDir(), "shared")
+	resolveSharedServerAssetsRoot = func() (string, error) {
+		return sharedRoot, nil
+	}
+
+	rootDir := filepath.Join(t.TempDir(), "instance")
+	paths, err := sharedServerPaths(rootDir)
+	if err != nil {
+		t.Fatalf("sharedServerPaths() error = %v", err)
+	}
+
+	wantSharedVersionRoot := filepath.Join(sharedRoot, "postgres-"+string(embeddedpostgres.V16))
+	if paths.binariesPath != filepath.Join(wantSharedVersionRoot, "binaries") {
+		t.Fatalf("binariesPath = %q, want %q", paths.binariesPath, filepath.Join(wantSharedVersionRoot, "binaries"))
+	}
+	if paths.cachePath != filepath.Join(wantSharedVersionRoot, "cache") {
+		t.Fatalf("cachePath = %q, want %q", paths.cachePath, filepath.Join(wantSharedVersionRoot, "cache"))
+	}
+	if paths.runtimePath != filepath.Join(rootDir, "runtime") {
+		t.Fatalf("runtimePath = %q, want %q", paths.runtimePath, filepath.Join(rootDir, "runtime"))
+	}
+	if paths.dataPath != filepath.Join(rootDir, "data") {
+		t.Fatalf("dataPath = %q, want %q", paths.dataPath, filepath.Join(rootDir, "data"))
+	}
+}
+
+func TestNewIsolatedEntClientReusesTemplateDatabase(t *testing.T) {
+	server, err := StartSharedServer("template_reuse")
+	if err != nil {
+		t.Fatalf("StartSharedServer() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := server.Close(); closeErr != nil {
+			t.Errorf("Close() error = %v", closeErr)
+		}
+	})
+
+	first := server.NewIsolatedEntClient(t)
+	templateName := server.templateDatabase
+	if templateName == "" {
+		t.Fatal("expected template database to be recorded after first ent client")
+	}
+
+	ctx := context.Background()
+	if _, err := first.Organization.Create().
+		SetName("Template Reuse").
+		SetSlug("template-reuse").
+		Save(ctx); err != nil {
+		t.Fatalf("seed first database: %v", err)
+	}
+
+	second := server.NewIsolatedEntClient(t)
+	if server.templateDatabase != templateName {
+		t.Fatalf("template database changed from %q to %q", templateName, server.templateDatabase)
+	}
+	count, err := second.Organization.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count organizations in cloned database: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("cloned database should start from template snapshot, got %d organizations", count)
 	}
 }
 
