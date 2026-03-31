@@ -9532,6 +9532,7 @@ export interface operations {
               machine_ssh_user?: string | null
               machine_status?: string
               machine_workspace_root?: string | null
+              max_parallel_runs?: number
               model_max_tokens?: number
               model_name?: string
               /** Format: double */

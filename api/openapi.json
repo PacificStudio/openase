@@ -15373,6 +15373,9 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "max_parallel_runs": {
+                          "type": "integer"
+                        },
                         "model_max_tokens": {
                           "type": "integer"
                         },
