@@ -10,8 +10,8 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 )
 
 const (
