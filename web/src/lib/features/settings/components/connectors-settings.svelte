@@ -1,15 +1,9 @@
 <script lang="ts">
-  import {
-    capabilityCatalog,
-    capabilityStateClasses,
-    capabilityStateLabel,
-  } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
   import * as Card from '$ui/card'
   import { Separator } from '$ui/separator'
   import { ArrowDownToLine, Plug, RefreshCcw, Webhook } from '@lucide/svelte'
 
-  const connectorsCapability = capabilityCatalog.connectorsSettings
   const currentProjectName = $derived(appStore.currentProject?.name ?? 'this project')
   const inboundWebhookEndpoint = 'POST /api/v1/webhooks/:connector/:provider'
   const legacyGitHubEndpoint = 'POST /api/v1/webhooks/github'
@@ -41,15 +35,10 @@
 
 <div class="space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Connectors</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(connectorsCapability.state)}`}
-      >
-        {capabilityStateLabel(connectorsCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">{connectorsCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Connectors</h2>
+    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">
+      Connector webhook ingestion is live. Project-scoped connector management is not yet available.
+    </p>
   </div>
 
   <Separator />

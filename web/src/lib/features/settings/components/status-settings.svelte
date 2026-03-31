@@ -1,9 +1,4 @@
 <script lang="ts">
-  import {
-    getSettingsSectionCapability,
-    capabilityStateClasses,
-    capabilityStateLabel,
-  } from '$lib/features/capabilities'
   import { ApiError } from '$lib/api/client'
   import {
     createStatus,
@@ -33,7 +28,6 @@
   let creating = $state(false)
   let resetting = $state(false)
   let busyStatusId = $state('')
-  const statusCapability = getSettingsSectionCapability('statuses')
 
   function assignStatuses(payload: Awaited<ReturnType<typeof listStatuses>>) {
     statuses = normalizeStatuses(payload.statuses)
@@ -257,15 +251,10 @@
 
 <div class="max-w-lg space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Statuses</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(statusCapability.state)}`}
-      >
-        {capabilityStateLabel(statusCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 text-sm">{statusCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Statuses</h2>
+    <p class="text-muted-foreground mt-1 text-sm">
+      Create, edit, reorder, and manage board statuses.
+    </p>
   </div>
 
   <Separator />

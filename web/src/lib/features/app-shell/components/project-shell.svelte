@@ -4,7 +4,6 @@
   import { connectEventStream } from '$lib/api/sse'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
-  import { capabilityCatalog } from '$lib/features/capabilities'
   import { ProjectAssistantSheet } from '$lib/features/chat'
   import { GlobalSearchDialog } from '$lib/features/search'
   import { NewTicketDialog } from '$lib/features/tickets'
@@ -38,11 +37,7 @@
     return 'degraded'
   })
 
-  const searchCapability = capabilityCatalog.search
-  const newTicketCapability = capabilityCatalog.newTicket
-  const isNewTicketEnabled = $derived(
-    newTicketCapability.state === 'available' && Boolean(appStore.currentProject?.id),
-  )
+  const isNewTicketEnabled = $derived(Boolean(appStore.currentProject?.id))
   const routeKey = $derived(
     `${routeContext.scope}:${routeContext.orgId ?? ''}:${routeContext.scope === 'project' ? routeContext.projectId : ''}`,
   )
@@ -191,9 +186,8 @@
     orgName={appStore.currentOrg?.name ?? 'No organization'}
     projectName={appStore.currentProject?.name ?? ''}
     sseStatus={appStore.sseStatus}
-    searchEnabled={searchCapability.state === 'available' && appStore.organizations.length > 0}
+    searchEnabled={appStore.organizations.length > 0}
     newTicketEnabled={isNewTicketEnabled}
-    newTicketTitle={newTicketCapability.summary}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
     onOpenSearch={handleOpenSearch}
