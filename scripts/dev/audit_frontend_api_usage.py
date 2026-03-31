@@ -14,6 +14,8 @@ from pathlib import Path
 HTTP_METHODS = ("get", "post", "patch", "delete")
 RUNTIME_SUFFIXES = (".ts", ".js", ".svelte")
 TEST_SUFFIXES = (".test.ts", ".test.js", ".spec.ts", ".spec.js")
+REPORT_CATEGORIES = ("backend_only", "contract_only", "wrapped_but_unused", "direct_only", "used")
+DEFAULT_IGNORE_FILE = Path(__file__).resolve().with_name("frontend_api_audit_ignores.json")
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,12 @@ class OperationKey:
 class WrapperUsage:
     name: str
     file: str
+
+
+@dataclass(frozen=True)
+class IgnoreRule:
+    categories: frozenset[str]
+    reason: str
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,6 +59,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="Limit the number of reported operations per category. Zero means no limit.",
     )
+    parser.add_argument(
+        "--fail-on",
+        action="append",
+        choices=REPORT_CATEGORIES,
+        default=[],
+        help="Exit non-zero when the report contains any operations in the selected category.",
+    )
+    parser.add_argument(
+        "--ignore-file",
+        help=(
+            "Optional JSON file listing intentionally ignored operations. "
+            f"Defaults to {DEFAULT_IGNORE_FILE.name} next to this script when present."
+        ),
+    )
     return parser
 
 
@@ -72,9 +94,59 @@ def load_openapi_operations(path: Path) -> dict[OperationKey, dict[str, str]]:
 def normalize_template_path(raw: str) -> str:
     normalized = raw.strip()
     normalized = normalized.split("?", 1)[0]
+    normalized = re.sub(
+        r"\$\{\s*(?:encodeURIComponent|encodeURI)\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\}",
+        r"{\1}",
+        normalized,
+    )
     normalized = re.sub(r"\$\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}", r"{\1}", normalized)
     normalized = re.sub(r"\$\{[^}]+\}", "{expr}", normalized)
     return normalized
+
+
+def load_ignore_rules(path: Path) -> dict[OperationKey, IgnoreRule]:
+    if not path.exists():
+        return {}
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    operations = payload.get("operations")
+    if not isinstance(operations, list):
+        raise ValueError(f"{path} must contain an 'operations' array")
+
+    rules: dict[OperationKey, IgnoreRule] = {}
+    for index, item in enumerate(operations):
+        if not isinstance(item, dict):
+            raise ValueError(f"{path} operations[{index}] must be an object")
+
+        method = str(item.get("method", "")).lower()
+        if method not in HTTP_METHODS:
+            raise ValueError(f"{path} operations[{index}] has invalid method {method!r}")
+
+        raw_path = str(item.get("path", "")).strip()
+        if not raw_path.startswith("/"):
+            raise ValueError(f"{path} operations[{index}] has invalid path {raw_path!r}")
+
+        raw_categories = item.get("categories", REPORT_CATEGORIES)
+        if not isinstance(raw_categories, list) or not raw_categories:
+            raise ValueError(f"{path} operations[{index}] categories must be a non-empty array")
+
+        categories = frozenset(str(category) for category in raw_categories)
+        invalid_categories = sorted(category for category in categories if category not in REPORT_CATEGORIES)
+        if invalid_categories:
+            raise ValueError(
+                f"{path} operations[{index}] has invalid categories: {', '.join(invalid_categories)}"
+            )
+
+        reason = str(item.get("reason", "")).strip()
+        if not reason:
+            raise ValueError(f"{path} operations[{index}] must include a non-empty reason")
+
+        key = OperationKey(method=method, path=raw_path)
+        if key in rules:
+            raise ValueError(f"{path} declares duplicate ignore rule for {method.upper()} {raw_path}")
+
+        rules[key] = IgnoreRule(categories=categories, reason=reason)
+    return rules
 
 
 def extract_response_refs(contracts_source: str) -> set[OperationKey]:
@@ -245,9 +317,8 @@ def categorize_operation(
 
 
 def render_text_report(report: dict[str, list[dict[str, object]]], limit: int) -> str:
-    order = ("backend_only", "contract_only", "wrapped_but_unused", "direct_only", "used")
     lines: list[str] = []
-    for category in order:
+    for category in REPORT_CATEGORIES:
         items = report.get(category, [])
         if not items:
             continue
@@ -275,6 +346,11 @@ def main() -> int:
     openapi_path = repo_root / "api" / "openapi.json"
     contracts_path = web_root / "lib" / "api" / "contracts.ts"
     wrappers_path = web_root / "lib" / "api" / "openase.ts"
+    ignore_path = (
+        Path(args.ignore_file).expanduser()
+        if args.ignore_file
+        else DEFAULT_IGNORE_FILE
+    )
 
     operations = load_openapi_operations(openapi_path)
     contract_refs = extract_response_refs(contracts_path.read_text(encoding="utf-8"))
@@ -282,6 +358,7 @@ def main() -> int:
         wrappers_path.read_text(encoding="utf-8"),
         wrappers_path.relative_to(web_root.parent).as_posix(),
     )
+    ignore_rules = load_ignore_rules(ignore_path)
     wrapper_names = {wrapper.name for wrappers in wrapper_map.values() for wrapper in wrappers}
     direct_refs = extract_direct_endpoint_usages(
         web_root,
@@ -298,6 +375,9 @@ def main() -> int:
             wrapper_refs=wrapper_refs,
             direct_refs=direct_refs.get(operation, []),
         )
+        ignore_rule = ignore_rules.get(operation)
+        if ignore_rule and category in ignore_rule.categories:
+            continue
         if category == "used" and not args.show_used:
             continue
         report[category].append(
@@ -313,9 +393,14 @@ def main() -> int:
     if args.json:
         json.dump(report, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
-        return 0
+    else:
+        sys.stdout.write(render_text_report(report, args.limit))
 
-    sys.stdout.write(render_text_report(report, args.limit))
+    failing_categories = [category for category in args.fail_on if report.get(category)]
+    if failing_categories:
+        summary = ", ".join(f"{category}={len(report[category])}" for category in failing_categories)
+        sys.stderr.write(f"frontend API audit failed: {summary}\n")
+        return 1
     return 0
 
 

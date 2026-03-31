@@ -7,6 +7,15 @@ export type BoardColumn = {
   wipInfo?: string
 }
 
+export type BoardGroup = {
+  id: string
+  kind: 'stage' | 'ungrouped'
+  name: string
+  description?: string
+  wipInfo?: string
+  columns: BoardColumn[]
+}
+
 export type BoardTicket = {
   id: string
   statusId: string

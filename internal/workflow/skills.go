@@ -339,6 +339,14 @@ func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (Skil
 	if err := saveSkillIndex(storage.skillRoot, index); err != nil {
 		return SkillDetail{}, err
 	}
+	if err := s.commitSkillMutation(
+		storage.repoRoot,
+		skillCommitMessage("create", name),
+		skillRelativePath(name),
+		skillIndexRelativePath,
+	); err != nil {
+		return SkillDetail{}, err
+	}
 
 	return s.buildSkillDetail(ctx, resolvedSkillRecord{
 		projectID: input.ProjectID,
@@ -367,6 +375,13 @@ func (s *Service) UpdateSkill(ctx context.Context, input UpdateSkillInput) (Skil
 	if err := validateSkillDirectory(skillDir); err != nil {
 		return SkillDetail{}, err
 	}
+	if err := s.commitSkillMutation(
+		record.storage.repoRoot,
+		skillCommitMessage("update", record.entry.Name),
+		skillRelativePath(record.entry.Name),
+	); err != nil {
+		return SkillDetail{}, err
+	}
 
 	return s.buildSkillDetail(ctx, record)
 }
@@ -382,12 +397,26 @@ func (s *Service) DeleteSkill(ctx context.Context, skillID uuid.UUID) error {
 	if err != nil {
 		return fmt.Errorf("list workflows for skill delete: %w", err)
 	}
+	commitPrefixes := []string{skillRelativePath(record.entry.Name), skillIndexRelativePath}
 	for _, workflowItem := range workflows {
-		if _, err := s.UnbindSkills(ctx, UpdateWorkflowSkillsInput{
+		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
 			WorkflowID: workflowItem.ID,
 			Skills:     []string{record.entry.Name},
-		}); err != nil && !errors.Is(err, ErrUnavailable) {
+		}, func(current []string, incoming []string) []string {
+			next := make([]string, 0, len(current))
+			for _, name := range current {
+				if slicesContainsString(incoming, name) {
+					continue
+				}
+				next = append(next, name)
+			}
+			return next
+		}, false, "")
+		if err != nil && !errors.Is(err, ErrUnavailable) {
 			return err
+		}
+		if err == nil {
+			commitPrefixes = append(commitPrefixes, document.Path)
 		}
 	}
 
@@ -399,7 +428,14 @@ func (s *Service) DeleteSkill(ctx context.Context, skillID uuid.UUID) error {
 		return err
 	}
 	delete(index, record.entry.Name)
-	return saveSkillIndex(record.storage.skillRoot, index)
+	if err := saveSkillIndex(record.storage.skillRoot, index); err != nil {
+		return err
+	}
+	return s.commitSkillMutation(
+		record.storage.repoRoot,
+		skillCommitMessage("delete", record.entry.Name),
+		commitPrefixes...,
+	)
 }
 
 func (s *Service) EnableSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
@@ -425,6 +461,17 @@ func (s *Service) setSkillEnabled(ctx context.Context, skillID uuid.UUID, enable
 	if err := saveSkillIndex(record.storage.skillRoot, index); err != nil {
 		return SkillDetail{}, err
 	}
+	action := "disable"
+	if enabled {
+		action = "enable"
+	}
+	if err := s.commitSkillMutation(
+		record.storage.repoRoot,
+		skillCommitMessage(action, record.entry.Name),
+		skillIndexRelativePath,
+	); err != nil {
+		return SkillDetail{}, err
+	}
 	record.entry = entry
 	return s.buildSkillDetail(ctx, record)
 }
@@ -438,13 +485,31 @@ func (s *Service) BindSkill(ctx context.Context, input UpdateSkillBindingsInput)
 	if err != nil {
 		return SkillDetail{}, err
 	}
+	commitPrefixes := make([]string, 0, len(workflowIDs))
 	for _, workflowID := range workflowIDs {
-		if _, err := s.BindSkills(ctx, UpdateWorkflowSkillsInput{
+		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
 			WorkflowID: workflowID,
 			Skills:     []string{record.entry.Name},
-		}); err != nil {
+		}, func(current []string, incoming []string) []string {
+			next := append([]string(nil), current...)
+			for _, name := range incoming {
+				if !slicesContainsString(next, name) {
+					next = append(next, name)
+				}
+			}
+			return next
+		}, true, "")
+		if err != nil {
 			return SkillDetail{}, err
 		}
+		commitPrefixes = append(commitPrefixes, document.Path)
+	}
+	if err := s.commitSkillMutation(
+		record.storage.repoRoot,
+		workflowSkillCommitMessage("bind", "selected workflows", []string{record.entry.Name}),
+		commitPrefixes...,
+	); err != nil {
+		return SkillDetail{}, err
 	}
 	return s.buildSkillDetail(ctx, record)
 }
@@ -458,13 +523,32 @@ func (s *Service) UnbindSkill(ctx context.Context, input UpdateSkillBindingsInpu
 	if err != nil {
 		return SkillDetail{}, err
 	}
+	commitPrefixes := make([]string, 0, len(workflowIDs))
 	for _, workflowID := range workflowIDs {
-		if _, err := s.UnbindSkills(ctx, UpdateWorkflowSkillsInput{
+		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
 			WorkflowID: workflowID,
 			Skills:     []string{record.entry.Name},
-		}); err != nil {
+		}, func(current []string, incoming []string) []string {
+			next := make([]string, 0, len(current))
+			for _, name := range current {
+				if slicesContainsString(incoming, name) {
+					continue
+				}
+				next = append(next, name)
+			}
+			return next
+		}, false, "")
+		if err != nil {
 			return SkillDetail{}, err
 		}
+		commitPrefixes = append(commitPrefixes, document.Path)
+	}
+	if err := s.commitSkillMutation(
+		record.storage.repoRoot,
+		workflowSkillCommitMessage("unbind", "selected workflows", []string{record.entry.Name}),
+		commitPrefixes...,
+	); err != nil {
+		return SkillDetail{}, err
 	}
 	return s.buildSkillDetail(ctx, record)
 }
@@ -729,11 +813,37 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 	if err := saveSkillIndex(skillRoot, index); err != nil {
 		return HarvestSkillsResult{}, err
 	}
+	commitPrefixes := []string{skillIndexRelativePath}
+	for _, name := range result.HarvestedSkills {
+		commitPrefixes = append(commitPrefixes, skillRelativePath(name))
+	}
+	for _, name := range result.UpdatedSkills {
+		commitPrefixes = append(commitPrefixes, skillRelativePath(name))
+	}
 	if input.WorkflowID != nil && len(result.HarvestedSkills) > 0 {
-		if _, err := s.BindSkills(ctx, UpdateWorkflowSkillsInput{
+		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
 			WorkflowID: *input.WorkflowID,
 			Skills:     append([]string(nil), result.HarvestedSkills...),
-		}); err != nil {
+		}, func(current []string, incoming []string) []string {
+			next := append([]string(nil), current...)
+			for _, name := range incoming {
+				if !slicesContainsString(next, name) {
+					next = append(next, name)
+				}
+			}
+			return next
+		}, true, "")
+		if err != nil {
+			return HarvestSkillsResult{}, err
+		}
+		commitPrefixes = append(commitPrefixes, document.Path)
+	}
+	if len(result.HarvestedSkills) > 0 || len(result.UpdatedSkills) > 0 {
+		if err := s.commitSkillMutation(
+			storage.repoRoot,
+			harvestSkillCommitMessage(result.HarvestedSkills, result.UpdatedSkills),
+			commitPrefixes...,
+		); err != nil {
 			return HarvestSkillsResult{}, err
 		}
 	}
@@ -750,7 +860,7 @@ func (s *Service) BindSkills(ctx context.Context, input UpdateWorkflowSkillsInpu
 			}
 		}
 		return next
-	}, true)
+	}, true, "bind")
 }
 
 func (s *Service) UnbindSkills(ctx context.Context, input UpdateWorkflowSkillsInput) (HarnessDocument, error) {
@@ -763,7 +873,7 @@ func (s *Service) UnbindSkills(ctx context.Context, input UpdateWorkflowSkillsIn
 			next = append(next, name)
 		}
 		return next
-	}, false)
+	}, false, "unbind")
 }
 
 func (s *Service) updateWorkflowSkills(
@@ -771,6 +881,7 @@ func (s *Service) updateWorkflowSkills(
 	input UpdateWorkflowSkillsInput,
 	mutate func([]string, []string) []string,
 	requireExisting bool,
+	commitAction string,
 ) (HarnessDocument, error) {
 	if s.client == nil {
 		return HarnessDocument{}, ErrUnavailable
@@ -825,10 +936,23 @@ func (s *Service) updateWorkflowSkills(
 		}, nil
 	}
 
-	return s.UpdateHarness(ctx, UpdateHarnessInput{
+	document, err := s.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: input.WorkflowID,
 		Content:    nextContent,
 	})
+	if err != nil {
+		return HarnessDocument{}, err
+	}
+	if strings.TrimSpace(commitAction) != "" {
+		if err := s.commitSkillMutation(
+			storage.repoRoot,
+			workflowSkillCommitMessage(commitAction, workflowItem.Name, skillNames),
+			document.Path,
+		); err != nil {
+			return HarnessDocument{}, err
+		}
+	}
+	return document, nil
 }
 
 func ParseHarnessSkills(content string) ([]string, error) {

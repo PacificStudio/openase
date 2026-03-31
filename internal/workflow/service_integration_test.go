@@ -254,6 +254,11 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		t.Fatalf("set default workflow: %v", err)
 	}
 
+	commitMessages := readWorkflowGitCommitMessages(t, repoRoot)
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): bind skill-one and skill-two for Coding Workflow")
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): persist skill-one and skill-three")
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): unbind skill-two for Coding Workflow")
+
 	deleted, err := service.Delete(ctx, created.ID)
 	if err != nil {
 		t.Fatalf("Delete() error = %v", err)
@@ -281,6 +286,91 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if len(service.storages) != 0 {
 		t.Fatalf("service.storages after Close() = %d, want 0", len(service.storages))
 	}
+}
+
+func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	repoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+
+	createdWorkflow, err := service.Create(ctx, CreateInput{
+		ProjectID:           fixture.projectID,
+		AgentID:             fixture.agentID,
+		Name:                "Coding Workflow",
+		Type:                entworkflow.TypeCoding,
+		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		Hooks:               map[string]any{},
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      60,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() workflow error = %v", err)
+	}
+
+	createdSkill, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID:   fixture.projectID,
+		Name:        "deploy-docker",
+		Content:     "# Deploy Docker\n\nRun the Docker deployment flow.\n",
+		Description: "Deploy Docker",
+	})
+	if err != nil {
+		t.Fatalf("CreateSkill() error = %v", err)
+	}
+	if _, err := service.DisableSkill(ctx, createdSkill.ID); err != nil {
+		t.Fatalf("DisableSkill() error = %v", err)
+	}
+	if _, err := service.EnableSkill(ctx, createdSkill.ID); err != nil {
+		t.Fatalf("EnableSkill() error = %v", err)
+	}
+	if _, err := service.BindSkill(ctx, UpdateSkillBindingsInput{
+		SkillID:     createdSkill.ID,
+		WorkflowIDs: []uuid.UUID{createdWorkflow.ID},
+	}); err != nil {
+		t.Fatalf("BindSkill() error = %v", err)
+	}
+	if _, err := service.UpdateSkill(ctx, UpdateSkillInput{
+		SkillID:     createdSkill.ID,
+		Content:     "# Deploy Docker\n\nRun the hardened Docker deployment flow.\n",
+		Description: "Deploy Docker",
+	}); err != nil {
+		t.Fatalf("UpdateSkill() error = %v", err)
+	}
+
+	workspaceRoot := t.TempDir()
+	workspaceSkillsRoot := filepath.Join(workspaceRoot, ".codex", "skills")
+	mustWriteSkill(t, filepath.Join(workspaceSkillsRoot, "release-notes"), "# Release Notes\nbody")
+	harvestResult, err := service.HarvestSkills(ctx, HarvestSkillsInput{
+		ProjectID:     fixture.projectID,
+		WorkspaceRoot: workspaceRoot,
+		AdapterType:   string(entagentprovider.AdapterTypeCodexAppServer),
+		WorkflowID:    &createdWorkflow.ID,
+		CreatedBy:     "agent:codex-coding via ASE-365",
+	})
+	if err != nil {
+		t.Fatalf("HarvestSkills() error = %v", err)
+	}
+	if !slices.Equal(harvestResult.HarvestedSkills, []string{"release-notes"}) {
+		t.Fatalf("HarvestSkills() = %+v", harvestResult)
+	}
+	if err := service.DeleteSkill(ctx, createdSkill.ID); err != nil {
+		t.Fatalf("DeleteSkill() error = %v", err)
+	}
+
+	commitMessages := readWorkflowGitCommitMessages(t, repoRoot)
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): create deploy-docker")
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): disable deploy-docker")
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): enable deploy-docker")
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): bind deploy-docker for selected workflows")
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): update deploy-docker")
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): auto-harvest release-notes")
+	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): delete deploy-docker")
 }
 
 func TestWorkflowServiceUsesMirrorFreshnessPolicyForReadAndWritePaths(t *testing.T) {
@@ -1349,8 +1439,28 @@ func createWorkflowTestGitRepo(t *testing.T) string {
 	t.Helper()
 
 	repoRoot := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("create git marker: %v", err)
+	repository, err := git.PlainInit(repoRoot, false)
+	if err != nil {
+		t.Fatalf("git init repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("workflow repo\n"), 0o600); err != nil {
+		t.Fatalf("write repo seed file: %v", err)
+	}
+	worktree, err := repository.Worktree()
+	if err != nil {
+		t.Fatalf("load repo worktree: %v", err)
+	}
+	if _, err := worktree.Add("README.md"); err != nil {
+		t.Fatalf("git add repo seed file: %v", err)
+	}
+	if _, err := worktree.Commit("initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Codex",
+			Email: "codex@openai.com",
+			When:  time.Date(2026, 3, 31, 3, 0, 0, 0, time.UTC),
+		},
+	}); err != nil {
+		t.Fatalf("git commit repo seed file: %v", err)
 	}
 
 	return repoRoot
@@ -1436,6 +1546,43 @@ func mustReadWorkflowFile(t *testing.T, path string) string {
 	}
 
 	return string(data)
+}
+
+func readWorkflowGitCommitMessages(t *testing.T, repoRoot string) []string {
+	t.Helper()
+
+	repository, err := git.PlainOpen(repoRoot)
+	if err != nil {
+		t.Fatalf("open workflow git repo: %v", err)
+	}
+	head, err := repository.Head()
+	if err != nil {
+		t.Fatalf("load workflow git head: %v", err)
+	}
+	iterator, err := repository.Log(&git.LogOptions{From: head.Hash()})
+	if err != nil {
+		t.Fatalf("read workflow git log: %v", err)
+	}
+
+	messages := []string{}
+	if err := iterator.ForEach(func(commit *object.Commit) error {
+		messages = append(messages, commit.Message)
+		return nil
+	}); err != nil {
+		t.Fatalf("iterate workflow git log: %v", err)
+	}
+	return messages
+}
+
+func assertWorkflowGitCommitMessage(t *testing.T, messages []string, want string) {
+	t.Helper()
+
+	for _, message := range messages {
+		if strings.TrimSpace(message) == want {
+			return
+		}
+	}
+	t.Fatalf("git commit message %q not found in %+v", want, messages)
 }
 
 func waitForWorkflowVersion(ctx context.Context, t *testing.T, client *ent.Client, workflowID uuid.UUID, wantVersion int) {

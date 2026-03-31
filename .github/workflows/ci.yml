@@ -118,6 +118,9 @@ jobs:
       - name: Verify Generated OpenAPI Artifacts
         run: make openapi-check
 
+      - name: Audit Frontend API Usage Coverage
+        run: make frontend-api-audit-check
+
   frontend:
     name: Frontend Checks
     runs-on: [self-hosted, Linux, X64]
