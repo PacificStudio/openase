@@ -8,6 +8,7 @@ import (
 	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
@@ -119,6 +120,9 @@ func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	if done.SessionID != "session-gemini-1" || done.TurnsUsed != 1 || done.TurnsRemaining == nil || *done.TurnsRemaining != DefaultMaxTurns-1 {
 		t.Fatalf("unexpected done payload: %#v", done)
 	}
+	if done.CostUSD != nil {
+		t.Fatalf("done cost = %#v, want nil spend-unavailable payload", done.CostUSD)
+	}
 
 	if manager.startSpec.Command != provider.MustParseAgentCLICommand("gemini") {
 		t.Fatalf("process command = %q, want gemini", manager.startSpec.Command)
@@ -128,6 +132,58 @@ func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	}
 	if !stdin.closed {
 		t.Fatal("expected gemini stdin to be closed after start")
+	}
+}
+
+func TestResolveUsageCostUSDUsesConfiguredProviderPricing(t *testing.T) {
+	costUSD := resolveUsageCostUSD(
+		catalogdomain.AgentProvider{
+			CostPerInputToken:  0.001,
+			CostPerOutputToken: 0.002,
+		},
+		ticketing.RawUsageDelta{
+			InputTokens:  int64Pointer(120),
+			OutputTokens: int64Pointer(35),
+		},
+	)
+	if costUSD == nil {
+		t.Fatal("resolveUsageCostUSD() = nil, want computed cost")
+	}
+	if *costUSD != 0.19 {
+		t.Fatalf("resolveUsageCostUSD() = %.2f, want 0.19", *costUSD)
+	}
+}
+
+func TestResolveUsageCostUSDReturnsNilWithoutConfiguredPricing(t *testing.T) {
+	costUSD := resolveUsageCostUSD(
+		catalogdomain.AgentProvider{},
+		ticketing.RawUsageDelta{
+			InputTokens:  int64Pointer(120),
+			OutputTokens: int64Pointer(35),
+		},
+	)
+	if costUSD != nil {
+		t.Fatalf("resolveUsageCostUSD() = %.2f, want nil", *costUSD)
+	}
+}
+
+func TestMapClaudeEventDoneIncludesProviderReportedCost(t *testing.T) {
+	costUSD := 0.37
+	events := mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:         provider.ClaudeCodeEventKindResult,
+		NumTurns:     2,
+		TotalCostUSD: &costUSD,
+	})
+	if len(events) != 1 {
+		t.Fatalf("mapClaudeEvent() len = %d, want 1", len(events))
+	}
+
+	done, ok := events[0].Payload.(donePayload)
+	if !ok {
+		t.Fatalf("payload = %#v, want done payload", events[0].Payload)
+	}
+	if done.CostUSD == nil || *done.CostUSD != costUSD {
+		t.Fatalf("done cost = %#v, want %.2f", done.CostUSD, costUSD)
 	}
 }
 
@@ -257,3 +313,7 @@ type nopWriteCloser struct{}
 func (nopWriteCloser) Write(data []byte) (int, error) { return len(data), nil }
 
 func (nopWriteCloser) Close() error { return nil }
+
+func int64Pointer(value int64) *int64 {
+	return &value
+}

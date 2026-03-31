@@ -1733,6 +1733,23 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	providersPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/providers", http.MethodPost, providersPost)
 
+	providerGet, err := b.jsonOperation(
+		"getAgentProvider",
+		"Get an agent provider",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentProviderResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	providerGet.AddParameter(uuidPathParameter("providerId", "Agent provider ID."))
+	b.doc.AddOperation("/api/v1/providers/{providerId}", http.MethodGet, providerGet)
+
 	machineGet, err := b.jsonOperation(
 		"getMachine",
 		"Get a machine",

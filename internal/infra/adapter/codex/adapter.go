@@ -21,7 +21,9 @@ const defaultToolInputAnswer = "This is a non-interactive session. Operator inpu
 type EventType string
 
 const (
-	EventTypeToolCallRequested EventType = "tool_call_requested"
+	EventTypeToolCallRequested  EventType = "tool_call_requested"
+	EventTypeApprovalRequested  EventType = "approval_requested"
+	EventTypeUserInputRequested EventType = "user_input_requested"
 	// #nosec G101 -- event type identifier, not a credential.
 	EventTypeTokenUsageUpdated EventType = "token_usage_updated"
 	EventTypeOutputProduced    EventType = "output_produced"
@@ -86,6 +88,8 @@ type TurnStartResult struct {
 type Event struct {
 	Type       EventType
 	ToolCall   *ToolCallRequest
+	Approval   *ApprovalRequest
+	UserInput  *UserInputRequest
 	TokenUsage *TokenUsageEvent
 	Output     *OutputEvent
 	Turn       *TurnEvent
@@ -109,6 +113,22 @@ type ToolCallContentItem struct {
 	Type     ToolCallContentType
 	Text     string
 	ImageURL string
+}
+
+type ApprovalRequestKind string
+
+const (
+	ApprovalRequestKindCommandExecution ApprovalRequestKind = "command_execution"
+	ApprovalRequestKindFileChange       ApprovalRequestKind = "file_change"
+)
+
+type ApprovalRequest struct {
+	RequestID RequestID
+	Kind      ApprovalRequestKind
+}
+
+type UserInputRequest struct {
+	RequestID RequestID
 }
 
 type TurnEvent struct {
@@ -642,12 +662,39 @@ func (s *Session) handleServerRequest(message jsonRPCMessage) error {
 
 		return nil
 	case methodCommandApproval:
+		s.emit(Event{
+			Type: EventTypeApprovalRequested,
+			Approval: &ApprovalRequest{
+				RequestID: requestID,
+				Kind:      ApprovalRequestKindCommandExecution,
+			},
+		})
 		return s.respondApproval(requestID, "acceptForSession")
 	case methodExecApproval, methodPatchApproval:
+		s.emit(Event{
+			Type: EventTypeApprovalRequested,
+			Approval: &ApprovalRequest{
+				RequestID: requestID,
+				Kind:      ApprovalRequestKindCommandExecution,
+			},
+		})
 		return s.respondApproval(requestID, "approved_for_session")
 	case methodFileApproval:
+		s.emit(Event{
+			Type: EventTypeApprovalRequested,
+			Approval: &ApprovalRequest{
+				RequestID: requestID,
+				Kind:      ApprovalRequestKindFileChange,
+			},
+		})
 		return s.respondApproval(requestID, "acceptForSession")
 	case methodRequestUserInput:
+		s.emit(Event{
+			Type: EventTypeUserInputRequested,
+			UserInput: &UserInputRequest{
+				RequestID: requestID,
+			},
+		})
 		return s.respondToolRequestUserInput(requestID, message.Params)
 	default:
 		return s.respondWithError(requestID, jsonRPCMethodNotFound, fmt.Sprintf("unsupported codex server request %q", message.Method))

@@ -92,6 +92,95 @@ func TestWatchTicketsHelpMentionsStreamingSemantics(t *testing.T) {
 	}
 }
 
+func TestStreamEventsHelpMentionsOperatorObservation(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"stream", "events"})
+	if err != nil {
+		t.Fatalf("Find(stream events) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected stream events command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"first-class stream entrypoint",
+		"Machine and provider lifecycle updates flow through the global event stream",
+		"openase stream events",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestMachineRefreshHealthHelpMentionsHealthRefreshSemantics(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"machine", "refresh-health"})
+	if err != nil {
+		t.Fatalf("Find(machine refresh-health) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected machine refresh-health command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"re-runs the machine health collector",
+		"provider availability can be observed from refreshed data",
+		"openase machine refresh-health",
+		"machineId must be UUID values",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestProviderGetHelpMentionsAvailabilitySemantics(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"provider", "get"})
+	if err != nil {
+		t.Fatalf("Find(provider get) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected provider get command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"availability_state",
+		"backing machine metadata",
+		"openase provider get",
+		"providerId must be UUID values",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
 func TestTypedTicketWorkpadHelpMentionsUpsertSemantics(t *testing.T) {
 	root := NewRootCommand("dev")
 	command, _, err := root.Find([]string{"ticket", "comment", "workpad"})
