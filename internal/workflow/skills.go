@@ -760,8 +760,11 @@ func writeWorkspaceOpenASEWrapper(workspaceRoot string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
 		return fmt.Errorf("create workspace openase wrapper directory: %w", err)
 	}
-	if err := os.WriteFile(dst, []byte(workflowOpenASECLIWrapperScript()), 0o700); err != nil {
+	if err := os.WriteFile(dst, []byte(workflowOpenASECLIWrapperScript()), 0o600); err != nil {
 		return fmt.Errorf("write workspace openase wrapper: %w", err)
+	}
+	if err := os.Chmod(dst, 0o700); err != nil {
+		return fmt.Errorf("chmod workspace openase wrapper: %w", err)
 	}
 	return nil
 }
