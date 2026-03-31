@@ -535,6 +535,16 @@ export function deleteAgent(agentId: string) {
   return api.delete<AgentResponse>(`/api/v1/agents/${agentId}`)
 }
 
+// TODO(backend): replace with real PATCH /api/v1/agents/{agentId} once implemented
+export function updateAgent(
+  agentId: string,
+  body: { name?: string; provider_id?: string },
+): Promise<AgentResponse> {
+  void agentId
+  void body
+  return Promise.resolve({ agent: {} } as AgentResponse)
+}
+
 export function listStatuses(projectId: string) {
   return api.get<StatusPayload>(`/api/v1/projects/${projectId}/statuses`)
 }

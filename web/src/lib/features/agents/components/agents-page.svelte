@@ -189,6 +189,7 @@
 <AgentDrawer
   bind:open={agentDrawerOpen}
   agent={selectedAgent}
+  providers={providerItems}
   onOpenChange={(open) => {
     agentDrawerOpen = open
     if (!open) selectedAgentId = null
@@ -200,14 +201,11 @@
       void loadData({ projectId, orgId, showLoading: false })
     }
   }}
-  onEditProvider={() => {
-    agentDrawerOpen = false
-    selectedAgentId = null
-    const orgSlug = appStore.currentOrg?.slug
-    const projectSlug = appStore.currentProject?.slug
-    if (orgSlug && projectSlug) {
-      window.location.hash = ''
-      window.location.href = `/orgs/${orgSlug}/projects/${projectSlug}/settings#agents`
+  onUpdated={() => {
+    const projectId = appStore.currentProject?.id
+    const orgId = appStore.currentOrg?.id
+    if (projectId && orgId) {
+      void loadData({ projectId, orgId, showLoading: false })
     }
   }}
 />

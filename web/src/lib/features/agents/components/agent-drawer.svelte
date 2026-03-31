@@ -1,32 +1,49 @@
 <script lang="ts">
-  import { cn, formatRelativeTime, formatCurrency } from '$lib/utils'
+  import { cn } from '$lib/utils'
   import { ApiError } from '$lib/api/client'
-  import { deleteAgent, pauseAgent, resumeAgent } from '$lib/api/openase'
+  import { deleteAgent, pauseAgent, resumeAgent, updateAgent } from '$lib/api/openase'
+  import type { AgentProvider } from '$lib/api/contracts'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Separator } from '$ui/separator'
+  import { Input } from '$ui/input'
+  import * as Select from '$ui/select'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
-  import { Pause, Pencil, Play, Trash2 } from '@lucide/svelte'
+  import { Check, Pencil, X } from '@lucide/svelte'
+  import AgentDrawerContent from './agent-drawer-content.svelte'
   import type { AgentInstance } from '../types'
 
   let {
     open = $bindable(false),
     agent,
+    providers = [],
     onOpenChange,
     onDeleted,
-    onEditProvider,
+    onUpdated,
   }: {
     open?: boolean
     agent: AgentInstance | null
+    providers?: AgentProvider[]
     onOpenChange?: (open: boolean) => void
     onDeleted?: (agentId: string) => void
-    onEditProvider?: (providerId: string) => void
+    onUpdated?: () => void
   } = $props()
 
   let actionBusy = $state(false)
+  let editingName = $state(false)
+  let editNameValue = $state('')
+  let savingName = $state(false)
+  let savingProvider = $state(false)
 
-  const statusColors: Record<AgentInstance['status'], string> = {
+  const statusVariant: Record<AgentInstance['status'], string> = {
+    idle: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+    claimed: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+    running: 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
+    paused: 'bg-orange-500/15 text-orange-700 dark:text-orange-400',
+    failed: 'bg-red-500/15 text-red-700 dark:text-red-400',
+    terminated: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
+  }
+
+  const statusDot: Record<AgentInstance['status'], string> = {
     idle: 'bg-emerald-500',
     claimed: 'bg-amber-500',
     running: 'bg-blue-500',
@@ -54,6 +71,61 @@
 
   function canResume(a: AgentInstance) {
     return a.runtimeControlState === 'paused'
+  }
+
+  function startEditingName() {
+    if (!agent) return
+    editNameValue = agent.name
+    editingName = true
+  }
+
+  function cancelEditingName() {
+    editingName = false
+  }
+
+  async function handleSaveName() {
+    if (!agent) return
+    const trimmed = editNameValue.trim()
+    if (!trimmed || trimmed === agent.name) {
+      editingName = false
+      return
+    }
+
+    savingName = true
+    try {
+      await updateAgent(agent.id, { name: trimmed })
+      editingName = false
+      toastStore.success('Agent name updated.')
+      onUpdated?.()
+    } catch (err) {
+      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update agent name.')
+    } finally {
+      savingName = false
+    }
+  }
+
+  function handleNameKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' && !event.isComposing) {
+      event.preventDefault()
+      void handleSaveName()
+    } else if (event.key === 'Escape') {
+      cancelEditingName()
+    }
+  }
+
+  async function handleProviderChange(nextProviderId: string) {
+    if (!agent || nextProviderId === agent.providerId) return
+
+    savingProvider = true
+    try {
+      await updateAgent(agent.id, { provider_id: nextProviderId })
+      toastStore.success('Agent provider updated.')
+      onUpdated?.()
+    } catch (err) {
+      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update agent provider.')
+    } finally {
+      savingProvider = false
+    }
   }
 
   async function handlePause() {
@@ -107,130 +179,115 @@
   bind:open
   onOpenChange={(value) => {
     open = value
+    editingName = false
     onOpenChange?.(value)
   }}
 >
-  <SheetContent class="overflow-y-auto sm:max-w-md">
+  <SheetContent class="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md">
     {#if !agent}
-      <SheetHeader>
+      <SheetHeader class="p-6">
         <SheetTitle>Agent</SheetTitle>
         <SheetDescription>No agent selected.</SheetDescription>
       </SheetHeader>
     {:else}
-      <SheetHeader>
-        <SheetTitle class="flex items-center gap-2">
-          <span class={cn('size-2.5 shrink-0 rounded-full', statusColors[agent.status])}></span>
-          {agent.name}
-        </SheetTitle>
-        <SheetDescription>
-          {agent.providerName} &middot; {agent.modelName}
-        </SheetDescription>
-      </SheetHeader>
-
-      <div class="space-y-5 px-4">
-        <div class="space-y-3">
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-muted-foreground">Status</span>
-            <div class="flex items-center gap-2">
-              <span class="text-foreground">{statusLabels[agent.status]}</span>
-              {#if agent.runtimeControlState !== 'active'}
-                <Badge variant="outline" class="text-[10px]">
-                  {agent.runtimeControlState === 'pause_requested' ? 'Pause Requested' : 'Paused'}
-                </Badge>
-              {/if}
-            </div>
-          </div>
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-muted-foreground">Active runs</span>
-            <span class="text-foreground tabular-nums">{agent.activeRunCount}</span>
-          </div>
-          {#if agent.lastHeartbeat}
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">Last heartbeat</span>
-              <span class="text-foreground">{formatRelativeTime(agent.lastHeartbeat)}</span>
-            </div>
-          {/if}
-          {#if agent.runtimeStartedAt}
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">Runtime started</span>
-              <span class="text-foreground">{formatRelativeTime(agent.runtimeStartedAt)}</span>
-            </div>
-          {/if}
-          {#if agent.sessionId}
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">Session</span>
-              <span class="text-foreground font-mono text-xs">{agent.sessionId}</span>
-            </div>
-          {/if}
-        </div>
-
-        <Separator />
-
-        {#if agent.currentStepSummary}
-          <div class="space-y-2">
-            <div class="text-foreground text-sm font-medium">Current step</div>
-            {#if agent.currentStepStatus}
-              <Badge variant="secondary" class="text-[10px]">{agent.currentStepStatus}</Badge>
+      <!-- Header -->
+      <SheetHeader class="border-border border-b px-6 py-5">
+        <div class="flex items-start gap-3">
+          <span class={cn('mt-2 size-2.5 shrink-0 rounded-full', statusDot[agent.status])}></span>
+          <div class="min-w-0 flex-1">
+            {#if editingName}
+              <div class="flex items-center gap-1.5">
+                <Input
+                  bind:value={editNameValue}
+                  class="h-8 text-base font-semibold"
+                  onkeydown={handleNameKeydown}
+                  disabled={savingName}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="size-7 shrink-0 p-0"
+                  disabled={savingName}
+                  onclick={() => void handleSaveName()}
+                >
+                  <Check class="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="size-7 shrink-0 p-0"
+                  onclick={cancelEditingName}
+                >
+                  <X class="size-3.5" />
+                </Button>
+              </div>
+            {:else}
+              <div class="group flex items-center gap-1.5">
+                <SheetTitle class="truncate text-base">{agent.name}</SheetTitle>
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                  onclick={startEditingName}
+                  title="Rename agent"
+                >
+                  <Pencil class="size-3" />
+                </button>
+              </div>
             {/if}
-            <p class="text-muted-foreground text-sm">{agent.currentStepSummary}</p>
-            {#if agent.currentStepChangedAt}
-              <p class="text-muted-foreground text-xs">
-                Updated {formatRelativeTime(agent.currentStepChangedAt)}
-              </p>
-            {/if}
+            <SheetDescription class="mt-1">
+              <Select.Root
+                type="single"
+                value={agent.providerId}
+                disabled={savingProvider || providers.length === 0}
+                onValueChange={(v) => {
+                  if (v) void handleProviderChange(v)
+                }}
+              >
+                <Select.Trigger
+                  aria-label="Agent provider"
+                  class="text-muted-foreground hover:text-foreground h-auto w-auto gap-1 border-none bg-transparent p-0 text-[13px] shadow-none"
+                >
+                  {agent.providerName} · {agent.modelName}
+                </Select.Trigger>
+                <Select.Content align="start" class="min-w-56">
+                  {#each providers as provider (provider.id)}
+                    <Select.Item value={provider.id} label={provider.name}>
+                      <div class="min-w-0">
+                        <div class="truncate text-sm">{provider.name}</div>
+                        <div class="text-muted-foreground text-[11px]">
+                          {provider.model_name} · {provider.adapter_type}
+                        </div>
+                      </div>
+                    </Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </SheetDescription>
           </div>
-          <Separator />
-        {/if}
-
-        <div class="space-y-3">
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-muted-foreground">Completed today</span>
-            <span class="text-foreground tabular-nums">{agent.todayCompleted}</span>
-          </div>
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-muted-foreground">Cost today</span>
-            <span class="text-foreground tabular-nums">{formatCurrency(agent.todayCost)}</span>
-          </div>
-        </div>
-
-        {#if agent.lastError}
-          <div class="border-destructive/40 bg-destructive/10 rounded-md border px-3 py-2">
-            <p class="text-destructive text-xs">{agent.lastError}</p>
-          </div>
-        {/if}
-
-        <Separator />
-
-        <div class="flex flex-wrap gap-2">
-          {#if onEditProvider}
-            <Button variant="outline" size="sm" onclick={() => onEditProvider?.(agent.providerId)}>
-              <Pencil class="size-3.5" />
-              Edit Provider
-            </Button>
-          {/if}
-          {#if canResume(agent)}
-            <Button variant="outline" size="sm" disabled={actionBusy} onclick={handleResume}>
-              <Play class="size-3.5" />
-              Resume
-            </Button>
-          {:else if canPause(agent)}
-            <Button variant="outline" size="sm" disabled={actionBusy} onclick={handlePause}>
-              <Pause class="size-3.5" />
-              Pause
-            </Button>
-          {/if}
-          <Button
-            variant="outline"
-            size="sm"
-            class="text-destructive hover:text-destructive"
-            disabled={actionBusy}
-            onclick={handleDelete}
+          <span
+            class={cn(
+              'mt-0.5 inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium',
+              statusVariant[agent.status],
+            )}
           >
-            <Trash2 class="size-3.5" />
-            Delete
-          </Button>
+            {statusLabels[agent.status]}
+            {#if agent.runtimeControlState !== 'active'}
+              <span class="ml-1 opacity-70">
+                · {agent.runtimeControlState === 'pause_requested' ? 'Pausing' : 'Paused'}
+              </span>
+            {/if}
+          </span>
         </div>
-      </div>
+      </SheetHeader>
+      <AgentDrawerContent
+        {agent}
+        {actionBusy}
+        canPause={canPause(agent)}
+        canResume={canResume(agent)}
+        onPause={handlePause}
+        onResume={handleResume}
+        onDelete={handleDelete}
+      />
     {/if}
   </SheetContent>
 </Sheet>
