@@ -562,12 +562,22 @@ func TestAdapterSendPromptUsesTurnDefaultsAndAutoApprovesRequests(t *testing.T) 
 		t.Fatalf("expected turn id turn-approval, got %q", turn.TurnID)
 	}
 
+	approvalEvent := requireEvent(t, session.Events())
+	if approvalEvent.Type != EventTypeApprovalRequested || approvalEvent.Approval == nil || approvalEvent.Approval.Kind != ApprovalRequestKindCommandExecution {
+		t.Fatalf("expected approval request event, got %+v", approvalEvent)
+	}
+
 	tokenEvent := requireEvent(t, session.Events())
 	if tokenEvent.Type != EventTypeTokenUsageUpdated || tokenEvent.TokenUsage == nil {
 		t.Fatalf("expected token usage event, got %+v", tokenEvent)
 	}
 	if tokenEvent.TokenUsage.TotalTokens != 155 || tokenEvent.TokenUsage.LastTokens != 25 {
 		t.Fatalf("unexpected token usage event: %+v", tokenEvent.TokenUsage)
+	}
+
+	userInputEvent := requireEvent(t, session.Events())
+	if userInputEvent.Type != EventTypeUserInputRequested || userInputEvent.UserInput == nil || userInputEvent.UserInput.RequestID.String() != `"input-1"` {
+		t.Fatalf("expected user input request event, got %+v", userInputEvent)
 	}
 
 	completedEvent := requireEvent(t, session.Events())

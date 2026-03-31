@@ -11,6 +11,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
@@ -18,7 +19,6 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -656,29 +656,29 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if got := agentTraceKindForOutput(nil); got != catalogdomain.AgentTraceKindAssistantDelta {
 		t.Fatalf("agentTraceKindForOutput(nil) = %q", got)
 	}
-	if got := agentTraceKindForOutput(&codex.OutputEvent{Stream: "command"}); got != catalogdomain.AgentTraceKindCommandDelta {
+	if got := agentTraceKindForOutput(&agentOutputEvent{Stream: "command"}); got != catalogdomain.AgentTraceKindCommandDelta {
 		t.Fatalf("agentTraceKindForOutput(command delta) = %q", got)
 	}
-	if got := agentTraceKindForOutput(&codex.OutputEvent{Stream: "command", Snapshot: true}); got != catalogdomain.AgentTraceKindCommandSnapshot {
+	if got := agentTraceKindForOutput(&agentOutputEvent{Stream: "command", Snapshot: true}); got != catalogdomain.AgentTraceKindCommandSnapshot {
 		t.Fatalf("agentTraceKindForOutput(command snapshot) = %q", got)
 	}
-	if got := agentTraceKindForOutput(&codex.OutputEvent{Stream: "assistant", Snapshot: true}); got != catalogdomain.AgentTraceKindAssistantSnapshot {
+	if got := agentTraceKindForOutput(&agentOutputEvent{Stream: "assistant", Snapshot: true}); got != catalogdomain.AgentTraceKindAssistantSnapshot {
 		t.Fatalf("agentTraceKindForOutput(assistant snapshot) = %q", got)
 	}
 
 	if stepStatus, stepSummary, ok := agentStepFromOutput(nil, "ignored"); ok || stepStatus != "" || stepSummary != "" {
 		t.Fatalf("agentStepFromOutput(nil) = %q, %q, %t", stepStatus, stepSummary, ok)
 	}
-	if stepStatus, stepSummary, ok := agentStepFromOutput(&codex.OutputEvent{Phase: " planning "}, " line one \nline two "); !ok || stepStatus != "planning" || stepSummary != "line one " {
+	if stepStatus, stepSummary, ok := agentStepFromOutput(&agentOutputEvent{Phase: " planning "}, " line one \nline two "); !ok || stepStatus != "planning" || stepSummary != "line one " {
 		t.Fatalf("agentStepFromOutput(phase) = %q, %q, %t", stepStatus, stepSummary, ok)
 	}
-	if stepStatus, _, ok := agentStepFromOutput(&codex.OutputEvent{Stream: "command"}, "run tests"); !ok || stepStatus != "running_command" {
+	if stepStatus, _, ok := agentStepFromOutput(&agentOutputEvent{Stream: "command"}, "run tests"); !ok || stepStatus != "running_command" {
 		t.Fatalf("agentStepFromOutput(command) = %q, %t", stepStatus, ok)
 	}
-	if stepStatus, _, ok := agentStepFromOutput(&codex.OutputEvent{Stream: "assistant"}, "reply"); !ok || stepStatus != "responding" {
+	if stepStatus, _, ok := agentStepFromOutput(&agentOutputEvent{Stream: "assistant"}, "reply"); !ok || stepStatus != "responding" {
 		t.Fatalf("agentStepFromOutput(assistant) = %q, %t", stepStatus, ok)
 	}
-	if _, _, ok := agentStepFromOutput(&codex.OutputEvent{Stream: "unknown"}, "noop"); ok {
+	if _, _, ok := agentStepFromOutput(&agentOutputEvent{Stream: "unknown"}, "noop"); ok {
 		t.Fatal("agentStepFromOutput(unknown) expected false")
 	}
 
@@ -697,16 +697,16 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	}
 
 	launcher := &RuntimeLauncher{now: func() time.Time { return time.Date(2026, 3, 27, 15, 0, 0, 0, time.UTC) }}
-	if err := (*RuntimeLauncher)(nil).recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, nil); err != nil {
+	if err := (*RuntimeLauncher)(nil).recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, entagentprovider.AdapterTypeCodexAppServer, nil); err != nil {
 		t.Fatalf("recordAgentOutput(nil launcher) error = %v", err)
 	}
-	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, nil); err != nil {
+	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, entagentprovider.AdapterTypeCodexAppServer, nil); err != nil {
 		t.Fatalf("recordAgentOutput(nil output) error = %v", err)
 	}
-	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, &codex.OutputEvent{Text: "   "}); err != nil {
+	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, entagentprovider.AdapterTypeCodexAppServer, &agentOutputEvent{Text: "   "}); err != nil {
 		t.Fatalf("recordAgentOutput(blank text) error = %v", err)
 	}
-	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, &codex.OutputEvent{
+	if err := launcher.recordAgentOutput(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, entagentprovider.AdapterTypeCodexAppServer, &agentOutputEvent{
 		Text:     " stderr line ",
 		Stream:   "command",
 		ItemID:   " item-1 ",
@@ -716,13 +716,13 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	}); err == nil || !strings.Contains(err.Error(), "record agent output for run") || !strings.Contains(err.Error(), "agent trace event requires a client") {
 		t.Fatalf("recordAgentOutput(no client) error = %v", err)
 	}
-	if err := (*RuntimeLauncher)(nil).recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, nil); err != nil {
+	if err := (*RuntimeLauncher)(nil).recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, entagentprovider.AdapterTypeCodexAppServer, nil); err != nil {
 		t.Fatalf("recordAgentToolCall(nil launcher) error = %v", err)
 	}
-	if err := launcher.recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, nil); err != nil {
+	if err := launcher.recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, entagentprovider.AdapterTypeCodexAppServer, nil); err != nil {
 		t.Fatalf("recordAgentToolCall(nil request) error = %v", err)
 	}
-	if err := launcher.recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, &codex.ToolCallRequest{
+	if err := launcher.recordAgentToolCall(context.Background(), uuid.New(), uuid.New(), uuid.New(), runID, entagentprovider.AdapterTypeCodexAppServer, &agentToolCallRequest{
 		Tool:     " shell ",
 		CallID:   " call-1 ",
 		TurnID:   " turn-1 ",
@@ -742,7 +742,7 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 		t.Fatalf("recordTokenUsage(nil launcher) error = %v", err)
 	}
 	launcher.tickets = ticketservice.NewService(nil)
-	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), &codex.TokenUsageEvent{
+	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), &agentTokenUsageEvent{
 		TotalInputTokens:  5,
 		TotalOutputTokens: 3,
 	}, highWater); err == nil || !strings.Contains(err.Error(), "record token usage for ticket") {
@@ -751,7 +751,7 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if highWater.inputTokens != 5 || highWater.outputTokens != 3 {
 		t.Fatalf("recordTokenUsage() highWater = %+v", highWater)
 	}
-	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), &codex.TokenUsageEvent{
+	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), &agentTokenUsageEvent{
 		TotalInputTokens:  4,
 		TotalOutputTokens: 2,
 	}, highWater); err != nil {
@@ -996,7 +996,7 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 		client: client,
 		now:    func() time.Time { return publishedAt.Add(time.Minute) },
 	}
-	if err := launcher.recordAgentToolCall(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, &codex.ToolCallRequest{
+	if err := launcher.recordAgentToolCall(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeCodexAppServer, &agentToolCallRequest{
 		Tool:     " shell ",
 		CallID:   " call-1 ",
 		TurnID:   " turn-1 ",
@@ -1004,7 +1004,7 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("recordAgentToolCall() error = %v", err)
 	}
-	if err := launcher.recordAgentOutput(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, &codex.OutputEvent{
+	if err := launcher.recordAgentOutput(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeCodexAppServer, &agentOutputEvent{
 		Stream: "assistant",
 		Text:   "assistant response",
 		Phase:  "responding",
