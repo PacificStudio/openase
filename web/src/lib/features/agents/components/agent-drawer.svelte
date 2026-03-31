@@ -203,11 +203,7 @@
 
         <div class="flex flex-wrap gap-2">
           {#if onEditProvider}
-            <Button
-              variant="outline"
-              size="sm"
-              onclick={() => onEditProvider?.(agent.providerId)}
-            >
+            <Button variant="outline" size="sm" onclick={() => onEditProvider?.(agent.providerId)}>
               <Pencil class="size-3.5" />
               Edit Provider
             </Button>
