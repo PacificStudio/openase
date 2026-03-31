@@ -3,9 +3,7 @@ import type { ProjectRepoRecord } from '$lib/api/contracts'
 import {
   createProjectRepo,
   deleteProjectRepo,
-  listMachines,
   listProjectRepos,
-  materializeProjectRepoMirror,
   updateProjectRepo,
 } from '$lib/api/openase'
 import { appStore } from '$lib/stores/app.svelte'
@@ -18,40 +16,21 @@ import {
   type RepositoryDraft,
 } from '../repositories-model'
 import {
-  mirrorActionContext,
-  parseRepositoryMirrorDraft,
-  type RepositoryMirrorDraft,
-} from '../repository-mirror-model'
-import {
   reloadReposAfterMutation,
   type RepositoryReloadAction,
 } from './repositories-settings-feedback'
 import {
-  openRepositoryMirrorDialog,
-  runRepositoryMirrorAction,
-} from './repositories-settings-mirror-actions'
-import {
   createRepositoriesSettingsUI,
-  emptyMirrorContext,
   type RepositoriesSettingsUI,
 } from './repositories-settings-ui'
 
 export function createRepositoriesSettingsState() {
   const ui = $state<RepositoriesSettingsUI>(createRepositoriesSettingsUI())
-
   const selectedRepo = $derived(ui.repos.find((repo) => repo.id === ui.selectedId) ?? null)
-  const selectedMirrorRepo = $derived(ui.repos.find((repo) => repo.id === ui.mirrorRepoId) ?? null)
-  const mirrorActionLabelByRepoId = $derived.by(() =>
-    Object.fromEntries(ui.repos.map((repo) => [repo.id, mirrorActionContext(repo).buttonLabel])),
-  )
-  const selectedMirrorContext = $derived.by(() =>
-    selectedMirrorRepo ? mirrorActionContext(selectedMirrorRepo) : emptyMirrorContext,
-  )
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
-    const orgId = appStore.currentOrg?.id
-    if (!projectId || !orgId) {
+    if (!projectId) {
       reset()
       return
     }
@@ -60,15 +39,10 @@ export function createRepositoriesSettingsState() {
     const load = async () => {
       ui.loading = true
       try {
-        const [repoPayload, machinePayload] = await Promise.all([
-          listProjectRepos(projectId),
-          listMachines(orgId),
-        ])
-        if (cancelled) {
-          return
+        const repoPayload = await listProjectRepos(projectId)
+        if (!cancelled) {
+          syncLoadedRepos(repoPayload.repos)
         }
-        ui.machines = machinePayload.machines
-        syncLoadedRepos(repoPayload.repos)
       } finally {
         if (!cancelled) {
           ui.loading = false
@@ -178,15 +152,6 @@ export function createRepositoriesSettingsState() {
     get selectedRepo() {
       return selectedRepo
     },
-    get selectedMirrorRepo() {
-      return selectedMirrorRepo
-    },
-    get mirrorActionLabelByRepoId() {
-      return mirrorActionLabelByRepoId
-    },
-    get selectedMirrorContext() {
-      return selectedMirrorContext
-    },
     openRepo(repo: ProjectRepoRecord) {
       ui.mode = 'edit'
       ui.selectedId = repo.id
@@ -199,19 +164,8 @@ export function createRepositoriesSettingsState() {
       ui.draft = createEmptyRepositoryDraft()
       ui.editorOpen = true
     },
-    openMirrorDialog(repo: ProjectRepoRecord) {
-      openRepositoryMirrorDialog(ui, repo)
-    },
-    async runMirrorAction(repo: ProjectRepoRecord) {
-      const projectId = appStore.currentProject?.id
-      await runRepositoryMirrorAction(ui, projectId, repo, () => reloadRepos(projectId ?? ''))
-    },
     updateField(field: keyof RepositoryDraft, value: string | boolean) {
       ui.draft = { ...ui.draft, [field]: value }
-    },
-    updateMirrorField(field: keyof RepositoryMirrorDraft, value: string) {
-      ui.mirrorDraft = { ...ui.mirrorDraft, [field]: value }
-      ui.mirrorErrorMessage = ''
     },
     async deleteFromList(repo: ProjectRepoRecord) {
       if (repo.id !== ui.selectedId) {
@@ -220,34 +174,6 @@ export function createRepositoriesSettingsState() {
         ui.draft = projectRepoToDraft(repo)
       }
       await deleteRepo(repo)
-    },
-    async materializeMirror() {
-      const projectId = appStore.currentProject?.id
-      const repo = selectedMirrorRepo
-      const parsed = parseRepositoryMirrorDraft(ui.mirrorDraft)
-      if (!projectId || !repo || !parsed.ok) {
-        ui.mirrorErrorMessage = parsed.ok ? 'Project context is unavailable.' : parsed.error
-        return
-      }
-
-      ui.materializingId = repo.id
-      ui.mirrorErrorMessage = ''
-      try {
-        await materializeProjectRepoMirror(projectId, repo.id, parsed.value)
-        ui.mirrorDialogOpen = false
-        await reloadReposAfterMutation(
-          () => reloadRepos(projectId),
-          'mirror_updated',
-          'Repository mirror updated.',
-        )
-      } catch (caughtError) {
-        ui.mirrorErrorMessage =
-          caughtError instanceof ApiError
-            ? caughtError.detail
-            : 'Failed to update repository mirror.'
-      } finally {
-        ui.materializingId = ''
-      }
     },
     save,
   }

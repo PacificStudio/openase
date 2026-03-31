@@ -128,21 +128,6 @@ type OpenAPIProjectRepo struct {
 	LastError        *string  `json:"last_error,omitempty"`
 }
 
-type OpenAPIProjectRepoMirror struct {
-	ID             string  `json:"id"`
-	ProjectID      string  `json:"project_id"`
-	ProjectRepoID  string  `json:"project_repo_id"`
-	MachineID      string  `json:"machine_id"`
-	LocalPath      string  `json:"local_path"`
-	State          string  `json:"state"`
-	HeadCommit     *string `json:"head_commit,omitempty"`
-	LastSyncedAt   *string `json:"last_synced_at,omitempty"`
-	LastVerifiedAt *string `json:"last_verified_at,omitempty"`
-	LastError      *string `json:"last_error,omitempty"`
-	CreatedAt      string  `json:"created_at"`
-	UpdatedAt      string  `json:"updated_at"`
-}
-
 type OpenAPIAgentProvider struct {
 	ID                    string                           `json:"id"`
 	OrganizationID        string                           `json:"organization_id"`
@@ -857,14 +842,6 @@ type OpenAPIProjectRepoResponse struct {
 	Repo OpenAPIProjectRepo `json:"repo"`
 }
 
-type OpenAPIProjectRepoMirrorsResponse struct {
-	Mirrors []OpenAPIProjectRepoMirror `json:"mirrors"`
-}
-
-type OpenAPIProjectRepoMirrorResponse struct {
-	Mirror OpenAPIProjectRepoMirror `json:"mirror"`
-}
-
 type OpenAPITicketRepoScopesResponse struct {
 	RepoScopes []OpenAPITicketRepoScope `json:"repo_scopes"`
 }
@@ -1145,8 +1122,6 @@ type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
 type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
 type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
-type OpenAPIMaterializeProjectRepoMirrorRequest projectRepoMirrorMaterializeRequest
-type OpenAPIProjectRepoMirrorMachineRequest projectRepoMirrorMachineRequest
 type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
 type OpenAPIUpdateTicketRepoScopeRequest ticketRepoScopePatchRequest
 type OpenAPICreateAgentRequest catalogdomain.AgentInput
@@ -2059,87 +2034,6 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	projectReposGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/repos", http.MethodGet, projectReposGet)
-
-	projectRepoMirrorsGet, err := b.jsonOperation(
-		"listProjectRepoMirrors",
-		"List project repository mirrors",
-		[]string{"catalog"},
-		http.StatusOK,
-		OpenAPIProjectRepoMirrorsResponse{},
-		nil,
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectRepoMirrorsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	projectRepoMirrorsGet.AddParameter(uuidPathParameter("repoId", "Repository ID."))
-	projectRepoMirrorsGet.AddParameter(uuidQueryParameter("machine_id", "Optional machine filter."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors", http.MethodGet, projectRepoMirrorsGet)
-
-	projectRepoMirrorsPost, err := b.jsonOperation(
-		"materializeProjectRepoMirror",
-		"Register or prepare a project repository mirror",
-		[]string{"catalog"},
-		http.StatusCreated,
-		OpenAPIProjectRepoMirrorResponse{},
-		OpenAPIMaterializeProjectRepoMirrorRequest{},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectRepoMirrorsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	projectRepoMirrorsPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors", http.MethodPost, projectRepoMirrorsPost)
-
-	projectRepoMirrorVerifyPost, err := b.jsonOperation(
-		"verifyProjectRepoMirror",
-		"Verify a project repository mirror",
-		[]string{"catalog"},
-		http.StatusOK,
-		OpenAPIProjectRepoMirrorResponse{},
-		OpenAPIProjectRepoMirrorMachineRequest{},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectRepoMirrorVerifyPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	projectRepoMirrorVerifyPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify", http.MethodPost, projectRepoMirrorVerifyPost)
-
-	projectRepoMirrorSyncPost, err := b.jsonOperation(
-		"syncProjectRepoMirror",
-		"Sync a project repository mirror",
-		[]string{"catalog"},
-		http.StatusOK,
-		OpenAPIProjectRepoMirrorResponse{},
-		OpenAPIProjectRepoMirrorMachineRequest{},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusConflict,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectRepoMirrorSyncPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	projectRepoMirrorSyncPost.AddParameter(uuidPathParameter("repoId", "Repository ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync", http.MethodPost, projectRepoMirrorSyncPost)
 
 	projectReposPost, err := b.jsonOperation(
 		"createProjectRepo",

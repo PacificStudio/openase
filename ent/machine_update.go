@@ -15,7 +15,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -203,26 +202,6 @@ func (_u *MachineUpdate) ClearWorkspaceRoot() *MachineUpdate {
 	return _u
 }
 
-// SetMirrorRoot sets the "mirror_root" field.
-func (_u *MachineUpdate) SetMirrorRoot(v string) *MachineUpdate {
-	_u.mutation.SetMirrorRoot(v)
-	return _u
-}
-
-// SetNillableMirrorRoot sets the "mirror_root" field if the given value is not nil.
-func (_u *MachineUpdate) SetNillableMirrorRoot(v *string) *MachineUpdate {
-	if v != nil {
-		_u.SetMirrorRoot(*v)
-	}
-	return _u
-}
-
-// ClearMirrorRoot clears the value of the "mirror_root" field.
-func (_u *MachineUpdate) ClearMirrorRoot() *MachineUpdate {
-	_u.mutation.ClearMirrorRoot()
-	return _u
-}
-
 // SetAgentCliPath sets the "agent_cli_path" field.
 func (_u *MachineUpdate) SetAgentCliPath(v string) *MachineUpdate {
 	_u.mutation.SetAgentCliPath(v)
@@ -301,21 +280,6 @@ func (_u *MachineUpdate) AddProviders(v ...*AgentProvider) *MachineUpdate {
 	return _u.AddProviderIDs(ids...)
 }
 
-// AddProjectRepoMirrorIDs adds the "project_repo_mirrors" edge to the ProjectRepoMirror entity by IDs.
-func (_u *MachineUpdate) AddProjectRepoMirrorIDs(ids ...uuid.UUID) *MachineUpdate {
-	_u.mutation.AddProjectRepoMirrorIDs(ids...)
-	return _u
-}
-
-// AddProjectRepoMirrors adds the "project_repo_mirrors" edges to the ProjectRepoMirror entity.
-func (_u *MachineUpdate) AddProjectRepoMirrors(v ...*ProjectRepoMirror) *MachineUpdate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddProjectRepoMirrorIDs(ids...)
-}
-
 // AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
 func (_u *MachineUpdate) AddTargetTicketIDs(ids ...uuid.UUID) *MachineUpdate {
 	_u.mutation.AddTargetTicketIDs(ids...)
@@ -361,27 +325,6 @@ func (_u *MachineUpdate) RemoveProviders(v ...*AgentProvider) *MachineUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveProviderIDs(ids...)
-}
-
-// ClearProjectRepoMirrors clears all "project_repo_mirrors" edges to the ProjectRepoMirror entity.
-func (_u *MachineUpdate) ClearProjectRepoMirrors() *MachineUpdate {
-	_u.mutation.ClearProjectRepoMirrors()
-	return _u
-}
-
-// RemoveProjectRepoMirrorIDs removes the "project_repo_mirrors" edge to ProjectRepoMirror entities by IDs.
-func (_u *MachineUpdate) RemoveProjectRepoMirrorIDs(ids ...uuid.UUID) *MachineUpdate {
-	_u.mutation.RemoveProjectRepoMirrorIDs(ids...)
-	return _u
-}
-
-// RemoveProjectRepoMirrors removes "project_repo_mirrors" edges to ProjectRepoMirror entities.
-func (_u *MachineUpdate) RemoveProjectRepoMirrors(v ...*ProjectRepoMirror) *MachineUpdate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveProjectRepoMirrorIDs(ids...)
 }
 
 // ClearTargetTickets clears all "target_tickets" edges to the Ticket entity.
@@ -512,12 +455,6 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.WorkspaceRootCleared() {
 		_spec.ClearField(machine.FieldWorkspaceRoot, field.TypeString)
 	}
-	if value, ok := _u.mutation.MirrorRoot(); ok {
-		_spec.SetField(machine.FieldMirrorRoot, field.TypeString, value)
-	}
-	if _u.mutation.MirrorRootCleared() {
-		_spec.ClearField(machine.FieldMirrorRoot, field.TypeString)
-	}
 	if value, ok := _u.mutation.AgentCliPath(); ok {
 		_spec.SetField(machine.FieldAgentCliPath, field.TypeString, value)
 	}
@@ -606,51 +543,6 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ProjectRepoMirrorsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   machine.ProjectRepoMirrorsTable,
-			Columns: []string{machine.ProjectRepoMirrorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedProjectRepoMirrorsIDs(); len(nodes) > 0 && !_u.mutation.ProjectRepoMirrorsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   machine.ProjectRepoMirrorsTable,
-			Columns: []string{machine.ProjectRepoMirrorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ProjectRepoMirrorsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   machine.ProjectRepoMirrorsTable,
-			Columns: []string{machine.ProjectRepoMirrorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -892,26 +784,6 @@ func (_u *MachineUpdateOne) ClearWorkspaceRoot() *MachineUpdateOne {
 	return _u
 }
 
-// SetMirrorRoot sets the "mirror_root" field.
-func (_u *MachineUpdateOne) SetMirrorRoot(v string) *MachineUpdateOne {
-	_u.mutation.SetMirrorRoot(v)
-	return _u
-}
-
-// SetNillableMirrorRoot sets the "mirror_root" field if the given value is not nil.
-func (_u *MachineUpdateOne) SetNillableMirrorRoot(v *string) *MachineUpdateOne {
-	if v != nil {
-		_u.SetMirrorRoot(*v)
-	}
-	return _u
-}
-
-// ClearMirrorRoot clears the value of the "mirror_root" field.
-func (_u *MachineUpdateOne) ClearMirrorRoot() *MachineUpdateOne {
-	_u.mutation.ClearMirrorRoot()
-	return _u
-}
-
 // SetAgentCliPath sets the "agent_cli_path" field.
 func (_u *MachineUpdateOne) SetAgentCliPath(v string) *MachineUpdateOne {
 	_u.mutation.SetAgentCliPath(v)
@@ -990,21 +862,6 @@ func (_u *MachineUpdateOne) AddProviders(v ...*AgentProvider) *MachineUpdateOne 
 	return _u.AddProviderIDs(ids...)
 }
 
-// AddProjectRepoMirrorIDs adds the "project_repo_mirrors" edge to the ProjectRepoMirror entity by IDs.
-func (_u *MachineUpdateOne) AddProjectRepoMirrorIDs(ids ...uuid.UUID) *MachineUpdateOne {
-	_u.mutation.AddProjectRepoMirrorIDs(ids...)
-	return _u
-}
-
-// AddProjectRepoMirrors adds the "project_repo_mirrors" edges to the ProjectRepoMirror entity.
-func (_u *MachineUpdateOne) AddProjectRepoMirrors(v ...*ProjectRepoMirror) *MachineUpdateOne {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddProjectRepoMirrorIDs(ids...)
-}
-
 // AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
 func (_u *MachineUpdateOne) AddTargetTicketIDs(ids ...uuid.UUID) *MachineUpdateOne {
 	_u.mutation.AddTargetTicketIDs(ids...)
@@ -1050,27 +907,6 @@ func (_u *MachineUpdateOne) RemoveProviders(v ...*AgentProvider) *MachineUpdateO
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveProviderIDs(ids...)
-}
-
-// ClearProjectRepoMirrors clears all "project_repo_mirrors" edges to the ProjectRepoMirror entity.
-func (_u *MachineUpdateOne) ClearProjectRepoMirrors() *MachineUpdateOne {
-	_u.mutation.ClearProjectRepoMirrors()
-	return _u
-}
-
-// RemoveProjectRepoMirrorIDs removes the "project_repo_mirrors" edge to ProjectRepoMirror entities by IDs.
-func (_u *MachineUpdateOne) RemoveProjectRepoMirrorIDs(ids ...uuid.UUID) *MachineUpdateOne {
-	_u.mutation.RemoveProjectRepoMirrorIDs(ids...)
-	return _u
-}
-
-// RemoveProjectRepoMirrors removes "project_repo_mirrors" edges to ProjectRepoMirror entities.
-func (_u *MachineUpdateOne) RemoveProjectRepoMirrors(v ...*ProjectRepoMirror) *MachineUpdateOne {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveProjectRepoMirrorIDs(ids...)
 }
 
 // ClearTargetTickets clears all "target_tickets" edges to the Ticket entity.
@@ -1231,12 +1067,6 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 	if _u.mutation.WorkspaceRootCleared() {
 		_spec.ClearField(machine.FieldWorkspaceRoot, field.TypeString)
 	}
-	if value, ok := _u.mutation.MirrorRoot(); ok {
-		_spec.SetField(machine.FieldMirrorRoot, field.TypeString, value)
-	}
-	if _u.mutation.MirrorRootCleared() {
-		_spec.ClearField(machine.FieldMirrorRoot, field.TypeString)
-	}
 	if value, ok := _u.mutation.AgentCliPath(); ok {
 		_spec.SetField(machine.FieldAgentCliPath, field.TypeString, value)
 	}
@@ -1325,51 +1155,6 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ProjectRepoMirrorsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   machine.ProjectRepoMirrorsTable,
-			Columns: []string{machine.ProjectRepoMirrorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedProjectRepoMirrorsIDs(); len(nodes) > 0 && !_u.mutation.ProjectRepoMirrorsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   machine.ProjectRepoMirrorsTable,
-			Columns: []string{machine.ProjectRepoMirrorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ProjectRepoMirrorsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   machine.ProjectRepoMirrorsTable,
-			Columns: []string{machine.ProjectRepoMirrorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

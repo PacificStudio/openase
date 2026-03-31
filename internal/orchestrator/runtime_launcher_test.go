@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -25,21 +24,18 @@ import (
 	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
@@ -90,7 +86,10 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -288,7 +287,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if repoWorkspace.State != entticketrepoworkspace.StateReady {
 		t.Fatalf("expected ready ticket repo workspace, got %+v", repoWorkspace)
 	}
-	if repoWorkspace.MirrorID == uuid.Nil || repoWorkspace.PreparedAt == nil {
+	if repoWorkspace.PreparedAt == nil {
 		t.Fatalf("expected persisted ticket repo workspace metadata, got %+v", repoWorkspace)
 	}
 }
@@ -329,7 +328,10 @@ workflow:
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -479,7 +481,10 @@ Blocked lifecycle publish regression test.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -681,7 +686,10 @@ Launch starvation regression test.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -809,7 +817,10 @@ Blocked launch should time out cleanly.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1329,7 +1340,10 @@ Runtime reconcile test
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1443,7 +1457,10 @@ Implement the ticket using the current workspace.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1616,7 +1633,10 @@ Emit visible runtime output.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2154,7 +2174,10 @@ Handle a failing runtime turn.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2308,7 +2331,10 @@ Exercise successful ticket hook lifecycle.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2477,7 +2503,10 @@ Exercise failing ticket hook lifecycle.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2632,16 +2661,6 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(repoItem.ID).
-		SetMachineID(remoteMachine.ID).
-		SetLocalPath("/srv/openase/mirrors/backend").
-		SetState(entprojectrepomirror.StateReady).
-		SetHeadCommit("abc123remote").
-		Save(ctx); err != nil {
-		t.Fatalf("create ready remote mirror: %v", err)
-	}
-
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
@@ -2680,11 +2699,11 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if runAfter.SessionID != "thread-runtime-1" {
 		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch '/srv/openase/mirrors/backend' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
+	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
 	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
-		t.Fatalf("expected remote process to cd into the single scoped repo workspace, got %q", processSession.startedCommand)
+		t.Fatalf("expected remote process to cd into repo workspace, got %q", processSession.startedCommand)
 	}
 	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
 		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
@@ -2695,12 +2714,12 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if err != nil {
 		t.Fatalf("load remote ticket repo workspace: %v", err)
 	}
-	if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.HeadCommit != "abc123remote" {
+	if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.HeadCommit != "" {
 		t.Fatalf("unexpected remote ticket repo workspace %+v", repoWorkspace)
 	}
 }
 
-func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t *testing.T) {
+func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -2721,7 +2740,7 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetIdentifier("ASE-401A").
-		SetTitle("Sync stale remote mirror before launch").
+		SetTitle("Prepare remote workspace directly from repository URL").
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetWorkflowID(workflowItem.ID).
 		SetPriority(entticket.PriorityHigh).
@@ -2782,16 +2801,6 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(repoItem.ID).
-		SetMachineID(remoteMachine.ID).
-		SetLocalPath("/srv/openase/mirrors/backend").
-		SetState(entprojectrepomirror.StateStale).
-		SetHeadCommit("abc123stale").
-		Save(ctx); err != nil {
-		t.Fatalf("create stale remote mirror: %v", err)
-	}
-
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
@@ -2802,26 +2811,14 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 	}
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
-	syncSession := &runtimeSSHCommandSession{output: []byte("def456fresh\n")}
 	prepareSession := &runtimeSSHPrepareSession{}
 	processSession := newRuntimeSSHProcessSession()
 	sshPool := sshinfra.NewPool("/tmp/openase",
-		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{syncSession, prepareSession, processSession}}}),
+		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{prepareSession, processSession}}}),
 		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
 	)
 
-	mirrorService := projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	mirrorService.ConfigureSSHPool(sshPool)
-	mirrorService.ConfigureGitHubCredentials(stubTokenResolver{
-		projectID: fixture.projectID,
-		resolved: githubauthdomain.ResolvedCredential{
-			Scope: githubauthdomain.ScopeProject,
-			Token: "runtime-launcher-test-token",
-		},
-	})
-
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
-	launcher.ConfigureMirrorService(mirrorService)
 	t.Cleanup(func() {
 		if err := launcher.Close(context.Background()); err != nil {
 			t.Errorf("close launcher: %v", err)
@@ -2839,24 +2836,11 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 	if runAfter.Status != entagentrun.StatusReady {
 		t.Fatalf("expected ready run, got %+v", runAfter)
 	}
-	if !strings.Contains(syncSession.command, "/srv/openase/mirrors/backend") || !strings.Contains(syncSession.command, "fetch origin") {
-		t.Fatalf("expected remote mirror sync command, got %q", syncSession.command)
-	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch '/srv/openase/mirrors/backend' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend'") {
+	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
-
-	mirrorAfter, err := client.ProjectRepoMirror.Query().
-		Where(
-			entprojectrepomirror.ProjectRepoIDEQ(repoItem.ID),
-			entprojectrepomirror.MachineIDEQ(remoteMachine.ID),
-		).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("reload project repo mirror: %v", err)
-	}
-	if mirrorAfter.State != entprojectrepomirror.StateReady || mirrorAfter.HeadCommit != "def456fresh" || mirrorAfter.LastSyncedAt == nil {
-		t.Fatalf("expected synced remote mirror, got %+v", mirrorAfter)
+	if !strings.Contains(prepareSession.command, "git -C '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend' fetch origin") {
+		t.Fatalf("expected remote workspace fetch command, got %q", prepareSession.command)
 	}
 }
 
@@ -3005,14 +2989,13 @@ func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIs
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	projectRepo, err := client.ProjectRepo.Create().
+	if _, err := client.ProjectRepo.Create().
 		SetProjectID(fixture.projectID).
 		SetName("openase").
 		SetRepositoryURL("https://github.com/GrandCX/openase.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("openase").
-		Save(ctx)
-	if err != nil {
+		Save(ctx); err != nil {
 		t.Fatalf("create project repo: %v", err)
 	}
 
@@ -3045,16 +3028,6 @@ func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIs
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(remoteMachine.ID).
-		SetLocalPath("/srv/openase/mirrors/openase").
-		SetState(entprojectrepomirror.StateReady).
-		SetHeadCommit("abc123remote").
-		Save(ctx); err != nil {
-		t.Fatalf("create ready remote mirror: %v", err)
-	}
-
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
 		SetProviderID(fixture.providerID).
@@ -3464,7 +3437,10 @@ func newRuntimeExecutionFixture(
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
 
-	workflowSvc := newRuntimeLauncherWorkflowService(t, client, repoRoot, fixture.projectID)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -3574,152 +3550,16 @@ func createRuntimeLauncherPrimaryRepo(
 	t.Helper()
 
 	repoName := "repo-" + strings.ReplaceAll(projectID.String(), "-", "")[:8]
-	projectRepo, err := client.ProjectRepo.Create().
+	if _, err := client.ProjectRepo.Create().
 		SetProjectID(projectID).
 		SetName(repoName).
-		SetRepositoryURL(fmt.Sprintf("https://github.com/acme/%s.git", repoName)).
+		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname(repoName).
-		Save(ctx)
-	if err != nil {
+		Save(ctx); err != nil {
 		t.Fatalf("create project repo: %v", err)
 	}
 
-	project, err := client.Project.Get(ctx, projectID)
-	if err != nil {
-		t.Fatalf("load project: %v", err)
-	}
-	localMachine, err := client.Machine.Query().
-		Where(
-			entmachine.OrganizationIDEQ(project.OrganizationID),
-			entmachine.NameEQ(catalogdomain.LocalMachineName),
-		).
-		Only(ctx)
-	if err != nil {
-		t.Fatalf("load local machine: %v", err)
-	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(localMachine.ID).
-		SetLocalPath(repoRoot).
-		SetState(entprojectrepomirror.StateReady).
-		Save(ctx); err != nil {
-		t.Fatalf("create ready project repo mirror: %v", err)
-	}
-}
-
-func newRuntimeLauncherWorkflowService(
-	t *testing.T,
-	client *ent.Client,
-	repoRoot string,
-	projectID uuid.UUID,
-) *workflowservice.Service {
-	t.Helper()
-
-	service, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
-	if err != nil {
-		t.Fatalf("create workflow service: %v", err)
-	}
-
-	projectStorageRoot := filepath.Join(repoRoot, ".openase-projects", projectID.String())
-
-	copyRuntimeLauncherDir(t, filepath.Join(repoRoot, ".openase"), filepath.Join(projectStorageRoot, ".openase"))
-	defaultHarnessPath := filepath.Join(projectStorageRoot, ".openase", "harnesses", "coding.md")
-	if _, statErr := os.Stat(defaultHarnessPath); os.IsNotExist(statErr) {
-		if err := os.MkdirAll(filepath.Dir(defaultHarnessPath), 0o750); err != nil {
-			t.Fatalf("create default harness dir: %v", err)
-		}
-		if err := os.WriteFile(defaultHarnessPath, []byte("---\nworkflow:\n  role: coding\n---\n\n# Coding\n"), 0o600); err != nil {
-			t.Fatalf("write default harness: %v", err)
-		}
-	} else if statErr != nil {
-		t.Fatalf("stat default harness: %v", statErr)
-	}
-
-	if _, statErr := os.Stat(filepath.Join(projectStorageRoot, ".git")); os.IsNotExist(statErr) {
-		initRuntimeLauncherRepo(t, projectStorageRoot)
-		commitRuntimeLauncherRepo(t, projectStorageRoot)
-	} else if statErr != nil {
-		t.Fatalf("stat project storage git dir: %v", statErr)
-	} else {
-		runRuntimeLauncherGit(t, projectStorageRoot, "add", ".")
-		runRuntimeLauncherGit(t, projectStorageRoot, "commit", "--allow-empty", "-m", "Sync project storage")
-	}
-
-	t.Cleanup(func() {
-		if err := service.Close(); err != nil {
-			t.Errorf("close workflow service: %v", err)
-		}
-	})
-
-	return service
-}
-
-func copyRuntimeLauncherDir(t *testing.T, sourceRoot string, targetRoot string) {
-	t.Helper()
-
-	cleanSourceRoot := filepath.Clean(sourceRoot)
-	cleanTargetRoot := filepath.Clean(targetRoot)
-
-	info, err := os.Stat(sourceRoot)
-	if os.IsNotExist(err) {
-		return
-	}
-	if err != nil {
-		t.Fatalf("stat source dir %s: %v", sourceRoot, err)
-	}
-	if !info.IsDir() {
-		return
-	}
-
-	sourceDir, err := os.OpenRoot(cleanSourceRoot)
-	if err != nil {
-		t.Fatalf("open source root %s: %v", cleanSourceRoot, err)
-	}
-	defer func() {
-		if closeErr := sourceDir.Close(); closeErr != nil {
-			t.Errorf("close source root %s: %v", cleanSourceRoot, closeErr)
-		}
-	}()
-
-	if err := os.MkdirAll(cleanTargetRoot, 0o750); err != nil {
-		t.Fatalf("create target root %s: %v", cleanTargetRoot, err)
-	}
-	targetDir, err := os.OpenRoot(cleanTargetRoot)
-	if err != nil {
-		t.Fatalf("open target root %s: %v", cleanTargetRoot, err)
-	}
-	defer func() {
-		if closeErr := targetDir.Close(); closeErr != nil {
-			t.Errorf("close target root %s: %v", cleanTargetRoot, closeErr)
-		}
-	}()
-
-	if err := fs.WalkDir(sourceDir.FS(), ".", func(relativePath string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		cleanRelativePath := filepath.Clean(relativePath)
-		if filepath.IsAbs(cleanRelativePath) || cleanRelativePath == ".." || strings.HasPrefix(cleanRelativePath, ".."+string(os.PathSeparator)) {
-			return fmt.Errorf("unexpected path outside source root: %s", relativePath)
-		}
-		if cleanRelativePath == "." {
-			return nil
-		}
-		if entry.IsDir() {
-			return targetDir.MkdirAll(cleanRelativePath, 0o750)
-		}
-		data, err := sourceDir.ReadFile(cleanRelativePath)
-		if err != nil {
-			return err
-		}
-		if err := targetDir.MkdirAll(filepath.Dir(cleanRelativePath), 0o750); err != nil {
-			return err
-		}
-		return targetDir.WriteFile(cleanRelativePath, data, 0o600)
-	}); err != nil {
-		t.Fatalf("copy %s to %s: %v", sourceRoot, targetRoot, err)
-	}
 }
 
 func initRuntimeLauncherRepo(t *testing.T, repoRoot string) {

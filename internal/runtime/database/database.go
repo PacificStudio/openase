@@ -320,12 +320,6 @@ func reconcileLegacyProjectRepoSemantics(ctx context.Context, dsn string) error 
 		_ = rows.Close()
 	}()
 
-	localMachineByOrg, err := localMachineIDsByOrganization(ctx, db)
-	if err != nil {
-		return err
-	}
-
-	now := time.Now().UTC()
 	for rows.Next() {
 		var (
 			projectRepoID    uuid.UUID
@@ -352,29 +346,7 @@ func reconcileLegacyProjectRepoSemantics(ctx context.Context, dsn string) error 
 			}
 		}
 
-		localPath, ok := parseLegacyMirrorLocalPath(legacyClonePath)
-		if !ok {
-			continue
-		}
-		machineID, ok := localMachineByOrg[organizationID]
-		if !ok {
-			continue
-		}
-
-		if _, err := db.ExecContext(
-			ctx,
-			`INSERT INTO "project_repo_mirrors"
-				("id", "project_repo_id", "machine_id", "local_path", "state", "last_verified_at", "created_at", "updated_at")
-			VALUES ($1, $2, $3, $4, 'ready', $5, $5, $5)
-			ON CONFLICT ("project_repo_id", "machine_id") DO NOTHING`,
-			uuid.New(),
-			projectRepoID,
-			machineID,
-			localPath,
-			now,
-		); err != nil {
-			return fmt.Errorf("backfill project repo mirror from clone_path: %w", err)
-		}
+		_ = organizationID
 	}
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("iterate legacy project repo clone_path rows: %w", err)
@@ -467,27 +439,6 @@ func parseLegacyWorkspaceDirname(raw string) (string, bool) {
 	}
 
 	return cleaned, true
-}
-
-func parseLegacyMirrorLocalPath(raw string) (string, bool) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return "", false
-	}
-	if filepath.IsAbs(trimmed) {
-		return filepath.Clean(trimmed), true
-	}
-
-	parsed, err := url.Parse(trimmed)
-	if err != nil || parsed.Scheme != "file" {
-		return "", false
-	}
-
-	repoPath, err := url.PathUnescape(parsed.Path)
-	if err != nil || repoPath == "" {
-		return "", false
-	}
-	return filepath.Clean(filepath.FromSlash(repoPath)), true
 }
 
 func reconcileLegacyAgentProviderMachineIDs(ctx context.Context, dsn string) error {

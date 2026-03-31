@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -21,7 +20,6 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entskill "github.com/BetterAndBetterII/openase/ent/skill"
 	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -29,25 +27,21 @@ import (
 	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
-	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
-	git "github.com/go-git/go-git/v5"
 	"github.com/google/uuid"
 )
 
 var (
-	ErrUnavailable              = errors.New("workflow service unavailable")
-	ErrProjectNotFound          = errors.New("project not found")
-	ErrRepositoryMirrorNotReady = errors.New("workflow repository mirror is not ready")
-	ErrWorkflowNotFound         = errors.New("workflow not found")
-	ErrStatusNotFound           = errors.New("workflow status not found in project")
-	ErrAgentNotFound            = errors.New("workflow agent not found in project")
-	ErrWorkflowConflict         = errors.New("workflow conflict")
-	ErrWorkflowInUse            = errors.New("workflow is still referenced by project or tickets")
-	ErrHarnessInvalid           = errors.New("workflow harness is invalid")
-	ErrHookConfigInvalid        = errors.New("workflow hook config is invalid")
-	ErrWorkflowHookBlocked      = errors.New("workflow hook blocked the lifecycle operation")
+	ErrUnavailable         = errors.New("workflow service unavailable")
+	ErrProjectNotFound     = errors.New("project not found")
+	ErrWorkflowNotFound    = errors.New("workflow not found")
+	ErrStatusNotFound      = errors.New("workflow status not found in project")
+	ErrAgentNotFound       = errors.New("workflow agent not found in project")
+	ErrWorkflowConflict    = errors.New("workflow conflict")
+	ErrWorkflowInUse       = errors.New("workflow is still referenced by project or tickets")
+	ErrHarnessInvalid      = errors.New("workflow harness is invalid")
+	ErrHookConfigInvalid   = errors.New("workflow hook config is invalid")
+	ErrWorkflowHookBlocked = errors.New("workflow hook blocked the lifecycle operation")
 )
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -496,7 +490,6 @@ type Service struct {
 	client            *ent.Client
 	logger            *slog.Logger
 	repoRoot          string
-	mirrors           *projectrepomirrorsvc.Service
 	storageMu         sync.Mutex
 	storages          map[uuid.UUID]*projectStorage
 	builtinSkillsMu   sync.Mutex
@@ -545,19 +538,9 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 	return service, nil
 }
 
-func (s *Service) ConfigureMirrorService(service *projectrepomirrorsvc.Service) {
-	if s == nil {
-		return
-	}
-	s.mirrors = service
-}
-
 func newProjectStorage(projectID uuid.UUID, repoRoot string, service *Service) (*projectStorage, error) {
 	harnessRoot := filepath.Join(repoRoot, ".openase", "harnesses")
 	skillRoot := filepath.Join(repoRoot, ".openase", "skills")
-	if err := ensureGitRepositoryExists(repoRoot); err != nil {
-		return nil, fmt.Errorf("initialize project storage git repository: %w", err)
-	}
 	if err := ensureProjectBuiltinAssets(repoRoot); err != nil {
 		return nil, fmt.Errorf("materialize built-in project assets: %w", err)
 	}
@@ -583,19 +566,6 @@ func newProjectStorage(projectID uuid.UUID, repoRoot string, service *Service) (
 	storage.registry = registry
 
 	return storage, nil
-}
-
-func ensureGitRepositoryExists(repoRoot string) error {
-	if _, err := git.PlainOpen(repoRoot); err == nil {
-		return nil
-	} else if err != git.ErrRepositoryNotExists {
-		return err
-	}
-
-	if _, err := git.PlainInit(repoRoot, false); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (s *projectStorage) Close() error {
@@ -641,38 +611,20 @@ func (s *Service) GetRepositoryPrerequisite(ctx context.Context, projectID uuid.
 	if s.client == nil {
 		return WorkflowRepositoryPrerequisite{}, ErrUnavailable
 	}
-	prerequisite, _, err := s.loadRepositoryPrerequisite(ctx, projectID)
-	return prerequisite, err
-}
-
-func (s *Service) ensureProjectStorageMirror(ctx context.Context, projectID uuid.UUID, usage workflowStorageUsage) error {
-	_ = ctx
-	_ = projectID
-	_ = usage
-	return nil
-}
-
-func (s *Service) loadRepositoryPrerequisite(ctx context.Context, projectID uuid.UUID) (WorkflowRepositoryPrerequisite, string, error) {
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
-		return WorkflowRepositoryPrerequisite{}, "", err
+		return WorkflowRepositoryPrerequisite{}, err
 	}
-
-	repos, err := s.client.ProjectRepo.Query().
-		Where(entprojectrepo.ProjectID(projectID)).
-		All(ctx)
+	repoCount, err := s.client.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectIDEQ(projectID)).
+		Count(ctx)
 	if err != nil {
-		return WorkflowRepositoryPrerequisite{}, "", fmt.Errorf("list project repos for workflow prerequisite: %w", err)
+		return WorkflowRepositoryPrerequisite{}, fmt.Errorf("count project repos for workflow prerequisite: %w", err)
 	}
-	repoRoot, err := s.projectStorageRoot(projectID)
-	if err != nil {
-		return WorkflowRepositoryPrerequisite{}, "", err
-	}
-
 	return WorkflowRepositoryPrerequisite{
 		Kind:      WorkflowRepositoryPrerequisiteKindReady,
-		RepoCount: len(repos),
+		RepoCount: repoCount,
 		Action:    WorkflowRepositoryPrerequisiteActionNone,
-	}, repoRoot, nil
+	}, nil
 }
 
 func (s *Service) projectStorageRoot(projectID uuid.UUID) (string, error) {
@@ -684,165 +636,6 @@ func (s *Service) projectStorageRoot(projectID uuid.UUID) (string, error) {
 		return "", fmt.Errorf("create project storage root: %w", err)
 	}
 	return root, nil
-}
-
-func ResolveReadyMirrorRepoRoot(mirrors []*ent.ProjectRepoMirror) (string, error) {
-	if len(mirrors) == 0 {
-		return "", errors.New("no ready ProjectRepoMirror.local_path is available")
-	}
-
-	ordered := append([]*ent.ProjectRepoMirror(nil), mirrors...)
-	slices.SortStableFunc(ordered, compareMirrorLocality)
-
-	var lastErr error
-	for _, mirror := range ordered {
-		if mirror == nil {
-			continue
-		}
-		localPath := strings.TrimSpace(mirror.LocalPath)
-		if localPath == "" {
-			continue
-		}
-
-		repoRoot, err := DetectRepoRoot(filepath.Clean(localPath))
-		if err == nil {
-			return repoRoot, nil
-		}
-		lastErr = err
-	}
-
-	if lastErr != nil {
-		return "", lastErr
-	}
-
-	return "", errors.New("no ready ProjectRepoMirror.local_path is available")
-}
-
-func compareMirrorLocality(left *ent.ProjectRepoMirror, right *ent.ProjectRepoMirror) int {
-	if left == nil && right == nil {
-		return 0
-	}
-	if left == nil {
-		return 1
-	}
-	if right == nil {
-		return -1
-	}
-
-	leftLocal := projectRepoMirrorIsLocal(left)
-	rightLocal := projectRepoMirrorIsLocal(right)
-	switch {
-	case leftLocal && !rightLocal:
-		return -1
-	case !leftLocal && rightLocal:
-		return 1
-	default:
-		return strings.Compare(strings.TrimSpace(left.LocalPath), strings.TrimSpace(right.LocalPath))
-	}
-}
-
-func projectRepoMirrorIsLocal(mirror *ent.ProjectRepoMirror) bool {
-	if mirror == nil || mirror.Edges.Machine == nil {
-		return false
-	}
-
-	return mirror.Edges.Machine.Name == catalogdomain.LocalMachineName ||
-		mirror.Edges.Machine.Host == catalogdomain.LocalMachineHost
-}
-
-func selectRepresentativeWorkflowMirror(mirrors []*ent.ProjectRepoMirror) *ent.ProjectRepoMirror {
-	if len(mirrors) == 0 {
-		return nil
-	}
-
-	ordered := append([]*ent.ProjectRepoMirror(nil), mirrors...)
-	slices.SortStableFunc(ordered, compareWorkflowMirrorPriority)
-
-	for _, mirror := range ordered {
-		if mirror != nil {
-			return mirror
-		}
-	}
-	return nil
-}
-
-func selectWorkflowStorageMirror(mirrors []*ent.ProjectRepoMirror) *ent.ProjectRepoMirror {
-	if len(mirrors) == 0 {
-		return nil
-	}
-
-	ordered := append([]*ent.ProjectRepoMirror(nil), mirrors...)
-	slices.SortStableFunc(ordered, compareWorkflowMirrorPriority)
-	for _, mirror := range ordered {
-		if mirror == nil || !projectRepoMirrorIsLocal(mirror) {
-			continue
-		}
-		return mirror
-	}
-	return nil
-}
-
-func compareWorkflowMirrorPriority(left *ent.ProjectRepoMirror, right *ent.ProjectRepoMirror) int {
-	leftPriority := workflowMirrorPriority(left)
-	rightPriority := workflowMirrorPriority(right)
-	switch {
-	case leftPriority < rightPriority:
-		return -1
-	case leftPriority > rightPriority:
-		return 1
-	default:
-		return compareMirrorLocality(left, right)
-	}
-}
-
-func workflowMirrorPriority(mirror *ent.ProjectRepoMirror) int {
-	if mirror == nil {
-		return 99
-	}
-
-	switch mirror.State {
-	case entprojectrepomirror.StateError, entprojectrepomirror.StateStale:
-		return 0
-	case entprojectrepomirror.StateSyncing, entprojectrepomirror.StateProvisioning:
-		return 1
-	case entprojectrepomirror.StateDeleting:
-		return 2
-	case entprojectrepomirror.StateMissing:
-		return 3
-	case entprojectrepomirror.StateReady:
-		return 4
-	default:
-		return 5
-	}
-}
-
-func toWorkflowMirrorState(value entprojectrepomirror.State) catalogdomain.ProjectRepoMirrorState {
-	switch value {
-	case entprojectrepomirror.StateMissing:
-		return catalogdomain.ProjectRepoMirrorStateMissing
-	case entprojectrepomirror.StateProvisioning:
-		return catalogdomain.ProjectRepoMirrorStateProvisioning
-	case entprojectrepomirror.StateReady:
-		return catalogdomain.ProjectRepoMirrorStateReady
-	case entprojectrepomirror.StateStale:
-		return catalogdomain.ProjectRepoMirrorStateStale
-	case entprojectrepomirror.StateSyncing:
-		return catalogdomain.ProjectRepoMirrorStateSyncing
-	case entprojectrepomirror.StateError:
-		return catalogdomain.ProjectRepoMirrorStateError
-	case entprojectrepomirror.StateDeleting:
-		return catalogdomain.ProjectRepoMirrorStateDeleting
-	default:
-		return catalogdomain.ProjectRepoMirrorStateMissing
-	}
-}
-
-func stringPointer(value string) *string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return nil
-	}
-	return &trimmed
 }
 
 func (s *Service) Close() error {
@@ -1574,7 +1367,7 @@ func (s *Service) runWorkflowHooks(
 	}
 }
 
-func (s *Service) hookExecutorForProject(ctx context.Context, projectID uuid.UUID) *workflowHookExecutor {
+func (s *Service) hookExecutorForProject(_ context.Context, _ uuid.UUID) *workflowHookExecutor {
 	if s == nil {
 		return nil
 	}
@@ -1583,32 +1376,11 @@ func (s *Service) hookExecutorForProject(ctx context.Context, projectID uuid.UUI
 		logger = slog.Default()
 	}
 	repoRoot := strings.TrimSpace(s.repoRoot)
-	if projectID != uuid.Nil {
-		if resolvedRoot, err := s.projectStorageRoot(projectID); err == nil && strings.TrimSpace(resolvedRoot) != "" {
-			repoRoot = resolvedRoot
-		}
-	}
 	if repoRoot == "" {
 		return nil
 	}
 	return newWorkflowHookExecutor(repoRoot, logger)
 }
-
-func mapWorkflowMirrorError(err error) error {
-	switch {
-	case errors.Is(err, projectrepomirrorsvc.ErrMirrorNotReady):
-		return ErrRepositoryMirrorNotReady
-	case errors.Is(err, projectrepomirrorsvc.ErrMirrorSyncFailed):
-		return fmt.Errorf("ensure workflow mirror freshness: %w", err)
-	case errors.Is(err, projectrepomirrorsvc.ErrInvalidInput),
-		errors.Is(err, projectrepomirrorsvc.ErrNotFound),
-		errors.Is(err, projectrepomirrorsvc.ErrInvalidTransition):
-		return fmt.Errorf("ensure workflow mirror freshness: %w", err)
-	default:
-		return err
-	}
-}
-
 func (s *Service) mapWorkflowReadError(action string, err error) error {
 	switch {
 	case ent.IsNotFound(err):

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -212,14 +211,13 @@ func TestOpenReconcilesLegacyProjectRepoClonePathSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create organization: %v", err)
 	}
-	localMachine, err := bootstrapClient.Machine.Create().
+	if _, err := bootstrapClient.Machine.Create().
 		SetOrganizationID(org.ID).
 		SetName(catalogdomain.LocalMachineName).
 		SetHost("127.0.0.1").
 		SetPort(22).
 		SetStatus("online").
-		Save(ctx)
-	if err != nil {
+		Save(ctx); err != nil {
 		t.Fatalf("create local machine: %v", err)
 	}
 	projectItem, err := bootstrapClient.Project.Create().
@@ -316,29 +314,6 @@ func TestOpenReconcilesLegacyProjectRepoClonePathSemantics(t *testing.T) {
 	}
 	if workspaceRepoAfter.WorkspaceDirname != "services/backend" {
 		t.Fatalf("workspace repo workspace_dirname = %q, want %q", workspaceRepoAfter.WorkspaceDirname, "services/backend")
-	}
-
-	mirrors, err := client.ProjectRepoMirror.Query().
-		Where(entprojectrepomirror.ProjectRepoID(mirrorRepo.ID)).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("query backfilled mirrors: %v", err)
-	}
-	if len(mirrors) != 1 {
-		t.Fatalf("expected 1 backfilled mirror, got %+v", mirrors)
-	}
-	if mirrors[0].MachineID != localMachine.ID || mirrors[0].LocalPath != legacyMirrorPath || mirrors[0].State != "ready" {
-		t.Fatalf("backfilled mirror = %+v", mirrors[0])
-	}
-
-	workspaceMirrors, err := client.ProjectRepoMirror.Query().
-		Where(entprojectrepomirror.ProjectRepoID(workspaceRepo.ID)).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("query workspace mirrors: %v", err)
-	}
-	if len(workspaceMirrors) != 0 {
-		t.Fatalf("expected no backfilled mirrors for workspace clone_path, got %+v", workspaceMirrors)
 	}
 
 	if exists, err := columnExists(ctx, db, "project_repos", "is_primary"); err != nil {

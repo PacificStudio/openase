@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -40,21 +39,6 @@ type ProjectRepo struct {
 	DefaultBranch    string
 	WorkspaceDirname string
 	Labels           []string
-}
-
-type ProjectRepoMirror struct {
-	ID             uuid.UUID
-	ProjectID      uuid.UUID
-	ProjectRepoID  uuid.UUID
-	MachineID      uuid.UUID
-	LocalPath      string
-	State          ProjectRepoMirrorState
-	HeadCommit     *string
-	LastSyncedAt   *time.Time
-	LastVerifiedAt *time.Time
-	LastError      *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
 }
 
 type TicketRepoScope struct {
@@ -155,22 +139,6 @@ type UpdateProjectRepo struct {
 	DefaultBranch    string
 	WorkspaceDirname string
 	Labels           []string
-}
-
-type ProjectRepoMirrorState string
-
-const (
-	ProjectRepoMirrorStateMissing      ProjectRepoMirrorState = "missing"
-	ProjectRepoMirrorStateProvisioning ProjectRepoMirrorState = "provisioning"
-	ProjectRepoMirrorStateReady        ProjectRepoMirrorState = "ready"
-	ProjectRepoMirrorStateStale        ProjectRepoMirrorState = "stale"
-	ProjectRepoMirrorStateSyncing      ProjectRepoMirrorState = "syncing"
-	ProjectRepoMirrorStateError        ProjectRepoMirrorState = "error"
-	ProjectRepoMirrorStateDeleting     ProjectRepoMirrorState = "deleting"
-)
-
-func (s ProjectRepoMirrorState) String() string {
-	return string(s)
 }
 
 type CreateTicketRepoScope struct {

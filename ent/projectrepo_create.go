@@ -11,7 +11,6 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
@@ -124,21 +123,6 @@ func (_c *ProjectRepoCreate) AddTicketRepoWorkspaces(v ...*TicketRepoWorkspace) 
 		ids[i] = v[i].ID
 	}
 	return _c.AddTicketRepoWorkspaceIDs(ids...)
-}
-
-// AddMirrorIDs adds the "mirrors" edge to the ProjectRepoMirror entity by IDs.
-func (_c *ProjectRepoCreate) AddMirrorIDs(ids ...uuid.UUID) *ProjectRepoCreate {
-	_c.mutation.AddMirrorIDs(ids...)
-	return _c
-}
-
-// AddMirrors adds the "mirrors" edges to the ProjectRepoMirror entity.
-func (_c *ProjectRepoCreate) AddMirrors(v ...*ProjectRepoMirror) *ProjectRepoCreate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddMirrorIDs(ids...)
 }
 
 // Mutation returns the ProjectRepoMutation object of the builder.
@@ -317,22 +301,6 @@ func (_c *ProjectRepoCreate) createSpec() (*ProjectRepo, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticketrepoworkspace.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.MirrorsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   projectrepo.MirrorsTable,
-			Columns: []string{projectrepo.MirrorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

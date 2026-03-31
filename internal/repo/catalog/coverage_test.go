@@ -85,7 +85,6 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	pullRequestURL := "https://github.com/GrandCX/openase/pull/278"
 	sshUser := "codex"
 	workspaceRoot := "/workspace/openase"
-	mirrorRoot := "/workspace/mirrors"
 	agentCLIPath := "/usr/bin/codex"
 	runtimeStartedAt := now
 	lastHeartbeatAt := now.Add(2 * time.Minute)
@@ -139,7 +138,6 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		Labels:          []string{"linux", "arm64"},
 		Status:          entmachine.StatusOnline,
 		WorkspaceRoot:   workspaceRoot,
-		MirrorRoot:      mirrorRoot,
 		AgentCliPath:    agentCLIPath,
 		EnvVars:         []string{"OPENASE=1"},
 		LastHeartbeatAt: &lastHeartbeatAt,
@@ -230,7 +228,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	}
 
 	mappedMachine := mapMachine(machine)
-	if mappedMachine.SSHUser == nil || *mappedMachine.SSHUser != sshUser || mappedMachine.MirrorRoot == nil || *mappedMachine.MirrorRoot != mirrorRoot || mappedMachine.LastHeartbeatAt == nil || mappedMachine.LastHeartbeatAt.Location() != time.UTC {
+	if mappedMachine.SSHUser == nil || *mappedMachine.SSHUser != sshUser || mappedMachine.LastHeartbeatAt == nil || mappedMachine.LastHeartbeatAt.Location() != time.UTC {
 		t.Fatalf("mapMachine() = %+v", mappedMachine)
 	}
 	if mapped := mapMachines([]*ent.Machine{machine}); len(mapped) != 1 || mapped[0].ID != machineID {

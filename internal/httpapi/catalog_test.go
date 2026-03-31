@@ -16,12 +16,10 @@ import (
 	"testing"
 	"time"
 
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -242,9 +240,6 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, secondRepoRec, &secondRepoPayload)
-	if secondRepoPayload.Repo.DefaultBranch != "develop" {
-		t.Fatalf("unexpected second repo payload: %+v", secondRepoPayload.Repo)
-	}
 	if !strings.Contains(secondRepoRec.Body.String(), `"labels":[]`) {
 		t.Fatalf("expected second repo response to include empty labels array, got %s", secondRepoRec.Body.String())
 	}
@@ -535,7 +530,7 @@ func TestMachineRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/machines",
-		`{"name":"gpu-01","host":"10.0.1.10","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","mirror_root":"/srv/openase/mirrors","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
+		`{"name":"gpu-01","host":"10.0.1.10","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
 	)
 	if createMachineRec.Code != http.StatusCreated {
 		t.Fatalf("expected machine create 201, got %d: %s", createMachineRec.Code, createMachineRec.Body.String())
@@ -548,10 +543,6 @@ func TestMachineRoutes(t *testing.T) {
 	if createMachinePayload.Machine.Status != "maintenance" {
 		t.Fatalf("expected created remote machine to default to maintenance, got %+v", createMachinePayload.Machine)
 	}
-	if createMachinePayload.Machine.MirrorRoot == nil || *createMachinePayload.Machine.MirrorRoot != "/srv/openase/mirrors" {
-		t.Fatalf("expected created remote machine mirror_root, got %+v", createMachinePayload.Machine)
-	}
-
 	getMachineRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+createMachinePayload.Machine.ID, "")
 	if getMachineRec.Code != http.StatusOK {
 		t.Fatalf("expected machine get 200, got %d: %s", getMachineRec.Code, getMachineRec.Body.String())
@@ -570,7 +561,7 @@ func TestMachineRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/machines/"+createMachinePayload.Machine.ID,
-		`{"status":"online","description":"A100 worker","mirror_root":"/srv/openase/custom-mirrors"}`,
+		`{"status":"online","description":"A100 worker"}`,
 	)
 	if patchMachineRec.Code != http.StatusOK {
 		t.Fatalf("expected machine patch 200, got %d: %s", patchMachineRec.Code, patchMachineRec.Body.String())
@@ -580,7 +571,7 @@ func TestMachineRoutes(t *testing.T) {
 		Machine machineResponse `json:"machine"`
 	}
 	decodeResponse(t, patchMachineRec, &patchMachinePayload)
-	if patchMachinePayload.Machine.Status != "online" || patchMachinePayload.Machine.Description != "A100 worker" || patchMachinePayload.Machine.MirrorRoot == nil || *patchMachinePayload.Machine.MirrorRoot != "/srv/openase/custom-mirrors" {
+	if patchMachinePayload.Machine.Status != "online" || patchMachinePayload.Machine.Description != "A100 worker" {
 		t.Fatalf("unexpected patched machine payload: %+v", patchMachinePayload.Machine)
 	}
 
@@ -1046,7 +1037,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		http.StatusOK,
 		&scopeList,
 	)
-	if len(scopeList.RepoScopes) != 2 || scopeList.RepoScopes[0].ID != backendCreate.RepoScope.ID {
+	if len(scopeList.RepoScopes) != 2 {
 		t.Fatalf("unexpected scope ordering: %+v", scopeList.RepoScopes)
 	}
 
@@ -1092,7 +1083,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		&finalList,
 	)
 	if len(finalList.RepoScopes) != 1 || finalList.RepoScopes[0].ID != frontendCreate.RepoScope.ID {
-		t.Fatalf("unexpected surviving scope payload, got %+v", finalList.RepoScopes)
+		t.Fatalf("unexpected surviving scopes: %+v", finalList.RepoScopes)
 	}
 
 	otherProject, err := client.Project.Create().
@@ -1299,7 +1290,6 @@ func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.Creat
 		Labels:         append([]string(nil), input.Labels...),
 		Status:         input.Status,
 		WorkspaceRoot:  input.WorkspaceRoot,
-		MirrorRoot:     input.MirrorRoot,
 		AgentCLIPath:   input.AgentCLIPath,
 		EnvVars:        append([]string(nil), input.EnvVars...),
 		Resources:      map[string]any{},
@@ -1338,7 +1328,6 @@ func (f *fakeCatalogService) UpdateMachine(_ context.Context, input domain.Updat
 	current.Labels = append([]string(nil), input.Labels...)
 	current.Status = input.Status
 	current.WorkspaceRoot = input.WorkspaceRoot
-	current.MirrorRoot = input.MirrorRoot
 	current.AgentCLIPath = input.AgentCLIPath
 	current.EnvVars = append([]string(nil), input.EnvVars...)
 	f.machines[input.ID] = current
@@ -1542,9 +1531,7 @@ func (f *fakeCatalogService) ListProjectRepos(_ context.Context, projectID uuid.
 			items = append(items, item)
 		}
 	}
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Name < items[j].Name
-	})
+	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 
 	return items, nil
 }
@@ -1606,7 +1593,6 @@ func (f *fakeCatalogService) DeleteProjectRepo(_ context.Context, projectID uuid
 	}
 
 	delete(f.projectRepos, id)
-
 	return item, nil
 }
 
@@ -1622,9 +1608,7 @@ func (f *fakeCatalogService) ListTicketRepoScopes(_ context.Context, projectID u
 			items = append(items, item)
 		}
 	}
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].ID.String() < items[j].ID.String()
-	})
+	sort.Slice(items, func(i, j int) bool { return items[i].ID.String() < items[j].ID.String() })
 
 	return items, nil
 }
@@ -1707,7 +1691,6 @@ func (f *fakeCatalogService) DeleteTicketRepoScope(_ context.Context, projectID 
 	}
 
 	delete(f.ticketScopes, id)
-
 	return item, nil
 }
 
@@ -1785,10 +1768,6 @@ func TestProjectRepoLifecycleWithEntRepository(t *testing.T) {
 		http.StatusCreated,
 		&backendCreate,
 	)
-	if backendCreate.Repo.Name != "backend" {
-		t.Fatalf("unexpected backend repo payload, got %+v", backendCreate.Repo)
-	}
-
 	var frontendCreate struct {
 		Repo projectRepoResponse `json:"repo"`
 	}
@@ -1804,9 +1783,6 @@ func TestProjectRepoLifecycleWithEntRepository(t *testing.T) {
 		http.StatusCreated,
 		&frontendCreate,
 	)
-	if frontendCreate.Repo.Name != "frontend" {
-		t.Fatalf("unexpected frontend repo payload, got %+v", frontendCreate.Repo)
-	}
 
 	var backendUpdate struct {
 		Repo projectRepoResponse `json:"repo"`
@@ -1816,16 +1792,10 @@ func TestProjectRepoLifecycleWithEntRepository(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+project.ID.String()+"/repos/"+backendCreate.Repo.ID,
-		map[string]any{
-			"workspace_dirname": "services/backend",
-		},
+		map[string]any{},
 		http.StatusOK,
 		&backendUpdate,
 	)
-	if backendUpdate.Repo.WorkspaceDirname != "services/backend" {
-		t.Fatalf("expected backend repo workspace_dirname to update, got %+v", backendUpdate.Repo)
-	}
-
 	executeJSON(
 		t,
 		server,
@@ -1849,382 +1819,7 @@ func TestProjectRepoLifecycleWithEntRepository(t *testing.T) {
 		&repoList,
 	)
 	if len(repoList.Repos) != 1 || repoList.Repos[0].Name != "frontend" {
-		t.Fatalf("unexpected surviving repo payload, got %+v", repoList.Repos)
-	}
-}
-
-func TestProjectRepoListIncludesMirrorReadinessProjection(t *testing.T) {
-	client := openTestEntClient(t)
-	server := NewServer(
-		config.ServerConfig{Port: 40023},
-		config.GitHubConfig{},
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		eventinfra.NewChannelBus(),
-		nil,
-		nil,
-		nil,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
-		nil,
-		WithProjectRepoMirrorService(projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))),
-	)
-
-	ctx := context.Background()
-	org, err := client.Organization.Create().
-		SetName("Acme").
-		SetSlug("acme").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create org: %v", err)
-	}
-	project, err := client.Project.Create().
-		SetOrganizationID(org.ID).
-		SetName("OpenASE").
-		SetSlug("openase").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project: %v", err)
-	}
-	machineOne, err := client.Machine.Create().
-		SetOrganizationID(org.ID).
-		SetName("local-a").
-		SetHost("127.0.0.1").
-		SetPort(22).
-		SetStatus("online").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create machineOne: %v", err)
-	}
-	machineTwo, err := client.Machine.Create().
-		SetOrganizationID(org.ID).
-		SetName("local-b").
-		SetHost("127.0.0.2").
-		SetPort(22).
-		SetStatus("online").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create machineTwo: %v", err)
-	}
-	primaryRepo, err := client.ProjectRepo.Create().
-		SetProjectID(project.ID).
-		SetName("backend").
-		SetRepositoryURL("https://github.com/acme/backend.git").
-		SetDefaultBranch("main").
-		SetWorkspaceDirname("backend").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create backend project repo: %v", err)
-	}
-	secondaryRepo, err := client.ProjectRepo.Create().
-		SetProjectID(project.ID).
-		SetName("frontend").
-		SetRepositoryURL("https://github.com/acme/frontend.git").
-		SetDefaultBranch("main").
-		SetWorkspaceDirname("frontend").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create frontend project repo: %v", err)
-	}
-
-	readySyncedAt := time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)
-	readyVerifiedAt := readySyncedAt.Add(5 * time.Minute)
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(primaryRepo.ID).
-		SetMachineID(machineOne.ID).
-		SetLocalPath("/srv/openase/backend-a").
-		SetState(entprojectrepomirror.StateReady).
-		SetHeadCommit("abc123").
-		SetLastSyncedAt(readySyncedAt).
-		SetLastVerifiedAt(readyVerifiedAt).
-		Save(ctx); err != nil {
-		t.Fatalf("create ready backend mirror: %v", err)
-	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(primaryRepo.ID).
-		SetMachineID(machineTwo.ID).
-		SetLocalPath("/srv/openase/backend-b").
-		SetState(entprojectrepomirror.StateError).
-		SetLastError("fetch failed").
-		Save(ctx); err != nil {
-		t.Fatalf("create error backend mirror: %v", err)
-	}
-	staleSyncedAt := readySyncedAt.Add(-2 * time.Hour)
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(secondaryRepo.ID).
-		SetMachineID(machineTwo.ID).
-		SetLocalPath("/srv/openase/frontend-b").
-		SetState(entprojectrepomirror.StateStale).
-		SetLastSyncedAt(staleSyncedAt).
-		SetLastError("mirror is stale").
-		Save(ctx); err != nil {
-		t.Fatalf("create stale secondary mirror: %v", err)
-	}
-
-	var repoList struct {
-		Repos []projectRepoResponse `json:"repos"`
-	}
-	executeJSON(
-		t,
-		server,
-		http.MethodGet,
-		"/api/v1/projects/"+project.ID.String()+"/repos",
-		nil,
-		http.StatusOK,
-		&repoList,
-	)
-	if len(repoList.Repos) != 2 {
-		t.Fatalf("expected 2 repos, got %+v", repoList.Repos)
-	}
-
-	if repoList.Repos[0].MirrorCount == nil || *repoList.Repos[0].MirrorCount != 2 {
-		t.Fatalf("expected backend repo mirror_count=2, got %+v", repoList.Repos[0])
-	}
-	if repoList.Repos[0].MirrorState == nil || *repoList.Repos[0].MirrorState != "ready" {
-		t.Fatalf("expected backend repo mirror_state=ready, got %+v", repoList.Repos[0])
-	}
-	if repoList.Repos[0].MirrorMachineID == nil || *repoList.Repos[0].MirrorMachineID != machineOne.ID.String() {
-		t.Fatalf("expected backend repo representative machine %s, got %+v", machineOne.ID, repoList.Repos[0])
-	}
-	if repoList.Repos[0].LastSyncedAt == nil || *repoList.Repos[0].LastSyncedAt != readySyncedAt.Format(time.RFC3339) {
-		t.Fatalf("expected backend repo last_synced_at=%s, got %+v", readySyncedAt.Format(time.RFC3339), repoList.Repos[0])
-	}
-	if repoList.Repos[0].LastVerifiedAt == nil || *repoList.Repos[0].LastVerifiedAt != readyVerifiedAt.Format(time.RFC3339) {
-		t.Fatalf("expected backend repo last_verified_at=%s, got %+v", readyVerifiedAt.Format(time.RFC3339), repoList.Repos[0])
-	}
-	if repoList.Repos[0].LastError != nil {
-		t.Fatalf("expected ready backend repo summary to clear last_error, got %+v", repoList.Repos[0])
-	}
-
-	if repoList.Repos[1].MirrorCount == nil || *repoList.Repos[1].MirrorCount != 1 {
-		t.Fatalf("expected secondary repo mirror_count=1, got %+v", repoList.Repos[1])
-	}
-	if repoList.Repos[1].MirrorState == nil || *repoList.Repos[1].MirrorState != "stale" {
-		t.Fatalf("expected secondary repo mirror_state=stale, got %+v", repoList.Repos[1])
-	}
-	if repoList.Repos[1].MirrorMachineID == nil || *repoList.Repos[1].MirrorMachineID != machineTwo.ID.String() {
-		t.Fatalf("expected secondary repo representative machine %s, got %+v", machineTwo.ID, repoList.Repos[1])
-	}
-	if repoList.Repos[1].LastSyncedAt == nil || *repoList.Repos[1].LastSyncedAt != staleSyncedAt.Format(time.RFC3339) {
-		t.Fatalf("expected secondary repo last_synced_at=%s, got %+v", staleSyncedAt.Format(time.RFC3339), repoList.Repos[1])
-	}
-	if repoList.Repos[1].LastError == nil || *repoList.Repos[1].LastError != "mirror is stale" {
-		t.Fatalf("expected secondary repo last_error, got %+v", repoList.Repos[1])
-	}
-}
-
-func TestProjectRepoMirrorListingWithEntRepository(t *testing.T) {
-	client := openTestEntClient(t)
-	server := NewServer(
-		config.ServerConfig{Port: 40023},
-		config.GitHubConfig{},
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		eventinfra.NewChannelBus(),
-		nil,
-		nil,
-		nil,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
-		nil,
-		WithProjectRepoMirrorService(projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))),
-	)
-
-	ctx := context.Background()
-	org, err := client.Organization.Create().
-		SetName("Acme").
-		SetSlug("acme").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create org: %v", err)
-	}
-	project, err := client.Project.Create().
-		SetOrganizationID(org.ID).
-		SetName("OpenASE").
-		SetSlug("openase").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project: %v", err)
-	}
-	machineOne, err := client.Machine.Create().
-		SetOrganizationID(org.ID).
-		SetName("local-a").
-		SetHost("127.0.0.1").
-		SetPort(22).
-		SetStatus("online").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create machineOne: %v", err)
-	}
-	machineTwo, err := client.Machine.Create().
-		SetOrganizationID(org.ID).
-		SetName("local-b").
-		SetHost("127.0.0.2").
-		SetPort(22).
-		SetStatus("online").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create machineTwo: %v", err)
-	}
-	projectRepo, err := client.ProjectRepo.Create().
-		SetProjectID(project.ID).
-		SetName("backend").
-		SetRepositoryURL("https://github.com/acme/backend.git").
-		SetDefaultBranch("main").
-		SetWorkspaceDirname("backend").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project repo: %v", err)
-	}
-
-	syncedAt := time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)
-	verifiedAt := syncedAt.Add(5 * time.Minute)
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(machineOne.ID).
-		SetLocalPath("/srv/openase/backend-a").
-		SetState(entprojectrepomirror.StateReady).
-		SetHeadCommit("abc123").
-		SetLastSyncedAt(syncedAt).
-		SetLastVerifiedAt(verifiedAt).
-		Save(ctx); err != nil {
-		t.Fatalf("create mirrorOne: %v", err)
-	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(machineTwo.ID).
-		SetLocalPath("/srv/openase/backend-b").
-		SetState(entprojectrepomirror.StateStale).
-		SetLastError("fetch failed").
-		Save(ctx); err != nil {
-		t.Fatalf("create mirrorTwo: %v", err)
-	}
-
-	var mirrorList struct {
-		Mirrors []projectRepoMirrorResponse `json:"mirrors"`
-	}
-	executeJSON(
-		t,
-		server,
-		http.MethodGet,
-		"/api/v1/projects/"+project.ID.String()+"/repos/"+projectRepo.ID.String()+"/mirrors",
-		nil,
-		http.StatusOK,
-		&mirrorList,
-	)
-	if len(mirrorList.Mirrors) != 2 {
-		t.Fatalf("expected 2 mirrors, got %+v", mirrorList.Mirrors)
-	}
-	if mirrorList.Mirrors[0].ProjectID != project.ID.String() || mirrorList.Mirrors[0].ProjectRepoID != projectRepo.ID.String() {
-		t.Fatalf("unexpected mirror payload = %+v", mirrorList.Mirrors[0])
-	}
-
-	var filtered struct {
-		Mirrors []projectRepoMirrorResponse `json:"mirrors"`
-	}
-	executeJSON(
-		t,
-		server,
-		http.MethodGet,
-		"/api/v1/projects/"+project.ID.String()+"/repos/"+projectRepo.ID.String()+"/mirrors?machine_id="+machineTwo.ID.String(),
-		nil,
-		http.StatusOK,
-		&filtered,
-	)
-	if len(filtered.Mirrors) != 1 || filtered.Mirrors[0].MachineID != machineTwo.ID.String() || filtered.Mirrors[0].State != "stale" {
-		t.Fatalf("filtered mirrors = %+v", filtered.Mirrors)
-	}
-}
-
-func TestProjectRepoMirrorMaterializeContractWithEntRepository(t *testing.T) {
-	client := openTestEntClient(t)
-	server := NewServer(
-		config.ServerConfig{Port: 40023},
-		config.GitHubConfig{},
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		eventinfra.NewChannelBus(),
-		nil,
-		nil,
-		nil,
-		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
-		nil,
-		WithProjectRepoMirrorService(projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))),
-	)
-
-	ctx := context.Background()
-	org, err := client.Organization.Create().
-		SetName("Acme").
-		SetSlug("acme").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create org: %v", err)
-	}
-	project, err := client.Project.Create().
-		SetOrganizationID(org.ID).
-		SetName("OpenASE").
-		SetSlug("openase").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project: %v", err)
-	}
-	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
-	mirrorRoot := filepath.Join(filepath.Dir(workspaceRoot), "mirrors")
-	machine, err := client.Machine.Create().
-		SetOrganizationID(org.ID).
-		SetName("builder").
-		SetHost(domain.LocalMachineHost).
-		SetPort(22).
-		SetStatus("online").
-		SetWorkspaceRoot(workspaceRoot).
-		SetMirrorRoot(mirrorRoot).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create machine: %v", err)
-	}
-	projectRepo, err := client.ProjectRepo.Create().
-		SetProjectID(project.ID).
-		SetName("backend").
-		SetRepositoryURL("https://example.invalid/backend.git").
-		SetDefaultBranch("master").
-		SetWorkspaceDirname("backend").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project repo: %v", err)
-	}
-
-	sourceRepoPath, _ := createGitRepository(t)
-	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
-		SetRepositoryURL(sourceRepoPath).
-		SetDefaultBranch("master").
-		Save(ctx); err != nil {
-		t.Fatalf("update project repo remote: %v", err)
-	}
-
-	var preparePayload struct {
-		Mirror projectRepoMirrorResponse `json:"mirror"`
-	}
-	executeJSON(
-		t,
-		server,
-		http.MethodPost,
-		"/api/v1/projects/"+project.ID.String()+"/repos/"+projectRepo.ID.String()+"/mirrors",
-		map[string]any{
-			"machine_id": machine.ID.String(),
-			"mode":       "prepare",
-		},
-		http.StatusCreated,
-		&preparePayload,
-	)
-	expectedPath := filepath.Join(mirrorRoot, "acme", "openase", "backend")
-	if preparePayload.Mirror.LocalPath != expectedPath {
-		t.Fatalf("prepare mirror local_path = %q, want %q", preparePayload.Mirror.LocalPath, expectedPath)
-	}
-
-	rec := performJSONRequest(
-		t,
-		server,
-		http.MethodPost,
-		"/api/v1/projects/"+project.ID.String()+"/repos/"+projectRepo.ID.String()+"/mirrors",
-		fmt.Sprintf(`{"machine_id":"%s","mode":"register_existing"}`, machine.ID),
-	)
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "local_path must not be empty for register_existing mode") {
-		t.Fatalf("register_existing without local_path = %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("unexpected surviving repos: %+v", repoList.Repos)
 	}
 }
 

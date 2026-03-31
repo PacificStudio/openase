@@ -13,7 +13,6 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
@@ -305,76 +304,6 @@ func TestSchedulerRunTickSkipsBlockedTickets(t *testing.T) {
 	}
 	if targetAfter.CurrentRunID != nil || targetAfter.WorkflowID != nil {
 		t.Fatalf("expected blocked ticket to stay unclaimed, got %+v", targetAfter)
-	}
-}
-
-func TestSchedulerRunTickSkipsTicketWhenRequiredMirrorIsNotReady(t *testing.T) {
-	ctx := context.Background()
-	client := openTestEntClient(t)
-	now := time.Date(2026, 3, 20, 11, 15, 0, 0, time.UTC)
-	fixture := seedProjectFixtureAt(ctx, t, client, now)
-
-	projectRepo, err := client.ProjectRepo.Create().
-		SetProjectID(fixture.projectID).
-		SetName("openase").
-		SetRepositoryURL("https://github.com/GrandCX/openase.git").
-		SetDefaultBranch("main").
-		SetWorkspaceDirname("openase").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project repo: %v", err)
-	}
-	if _, err := client.ProjectRepoMirror.Create().
-		SetProjectRepoID(projectRepo.ID).
-		SetMachineID(fixture.localMachineID).
-		SetLocalPath(t.TempDir()).
-		SetState(entprojectrepomirror.StateStale).
-		Save(ctx); err != nil {
-		t.Fatalf("create stale project repo mirror: %v", err)
-	}
-
-	workflow, err := client.Workflow.Create().
-		SetProjectID(fixture.projectID).
-		SetName("Coding").
-		SetType(entworkflow.TypeCoding).
-		SetHarnessPath(".openase/harnesses/coding.md").
-		SetMaxConcurrent(1).
-		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
-		AddFinishStatusIDs(fixture.statusIDs["Done"]).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create workflow: %v", err)
-	}
-	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
-	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
-		t.Fatalf("bind workflow agent: %v", err)
-	}
-	ticketItem, err := client.Ticket.Create().
-		SetProjectID(fixture.projectID).
-		SetIdentifier("ASE-500").
-		SetTitle("Wait for repo mirror").
-		SetStatusID(fixture.statusIDs["Todo"]).
-		SetPriority(entticket.PriorityHigh).
-		SetCreatedBy("user:test").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create ticket: %v", err)
-	}
-
-	report, err := newTestScheduler(client, now).RunTick(ctx)
-	if err != nil {
-		t.Fatalf("run tick: %v", err)
-	}
-	if report.TicketsDispatched != 0 || report.TicketsSkipped[skipReasonMirrorNotReady] != 1 {
-		t.Fatalf("expected mirror_not_ready skip, got %+v", report)
-	}
-
-	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
-	if err != nil {
-		t.Fatalf("reload ticket: %v", err)
-	}
-	if ticketAfter.CurrentRunID != nil || ticketAfter.WorkflowID != nil {
-		t.Fatalf("expected ticket to remain unclaimed, got %+v", ticketAfter)
 	}
 }
 

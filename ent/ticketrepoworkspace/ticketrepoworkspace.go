@@ -22,8 +22,6 @@ const (
 	FieldAgentRunID = "agent_run_id"
 	// FieldRepoID holds the string denoting the repo_id field in the database.
 	FieldRepoID = "repo_id"
-	// FieldMirrorID holds the string denoting the mirror_id field in the database.
-	FieldMirrorID = "mirror_id"
 	// FieldWorkspaceRoot holds the string denoting the workspace_root field in the database.
 	FieldWorkspaceRoot = "workspace_root"
 	// FieldRepoPath holds the string denoting the repo_path field in the database.
@@ -50,8 +48,6 @@ const (
 	EdgeAgentRun = "agent_run"
 	// EdgeRepo holds the string denoting the repo edge name in mutations.
 	EdgeRepo = "repo"
-	// EdgeMirror holds the string denoting the mirror edge name in mutations.
-	EdgeMirror = "mirror"
 	// Table holds the table name of the ticketrepoworkspace in the database.
 	Table = "ticket_repo_workspaces"
 	// TicketTable is the table that holds the ticket relation/edge.
@@ -75,13 +71,6 @@ const (
 	RepoInverseTable = "project_repos"
 	// RepoColumn is the table column denoting the repo relation/edge.
 	RepoColumn = "repo_id"
-	// MirrorTable is the table that holds the mirror relation/edge.
-	MirrorTable = "ticket_repo_workspaces"
-	// MirrorInverseTable is the table name for the ProjectRepoMirror entity.
-	// It exists in this package in order to avoid circular dependency with the "projectrepomirror" package.
-	MirrorInverseTable = "project_repo_mirrors"
-	// MirrorColumn is the table column denoting the mirror relation/edge.
-	MirrorColumn = "mirror_id"
 )
 
 // Columns holds all SQL columns for ticketrepoworkspace fields.
@@ -90,7 +79,6 @@ var Columns = []string{
 	FieldTicketID,
 	FieldAgentRunID,
 	FieldRepoID,
-	FieldMirrorID,
 	FieldWorkspaceRoot,
 	FieldRepoPath,
 	FieldBranchName,
@@ -186,11 +174,6 @@ func ByRepoID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRepoID, opts...).ToFunc()
 }
 
-// ByMirrorID orders the results by the mirror_id field.
-func ByMirrorID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldMirrorID, opts...).ToFunc()
-}
-
 // ByWorkspaceRoot orders the results by the workspace_root field.
 func ByWorkspaceRoot(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWorkspaceRoot, opts...).ToFunc()
@@ -261,13 +244,6 @@ func ByRepoField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newRepoStep(), sql.OrderByField(field, opts...))
 	}
 }
-
-// ByMirrorField orders the results by mirror field.
-func ByMirrorField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newMirrorStep(), sql.OrderByField(field, opts...))
-	}
-}
 func newTicketStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -287,12 +263,5 @@ func newRepoStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(RepoInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, RepoTable, RepoColumn),
-	)
-}
-func newMirrorStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(MirrorInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, MirrorTable, MirrorColumn),
 	)
 }

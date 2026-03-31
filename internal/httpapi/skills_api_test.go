@@ -146,7 +146,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create local machine: %v", err)
 	}
-	createReadyPrimaryProjectRepoMirror(ctx, t, client, project.ID, localMachine.ID, repoRoot)
+	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
@@ -442,7 +442,7 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create local machine: %v", err)
 	}
-	createReadyPrimaryProjectRepoMirror(ctx, t, client, project.ID, localMachine.ID, repoRoot)
+	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)

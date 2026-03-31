@@ -960,7 +960,7 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 		if err != nil {
 			t.Fatalf("create local machine %d: %v", index+1, err)
 		}
-		createReadyPrimaryProjectRepoMirror(ctx, t, client, project.ID, localMachine.ID, repoRoot)
+		attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 
 		statuses := struct {
 			Statuses []ticketstatus.Status `json:"statuses"`

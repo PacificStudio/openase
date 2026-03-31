@@ -146,14 +146,6 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 		t.Fatalf("repository URL = %q", repos[0].RepositoryURL)
 	}
 
-	mirrors, err := client.ProjectRepoMirror.Query().All(ctx)
-	if err != nil {
-		t.Fatalf("ProjectRepoMirror.Query().All() error = %v", err)
-	}
-	if len(mirrors) != 1 || mirrors[0].LocalPath != repoRoot || mirrors[0].State != "ready" {
-		t.Fatalf("project repo mirrors = %+v", mirrors)
-	}
-
 	statuses, err := client.TicketStatus.Query().All(ctx)
 	if err != nil {
 		t.Fatalf("TicketStatus.Query().All() error = %v", err)

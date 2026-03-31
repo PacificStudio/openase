@@ -9,12 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestProjectRepoMirrorStateString(t *testing.T) {
-	if got := ProjectRepoMirrorStateReady.String(); got != "ready" {
-		t.Fatalf("ProjectRepoMirrorStateReady.String() = %q, want ready", got)
-	}
-}
-
 func TestCatalogActivityAndOutputParsers(t *testing.T) {
 	projectID := uuid.New()
 	agentID := uuid.New()
@@ -830,7 +824,6 @@ func TestCatalogMachineParsers(t *testing.T) {
 	sshUser := " codex "
 	sshKeyPath := " /home/codex/.ssh/id_ed25519 "
 	workspaceRoot := " /srv/openase "
-	mirrorRoot := " /srv/openase/mirrors "
 	agentCLIPath := " /usr/local/bin/codex "
 
 	createMachine, err := ParseCreateMachine(orgID, MachineInput{
@@ -843,14 +836,13 @@ func TestCatalogMachineParsers(t *testing.T) {
 		Labels:        []string{" linux ", "linux", " gpu "},
 		Status:        " online ",
 		WorkspaceRoot: &workspaceRoot,
-		MirrorRoot:    &mirrorRoot,
 		AgentCLIPath:  &agentCLIPath,
 		EnvVars:       []string{"OPENASE_ENV=prod", " OPENASE_ENV=prod ", "LOG_LEVEL=debug"},
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateMachine() error = %v", err)
 	}
-	if createMachine.Port != 2222 || len(createMachine.Labels) != 2 || len(createMachine.EnvVars) != 2 || createMachine.MirrorRoot == nil || *createMachine.MirrorRoot != "/srv/openase/mirrors" {
+	if createMachine.Port != 2222 || len(createMachine.Labels) != 2 || len(createMachine.EnvVars) != 2 {
 		t.Fatalf("ParseCreateMachine() = %+v", createMachine)
 	}
 
