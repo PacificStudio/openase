@@ -124,10 +124,10 @@ func (s *codexAgentSession) Diagnostic() agentSessionDiagnostic {
 }
 
 func (s *codexAgentSession) bridge() {
-	defer close(s.events)
 	if s == nil || s.session == nil {
 		return
 	}
+	defer close(s.events)
 	for event := range s.session.Events() {
 		mapped, ok := mapCodexAgentEvent(event)
 		if !ok {

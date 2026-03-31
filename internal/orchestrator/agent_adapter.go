@@ -54,11 +54,12 @@ const (
 	agentEventTypeToolCallRequested  agentEventType = "tool_call_requested"
 	agentEventTypeApprovalRequested  agentEventType = "approval_requested"
 	agentEventTypeUserInputRequested agentEventType = "user_input_requested"
-	agentEventTypeTokenUsageUpdated  agentEventType = "token_usage_updated"
-	agentEventTypeOutputProduced     agentEventType = "output_produced"
-	agentEventTypeTurnStarted        agentEventType = "turn_started"
-	agentEventTypeTurnCompleted      agentEventType = "turn_completed"
-	agentEventTypeTurnFailed         agentEventType = "turn_failed"
+	// #nosec G101 -- runtime event identifier, not a credential.
+	agentEventTypeTokenUsageUpdated agentEventType = "token_usage_updated"
+	agentEventTypeOutputProduced    agentEventType = "output_produced"
+	agentEventTypeTurnStarted       agentEventType = "turn_started"
+	agentEventTypeTurnCompleted     agentEventType = "turn_completed"
+	agentEventTypeTurnFailed        agentEventType = "turn_failed"
 )
 
 type agentEvent struct {

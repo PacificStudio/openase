@@ -85,8 +85,7 @@ func (claudeCodeAgentAdapter) Resume(ctx context.Context, spec agentSessionResum
 
 func hasClaudeModelArg(args []string) bool {
 	for index := 0; index < len(args); index++ {
-		switch args[index] {
-		case "--model":
+		if args[index] == "--model" {
 			return true
 		}
 		if strings.HasPrefix(args[index], "--model=") {
@@ -171,10 +170,10 @@ func (s *claudeCodeAgentSession) Diagnostic() agentSessionDiagnostic {
 }
 
 func (s *claudeCodeAgentSession) bridge() {
-	defer close(s.events)
 	if s == nil || s.session == nil {
 		return
 	}
+	defer close(s.events)
 
 	eventCh := s.session.Events()
 	errorCh := s.session.Errors()
