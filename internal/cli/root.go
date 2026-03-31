@@ -50,6 +50,7 @@ func NewRootCommand(version string) *cobra.Command {
 	rootCmd.AddCommand(newAgentCommand())
 	rootCmd.AddCommand(newSkillCommand())
 	rootCmd.AddCommand(newWatchCommand())
+	rootCmd.AddCommand(newStreamCommand())
 	rootCmd.AddCommand(newIssueAgentTokenCommand(options))
 	rootCmd.AddCommand(newOpenAPICommand())
 	rootCmd.AddCommand(newVersionCommand(version))

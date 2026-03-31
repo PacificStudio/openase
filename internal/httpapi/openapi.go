@@ -1723,6 +1723,23 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	providersPost.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/providers", http.MethodPost, providersPost)
 
+	providerGet, err := b.jsonOperation(
+		"getAgentProvider",
+		"Get an agent provider",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentProviderResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	providerGet.AddParameter(uuidPathParameter("providerId", "Agent provider ID."))
+	b.doc.AddOperation("/api/v1/providers/{providerId}", http.MethodGet, providerGet)
+
 	machineGet, err := b.jsonOperation(
 		"getMachine",
 		"Get a machine",
@@ -3543,6 +3560,23 @@ func (b openAPISpecBuilder) addStreamOperations() error {
 			return err
 		}
 		op.AddParameter(uuidPathParameter("projectId", "Project ID."))
+		b.doc.AddOperation(item.path, http.MethodGet, op)
+	}
+
+	orgStreams := []struct {
+		path        string
+		operationID string
+		summary     string
+	}{
+		{path: "/api/v1/orgs/{orgId}/machines/stream", operationID: "streamOrganizationMachines", summary: "Stream organization machine events"},
+		{path: "/api/v1/orgs/{orgId}/providers/stream", operationID: "streamOrganizationProviders", summary: "Stream organization provider events"},
+	}
+	for _, item := range orgStreams {
+		op, err := b.streamOperation(item.operationID, item.summary, []string{"streams"}, http.StatusBadRequest, http.StatusInternalServerError)
+		if err != nil {
+			return err
+		}
+		op.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 		b.doc.AddOperation(item.path, http.MethodGet, op)
 	}
 

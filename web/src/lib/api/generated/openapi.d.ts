@@ -422,6 +422,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/machines/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream organization machine events */
+    get: operations['streamOrganizationMachines']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/orgs/{orgId}/projects': {
     parameters: {
       query?: never
@@ -452,6 +469,23 @@ export interface paths {
     put?: never
     /** Create an agent provider */
     post: operations['createAgentProvider']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/providers/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream organization provider events */
+    get: operations['streamOrganizationProviders']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -1075,7 +1109,8 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    get?: never
+    /** Get an agent provider */
+    get: operations['getAgentProvider']
     put?: never
     post?: never
     delete?: never
@@ -4203,6 +4238,53 @@ export interface operations {
       }
     }
   }
+  streamOrganizationMachines: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listProjects: {
     parameters: {
       query?: never
@@ -4566,6 +4648,53 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamOrganizationProviders: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
         headers: {
           [name: string]: unknown
         }
@@ -9345,6 +9474,96 @@ export interface operations {
                 recommended?: boolean
               }[]
             }[]
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getAgentProvider: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent provider ID. */
+        providerId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get an agent provider response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            provider?: {
+              adapter_type?: string
+              auth_config?: {
+                [key: string]: unknown
+              }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
+              available?: boolean
+              cli_args?: string[]
+              cli_command?: string
+              /** Format: double */
+              cost_per_input_token?: number
+              /** Format: double */
+              cost_per_output_token?: number
+              id?: string
+              machine_host?: string
+              machine_id?: string
+              machine_name?: string
+              machine_ssh_user?: string | null
+              machine_status?: string
+              machine_workspace_root?: string | null
+              max_parallel_runs?: number
+              model_max_tokens?: number
+              model_name?: string
+              /** Format: double */
+              model_temperature?: number
+              name?: string
+              organization_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
           }
         }
       }
