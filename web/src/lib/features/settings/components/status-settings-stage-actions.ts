@@ -27,7 +27,7 @@ export function createStageActionHandlers(deps: StageActionDeps) {
   return {
     async createStage(draft: ParsedStageDraft) {
       const projectId = deps.currentProjectId()
-      if (!projectId) return
+      if (!projectId) return false
 
       deps.ui.creatingStage = true
       try {
@@ -39,8 +39,10 @@ export function createStageActionHandlers(deps: StageActionDeps) {
         await deps.reload(projectId)
         deps.touchAfterReload()
         deps.toastSuccess(`Created stage "${payload.stage.name}".`)
+        return true
       } catch (caughtError) {
         deps.reportMutationError(caughtError, 'Failed to create stage.')
+        return false
       } finally {
         deps.ui.creatingStage = false
       }

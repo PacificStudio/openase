@@ -29,7 +29,7 @@
     loading?: boolean
     creating?: boolean
     busyStageId?: string
-    onCreate: (draft: ParsedStageDraft) => Promise<void> | void
+    onCreate: (draft: ParsedStageDraft) => Promise<boolean> | boolean
     onSave: (stageId: string, draft: ParsedStageDraft) => Promise<void> | void
     onDelete: (stage: EditableStage) => Promise<void> | void
     onMove: (stageId: string, direction: 'up' | 'down') => Promise<void> | void
@@ -64,7 +64,8 @@
     }
 
     createValidationError = ''
-    await onCreate(parsed.value)
+    const created = await onCreate(parsed.value)
+    if (!created) return
     createDraft = createEmptyStageDraft()
     createKeyDirty = false
   }

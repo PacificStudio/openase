@@ -175,6 +175,22 @@ describe('Status settings', () => {
     expect(toastStore.success).toHaveBeenCalledWith('Created stage "Review".')
   })
 
+  it('keeps the stage draft when creation fails', async () => {
+    createStage.mockRejectedValue(new Error('conflict'))
+
+    const { findByPlaceholderText, getByRole } = render(StatusSettings)
+
+    const nameInput = await findByPlaceholderText('New stage name')
+    await fireEvent.input(nameInput, {
+      target: { value: 'Review' },
+    })
+    await fireEvent.click(getByRole('button', { name: 'Add stage' }))
+
+    await waitFor(() => expect(createStage).toHaveBeenCalledTimes(1))
+    expect((nameInput as HTMLInputElement).value).toBe('Review')
+    expect(toastStore.error).toHaveBeenCalledWith('Failed to create stage.')
+  })
+
   it('updates stage concurrency from the management row', async () => {
     updateStage.mockResolvedValue({
       stage: {
