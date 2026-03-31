@@ -157,16 +157,18 @@ func (s *Service) scheduleRepoScopeRetry(ctx context.Context, tx *ent.Tx, ticket
 	}
 
 	nextAttemptCount := current.AttemptCount + 1
-	update := tx.Ticket.UpdateOneID(current.ID).
-		ClearCurrentRunID().
-		SetAttemptCount(nextAttemptCount).
-		SetConsecutiveErrors(current.ConsecutiveErrors + 1).
-		SetNextRetryAt(timeNowUTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount)))
-
+	pauseReason := ""
 	if ticketing.ShouldPauseForBudget(current.CostAmount, current.BudgetUsd) {
-		update.SetRetryPaused(true).
-			SetPauseReason(ticketing.PauseReasonBudgetExhausted.String())
+		pauseReason = ticketing.PauseReasonBudgetExhausted.String()
 	}
+	update := ScheduleRetryOne(
+		tx.Ticket.UpdateOneID(current.ID).
+			ClearCurrentRunID().
+			SetAttemptCount(nextAttemptCount).
+			SetConsecutiveErrors(current.ConsecutiveErrors+1),
+		timeNowUTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount)),
+		pauseReason,
+	)
 
 	if _, err := update.Save(ctx); err != nil {
 		return s.mapTicketWriteError("update ticket repo scope retry", err)

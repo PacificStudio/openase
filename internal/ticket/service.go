@@ -374,7 +374,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error)
 		SetPriority(input.Priority).
 		SetType(input.Type).
 		SetCreatedBy(resolveCreatedBy(input.CreatedBy)).
-		SetBudgetUsd(input.BudgetUSD)
+		SetBudgetUsd(input.BudgetUSD).
+		SetRetryToken(NewRetryToken())
 
 	if input.WorkflowID != nil {
 		builder.SetWorkflowID(*input.WorkflowID)
@@ -1194,13 +1195,15 @@ func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ti
 	return nil
 }
 
-// ResetRetryBaseline clears active retry-cycle state after a healthy/manual-forward transition.
+// ResetRetryBaseline clears active retry-cycle state after a healthy/manual-forward transition
+// and rotates the retry token so stale delayed retries are discarded.
 // attempt_count stays cumulative per the PRD, while current failure streak state is normalized.
 func ResetRetryBaseline(update *ent.TicketUpdateOne, current *ent.Ticket) *ent.TicketUpdateOne {
 	if update == nil || current == nil {
 		return update
 	}
 
+	update.SetRetryToken(NewRetryToken())
 	if current.ConsecutiveErrors != 0 {
 		update.SetConsecutiveErrors(0)
 	}

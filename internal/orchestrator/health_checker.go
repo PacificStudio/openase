@@ -10,6 +10,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 )
 
 const (
@@ -201,16 +202,18 @@ func (h *HealthChecker) releaseStalledClaim(
 	defer rollback(tx)
 
 	retryAt := now.Add(stalledRetryDelay)
-	releasedTickets, err := tx.Ticket.Update().
-		Where(
-			entticket.IDEQ(ticket.ID),
-			entticket.CurrentRunIDNotNil(),
-			entticket.CurrentRunIDEQ(*ticket.CurrentRunID),
-		).
-		ClearCurrentRunID().
-		SetNextRetryAt(retryAt).
-		SetRetryPaused(false).
-		AddStallCount(1).
+	releasedTickets, err := ticketservice.ScheduleRetry(
+		tx.Ticket.Update().
+			Where(
+				entticket.IDEQ(ticket.ID),
+				entticket.CurrentRunIDNotNil(),
+				entticket.CurrentRunIDEQ(*ticket.CurrentRunID),
+			).
+			ClearCurrentRunID().
+			AddStallCount(1),
+		retryAt,
+		"",
+	).
 		Save(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("release stalled ticket: %w", err)

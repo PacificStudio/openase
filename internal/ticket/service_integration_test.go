@@ -276,12 +276,14 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		t.Fatalf("Update(budget resume) = %+v", resumedTicket)
 	}
 	retryAt := time.Date(2026, 3, 27, 16, 0, 0, 0, time.UTC)
+	seedRetryToken := "seed-manual-status-retry-token"
 	if _, err := client.Ticket.UpdateOneID(parent.ID).
 		SetAttemptCount(4).
 		SetConsecutiveErrors(2).
 		SetNextRetryAt(retryAt).
 		SetRetryPaused(true).
 		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		SetRetryToken(seedRetryToken).
 		Save(ctx); err != nil {
 		t.Fatalf("seed retry baseline before manual status change: %v", err)
 	}
@@ -301,6 +303,13 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	}
 	if updatedParent.AttemptCount != 4 || updatedParent.ConsecutiveErrors != 0 || updatedParent.NextRetryAt != nil || updatedParent.RetryPaused || updatedParent.PauseReason != "" {
 		t.Fatalf("Update(status transition) should normalize retry baseline, got %+v", updatedParent)
+	}
+	parentAfter, err := client.Ticket.Get(ctx, parent.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after status transition: %v", err)
+	}
+	if parentAfter.RetryToken == "" || parentAfter.RetryToken == seedRetryToken {
+		t.Fatalf("expected status transition to rotate retry token, got %q", parentAfter.RetryToken)
 	}
 
 	runAfterRelease, err := client.AgentRun.Get(ctx, runID)

@@ -827,14 +827,16 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.U
 	}
 	defer rollback(tx)
 
-	if _, err := tx.Ticket.Update().
-		Where(
-			entticket.IDEQ(ticketID),
-			entticket.CurrentRunIDEQ(runID),
-		).
-		ClearCurrentRunID().
-		SetNextRetryAt(l.now().UTC().Add(continuationRetryDelay)).
-		SetRetryPaused(false).
+	if _, err := ticketservice.ScheduleRetry(
+		tx.Ticket.Update().
+			Where(
+				entticket.IDEQ(ticketID),
+				entticket.CurrentRunIDEQ(runID),
+			).
+			ClearCurrentRunID(),
+		l.now().UTC().Add(continuationRetryDelay),
+		"",
+	).
 		Save(ctx); err != nil {
 		return fmt.Errorf("schedule ticket continuation: %w", err)
 	}

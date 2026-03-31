@@ -2098,7 +2098,13 @@ OpenASE 在真正 claim + launch 前应执行：
 | 连续 3 次 Stall | 暂停重试（retry_paused=true），通知人类 | 防止无限消耗资源 |
 | 工单被取消 | 立即停止，不重试 | 用户主动取消 |
 
-**Retry Token 机制**：每次状态变更时生成新的 Retry Token。调度器发出的重试消息携带 Token，如果 Token 与当前不匹配，重试消息被静默丢弃。
+**Retry Token 机制**：Ticket 维护当前 `Retry Token`。所有延迟重试意图都必须携带该 Token；调度器或恢复器在真正 dispatch 前再次比对当前 Token，不匹配则静默丢弃。
+
+- 以下转换必须轮换 `Retry Token`：
+  - 任意 Ticket `status` 变更
+  - Orchestrator 创建新的延迟重试意图：异常退出重试、stall 恢复重试、turn-limit continuation 重试
+  - 健康前进导致当前重试基线被清空：正常完成、人工前移状态、取消当前重试周期
+- 状态变更或健康前进在轮换 Token 的同时，必须清空旧的 `next_retry_at / retry_paused / pause_reason / consecutive_errors` 基线，防止旧重试意图被新状态复活。
 
 ### 10.3 内部架构
 

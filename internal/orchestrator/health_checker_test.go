@@ -45,6 +45,7 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
+	originalRetryToken := ticketItem.RetryToken
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now.Add(-2*time.Minute))
 
 	checker := newTestHealthChecker(client, now)
@@ -69,6 +70,9 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.Equal(now.Add(stalledRetryDelay)) {
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(stalledRetryDelay), ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.RetryToken == "" || ticketAfter.RetryToken == originalRetryToken {
+		t.Fatalf("expected stalled claim release to rotate retry token, got %q", ticketAfter.RetryToken)
 	}
 	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected stalled release to drop backlog stage occupancy to 0, got %d", got)
