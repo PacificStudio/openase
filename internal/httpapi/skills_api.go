@@ -45,8 +45,8 @@ type skillWorkflowBindingResponse struct {
 }
 
 type skillSyncResponse struct {
-	SkillsDir       string   `json:"skills_dir"`
-	InjectedSkills  []string `json:"injected_skills,omitempty"`
+	SkillsDir      string   `json:"skills_dir"`
+	InjectedSkills []string `json:"injected_skills,omitempty"`
 }
 
 func (s *Server) registerSkillRoutes(api *echo.Group) {

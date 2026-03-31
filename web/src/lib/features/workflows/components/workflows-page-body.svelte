@@ -81,10 +81,7 @@
 </script>
 
 {#if loading || (loadError && workflows.length === 0)}
-  <WorkflowsPageState
-    {loading}
-    loadError={workflows.length === 0 ? loadError : ''}
-  />
+  <WorkflowsPageState {loading} loadError={workflows.length === 0 ? loadError : ''} />
   {#if settingsHref}
     <div class="px-4 pb-4">
       <a class="text-muted-foreground text-xs underline" href={settingsHref}>
