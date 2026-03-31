@@ -1692,9 +1692,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		t.Fatalf("attach current run to ticket: %v", err)
 	}
 
-	statusesBeforeResp := struct {
-		Stages []ticketstatus.Stage `json:"stages"`
-	}{}
+	statusesBeforeResp := ticketstatus.ListResult{}
 	executeJSON(
 		t,
 		server,
@@ -1704,15 +1702,15 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		http.StatusOK,
 		&statusesBeforeResp,
 	)
-	backlogStageBefore := ticketstatus.Stage{}
-	for _, stage := range statusesBeforeResp.Stages {
-		if stage.Key == "backlog" {
-			backlogStageBefore = stage
+	todoStatusBefore := ticketstatus.Status{}
+	for _, status := range statusesBeforeResp.Statuses {
+		if status.Name == "Todo" {
+			todoStatusBefore = status
 			break
 		}
 	}
-	if backlogStageBefore.ID == uuid.Nil || backlogStageBefore.ActiveRuns != 1 {
-		t.Fatalf("expected backlog stage active_runs=1 before status transition, got %+v", backlogStageBefore)
+	if todoStatusBefore.ID == uuid.Nil || todoStatusBefore.ActiveRuns != 1 {
+		t.Fatalf("expected Todo status active_runs=1 before status transition, got %+v", todoStatusBefore)
 	}
 
 	titleOnlyResp := struct {
@@ -1790,9 +1788,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		t.Fatalf("expected status update to reset agent control state, got %+v", agentAfterStatusChange)
 	}
 
-	statusesAfterResp := struct {
-		Stages []ticketstatus.Stage `json:"stages"`
-	}{}
+	statusesAfterResp := ticketstatus.ListResult{}
 	executeJSON(
 		t,
 		server,
@@ -1802,15 +1798,15 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		http.StatusOK,
 		&statusesAfterResp,
 	)
-	backlogStageAfter := ticketstatus.Stage{}
-	for _, stage := range statusesAfterResp.Stages {
-		if stage.Key == "backlog" {
-			backlogStageAfter = stage
+	todoStatusAfter := ticketstatus.Status{}
+	for _, status := range statusesAfterResp.Statuses {
+		if status.Name == "Todo" {
+			todoStatusAfter = status
 			break
 		}
 	}
-	if backlogStageAfter.ID == uuid.Nil || backlogStageAfter.ActiveRuns != 0 {
-		t.Fatalf("expected backlog stage active_runs=0 after status transition, got %+v", backlogStageAfter)
+	if todoStatusAfter.ID == uuid.Nil || todoStatusAfter.ActiveRuns != 0 {
+		t.Fatalf("expected Todo status active_runs=0 after status transition, got %+v", todoStatusAfter)
 	}
 }
 

@@ -944,24 +944,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/api/v1/projects/{projectId}/stages': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** List ticket stages */
-    get: operations['listTicketStages']
-    put?: never
-    /** Create a ticket stage */
-    post: operations['createTicketStage']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/api/v1/projects/{projectId}/statuses': {
     parameters: {
       query?: never
@@ -1292,24 +1274,6 @@ export interface paths {
     options?: never
     head?: never
     patch?: never
-    trace?: never
-  }
-  '/api/v1/stages/{stageId}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /** Delete a ticket stage */
-    delete: operations['deleteTicketStage']
-    options?: never
-    head?: never
-    /** Update a ticket stage */
-    patch: operations['updateTicketStage']
     trace?: never
   }
   '/api/v1/statuses/{statusId}': {
@@ -8096,174 +8060,6 @@ export interface operations {
       }
     }
   }
-  listTicketStages: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description List ticket stages response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            stages?: {
-              active_runs?: number
-              description?: string
-              id?: string
-              key?: string
-              max_active_runs?: number | null
-              name?: string
-              position?: number
-              project_id?: string
-            }[]
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  createTicketStage: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-      }
-      cookie?: never
-    }
-    /** @description Create a ticket stage request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Human-readable stage description. */
-          description?: string
-          /** @description Stable machine-readable key for the ticket stage. */
-          key?: string
-          /** @description Maximum number of active runs allowed in this stage. */
-          max_active_runs?: number | null
-          /** @description Human-readable stage name. */
-          name?: string
-          /** @description Zero-based display order of the stage. */
-          position?: number | null
-        }
-      }
-    }
-    responses: {
-      /** @description Create a ticket stage response. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            stage?: {
-              active_runs?: number
-              description?: string
-              id?: string
-              key?: string
-              max_active_runs?: number | null
-              name?: string
-              position?: number
-              project_id?: string
-            }
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Conflict response. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
   listTicketStatuses: {
     parameters: {
       query?: never
@@ -8283,69 +8079,17 @@ export interface operations {
         }
         content: {
           'application/json': {
-            stage_groups?: {
-              stage?: {
-                active_runs?: number
-                description?: string
-                id?: string
-                key?: string
-                max_active_runs?: number | null
-                name?: string
-                position?: number
-                project_id?: string
-              } | null
-              statuses?: {
-                color?: string
-                description?: string
-                icon?: string
-                id?: string
-                is_default?: boolean
-                name?: string
-                position?: number
-                project_id?: string
-                stage?: {
-                  active_runs?: number
-                  description?: string
-                  id?: string
-                  key?: string
-                  max_active_runs?: number | null
-                  name?: string
-                  position?: number
-                  project_id?: string
-                } | null
-                stage_id?: string | null
-              }[]
-            }[]
-            stages?: {
-              active_runs?: number
-              description?: string
-              id?: string
-              key?: string
-              max_active_runs?: number | null
-              name?: string
-              position?: number
-              project_id?: string
-            }[]
             statuses?: {
+              active_runs?: number
               color?: string
               description?: string
               icon?: string
               id?: string
               is_default?: boolean
+              max_active_runs?: number | null
               name?: string
               position?: number
               project_id?: string
-              stage?: {
-                active_runs?: number
-                description?: string
-                id?: string
-                key?: string
-                max_active_runs?: number | null
-                name?: string
-                position?: number
-                project_id?: string
-              } | null
-              stage_id?: string | null
             }[]
           }
         }
@@ -8410,12 +8154,12 @@ export interface operations {
           icon?: string
           /** @description Whether this status should become the default status. */
           is_default?: boolean
+          /** @description Maximum number of active runs allowed in this status. */
+          max_active_runs?: number | null
           /** @description Human-readable status name. */
           name?: string
           /** @description Zero-based display order of the status. */
           position?: number | null
-          /** @description Optional stage ID that owns the status. */
-          stage_id?: string | null
         }
       }
     }
@@ -8428,25 +8172,16 @@ export interface operations {
         content: {
           'application/json': {
             status?: {
+              active_runs?: number
               color?: string
               description?: string
               icon?: string
               id?: string
               is_default?: boolean
+              max_active_runs?: number | null
               name?: string
               position?: number
               project_id?: string
-              stage?: {
-                active_runs?: number
-                description?: string
-                id?: string
-                key?: string
-                max_active_runs?: number | null
-                name?: string
-                position?: number
-                project_id?: string
-              } | null
-              stage_id?: string | null
             }
           }
         }
@@ -8520,69 +8255,17 @@ export interface operations {
         }
         content: {
           'application/json': {
-            stage_groups?: {
-              stage?: {
-                active_runs?: number
-                description?: string
-                id?: string
-                key?: string
-                max_active_runs?: number | null
-                name?: string
-                position?: number
-                project_id?: string
-              } | null
-              statuses?: {
-                color?: string
-                description?: string
-                icon?: string
-                id?: string
-                is_default?: boolean
-                name?: string
-                position?: number
-                project_id?: string
-                stage?: {
-                  active_runs?: number
-                  description?: string
-                  id?: string
-                  key?: string
-                  max_active_runs?: number | null
-                  name?: string
-                  position?: number
-                  project_id?: string
-                } | null
-                stage_id?: string | null
-              }[]
-            }[]
-            stages?: {
-              active_runs?: number
-              description?: string
-              id?: string
-              key?: string
-              max_active_runs?: number | null
-              name?: string
-              position?: number
-              project_id?: string
-            }[]
             statuses?: {
+              active_runs?: number
               color?: string
               description?: string
               icon?: string
               id?: string
               is_default?: boolean
+              max_active_runs?: number | null
               name?: string
               position?: number
               project_id?: string
-              stage?: {
-                active_runs?: number
-                description?: string
-                id?: string
-                key?: string
-                max_active_runs?: number | null
-                name?: string
-                position?: number
-                project_id?: string
-              } | null
-              stage_id?: string | null
             }[]
           }
         }
@@ -11024,176 +10707,6 @@ export interface operations {
       }
     }
   }
-  deleteTicketStage: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Ticket stage ID. */
-        stageId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Delete a ticket stage response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            deleted_stage_id?: string
-            detached_statuses?: number
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Conflict response. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  updateTicketStage: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Ticket stage ID. */
-        stageId: string
-      }
-      cookie?: never
-    }
-    /** @description Update a ticket stage request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Human-readable stage description. */
-          description?: string | null
-          /** @description Maximum number of active runs allowed in this stage. */
-          max_active_runs?: number | null
-          /** @description Human-readable stage name. */
-          name?: string | null
-          /** @description Zero-based display order of the stage. */
-          position?: number | null
-        }
-      }
-    }
-    responses: {
-      /** @description Update a ticket stage response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            stage?: {
-              active_runs?: number
-              description?: string
-              id?: string
-              key?: string
-              max_active_runs?: number | null
-              name?: string
-              position?: number
-              project_id?: string
-            }
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Conflict response. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
   deleteTicketStatus: {
     parameters: {
       query?: never
@@ -11290,12 +10803,12 @@ export interface operations {
           icon?: string | null
           /** @description Whether this status should become the default status. */
           is_default?: boolean | null
+          /** @description Maximum number of active runs allowed in this status. */
+          max_active_runs?: number | null
           /** @description Human-readable status name. */
           name?: string | null
           /** @description Zero-based display order of the status. */
           position?: number | null
-          /** @description Optional stage ID that owns the status. */
-          stage_id?: string | null
         }
       }
     }
@@ -11308,25 +10821,16 @@ export interface operations {
         content: {
           'application/json': {
             status?: {
+              active_runs?: number
               color?: string
               description?: string
               icon?: string
               id?: string
               is_default?: boolean
+              max_active_runs?: number | null
               name?: string
               position?: number
               project_id?: string
-              stage?: {
-                active_runs?: number
-                description?: string
-                id?: string
-                key?: string
-                max_active_runs?: number | null
-                name?: string
-                position?: number
-                project_id?: string
-              } | null
-              stage_id?: string | null
             }
           }
         }

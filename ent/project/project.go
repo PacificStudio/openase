@@ -39,8 +39,6 @@ const (
 	EdgeOrganization = "organization"
 	// EdgeRepos holds the string denoting the repos edge name in mutations.
 	EdgeRepos = "repos"
-	// EdgeStages holds the string denoting the stages edge name in mutations.
-	EdgeStages = "stages"
 	// EdgeStatuses holds the string denoting the statuses edge name in mutations.
 	EdgeStatuses = "statuses"
 	// EdgeWorkflows holds the string denoting the workflows edge name in mutations.
@@ -83,13 +81,6 @@ const (
 	ReposInverseTable = "project_repos"
 	// ReposColumn is the table column denoting the repos relation/edge.
 	ReposColumn = "project_id"
-	// StagesTable is the table that holds the stages relation/edge.
-	StagesTable = "ticket_stages"
-	// StagesInverseTable is the table name for the TicketStage entity.
-	// It exists in this package in order to avoid circular dependency with the "ticketstage" package.
-	StagesInverseTable = "ticket_stages"
-	// StagesColumn is the table column denoting the stages relation/edge.
-	StagesColumn = "project_id"
 	// StatusesTable is the table that holds the statuses relation/edge.
 	StatusesTable = "ticket_status"
 	// StatusesInverseTable is the table name for the TicketStatus entity.
@@ -293,20 +284,6 @@ func ByRepos(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
-// ByStagesCount orders the results by stages count.
-func ByStagesCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newStagesStep(), opts...)
-	}
-}
-
-// ByStages orders the results by stages terms.
-func ByStages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newStagesStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByStatusesCount orders the results by statuses count.
 func ByStatusesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -486,13 +463,6 @@ func newReposStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ReposInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ReposTable, ReposColumn),
-	)
-}
-func newStagesStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(StagesInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, StagesTable, StagesColumn),
 	)
 }
 func newStatusesStep() *sqlgraph.Step {

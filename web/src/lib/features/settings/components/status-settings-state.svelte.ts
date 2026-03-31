@@ -3,12 +3,10 @@ import { connectEventStream } from '$lib/api/sse'
 import {
   createStatus,
   deleteStatus,
-  listStages,
   listStatuses,
   resetStatuses,
   updateStatus,
 } from '$lib/api/openase'
-import { normalizeStages, type EditableStage } from '$lib/features/stages/public'
 import {
   createEmptyStatusDraft,
   moveStatus,
@@ -20,45 +18,35 @@ import {
 } from '$lib/features/statuses/public'
 import { appStore } from '$lib/stores/app.svelte'
 import { toastStore } from '$lib/stores/toast.svelte'
-import { startStageRuntimeSync } from './stage-runtime-sync'
-import { createStageActionHandlers } from './status-settings-stage-actions'
+import { startStatusRuntimeSync } from './status-runtime-sync'
 
 type StatusSettingsUI = {
   statuses: EditableStatus[]
-  stages: EditableStage[]
   createName: string
   createColor: string
   createDefault: boolean
-  createStageId: string
+  createMaxActiveRuns: string
   loading: boolean
   creating: boolean
-  creatingStage: boolean
   resetting: boolean
   busyStatusId: string
-  busyStageId: string
 }
 
 function createStatusSettingsUI(): StatusSettingsUI {
   return {
     statuses: [],
-    stages: [],
     createName: '',
     createColor: createEmptyStatusDraft().color,
     createDefault: false,
-    createStageId: '',
+    createMaxActiveRuns: '',
     loading: false,
     creating: false,
-    creatingStage: false,
     resetting: false,
     busyStatusId: '',
-    busyStageId: '',
   }
 }
 
-type StatusSettingsSnapshot = {
-  statuses: Awaited<ReturnType<typeof listStatuses>>['statuses']
-  stages: Awaited<ReturnType<typeof listStages>>['stages']
-}
+type StatusSettingsSnapshot = Awaited<ReturnType<typeof listStatuses>>
 
 export function createStatusSettingsState() {
   const ui = $state<StatusSettingsUI>(createStatusSettingsUI())
@@ -70,9 +58,9 @@ export function createStatusSettingsState() {
       return
     }
 
-    return startStageRuntimeSync({
+    return startStatusRuntimeSync({
       projectId,
-      loadSnapshot,
+      loadSnapshot: listStatuses,
       connectEventStream,
       applySnapshot: assignPayload,
       setLoading: (loading) => (ui.loading = loading),
@@ -85,23 +73,10 @@ export function createStatusSettingsState() {
 
   function assignPayload(payload: StatusSettingsSnapshot) {
     ui.statuses = normalizeStatuses(payload.statuses)
-    ui.stages = normalizeStages(payload.stages)
-  }
-
-  async function loadSnapshot(projectId: string): Promise<StatusSettingsSnapshot> {
-    const [statusPayload, stagePayload] = await Promise.all([
-      listStatuses(projectId),
-      listStages(projectId),
-    ])
-
-    return {
-      statuses: statusPayload.statuses,
-      stages: stagePayload.stages,
-    }
   }
 
   async function reload(projectId: string) {
-    assignPayload(await loadSnapshot(projectId))
+    assignPayload(await listStatuses(projectId))
   }
 
   function currentProjectId() {
@@ -112,7 +87,7 @@ export function createStatusSettingsState() {
     ui.createName = ''
     ui.createColor = createEmptyStatusDraft().color
     ui.createDefault = false
-    ui.createStageId = ''
+    ui.createMaxActiveRuns = ''
   }
 
   function statusUpdateBody(current: EditableStatus, draft: ParsedStatusDraft) {
@@ -120,7 +95,7 @@ export function createStatusSettingsState() {
     if (draft.name !== current.name) body.name = draft.name
     if (draft.color !== current.color) body.color = draft.color
     if (draft.isDefault !== current.isDefault) body.is_default = draft.isDefault
-    if (draft.stageId !== current.stageId) body.stage_id = draft.stageId
+    if (draft.maxActiveRuns !== current.maxActiveRuns) body.max_active_runs = draft.maxActiveRuns
     return body
   }
 
@@ -132,15 +107,6 @@ export function createStatusSettingsState() {
     statusSync.touch()
   }
 
-  const stageActions = createStageActionHandlers({
-    ui,
-    currentProjectId,
-    reload,
-    touchAfterReload,
-    reportMutationError,
-    toastSuccess: (message) => toastStore.success(message),
-  })
-
   return {
     ui,
     async createStatus() {
@@ -151,7 +117,7 @@ export function createStatusSettingsState() {
         name: ui.createName,
         color: ui.createColor,
         isDefault: ui.createDefault,
-        stageId: ui.createStageId,
+        maxActiveRuns: ui.createMaxActiveRuns,
       })
       if (!parsed.ok) {
         toastStore.error(parsed.error)
@@ -164,7 +130,7 @@ export function createStatusSettingsState() {
           name: parsed.value.name,
           color: parsed.value.color,
           is_default: parsed.value.isDefault,
-          stage_id: parsed.value.stageId,
+          max_active_runs: parsed.value.maxActiveRuns,
         })
         await reload(projectId)
         touchAfterReload()
@@ -265,25 +231,17 @@ export function createStatusSettingsState() {
       const projectId = currentProjectId()
       if (!projectId) return
 
-      if (
-        typeof window !== 'undefined' &&
-        !window.confirm('Reset statuses to the default template? Custom statuses will be removed.')
-      ) {
-        return
-      }
-
       ui.resetting = true
       try {
         await resetStatuses(projectId)
         await reload(projectId)
         touchAfterReload()
-        toastStore.success('Statuses reset to the default template.')
+        toastStore.success('Reset statuses to the default template.')
       } catch (caughtError) {
         reportMutationError(caughtError, 'Failed to reset statuses.')
       } finally {
         ui.resetting = false
       }
     },
-    ...stageActions,
   }
 }

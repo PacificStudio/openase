@@ -14,30 +14,6 @@
     },
     {
       "method": "get",
-      "path": "/api/v1/projects/{projectId}/stages",
-      "categories": ["backend_only"],
-      "reason": "Stage CRUD is not wired into the settings UI yet, so the stage list endpoint is intentionally not bound in the frontend."
-    },
-    {
-      "method": "post",
-      "path": "/api/v1/projects/{projectId}/stages",
-      "categories": ["backend_only"],
-      "reason": "Stage CRUD is not wired into the settings UI yet, so stage creation is intentionally not bound in the frontend."
-    },
-    {
-      "method": "patch",
-      "path": "/api/v1/stages/{stageId}",
-      "categories": ["backend_only"],
-      "reason": "Stage CRUD is not wired into the settings UI yet, so stage updates are intentionally not bound in the frontend."
-    },
-    {
-      "method": "delete",
-      "path": "/api/v1/stages/{stageId}",
-      "categories": ["backend_only"],
-      "reason": "Stage CRUD is not wired into the settings UI yet, so stage deletion is intentionally not bound in the frontend."
-    },
-    {
-      "method": "get",
       "path": "/api/v1/tickets/{ticketId}",
       "categories": ["backend_only"],
       "reason": "The ticket UI uses the project-scoped detail endpoint instead of the standalone ticket fetch route."

@@ -9,7 +9,7 @@ import type {
   WorkflowListPayload,
 } from '$lib/api/contracts'
 import { TicketsPage } from '$lib/features/tickets'
-import { stageOrderedStatusPayloadFixture } from '$lib/features/board/test-fixtures'
+import { orderedStatusPayloadFixture } from '$lib/features/board/test-fixtures'
 import { appStore } from '$lib/stores/app.svelte'
 
 const {
@@ -56,7 +56,7 @@ const projectFixture: Project = {
   max_concurrent_agents: 4,
 }
 
-const statusesFixture = stageOrderedStatusPayloadFixture
+const statusesFixture = orderedStatusPayloadFixture
 
 const ticketsFixture: TicketPayload = {
   tickets: [
@@ -186,18 +186,7 @@ describe('TicketsPage', () => {
     expect(await findByText('ASE-202')).toBeTruthy()
     expect(await findByText('Codex Worker')).toBeTruthy()
     expect(await findByRole('button', { name: 'Agent' })).toBeTruthy()
-    const backlogHeading = await findByRole('heading', { name: 'Backlog' })
-    const executionHeading = await findByRole('heading', { name: 'Execution' })
-    const ungroupedHeading = await findByRole('heading', { name: 'Ungrouped statuses' })
-    expect(backlogHeading.compareDocumentPosition(executionHeading)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    )
-    expect(executionHeading.compareDocumentPosition(ungroupedHeading)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    )
-    expect(
-      await findByText('Statuses without a stage always render after staged groups.'),
-    ).toBeTruthy()
+    expect(await findByRole('heading', { name: 'Board' })).toBeTruthy()
     expect(await findByText('1 / 1 active')).toBeTruthy()
     expect(queryByRole('table')).toBeNull()
 

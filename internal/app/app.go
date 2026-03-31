@@ -325,7 +325,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			machineReport, machineErr := machineMonitor.RunTick(tickCtx)
 			report, runErr := scheduler.RunTick(tickCtx)
 			launchErr := runtimeLauncher.RunTick(tickCtx)
-			stageSnapshots, stageErr := ticketstatus.ListStageRuntimeSnapshots(tickCtx, client)
+			statusSnapshots, statusErr := ticketstatus.ListStatusRuntimeSnapshots(tickCtx, client)
 			payload := map[string]any{
 				"mode":           string(a.config.Server.Mode),
 				"time":           tick.UTC().Format(time.RFC3339),
@@ -333,7 +333,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 				"machine_report": machineReport,
 				"report":         report,
 			}
-			combinedErr := joinOrchestratorTickErrors(healthErr, machineErr, runErr, launchErr, stageErr)
+			combinedErr := joinOrchestratorTickErrors(healthErr, machineErr, runErr, launchErr, statusErr)
 			if combinedErr != nil {
 				payload["error"] = combinedErr.Error()
 				span.RecordError(combinedErr)
@@ -373,19 +373,19 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			a.metrics.Histogram("openase.orchestrator.tick_duration_seconds", provider.Tags{
 				"mode": string(a.config.Server.Mode),
 			}).Record(time.Since(start).Seconds())
-			for _, snapshot := range stageSnapshots {
+			for _, snapshot := range statusSnapshots {
 				tags := provider.Tags{
 					"project_id": snapshot.ProjectID.String(),
-					"stage_id":   snapshot.StageID.String(),
-					"stage_key":  snapshot.Key,
+					"status_id":  snapshot.StatusID.String(),
+					"status":     snapshot.Name,
 					"limited":    strconv.FormatBool(snapshot.MaxActiveRuns != nil),
 				}
-				a.metrics.Gauge("openase.ticket.stage_active_runs", tags).Set(float64(snapshot.ActiveRuns))
-				stageCapacity := 0
+				a.metrics.Gauge("openase.ticket.status_active_runs", tags).Set(float64(snapshot.ActiveRuns))
+				statusCapacity := 0
 				if snapshot.MaxActiveRuns != nil {
-					stageCapacity = *snapshot.MaxActiveRuns
+					statusCapacity = *snapshot.MaxActiveRuns
 				}
-				a.metrics.Gauge("openase.ticket.stage_capacity", tags).Set(float64(stageCapacity))
+				a.metrics.Gauge("openase.ticket.status_capacity", tags).Set(float64(statusCapacity))
 			}
 			span.SetAttributes(
 				provider.IntAttribute("orchestrator.health.claims_checked", healthReport.ClaimsChecked),

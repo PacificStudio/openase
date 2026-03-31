@@ -48,7 +48,6 @@ func (Project) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("repos", ProjectRepo.Type),
-		edge.To("stages", TicketStage.Type),
 		edge.To("statuses", TicketStatus.Type),
 		edge.To("workflows", Workflow.Type),
 		edge.To("tickets", Ticket.Type),

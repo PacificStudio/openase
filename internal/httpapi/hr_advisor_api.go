@@ -391,9 +391,7 @@ func writeHRAdvisorActivationError(c echo.Context, err error) error {
 		return writeWorkflowError(c, err)
 	case errors.Is(err, ticketstatus.ErrUnavailable),
 		errors.Is(err, ticketstatus.ErrProjectNotFound),
-		errors.Is(err, ticketstatus.ErrStageNotFound),
 		errors.Is(err, ticketstatus.ErrStatusNotFound),
-		errors.Is(err, ticketstatus.ErrDuplicateStageKey),
 		errors.Is(err, ticketstatus.ErrDuplicateStatusName),
 		errors.Is(err, ticketstatus.ErrCannotDeleteLastStatus),
 		errors.Is(err, ticketstatus.ErrDefaultStatusRequired):

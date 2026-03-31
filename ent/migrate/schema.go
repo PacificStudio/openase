@@ -1158,42 +1158,6 @@ var (
 			},
 		},
 	}
-	// TicketStagesColumns holds the columns for the "ticket_stages" table.
-	TicketStagesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID},
-		{Name: "key", Type: field.TypeString},
-		{Name: "name", Type: field.TypeString},
-		{Name: "position", Type: field.TypeInt, Default: 0},
-		{Name: "max_active_runs", Type: field.TypeInt, Nullable: true},
-		{Name: "description", Type: field.TypeString, Nullable: true},
-		{Name: "project_id", Type: field.TypeUUID},
-	}
-	// TicketStagesTable holds the schema information for the "ticket_stages" table.
-	TicketStagesTable = &schema.Table{
-		Name:       "ticket_stages",
-		Columns:    TicketStagesColumns,
-		PrimaryKey: []*schema.Column{TicketStagesColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "ticket_stages_projects_stages",
-				Columns:    []*schema.Column{TicketStagesColumns[6]},
-				RefColumns: []*schema.Column{ProjectsColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "ticketstage_project_id_key",
-				Unique:  true,
-				Columns: []*schema.Column{TicketStagesColumns[6], TicketStagesColumns[1]},
-			},
-			{
-				Name:    "ticketstage_project_id_position",
-				Unique:  false,
-				Columns: []*schema.Column{TicketStagesColumns[6], TicketStagesColumns[3]},
-			},
-		},
-	}
 	// TicketStatusColumns holds the columns for the "ticket_status" table.
 	TicketStatusColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1201,10 +1165,10 @@ var (
 		{Name: "color", Type: field.TypeString},
 		{Name: "icon", Type: field.TypeString, Nullable: true},
 		{Name: "position", Type: field.TypeInt, Default: 0},
+		{Name: "max_active_runs", Type: field.TypeInt, Nullable: true},
 		{Name: "is_default", Type: field.TypeBool, Default: false},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
-		{Name: "stage_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// TicketStatusTable holds the schema information for the "ticket_status" table.
 	TicketStatusTable = &schema.Table{
@@ -1214,32 +1178,21 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "ticket_status_projects_statuses",
-				Columns:    []*schema.Column{TicketStatusColumns[7]},
+				Columns:    []*schema.Column{TicketStatusColumns[8]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
-			},
-			{
-				Symbol:     "ticket_status_ticket_stages_statuses",
-				Columns:    []*schema.Column{TicketStatusColumns[8]},
-				RefColumns: []*schema.Column{TicketStagesColumns[0]},
-				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
 				Name:    "ticketstatus_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{TicketStatusColumns[7], TicketStatusColumns[1]},
-			},
-			{
-				Name:    "ticketstatus_project_id_stage_id_position",
-				Unique:  false,
-				Columns: []*schema.Column{TicketStatusColumns[7], TicketStatusColumns[8], TicketStatusColumns[4]},
+				Columns: []*schema.Column{TicketStatusColumns[8], TicketStatusColumns[1]},
 			},
 			{
 				Name:    "ticketstatus_project_id_position",
 				Unique:  false,
-				Columns: []*schema.Column{TicketStatusColumns[7], TicketStatusColumns[4]},
+				Columns: []*schema.Column{TicketStatusColumns[8], TicketStatusColumns[4]},
 			},
 		},
 	}
@@ -1366,7 +1319,6 @@ var (
 		TicketExternalLinksTable,
 		TicketRepoScopesTable,
 		TicketRepoWorkspacesTable,
-		TicketStagesTable,
 		TicketStatusTable,
 		WorkflowsTable,
 		WorkflowPickupStatusesTable,
@@ -1429,9 +1381,7 @@ func init() {
 	TicketRepoWorkspacesTable.ForeignKeys[1].RefTable = ProjectReposTable
 	TicketRepoWorkspacesTable.ForeignKeys[2].RefTable = ProjectRepoMirrorsTable
 	TicketRepoWorkspacesTable.ForeignKeys[3].RefTable = TicketsTable
-	TicketStagesTable.ForeignKeys[0].RefTable = ProjectsTable
 	TicketStatusTable.ForeignKeys[0].RefTable = ProjectsTable
-	TicketStatusTable.ForeignKeys[1].RefTable = TicketStagesTable
 	WorkflowsTable.ForeignKeys[0].RefTable = AgentsTable
 	WorkflowsTable.ForeignKeys[1].RefTable = ProjectsTable
 	WorkflowPickupStatusesTable.ForeignKeys[0].RefTable = WorkflowsTable

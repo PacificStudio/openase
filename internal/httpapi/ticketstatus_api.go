@@ -9,109 +9,11 @@ import (
 )
 
 func (s *Server) registerTicketStatusRoutes() {
-	s.echo.GET("/api/v1/projects/:projectId/stages", s.handleListTicketStages)
-	s.echo.POST("/api/v1/projects/:projectId/stages", s.handleCreateTicketStage)
-	s.echo.PATCH("/api/v1/stages/:stageId", s.handleUpdateTicketStage)
-	s.echo.DELETE("/api/v1/stages/:stageId", s.handleDeleteTicketStage)
 	s.echo.GET("/api/v1/projects/:projectId/statuses", s.handleListTicketStatuses)
 	s.echo.POST("/api/v1/projects/:projectId/statuses", s.handleCreateTicketStatus)
 	s.echo.POST("/api/v1/projects/:projectId/statuses/reset", s.handleResetTicketStatuses)
 	s.echo.PATCH("/api/v1/statuses/:statusId", s.handleUpdateTicketStatus)
 	s.echo.DELETE("/api/v1/statuses/:statusId", s.handleDeleteTicketStatus)
-}
-
-func (s *Server) handleListTicketStages(c echo.Context) error {
-	service := s.ticketStatusService
-	if service == nil {
-		return writeTicketStatusError(c, ticketstatus.ErrUnavailable)
-	}
-
-	projectID, err := parseProjectID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
-	}
-
-	stages, err := service.ListStages(c.Request().Context(), projectID)
-	if err != nil {
-		return writeTicketStatusError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{"stages": stages})
-}
-
-func (s *Server) handleCreateTicketStage(c echo.Context) error {
-	service := s.ticketStatusService
-	if service == nil {
-		return writeTicketStatusError(c, ticketstatus.ErrUnavailable)
-	}
-
-	projectID, err := parseProjectID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
-	}
-
-	var raw rawCreateTicketStageRequest
-	if err := c.Bind(&raw); err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
-	}
-	input, err := parseCreateTicketStageRequest(projectID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	stage, err := service.CreateStage(c.Request().Context(), input)
-	if err != nil {
-		return writeTicketStatusError(c, err)
-	}
-
-	return c.JSON(http.StatusCreated, map[string]any{"stage": stage})
-}
-
-func (s *Server) handleUpdateTicketStage(c echo.Context) error {
-	service := s.ticketStatusService
-	if service == nil {
-		return writeTicketStatusError(c, ticketstatus.ErrUnavailable)
-	}
-
-	stageID, err := parseStageID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_STAGE_ID", err.Error())
-	}
-
-	var raw rawUpdateTicketStageRequest
-	if err := c.Bind(&raw); err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
-	}
-	input, err := parseUpdateTicketStageRequest(stageID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	stage, err := service.UpdateStage(c.Request().Context(), input)
-	if err != nil {
-		return writeTicketStatusError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{"stage": stage})
-}
-
-func (s *Server) handleDeleteTicketStage(c echo.Context) error {
-	service := s.ticketStatusService
-	if service == nil {
-		return writeTicketStatusError(c, ticketstatus.ErrUnavailable)
-	}
-
-	stageID, err := parseStageID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_STAGE_ID", err.Error())
-	}
-
-	result, err := service.DeleteStage(c.Request().Context(), stageID)
-	if err != nil {
-		return writeTicketStatusError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, result)
 }
 
 func (s *Server) handleListTicketStatuses(c echo.Context) error {
@@ -238,12 +140,8 @@ func writeTicketStatusError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
 	case errors.Is(err, ticketstatus.ErrProjectNotFound):
 		return writeAPIError(c, http.StatusNotFound, "PROJECT_NOT_FOUND", err.Error())
-	case errors.Is(err, ticketstatus.ErrStageNotFound):
-		return writeAPIError(c, http.StatusNotFound, "STAGE_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketstatus.ErrStatusNotFound):
 		return writeAPIError(c, http.StatusNotFound, "STATUS_NOT_FOUND", err.Error())
-	case errors.Is(err, ticketstatus.ErrDuplicateStageKey):
-		return writeAPIError(c, http.StatusConflict, "STAGE_KEY_CONFLICT", err.Error())
 	case errors.Is(err, ticketstatus.ErrDuplicateStatusName):
 		return writeAPIError(c, http.StatusConflict, "STATUS_NAME_CONFLICT", err.Error())
 	case errors.Is(err, ticketstatus.ErrCannotDeleteLastStatus):

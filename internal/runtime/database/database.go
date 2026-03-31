@@ -14,7 +14,6 @@ import (
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
 	"github.com/google/uuid"
@@ -51,11 +50,11 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 		); err != nil {
 			return fmt.Errorf("migrate database schema: %w", err)
 		}
-		if err := reconcileLegacyProjectRepoSemantics(ctx, trimmedDSN); err != nil {
+		if err := reconcileLegacyTicketStageSchema(ctx, trimmedDSN); err != nil {
 			return err
 		}
-		if err := ticketstatus.NewService(client).BackfillDefaultStages(ctx); err != nil {
-			return fmt.Errorf("backfill ticket stages: %w", err)
+		if err := reconcileLegacyProjectRepoSemantics(ctx, trimmedDSN); err != nil {
+			return err
 		}
 		if err := reconcileLegacyTicketIdentifierIndex(ctx, trimmedDSN); err != nil {
 			return err
@@ -162,6 +161,82 @@ func reconcileLegacyProjectAccessibleMachineIDs(ctx context.Context, dsn string)
 		`UPDATE "projects" SET "accessible_machine_ids" = '[]'::jsonb WHERE "accessible_machine_ids" IS NULL`,
 	); err != nil {
 		return fmt.Errorf("backfill project accessible machine ids: %w", err)
+	}
+
+	return nil
+}
+
+func reconcileLegacyTicketStageSchema(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database for ticket stage reconciliation: %w", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database for ticket stage reconciliation: %w", err)
+	}
+
+	statusTableExists, err := tableExists(ctx, db, "ticket_status")
+	if err != nil {
+		return err
+	}
+	if !statusTableExists {
+		return nil
+	}
+
+	stageTableExists, err := tableExists(ctx, db, "ticket_stages")
+	if err != nil {
+		return err
+	}
+	stageIDExists, err := columnExists(ctx, db, "ticket_status", "stage_id")
+	if err != nil {
+		return err
+	}
+	if !stageTableExists && !stageIDExists {
+		return nil
+	}
+
+	statusCapacityExists, err := columnExists(ctx, db, "ticket_status", "max_active_runs")
+	if err != nil {
+		return err
+	}
+	if stageTableExists && stageIDExists && statusCapacityExists {
+		if _, err := db.ExecContext(
+			ctx,
+			`UPDATE "ticket_status" AS status
+			SET "max_active_runs" = stage."max_active_runs"
+			FROM "ticket_stages" AS stage
+			WHERE status."stage_id" = stage."id"
+			  AND status."max_active_runs" IS NULL
+			  AND stage."max_active_runs" IS NOT NULL`,
+		); err != nil {
+			return fmt.Errorf("backfill ticket status max_active_runs from stages: %w", err)
+		}
+	}
+
+	if _, err := db.ExecContext(
+		ctx,
+		`ALTER TABLE "ticket_status" DROP CONSTRAINT IF EXISTS "ticket_status_ticket_stages_statuses"`,
+	); err != nil {
+		return fmt.Errorf("drop legacy ticket status stage foreign key: %w", err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`DROP INDEX IF EXISTS "ticketstatus_project_id_stage_id_position"`,
+	); err != nil {
+		return fmt.Errorf("drop legacy ticket status stage index: %w", err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`ALTER TABLE "ticket_status" DROP COLUMN IF EXISTS "stage_id"`,
+	); err != nil {
+		return fmt.Errorf("drop legacy ticket status stage_id column: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS "ticket_stages"`); err != nil {
+		return fmt.Errorf("drop legacy ticket stages table: %w", err)
 	}
 
 	return nil
@@ -293,6 +368,23 @@ func reconcileLegacyProjectRepoSemantics(ctx context.Context, dsn string) error 
 	}
 
 	return nil
+}
+
+func tableExists(ctx context.Context, db *sql.DB, tableName string) (bool, error) {
+	var exists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = current_schema()
+			  AND table_name = $1
+		)`,
+		tableName,
+	).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check %s table: %w", tableName, err)
+	}
+	return exists, nil
 }
 
 func columnExists(ctx context.Context, db *sql.DB, tableName string, columnName string) (bool, error) {

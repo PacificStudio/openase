@@ -2,7 +2,7 @@ import { ApiError } from '$lib/api/client'
 import type { connectEventStream } from '$lib/api/sse'
 type LoadMode = 'initial' | 'background'
 
-type StageRuntimeSyncOptions<TSnapshot> = {
+type StatusRuntimeSyncOptions<TSnapshot> = {
   projectId: string
   loadSnapshot: (projectId: string) => Promise<TSnapshot>
   connectEventStream: typeof connectEventStream
@@ -13,7 +13,7 @@ type StageRuntimeSyncOptions<TSnapshot> = {
   onRefreshError?: (error: unknown) => void
 }
 
-export function startStageRuntimeSync<TSnapshot>(options: StageRuntimeSyncOptions<TSnapshot>) {
+export function startStatusRuntimeSync<TSnapshot>(options: StatusRuntimeSyncOptions<TSnapshot>) {
   let active = true
   let requestVersion = 0
   let queuedReload = false
@@ -83,7 +83,7 @@ export function startStageRuntimeSync<TSnapshot>(options: StageRuntimeSyncOption
         void drainReloadQueue()
       },
       onError: (error) => {
-        console.error('Stage runtime ticket stream error:', error)
+        console.error('Status runtime ticket stream error:', error)
       },
     },
   )

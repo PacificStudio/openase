@@ -22,7 +22,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
-	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
@@ -174,21 +173,6 @@ func (_c *ProjectCreate) AddRepos(v ...*ProjectRepo) *ProjectCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddRepoIDs(ids...)
-}
-
-// AddStageIDs adds the "stages" edge to the TicketStage entity by IDs.
-func (_c *ProjectCreate) AddStageIDs(ids ...uuid.UUID) *ProjectCreate {
-	_c.mutation.AddStageIDs(ids...)
-	return _c
-}
-
-// AddStages adds the "stages" edges to the TicketStage entity.
-func (_c *ProjectCreate) AddStages(v ...*TicketStage) *ProjectCreate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddStageIDs(ids...)
 }
 
 // AddStatusIDs adds the "statuses" edge to the TicketStatus entity by IDs.
@@ -545,22 +529,6 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(projectrepo.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.StagesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   project.StagesTable,
-			Columns: []string{project.StagesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

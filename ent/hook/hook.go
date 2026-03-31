@@ -285,18 +285,6 @@ func (f TicketRepoWorkspaceFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TicketRepoWorkspaceMutation", m)
 }
 
-// The TicketStageFunc type is an adapter to allow the use of ordinary
-// function as TicketStage mutator.
-type TicketStageFunc func(context.Context, *ent.TicketStageMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f TicketStageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.TicketStageMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TicketStageMutation", m)
-}
-
 // The TicketStatusFunc type is an adapter to allow the use of ordinary
 // function as TicketStatus mutator.
 type TicketStatusFunc func(context.Context, *ent.TicketStatusMutation) (ent.Value, error)

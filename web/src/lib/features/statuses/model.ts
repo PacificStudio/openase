@@ -4,19 +4,20 @@ export type StatusDraft = {
   name: string
   color: string
   isDefault: boolean
-  stageId: string
+  maxActiveRuns: string
 }
 
 export type ParsedStatusDraft = {
   name: string
   color: string
   isDefault: boolean
-  stageId: string | null
+  maxActiveRuns: number | null
 }
 
 export type EditableStatus = ParsedStatusDraft & {
   id: string
   position: number
+  activeRuns: number
 }
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string }
@@ -28,7 +29,7 @@ export function createEmptyStatusDraft(): StatusDraft {
     name: '',
     color: '#94a3b8',
     isDefault: false,
-    stageId: '',
+    maxActiveRuns: '',
   }
 }
 
@@ -41,8 +42,9 @@ export function normalizeStatuses(statuses: TicketStatus[]): EditableStatus[] {
       name: status.name,
       color: (status.color || '#94a3b8').toLowerCase(),
       isDefault: status.is_default,
-      stageId: status.stage_id || null,
+      maxActiveRuns: typeof status.max_active_runs === 'number' ? status.max_active_runs : null,
       position: status.position,
+      activeRuns: status.active_runs,
     }))
 }
 
@@ -57,13 +59,31 @@ export function parseStatusDraft(raw: StatusDraft): ParseResult<ParsedStatusDraf
     return { ok: false, error: 'Status color must be a 6-digit hex value.' }
   }
 
+  const maxActiveRuns = String(raw.maxActiveRuns ?? '').trim()
+  if (!maxActiveRuns) {
+    return {
+      ok: true,
+      value: {
+        name,
+        color: color.toLowerCase(),
+        isDefault: raw.isDefault,
+        maxActiveRuns: null,
+      },
+    }
+  }
+
+  const parsed = Number(maxActiveRuns)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return { ok: false, error: 'Status concurrency must be a whole number greater than 0.' }
+  }
+
   return {
     ok: true,
     value: {
       name,
       color: color.toLowerCase(),
       isDefault: raw.isDefault,
-      stageId: raw.stageId.trim() || null,
+      maxActiveRuns: parsed,
     },
   }
 }

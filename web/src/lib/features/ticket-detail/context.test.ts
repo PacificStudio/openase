@@ -115,22 +115,20 @@ const detailPayloadFixture: TicketDetailPayload = {
 }
 
 const statusPayloadFixture: StatusPayload = {
-  stages: [],
   statuses: [
     {
       id: 'status-1',
       project_id: 'project-1',
-      stage_id: null,
-      stage: null,
       name: 'Todo',
       color: '#2563eb',
       icon: '',
       is_default: true,
       description: '',
       position: 1,
+      active_runs: 0,
+      max_active_runs: null,
     },
   ],
-  stage_groups: [],
 }
 
 const workflowPayloadFixture: WorkflowListPayload = {

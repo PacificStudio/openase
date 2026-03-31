@@ -52,7 +52,7 @@ function matchesAnomalyFilter(ticket: BoardTicket, anomalyOnly: boolean | undefi
 }
 
 export function buildBoardData(
-  statusPayload: Pick<StatusPayload, 'stage_groups' | 'statuses'>,
+  statusPayload: Pick<StatusPayload, 'statuses'>,
   tickets: Ticket[],
   workflows: Workflow[],
   agents: Agent[],

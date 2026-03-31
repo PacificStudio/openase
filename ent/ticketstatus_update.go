@@ -13,7 +13,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
-	"github.com/BetterAndBetterII/openase/ent/ticketstage"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
@@ -43,26 +42,6 @@ func (_u *TicketStatusUpdate) SetNillableProjectID(v *uuid.UUID) *TicketStatusUp
 	if v != nil {
 		_u.SetProjectID(*v)
 	}
-	return _u
-}
-
-// SetStageID sets the "stage_id" field.
-func (_u *TicketStatusUpdate) SetStageID(v uuid.UUID) *TicketStatusUpdate {
-	_u.mutation.SetStageID(v)
-	return _u
-}
-
-// SetNillableStageID sets the "stage_id" field if the given value is not nil.
-func (_u *TicketStatusUpdate) SetNillableStageID(v *uuid.UUID) *TicketStatusUpdate {
-	if v != nil {
-		_u.SetStageID(*v)
-	}
-	return _u
-}
-
-// ClearStageID clears the value of the "stage_id" field.
-func (_u *TicketStatusUpdate) ClearStageID() *TicketStatusUpdate {
-	_u.mutation.ClearStageID()
 	return _u
 }
 
@@ -135,6 +114,33 @@ func (_u *TicketStatusUpdate) AddPosition(v int) *TicketStatusUpdate {
 	return _u
 }
 
+// SetMaxActiveRuns sets the "max_active_runs" field.
+func (_u *TicketStatusUpdate) SetMaxActiveRuns(v int) *TicketStatusUpdate {
+	_u.mutation.ResetMaxActiveRuns()
+	_u.mutation.SetMaxActiveRuns(v)
+	return _u
+}
+
+// SetNillableMaxActiveRuns sets the "max_active_runs" field if the given value is not nil.
+func (_u *TicketStatusUpdate) SetNillableMaxActiveRuns(v *int) *TicketStatusUpdate {
+	if v != nil {
+		_u.SetMaxActiveRuns(*v)
+	}
+	return _u
+}
+
+// AddMaxActiveRuns adds value to the "max_active_runs" field.
+func (_u *TicketStatusUpdate) AddMaxActiveRuns(v int) *TicketStatusUpdate {
+	_u.mutation.AddMaxActiveRuns(v)
+	return _u
+}
+
+// ClearMaxActiveRuns clears the value of the "max_active_runs" field.
+func (_u *TicketStatusUpdate) ClearMaxActiveRuns() *TicketStatusUpdate {
+	_u.mutation.ClearMaxActiveRuns()
+	return _u
+}
+
 // SetIsDefault sets the "is_default" field.
 func (_u *TicketStatusUpdate) SetIsDefault(v bool) *TicketStatusUpdate {
 	_u.mutation.SetIsDefault(v)
@@ -172,11 +178,6 @@ func (_u *TicketStatusUpdate) ClearDescription() *TicketStatusUpdate {
 // SetProject sets the "project" edge to the Project entity.
 func (_u *TicketStatusUpdate) SetProject(v *Project) *TicketStatusUpdate {
 	return _u.SetProjectID(v.ID)
-}
-
-// SetStage sets the "stage" edge to the TicketStage entity.
-func (_u *TicketStatusUpdate) SetStage(v *TicketStage) *TicketStatusUpdate {
-	return _u.SetStageID(v.ID)
 }
 
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by IDs.
@@ -232,12 +233,6 @@ func (_u *TicketStatusUpdate) Mutation() *TicketStatusMutation {
 // ClearProject clears the "project" edge to the Project entity.
 func (_u *TicketStatusUpdate) ClearProject() *TicketStatusUpdate {
 	_u.mutation.ClearProject()
-	return _u
-}
-
-// ClearStage clears the "stage" edge to the TicketStage entity.
-func (_u *TicketStatusUpdate) ClearStage() *TicketStatusUpdate {
-	_u.mutation.ClearStage()
 	return _u
 }
 
@@ -379,6 +374,15 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if value, ok := _u.mutation.AddedPosition(); ok {
 		_spec.AddField(ticketstatus.FieldPosition, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.MaxActiveRuns(); ok {
+		_spec.SetField(ticketstatus.FieldMaxActiveRuns, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxActiveRuns(); ok {
+		_spec.AddField(ticketstatus.FieldMaxActiveRuns, field.TypeInt, value)
+	}
+	if _u.mutation.MaxActiveRunsCleared() {
+		_spec.ClearField(ticketstatus.FieldMaxActiveRuns, field.TypeInt)
+	}
 	if value, ok := _u.mutation.IsDefault(); ok {
 		_spec.SetField(ticketstatus.FieldIsDefault, field.TypeBool, value)
 	}
@@ -410,35 +414,6 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(project.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.StageCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketstatus.StageTable,
-			Columns: []string{ticketstatus.StageColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.StageIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketstatus.StageTable,
-			Columns: []string{ticketstatus.StageColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -615,26 +590,6 @@ func (_u *TicketStatusUpdateOne) SetNillableProjectID(v *uuid.UUID) *TicketStatu
 	return _u
 }
 
-// SetStageID sets the "stage_id" field.
-func (_u *TicketStatusUpdateOne) SetStageID(v uuid.UUID) *TicketStatusUpdateOne {
-	_u.mutation.SetStageID(v)
-	return _u
-}
-
-// SetNillableStageID sets the "stage_id" field if the given value is not nil.
-func (_u *TicketStatusUpdateOne) SetNillableStageID(v *uuid.UUID) *TicketStatusUpdateOne {
-	if v != nil {
-		_u.SetStageID(*v)
-	}
-	return _u
-}
-
-// ClearStageID clears the value of the "stage_id" field.
-func (_u *TicketStatusUpdateOne) ClearStageID() *TicketStatusUpdateOne {
-	_u.mutation.ClearStageID()
-	return _u
-}
-
 // SetName sets the "name" field.
 func (_u *TicketStatusUpdateOne) SetName(v string) *TicketStatusUpdateOne {
 	_u.mutation.SetName(v)
@@ -704,6 +659,33 @@ func (_u *TicketStatusUpdateOne) AddPosition(v int) *TicketStatusUpdateOne {
 	return _u
 }
 
+// SetMaxActiveRuns sets the "max_active_runs" field.
+func (_u *TicketStatusUpdateOne) SetMaxActiveRuns(v int) *TicketStatusUpdateOne {
+	_u.mutation.ResetMaxActiveRuns()
+	_u.mutation.SetMaxActiveRuns(v)
+	return _u
+}
+
+// SetNillableMaxActiveRuns sets the "max_active_runs" field if the given value is not nil.
+func (_u *TicketStatusUpdateOne) SetNillableMaxActiveRuns(v *int) *TicketStatusUpdateOne {
+	if v != nil {
+		_u.SetMaxActiveRuns(*v)
+	}
+	return _u
+}
+
+// AddMaxActiveRuns adds value to the "max_active_runs" field.
+func (_u *TicketStatusUpdateOne) AddMaxActiveRuns(v int) *TicketStatusUpdateOne {
+	_u.mutation.AddMaxActiveRuns(v)
+	return _u
+}
+
+// ClearMaxActiveRuns clears the value of the "max_active_runs" field.
+func (_u *TicketStatusUpdateOne) ClearMaxActiveRuns() *TicketStatusUpdateOne {
+	_u.mutation.ClearMaxActiveRuns()
+	return _u
+}
+
 // SetIsDefault sets the "is_default" field.
 func (_u *TicketStatusUpdateOne) SetIsDefault(v bool) *TicketStatusUpdateOne {
 	_u.mutation.SetIsDefault(v)
@@ -741,11 +723,6 @@ func (_u *TicketStatusUpdateOne) ClearDescription() *TicketStatusUpdateOne {
 // SetProject sets the "project" edge to the Project entity.
 func (_u *TicketStatusUpdateOne) SetProject(v *Project) *TicketStatusUpdateOne {
 	return _u.SetProjectID(v.ID)
-}
-
-// SetStage sets the "stage" edge to the TicketStage entity.
-func (_u *TicketStatusUpdateOne) SetStage(v *TicketStage) *TicketStatusUpdateOne {
-	return _u.SetStageID(v.ID)
 }
 
 // AddTicketIDs adds the "tickets" edge to the Ticket entity by IDs.
@@ -801,12 +778,6 @@ func (_u *TicketStatusUpdateOne) Mutation() *TicketStatusMutation {
 // ClearProject clears the "project" edge to the Project entity.
 func (_u *TicketStatusUpdateOne) ClearProject() *TicketStatusUpdateOne {
 	_u.mutation.ClearProject()
-	return _u
-}
-
-// ClearStage clears the "stage" edge to the TicketStage entity.
-func (_u *TicketStatusUpdateOne) ClearStage() *TicketStatusUpdateOne {
-	_u.mutation.ClearStage()
 	return _u
 }
 
@@ -978,6 +949,15 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 	if value, ok := _u.mutation.AddedPosition(); ok {
 		_spec.AddField(ticketstatus.FieldPosition, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.MaxActiveRuns(); ok {
+		_spec.SetField(ticketstatus.FieldMaxActiveRuns, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxActiveRuns(); ok {
+		_spec.AddField(ticketstatus.FieldMaxActiveRuns, field.TypeInt, value)
+	}
+	if _u.mutation.MaxActiveRunsCleared() {
+		_spec.ClearField(ticketstatus.FieldMaxActiveRuns, field.TypeInt)
+	}
 	if value, ok := _u.mutation.IsDefault(); ok {
 		_spec.SetField(ticketstatus.FieldIsDefault, field.TypeBool, value)
 	}
@@ -1009,35 +989,6 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(project.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.StageCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketstatus.StageTable,
-			Columns: []string{ticketstatus.StageColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.StageIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketstatus.StageTable,
-			Columns: []string{ticketstatus.StageColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticketstage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

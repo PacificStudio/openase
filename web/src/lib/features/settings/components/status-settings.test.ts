@@ -4,25 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { appStore } from '$lib/stores/app.svelte'
 import StatusSettings from './status-settings.svelte'
 
-const {
-  createStage,
-  createStatus,
-  deleteStage,
-  deleteStatus,
-  listStages,
-  listStatuses,
-  resetStatuses,
-  updateStage,
-  updateStatus,
-} = vi.hoisted(() => ({
-  createStage: vi.fn(),
+const { createStatus, deleteStatus, listStatuses, resetStatuses, updateStatus } = vi.hoisted(() => ({
   createStatus: vi.fn(),
-  deleteStage: vi.fn(),
   deleteStatus: vi.fn(),
-  listStages: vi.fn(),
   listStatuses: vi.fn(),
   resetStatuses: vi.fn(),
-  updateStage: vi.fn(),
   updateStatus: vi.fn(),
 }))
 
@@ -38,14 +24,10 @@ const { toastStore } = vi.hoisted(() => ({
 }))
 
 vi.mock('$lib/api/openase', () => ({
-  createStage,
   createStatus,
-  deleteStage,
   deleteStatus,
-  listStages,
   listStatuses,
   resetStatuses,
-  updateStage,
   updateStatus,
 }))
 
@@ -59,51 +41,28 @@ vi.mock('$lib/stores/toast.svelte', () => ({
 
 function buildPayload() {
   return {
-    stages: [
-      {
-        id: 'stage-1',
-        project_id: 'project-1',
-        key: 'backlog',
-        name: 'Backlog',
-        position: 0,
-        active_runs: 0,
-        max_active_runs: null,
-        description: '',
-      },
-      {
-        id: 'stage-2',
-        project_id: 'project-1',
-        key: 'in-progress',
-        name: 'In Progress',
-        position: 1,
-        active_runs: 1,
-        max_active_runs: 1,
-        description: '',
-      },
-    ],
-    stage_groups: [],
     statuses: [
       {
         id: 'status-1',
         project_id: 'project-1',
-        stage_id: 'stage-1',
-        stage: null,
         name: 'Todo',
         color: '#94a3b8',
         icon: '',
         position: 0,
+        active_runs: 0,
+        max_active_runs: null,
         is_default: true,
         description: '',
       },
       {
         id: 'status-2',
         project_id: 'project-1',
-        stage_id: 'stage-2',
-        stage: null,
         name: 'Doing',
         color: '#fbbf24',
         icon: '',
         position: 1,
+        active_runs: 1,
+        max_active_runs: 1,
         is_default: false,
         description: '',
       },
@@ -130,7 +89,6 @@ describe('Status settings', () => {
   beforeEach(() => {
     seedProject()
     listStatuses.mockResolvedValue(buildPayload())
-    listStages.mockResolvedValue({ stages: buildPayload().stages })
   })
 
   afterEach(() => {
@@ -139,105 +97,108 @@ describe('Status settings', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the status editor with stage management instead of the old runtime-only card', async () => {
-    const { findByText, queryByText } = render(StatusSettings)
+  it('renders the status editor without stage management', async () => {
+    const { findByDisplayValue, findByText, queryByText } = render(StatusSettings)
 
-    expect(await findByText('Stages')).toBeTruthy()
-    expect(await findByText('Backlog')).toBeTruthy()
-    expect(await findByText('0 active now, unlimited capacity')).toBeTruthy()
-    expect(queryByText('Stage Concurrency')).toBeNull()
+    expect(await findByText('Statuses')).toBeTruthy()
+    expect(await findByDisplayValue('Todo')).toBeTruthy()
+    expect(await findByText('1 / 1 active')).toBeTruthy()
+    expect(queryByText('Stages')).toBeNull()
   })
 
-  it('creates a stage from the management panel', async () => {
-    createStage.mockResolvedValue({
-      stage: {
-        id: 'stage-3',
+  it('creates a status from the management panel', async () => {
+    createStatus.mockResolvedValue({
+      status: {
+        id: 'status-3',
         project_id: 'project-1',
-        key: 'review',
         name: 'Review',
+        color: '#6366f1',
+        icon: '',
         position: 2,
         active_runs: 0,
-        max_active_runs: null,
+        max_active_runs: 2,
+        is_default: false,
         description: '',
       },
     })
 
-    const { findByPlaceholderText, getByRole } = render(StatusSettings)
+    const { findAllByPlaceholderText, findByPlaceholderText, getByRole } = render(StatusSettings)
 
-    await fireEvent.input(await findByPlaceholderText('New stage name'), {
+    await fireEvent.input(await findByPlaceholderText('New status name'), {
       target: { value: 'Review' },
     })
-    await fireEvent.click(getByRole('button', { name: 'Add stage' }))
+    const [createCapacityInput] = await findAllByPlaceholderText('Unlimited')
+    await fireEvent.input(createCapacityInput, {
+      target: { value: '2' },
+    })
+    await fireEvent.click(getByRole('button', { name: 'Add' }))
 
     await waitFor(() =>
-      expect(createStage).toHaveBeenCalledWith('project-1', {
-        key: 'review',
+      expect(createStatus).toHaveBeenCalledWith('project-1', {
         name: 'Review',
-        max_active_runs: null,
+        color: '#94a3b8',
+        is_default: false,
+        max_active_runs: 2,
       }),
     )
-    expect(toastStore.success).toHaveBeenCalledWith('Created stage "Review".')
+    expect(toastStore.success).toHaveBeenCalledWith('Created status "Review".')
   })
 
-  it('keeps the stage draft when creation fails', async () => {
-    createStage.mockRejectedValue(new Error('conflict'))
+  it('keeps the status draft when creation fails', async () => {
+    createStatus.mockRejectedValue(new Error('conflict'))
 
     const { findByPlaceholderText, getByRole } = render(StatusSettings)
 
-    const nameInput = await findByPlaceholderText('New stage name')
+    const nameInput = await findByPlaceholderText('New status name')
     await fireEvent.input(nameInput, {
       target: { value: 'Review' },
     })
-    await fireEvent.click(getByRole('button', { name: 'Add stage' }))
+    await fireEvent.click(getByRole('button', { name: 'Add' }))
 
-    await waitFor(() => expect(createStage).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(createStatus).toHaveBeenCalledTimes(1))
     expect((nameInput as HTMLInputElement).value).toBe('Review')
-    expect(toastStore.error).toHaveBeenCalledWith('Failed to create stage.')
+    expect(toastStore.error).toHaveBeenCalledWith('Failed to create status.')
   })
 
-  it('updates stage concurrency from the management row', async () => {
-    updateStage.mockResolvedValue({
-      stage: {
-        id: 'stage-2',
-        project_id: 'project-1',
-        key: 'in-progress',
-        name: 'In Progress',
-        position: 1,
-        active_runs: 1,
+  it('updates status concurrency from the management row', async () => {
+    updateStatus.mockResolvedValue({
+      status: {
+        ...buildPayload().statuses[1],
         max_active_runs: 2,
-        description: '',
       },
     })
 
     const { findByDisplayValue } = render(StatusSettings)
 
     const capacityInput = await findByDisplayValue('1')
-    const stageRow = capacityInput.closest('.border-border.rounded-md.border.px-3.py-3')
-    expect(stageRow).toBeTruthy()
+    const statusRow = capacityInput.closest('.border-border.rounded-md.border.px-3.py-3')
+    expect(statusRow).toBeTruthy()
     await fireEvent.input(capacityInput, { target: { value: '2' } })
-    await fireEvent.click(within(stageRow as HTMLElement).getByRole('button', { name: 'Save' }))
+    await fireEvent.click(within(statusRow as HTMLElement).getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => expect(updateStage).toHaveBeenCalledWith('stage-2', { max_active_runs: 2 }))
-    expect(toastStore.success).toHaveBeenCalledWith('Updated stage "In Progress".')
+    await waitFor(() => expect(updateStatus).toHaveBeenCalledWith('status-2', { max_active_runs: 2 }))
+    expect(toastStore.success).toHaveBeenCalledWith('Updated status "Doing".')
   })
 
-  it('deletes a stage and confirms detachment semantics', async () => {
+  it('deletes a status after confirmation', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    deleteStage.mockResolvedValue({
-      deleted_stage_id: 'stage-2',
-      detached_statuses: 1,
+    deleteStatus.mockResolvedValue({
+      deleted_status_id: 'status-2',
+      replacement_status_id: 'status-1',
+      moved_ticket_count: 1,
     })
 
-    const { findByDisplayValue } = render(StatusSettings)
+    const { findByDisplayValue, findByRole } = render(StatusSettings)
 
     const capacityInput = await findByDisplayValue('1')
-    const stageRow = capacityInput.closest('.border-border.rounded-md.border.px-3.py-3')
-    expect(stageRow).toBeTruthy()
-    await fireEvent.click(within(stageRow as HTMLElement).getByRole('button', { name: 'Delete' }))
+    const statusRow = capacityInput.closest('.border-border.rounded-md.border.px-3.py-3')
+    expect(statusRow).toBeTruthy()
+    await fireEvent.click(within(statusRow as HTMLElement).getByRole('button', { name: 'More actions' }))
+    await fireEvent.click(await findByRole('menuitem', { name: 'Delete' }))
 
-    await waitFor(() => expect(deleteStage).toHaveBeenCalledWith('stage-2'))
+    await waitFor(() => expect(deleteStatus).toHaveBeenCalledWith('status-2'))
     expect(confirmSpy).toHaveBeenCalledWith(
-      'Delete "In Progress"? Statuses in this stage will become ungrouped until you reassign them.',
+      'Delete "Doing"? Tickets assigned to it will be moved to a replacement status.',
     )
 
     confirmSpy.mockRestore()
@@ -246,9 +207,8 @@ describe('Status settings', () => {
   it('loads statuses once when the project settings page mounts', async () => {
     const { findByText } = render(StatusSettings)
 
-    expect(await findByText('Stages')).toBeTruthy()
+    expect(await findByText('Statuses')).toBeTruthy()
     expect(listStatuses).toHaveBeenCalledTimes(1)
-    expect(listStages).toHaveBeenCalledTimes(1)
     expect(connectEventStream).toHaveBeenCalledTimes(1)
   })
 })
