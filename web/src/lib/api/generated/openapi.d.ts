@@ -1767,11 +1767,15 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Channel-specific configuration object submitted for this notification channel. */
           config?: {
             [key: string]: unknown
           } | null
+          /** @description Whether the channel is enabled for delivery. */
           is_enabled?: boolean | null
+          /** @description Human-readable notification channel name. */
           name?: string | null
+          /** @description Notification channel type, such as slack or webhook. */
           type?: string | null
         }
       }
@@ -1920,14 +1924,22 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Optional project, ticket, or workflow context attached to the chat turn. */
           context?: {
+            /** @description Project ID supplied to ground the chat request. */
             project_id?: string
+            /** @description Optional ticket ID supplied to ground the chat request. */
             ticket_id?: string | null
+            /** @description Optional workflow ID supplied to ground the chat request. */
             workflow_id?: string | null
           }
+          /** @description User message content for the chat turn. */
           message?: string
+          /** @description Optional provider ID used to run this chat session. */
           provider_id?: string | null
+          /** @description Optional existing chat session ID to resume. */
           session_id?: string | null
+          /** @description Source identifier for the chat request, such as web or cli. */
           source?: string
         }
       }
@@ -2080,6 +2092,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Harness content to write or validate. */
           content?: string
         }
       }
@@ -2356,17 +2369,29 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Human-readable machine description. */
           description?: string | null
+          /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[] | null
+          /** @description Hostname or address used to reach the machine. */
           host?: string | null
+          /** @description Labels attached to the machine for operator reference. */
           labels?: string[] | null
+          /** @description Filesystem root directory where repository mirrors are stored on the machine. */
           mirror_root?: string | null
+          /** @description Human-readable machine name. */
           name?: string | null
+          /** @description SSH port used to connect to the machine. */
           port?: number | null
+          /** @description Path to the SSH private key used for machine access. */
           ssh_key_path?: string | null
+          /** @description SSH username used for machine access. */
           ssh_user?: string | null
+          /** @description Machine lifecycle status value. */
           status?: string | null
+          /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
         }
       }
@@ -2866,13 +2891,19 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Notification channel ID used by the rule. */
           channel_id?: string | null
+          /** @description Event type that triggers the notification rule. */
           event_type?: string | null
+          /** @description Optional filter configuration applied before the rule sends notifications. */
           filter?: {
             [key: string]: unknown
           } | null
+          /** @description Whether the notification rule is enabled. */
           is_enabled?: boolean | null
+          /** @description Human-readable notification rule name. */
           name?: string | null
+          /** @description Notification template content rendered when the rule fires. */
           template?: string | null
         }
       }
@@ -3013,8 +3044,11 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Optional default agent provider ID for the organization. */
           default_agent_provider_id?: string | null
+          /** @description Human-readable organization name. */
           name?: string
+          /** @description Stable URL-safe organization slug. */
           slug?: string
         }
       }
@@ -3168,8 +3202,11 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Optional default agent provider ID for the organization. */
           default_agent_provider_id?: string | null
+          /** @description Human-readable organization name. */
           name?: string | null
+          /** @description Stable URL-safe organization slug. */
           slug?: string | null
         }
       }
@@ -3327,11 +3364,15 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Channel-specific configuration object submitted for this notification channel. */
           config?: {
             [key: string]: unknown
           }
+          /** @description Whether the channel is enabled for delivery. */
           is_enabled?: boolean | null
+          /** @description Human-readable notification channel name. */
           name?: string
+          /** @description Notification channel type, such as slack or webhook. */
           type?: string
         }
       }
@@ -3502,17 +3543,29 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Human-readable machine description. */
           description?: string
+          /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[]
+          /** @description Hostname or address used to reach the machine. */
           host?: string
+          /** @description Labels attached to the machine for operator reference. */
           labels?: string[]
+          /** @description Filesystem root directory where repository mirrors are stored on the machine. */
           mirror_root?: string | null
+          /** @description Human-readable machine name. */
           name?: string
+          /** @description SSH port used to connect to the machine. */
           port?: number | null
+          /** @description Path to the SSH private key used for machine access. */
           ssh_key_path?: string | null
+          /** @description SSH username used for machine access. */
           ssh_user?: string | null
+          /** @description Machine lifecycle status value. */
           status?: string
+          /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
         }
       }
@@ -3672,13 +3725,21 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Machine IDs that the project is allowed to use. */
           accessible_machine_ids?: string[]
+          /** @description Optional default agent provider ID for the project. */
           default_agent_provider_id?: string | null
+          /** @description Optional default workflow ID for newly created tickets in the project. */
           default_workflow_id?: string | null
+          /** @description Human-readable project description. */
           description?: string
+          /** @description Maximum number of agents that may run concurrently in the project. */
           max_concurrent_agents?: number | null
+          /** @description Human-readable project name. */
           name?: string
+          /** @description Stable URL-safe project slug. */
           slug?: string
+          /** @description Current project lifecycle status name. */
           status?: string
         }
       }
@@ -3847,21 +3908,38 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Adapter type used to launch and communicate with the provider. */
           adapter_type?: string
+          /** @description Provider-specific authentication configuration object. */
           auth_config?: {
             [key: string]: unknown
           }
+          /** @description Additional CLI arguments passed to the provider command. */
           cli_args?: string[]
+          /** @description CLI command used to launch the provider. */
           cli_command?: string
-          /** Format: double */
+          /**
+           * Format: double
+           * @description Estimated USD cost per input token.
+           */
           cost_per_input_token?: number | null
-          /** Format: double */
+          /**
+           * Format: double
+           * @description Estimated USD cost per output token.
+           */
           cost_per_output_token?: number | null
+          /** @description Machine ID where this provider runs. */
           machine_id?: string
+          /** @description Maximum number of output tokens allowed for the provider model. */
           model_max_tokens?: number | null
+          /** @description Model name configured for the provider. */
           model_name?: string
-          /** Format: double */
+          /**
+           * Format: double
+           * @description Sampling temperature configured for the provider model.
+           */
           model_temperature?: number | null
+          /** @description Human-readable provider name. */
           name?: string
         }
       }
@@ -4114,13 +4192,21 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Machine IDs that the project is allowed to use. */
           accessible_machine_ids?: string[] | null
+          /** @description Optional default agent provider ID for the project. */
           default_agent_provider_id?: string | null
+          /** @description Optional default workflow ID for newly created tickets in the project. */
           default_workflow_id?: string | null
+          /** @description Human-readable project description. */
           description?: string | null
+          /** @description Maximum number of agents that may run concurrently in the project. */
           max_concurrent_agents?: number | null
+          /** @description Human-readable project name. */
           name?: string | null
+          /** @description Stable URL-safe project slug. */
           slug?: string | null
+          /** @description Current project lifecycle status name. */
           status?: string | null
         }
       }
@@ -4495,7 +4581,9 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Human-readable agent name. */
           name?: string
+          /** @description Agent provider ID used to run the agent. */
           provider_id?: string
         }
       }
@@ -5069,7 +5157,9 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Whether activation should create a bootstrap ticket immediately. */
           create_bootstrap_ticket?: boolean | null
+          /** @description HR advisor role slug to activate for the project. */
           role_slug?: string
         }
       }
@@ -5351,13 +5441,19 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Notification channel ID used by the rule. */
           channel_id?: string
+          /** @description Event type that triggers the notification rule. */
           event_type?: string
+          /** @description Optional filter configuration applied before the rule sends notifications. */
           filter?: {
             [key: string]: unknown
           }
+          /** @description Whether the notification rule is enabled. */
           is_enabled?: boolean | null
+          /** @description Human-readable notification rule name. */
           name?: string
+          /** @description Notification template content rendered when the rule fires. */
           template?: string
         }
       }
@@ -5537,11 +5633,17 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Default branch name used for mirrors and workspaces. */
           default_branch?: string
+          /** @description Whether this repository is the primary project repository. */
           is_primary?: boolean | null
+          /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[]
+          /** @description Human-readable repository name within the project. */
           name?: string
+          /** @description Remote Git repository URL. */
           repository_url?: string
+          /** @description Directory name used for this repository inside a ticket workspace. */
           workspace_dirname?: string | null
         }
       }
@@ -5729,11 +5831,17 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Default branch name used for mirrors and workspaces. */
           default_branch?: string | null
+          /** @description Whether this repository is the primary project repository. */
           is_primary?: boolean | null
+          /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[] | null
+          /** @description Human-readable repository name within the project. */
           name?: string | null
+          /** @description Remote Git repository URL. */
           repository_url?: string | null
+          /** @description Directory name used for this repository inside a ticket workspace. */
           workspace_dirname?: string | null
         }
       }
@@ -5934,8 +6042,11 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Absolute filesystem path where the mirror exists or should be created. */
           local_path?: string | null
+          /** @description Machine ID where the repository mirror should be prepared or registered. */
           machine_id?: string
+          /** @description Mirror materialization mode, such as preparing a new mirror or registering an existing checkout. */
           mode?: string
         }
       }
@@ -6043,6 +6154,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Machine ID whose mirror should be verified or synchronized. */
           machine_id?: string
         }
       }
@@ -6150,6 +6262,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Machine ID whose mirror should be verified or synchronized. */
           machine_id?: string
         }
       }
@@ -6335,12 +6448,17 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Cron expression that controls when the job triggers. */
           cron_expression?: string
+          /** @description Whether the scheduled job is enabled. */
           is_enabled?: boolean | null
+          /** @description Human-readable scheduled job name. */
           name?: string
+          /** @description Ticket template used to create a ticket for each scheduled run. */
           ticket_template?: {
             [key: string]: unknown
           }
+          /** @description Workflow ID executed when the scheduled job triggers. */
           workflow_id?: string
         }
       }
@@ -6654,10 +6772,15 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Human-readable stage description. */
           description?: string
+          /** @description Stable machine-readable key for the ticket stage. */
           key?: string
+          /** @description Maximum number of active runs allowed in this stage. */
           max_active_runs?: number | null
+          /** @description Human-readable stage name. */
           name?: string
+          /** @description Zero-based display order of the stage. */
           position?: number | null
         }
       }
@@ -6871,12 +6994,19 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Display color for the status. */
           color?: string
+          /** @description Human-readable status description. */
           description?: string
+          /** @description Display icon identifier for the status. */
           icon?: string
+          /** @description Whether this status should become the default status. */
           is_default?: boolean
+          /** @description Human-readable status name. */
           name?: string
+          /** @description Zero-based display order of the status. */
           position?: number | null
+          /** @description Optional stage ID that owns the status. */
           stage_id?: string | null
         }
       }
@@ -7233,16 +7363,28 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** Format: double */
+          /**
+           * Format: double
+           * @description Optional budget limit for the ticket in USD.
+           */
           budget_usd?: number | null
+          /** @description Actor identifier recorded as the creator of the ticket. */
           created_by?: string | null
+          /** @description Ticket description or problem statement. */
           description?: string
+          /** @description Optional external reference string associated with the ticket. */
           external_ref?: string | null
+          /** @description Optional parent ticket ID for hierarchical ticket relationships. */
           parent_ticket_id?: string | null
+          /** @description Ticket priority value. */
           priority?: string | null
+          /** @description Optional ticket status ID to assign explicitly. */
           status_id?: string | null
+          /** @description Human-readable ticket title. */
           title?: string
+          /** @description Ticket type value. */
           type?: string | null
+          /** @description Optional workflow ID that should handle the ticket. */
           workflow_id?: string | null
         }
       }
@@ -7729,11 +7871,17 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Branch name associated with the scoped repository checkout. */
           branch_name?: string | null
+          /** @description Continuous integration status associated with the repository scope. */
           ci_status?: string
+          /** @description Whether this scope is the primary repository scope for the ticket. */
           is_primary_scope?: boolean | null
+          /** @description Pull request status associated with the repository scope. */
           pr_status?: string
+          /** @description Pull request URL associated with the repository scope. */
           pull_request_url?: string | null
+          /** @description Repository ID attached to the ticket scope. */
           repo_id?: string
         }
       }
@@ -7913,10 +8061,15 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Branch name associated with the scoped repository checkout. */
           branch_name?: string | null
+          /** @description Continuous integration status associated with the repository scope. */
           ci_status?: string | null
+          /** @description Whether this scope is the primary repository scope for the ticket. */
           is_primary_scope?: boolean | null
+          /** @description Pull request status associated with the repository scope. */
           pr_status?: string | null
+          /** @description Pull request URL associated with the repository scope. */
           pull_request_url?: string | null
         }
       }
@@ -8086,20 +8239,33 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Agent ID assigned to execute this workflow. */
           agent_id?: string
+          /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[]
+          /** @description Initial harness content written when creating the workflow. */
           harness_content?: string
+          /** @description Repository path where the workflow harness file is stored. */
           harness_path?: string | null
+          /** @description Workflow hook configuration keyed by lifecycle phase. */
           hooks?: {
             [key: string]: unknown
           }
+          /** @description Whether the workflow is active and eligible to pick up work. */
           is_active?: boolean | null
+          /** @description Maximum number of concurrent runs allowed for the workflow. */
           max_concurrent?: number | null
+          /** @description Maximum retry attempts before the workflow run fails permanently. */
           max_retry_attempts?: number | null
+          /** @description Human-readable workflow name. */
           name?: string
+          /** @description Ticket status IDs that allow the workflow to pick up tickets. */
           pickup_status_ids?: string[]
+          /** @description Timeout for detecting stalled workflow runs, in minutes. */
           stall_timeout_minutes?: number | null
+          /** @description Hard execution timeout for workflow runs, in minutes. */
           timeout_minutes?: number | null
+          /** @description Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom. */
           type?: string
         }
       }
@@ -8313,21 +8479,38 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Adapter type used to launch and communicate with the provider. */
           adapter_type?: string | null
+          /** @description Provider-specific authentication configuration object. */
           auth_config?: {
             [key: string]: unknown
           } | null
+          /** @description Additional CLI arguments passed to the provider command. */
           cli_args?: string[] | null
+          /** @description CLI command used to launch the provider. */
           cli_command?: string | null
-          /** Format: double */
+          /**
+           * Format: double
+           * @description Estimated USD cost per input token.
+           */
           cost_per_input_token?: number | null
-          /** Format: double */
+          /**
+           * Format: double
+           * @description Estimated USD cost per output token.
+           */
           cost_per_output_token?: number | null
+          /** @description Machine ID where this provider runs. */
           machine_id?: string | null
+          /** @description Maximum number of output tokens allowed for the provider model. */
           model_max_tokens?: number | null
+          /** @description Model name configured for the provider. */
           model_name?: string | null
-          /** Format: double */
+          /**
+           * Format: double
+           * @description Sampling temperature configured for the provider model.
+           */
           model_temperature?: number | null
+          /** @description Human-readable provider name. */
           name?: string | null
         }
       }
@@ -8538,12 +8721,17 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Cron expression that controls when the job triggers. */
           cron_expression?: string | null
+          /** @description Whether the scheduled job is enabled. */
           is_enabled?: boolean | null
+          /** @description Human-readable scheduled job name. */
           name?: string | null
+          /** @description Ticket template used to create a ticket for each scheduled run. */
           ticket_template?: {
             [key: string]: unknown
           } | null
+          /** @description Workflow ID executed when the scheduled job triggers. */
           workflow_id?: string | null
         }
       }
@@ -8864,9 +9052,13 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Human-readable stage description. */
           description?: string | null
+          /** @description Maximum number of active runs allowed in this stage. */
           max_active_runs?: number | null
+          /** @description Human-readable stage name. */
           name?: string | null
+          /** @description Zero-based display order of the stage. */
           position?: number | null
         }
       }
@@ -9030,12 +9222,19 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Display color for the status. */
           color?: string | null
+          /** @description Human-readable status description. */
           description?: string | null
+          /** @description Display icon identifier for the status. */
           icon?: string | null
+          /** @description Whether this status should become the default status. */
           is_default?: boolean | null
+          /** @description Human-readable status name. */
           name?: string | null
+          /** @description Zero-based display order of the status. */
           position?: number | null
+          /** @description Optional stage ID that owns the status. */
           stage_id?: string | null
         }
       }
@@ -9310,16 +9509,28 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** Format: double */
+          /**
+           * Format: double
+           * @description Optional budget limit for the ticket in USD.
+           */
           budget_usd?: number | null
+          /** @description Actor identifier recorded as the creator of the ticket. */
           created_by?: string | null
+          /** @description Ticket description or problem statement. */
           description?: string | null
+          /** @description Optional external reference string associated with the ticket. */
           external_ref?: string | null
+          /** @description Optional parent ticket ID for hierarchical ticket relationships. */
           parent_ticket_id?: string | null
+          /** @description Ticket priority value. */
           priority?: string | null
+          /** @description Optional ticket status ID to assign explicitly. */
           status_id?: string | null
+          /** @description Human-readable ticket title. */
           title?: string | null
+          /** @description Ticket type value. */
           type?: string | null
+          /** @description Optional workflow ID that should handle the ticket. */
           workflow_id?: string | null
         }
       }
@@ -9541,7 +9752,9 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Markdown body content for the ticket comment. */
           body?: string
+          /** @description Actor identifier recorded as the creator of the comment. */
           created_by?: string | null
         }
       }
@@ -9689,8 +9902,11 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Updated markdown body content for the ticket comment. */
           body?: string
+          /** @description Reason recorded for editing the comment. */
           edit_reason?: string | null
+          /** @description Actor identifier recorded as the editor of the comment. */
           edited_by?: string | null
         }
       }
@@ -9844,7 +10060,9 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Target ticket ID referenced by the dependency. */
           target_ticket_id?: string
+          /** @description Dependency relationship type. */
           type?: string
         }
       }
@@ -10010,11 +10228,17 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description External system identifier for the linked resource. */
           external_id?: string
+          /** @description Relationship between the ticket and the external resource. */
           relation?: string | null
+          /** @description Optional external status value. */
           status?: string | null
+          /** @description Optional title for the external resource. */
           title?: string | null
+          /** @description External link type. */
           type?: string
+          /** @description URL of the external resource. */
           url?: string
         }
       }
@@ -10339,19 +10563,31 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Agent ID assigned to execute this workflow. */
           agent_id?: string | null
+          /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[] | null
+          /** @description Repository path where the workflow harness file is stored. */
           harness_path?: string | null
+          /** @description Workflow hook configuration keyed by lifecycle phase. */
           hooks?: {
             [key: string]: unknown
           } | null
+          /** @description Whether the workflow is active and eligible to pick up work. */
           is_active?: boolean | null
+          /** @description Maximum number of concurrent runs allowed for the workflow. */
           max_concurrent?: number | null
+          /** @description Maximum retry attempts before the workflow run fails permanently. */
           max_retry_attempts?: number | null
+          /** @description Human-readable workflow name. */
           name?: string | null
+          /** @description Ticket status IDs that allow the workflow to pick up tickets. */
           pickup_status_ids?: string[] | null
+          /** @description Timeout for detecting stalled workflow runs, in minutes. */
           stall_timeout_minutes?: number | null
+          /** @description Hard execution timeout for workflow runs, in minutes. */
           timeout_minutes?: number | null
+          /** @description Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom. */
           type?: string | null
         }
       }
@@ -10517,6 +10753,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Harness content to write or validate. */
           content?: string
         }
       }
@@ -10602,6 +10839,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Skill names included in this workflow skill binding request. */
           skills?: string[]
         }
       }
@@ -10687,6 +10925,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Skill names included in this workflow skill binding request. */
           skills?: string[]
         }
       }

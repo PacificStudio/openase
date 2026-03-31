@@ -849,18 +849,22 @@
                 "properties": {
                   "config": {
                     "additionalProperties": {},
+                    "description": "Channel-specific configuration object submitted for this notification channel.",
                     "nullable": true,
                     "type": "object"
                   },
                   "is_enabled": {
+                    "description": "Whether the channel is enabled for delivery.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "name": {
+                    "description": "Human-readable notification channel name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "type": {
+                    "description": "Notification channel type, such as slack or webhook.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -1092,15 +1096,19 @@
               "schema": {
                 "properties": {
                   "context": {
+                    "description": "Optional project, ticket, or workflow context attached to the chat turn.",
                     "properties": {
                       "project_id": {
+                        "description": "Project ID supplied to ground the chat request.",
                         "type": "string"
                       },
                       "ticket_id": {
+                        "description": "Optional ticket ID supplied to ground the chat request.",
                         "nullable": true,
                         "type": "string"
                       },
                       "workflow_id": {
+                        "description": "Optional workflow ID supplied to ground the chat request.",
                         "nullable": true,
                         "type": "string"
                       }
@@ -1108,17 +1116,21 @@
                     "type": "object"
                   },
                   "message": {
+                    "description": "User message content for the chat turn.",
                     "type": "string"
                   },
                   "provider_id": {
+                    "description": "Optional provider ID used to run this chat session.",
                     "nullable": true,
                     "type": "string"
                   },
                   "session_id": {
+                    "description": "Optional existing chat session ID to resume.",
                     "nullable": true,
                     "type": "string"
                   },
                   "source": {
+                    "description": "Source identifier for the chat request, such as web or cli.",
                     "type": "string"
                   }
                 },
@@ -1328,6 +1340,7 @@
               "schema": {
                 "properties": {
                   "content": {
+                    "description": "Harness content to write or validate.",
                     "type": "string"
                   }
                 },
@@ -1834,14 +1847,17 @@
               "schema": {
                 "properties": {
                   "agent_cli_path": {
+                    "description": "Absolute path to the agent CLI executable on the machine.",
                     "nullable": true,
                     "type": "string"
                   },
                   "description": {
+                    "description": "Human-readable machine description.",
                     "nullable": true,
                     "type": "string"
                   },
                   "env_vars": {
+                    "description": "Environment variable entries exported when work runs on the machine.",
                     "items": {
                       "type": "string"
                     },
@@ -1849,10 +1865,12 @@
                     "type": "array"
                   },
                   "host": {
+                    "description": "Hostname or address used to reach the machine.",
                     "nullable": true,
                     "type": "string"
                   },
                   "labels": {
+                    "description": "Labels attached to the machine for operator reference.",
                     "items": {
                       "type": "string"
                     },
@@ -1860,30 +1878,37 @@
                     "type": "array"
                   },
                   "mirror_root": {
+                    "description": "Filesystem root directory where repository mirrors are stored on the machine.",
                     "nullable": true,
                     "type": "string"
                   },
                   "name": {
+                    "description": "Human-readable machine name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "port": {
+                    "description": "SSH port used to connect to the machine.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "ssh_key_path": {
+                    "description": "Path to the SSH private key used for machine access.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ssh_user": {
+                    "description": "SSH username used for machine access.",
                     "nullable": true,
                     "type": "string"
                   },
                   "status": {
+                    "description": "Machine lifecycle status value.",
                     "nullable": true,
                     "type": "string"
                   },
                   "workspace_root": {
+                    "description": "Filesystem root directory where ticket workspaces are created on the machine.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -2790,27 +2815,33 @@
               "schema": {
                 "properties": {
                   "channel_id": {
+                    "description": "Notification channel ID used by the rule.",
                     "nullable": true,
                     "type": "string"
                   },
                   "event_type": {
+                    "description": "Event type that triggers the notification rule.",
                     "nullable": true,
                     "type": "string"
                   },
                   "filter": {
                     "additionalProperties": {},
+                    "description": "Optional filter configuration applied before the rule sends notifications.",
                     "nullable": true,
                     "type": "object"
                   },
                   "is_enabled": {
+                    "description": "Whether the notification rule is enabled.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "name": {
+                    "description": "Human-readable notification rule name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "template": {
+                    "description": "Notification template content rendered when the rule fires.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -3046,13 +3077,16 @@
               "schema": {
                 "properties": {
                   "default_agent_provider_id": {
+                    "description": "Optional default agent provider ID for the organization.",
                     "nullable": true,
                     "type": "string"
                   },
                   "name": {
+                    "description": "Human-readable organization name.",
                     "type": "string"
                   },
                   "slug": {
+                    "description": "Stable URL-safe organization slug.",
                     "type": "string"
                   }
                 },
@@ -3305,14 +3339,17 @@
               "schema": {
                 "properties": {
                   "default_agent_provider_id": {
+                    "description": "Optional default agent provider ID for the organization.",
                     "nullable": true,
                     "type": "string"
                   },
                   "name": {
+                    "description": "Human-readable organization name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "slug": {
+                    "description": "Stable URL-safe organization slug.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -3576,16 +3613,20 @@
                 "properties": {
                   "config": {
                     "additionalProperties": {},
+                    "description": "Channel-specific configuration object submitted for this notification channel.",
                     "type": "object"
                   },
                   "is_enabled": {
+                    "description": "Whether the channel is enabled for delivery.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "name": {
+                    "description": "Human-readable notification channel name.",
                     "type": "string"
                   },
                   "type": {
+                    "description": "Notification channel type, such as slack or webhook.",
                     "type": "string"
                   }
                 },
@@ -3892,50 +3933,62 @@
               "schema": {
                 "properties": {
                   "agent_cli_path": {
+                    "description": "Absolute path to the agent CLI executable on the machine.",
                     "nullable": true,
                     "type": "string"
                   },
                   "description": {
+                    "description": "Human-readable machine description.",
                     "type": "string"
                   },
                   "env_vars": {
+                    "description": "Environment variable entries exported when work runs on the machine.",
                     "items": {
                       "type": "string"
                     },
                     "type": "array"
                   },
                   "host": {
+                    "description": "Hostname or address used to reach the machine.",
                     "type": "string"
                   },
                   "labels": {
+                    "description": "Labels attached to the machine for operator reference.",
                     "items": {
                       "type": "string"
                     },
                     "type": "array"
                   },
                   "mirror_root": {
+                    "description": "Filesystem root directory where repository mirrors are stored on the machine.",
                     "nullable": true,
                     "type": "string"
                   },
                   "name": {
+                    "description": "Human-readable machine name.",
                     "type": "string"
                   },
                   "port": {
+                    "description": "SSH port used to connect to the machine.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "ssh_key_path": {
+                    "description": "Path to the SSH private key used for machine access.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ssh_user": {
+                    "description": "SSH username used for machine access.",
                     "nullable": true,
                     "type": "string"
                   },
                   "status": {
+                    "description": "Machine lifecycle status value.",
                     "type": "string"
                   },
                   "workspace_root": {
+                    "description": "Filesystem root directory where ticket workspaces are created on the machine.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -4238,33 +4291,41 @@
               "schema": {
                 "properties": {
                   "accessible_machine_ids": {
+                    "description": "Machine IDs that the project is allowed to use.",
                     "items": {
                       "type": "string"
                     },
                     "type": "array"
                   },
                   "default_agent_provider_id": {
+                    "description": "Optional default agent provider ID for the project.",
                     "nullable": true,
                     "type": "string"
                   },
                   "default_workflow_id": {
+                    "description": "Optional default workflow ID for newly created tickets in the project.",
                     "nullable": true,
                     "type": "string"
                   },
                   "description": {
+                    "description": "Human-readable project description.",
                     "type": "string"
                   },
                   "max_concurrent_agents": {
+                    "description": "Maximum number of agents that may run concurrently in the project.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "name": {
+                    "description": "Human-readable project name.",
                     "type": "string"
                   },
                   "slug": {
+                    "description": "Stable URL-safe project slug.",
                     "type": "string"
                   },
                   "status": {
+                    "description": "Current project lifecycle status name.",
                     "type": "string"
                   }
                 },
@@ -4582,47 +4643,58 @@
               "schema": {
                 "properties": {
                   "adapter_type": {
+                    "description": "Adapter type used to launch and communicate with the provider.",
                     "type": "string"
                   },
                   "auth_config": {
                     "additionalProperties": {},
+                    "description": "Provider-specific authentication configuration object.",
                     "type": "object"
                   },
                   "cli_args": {
+                    "description": "Additional CLI arguments passed to the provider command.",
                     "items": {
                       "type": "string"
                     },
                     "type": "array"
                   },
                   "cli_command": {
+                    "description": "CLI command used to launch the provider.",
                     "type": "string"
                   },
                   "cost_per_input_token": {
+                    "description": "Estimated USD cost per input token.",
                     "format": "double",
                     "nullable": true,
                     "type": "number"
                   },
                   "cost_per_output_token": {
+                    "description": "Estimated USD cost per output token.",
                     "format": "double",
                     "nullable": true,
                     "type": "number"
                   },
                   "machine_id": {
+                    "description": "Machine ID where this provider runs.",
                     "type": "string"
                   },
                   "model_max_tokens": {
+                    "description": "Maximum number of output tokens allowed for the provider model.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "model_name": {
+                    "description": "Model name configured for the provider.",
                     "type": "string"
                   },
                   "model_temperature": {
+                    "description": "Sampling temperature configured for the provider model.",
                     "format": "double",
                     "nullable": true,
                     "type": "number"
                   },
                   "name": {
+                    "description": "Human-readable provider name.",
                     "type": "string"
                   }
                 },
@@ -5082,6 +5154,7 @@
               "schema": {
                 "properties": {
                   "accessible_machine_ids": {
+                    "description": "Machine IDs that the project is allowed to use.",
                     "items": {
                       "type": "string"
                     },
@@ -5089,30 +5162,37 @@
                     "type": "array"
                   },
                   "default_agent_provider_id": {
+                    "description": "Optional default agent provider ID for the project.",
                     "nullable": true,
                     "type": "string"
                   },
                   "default_workflow_id": {
+                    "description": "Optional default workflow ID for newly created tickets in the project.",
                     "nullable": true,
                     "type": "string"
                   },
                   "description": {
+                    "description": "Human-readable project description.",
                     "nullable": true,
                     "type": "string"
                   },
                   "max_concurrent_agents": {
+                    "description": "Maximum number of agents that may run concurrently in the project.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "name": {
+                    "description": "Human-readable project name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "slug": {
+                    "description": "Stable URL-safe project slug.",
                     "nullable": true,
                     "type": "string"
                   },
                   "status": {
+                    "description": "Current project lifecycle status name.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -5794,9 +5874,11 @@
               "schema": {
                 "properties": {
                   "name": {
+                    "description": "Human-readable agent name.",
                     "type": "string"
                   },
                   "provider_id": {
+                    "description": "Agent provider ID used to run the agent.",
                     "type": "string"
                   }
                 },
@@ -6843,10 +6925,12 @@
               "schema": {
                 "properties": {
                   "create_bootstrap_ticket": {
+                    "description": "Whether activation should create a bootstrap ticket immediately.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "role_slug": {
+                    "description": "HR advisor role slug to activate for the project.",
                     "type": "string"
                   }
                 },
@@ -7482,23 +7566,29 @@
               "schema": {
                 "properties": {
                   "channel_id": {
+                    "description": "Notification channel ID used by the rule.",
                     "type": "string"
                   },
                   "event_type": {
+                    "description": "Event type that triggers the notification rule.",
                     "type": "string"
                   },
                   "filter": {
                     "additionalProperties": {},
+                    "description": "Optional filter configuration applied before the rule sends notifications.",
                     "type": "object"
                   },
                   "is_enabled": {
+                    "description": "Whether the notification rule is enabled.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "name": {
+                    "description": "Human-readable notification rule name.",
                     "type": "string"
                   },
                   "template": {
+                    "description": "Notification template content rendered when the rule fires.",
                     "type": "string"
                   }
                 },
@@ -7828,25 +7918,31 @@
               "schema": {
                 "properties": {
                   "default_branch": {
+                    "description": "Default branch name used for mirrors and workspaces.",
                     "type": "string"
                   },
                   "is_primary": {
+                    "description": "Whether this repository is the primary project repository.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "labels": {
+                    "description": "Labels attached to the repository for workflow selection and filtering.",
                     "items": {
                       "type": "string"
                     },
                     "type": "array"
                   },
                   "name": {
+                    "description": "Human-readable repository name within the project.",
                     "type": "string"
                   },
                   "repository_url": {
+                    "description": "Remote Git repository URL.",
                     "type": "string"
                   },
                   "workspace_dirname": {
+                    "description": "Directory name used for this repository inside a ticket workspace.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -8208,14 +8304,17 @@
               "schema": {
                 "properties": {
                   "default_branch": {
+                    "description": "Default branch name used for mirrors and workspaces.",
                     "nullable": true,
                     "type": "string"
                   },
                   "is_primary": {
+                    "description": "Whether this repository is the primary project repository.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "labels": {
+                    "description": "Labels attached to the repository for workflow selection and filtering.",
                     "items": {
                       "type": "string"
                     },
@@ -8223,14 +8322,17 @@
                     "type": "array"
                   },
                   "name": {
+                    "description": "Human-readable repository name within the project.",
                     "nullable": true,
                     "type": "string"
                   },
                   "repository_url": {
+                    "description": "Remote Git repository URL.",
                     "nullable": true,
                     "type": "string"
                   },
                   "workspace_dirname": {
+                    "description": "Directory name used for this repository inside a ticket workspace.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -8611,13 +8713,16 @@
               "schema": {
                 "properties": {
                   "local_path": {
+                    "description": "Absolute filesystem path where the mirror exists or should be created.",
                     "nullable": true,
                     "type": "string"
                   },
                   "machine_id": {
+                    "description": "Machine ID where the repository mirror should be prepared or registered.",
                     "type": "string"
                   },
                   "mode": {
+                    "description": "Mirror materialization mode, such as preparing a new mirror or registering an existing checkout.",
                     "type": "string"
                   }
                 },
@@ -8814,6 +8919,7 @@
               "schema": {
                 "properties": {
                   "machine_id": {
+                    "description": "Machine ID whose mirror should be verified or synchronized.",
                     "type": "string"
                   }
                 },
@@ -9010,6 +9116,7 @@
               "schema": {
                 "properties": {
                   "machine_id": {
+                    "description": "Machine ID whose mirror should be verified or synchronized.",
                     "type": "string"
                   }
                 },
@@ -9344,20 +9451,25 @@
               "schema": {
                 "properties": {
                   "cron_expression": {
+                    "description": "Cron expression that controls when the job triggers.",
                     "type": "string"
                   },
                   "is_enabled": {
+                    "description": "Whether the scheduled job is enabled.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "name": {
+                    "description": "Human-readable scheduled job name.",
                     "type": "string"
                   },
                   "ticket_template": {
                     "additionalProperties": {},
+                    "description": "Ticket template used to create a ticket for each scheduled run.",
                     "type": "object"
                   },
                   "workflow_id": {
+                    "description": "Workflow ID executed when the scheduled job triggers.",
                     "type": "string"
                   }
                 },
@@ -9955,19 +10067,24 @@
               "schema": {
                 "properties": {
                   "description": {
+                    "description": "Human-readable stage description.",
                     "type": "string"
                   },
                   "key": {
+                    "description": "Stable machine-readable key for the ticket stage.",
                     "type": "string"
                   },
                   "max_active_runs": {
+                    "description": "Maximum number of active runs allowed in this stage.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "name": {
+                    "description": "Human-readable stage name.",
                     "type": "string"
                   },
                   "position": {
+                    "description": "Zero-based display order of the stage.",
                     "nullable": true,
                     "type": "integer"
                   }
@@ -10415,25 +10532,32 @@
               "schema": {
                 "properties": {
                   "color": {
+                    "description": "Display color for the status.",
                     "type": "string"
                   },
                   "description": {
+                    "description": "Human-readable status description.",
                     "type": "string"
                   },
                   "icon": {
+                    "description": "Display icon identifier for the status.",
                     "type": "string"
                   },
                   "is_default": {
+                    "description": "Whether this status should become the default status.",
                     "type": "boolean"
                   },
                   "name": {
+                    "description": "Human-readable status name.",
                     "type": "string"
                   },
                   "position": {
+                    "description": "Zero-based display order of the status.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "stage_id": {
+                    "description": "Optional stage ID that owns the status.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -11226,41 +11350,51 @@
               "schema": {
                 "properties": {
                   "budget_usd": {
+                    "description": "Optional budget limit for the ticket in USD.",
                     "format": "double",
                     "nullable": true,
                     "type": "number"
                   },
                   "created_by": {
+                    "description": "Actor identifier recorded as the creator of the ticket.",
                     "nullable": true,
                     "type": "string"
                   },
                   "description": {
+                    "description": "Ticket description or problem statement.",
                     "type": "string"
                   },
                   "external_ref": {
+                    "description": "Optional external reference string associated with the ticket.",
                     "nullable": true,
                     "type": "string"
                   },
                   "parent_ticket_id": {
+                    "description": "Optional parent ticket ID for hierarchical ticket relationships.",
                     "nullable": true,
                     "type": "string"
                   },
                   "priority": {
+                    "description": "Ticket priority value.",
                     "nullable": true,
                     "type": "string"
                   },
                   "status_id": {
+                    "description": "Optional ticket status ID to assign explicitly.",
                     "nullable": true,
                     "type": "string"
                   },
                   "title": {
+                    "description": "Human-readable ticket title.",
                     "type": "string"
                   },
                   "type": {
+                    "description": "Ticket type value.",
                     "nullable": true,
                     "type": "string"
                   },
                   "workflow_id": {
+                    "description": "Optional workflow ID that should handle the ticket.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -12388,24 +12522,30 @@
               "schema": {
                 "properties": {
                   "branch_name": {
+                    "description": "Branch name associated with the scoped repository checkout.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ci_status": {
+                    "description": "Continuous integration status associated with the repository scope.",
                     "type": "string"
                   },
                   "is_primary_scope": {
+                    "description": "Whether this scope is the primary repository scope for the ticket.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "pr_status": {
+                    "description": "Pull request status associated with the repository scope.",
                     "type": "string"
                   },
                   "pull_request_url": {
+                    "description": "Pull request URL associated with the repository scope.",
                     "nullable": true,
                     "type": "string"
                   },
                   "repo_id": {
+                    "description": "Repository ID attached to the ticket scope.",
                     "type": "string"
                   }
                 },
@@ -12734,22 +12874,27 @@
               "schema": {
                 "properties": {
                   "branch_name": {
+                    "description": "Branch name associated with the scoped repository checkout.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ci_status": {
+                    "description": "Continuous integration status associated with the repository scope.",
                     "nullable": true,
                     "type": "string"
                   },
                   "is_primary_scope": {
+                    "description": "Whether this scope is the primary repository scope for the ticket.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "pr_status": {
+                    "description": "Pull request status associated with the repository scope.",
                     "nullable": true,
                     "type": "string"
                   },
                   "pull_request_url": {
+                    "description": "Pull request URL associated with the repository scope.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -13056,55 +13201,68 @@
               "schema": {
                 "properties": {
                   "agent_id": {
+                    "description": "Agent ID assigned to execute this workflow.",
                     "type": "string"
                   },
                   "finish_status_ids": {
+                    "description": "Ticket status IDs that mark workflow completion.",
                     "items": {
                       "type": "string"
                     },
                     "type": "array"
                   },
                   "harness_content": {
+                    "description": "Initial harness content written when creating the workflow.",
                     "type": "string"
                   },
                   "harness_path": {
+                    "description": "Repository path where the workflow harness file is stored.",
                     "nullable": true,
                     "type": "string"
                   },
                   "hooks": {
                     "additionalProperties": {},
+                    "description": "Workflow hook configuration keyed by lifecycle phase.",
                     "type": "object"
                   },
                   "is_active": {
+                    "description": "Whether the workflow is active and eligible to pick up work.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "max_concurrent": {
+                    "description": "Maximum number of concurrent runs allowed for the workflow.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "max_retry_attempts": {
+                    "description": "Maximum retry attempts before the workflow run fails permanently.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "name": {
+                    "description": "Human-readable workflow name.",
                     "type": "string"
                   },
                   "pickup_status_ids": {
+                    "description": "Ticket status IDs that allow the workflow to pick up tickets.",
                     "items": {
                       "type": "string"
                     },
                     "type": "array"
                   },
                   "stall_timeout_minutes": {
+                    "description": "Timeout for detecting stalled workflow runs, in minutes.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "timeout_minutes": {
+                    "description": "Hard execution timeout for workflow runs, in minutes.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "type": {
+                    "description": "Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom.",
                     "type": "string"
                   }
                 },
@@ -13490,15 +13648,18 @@
               "schema": {
                 "properties": {
                   "adapter_type": {
+                    "description": "Adapter type used to launch and communicate with the provider.",
                     "nullable": true,
                     "type": "string"
                   },
                   "auth_config": {
                     "additionalProperties": {},
+                    "description": "Provider-specific authentication configuration object.",
                     "nullable": true,
                     "type": "object"
                   },
                   "cli_args": {
+                    "description": "Additional CLI arguments passed to the provider command.",
                     "items": {
                       "type": "string"
                     },
@@ -13506,37 +13667,45 @@
                     "type": "array"
                   },
                   "cli_command": {
+                    "description": "CLI command used to launch the provider.",
                     "nullable": true,
                     "type": "string"
                   },
                   "cost_per_input_token": {
+                    "description": "Estimated USD cost per input token.",
                     "format": "double",
                     "nullable": true,
                     "type": "number"
                   },
                   "cost_per_output_token": {
+                    "description": "Estimated USD cost per output token.",
                     "format": "double",
                     "nullable": true,
                     "type": "number"
                   },
                   "machine_id": {
+                    "description": "Machine ID where this provider runs.",
                     "nullable": true,
                     "type": "string"
                   },
                   "model_max_tokens": {
+                    "description": "Maximum number of output tokens allowed for the provider model.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "model_name": {
+                    "description": "Model name configured for the provider.",
                     "nullable": true,
                     "type": "string"
                   },
                   "model_temperature": {
+                    "description": "Sampling temperature configured for the provider model.",
                     "format": "double",
                     "nullable": true,
                     "type": "number"
                   },
                   "name": {
+                    "description": "Human-readable provider name.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -13898,23 +14067,28 @@
               "schema": {
                 "properties": {
                   "cron_expression": {
+                    "description": "Cron expression that controls when the job triggers.",
                     "nullable": true,
                     "type": "string"
                   },
                   "is_enabled": {
+                    "description": "Whether the scheduled job is enabled.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "name": {
+                    "description": "Human-readable scheduled job name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ticket_template": {
                     "additionalProperties": {},
+                    "description": "Ticket template used to create a ticket for each scheduled run.",
                     "nullable": true,
                     "type": "object"
                   },
                   "workflow_id": {
+                    "description": "Workflow ID executed when the scheduled job triggers.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -14558,18 +14732,22 @@
               "schema": {
                 "properties": {
                   "description": {
+                    "description": "Human-readable stage description.",
                     "nullable": true,
                     "type": "string"
                   },
                   "max_active_runs": {
+                    "description": "Maximum number of active runs allowed in this stage.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "name": {
+                    "description": "Human-readable stage name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "position": {
+                    "description": "Zero-based display order of the stage.",
                     "nullable": true,
                     "type": "integer"
                   }
@@ -14835,30 +15013,37 @@
               "schema": {
                 "properties": {
                   "color": {
+                    "description": "Display color for the status.",
                     "nullable": true,
                     "type": "string"
                   },
                   "description": {
+                    "description": "Human-readable status description.",
                     "nullable": true,
                     "type": "string"
                   },
                   "icon": {
+                    "description": "Display icon identifier for the status.",
                     "nullable": true,
                     "type": "string"
                   },
                   "is_default": {
+                    "description": "Whether this status should become the default status.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "name": {
+                    "description": "Human-readable status name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "position": {
+                    "description": "Zero-based display order of the status.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "stage_id": {
+                    "description": "Optional stage ID that owns the status.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -15439,43 +15624,53 @@
               "schema": {
                 "properties": {
                   "budget_usd": {
+                    "description": "Optional budget limit for the ticket in USD.",
                     "format": "double",
                     "nullable": true,
                     "type": "number"
                   },
                   "created_by": {
+                    "description": "Actor identifier recorded as the creator of the ticket.",
                     "nullable": true,
                     "type": "string"
                   },
                   "description": {
+                    "description": "Ticket description or problem statement.",
                     "nullable": true,
                     "type": "string"
                   },
                   "external_ref": {
+                    "description": "Optional external reference string associated with the ticket.",
                     "nullable": true,
                     "type": "string"
                   },
                   "parent_ticket_id": {
+                    "description": "Optional parent ticket ID for hierarchical ticket relationships.",
                     "nullable": true,
                     "type": "string"
                   },
                   "priority": {
+                    "description": "Ticket priority value.",
                     "nullable": true,
                     "type": "string"
                   },
                   "status_id": {
+                    "description": "Optional ticket status ID to assign explicitly.",
                     "nullable": true,
                     "type": "string"
                   },
                   "title": {
+                    "description": "Human-readable ticket title.",
                     "nullable": true,
                     "type": "string"
                   },
                   "type": {
+                    "description": "Ticket type value.",
                     "nullable": true,
                     "type": "string"
                   },
                   "workflow_id": {
+                    "description": "Optional workflow ID that should handle the ticket.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -15942,9 +16137,11 @@
               "schema": {
                 "properties": {
                   "body": {
+                    "description": "Markdown body content for the ticket comment.",
                     "type": "string"
                   },
                   "created_by": {
+                    "description": "Actor identifier recorded as the creator of the comment.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -16210,13 +16407,16 @@
               "schema": {
                 "properties": {
                   "body": {
+                    "description": "Updated markdown body content for the ticket comment.",
                     "type": "string"
                   },
                   "edit_reason": {
+                    "description": "Reason recorded for editing the comment.",
                     "nullable": true,
                     "type": "string"
                   },
                   "edited_by": {
+                    "description": "Actor identifier recorded as the editor of the comment.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -16501,9 +16701,11 @@
               "schema": {
                 "properties": {
                   "target_ticket_id": {
+                    "description": "Target ticket ID referenced by the dependency.",
                     "type": "string"
                   },
                   "type": {
+                    "description": "Dependency relationship type.",
                     "type": "string"
                   }
                 },
@@ -16778,24 +16980,30 @@
               "schema": {
                 "properties": {
                   "external_id": {
+                    "description": "External system identifier for the linked resource.",
                     "type": "string"
                   },
                   "relation": {
+                    "description": "Relationship between the ticket and the external resource.",
                     "nullable": true,
                     "type": "string"
                   },
                   "status": {
+                    "description": "Optional external status value.",
                     "nullable": true,
                     "type": "string"
                   },
                   "title": {
+                    "description": "Optional title for the external resource.",
                     "nullable": true,
                     "type": "string"
                   },
                   "type": {
+                    "description": "External link type.",
                     "type": "string"
                   },
                   "url": {
+                    "description": "URL of the external resource.",
                     "type": "string"
                   }
                 },
@@ -17366,10 +17574,12 @@
               "schema": {
                 "properties": {
                   "agent_id": {
+                    "description": "Agent ID assigned to execute this workflow.",
                     "nullable": true,
                     "type": "string"
                   },
                   "finish_status_ids": {
+                    "description": "Ticket status IDs that mark workflow completion.",
                     "items": {
                       "type": "string"
                     },
@@ -17377,31 +17587,38 @@
                     "type": "array"
                   },
                   "harness_path": {
+                    "description": "Repository path where the workflow harness file is stored.",
                     "nullable": true,
                     "type": "string"
                   },
                   "hooks": {
                     "additionalProperties": {},
+                    "description": "Workflow hook configuration keyed by lifecycle phase.",
                     "nullable": true,
                     "type": "object"
                   },
                   "is_active": {
+                    "description": "Whether the workflow is active and eligible to pick up work.",
                     "nullable": true,
                     "type": "boolean"
                   },
                   "max_concurrent": {
+                    "description": "Maximum number of concurrent runs allowed for the workflow.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "max_retry_attempts": {
+                    "description": "Maximum retry attempts before the workflow run fails permanently.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "name": {
+                    "description": "Human-readable workflow name.",
                     "nullable": true,
                     "type": "string"
                   },
                   "pickup_status_ids": {
+                    "description": "Ticket status IDs that allow the workflow to pick up tickets.",
                     "items": {
                       "type": "string"
                     },
@@ -17409,14 +17626,17 @@
                     "type": "array"
                   },
                   "stall_timeout_minutes": {
+                    "description": "Timeout for detecting stalled workflow runs, in minutes.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "timeout_minutes": {
+                    "description": "Hard execution timeout for workflow runs, in minutes.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "type": {
+                    "description": "Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -17707,6 +17927,7 @@
               "schema": {
                 "properties": {
                   "content": {
+                    "description": "Harness content to write or validate.",
                     "type": "string"
                   }
                 },
@@ -17847,6 +18068,7 @@
               "schema": {
                 "properties": {
                   "skills": {
+                    "description": "Skill names included in this workflow skill binding request.",
                     "items": {
                       "type": "string"
                     },
@@ -17990,6 +18212,7 @@
               "schema": {
                 "properties": {
                   "skills": {
+                    "description": "Skill names included in this workflow skill binding request.",
                     "items": {
                       "type": "string"
                     },

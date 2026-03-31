@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/spf13/cobra"
@@ -35,6 +36,14 @@ func newUpCommandWithDeps(options *rootOptions, deps upCommandDeps) *cobra.Comma
 	return &cobra.Command{
 		Use:   "up",
 		Short: "Start setup wizard on first run, otherwise install or update the user service.",
+		Long: strings.TrimSpace(`
+Install or update the managed user service for OpenASE.
+
+If no config file can be resolved yet, this command runs the first-run setup
+wizard instead. Once a config exists, it installs or refreshes the managed
+user service definition for the current platform.
+`),
+		Example: "openase up\nopenase up --config ~/.openase/config.yaml",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			configPath, err := deps.resolveConfigPath(options.configFile)
 			if err != nil {
@@ -66,8 +75,10 @@ func newUpCommandWithDeps(options *rootOptions, deps upCommandDeps) *cobra.Comma
 
 func newDownCommand(_ *rootOptions) *cobra.Command {
 	return &cobra.Command{
-		Use:   "down",
-		Short: "Stop the managed OpenASE user service.",
+		Use:     "down",
+		Short:   "Stop the managed OpenASE user service.",
+		Long:    "Stop the managed OpenASE user service for the current user account.",
+		Example: "openase down",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager, err := buildUserServiceManager()
 			if err != nil {
@@ -85,8 +96,10 @@ func newDownCommand(_ *rootOptions) *cobra.Command {
 
 func newRestartCommand(_ *rootOptions) *cobra.Command {
 	return &cobra.Command{
-		Use:   "restart",
-		Short: "Restart the managed OpenASE user service.",
+		Use:     "restart",
+		Short:   "Restart the managed OpenASE user service.",
+		Long:    "Restart the managed OpenASE user service for the current user account.",
+		Example: "openase restart",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager, err := buildUserServiceManager()
 			if err != nil {
@@ -109,6 +122,13 @@ func newLogsCommand(_ *rootOptions) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "logs",
 		Short: "Tail logs from the managed OpenASE user service.",
+		Long: strings.TrimSpace(`
+Read logs from the managed OpenASE user service.
+
+By default this prints recent log lines and continues following new output.
+Use --follow=false to print a finite snapshot only.
+`),
+		Example: "openase logs\nopenase logs --lines 500 --follow=false",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager, err := buildUserServiceManager()
 			if err != nil {

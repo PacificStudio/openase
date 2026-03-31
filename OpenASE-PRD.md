@@ -7746,7 +7746,7 @@ CLI 必须拆成两层：
 **A. Raw API 层（保底 100% 可达）**
 
 ```bash
-openase api GET /api/v1/tickets/ASE-42
+openase api GET /api/v1/tickets/$OPENASE_TICKET_ID
 openase api POST /api/v1/projects/$OPENASE_PROJECT_ID/tickets \
   -f title="补充集成测试" \
   -f workflow_id="..."
@@ -7768,9 +7768,9 @@ openase api PATCH /api/v1/tickets/$OPENASE_TICKET_ID/comments/$COMMENT_ID \
 
 ```bash
 openase ticket list
-openase ticket get ASE-42
-openase ticket comment list ASE-42
-openase ticket comment workpad ASE-42 --body-file /tmp/workpad.md
+openase ticket get 550e8400-e29b-41d4-a716-446655440000
+openase ticket comment list 550e8400-e29b-41d4-a716-446655440000
+openase ticket comment workpad 550e8400-e29b-41d4-a716-446655440000 --body-file /tmp/workpad.md
 openase workflow create ...
 openase scheduled-job update ...
 ```
@@ -7784,6 +7784,35 @@ openase scheduled-job update ...
   - `external_ref`
 - typed command 只是 raw API 的可读封装，不允许内建一套偏离 HTTP 的私有语义。
 - typed commands 的帮助文本、必填参数、body schema、默认值、错误提示，优先从 OpenAPI 生成或校验。
+
+#### 27.2.2.1 CLI Help / Discoverability 约束
+
+CLI 的 `--help` 不是装饰，而是接口契约的可发现投影。要求如下：
+
+1. **沿用 Cobra 默认 help 模板**，不另造一套全局渲染器；真正需要统一的是每类命令的 `Long` / `Example` 内容生成策略。
+2. **OpenAPI typed CRUD 命令**：
+   - `Long` 由统一 builder 生成；
+   - 至少说明：命令用途、位置参数来源、UUID 语义、flag/body/query 的来源约束；
+   - `watch/stream` 类命令也必须复用同一层生成逻辑，而不是只有一句 `Short`。
+3. **Agent Platform 命令**：
+   - 不复用 OpenAPI CRUD 的 help builder；
+   - 必须通过单独的 platform help builder 统一说明：`OPENASE_API_URL`、`OPENASE_AGENT_TOKEN`、`OPENASE_PROJECT_ID`、`OPENASE_TICKET_ID` 的默认回退逻辑；
+   - 需要明确“当前项目 / 当前工单”语义，以及位置参数、flag、环境变量三者的优先级。
+4. **高风险命令必须有显式示例**。至少包括：
+   - `openase api ...`
+   - `openase watch ...`
+   - `ticket update`
+   - `ticket report-usage`
+   - `ticket comment workpad`
+   - `project add-repo`
+5. **help 文本必须讲清 ID 语义**：
+   - 除非某个命令明确声明支持 human-readable identifier，否则 `*Id` 位置参数和 `OPENASE_*_ID` 环境变量都按 UUID 解释；
+   - `ASE-2` 这种项目内 identifier 不允许混入 `ticketId` 一类 UUID 参数位。
+6. **help 文本必须反映真实执行语义**：
+   - `workpad` 要明确是幂等 upsert；
+   - `watch/stream` 要明确会保持连接直到用户中断；
+   - `report-usage` 要明确是增量上报，不是覆盖总量；
+   - `api --input` 与 field 组合、`workpad --body` 与 `--body-file` 互斥等规则，必须在 help 中可见，而不是只在运行时报错。
 
 #### 27.2.3 `cmd/openase` 顶层命名空间约束
 
@@ -7829,6 +7858,7 @@ openase chat ...
   - `--template '<go-template-or-equivalent>'`
 - 对于 typed commands，`--json` 只能做字段裁剪，不能改写原始字段语义。
 - 错误输出必须保留 HTTP status、error code、message，便于脚本判断。
+- CLI help 必须同时面向人类与脚本作者：人类需要通过 `Long/Example` 快速理解命令语义，脚本作者需要通过 help 明确参数来源、环境变量回退和字段约束。
 
 #### 27.2.5 Workpad / Comment 的 CLI 一等公民约束
 

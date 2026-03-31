@@ -84,6 +84,75 @@ func TestTicketCreateCommandUsesAgentPlatformEnvironment(t *testing.T) {
 	}
 }
 
+func TestPlatformTicketUpdateHelpMentionsEnvFallbackAndUUIDSemantics(t *testing.T) {
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: http.DefaultClient})
+	command.SetArgs([]string{"update", "--help"})
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"OPENASE_TICKET_ID",
+		"At least one update field must be provided.",
+		"ASE-2 are not accepted",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestPlatformWorkpadHelpMentionsUpsertAndBodyRules(t *testing.T) {
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: http.DefaultClient})
+	command.SetArgs([]string{"comment", "workpad", "--help"})
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"idempotent upsert",
+		"Exactly one of --body or --body-file should be used",
+		"OPENASE_TICKET_ID",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestPlatformAddRepoHelpMentionsProjectFallback(t *testing.T) {
+	command := newAgentPlatformProjectCommandWithDeps(platformCommandDeps{httpClient: http.DefaultClient})
+	command.SetArgs([]string{"add-repo", "--help"})
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"OPENASE_PROJECT_ID",
+		"Register a repository in the current project.",
+		"openase project add-repo --name backend",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
 func TestTicketUpdateCommandFallsBackToCurrentTicketEnv(t *testing.T) {
 	var path string
 	var payload map[string]any

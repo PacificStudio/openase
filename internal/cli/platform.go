@@ -124,13 +124,22 @@ type platformClient struct {
 	httpClient platformHTTPDoer
 }
 
+type platformHelpSpec struct {
+	projectScope bool
+	ticketScope  bool
+	examples     []string
+	notes        []string
+}
+
 func newAgentPlatformTicketCommandWithDeps(deps platformCommandDeps) *cobra.Command {
 	options := &ticketCommandOptions{}
 	client := platformClient(deps)
 
 	command := &cobra.Command{
-		Use:   "ticket",
-		Short: "Operate on OpenASE tickets through the agent platform API.",
+		Use:     "ticket",
+		Short:   "Operate on OpenASE tickets through the agent platform API.",
+		Long:    buildPlatformCommandHelp("Operate on OpenASE tickets through the agent platform API.", platformHelpSpec{projectScope: true, ticketScope: true}),
+		Example: "openase ticket list\nopenase ticket update --description \"Blocked on flaky test\"",
 	}
 
 	bindPlatformFlags(command.PersistentFlags(), &options.rawPlatformContext)
@@ -148,8 +157,10 @@ func newAgentPlatformProjectCommandWithDeps(deps platformCommandDeps) *cobra.Com
 	client := platformClient(deps)
 
 	command := &cobra.Command{
-		Use:   "project",
-		Short: "Operate on OpenASE projects through the agent platform API.",
+		Use:     "project",
+		Short:   "Operate on OpenASE projects through the agent platform API.",
+		Long:    buildPlatformCommandHelp("Operate on OpenASE projects through the agent platform API.", platformHelpSpec{projectScope: true}),
+		Example: "openase project update --description \"Validation project\"\nopenase project add-repo --name backend --url https://github.com/acme/backend.git",
 	}
 
 	bindPlatformFlags(command.PersistentFlags(), &options.rawPlatformContext)
@@ -161,8 +172,10 @@ func newAgentPlatformProjectCommandWithDeps(deps platformCommandDeps) *cobra.Com
 
 func newTicketCommentCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "comment",
-		Short: "Operate on comments for the current ticket.",
+		Use:     "comment",
+		Short:   "Operate on comments for the current ticket.",
+		Long:    buildPlatformCommandHelp("Operate on comments for the current ticket.", platformHelpSpec{ticketScope: true}),
+		Example: "openase ticket comment list\nopenase ticket comment workpad --body \"Progress\\n- reproduced issue\"",
 	}
 
 	command.AddCommand(newTicketCommentListCommand(options, client))
@@ -186,6 +199,17 @@ func newTicketListCommand(options *ticketCommandOptions, client platformClient) 
 	command := &cobra.Command{
 		Use:   "list",
 		Short: "List tickets in the current project.",
+		Long: buildPlatformCommandHelp("List tickets in the current project.", platformHelpSpec{
+			projectScope: true,
+			examples: []string{
+				"openase ticket list",
+				"openase ticket list --status-name Todo --priority high",
+			},
+			notes: []string{
+				"The target project defaults to --project-id and then OPENASE_PROJECT_ID.",
+			},
+		}),
+		Example: "openase ticket list\nopenase ticket list --status-name Todo --priority high",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -219,7 +243,19 @@ func newTicketCommentListCommand(options *ticketCommandOptions, client platformC
 	command := &cobra.Command{
 		Use:   "list [ticket-id]",
 		Short: "List comments for the current ticket.",
-		Args:  cobra.MaximumNArgs(1),
+		Long: buildPlatformCommandHelp("List comments for the current ticket.", platformHelpSpec{
+			ticketScope: true,
+			examples: []string{
+				"openase ticket comment list",
+				"openase ticket comment list $OPENASE_TICKET_ID",
+			},
+			notes: []string{
+				"If [ticket-id] is omitted, the command falls back to --ticket-id and then OPENASE_TICKET_ID.",
+				"ticket-id is expected to be a UUID. Human-readable identifiers such as ASE-2 are not accepted.",
+			},
+		}),
+		Example: "openase ticket comment list\nopenase ticket comment list $OPENASE_TICKET_ID",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -251,7 +287,18 @@ func newTicketCommentCreateCommand(options *ticketCommandOptions, client platfor
 	command := &cobra.Command{
 		Use:   "create [ticket-id]",
 		Short: "Create a comment on the current ticket.",
-		Args:  cobra.MaximumNArgs(1),
+		Long: buildPlatformCommandHelp("Create a comment on the current ticket.", platformHelpSpec{
+			ticketScope: true,
+			examples: []string{
+				"openase ticket comment create --body \"Need infra help\"",
+				"openase ticket comment create $OPENASE_TICKET_ID --body-file /tmp/comment.md",
+			},
+			notes: []string{
+				"Exactly one of --body or --body-file should be used to supply markdown content.",
+			},
+		}),
+		Example: "openase ticket comment create --body \"Need infra help\"\nopenase ticket comment create $OPENASE_TICKET_ID --body-file /tmp/comment.md",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -291,7 +338,19 @@ func newTicketCommentWorkpadCommand(options *ticketCommandOptions, client platfo
 	command := &cobra.Command{
 		Use:   "workpad [ticket-id]",
 		Short: "Create or update the persistent ## Codex Workpad comment on the current ticket.",
-		Args:  cobra.MaximumNArgs(1),
+		Long: buildPlatformCommandHelp("Create or update the persistent ## Codex Workpad comment on the current ticket.", platformHelpSpec{
+			ticketScope: true,
+			examples: []string{
+				"openase ticket comment workpad --body \"Progress\\n- reproduced issue\"",
+				"openase ticket comment workpad $OPENASE_TICKET_ID --body-file /tmp/workpad.md",
+			},
+			notes: []string{
+				"This command is an idempotent upsert. It reuses the existing ## Codex Workpad comment when present and creates it when missing.",
+				"Exactly one of --body or --body-file should be used to supply markdown content.",
+			},
+		}),
+		Example: "openase ticket comment workpad --body \"Progress\\n- reproduced issue\"\nopenase ticket comment workpad $OPENASE_TICKET_ID --body-file /tmp/workpad.md",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -334,6 +393,13 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 	command := &cobra.Command{
 		Use:   "create",
 		Short: "Create a ticket in the current project.",
+		Long: buildPlatformCommandHelp("Create a ticket in the current project.", platformHelpSpec{
+			projectScope: true,
+			examples: []string{
+				"openase ticket create --title \"Follow-up\" --description \"Split flaky test investigation\"",
+			},
+		}),
+		Example: "openase ticket create --title \"Follow-up\" --description \"Split flaky test investigation\"",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -380,7 +446,21 @@ func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient
 	command := &cobra.Command{
 		Use:   "update [ticket-id]",
 		Short: "Update the current ticket or a specific ticket ID.",
-		Args:  cobra.MaximumNArgs(1),
+		Long: buildPlatformCommandHelp("Update the current ticket or a specific ticket ID.", platformHelpSpec{
+			ticketScope: true,
+			examples: []string{
+				"openase ticket update --description \"Blocked on remote CI\"",
+				"openase ticket update $OPENASE_TICKET_ID --status-name Done",
+			},
+			notes: []string{
+				"If [ticket-id] is omitted, the command falls back to --ticket-id and then OPENASE_TICKET_ID.",
+				"At least one update field must be provided.",
+				"--status / --status-name and --status-id are mutually exclusive.",
+				"ticket-id is expected to be a UUID. Human-readable identifiers such as ASE-2 are not accepted.",
+			},
+		}),
+		Example: "openase ticket update --description \"Blocked on remote CI\"\nopenase ticket update $OPENASE_TICKET_ID --status-name Done",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -430,7 +510,19 @@ func newTicketReportUsageCommand(options *ticketCommandOptions, client platformC
 	command := &cobra.Command{
 		Use:   "report-usage [ticket-id]",
 		Short: "Report token and cost usage for the current ticket.",
-		Args:  cobra.MaximumNArgs(1),
+		Long: buildPlatformCommandHelp("Report token and cost usage for the current ticket.", platformHelpSpec{
+			ticketScope: true,
+			examples: []string{
+				"openase ticket report-usage --input-tokens 1200 --output-tokens 340 --cost-usd 0.0215",
+			},
+			notes: []string{
+				"This command records usage deltas for the ticket. It does not replace previously reported totals.",
+				"If [ticket-id] is omitted, the command falls back to --ticket-id and then OPENASE_TICKET_ID.",
+				"At least one of --input-tokens, --output-tokens, or --cost-usd must be set.",
+			},
+		}),
+		Example: "openase ticket report-usage --input-tokens 1200 --output-tokens 340 --cost-usd 0.0215",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -474,6 +566,13 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 	command := &cobra.Command{
 		Use:   "update",
 		Short: "Update the current project description.",
+		Long: buildPlatformCommandHelp("Update the current project description.", platformHelpSpec{
+			projectScope: true,
+			examples: []string{
+				"openase project update --description \"Todo App validation project\"",
+			},
+		}),
+		Example: "openase project update --description \"Todo App validation project\"",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -511,6 +610,16 @@ func newProjectAddRepoCommand(options *projectCommandOptions, client platformCli
 	command := &cobra.Command{
 		Use:   "add-repo",
 		Short: "Register a repository in the current project.",
+		Long: buildPlatformCommandHelp("Register a repository in the current project.", platformHelpSpec{
+			projectScope: true,
+			examples: []string{
+				"openase project add-repo --name backend --url https://github.com/acme/backend.git --default-branch main",
+			},
+			notes: []string{
+				"The target project defaults to --project-id and then OPENASE_PROJECT_ID.",
+			},
+		}),
+		Example: "openase project add-repo --name backend --url https://github.com/acme/backend.git --default-branch main",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -552,6 +661,24 @@ func (options *ticketCommandOptions) resolve() (platformContext, error) {
 
 func (options *projectCommandOptions) resolve() (platformContext, error) {
 	return options.rawPlatformContext.resolve()
+}
+
+func buildPlatformCommandHelp(summary string, spec platformHelpSpec) string {
+	lines := []string{
+		summary,
+		"This command calls the agent platform API. It defaults to --api-url or OPENASE_API_URL, and to --token or OPENASE_AGENT_TOKEN for authentication.",
+	}
+	if spec.projectScope {
+		lines = append(lines, "Project scope defaults to --project-id and then OPENASE_PROJECT_ID.")
+	}
+	if spec.ticketScope {
+		lines = append(lines, "Ticket scope defaults to the positional [ticket-id] when provided, then --ticket-id, then OPENASE_TICKET_ID.")
+	}
+	lines = append(lines, spec.notes...)
+	if len(spec.examples) > 0 {
+		lines = append(lines, "Examples:\n  "+strings.Join(spec.examples, "\n  "))
+	}
+	return strings.Join(lines, "\n\n")
 }
 
 func (raw rawPlatformContext) resolve() (platformContext, error) {

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/setup"
@@ -26,6 +27,13 @@ func newSetupCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "setup",
 		Short: "Run the first-run setup wizard.",
+		Long: strings.TrimSpace(`
+Run the first-run setup wizard.
+
+This starts a temporary local HTTP server for the setup flow and attempts to
+open the browser automatically.
+`),
+		Example: "openase setup\nopenase setup --host 127.0.0.1 --port 19836",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSetupWizard(cmd.Context(), cmd.OutOrStdout(), host, port)
 		},

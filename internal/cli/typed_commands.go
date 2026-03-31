@@ -88,7 +88,24 @@ func newAPICommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "api METHOD PATH",
 		Short: "Call the OpenASE HTTP API directly.",
-		Args:  cobra.ExactArgs(2),
+		Long: strings.TrimSpace(`
+Call the OpenASE HTTP API directly.
+
+This is the raw passthrough CLI entrypoint. It accepts an HTTP method and path,
+then forwards the request to the configured OpenASE API without inventing a
+second resource model.
+
+Use -f/--field to assemble a JSON body from key=value pairs, --query to append
+query parameters, --header to add custom headers, and --input to send a raw
+request body from a file or stdin. --input cannot be combined with body fields.
+`),
+		Example: strings.TrimSpace(`
+  openase api GET /api/v1/tickets/$OPENASE_TICKET_ID
+  openase api POST /api/v1/projects/$OPENASE_PROJECT_ID/tickets -f title="Follow-up" -f workflow_id="550e8400-e29b-41d4-a716-446655440000"
+  openase api PATCH /api/v1/tickets/$OPENASE_TICKET_ID/comments/$COMMENT_ID --input payload.json
+  openase api GET /api/v1/projects/$OPENASE_PROJECT_ID/tickets --query status_name=Todo --query priority=high
+`),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRawAPICommand(cmd, deps, args[0], args[1], options, output, headers, fields, queryItems, inputPath)
 		},
@@ -335,9 +352,11 @@ func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {
 	contract := mustOpenAPICommandContract(spec)
 	deps := apiCommandDeps{httpClient: http.DefaultClient}
 	command := &cobra.Command{
-		Use:   spec.Use,
-		Short: contract.summary,
-		Args:  cobra.MaximumNArgs(len(spec.PositionalParams)),
+		Use:     spec.Use,
+		Short:   contract.summary,
+		Long:    buildOpenAPIStreamHelp(spec, contract.summary),
+		Example: "openase watch " + spec.Use,
+		Args:    cobra.MaximumNArgs(len(spec.PositionalParams)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOpenAPIStreamCommand(cmd, deps, contract, args)
 		},
@@ -346,6 +365,30 @@ func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {
 	applyCLIFlagNormalization(command.Flags())
 	registerOpenAPIStreamFlags(command.Flags(), contract)
 	return command
+}
+
+func buildOpenAPIStreamHelp(spec openAPICommandSpec, summary string) string {
+	lines := []string{
+		summary,
+		"This command opens a streaming API endpoint and keeps the connection open until the server closes it or you interrupt the process.",
+	}
+
+	uuidParams := make([]string, 0, len(spec.PositionalParams))
+	for _, name := range spec.PositionalParams {
+		if strings.HasSuffix(strings.ToLower(strings.TrimSpace(name)), "id") {
+			uuidParams = append(uuidParams, name)
+		}
+	}
+	if len(uuidParams) > 0 {
+		lines = append(lines, fmt.Sprintf(
+			"Positional parameter(s) %s must be UUID values unless the help text for that command says otherwise. Human-readable identifiers such as ASE-2 are not accepted for %s.",
+			strings.Join(uuidParams, ", "),
+			strings.Join(uuidParams, ", "),
+		))
+	}
+
+	lines = append(lines, "Use Ctrl-C to stop the stream when running interactively.")
+	return strings.Join(lines, "\n\n")
 }
 
 func newTypedTicketCommentWorkpadCommand() *cobra.Command {
@@ -360,7 +403,20 @@ func newTypedTicketCommentWorkpadCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "workpad [ticketId]",
 		Short: "Upsert the `## Codex Workpad` comment for a ticket.",
-		Args:  cobra.MaximumNArgs(1),
+		Long: strings.TrimSpace(`
+Upsert the ` + "`## Codex Workpad`" + ` comment for a ticket.
+
+This command lists comments on the target ticket, finds the existing workpad
+comment if present, and then creates or updates that single comment.
+
+ticketId must be a UUID value. Human-readable identifiers such as ASE-2 are not
+accepted. Exactly one of --body or --body-file must be provided.
+`),
+		Example: strings.TrimSpace(`
+  openase ticket comment workpad $OPENASE_TICKET_ID --body "Validation\n- pnpm test"
+  openase ticket comment workpad 550e8400-e29b-41d4-a716-446655440000 --body-file /tmp/workpad.md
+`),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(body) == "" && strings.TrimSpace(bodyFile) == "" {
 				return fmt.Errorf("one of --body or --body-file is required")

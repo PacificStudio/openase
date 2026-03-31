@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
@@ -984,6 +985,246 @@ type OpenAPIUpdateNotificationChannelRequest notificationdomain.ChannelPatchInpu
 type OpenAPICreateNotificationRuleRequest notificationdomain.RuleInput
 type OpenAPIUpdateNotificationRuleRequest notificationdomain.RulePatchInput
 
+var (
+	openAPIOrganizationRequestDescriptions = map[string]string{
+		"name":                      "Human-readable organization name.",
+		"slug":                      "Stable URL-safe organization slug.",
+		"default_agent_provider_id": "Optional default agent provider ID for the organization.",
+	}
+	openAPIChannelRequestDescriptions = map[string]string{
+		"name":       "Human-readable notification channel name.",
+		"type":       "Notification channel type, such as slack or webhook.",
+		"config":     "Channel-specific configuration object submitted for this notification channel.",
+		"is_enabled": "Whether the channel is enabled for delivery.",
+	}
+	openAPIMachineRequestDescriptions = map[string]string{
+		"name":           "Human-readable machine name.",
+		"host":           "Hostname or address used to reach the machine.",
+		"port":           "SSH port used to connect to the machine.",
+		"ssh_user":       "SSH username used for machine access.",
+		"ssh_key_path":   "Path to the SSH private key used for machine access.",
+		"description":    "Human-readable machine description.",
+		"labels":         "Labels attached to the machine for operator reference.",
+		"status":         "Machine lifecycle status value.",
+		"workspace_root": "Filesystem root directory where ticket workspaces are created on the machine.",
+		"mirror_root":    "Filesystem root directory where repository mirrors are stored on the machine.",
+		"agent_cli_path": "Absolute path to the agent CLI executable on the machine.",
+		"env_vars":       "Environment variable entries exported when work runs on the machine.",
+	}
+	openAPIProjectRequestDescriptions = map[string]string{
+		"name":                      "Human-readable project name.",
+		"slug":                      "Stable URL-safe project slug.",
+		"description":               "Human-readable project description.",
+		"status":                    "Current project lifecycle status name.",
+		"default_workflow_id":       "Optional default workflow ID for newly created tickets in the project.",
+		"default_agent_provider_id": "Optional default agent provider ID for the project.",
+		"accessible_machine_ids":    "Machine IDs that the project is allowed to use.",
+		"max_concurrent_agents":     "Maximum number of agents that may run concurrently in the project.",
+	}
+	openAPIProviderRequestDescriptions = map[string]string{
+		"name":                  "Human-readable provider name.",
+		"machine_id":            "Machine ID where this provider runs.",
+		"adapter_type":          "Adapter type used to launch and communicate with the provider.",
+		"cli_command":           "CLI command used to launch the provider.",
+		"cli_args":              "Additional CLI arguments passed to the provider command.",
+		"auth_config":           "Provider-specific authentication configuration object.",
+		"model_name":            "Model name configured for the provider.",
+		"model_temperature":     "Sampling temperature configured for the provider model.",
+		"model_max_tokens":      "Maximum number of output tokens allowed for the provider model.",
+		"cost_per_input_token":  "Estimated USD cost per input token.",
+		"cost_per_output_token": "Estimated USD cost per output token.",
+	}
+	openAPIRepoRequestDescriptions = map[string]string{
+		"name":              "Human-readable repository name within the project.",
+		"repository_url":    "Remote Git repository URL.",
+		"default_branch":    "Default branch name used for mirrors and workspaces.",
+		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
+		"is_primary":        "Whether this repository is the primary project repository.",
+		"labels":            "Labels attached to the repository for workflow selection and filtering.",
+	}
+	openAPIRepoMirrorMaterializeDescriptions = map[string]string{
+		"machine_id": "Machine ID where the repository mirror should be prepared or registered.",
+		"local_path": "Absolute filesystem path where the mirror exists or should be created.",
+		"mode":       "Mirror materialization mode, such as preparing a new mirror or registering an existing checkout.",
+	}
+	openAPIRepoMirrorMachineDescriptions = map[string]string{
+		"machine_id": "Machine ID whose mirror should be verified or synchronized.",
+	}
+	openAPIAgentRequestDescriptions = map[string]string{
+		"name":        "Human-readable agent name.",
+		"provider_id": "Agent provider ID used to run the agent.",
+	}
+	openAPIWorkflowRequestDescriptions = map[string]string{
+		"name":                  "Human-readable workflow name.",
+		"type":                  "Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom.",
+		"agent_id":              "Agent ID assigned to execute this workflow.",
+		"pickup_status_ids":     "Ticket status IDs that allow the workflow to pick up tickets.",
+		"finish_status_ids":     "Ticket status IDs that mark workflow completion.",
+		"is_active":             "Whether the workflow is active and eligible to pick up work.",
+		"max_concurrent":        "Maximum number of concurrent runs allowed for the workflow.",
+		"timeout_minutes":       "Hard execution timeout for workflow runs, in minutes.",
+		"stall_timeout_minutes": "Timeout for detecting stalled workflow runs, in minutes.",
+		"max_retry_attempts":    "Maximum retry attempts before the workflow run fails permanently.",
+		"harness_path":          "Repository path where the workflow harness file is stored.",
+		"harness_content":       "Initial harness content written when creating the workflow.",
+		"hooks":                 "Workflow hook configuration keyed by lifecycle phase.",
+	}
+	openAPIHarnessContentDescriptions = map[string]string{
+		"content": "Harness content to write or validate.",
+	}
+	openAPIScheduledJobDescriptions = map[string]string{
+		"name":            "Human-readable scheduled job name.",
+		"cron_expression": "Cron expression that controls when the job triggers.",
+		"workflow_id":     "Workflow ID executed when the scheduled job triggers.",
+		"ticket_template": "Ticket template used to create a ticket for each scheduled run.",
+		"is_enabled":      "Whether the scheduled job is enabled.",
+	}
+	openAPITicketRequestDescriptions = map[string]string{
+		"title":            "Human-readable ticket title.",
+		"description":      "Ticket description or problem statement.",
+		"status_id":        "Optional ticket status ID to assign explicitly.",
+		"priority":         "Ticket priority value.",
+		"type":             "Ticket type value.",
+		"workflow_id":      "Optional workflow ID that should handle the ticket.",
+		"parent_ticket_id": "Optional parent ticket ID for hierarchical ticket relationships.",
+		"external_ref":     "Optional external reference string associated with the ticket.",
+		"created_by":       "Actor identifier recorded as the creator of the ticket.",
+		"budget_usd":       "Optional budget limit for the ticket in USD.",
+	}
+	openAPITicketCommentRequestDescriptions = map[string]string{
+		"body":       "Markdown body content for the ticket comment.",
+		"created_by": "Actor identifier recorded as the creator of the comment.",
+	}
+	openAPITicketCommentPatchDescriptions = map[string]string{
+		"body":        "Updated markdown body content for the ticket comment.",
+		"edited_by":   "Actor identifier recorded as the editor of the comment.",
+		"edit_reason": "Reason recorded for editing the comment.",
+	}
+	openAPIDependencyRequestDescriptions = map[string]string{
+		"type":             "Dependency relationship type.",
+		"target_ticket_id": "Target ticket ID referenced by the dependency.",
+	}
+	openAPIExternalLinkRequestDescriptions = map[string]string{
+		"type":        "External link type.",
+		"url":         "URL of the external resource.",
+		"external_id": "External system identifier for the linked resource.",
+		"title":       "Optional title for the external resource.",
+		"status":      "Optional external status value.",
+		"relation":    "Relationship between the ticket and the external resource.",
+	}
+	openAPIStageRequestDescriptions = map[string]string{
+		"key":             "Stable machine-readable key for the ticket stage.",
+		"name":            "Human-readable stage name.",
+		"position":        "Zero-based display order of the stage.",
+		"max_active_runs": "Maximum number of active runs allowed in this stage.",
+		"description":     "Human-readable stage description.",
+	}
+	openAPIStatusRequestDescriptions = map[string]string{
+		"stage_id":    "Optional stage ID that owns the status.",
+		"name":        "Human-readable status name.",
+		"color":       "Display color for the status.",
+		"icon":        "Display icon identifier for the status.",
+		"position":    "Zero-based display order of the status.",
+		"is_default":  "Whether this status should become the default status.",
+		"description": "Human-readable status description.",
+	}
+	openAPINotificationRuleDescriptions = map[string]string{
+		"name":       "Human-readable notification rule name.",
+		"event_type": "Event type that triggers the notification rule.",
+		"channel_id": "Notification channel ID used by the rule.",
+		"template":   "Notification template content rendered when the rule fires.",
+		"filter":     "Optional filter configuration applied before the rule sends notifications.",
+		"is_enabled": "Whether the notification rule is enabled.",
+	}
+	openAPIRepoScopeCreateDescriptions = map[string]string{
+		"repo_id":          "Repository ID attached to the ticket scope.",
+		"branch_name":      "Branch name associated with the scoped repository checkout.",
+		"pull_request_url": "Pull request URL associated with the repository scope.",
+		"pr_status":        "Pull request status associated with the repository scope.",
+		"ci_status":        "Continuous integration status associated with the repository scope.",
+		"is_primary_scope": "Whether this scope is the primary repository scope for the ticket.",
+	}
+	openAPIRepoScopePatchDescriptions = map[string]string{
+		"branch_name":      "Branch name associated with the scoped repository checkout.",
+		"pull_request_url": "Pull request URL associated with the repository scope.",
+		"pr_status":        "Pull request status associated with the repository scope.",
+		"ci_status":        "Continuous integration status associated with the repository scope.",
+		"is_primary_scope": "Whether this scope is the primary repository scope for the ticket.",
+	}
+	openAPIHRAdvisorActivateDescriptions = map[string]string{
+		"role_slug":               "HR advisor role slug to activate for the project.",
+		"create_bootstrap_ticket": "Whether activation should create a bootstrap ticket immediately.",
+	}
+	openAPIChatRequestDescriptions = map[string]string{
+		"message":             "User message content for the chat turn.",
+		"provider_id":         "Optional provider ID used to run this chat session.",
+		"session_id":          "Optional existing chat session ID to resume.",
+		"source":              "Source identifier for the chat request, such as web or cli.",
+		"context":             "Optional project, ticket, or workflow context attached to the chat turn.",
+		"context.project_id":  "Project ID supplied to ground the chat request.",
+		"context.ticket_id":   "Optional ticket ID supplied to ground the chat request.",
+		"context.workflow_id": "Optional workflow ID supplied to ground the chat request.",
+	}
+	openAPISkillBindingDescriptions = map[string]string{
+		"skills": "Skill names included in this workflow skill binding request.",
+	}
+	openAPIRequestBodyDescriptions = map[string]map[string]string{
+		"POST /api/v1/orgs":                                                           openAPIOrganizationRequestDescriptions,
+		"PATCH /api/v1/orgs/{orgId}":                                                  openAPIOrganizationRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/channels":                                          openAPIChannelRequestDescriptions,
+		"PATCH /api/v1/channels/{channelId}":                                          openAPIChannelRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/machines":                                          openAPIMachineRequestDescriptions,
+		"PATCH /api/v1/machines/{machineId}":                                          openAPIMachineRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/projects":                                          openAPIProjectRequestDescriptions,
+		"PATCH /api/v1/projects/{projectId}":                                          openAPIProjectRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/providers":                                         openAPIProviderRequestDescriptions,
+		"PATCH /api/v1/providers/{providerId}":                                        openAPIProviderRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/repos":                                     openAPIRepoRequestDescriptions,
+		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                           openAPIRepoRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors":                    openAPIRepoMirrorMaterializeDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify":             openAPIRepoMirrorMachineDescriptions,
+		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync":               openAPIRepoMirrorMachineDescriptions,
+		"POST /api/v1/projects/{projectId}/agents":                                    openAPIAgentRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/workflows":                                 openAPIWorkflowRequestDescriptions,
+		"PATCH /api/v1/workflows/{workflowId}":                                        mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),
+		"PUT /api/v1/workflows/{workflowId}/harness":                                  openAPIHarnessContentDescriptions,
+		"POST /api/v1/harness/validate":                                               openAPIHarnessContentDescriptions,
+		"POST /api/v1/projects/{projectId}/scheduled-jobs":                            openAPIScheduledJobDescriptions,
+		"PATCH /api/v1/scheduled-jobs/{jobId}":                                        openAPIScheduledJobDescriptions,
+		"POST /api/v1/projects/{projectId}/tickets":                                   openAPITicketRequestDescriptions,
+		"PATCH /api/v1/tickets/{ticketId}":                                            openAPITicketRequestDescriptions,
+		"POST /api/v1/tickets/{ticketId}/comments":                                    openAPITicketCommentRequestDescriptions,
+		"PATCH /api/v1/tickets/{ticketId}/comments/{commentId}":                       openAPITicketCommentPatchDescriptions,
+		"POST /api/v1/tickets/{ticketId}/dependencies":                                openAPIDependencyRequestDescriptions,
+		"POST /api/v1/tickets/{ticketId}/external-links":                              openAPIExternalLinkRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/stages":                                    openAPIStageRequestDescriptions,
+		"PATCH /api/v1/stages/{stageId}":                                              openAPIStageRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/statuses":                                  openAPIStatusRequestDescriptions,
+		"PATCH /api/v1/statuses/{statusId}":                                           openAPIStatusRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/notification-rules":                        openAPINotificationRuleDescriptions,
+		"PATCH /api/v1/notification-rules/{ruleId}":                                   openAPINotificationRuleDescriptions,
+		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":            openAPIRepoScopeCreateDescriptions,
+		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}": openAPIRepoScopePatchDescriptions,
+		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                       openAPIHRAdvisorActivateDescriptions,
+		"POST /api/v1/chat":                                                           openAPIChatRequestDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/bind":                             openAPISkillBindingDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/unbind":                           openAPISkillBindingDescriptions,
+	}
+)
+
+func mergeRequestFieldDescriptions(maps ...map[string]string) map[string]string {
+	merged := map[string]string{}
+	for _, item := range maps {
+		for key, value := range item {
+			if strings.TrimSpace(value) == "" {
+				continue
+			}
+			merged[key] = value
+		}
+	}
+	return merged
+}
+
 func BuildOpenAPIDocument() (*openapi3.T, error) {
 	doc := &openapi3.T{
 		OpenAPI: "3.0.3",
@@ -1038,6 +1279,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 	if err := builder.addStreamOperations(); err != nil {
 		return nil, err
 	}
+	applyOpenAPIRequestBodyDescriptions(doc)
 
 	if err := doc.Validate(context.Background()); err != nil {
 		return nil, fmt.Errorf("validate openapi document: %w", err)
@@ -3083,6 +3325,71 @@ func (b openAPISpecBuilder) schemaRef(value any) (*openapi3.SchemaRef, error) {
 	}
 
 	return ref, nil
+}
+
+func applyOpenAPIRequestBodyDescriptions(doc *openapi3.T) {
+	if doc == nil || doc.Paths == nil {
+		return
+	}
+	for path, pathItem := range doc.Paths.Map() {
+		if pathItem == nil {
+			continue
+		}
+		for method, operation := range pathItem.Operations() {
+			if operation == nil || operation.RequestBody == nil || operation.RequestBody.Value == nil {
+				continue
+			}
+			mediaType := operation.RequestBody.Value.Content.Get("application/json")
+			if mediaType == nil || mediaType.Schema == nil {
+				continue
+			}
+			descriptions, ok := openAPIRequestBodyDescriptions[strings.ToUpper(method)+" "+path]
+			if !ok {
+				continue
+			}
+			applyRequestFieldDescriptions(mediaType.Schema, "", descriptions)
+		}
+	}
+}
+
+func applyRequestFieldDescriptions(schemaRef *openapi3.SchemaRef, prefix string, descriptions map[string]string) {
+	if schemaRef == nil || schemaRef.Value == nil {
+		return
+	}
+	schema := schemaRef.Value
+	for name, property := range schema.Properties {
+		if property == nil || property.Value == nil {
+			continue
+		}
+		clonedProperty, err := cloneSchemaRef(property)
+		if err != nil {
+			continue
+		}
+		schema.Properties[name] = clonedProperty
+		fieldPath := name
+		if prefix != "" {
+			fieldPath = prefix + "." + name
+		}
+		if description, ok := descriptions[fieldPath]; ok {
+			clonedProperty.Value.Description = description
+		}
+		applyRequestFieldDescriptions(clonedProperty, fieldPath, descriptions)
+	}
+}
+
+func cloneSchemaRef(schemaRef *openapi3.SchemaRef) (*openapi3.SchemaRef, error) {
+	if schemaRef == nil {
+		return nil, nil
+	}
+	payload, err := json.Marshal(schemaRef)
+	if err != nil {
+		return nil, err
+	}
+	var cloned openapi3.SchemaRef
+	if err := json.Unmarshal(payload, &cloned); err != nil {
+		return nil, err
+	}
+	return &cloned, nil
 }
 
 func uuidPathParameter(name string, description string) *openapi3.Parameter {

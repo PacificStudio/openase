@@ -5,11 +5,13 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 func TestBuildOpenAPIDocument(t *testing.T) {
@@ -92,5 +94,82 @@ func TestBuildOpenAPIJSONAndRoute(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "\"openapi\"") {
 		t.Fatalf("expected openapi payload body, got %s", rec.Body.String())
+	}
+}
+
+func TestBuildOpenAPIDocumentRequestFieldsHaveDescriptions(t *testing.T) {
+	doc, err := BuildOpenAPIDocument()
+	if err != nil {
+		t.Fatalf("build openapi document: %v", err)
+	}
+
+	missing := make([]string, 0)
+	for path, pathItem := range doc.Paths.Map() {
+		if pathItem == nil {
+			continue
+		}
+		for method, operation := range pathItem.Operations() {
+			if operation == nil {
+				continue
+			}
+			parameters := append(openapi3.Parameters{}, pathItem.Parameters...)
+			parameters = append(parameters, operation.Parameters...)
+			for _, parameter := range parameters {
+				if parameter == nil || parameter.Value == nil {
+					continue
+				}
+				if strings.TrimSpace(parameter.Value.Description) == "" {
+					missing = append(missing, strings.ToUpper(method)+" "+path+" param "+parameter.Value.Name)
+				}
+			}
+			if operation.RequestBody == nil || operation.RequestBody.Value == nil {
+				continue
+			}
+			for mediaType, body := range operation.RequestBody.Value.Content {
+				if body == nil || body.Schema == nil {
+					continue
+				}
+				collectMissingSchemaDescriptions(body.Schema, strings.ToUpper(method)+" "+path+" body "+mediaType, &missing)
+			}
+		}
+	}
+
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		t.Fatalf("openapi request field descriptions must be non-empty:\n%s", strings.Join(missing, "\n"))
+	}
+}
+
+func collectMissingSchemaDescriptions(schemaRef *openapi3.SchemaRef, prefix string, missing *[]string) {
+	if schemaRef == nil || schemaRef.Value == nil {
+		return
+	}
+	schema := schemaRef.Value
+	for name, property := range schema.Properties {
+		if property == nil || property.Value == nil {
+			continue
+		}
+		if strings.TrimSpace(property.Value.Description) == "" {
+			*missing = append(*missing, prefix+" field "+name)
+		}
+		collectMissingSchemaDescriptions(property, prefix+"."+name, missing)
+	}
+	if schema.Items != nil {
+		collectMissingSchemaDescriptions(schema.Items, prefix+"[]", missing)
+	}
+	for _, item := range schema.AllOf {
+		collectMissingSchemaDescriptions(item, prefix, missing)
+	}
+	for _, item := range schema.AnyOf {
+		collectMissingSchemaDescriptions(item, prefix, missing)
+	}
+	for _, item := range schema.OneOf {
+		collectMissingSchemaDescriptions(item, prefix, missing)
+	}
+	if schema.Not != nil {
+		collectMissingSchemaDescriptions(schema.Not, prefix, missing)
+	}
+	if schema.AdditionalProperties.Schema != nil {
+		collectMissingSchemaDescriptions(schema.AdditionalProperties.Schema, prefix+".*", missing)
 	}
 }

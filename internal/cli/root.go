@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -63,6 +64,14 @@ func newServeCommand(options *rootOptions) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the HTTP API server.",
+		Long: strings.TrimSpace(`
+Run the OpenASE HTTP API server only.
+
+This mode starts the control-plane API without the orchestrator loop. Use it
+when you want a read/write API endpoint, but you do not want local scheduling
+or agent execution in the same process.
+`),
+		Example: "openase serve --host 127.0.0.1 --port 19836",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			overrides := map[string]any{
 				"server.mode": config.ServerModeServe,
@@ -92,6 +101,13 @@ func newOrchestrateCommand(options *rootOptions) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "orchestrate",
 		Short: "Run the orchestration loop.",
+		Long: strings.TrimSpace(`
+Run the OpenASE orchestration loop only.
+
+This mode executes scheduler ticks and agent runtime work, but does not expose
+the HTTP API server in the same process.
+`),
+		Example: "openase orchestrate --tick-interval 5s",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			overrides := map[string]any{
 				"server.mode": config.ServerModeOrchestrate,
@@ -119,6 +135,12 @@ func newAllInOneCommand(options *rootOptions) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "all-in-one",
 		Short: "Run the API server and orchestrator in a single process.",
+		Long: strings.TrimSpace(`
+Run the OpenASE HTTP API server and orchestration loop in a single process.
+
+This is the default local development and single-node deployment mode.
+`),
+		Example: "openase all-in-one --host 127.0.0.1 --port 19836 --tick-interval 5s",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			overrides := map[string]any{
 				"server.mode": config.ServerModeAllInOne,
@@ -148,8 +170,10 @@ func newAllInOneCommand(options *rootOptions) *cobra.Command {
 
 func newVersionCommand(version string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "version",
-		Short: "Print the OpenASE CLI version.",
+		Use:     "version",
+		Short:   "Print the OpenASE CLI version.",
+		Long:    "Print the OpenASE CLI version string and exit.",
+		Example: "openase version",
 		Run: func(_ *cobra.Command, _ []string) {
 			_, _ = fmt.Fprintln(os.Stdout, version)
 		},
