@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { capabilityCatalog } from '$lib/features/capabilities'
   import { cn, formatRelativeTime, formatCurrency } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -40,10 +39,6 @@
     terminated: 'Terminated',
   }
 
-  const agentOutputCapability = capabilityCatalog.agentOutput
-  const agentPauseCapability = capabilityCatalog.agentPause
-  const agentResumeCapability = capabilityCatalog.agentResume
-
   const runtimeControlLabels: Record<AgentInstance['runtimeControlState'], string> = {
     active: 'Active',
     pause_requested: 'Pause Requested',
@@ -78,7 +73,7 @@
     if (agent.status !== 'claimed' && agent.status !== 'running') {
       return 'Only claimed or running agents can be paused.'
     }
-    return agentPauseCapability.summary
+    return 'Pause this agent'
   }
 
   function resumeTitle(agent: AgentInstance) {
@@ -87,7 +82,7 @@
       return 'Wait for the runtime to finish pausing before resuming.'
     }
     if (agent.runtimeControlState !== 'paused') return 'Pause this agent before resuming it.'
-    return agentResumeCapability.summary
+    return 'Resume this agent'
   }
 </script>
 
@@ -173,8 +168,7 @@
                 variant="ghost"
                 size="icon-xs"
                 aria-label="View output"
-                disabled={agentOutputCapability.state !== 'available'}
-                title={agentOutputCapability.summary}
+                title="View agent output"
                 onclick={() => onViewOutput?.(agent.id)}
               >
                 <Terminal class="size-3.5" />

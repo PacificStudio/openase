@@ -2,15 +2,9 @@
   import { page } from '$app/state'
   import { ApiError } from '$lib/api/client'
   import { deleteAgent, listAgents, listProviders, updateProject } from '$lib/api/openase'
-  import {
-    getSettingsSectionCapability,
-    capabilityStateClasses,
-    capabilityStateLabel,
-  } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
-  import AgentSettingsBoundaries from './agent-settings-boundaries.svelte'
   import AgentSettingsDefaultsCard from './agent-settings-defaults-card.svelte'
   import AgentSettingsInventory from './agent-settings-inventory.svelte'
   import AgentSettingsOverview from './agent-settings-overview.svelte'
@@ -21,7 +15,6 @@
     type GovernanceAgent,
   } from './agent-settings-model'
 
-  const agentsCapability = getSettingsSectionCapability('agents')
   const agentsConsoleHref = $derived(`/agents${page.url.search}`)
 
   let providers = $state(buildProviderOptions([], []))
@@ -162,15 +155,10 @@
 
 <div class="space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Agents</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(agentsCapability.state)}`}
-      >
-        {capabilityStateLabel(agentsCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">{agentsCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Agents</h2>
+    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">
+      Manage default provider selection, registered agent inventory, and agent governance.
+    </p>
   </div>
 
   <Separator />
@@ -202,7 +190,6 @@
           onSave={handleSaveDefaultProvider}
         />
 
-        <AgentSettingsBoundaries />
       </div>
 
       <AgentSettingsInventory
