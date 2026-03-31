@@ -6,7 +6,7 @@
   import Play from '@lucide/svelte/icons/play'
   import Settings from '@lucide/svelte/icons/settings'
   import { cn, formatRelativeTime } from '$lib/utils'
-  import { activityEventLabel, activityEventTone } from '$lib/features/activity/event-catalog'
+  import { activityEventLabel, activityEventTone } from '$lib/features/activity'
   import type { TicketActivityTimelineItem } from '../types'
 
   let { item }: { item: TicketActivityTimelineItem } = $props()

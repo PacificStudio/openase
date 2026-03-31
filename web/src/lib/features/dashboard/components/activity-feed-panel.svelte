@@ -2,7 +2,7 @@
   import { cn, formatRelativeTime } from '$lib/utils'
   import type { ActivityItem } from '../types'
   import { Bot, GitPullRequest, CheckCircle, Play, MessageSquare, Circle } from '@lucide/svelte'
-  import { activityEventTone } from '$lib/features/activity/event-catalog'
+  import { activityEventTone } from '$lib/features/activity'
   import type { Component } from 'svelte'
 
   let {

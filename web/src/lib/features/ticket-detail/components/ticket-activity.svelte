@@ -7,7 +7,7 @@
   import MessageSquare from '@lucide/svelte/icons/message-square'
   import Settings from '@lucide/svelte/icons/settings'
   import { cn, formatRelativeTime } from '$lib/utils'
-  import { activityEventTone } from '$lib/features/activity/event-catalog'
+  import { activityEventTone } from '$lib/features/activity'
   import type { TicketActivity } from '../types'
 
   let {

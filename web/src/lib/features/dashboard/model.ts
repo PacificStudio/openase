@@ -1,5 +1,5 @@
 import type { ActivityEvent, Agent, Project, Ticket } from '$lib/api/contracts'
-import { isActivityExceptionEvent } from '$lib/features/activity/event-catalog'
+import { isActivityExceptionEvent } from '$lib/features/activity'
 import type {
   ActivityItem,
   DashboardStats,
