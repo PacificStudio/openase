@@ -1,9 +1,4 @@
 <script lang="ts">
-  import {
-    getSettingsSectionCapability,
-    capabilityStateClasses,
-    capabilityStateLabel,
-  } from '$lib/features/capabilities'
   import { ApiError } from '$lib/api/client'
   import {
     createNotificationChannel,
@@ -29,7 +24,7 @@
   import NotificationChannelPanel from './notification-channel-panel.svelte'
   import NotificationRulePanel from './notification-rule-panel.svelte'
 
-  const notificationsCapability = getSettingsSectionCapability('notifications')
+
 
   let channels = $state<NotificationChannel[]>([])
   let rules = $state<NotificationRule[]>([])
@@ -213,15 +208,10 @@
 
 <div class="space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Notifications</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(notificationsCapability.state)}`}
-      >
-        {capabilityStateLabel(notificationsCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 text-sm">{notificationsCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Notifications</h2>
+    <p class="text-muted-foreground mt-1 text-sm">
+      Manage notification channels, rules, and delivery controls.
+    </p>
   </div>
 
   <Separator />
