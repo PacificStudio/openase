@@ -72,6 +72,7 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Start returned error: %v", err)
 	}
+	agentSession := &codexAgentSession{session: session}
 
 	turn, err := session.SendPrompt(context.Background(), "Keep working.")
 	if err != nil {
@@ -87,7 +88,8 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 		uuid.Nil,
 		uuid.Nil,
 		uuid.Nil,
-		session,
+		"codex-app-server",
+		agentSession,
 		turn.TurnID,
 		&highWater,
 	)
@@ -95,7 +97,7 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 		t.Fatal("consumeTurn() returned nil")
 	}
 	message := err.Error()
-	if !strings.Contains(message, "codex session closed before turn turn-eof completed") {
+	if !strings.Contains(message, "agent session closed before turn turn-eof completed") {
 		t.Fatalf("consumeTurn() error = %q", message)
 	}
 	if !strings.Contains(message, "codex app server exited: exit status 2: fatal: app-server crashed") {
@@ -103,23 +105,23 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 	}
 
 	record := logHandler.lastRecord()
-	if record.Message != "codex session closed before turn completed" {
+	if record.Message != "agent session closed before turn completed" {
 		t.Fatalf("unexpected log message: %+v", record)
 	}
 	if record.Level != slog.LevelError {
 		t.Fatalf("unexpected log level: %+v", record)
 	}
-	if got := record.Attrs["codex_pid"]; got != int64(4242) {
-		t.Fatalf("unexpected codex_pid attr: %+v", record.Attrs)
+	if got := record.Attrs["provider_pid"]; got != int64(4242) {
+		t.Fatalf("unexpected provider_pid attr: %+v", record.Attrs)
 	}
-	if got := record.Attrs["codex_thread_id"]; got != "thread-1" {
-		t.Fatalf("unexpected codex_thread_id attr: %+v", record.Attrs)
+	if got := record.Attrs["provider_session_id"]; got != "thread-1" {
+		t.Fatalf("unexpected provider_session_id attr: %+v", record.Attrs)
 	}
-	if got := record.Attrs["codex_stderr"]; got != "fatal: app-server crashed" {
-		t.Fatalf("unexpected codex_stderr attr: %+v", record.Attrs)
+	if got := record.Attrs["provider_stderr"]; got != "fatal: app-server crashed" {
+		t.Fatalf("unexpected provider_stderr attr: %+v", record.Attrs)
 	}
-	if got := record.Attrs["codex_session_error"]; got != "codex app server exited: exit status 2: fatal: app-server crashed" {
-		t.Fatalf("unexpected codex_session_error attr: %+v", record.Attrs)
+	if got := record.Attrs["provider_session_error"]; got != "codex app server exited: exit status 2: fatal: app-server crashed" {
+		t.Fatalf("unexpected provider_session_error attr: %+v", record.Attrs)
 	}
 
 	if err := <-serverDone; err != nil {
@@ -180,6 +182,7 @@ func TestRuntimeLauncherConsumeTurnReturnsCleanSessionCloseWithoutExitCause(t *t
 	if err != nil {
 		t.Fatalf("Start returned error: %v", err)
 	}
+	agentSession := &codexAgentSession{session: session}
 
 	turn, err := session.SendPrompt(context.Background(), "Keep working.")
 	if err != nil {
@@ -194,7 +197,8 @@ func TestRuntimeLauncherConsumeTurnReturnsCleanSessionCloseWithoutExitCause(t *t
 		uuid.Nil,
 		uuid.Nil,
 		uuid.Nil,
-		session,
+		"codex-app-server",
+		agentSession,
 		turn.TurnID,
 		&highWater,
 	)
@@ -209,7 +213,7 @@ func TestRuntimeLauncherConsumeTurnReturnsCleanSessionCloseWithoutExitCause(t *t
 	if !errors.As(err, &closedErr) || closedErr == nil || closedErr.cause != nil {
 		t.Fatalf("consumeTurn() error = %#v, want clean turnSessionClosedError", err)
 	}
-	if message := err.Error(); !strings.Contains(message, "codex session closed before turn turn-clean-close completed") {
+	if message := err.Error(); !strings.Contains(message, "agent session closed before turn turn-clean-close completed") {
 		t.Fatalf("consumeTurn() error = %q", message)
 	}
 
