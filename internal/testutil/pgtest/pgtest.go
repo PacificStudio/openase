@@ -22,12 +22,45 @@ import (
 
 const defaultDatabase = "postgres"
 
+const sharedServerStartAttempts = 5
+
+type postgresController interface {
+	Start() error
+	Stop() error
+}
+
+type sharedServerStartResult struct {
+	rootDir string
+	port    uint32
+	pg      postgresController
+}
+
+var (
+	createSharedServerRootDir = func(prefix string) (string, error) {
+		return os.MkdirTemp("", prefix)
+	}
+	allocateSharedServerPort = freePort
+	newPostgresController    = func(rootDir string, port uint32) postgresController {
+		return embeddedpostgres.NewDatabase(
+			embeddedpostgres.DefaultConfig().
+				Version(embeddedpostgres.V16).
+				Port(port).
+				Username("postgres").
+				Password("postgres").
+				Database(defaultDatabase).
+				RuntimePath(filepath.Join(rootDir, "runtime")).
+				BinariesPath(filepath.Join(rootDir, "binaries")).
+				DataPath(filepath.Join(rootDir, "data")),
+		)
+	}
+)
+
 type Server struct {
 	admin    *sql.DB
 	baseDSN  string
 	port     uint32
 	rootDir  string
-	pg       *embeddedpostgres.EmbeddedPostgres
+	pg       postgresController
 	prefix   string
 	nextID   atomic.Uint64
 	schemaMu sync.Mutex
@@ -66,55 +99,69 @@ func StartSharedServer(packageName string) (*Server, error) {
 		prefix = "openase"
 	}
 
-	rootDir, err := os.MkdirTemp("", "openase-pgtest-"+prefix+"-*")
+	started, err := startSharedServerProcess(prefix)
 	if err != nil {
-		return nil, fmt.Errorf("create temp dir: %w", err)
+		return nil, err
 	}
 
-	port, err := freePort()
-	if err != nil {
-		_ = os.RemoveAll(rootDir)
-		return nil, fmt.Errorf("allocate free port: %w", err)
-	}
-
-	pg := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Version(embeddedpostgres.V16).
-			Port(port).
-			Username("postgres").
-			Password("postgres").
-			Database(defaultDatabase).
-			RuntimePath(filepath.Join(rootDir, "runtime")).
-			BinariesPath(filepath.Join(rootDir, "binaries")).
-			DataPath(filepath.Join(rootDir, "data")),
-	)
-	if err := pg.Start(); err != nil {
-		_ = os.RemoveAll(rootDir)
-		return nil, fmt.Errorf("start embedded postgres: %w", err)
-	}
-
-	baseDSN := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/%s?sslmode=disable", port, defaultDatabase)
+	baseDSN := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/%s?sslmode=disable", started.port, defaultDatabase)
 	admin, err := sql.Open("postgres", baseDSN)
 	if err != nil {
-		_ = pg.Stop()
-		_ = os.RemoveAll(rootDir)
+		_ = started.pg.Stop()
+		_ = os.RemoveAll(started.rootDir)
 		return nil, fmt.Errorf("open admin database: %w", err)
 	}
 	if err := admin.PingContext(context.Background()); err != nil {
 		_ = admin.Close()
-		_ = pg.Stop()
-		_ = os.RemoveAll(rootDir)
+		_ = started.pg.Stop()
+		_ = os.RemoveAll(started.rootDir)
 		return nil, fmt.Errorf("ping admin database: %w", err)
 	}
 
 	return &Server{
 		admin:   admin,
 		baseDSN: baseDSN,
-		port:    port,
-		rootDir: rootDir,
-		pg:      pg,
+		port:    started.port,
+		rootDir: started.rootDir,
+		pg:      started.pg,
 		prefix:  prefix,
 	}, nil
+}
+
+func startSharedServerProcess(prefix string) (sharedServerStartResult, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= sharedServerStartAttempts; attempt++ {
+		rootDir, err := createSharedServerRootDir("openase-pgtest-" + prefix + "-*")
+		if err != nil {
+			return sharedServerStartResult{}, fmt.Errorf("create temp dir: %w", err)
+		}
+
+		port, err := allocateSharedServerPort()
+		if err != nil {
+			_ = os.RemoveAll(rootDir)
+			return sharedServerStartResult{}, fmt.Errorf("allocate free port: %w", err)
+		}
+
+		pg := newPostgresController(rootDir, port)
+		if err := pg.Start(); err != nil {
+			lastErr = err
+			_ = pg.Stop()
+			_ = os.RemoveAll(rootDir)
+			if isRetryablePortStartupError(err) && attempt < sharedServerStartAttempts {
+				continue
+			}
+			return sharedServerStartResult{}, fmt.Errorf("start embedded postgres: %w", err)
+		}
+
+		return sharedServerStartResult{
+			rootDir: rootDir,
+			port:    port,
+			pg:      pg,
+		}, nil
+	}
+
+	return sharedServerStartResult{}, fmt.Errorf("start embedded postgres: %w", lastErr)
 }
 
 func (s *Server) Port() uint32 {
@@ -249,4 +296,24 @@ func freePort() (uint32, error) {
 	}
 
 	return uint32(tcpAddr.Port), nil
+}
+
+func isRetryablePortStartupError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(message, "process already listening on port"):
+		return true
+	case strings.Contains(message, "address already in use"):
+		return true
+	case strings.Contains(message, "could not bind"):
+		return true
+	case strings.Contains(message, "failed to create any tcp/ip sockets"):
+		return true
+	default:
+		return false
+	}
 }
