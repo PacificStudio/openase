@@ -1,22 +1,19 @@
 import { ApiError } from '$lib/api/client'
-import type { listStatuses } from '$lib/api/openase'
 import type { connectEventStream } from '$lib/api/sse'
-
-type StatusSnapshot = Awaited<ReturnType<typeof listStatuses>>
 type LoadMode = 'initial' | 'background'
 
-type StageRuntimeSyncOptions = {
+type StageRuntimeSyncOptions<TSnapshot> = {
   projectId: string
-  loadStatuses: typeof listStatuses
+  loadSnapshot: (projectId: string) => Promise<TSnapshot>
   connectEventStream: typeof connectEventStream
-  applySnapshot: (payload: StatusSnapshot) => void
+  applySnapshot: (payload: TSnapshot) => void
   skipInitialLoad?: boolean
   setLoading?: (loading: boolean) => void
   onInitialError?: (message: string) => void
   onRefreshError?: (error: unknown) => void
 }
 
-export function startStageRuntimeSync(options: StageRuntimeSyncOptions) {
+export function startStageRuntimeSync<TSnapshot>(options: StageRuntimeSyncOptions<TSnapshot>) {
   let active = true
   let requestVersion = 0
   let queuedReload = false
@@ -44,7 +41,7 @@ export function startStageRuntimeSync(options: StageRuntimeSyncOptions) {
     setInitialLoading(mode, true)
 
     try {
-      const payload = await options.loadStatuses(options.projectId)
+      const payload = await options.loadSnapshot(options.projectId)
       if (isStaleLoad(version)) return
       options.applySnapshot(payload)
     } catch (error) {

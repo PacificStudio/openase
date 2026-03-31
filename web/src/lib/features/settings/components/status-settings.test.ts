@@ -9,6 +9,7 @@ const {
   createStatus,
   deleteStage,
   deleteStatus,
+  listStages,
   listStatuses,
   resetStatuses,
   updateStage,
@@ -18,6 +19,7 @@ const {
   createStatus: vi.fn(),
   deleteStage: vi.fn(),
   deleteStatus: vi.fn(),
+  listStages: vi.fn(),
   listStatuses: vi.fn(),
   resetStatuses: vi.fn(),
   updateStage: vi.fn(),
@@ -40,6 +42,7 @@ vi.mock('$lib/api/openase', () => ({
   createStatus,
   deleteStage,
   deleteStatus,
+  listStages,
   listStatuses,
   resetStatuses,
   updateStage,
@@ -127,6 +130,7 @@ describe('Status settings', () => {
   beforeEach(() => {
     seedProject()
     listStatuses.mockResolvedValue(buildPayload())
+    listStages.mockResolvedValue({ stages: buildPayload().stages })
   })
 
   afterEach(() => {
@@ -244,6 +248,7 @@ describe('Status settings', () => {
 
     expect(await findByText('Stages')).toBeTruthy()
     expect(listStatuses).toHaveBeenCalledTimes(1)
+    expect(listStages).toHaveBeenCalledTimes(1)
     expect(connectEventStream).toHaveBeenCalledTimes(1)
   })
 })

@@ -96,7 +96,7 @@
 
     const stopSync = startStageRuntimeSync({
       projectId,
-      loadStatuses: listStatuses,
+      loadSnapshot: listStatuses,
       connectEventStream,
       skipInitialLoad: true,
       applySnapshot: (payload) => {

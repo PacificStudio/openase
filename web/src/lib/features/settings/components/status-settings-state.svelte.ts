@@ -3,6 +3,7 @@ import { connectEventStream } from '$lib/api/sse'
 import {
   createStatus,
   deleteStatus,
+  listStages,
   listStatuses,
   resetStatuses,
   updateStatus,
@@ -54,6 +55,11 @@ function createStatusSettingsUI(): StatusSettingsUI {
   }
 }
 
+type StatusSettingsSnapshot = {
+  statuses: Awaited<ReturnType<typeof listStatuses>>['statuses']
+  stages: Awaited<ReturnType<typeof listStages>>['stages']
+}
+
 export function createStatusSettingsState() {
   const ui = $state<StatusSettingsUI>(createStatusSettingsUI())
 
@@ -66,7 +72,7 @@ export function createStatusSettingsState() {
 
     return startStageRuntimeSync({
       projectId,
-      loadStatuses: listStatuses,
+      loadSnapshot,
       connectEventStream,
       applySnapshot: assignPayload,
       setLoading: (loading) => (ui.loading = loading),
@@ -77,13 +83,25 @@ export function createStatusSettingsState() {
     })
   })
 
-  function assignPayload(payload: Awaited<ReturnType<typeof listStatuses>>) {
+  function assignPayload(payload: StatusSettingsSnapshot) {
     ui.statuses = normalizeStatuses(payload.statuses)
     ui.stages = normalizeStages(payload.stages)
   }
 
+  async function loadSnapshot(projectId: string): Promise<StatusSettingsSnapshot> {
+    const [statusPayload, stagePayload] = await Promise.all([
+      listStatuses(projectId),
+      listStages(projectId),
+    ])
+
+    return {
+      statuses: statusPayload.statuses,
+      stages: stagePayload.stages,
+    }
+  }
+
   async function reload(projectId: string) {
-    assignPayload(await listStatuses(projectId))
+    assignPayload(await loadSnapshot(projectId))
   }
 
   function currentProjectId() {
