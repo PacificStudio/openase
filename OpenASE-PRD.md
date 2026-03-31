@@ -1978,7 +1978,6 @@ Trace: ticket/ASE-42
 ├── Span: hook.on_complete               (完成后 Hook)
 │   ├── Span: hook.exec run-tests.sh
 │   └── Span: hook.exec lint-check.sh
-├── Span: approval.gate                  (审批等待)
 └── Span: hook.on_done                   (收尾 Hook)
     └── Span: hook.exec cleanup.sh
 ```
@@ -2281,11 +2280,11 @@ Symphony 的经验可以直接迁移到 OpenASE：
 - 当 `approval_policy == "never"` 时
   - 对 approval request 自动回 `acceptForSession` / `approved_for_session`
   - 对 `item/tool/requestUserInput` 优先自动选择批准选项
-- 当不是无人值守模式时
-  - OpenASE 可以把 approval request 挂到自己的 Approval Center
-  - 但在 worker 内部必须把该 turn 标记为 blocked / awaiting approval，而不是继续假跑
 - 若当前会话明确是 non-interactive 且无法获得人工输入
   - 应返回标准化的“operator unavailable”答案，而不是无限等待
+- Phase 1 只支持无人值守编排
+  - `approval_policy != "never"` 不属于当前产品范围
+  - 运行时必须 fail fast 或降级为标准化 unavailable / unsupported 响应，不能假装进入一个并不存在的交互式审批中心
 
 #### 11.3.6 Token 对账规则（必须遵守）
 
@@ -2407,7 +2406,7 @@ OpenASE 应采用 Symphony 已文档化的 token accounting 规则：
   - Step 状态变化时再额外提升为 `AgentStepEvent`
   - lifecycle / token usage 事件不能冒充 output；output 也不能直接冒充业务 Activity
 
-OpenASE 第一阶段不要试图一次补完 Approval Center、Hook Gate、复杂 pause/resume。只要先把“真实 turn 能跑起来、能连续、能失败重试、不会重复记账”这四件事做扎实，链路就会从 `runtime ready` 变成真正可执行。
+OpenASE 第一阶段不要试图一次补完复杂交互式审批、Hook Gate、复杂 pause/resume。只要先把“真实 turn 能跑起来、能连续、能失败重试、不会重复记账”这四件事做扎实，链路就会从 `runtime ready` 变成真正可执行。
 
 ### 11.4 Gemini CLI 适配器
 
@@ -4906,7 +4905,7 @@ func (h *Hub) Broadcast(event Event) {
 // 启动时：Hub 订阅 EventProvider，fan-out 到所有 SSE 连接
 func (h *Hub) Run(ctx context.Context, eventBus provider.EventProvider) {
     events, _ := eventBus.Subscribe(ctx, "ticket.events", "agent.events",
-        "hook.events", "approval.events", "machine.events")
+        "hook.events", "machine.events")
     for event := range events {
         h.Broadcast(event)
     }
@@ -9761,7 +9760,7 @@ channels:
 // infra/notification/engine.go
 func (e *NotificationEngine) Run(ctx context.Context) {
     events, _ := e.eventBus.Subscribe(ctx, "ticket.events", "agent.events",
-        "hook.events", "approval.events", "machine.events", "connector.events")
+        "hook.events", "machine.events", "connector.events")
 
     for event := range events {
         // 查找匹配的订阅规则
