@@ -174,6 +174,7 @@ type AgentProviderAdapterType string
 const (
 	DefaultAgentProviderModelTemperature   float64 = 0
 	DefaultAgentProviderModelMaxTokens             = 16384
+	DefaultAgentProviderMaxParallelRuns            = 5
 	DefaultAgentProviderCostPerInputToken  float64 = 0
 	DefaultAgentProviderCostPerOutputToken float64 = 0
 

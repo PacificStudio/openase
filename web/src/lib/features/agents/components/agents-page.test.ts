@@ -156,6 +156,7 @@ const agentsPageDataFixture: AgentsPageData = {
       model_name: 'gpt-5.4',
       model_temperature: 0,
       model_max_tokens: 4096,
+      max_parallel_runs: 2,
       cost_per_input_token: 0,
       cost_per_output_token: 0,
     },

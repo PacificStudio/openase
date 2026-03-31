@@ -166,6 +166,7 @@ type OpenAPIAgentProvider struct {
 	ModelName             string                           `json:"model_name"`
 	ModelTemperature      float64                          `json:"model_temperature"`
 	ModelMaxTokens        int                              `json:"model_max_tokens"`
+	MaxParallelRuns       int                              `json:"max_parallel_runs"`
 	CostPerInputToken     float64                          `json:"cost_per_input_token"`
 	CostPerOutputToken    float64                          `json:"cost_per_output_token"`
 }
@@ -1224,6 +1225,7 @@ var (
 		"model_name":            "Model name configured for the provider.",
 		"model_temperature":     "Sampling temperature configured for the provider model.",
 		"model_max_tokens":      "Maximum number of output tokens allowed for the provider model.",
+		"max_parallel_runs":     "Maximum number of concurrent runs allowed for the provider.",
 		"cost_per_input_token":  "Estimated USD cost per input token.",
 		"cost_per_output_token": "Estimated USD cost per output token.",
 	}
@@ -3551,6 +3553,23 @@ func (b openAPISpecBuilder) addStreamOperations() error {
 			return err
 		}
 		op.AddParameter(uuidPathParameter("projectId", "Project ID."))
+		b.doc.AddOperation(item.path, http.MethodGet, op)
+	}
+
+	orgStreams := []struct {
+		path        string
+		operationID string
+		summary     string
+	}{
+		{path: "/api/v1/orgs/{orgId}/machines/stream", operationID: "streamOrganizationMachines", summary: "Stream organization machine events"},
+		{path: "/api/v1/orgs/{orgId}/providers/stream", operationID: "streamOrganizationProviders", summary: "Stream organization provider events"},
+	}
+	for _, item := range orgStreams {
+		op, err := b.streamOperation(item.operationID, item.summary, []string{"streams"}, http.StatusBadRequest, http.StatusInternalServerError)
+		if err != nil {
+			return err
+		}
+		op.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 		b.doc.AddOperation(item.path, http.MethodGet, op)
 	}
 

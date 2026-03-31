@@ -32,6 +32,7 @@ type agentProviderResponse struct {
 	ModelName             string                            `json:"model_name"`
 	ModelTemperature      float64                           `json:"model_temperature"`
 	ModelMaxTokens        int                               `json:"model_max_tokens"`
+	MaxParallelRuns       int                               `json:"max_parallel_runs"`
 	CostPerInputToken     float64                           `json:"cost_per_input_token"`
 	CostPerOutputToken    float64                           `json:"cost_per_output_token"`
 }
@@ -108,6 +109,7 @@ type agentProviderPatchRequest struct {
 	ModelName          *string         `json:"model_name"`
 	ModelTemperature   *float64        `json:"model_temperature"`
 	ModelMaxTokens     *int            `json:"model_max_tokens"`
+	MaxParallelRuns    *int            `json:"max_parallel_runs"`
 	CostPerInputToken  *float64        `json:"cost_per_input_token"`
 	CostPerOutputToken *float64        `json:"cost_per_output_token"`
 }
@@ -186,6 +188,7 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 		ModelName:          current.ModelName,
 		ModelTemperature:   floatPointer(current.ModelTemperature),
 		ModelMaxTokens:     intPointer(current.ModelMaxTokens),
+		MaxParallelRuns:    intPointer(current.MaxParallelRuns),
 		CostPerInputToken:  floatPointer(current.CostPerInputToken),
 		CostPerOutputToken: floatPointer(current.CostPerOutputToken),
 	}
@@ -215,6 +218,9 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 	}
 	if patch.ModelMaxTokens != nil {
 		request.ModelMaxTokens = patch.ModelMaxTokens
+	}
+	if patch.MaxParallelRuns != nil {
+		request.MaxParallelRuns = patch.MaxParallelRuns
 	}
 	if patch.CostPerInputToken != nil {
 		request.CostPerInputToken = patch.CostPerInputToken
@@ -429,6 +435,7 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		ModelName:          item.ModelName,
 		ModelTemperature:   item.ModelTemperature,
 		ModelMaxTokens:     item.ModelMaxTokens,
+		MaxParallelRuns:    item.MaxParallelRuns,
 		CostPerInputToken:  item.CostPerInputToken,
 		CostPerOutputToken: item.CostPerOutputToken,
 	}

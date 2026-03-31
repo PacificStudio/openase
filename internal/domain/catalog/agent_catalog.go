@@ -32,6 +32,7 @@ type AgentProvider struct {
 	ModelName             string
 	ModelTemperature      float64
 	ModelMaxTokens        int
+	MaxParallelRuns       int
 	CostPerInputToken     float64
 	CostPerOutputToken    float64
 }
@@ -89,6 +90,7 @@ type AgentProviderInput struct {
 	ModelName          string         `json:"model_name"`
 	ModelTemperature   *float64       `json:"model_temperature"`
 	ModelMaxTokens     *int           `json:"model_max_tokens"`
+	MaxParallelRuns    *int           `json:"max_parallel_runs"`
 	CostPerInputToken  *float64       `json:"cost_per_input_token"`
 	CostPerOutputToken *float64       `json:"cost_per_output_token"`
 }
@@ -109,6 +111,7 @@ type CreateAgentProvider struct {
 	ModelName          string
 	ModelTemperature   float64
 	ModelMaxTokens     int
+	MaxParallelRuns    int
 	CostPerInputToken  float64
 	CostPerOutputToken float64
 }
@@ -125,6 +128,7 @@ type UpdateAgentProvider struct {
 	ModelName          string
 	ModelTemperature   float64
 	ModelMaxTokens     int
+	MaxParallelRuns    int
 	CostPerInputToken  float64
 	CostPerOutputToken float64
 }
@@ -174,6 +178,11 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		return CreateAgentProvider{}, err
 	}
 
+	maxParallelRuns, err := parsePositiveInt("max_parallel_runs", raw.MaxParallelRuns, DefaultAgentProviderMaxParallelRuns)
+	if err != nil {
+		return CreateAgentProvider{}, err
+	}
+
 	costPerInputToken, err := parseNonNegativeFloat("cost_per_input_token", raw.CostPerInputToken, DefaultAgentProviderCostPerInputToken)
 	if err != nil {
 		return CreateAgentProvider{}, err
@@ -195,6 +204,7 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		ModelName:          modelName,
 		ModelTemperature:   modelTemperature,
 		ModelMaxTokens:     modelMaxTokens,
+		MaxParallelRuns:    maxParallelRuns,
 		CostPerInputToken:  costPerInputToken,
 		CostPerOutputToken: costPerOutputToken,
 	}, nil
@@ -218,6 +228,7 @@ func ParseUpdateAgentProvider(id uuid.UUID, organizationID uuid.UUID, raw AgentP
 		ModelName:          input.ModelName,
 		ModelTemperature:   input.ModelTemperature,
 		ModelMaxTokens:     input.ModelMaxTokens,
+		MaxParallelRuns:    input.MaxParallelRuns,
 		CostPerInputToken:  input.CostPerInputToken,
 		CostPerOutputToken: input.CostPerOutputToken,
 	}, nil

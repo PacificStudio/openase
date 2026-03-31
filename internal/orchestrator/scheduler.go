@@ -36,6 +36,7 @@ const (
 	skipReasonProviderUnknown     = "provider_unknown"
 	skipReasonProviderUnavailable = "provider_unavailable"
 	skipReasonProviderStale       = "provider_stale"
+	skipReasonProviderBusy        = "provider_busy"
 	skipReasonMirrorNotReady      = "mirror_not_ready"
 	skipReasonMaxConcurrency      = "max_concurrency"
 	skipReasonStageCapacity       = "stage_capacity"
@@ -191,7 +192,7 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 	if agent == nil {
 		return false, skipReasonNoAgent, nil
 	}
-	machine, reason, err := s.resolveExecutionMachine(ctx, project.OrganizationID, agent, now)
+	machine, providerItem, reason, err := s.resolveExecutionMachine(ctx, project.OrganizationID, agent, now)
 	if err != nil {
 		return false, "", fmt.Errorf("resolve execution machine: %w", err)
 	}
@@ -206,7 +207,7 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 		return false, reason, nil
 	}
 
-	outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, machine, agent, project.MaxConcurrentAgents, now)
+	outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, machine, agent, providerItem, project.MaxConcurrentAgents, now)
 	if err != nil {
 		return false, "", err
 	}
@@ -288,16 +289,16 @@ func (s *Scheduler) resolveExecutionMachine(
 	organizationID uuid.UUID,
 	agent *ent.Agent,
 	now time.Time,
-) (*ent.Machine, string, error) {
+) (*ent.Machine, *ent.AgentProvider, string, error) {
 	providerItem, err := s.client.AgentProvider.Get(ctx, agent.ProviderID)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, skipReasonNoMachine, nil
+			return nil, nil, skipReasonNoMachine, nil
 		}
-		return nil, "", err
+		return nil, nil, "", err
 	}
 	if providerItem.OrganizationID != organizationID {
-		return nil, skipReasonNoMachine, nil
+		return nil, nil, skipReasonNoMachine, nil
 	}
 
 	machine, err := s.client.Machine.Query().
@@ -308,12 +309,12 @@ func (s *Scheduler) resolveExecutionMachine(
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, skipReasonNoMachine, nil
+			return nil, nil, skipReasonNoMachine, nil
 		}
-		return nil, "", err
+		return nil, nil, "", err
 	}
 	if machine.Status != entmachine.StatusOnline {
-		return nil, skipReasonNoMachine, nil
+		return nil, nil, skipReasonNoMachine, nil
 	}
 
 	providerState := domaincatalog.DeriveAgentProviderAvailability(domaincatalog.AgentProvider{
@@ -335,14 +336,15 @@ func (s *Scheduler) resolveExecutionMachine(
 		ModelName:            providerItem.ModelName,
 		ModelTemperature:     providerItem.ModelTemperature,
 		ModelMaxTokens:       providerItem.ModelMaxTokens,
+		MaxParallelRuns:      providerItem.MaxParallelRuns,
 		CostPerInputToken:    providerItem.CostPerInputToken,
 		CostPerOutputToken:   providerItem.CostPerOutputToken,
 	}, now.UTC())
 	if providerState.AvailabilityState != domaincatalog.AgentProviderAvailabilityStateAvailable {
-		return nil, skipReasonForProviderAvailability(providerState.AvailabilityState), nil
+		return nil, nil, skipReasonForProviderAvailability(providerState.AvailabilityState), nil
 	}
 
-	return machine, "", nil
+	return machine, providerItem, "", nil
 }
 
 func schedulerOptionalString(value string) *string {
@@ -366,7 +368,7 @@ func skipReasonForProviderAvailability(state domaincatalog.AgentProviderAvailabi
 	}
 }
 
-func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Workflow, ticket *ent.Ticket, machine *ent.Machine, agent *ent.Agent, projectMaxConcurrent int, now time.Time) (string, error) {
+func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Workflow, ticket *ent.Ticket, machine *ent.Machine, agent *ent.Agent, providerItem *ent.AgentProvider, projectMaxConcurrent int, now time.Time) (string, error) {
 	tx, err := s.client.Tx(ctx)
 	if err != nil {
 		return "", fmt.Errorf("start dispatch tx: %w", err)
@@ -397,6 +399,19 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 	}
 	if projectActive >= projectMaxConcurrent {
 		return skipReasonMaxConcurrency, nil
+	}
+
+	providerActive, err := tx.AgentRun.Query().
+		Where(
+			entagentrun.ProviderIDEQ(providerItem.ID),
+			entagentrun.HasCurrentForTicket(),
+		).
+		Count(ctx)
+	if err != nil {
+		return "", fmt.Errorf("count provider concurrency: %w", err)
+	}
+	if providerActive >= providerItem.MaxParallelRuns {
+		return skipReasonProviderBusy, nil
 	}
 
 	pickupStatus, err := tx.TicketStatus.Query().
