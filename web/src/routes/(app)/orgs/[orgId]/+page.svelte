@@ -1,8 +1,9 @@
 <script lang="ts">
-  /* eslint-disable max-lines */
-  import type { Agent, Ticket } from '$lib/api/contracts'
-  import { listAgents, listTickets } from '$lib/api/openase'
-  import { buildDashboardStats } from '$lib/features/dashboard/model'
+  import {
+    emptyOrganizationDashboardStats,
+    loadOrganizationDashboardSummary,
+    type ProjectMetrics,
+  } from '$lib/features/dashboard/organization-summary'
   import type { DashboardStats } from '$lib/features/dashboard/types'
   import {
     providerAvailabilityBadgeVariant,
@@ -25,86 +26,43 @@
   let showProjectDialog = $state(false)
   let showProviderDialog = $state(false)
 
-  type ProjectMetrics = {
-    runningAgents: number
-    activeTickets: number
-    todayCost: number
-    lastActivity: string | null
-  }
-
-  const emptyStats: DashboardStats = {
-    runningAgents: 0,
-    activeTickets: 0,
-    pendingApprovals: 0,
-    newTicketsTodayCost: 0,
-    projectCost: 0,
-    ticketsCreatedToday: 0,
-    ticketsCompletedToday: 0,
-    ticketInputTokens: 0,
-    ticketOutputTokens: 0,
-    totalAgentTokens: 0,
-    avgCycleMinutes: 0,
-    prMergeRate: 0,
-  }
-
   let loading = $state(false)
   let projectMetrics = $state<Record<string, ProjectMetrics>>({})
-  let orgStats = $state<DashboardStats>(emptyStats)
+  let orgStats = $state<DashboardStats>(emptyOrganizationDashboardStats)
+  let activeProjectCount = $state(0)
 
   $effect(() => {
-    const projectList = projects
-    if (projectList.length === 0) {
+    const orgId = currentOrg?.id
+    const refreshKey = `${orgId ?? ''}:${appStore.appContextFetchedAt}`
+    void refreshKey
+
+    if (!orgId) {
       projectMetrics = {}
-      orgStats = emptyStats
+      orgStats = emptyOrganizationDashboardStats
+      activeProjectCount = 0
       return
     }
 
     let cancelled = false
+    const controller = new AbortController()
 
     const load = async () => {
       loading = true
 
       try {
-        const results = await Promise.all(
-          projectList.map(async (project) => {
-            const [agentPayload, ticketPayload] = await Promise.all([
-              listAgents(project.id),
-              listTickets(project.id),
-            ])
-            return {
-              projectId: project.id,
-              agents: agentPayload.agents,
-              tickets: ticketPayload.tickets,
-            }
-          }),
-        )
-
+        const summary = await loadOrganizationDashboardSummary(orgId, {
+          signal: controller.signal,
+        })
         if (cancelled) return
 
-        const allAgents: Agent[] = []
-        const allTickets: Ticket[] = []
-        const nextMetrics: Record<string, ProjectMetrics> = {}
-
-        for (const { projectId, agents, tickets } of results) {
-          allAgents.push(...agents)
-          allTickets.push(...tickets)
-
-          const stats = buildDashboardStats(agents, tickets)
-          const latestTicket = tickets.reduce<Ticket | null>((latest, t) => {
-            if (!latest || t.created_at > latest.created_at) return t
-            return latest
-          }, null)
-
-          nextMetrics[projectId] = {
-            runningAgents: stats.runningAgents,
-            activeTickets: stats.activeTickets,
-            todayCost: stats.newTicketsTodayCost,
-            lastActivity: latestTicket?.created_at ?? null,
-          }
-        }
-
-        projectMetrics = nextMetrics
-        orgStats = buildDashboardStats(allAgents, allTickets)
+        projectMetrics = summary.projectMetrics
+        activeProjectCount = summary.activeProjectCount
+        orgStats = summary.orgStats
+      } catch {
+        if (cancelled || controller.signal.aborted) return
+        projectMetrics = {}
+        orgStats = emptyOrganizationDashboardStats
+        activeProjectCount = 0
       } finally {
         if (!cancelled) loading = false
       }
@@ -113,15 +71,9 @@
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   })
-
-  const activeProjectCount = $derived(
-    projects.filter((p) => {
-      const s = p.status?.toLowerCase()
-      return s !== 'archived' && s !== 'canceled'
-    }).length,
-  )
 </script>
 
 <svelte:head>

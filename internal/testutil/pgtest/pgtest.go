@@ -241,6 +241,8 @@ func (s *Server) newIsolatedDatabase(t *testing.T, dbName string, templateName s
 	}
 
 	t.Cleanup(func() {
+		// DROP DATABASE ... WITH (FORCE) can block behind checkpoints on slower CI
+		// runners, so keep the cleanup budget comfortably above that window.
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), isolatedDatabaseDDLTimeout)
 		defer cleanupCancel()
 		if _, err := s.admin.ExecContext(cleanupCtx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbName)+" WITH (FORCE)"); err != nil {
