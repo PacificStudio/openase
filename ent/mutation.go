@@ -3670,6 +3670,7 @@ type AgentRunMutation struct {
 	op                            Op
 	typ                           string
 	id                            *uuid.UUID
+	skill_version_ids             *pgarray.StringArray
 	status                        *agentrun.Status
 	session_id                    *string
 	runtime_started_at            *time.Time
@@ -3684,6 +3685,8 @@ type AgentRunMutation struct {
 	clearedagent                  bool
 	workflow                      *uuid.UUID
 	clearedworkflow               bool
+	workflow_version              *uuid.UUID
+	clearedworkflow_version       bool
 	ticket                        *uuid.UUID
 	clearedticket                 bool
 	provider                      *uuid.UUID
@@ -3881,6 +3884,55 @@ func (m *AgentRunMutation) ResetWorkflowID() {
 	m.workflow = nil
 }
 
+// SetWorkflowVersionID sets the "workflow_version_id" field.
+func (m *AgentRunMutation) SetWorkflowVersionID(u uuid.UUID) {
+	m.workflow_version = &u
+}
+
+// WorkflowVersionID returns the value of the "workflow_version_id" field in the mutation.
+func (m *AgentRunMutation) WorkflowVersionID() (r uuid.UUID, exists bool) {
+	v := m.workflow_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWorkflowVersionID returns the old "workflow_version_id" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldWorkflowVersionID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWorkflowVersionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWorkflowVersionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWorkflowVersionID: %w", err)
+	}
+	return oldValue.WorkflowVersionID, nil
+}
+
+// ClearWorkflowVersionID clears the value of the "workflow_version_id" field.
+func (m *AgentRunMutation) ClearWorkflowVersionID() {
+	m.workflow_version = nil
+	m.clearedFields[agentrun.FieldWorkflowVersionID] = struct{}{}
+}
+
+// WorkflowVersionIDCleared returns if the "workflow_version_id" field was cleared in this mutation.
+func (m *AgentRunMutation) WorkflowVersionIDCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldWorkflowVersionID]
+	return ok
+}
+
+// ResetWorkflowVersionID resets all changes to the "workflow_version_id" field.
+func (m *AgentRunMutation) ResetWorkflowVersionID() {
+	m.workflow_version = nil
+	delete(m.clearedFields, agentrun.FieldWorkflowVersionID)
+}
+
 // SetTicketID sets the "ticket_id" field.
 func (m *AgentRunMutation) SetTicketID(u uuid.UUID) {
 	m.ticket = &u
@@ -3951,6 +4003,55 @@ func (m *AgentRunMutation) OldProviderID(ctx context.Context) (v uuid.UUID, err 
 // ResetProviderID resets all changes to the "provider_id" field.
 func (m *AgentRunMutation) ResetProviderID() {
 	m.provider = nil
+}
+
+// SetSkillVersionIds sets the "skill_version_ids" field.
+func (m *AgentRunMutation) SetSkillVersionIds(pa pgarray.StringArray) {
+	m.skill_version_ids = &pa
+}
+
+// SkillVersionIds returns the value of the "skill_version_ids" field in the mutation.
+func (m *AgentRunMutation) SkillVersionIds() (r pgarray.StringArray, exists bool) {
+	v := m.skill_version_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSkillVersionIds returns the old "skill_version_ids" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldSkillVersionIds(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSkillVersionIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSkillVersionIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSkillVersionIds: %w", err)
+	}
+	return oldValue.SkillVersionIds, nil
+}
+
+// ClearSkillVersionIds clears the value of the "skill_version_ids" field.
+func (m *AgentRunMutation) ClearSkillVersionIds() {
+	m.skill_version_ids = nil
+	m.clearedFields[agentrun.FieldSkillVersionIds] = struct{}{}
+}
+
+// SkillVersionIdsCleared returns if the "skill_version_ids" field was cleared in this mutation.
+func (m *AgentRunMutation) SkillVersionIdsCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldSkillVersionIds]
+	return ok
+}
+
+// ResetSkillVersionIds resets all changes to the "skill_version_ids" field.
+func (m *AgentRunMutation) ResetSkillVersionIds() {
+	m.skill_version_ids = nil
+	delete(m.clearedFields, agentrun.FieldSkillVersionIds)
 }
 
 // SetStatus sets the "status" field.
@@ -4422,6 +4523,33 @@ func (m *AgentRunMutation) ResetWorkflow() {
 	m.clearedworkflow = false
 }
 
+// ClearWorkflowVersion clears the "workflow_version" edge to the WorkflowVersion entity.
+func (m *AgentRunMutation) ClearWorkflowVersion() {
+	m.clearedworkflow_version = true
+	m.clearedFields[agentrun.FieldWorkflowVersionID] = struct{}{}
+}
+
+// WorkflowVersionCleared reports if the "workflow_version" edge to the WorkflowVersion entity was cleared.
+func (m *AgentRunMutation) WorkflowVersionCleared() bool {
+	return m.WorkflowVersionIDCleared() || m.clearedworkflow_version
+}
+
+// WorkflowVersionIDs returns the "workflow_version" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// WorkflowVersionID instead. It exists only for internal usage by the builders.
+func (m *AgentRunMutation) WorkflowVersionIDs() (ids []uuid.UUID) {
+	if id := m.workflow_version; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetWorkflowVersion resets all changes to the "workflow_version" edge.
+func (m *AgentRunMutation) ResetWorkflowVersion() {
+	m.workflow_version = nil
+	m.clearedworkflow_version = false
+}
+
 // ClearTicket clears the "ticket" edge to the Ticket entity.
 func (m *AgentRunMutation) ClearTicket() {
 	m.clearedticket = true
@@ -4726,18 +4854,24 @@ func (m *AgentRunMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentRunMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 15)
 	if m.agent != nil {
 		fields = append(fields, agentrun.FieldAgentID)
 	}
 	if m.workflow != nil {
 		fields = append(fields, agentrun.FieldWorkflowID)
 	}
+	if m.workflow_version != nil {
+		fields = append(fields, agentrun.FieldWorkflowVersionID)
+	}
 	if m.ticket != nil {
 		fields = append(fields, agentrun.FieldTicketID)
 	}
 	if m.provider != nil {
 		fields = append(fields, agentrun.FieldProviderID)
+	}
+	if m.skill_version_ids != nil {
+		fields = append(fields, agentrun.FieldSkillVersionIds)
 	}
 	if m.status != nil {
 		fields = append(fields, agentrun.FieldStatus)
@@ -4778,10 +4912,14 @@ func (m *AgentRunMutation) Field(name string) (ent.Value, bool) {
 		return m.AgentID()
 	case agentrun.FieldWorkflowID:
 		return m.WorkflowID()
+	case agentrun.FieldWorkflowVersionID:
+		return m.WorkflowVersionID()
 	case agentrun.FieldTicketID:
 		return m.TicketID()
 	case agentrun.FieldProviderID:
 		return m.ProviderID()
+	case agentrun.FieldSkillVersionIds:
+		return m.SkillVersionIds()
 	case agentrun.FieldStatus:
 		return m.Status()
 	case agentrun.FieldSessionID:
@@ -4813,10 +4951,14 @@ func (m *AgentRunMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldAgentID(ctx)
 	case agentrun.FieldWorkflowID:
 		return m.OldWorkflowID(ctx)
+	case agentrun.FieldWorkflowVersionID:
+		return m.OldWorkflowVersionID(ctx)
 	case agentrun.FieldTicketID:
 		return m.OldTicketID(ctx)
 	case agentrun.FieldProviderID:
 		return m.OldProviderID(ctx)
+	case agentrun.FieldSkillVersionIds:
+		return m.OldSkillVersionIds(ctx)
 	case agentrun.FieldStatus:
 		return m.OldStatus(ctx)
 	case agentrun.FieldSessionID:
@@ -4858,6 +5000,13 @@ func (m *AgentRunMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetWorkflowID(v)
 		return nil
+	case agentrun.FieldWorkflowVersionID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWorkflowVersionID(v)
+		return nil
 	case agentrun.FieldTicketID:
 		v, ok := value.(uuid.UUID)
 		if !ok {
@@ -4871,6 +5020,13 @@ func (m *AgentRunMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetProviderID(v)
+		return nil
+	case agentrun.FieldSkillVersionIds:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSkillVersionIds(v)
 		return nil
 	case agentrun.FieldStatus:
 		v, ok := value.(agentrun.Status)
@@ -4965,6 +5121,12 @@ func (m *AgentRunMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *AgentRunMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(agentrun.FieldWorkflowVersionID) {
+		fields = append(fields, agentrun.FieldWorkflowVersionID)
+	}
+	if m.FieldCleared(agentrun.FieldSkillVersionIds) {
+		fields = append(fields, agentrun.FieldSkillVersionIds)
+	}
 	if m.FieldCleared(agentrun.FieldSessionID) {
 		fields = append(fields, agentrun.FieldSessionID)
 	}
@@ -5000,6 +5162,12 @@ func (m *AgentRunMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *AgentRunMutation) ClearField(name string) error {
 	switch name {
+	case agentrun.FieldWorkflowVersionID:
+		m.ClearWorkflowVersionID()
+		return nil
+	case agentrun.FieldSkillVersionIds:
+		m.ClearSkillVersionIds()
+		return nil
 	case agentrun.FieldSessionID:
 		m.ClearSessionID()
 		return nil
@@ -5035,11 +5203,17 @@ func (m *AgentRunMutation) ResetField(name string) error {
 	case agentrun.FieldWorkflowID:
 		m.ResetWorkflowID()
 		return nil
+	case agentrun.FieldWorkflowVersionID:
+		m.ResetWorkflowVersionID()
+		return nil
 	case agentrun.FieldTicketID:
 		m.ResetTicketID()
 		return nil
 	case agentrun.FieldProviderID:
 		m.ResetProviderID()
+		return nil
+	case agentrun.FieldSkillVersionIds:
+		m.ResetSkillVersionIds()
 		return nil
 	case agentrun.FieldStatus:
 		m.ResetStatus()
@@ -5074,12 +5248,15 @@ func (m *AgentRunMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentRunMutation) AddedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.agent != nil {
 		edges = append(edges, agentrun.EdgeAgent)
 	}
 	if m.workflow != nil {
 		edges = append(edges, agentrun.EdgeWorkflow)
+	}
+	if m.workflow_version != nil {
+		edges = append(edges, agentrun.EdgeWorkflowVersion)
 	}
 	if m.ticket != nil {
 		edges = append(edges, agentrun.EdgeTicket)
@@ -5112,6 +5289,10 @@ func (m *AgentRunMutation) AddedIDs(name string) []ent.Value {
 		}
 	case agentrun.EdgeWorkflow:
 		if id := m.workflow; id != nil {
+			return []ent.Value{*id}
+		}
+	case agentrun.EdgeWorkflowVersion:
+		if id := m.workflow_version; id != nil {
 			return []ent.Value{*id}
 		}
 	case agentrun.EdgeTicket:
@@ -5152,7 +5333,7 @@ func (m *AgentRunMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentRunMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.removedcurrent_for_ticket != nil {
 		edges = append(edges, agentrun.EdgeCurrentForTicket)
 	}
@@ -5202,12 +5383,15 @@ func (m *AgentRunMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentRunMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.clearedagent {
 		edges = append(edges, agentrun.EdgeAgent)
 	}
 	if m.clearedworkflow {
 		edges = append(edges, agentrun.EdgeWorkflow)
+	}
+	if m.clearedworkflow_version {
+		edges = append(edges, agentrun.EdgeWorkflowVersion)
 	}
 	if m.clearedticket {
 		edges = append(edges, agentrun.EdgeTicket)
@@ -5238,6 +5422,8 @@ func (m *AgentRunMutation) EdgeCleared(name string) bool {
 		return m.clearedagent
 	case agentrun.EdgeWorkflow:
 		return m.clearedworkflow
+	case agentrun.EdgeWorkflowVersion:
+		return m.clearedworkflow_version
 	case agentrun.EdgeTicket:
 		return m.clearedticket
 	case agentrun.EdgeProvider:
@@ -5264,6 +5450,9 @@ func (m *AgentRunMutation) ClearEdge(name string) error {
 	case agentrun.EdgeWorkflow:
 		m.ClearWorkflow()
 		return nil
+	case agentrun.EdgeWorkflowVersion:
+		m.ClearWorkflowVersion()
+		return nil
 	case agentrun.EdgeTicket:
 		m.ClearTicket()
 		return nil
@@ -5283,6 +5472,9 @@ func (m *AgentRunMutation) ResetEdge(name string) error {
 		return nil
 	case agentrun.EdgeWorkflow:
 		m.ResetWorkflow()
+		return nil
+	case agentrun.EdgeWorkflowVersion:
+		m.ResetWorkflowVersion()
 		return nil
 	case agentrun.EdgeTicket:
 		m.ResetTicket()
@@ -22576,21 +22768,24 @@ func (m *SkillMutation) ResetEdge(name string) error {
 // SkillVersionMutation represents an operation that mutates the SkillVersion nodes in the graph.
 type SkillVersionMutation struct {
 	config
-	op               Op
-	typ              string
-	id               *uuid.UUID
-	version          *int
-	addversion       *int
-	content_markdown *string
-	content_hash     *string
-	created_by       *string
-	created_at       *time.Time
-	clearedFields    map[string]struct{}
-	skill            *uuid.UUID
-	clearedskill     bool
-	done             bool
-	oldValue         func(context.Context) (*SkillVersion, error)
-	predicates       []predicate.SkillVersion
+	op                          Op
+	typ                         string
+	id                          *uuid.UUID
+	version                     *int
+	addversion                  *int
+	content_markdown            *string
+	content_hash                *string
+	created_by                  *string
+	created_at                  *time.Time
+	clearedFields               map[string]struct{}
+	skill                       *uuid.UUID
+	clearedskill                bool
+	required_by_bindings        map[uuid.UUID]struct{}
+	removedrequired_by_bindings map[uuid.UUID]struct{}
+	clearedrequired_by_bindings bool
+	done                        bool
+	oldValue                    func(context.Context) (*SkillVersion, error)
+	predicates                  []predicate.SkillVersion
 }
 
 var _ ent.Mutation = (*SkillVersionMutation)(nil)
@@ -22960,6 +23155,60 @@ func (m *SkillVersionMutation) ResetSkill() {
 	m.clearedskill = false
 }
 
+// AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by ids.
+func (m *SkillVersionMutation) AddRequiredByBindingIDs(ids ...uuid.UUID) {
+	if m.required_by_bindings == nil {
+		m.required_by_bindings = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.required_by_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRequiredByBindings clears the "required_by_bindings" edge to the WorkflowSkillBinding entity.
+func (m *SkillVersionMutation) ClearRequiredByBindings() {
+	m.clearedrequired_by_bindings = true
+}
+
+// RequiredByBindingsCleared reports if the "required_by_bindings" edge to the WorkflowSkillBinding entity was cleared.
+func (m *SkillVersionMutation) RequiredByBindingsCleared() bool {
+	return m.clearedrequired_by_bindings
+}
+
+// RemoveRequiredByBindingIDs removes the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
+func (m *SkillVersionMutation) RemoveRequiredByBindingIDs(ids ...uuid.UUID) {
+	if m.removedrequired_by_bindings == nil {
+		m.removedrequired_by_bindings = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.required_by_bindings, ids[i])
+		m.removedrequired_by_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRequiredByBindings returns the removed IDs of the "required_by_bindings" edge to the WorkflowSkillBinding entity.
+func (m *SkillVersionMutation) RemovedRequiredByBindingsIDs() (ids []uuid.UUID) {
+	for id := range m.removedrequired_by_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RequiredByBindingsIDs returns the "required_by_bindings" edge IDs in the mutation.
+func (m *SkillVersionMutation) RequiredByBindingsIDs() (ids []uuid.UUID) {
+	for id := range m.required_by_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRequiredByBindings resets all changes to the "required_by_bindings" edge.
+func (m *SkillVersionMutation) ResetRequiredByBindings() {
+	m.required_by_bindings = nil
+	m.clearedrequired_by_bindings = false
+	m.removedrequired_by_bindings = nil
+}
+
 // Where appends a list predicates to the SkillVersionMutation builder.
 func (m *SkillVersionMutation) Where(ps ...predicate.SkillVersion) {
 	m.predicates = append(m.predicates, ps...)
@@ -23193,9 +23442,12 @@ func (m *SkillVersionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SkillVersionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.skill != nil {
 		edges = append(edges, skillversion.EdgeSkill)
+	}
+	if m.required_by_bindings != nil {
+		edges = append(edges, skillversion.EdgeRequiredByBindings)
 	}
 	return edges
 }
@@ -23208,27 +23460,47 @@ func (m *SkillVersionMutation) AddedIDs(name string) []ent.Value {
 		if id := m.skill; id != nil {
 			return []ent.Value{*id}
 		}
+	case skillversion.EdgeRequiredByBindings:
+		ids := make([]ent.Value, 0, len(m.required_by_bindings))
+		for id := range m.required_by_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SkillVersionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedrequired_by_bindings != nil {
+		edges = append(edges, skillversion.EdgeRequiredByBindings)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *SkillVersionMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case skillversion.EdgeRequiredByBindings:
+		ids := make([]ent.Value, 0, len(m.removedrequired_by_bindings))
+		for id := range m.removedrequired_by_bindings {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SkillVersionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedskill {
 		edges = append(edges, skillversion.EdgeSkill)
+	}
+	if m.clearedrequired_by_bindings {
+		edges = append(edges, skillversion.EdgeRequiredByBindings)
 	}
 	return edges
 }
@@ -23239,6 +23511,8 @@ func (m *SkillVersionMutation) EdgeCleared(name string) bool {
 	switch name {
 	case skillversion.EdgeSkill:
 		return m.clearedskill
+	case skillversion.EdgeRequiredByBindings:
+		return m.clearedrequired_by_bindings
 	}
 	return false
 }
@@ -23260,6 +23534,9 @@ func (m *SkillVersionMutation) ResetEdge(name string) error {
 	switch name {
 	case skillversion.EdgeSkill:
 		m.ResetSkill()
+		return nil
+	case skillversion.EdgeRequiredByBindings:
+		m.ResetRequiredByBindings()
 		return nil
 	}
 	return fmt.Errorf("unknown SkillVersion edge %s", name)
@@ -35448,13 +35725,13 @@ func (m *WorkflowSkillBindingMutation) ResetSkill() {
 	m.clearedskill = false
 }
 
-// ClearRequiredVersion clears the "required_version" edge to the WorkflowVersion entity.
+// ClearRequiredVersion clears the "required_version" edge to the SkillVersion entity.
 func (m *WorkflowSkillBindingMutation) ClearRequiredVersion() {
 	m.clearedrequired_version = true
 	m.clearedFields[workflowskillbinding.FieldRequiredVersionID] = struct{}{}
 }
 
-// RequiredVersionCleared reports if the "required_version" edge to the WorkflowVersion entity was cleared.
+// RequiredVersionCleared reports if the "required_version" edge to the SkillVersion entity was cleared.
 func (m *WorkflowSkillBindingMutation) RequiredVersionCleared() bool {
 	return m.RequiredVersionIDCleared() || m.clearedrequired_version
 }
@@ -35779,24 +36056,24 @@ func (m *WorkflowSkillBindingMutation) ResetEdge(name string) error {
 // WorkflowVersionMutation represents an operation that mutates the WorkflowVersion nodes in the graph.
 type WorkflowVersionMutation struct {
 	config
-	op                          Op
-	typ                         string
-	id                          *uuid.UUID
-	version                     *int
-	addversion                  *int
-	content_markdown            *string
-	content_hash                *string
-	created_by                  *string
-	created_at                  *time.Time
-	clearedFields               map[string]struct{}
-	workflow                    *uuid.UUID
-	clearedworkflow             bool
-	required_by_bindings        map[uuid.UUID]struct{}
-	removedrequired_by_bindings map[uuid.UUID]struct{}
-	clearedrequired_by_bindings bool
-	done                        bool
-	oldValue                    func(context.Context) (*WorkflowVersion, error)
-	predicates                  []predicate.WorkflowVersion
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	version           *int
+	addversion        *int
+	content_markdown  *string
+	content_hash      *string
+	created_by        *string
+	created_at        *time.Time
+	clearedFields     map[string]struct{}
+	workflow          *uuid.UUID
+	clearedworkflow   bool
+	agent_runs        map[uuid.UUID]struct{}
+	removedagent_runs map[uuid.UUID]struct{}
+	clearedagent_runs bool
+	done              bool
+	oldValue          func(context.Context) (*WorkflowVersion, error)
+	predicates        []predicate.WorkflowVersion
 }
 
 var _ ent.Mutation = (*WorkflowVersionMutation)(nil)
@@ -36166,58 +36443,58 @@ func (m *WorkflowVersionMutation) ResetWorkflow() {
 	m.clearedworkflow = false
 }
 
-// AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by ids.
-func (m *WorkflowVersionMutation) AddRequiredByBindingIDs(ids ...uuid.UUID) {
-	if m.required_by_bindings == nil {
-		m.required_by_bindings = make(map[uuid.UUID]struct{})
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by ids.
+func (m *WorkflowVersionMutation) AddAgentRunIDs(ids ...uuid.UUID) {
+	if m.agent_runs == nil {
+		m.agent_runs = make(map[uuid.UUID]struct{})
 	}
 	for i := range ids {
-		m.required_by_bindings[ids[i]] = struct{}{}
+		m.agent_runs[ids[i]] = struct{}{}
 	}
 }
 
-// ClearRequiredByBindings clears the "required_by_bindings" edge to the WorkflowSkillBinding entity.
-func (m *WorkflowVersionMutation) ClearRequiredByBindings() {
-	m.clearedrequired_by_bindings = true
+// ClearAgentRuns clears the "agent_runs" edge to the AgentRun entity.
+func (m *WorkflowVersionMutation) ClearAgentRuns() {
+	m.clearedagent_runs = true
 }
 
-// RequiredByBindingsCleared reports if the "required_by_bindings" edge to the WorkflowSkillBinding entity was cleared.
-func (m *WorkflowVersionMutation) RequiredByBindingsCleared() bool {
-	return m.clearedrequired_by_bindings
+// AgentRunsCleared reports if the "agent_runs" edge to the AgentRun entity was cleared.
+func (m *WorkflowVersionMutation) AgentRunsCleared() bool {
+	return m.clearedagent_runs
 }
 
-// RemoveRequiredByBindingIDs removes the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
-func (m *WorkflowVersionMutation) RemoveRequiredByBindingIDs(ids ...uuid.UUID) {
-	if m.removedrequired_by_bindings == nil {
-		m.removedrequired_by_bindings = make(map[uuid.UUID]struct{})
+// RemoveAgentRunIDs removes the "agent_runs" edge to the AgentRun entity by IDs.
+func (m *WorkflowVersionMutation) RemoveAgentRunIDs(ids ...uuid.UUID) {
+	if m.removedagent_runs == nil {
+		m.removedagent_runs = make(map[uuid.UUID]struct{})
 	}
 	for i := range ids {
-		delete(m.required_by_bindings, ids[i])
-		m.removedrequired_by_bindings[ids[i]] = struct{}{}
+		delete(m.agent_runs, ids[i])
+		m.removedagent_runs[ids[i]] = struct{}{}
 	}
 }
 
-// RemovedRequiredByBindings returns the removed IDs of the "required_by_bindings" edge to the WorkflowSkillBinding entity.
-func (m *WorkflowVersionMutation) RemovedRequiredByBindingsIDs() (ids []uuid.UUID) {
-	for id := range m.removedrequired_by_bindings {
+// RemovedAgentRuns returns the removed IDs of the "agent_runs" edge to the AgentRun entity.
+func (m *WorkflowVersionMutation) RemovedAgentRunsIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_runs {
 		ids = append(ids, id)
 	}
 	return
 }
 
-// RequiredByBindingsIDs returns the "required_by_bindings" edge IDs in the mutation.
-func (m *WorkflowVersionMutation) RequiredByBindingsIDs() (ids []uuid.UUID) {
-	for id := range m.required_by_bindings {
+// AgentRunsIDs returns the "agent_runs" edge IDs in the mutation.
+func (m *WorkflowVersionMutation) AgentRunsIDs() (ids []uuid.UUID) {
+	for id := range m.agent_runs {
 		ids = append(ids, id)
 	}
 	return
 }
 
-// ResetRequiredByBindings resets all changes to the "required_by_bindings" edge.
-func (m *WorkflowVersionMutation) ResetRequiredByBindings() {
-	m.required_by_bindings = nil
-	m.clearedrequired_by_bindings = false
-	m.removedrequired_by_bindings = nil
+// ResetAgentRuns resets all changes to the "agent_runs" edge.
+func (m *WorkflowVersionMutation) ResetAgentRuns() {
+	m.agent_runs = nil
+	m.clearedagent_runs = false
+	m.removedagent_runs = nil
 }
 
 // Where appends a list predicates to the WorkflowVersionMutation builder.
@@ -36457,8 +36734,8 @@ func (m *WorkflowVersionMutation) AddedEdges() []string {
 	if m.workflow != nil {
 		edges = append(edges, workflowversion.EdgeWorkflow)
 	}
-	if m.required_by_bindings != nil {
-		edges = append(edges, workflowversion.EdgeRequiredByBindings)
+	if m.agent_runs != nil {
+		edges = append(edges, workflowversion.EdgeAgentRuns)
 	}
 	return edges
 }
@@ -36471,9 +36748,9 @@ func (m *WorkflowVersionMutation) AddedIDs(name string) []ent.Value {
 		if id := m.workflow; id != nil {
 			return []ent.Value{*id}
 		}
-	case workflowversion.EdgeRequiredByBindings:
-		ids := make([]ent.Value, 0, len(m.required_by_bindings))
-		for id := range m.required_by_bindings {
+	case workflowversion.EdgeAgentRuns:
+		ids := make([]ent.Value, 0, len(m.agent_runs))
+		for id := range m.agent_runs {
 			ids = append(ids, id)
 		}
 		return ids
@@ -36484,8 +36761,8 @@ func (m *WorkflowVersionMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *WorkflowVersionMutation) RemovedEdges() []string {
 	edges := make([]string, 0, 2)
-	if m.removedrequired_by_bindings != nil {
-		edges = append(edges, workflowversion.EdgeRequiredByBindings)
+	if m.removedagent_runs != nil {
+		edges = append(edges, workflowversion.EdgeAgentRuns)
 	}
 	return edges
 }
@@ -36494,9 +36771,9 @@ func (m *WorkflowVersionMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *WorkflowVersionMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
-	case workflowversion.EdgeRequiredByBindings:
-		ids := make([]ent.Value, 0, len(m.removedrequired_by_bindings))
-		for id := range m.removedrequired_by_bindings {
+	case workflowversion.EdgeAgentRuns:
+		ids := make([]ent.Value, 0, len(m.removedagent_runs))
+		for id := range m.removedagent_runs {
 			ids = append(ids, id)
 		}
 		return ids
@@ -36510,8 +36787,8 @@ func (m *WorkflowVersionMutation) ClearedEdges() []string {
 	if m.clearedworkflow {
 		edges = append(edges, workflowversion.EdgeWorkflow)
 	}
-	if m.clearedrequired_by_bindings {
-		edges = append(edges, workflowversion.EdgeRequiredByBindings)
+	if m.clearedagent_runs {
+		edges = append(edges, workflowversion.EdgeAgentRuns)
 	}
 	return edges
 }
@@ -36522,8 +36799,8 @@ func (m *WorkflowVersionMutation) EdgeCleared(name string) bool {
 	switch name {
 	case workflowversion.EdgeWorkflow:
 		return m.clearedworkflow
-	case workflowversion.EdgeRequiredByBindings:
-		return m.clearedrequired_by_bindings
+	case workflowversion.EdgeAgentRuns:
+		return m.clearedagent_runs
 	}
 	return false
 }
@@ -36546,8 +36823,8 @@ func (m *WorkflowVersionMutation) ResetEdge(name string) error {
 	case workflowversion.EdgeWorkflow:
 		m.ResetWorkflow()
 		return nil
-	case workflowversion.EdgeRequiredByBindings:
-		m.ResetRequiredByBindings()
+	case workflowversion.EdgeAgentRuns:
+		m.ResetAgentRuns()
 		return nil
 	}
 	return fmt.Errorf("unknown WorkflowVersion edge %s", name)

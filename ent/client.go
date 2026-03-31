@@ -1247,6 +1247,22 @@ func (c *AgentRunClient) QueryWorkflow(_m *AgentRun) *WorkflowQuery {
 	return query
 }
 
+// QueryWorkflowVersion queries the workflow_version edge of a AgentRun.
+func (c *AgentRunClient) QueryWorkflowVersion(_m *AgentRun) *WorkflowVersionQuery {
+	query := (&WorkflowVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentrun.Table, agentrun.FieldID, id),
+			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentrun.WorkflowVersionTable, agentrun.WorkflowVersionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryTicket queries the ticket edge of a AgentRun.
 func (c *AgentRunClient) QueryTicket(_m *AgentRun) *TicketQuery {
 	query := (&TicketClient{config: c.config}).Query()
@@ -4628,6 +4644,22 @@ func (c *SkillVersionClient) QuerySkill(_m *SkillVersion) *SkillQuery {
 	return query
 }
 
+// QueryRequiredByBindings queries the required_by_bindings edge of a SkillVersion.
+func (c *SkillVersionClient) QueryRequiredByBindings(_m *SkillVersion) *WorkflowSkillBindingQuery {
+	query := (&WorkflowSkillBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skillversion.Table, skillversion.FieldID, id),
+			sqlgraph.To(workflowskillbinding.Table, workflowskillbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, skillversion.RequiredByBindingsTable, skillversion.RequiredByBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SkillVersionClient) Hooks() []Hook {
 	return c.hooks.SkillVersion
@@ -6679,13 +6711,13 @@ func (c *WorkflowSkillBindingClient) QuerySkill(_m *WorkflowSkillBinding) *Skill
 }
 
 // QueryRequiredVersion queries the required_version edge of a WorkflowSkillBinding.
-func (c *WorkflowSkillBindingClient) QueryRequiredVersion(_m *WorkflowSkillBinding) *WorkflowVersionQuery {
-	query := (&WorkflowVersionClient{config: c.config}).Query()
+func (c *WorkflowSkillBindingClient) QueryRequiredVersion(_m *WorkflowSkillBinding) *SkillVersionQuery {
+	query := (&SkillVersionClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(workflowskillbinding.Table, workflowskillbinding.FieldID, id),
-			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.To(skillversion.Table, skillversion.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, workflowskillbinding.RequiredVersionTable, workflowskillbinding.RequiredVersionColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
@@ -6843,15 +6875,15 @@ func (c *WorkflowVersionClient) QueryWorkflow(_m *WorkflowVersion) *WorkflowQuer
 	return query
 }
 
-// QueryRequiredByBindings queries the required_by_bindings edge of a WorkflowVersion.
-func (c *WorkflowVersionClient) QueryRequiredByBindings(_m *WorkflowVersion) *WorkflowSkillBindingQuery {
-	query := (&WorkflowSkillBindingClient{config: c.config}).Query()
+// QueryAgentRuns queries the agent_runs edge of a WorkflowVersion.
+func (c *WorkflowVersionClient) QueryAgentRuns(_m *WorkflowVersion) *AgentRunQuery {
+	query := (&AgentRunClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(workflowversion.Table, workflowversion.FieldID, id),
-			sqlgraph.To(workflowskillbinding.Table, workflowskillbinding.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, workflowversion.RequiredByBindingsTable, workflowversion.RequiredByBindingsColumn),
+			sqlgraph.To(agentrun.Table, agentrun.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workflowversion.AgentRunsTable, workflowversion.AgentRunsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil

@@ -10,9 +10,9 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillversion"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
-	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -42,7 +42,7 @@ type WorkflowSkillBindingEdges struct {
 	// Skill holds the value of the skill edge.
 	Skill *Skill `json:"skill,omitempty"`
 	// RequiredVersion holds the value of the required_version edge.
-	RequiredVersion *WorkflowVersion `json:"required_version,omitempty"`
+	RequiredVersion *SkillVersion `json:"required_version,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [3]bool
@@ -72,11 +72,11 @@ func (e WorkflowSkillBindingEdges) SkillOrErr() (*Skill, error) {
 
 // RequiredVersionOrErr returns the RequiredVersion value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e WorkflowSkillBindingEdges) RequiredVersionOrErr() (*WorkflowVersion, error) {
+func (e WorkflowSkillBindingEdges) RequiredVersionOrErr() (*SkillVersion, error) {
 	if e.RequiredVersion != nil {
 		return e.RequiredVersion, nil
 	} else if e.loadedTypes[2] {
-		return nil, &NotFoundError{label: workflowversion.Label}
+		return nil, &NotFoundError{label: skillversion.Label}
 	}
 	return nil, &NotLoadedError{edge: "required_version"}
 }
@@ -162,7 +162,7 @@ func (_m *WorkflowSkillBinding) QuerySkill() *SkillQuery {
 }
 
 // QueryRequiredVersion queries the "required_version" edge of the WorkflowSkillBinding entity.
-func (_m *WorkflowSkillBinding) QueryRequiredVersion() *WorkflowVersionQuery {
+func (_m *WorkflowSkillBinding) QueryRequiredVersion() *SkillVersionQuery {
 	return NewWorkflowSkillBindingClient(_m.config).QueryRequiredVersion(_m)
 }
 

@@ -47,9 +47,9 @@ const (
 	SkillColumn = "skill_id"
 	// RequiredVersionTable is the table that holds the required_version relation/edge.
 	RequiredVersionTable = "workflow_skill_bindings"
-	// RequiredVersionInverseTable is the table name for the WorkflowVersion entity.
-	// It exists in this package in order to avoid circular dependency with the "workflowversion" package.
-	RequiredVersionInverseTable = "workflow_versions"
+	// RequiredVersionInverseTable is the table name for the SkillVersion entity.
+	// It exists in this package in order to avoid circular dependency with the "skillversion" package.
+	RequiredVersionInverseTable = "skill_versions"
 	// RequiredVersionColumn is the table column denoting the required_version relation/edge.
 	RequiredVersionColumn = "required_version_id"
 )

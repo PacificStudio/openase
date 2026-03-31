@@ -404,21 +404,21 @@ func HasWorkflowWith(preds ...predicate.Workflow) predicate.WorkflowVersion {
 	})
 }
 
-// HasRequiredByBindings applies the HasEdge predicate on the "required_by_bindings" edge.
-func HasRequiredByBindings() predicate.WorkflowVersion {
+// HasAgentRuns applies the HasEdge predicate on the "agent_runs" edge.
+func HasAgentRuns() predicate.WorkflowVersion {
 	return predicate.WorkflowVersion(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, RequiredByBindingsTable, RequiredByBindingsColumn),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentRunsTable, AgentRunsColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasRequiredByBindingsWith applies the HasEdge predicate on the "required_by_bindings" edge with a given conditions (other predicates).
-func HasRequiredByBindingsWith(preds ...predicate.WorkflowSkillBinding) predicate.WorkflowVersion {
+// HasAgentRunsWith applies the HasEdge predicate on the "agent_runs" edge with a given conditions (other predicates).
+func HasAgentRunsWith(preds ...predicate.AgentRun) predicate.WorkflowVersion {
 	return predicate.WorkflowVersion(func(s *sql.Selector) {
-		step := newRequiredByBindingsStep()
+		step := newAgentRunsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

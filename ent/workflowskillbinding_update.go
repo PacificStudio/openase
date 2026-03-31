@@ -12,9 +12,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillversion"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
-	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -89,8 +89,8 @@ func (_u *WorkflowSkillBindingUpdate) SetSkill(v *Skill) *WorkflowSkillBindingUp
 	return _u.SetSkillID(v.ID)
 }
 
-// SetRequiredVersion sets the "required_version" edge to the WorkflowVersion entity.
-func (_u *WorkflowSkillBindingUpdate) SetRequiredVersion(v *WorkflowVersion) *WorkflowSkillBindingUpdate {
+// SetRequiredVersion sets the "required_version" edge to the SkillVersion entity.
+func (_u *WorkflowSkillBindingUpdate) SetRequiredVersion(v *SkillVersion) *WorkflowSkillBindingUpdate {
 	return _u.SetRequiredVersionID(v.ID)
 }
 
@@ -111,7 +111,7 @@ func (_u *WorkflowSkillBindingUpdate) ClearSkill() *WorkflowSkillBindingUpdate {
 	return _u
 }
 
-// ClearRequiredVersion clears the "required_version" edge to the WorkflowVersion entity.
+// ClearRequiredVersion clears the "required_version" edge to the SkillVersion entity.
 func (_u *WorkflowSkillBindingUpdate) ClearRequiredVersion() *WorkflowSkillBindingUpdate {
 	_u.mutation.ClearRequiredVersion()
 	return _u
@@ -233,7 +233,7 @@ func (_u *WorkflowSkillBindingUpdate) sqlSave(ctx context.Context) (_node int, e
 			Columns: []string{workflowskillbinding.RequiredVersionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(skillversion.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -246,7 +246,7 @@ func (_u *WorkflowSkillBindingUpdate) sqlSave(ctx context.Context) (_node int, e
 			Columns: []string{workflowskillbinding.RequiredVersionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(skillversion.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -332,8 +332,8 @@ func (_u *WorkflowSkillBindingUpdateOne) SetSkill(v *Skill) *WorkflowSkillBindin
 	return _u.SetSkillID(v.ID)
 }
 
-// SetRequiredVersion sets the "required_version" edge to the WorkflowVersion entity.
-func (_u *WorkflowSkillBindingUpdateOne) SetRequiredVersion(v *WorkflowVersion) *WorkflowSkillBindingUpdateOne {
+// SetRequiredVersion sets the "required_version" edge to the SkillVersion entity.
+func (_u *WorkflowSkillBindingUpdateOne) SetRequiredVersion(v *SkillVersion) *WorkflowSkillBindingUpdateOne {
 	return _u.SetRequiredVersionID(v.ID)
 }
 
@@ -354,7 +354,7 @@ func (_u *WorkflowSkillBindingUpdateOne) ClearSkill() *WorkflowSkillBindingUpdat
 	return _u
 }
 
-// ClearRequiredVersion clears the "required_version" edge to the WorkflowVersion entity.
+// ClearRequiredVersion clears the "required_version" edge to the SkillVersion entity.
 func (_u *WorkflowSkillBindingUpdateOne) ClearRequiredVersion() *WorkflowSkillBindingUpdateOne {
 	_u.mutation.ClearRequiredVersion()
 	return _u
@@ -506,7 +506,7 @@ func (_u *WorkflowSkillBindingUpdateOne) sqlSave(ctx context.Context) (_node *Wo
 			Columns: []string{workflowskillbinding.RequiredVersionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(skillversion.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -519,7 +519,7 @@ func (_u *WorkflowSkillBindingUpdateOne) sqlSave(ctx context.Context) (_node *Wo
 			Columns: []string{workflowskillbinding.RequiredVersionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(skillversion.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

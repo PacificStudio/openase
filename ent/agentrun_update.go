@@ -20,6 +20,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -64,6 +66,26 @@ func (_u *AgentRunUpdate) SetNillableWorkflowID(v *uuid.UUID) *AgentRunUpdate {
 	return _u
 }
 
+// SetWorkflowVersionID sets the "workflow_version_id" field.
+func (_u *AgentRunUpdate) SetWorkflowVersionID(v uuid.UUID) *AgentRunUpdate {
+	_u.mutation.SetWorkflowVersionID(v)
+	return _u
+}
+
+// SetNillableWorkflowVersionID sets the "workflow_version_id" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableWorkflowVersionID(v *uuid.UUID) *AgentRunUpdate {
+	if v != nil {
+		_u.SetWorkflowVersionID(*v)
+	}
+	return _u
+}
+
+// ClearWorkflowVersionID clears the value of the "workflow_version_id" field.
+func (_u *AgentRunUpdate) ClearWorkflowVersionID() *AgentRunUpdate {
+	_u.mutation.ClearWorkflowVersionID()
+	return _u
+}
+
 // SetTicketID sets the "ticket_id" field.
 func (_u *AgentRunUpdate) SetTicketID(v uuid.UUID) *AgentRunUpdate {
 	_u.mutation.SetTicketID(v)
@@ -89,6 +111,18 @@ func (_u *AgentRunUpdate) SetNillableProviderID(v *uuid.UUID) *AgentRunUpdate {
 	if v != nil {
 		_u.SetProviderID(*v)
 	}
+	return _u
+}
+
+// SetSkillVersionIds sets the "skill_version_ids" field.
+func (_u *AgentRunUpdate) SetSkillVersionIds(v pgarray.StringArray) *AgentRunUpdate {
+	_u.mutation.SetSkillVersionIds(v)
+	return _u
+}
+
+// ClearSkillVersionIds clears the value of the "skill_version_ids" field.
+func (_u *AgentRunUpdate) ClearSkillVersionIds() *AgentRunUpdate {
+	_u.mutation.ClearSkillVersionIds()
 	return _u
 }
 
@@ -256,6 +290,11 @@ func (_u *AgentRunUpdate) SetWorkflow(v *Workflow) *AgentRunUpdate {
 	return _u.SetWorkflowID(v.ID)
 }
 
+// SetWorkflowVersion sets the "workflow_version" edge to the WorkflowVersion entity.
+func (_u *AgentRunUpdate) SetWorkflowVersion(v *WorkflowVersion) *AgentRunUpdate {
+	return _u.SetWorkflowVersionID(v.ID)
+}
+
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_u *AgentRunUpdate) SetTicket(v *Ticket) *AgentRunUpdate {
 	return _u.SetTicketID(v.ID)
@@ -340,6 +379,12 @@ func (_u *AgentRunUpdate) ClearAgent() *AgentRunUpdate {
 // ClearWorkflow clears the "workflow" edge to the Workflow entity.
 func (_u *AgentRunUpdate) ClearWorkflow() *AgentRunUpdate {
 	_u.mutation.ClearWorkflow()
+	return _u
+}
+
+// ClearWorkflowVersion clears the "workflow_version" edge to the WorkflowVersion entity.
+func (_u *AgentRunUpdate) ClearWorkflowVersion() *AgentRunUpdate {
+	_u.mutation.ClearWorkflowVersion()
 	return _u
 }
 
@@ -500,6 +545,12 @@ func (_u *AgentRunUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			}
 		}
 	}
+	if value, ok := _u.mutation.SkillVersionIds(); ok {
+		_spec.SetField(agentrun.FieldSkillVersionIds, field.TypeOther, value)
+	}
+	if _u.mutation.SkillVersionIdsCleared() {
+		_spec.ClearField(agentrun.FieldSkillVersionIds, field.TypeOther)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(agentrun.FieldStatus, field.TypeEnum, value)
 	}
@@ -596,6 +647,35 @@ func (_u *AgentRunUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.WorkflowVersionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentrun.WorkflowVersionTable,
+			Columns: []string{agentrun.WorkflowVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.WorkflowVersionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentrun.WorkflowVersionTable,
+			Columns: []string{agentrun.WorkflowVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -889,6 +969,26 @@ func (_u *AgentRunUpdateOne) SetNillableWorkflowID(v *uuid.UUID) *AgentRunUpdate
 	return _u
 }
 
+// SetWorkflowVersionID sets the "workflow_version_id" field.
+func (_u *AgentRunUpdateOne) SetWorkflowVersionID(v uuid.UUID) *AgentRunUpdateOne {
+	_u.mutation.SetWorkflowVersionID(v)
+	return _u
+}
+
+// SetNillableWorkflowVersionID sets the "workflow_version_id" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableWorkflowVersionID(v *uuid.UUID) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetWorkflowVersionID(*v)
+	}
+	return _u
+}
+
+// ClearWorkflowVersionID clears the value of the "workflow_version_id" field.
+func (_u *AgentRunUpdateOne) ClearWorkflowVersionID() *AgentRunUpdateOne {
+	_u.mutation.ClearWorkflowVersionID()
+	return _u
+}
+
 // SetTicketID sets the "ticket_id" field.
 func (_u *AgentRunUpdateOne) SetTicketID(v uuid.UUID) *AgentRunUpdateOne {
 	_u.mutation.SetTicketID(v)
@@ -914,6 +1014,18 @@ func (_u *AgentRunUpdateOne) SetNillableProviderID(v *uuid.UUID) *AgentRunUpdate
 	if v != nil {
 		_u.SetProviderID(*v)
 	}
+	return _u
+}
+
+// SetSkillVersionIds sets the "skill_version_ids" field.
+func (_u *AgentRunUpdateOne) SetSkillVersionIds(v pgarray.StringArray) *AgentRunUpdateOne {
+	_u.mutation.SetSkillVersionIds(v)
+	return _u
+}
+
+// ClearSkillVersionIds clears the value of the "skill_version_ids" field.
+func (_u *AgentRunUpdateOne) ClearSkillVersionIds() *AgentRunUpdateOne {
+	_u.mutation.ClearSkillVersionIds()
 	return _u
 }
 
@@ -1081,6 +1193,11 @@ func (_u *AgentRunUpdateOne) SetWorkflow(v *Workflow) *AgentRunUpdateOne {
 	return _u.SetWorkflowID(v.ID)
 }
 
+// SetWorkflowVersion sets the "workflow_version" edge to the WorkflowVersion entity.
+func (_u *AgentRunUpdateOne) SetWorkflowVersion(v *WorkflowVersion) *AgentRunUpdateOne {
+	return _u.SetWorkflowVersionID(v.ID)
+}
+
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_u *AgentRunUpdateOne) SetTicket(v *Ticket) *AgentRunUpdateOne {
 	return _u.SetTicketID(v.ID)
@@ -1165,6 +1282,12 @@ func (_u *AgentRunUpdateOne) ClearAgent() *AgentRunUpdateOne {
 // ClearWorkflow clears the "workflow" edge to the Workflow entity.
 func (_u *AgentRunUpdateOne) ClearWorkflow() *AgentRunUpdateOne {
 	_u.mutation.ClearWorkflow()
+	return _u
+}
+
+// ClearWorkflowVersion clears the "workflow_version" edge to the WorkflowVersion entity.
+func (_u *AgentRunUpdateOne) ClearWorkflowVersion() *AgentRunUpdateOne {
+	_u.mutation.ClearWorkflowVersion()
 	return _u
 }
 
@@ -1355,6 +1478,12 @@ func (_u *AgentRunUpdateOne) sqlSave(ctx context.Context) (_node *AgentRun, err 
 			}
 		}
 	}
+	if value, ok := _u.mutation.SkillVersionIds(); ok {
+		_spec.SetField(agentrun.FieldSkillVersionIds, field.TypeOther, value)
+	}
+	if _u.mutation.SkillVersionIdsCleared() {
+		_spec.ClearField(agentrun.FieldSkillVersionIds, field.TypeOther)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(agentrun.FieldStatus, field.TypeEnum, value)
 	}
@@ -1451,6 +1580,35 @@ func (_u *AgentRunUpdateOne) sqlSave(ctx context.Context) (_node *AgentRun, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.WorkflowVersionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentrun.WorkflowVersionTable,
+			Columns: []string{agentrun.WorkflowVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.WorkflowVersionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentrun.WorkflowVersionTable,
+			Columns: []string{agentrun.WorkflowVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

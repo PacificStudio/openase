@@ -41,9 +41,11 @@ type SkillVersion struct {
 type SkillVersionEdges struct {
 	// Skill holds the value of the skill edge.
 	Skill *Skill `json:"skill,omitempty"`
+	// RequiredByBindings holds the value of the required_by_bindings edge.
+	RequiredByBindings []*WorkflowSkillBinding `json:"required_by_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // SkillOrErr returns the Skill value or an error if the edge
@@ -55,6 +57,15 @@ func (e SkillVersionEdges) SkillOrErr() (*Skill, error) {
 		return nil, &NotFoundError{label: skill.Label}
 	}
 	return nil, &NotLoadedError{edge: "skill"}
+}
+
+// RequiredByBindingsOrErr returns the RequiredByBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e SkillVersionEdges) RequiredByBindingsOrErr() ([]*WorkflowSkillBinding, error) {
+	if e.loadedTypes[1] {
+		return e.RequiredByBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "required_by_bindings"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -143,6 +154,11 @@ func (_m *SkillVersion) Value(name string) (ent.Value, error) {
 // QuerySkill queries the "skill" edge of the SkillVersion entity.
 func (_m *SkillVersion) QuerySkill() *SkillQuery {
 	return NewSkillVersionClient(_m.config).QuerySkill(_m)
+}
+
+// QueryRequiredByBindings queries the "required_by_bindings" edge of the SkillVersion entity.
+func (_m *SkillVersion) QueryRequiredByBindings() *WorkflowSkillBindingQuery {
+	return NewSkillVersionClient(_m.config).QueryRequiredByBindings(_m)
 }
 
 // Update returns a builder for updating this SkillVersion.

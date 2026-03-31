@@ -864,6 +864,17 @@ func buildHarnessContent(frontmatter string, body string) string {
 }
 
 func resolveSkillTarget(workspaceRoot string, rawAdapterType string) (resolvedSkillTarget, error) {
+	target, err := resolveSkillTargetPath(workspaceRoot, rawAdapterType)
+	if err != nil {
+		return resolvedSkillTarget{}, err
+	}
+	if err := os.MkdirAll(target.workspace.String(), 0o750); err != nil {
+		return resolvedSkillTarget{}, fmt.Errorf("%w: create workspace root: %s", ErrSkillInvalid, err)
+	}
+	return target, nil
+}
+
+func resolveSkillTargetPath(workspaceRoot string, rawAdapterType string) (resolvedSkillTarget, error) {
 	trimmedWorkspaceRoot := strings.TrimSpace(workspaceRoot)
 	if trimmedWorkspaceRoot == "" {
 		return resolvedSkillTarget{}, fmt.Errorf("%w: workspace_root must not be empty", ErrSkillInvalid)
@@ -875,9 +886,6 @@ func resolveSkillTarget(workspaceRoot string, rawAdapterType string) (resolvedSk
 	workspace, err := provider.ParseAbsolutePath(absoluteWorkspaceRoot)
 	if err != nil {
 		return resolvedSkillTarget{}, fmt.Errorf("%w: %s", ErrSkillInvalid, err)
-	}
-	if err := os.MkdirAll(workspace.String(), 0o750); err != nil {
-		return resolvedSkillTarget{}, fmt.Errorf("%w: create workspace root: %s", ErrSkillInvalid, err)
 	}
 
 	adapterType := entagentprovider.AdapterType(strings.ToLower(strings.TrimSpace(rawAdapterType)))
@@ -903,7 +911,7 @@ func resolveSkillTarget(workspaceRoot string, rawAdapterType string) (resolvedSk
 }
 
 func ResolveSkillTargetForRuntime(workspaceRoot string, rawAdapterType string) (RuntimeSkillTarget, error) {
-	target, err := resolveSkillTarget(workspaceRoot, rawAdapterType)
+	target, err := resolveSkillTargetPath(workspaceRoot, rawAdapterType)
 	if err != nil {
 		return RuntimeSkillTarget{}, err
 	}

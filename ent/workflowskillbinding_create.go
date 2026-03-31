@@ -11,9 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillversion"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
-	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -88,8 +88,8 @@ func (_c *WorkflowSkillBindingCreate) SetSkill(v *Skill) *WorkflowSkillBindingCr
 	return _c.SetSkillID(v.ID)
 }
 
-// SetRequiredVersion sets the "required_version" edge to the WorkflowVersion entity.
-func (_c *WorkflowSkillBindingCreate) SetRequiredVersion(v *WorkflowVersion) *WorkflowSkillBindingCreate {
+// SetRequiredVersion sets the "required_version" edge to the SkillVersion entity.
+func (_c *WorkflowSkillBindingCreate) SetRequiredVersion(v *SkillVersion) *WorkflowSkillBindingCreate {
 	return _c.SetRequiredVersionID(v.ID)
 }
 
@@ -236,7 +236,7 @@ func (_c *WorkflowSkillBindingCreate) createSpec() (*WorkflowSkillBinding, *sqlg
 			Columns: []string{workflowskillbinding.RequiredVersionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(skillversion.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

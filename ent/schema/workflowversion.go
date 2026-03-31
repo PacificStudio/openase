@@ -30,7 +30,7 @@ func (WorkflowVersion) Edges() []ent.Edge {
 			Field("workflow_id").
 			Unique().
 			Required(),
-		edge.To("required_by_bindings", WorkflowSkillBinding.Type),
+		edge.To("agent_runs", AgentRun.Type),
 	}
 }
 

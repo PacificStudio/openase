@@ -770,26 +770,20 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 	}
 
 	workingDirectoryValue := resolveAgentWorkingDirectory(launchContext, workspaceItem)
+	var runtimeSnapshot workflowservice.RuntimeSnapshot
 	if l.workflow != nil {
-		if remote {
-			if err := l.refreshRemoteWorkspaceSkills(
+		if launchContext.ticket.WorkflowID != nil {
+			runtimeSnapshot, err = l.materializeRuntimeSnapshot(
 				ctx,
-				launchContext.project.ID,
-				launchContext.ticket.WorkflowID,
+				assignment.run.ID,
+				*launchContext.ticket.WorkflowID,
 				machine,
 				workingDirectoryValue,
 				string(launchContext.agent.Edges.Provider.AdapterType),
-			); err != nil {
-				return nil, fmt.Errorf("prepare remote codex workspace skills: %w", err)
-			}
-		} else {
-			if _, err := l.workflow.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
-				ProjectID:     launchContext.project.ID,
-				WorkspaceRoot: workingDirectoryValue,
-				AdapterType:   string(launchContext.agent.Edges.Provider.AdapterType),
-				WorkflowID:    launchContext.ticket.WorkflowID,
-			}); err != nil {
-				return nil, fmt.Errorf("prepare local codex workspace skills: %w", err)
+				remote,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("materialize runtime snapshot: %w", err)
 			}
 		}
 	}
@@ -802,6 +796,7 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		launchContext,
 		machine,
 		workingDirectory.String(),
+		runtimeSnapshot,
 	)
 	if err != nil {
 		return nil, err
@@ -987,17 +982,13 @@ func (l *RuntimeLauncher) buildDeveloperInstructions(
 	launchContext runtimeLaunchContext,
 	machine catalogdomain.Machine,
 	workspace string,
+	runtimeSnapshot workflowservice.RuntimeSnapshot,
 ) (string, error) {
 	if l == nil || l.workflow == nil || launchContext.ticket == nil || launchContext.ticket.WorkflowID == nil {
 		return "", nil
 	}
 	if launchContext.agent == nil || launchContext.project == nil {
 		return "", fmt.Errorf("runtime launch context is incomplete for harness injection")
-	}
-
-	document, err := l.workflow.GetHarness(ctx, *launchContext.ticket.WorkflowID)
-	if err != nil {
-		return "", fmt.Errorf("load workflow harness for agent launch: %w", err)
 	}
 
 	currentMachine, accessibleMachines, err := l.loadMachineAccess(ctx, launchContext.project, machine, workspace)
@@ -1018,7 +1009,7 @@ func (l *RuntimeLauncher) buildDeveloperInstructions(
 		return "", fmt.Errorf("build workflow harness context for agent launch: %w", err)
 	}
 
-	rendered, err := workflowservice.RenderHarnessBody(document.Content, data)
+	rendered, err := workflowservice.RenderHarnessBody(runtimeSnapshot.Workflow.Content, data)
 	if err != nil {
 		return "", fmt.Errorf("render workflow harness for agent launch: %w", err)
 	}

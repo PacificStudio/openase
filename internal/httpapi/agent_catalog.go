@@ -86,17 +86,19 @@ type agentRuntimeResponse struct {
 }
 
 type agentRunResponse struct {
-	ID               string  `json:"id"`
-	AgentID          string  `json:"agent_id"`
-	WorkflowID       string  `json:"workflow_id"`
-	TicketID         string  `json:"ticket_id"`
-	ProviderID       string  `json:"provider_id"`
-	Status           string  `json:"status"`
-	SessionID        string  `json:"session_id"`
-	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
-	LastError        string  `json:"last_error"`
-	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
-	CreatedAt        string  `json:"created_at"`
+	ID                string   `json:"id"`
+	AgentID           string   `json:"agent_id"`
+	WorkflowID        string   `json:"workflow_id"`
+	WorkflowVersionID *string  `json:"workflow_version_id,omitempty"`
+	TicketID          string   `json:"ticket_id"`
+	ProviderID        string   `json:"provider_id"`
+	SkillVersionIDs   []string `json:"skill_version_ids"`
+	Status            string   `json:"status"`
+	SessionID         string   `json:"session_id"`
+	RuntimeStartedAt  *string  `json:"runtime_started_at,omitempty"`
+	LastError         string   `json:"last_error"`
+	LastHeartbeatAt   *string  `json:"last_heartbeat_at,omitempty"`
+	CreatedAt         string   `json:"created_at"`
 }
 
 type agentProviderPatchRequest struct {
@@ -557,17 +559,19 @@ func mapAgentRunResponses(items []domain.AgentRun) []agentRunResponse {
 
 func mapAgentRunResponse(item domain.AgentRun) agentRunResponse {
 	return agentRunResponse{
-		ID:               item.ID.String(),
-		AgentID:          item.AgentID.String(),
-		WorkflowID:       item.WorkflowID.String(),
-		TicketID:         item.TicketID.String(),
-		ProviderID:       item.ProviderID.String(),
-		Status:           item.Status.String(),
-		SessionID:        item.SessionID,
-		RuntimeStartedAt: timeToStringPointer(item.RuntimeStartedAt),
-		LastError:        item.LastError,
-		LastHeartbeatAt:  timeToStringPointer(item.LastHeartbeatAt),
-		CreatedAt:        item.CreatedAt.UTC().Format(time.RFC3339),
+		ID:                item.ID.String(),
+		AgentID:           item.AgentID.String(),
+		WorkflowID:        item.WorkflowID.String(),
+		WorkflowVersionID: uuidToStringPointer(item.WorkflowVersionID),
+		TicketID:          item.TicketID.String(),
+		ProviderID:        item.ProviderID.String(),
+		SkillVersionIDs:   uuidSliceToStrings(item.SkillVersionIDs),
+		Status:            item.Status.String(),
+		SessionID:         item.SessionID,
+		RuntimeStartedAt:  timeToStringPointer(item.RuntimeStartedAt),
+		LastError:         item.LastError,
+		LastHeartbeatAt:   timeToStringPointer(item.LastHeartbeatAt),
+		CreatedAt:         item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

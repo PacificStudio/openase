@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/google/uuid"
 )
 
@@ -111,6 +112,21 @@ func (_u *SkillVersionUpdate) SetSkill(v *Skill) *SkillVersionUpdate {
 	return _u.SetSkillID(v.ID)
 }
 
+// AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
+func (_u *SkillVersionUpdate) AddRequiredByBindingIDs(ids ...uuid.UUID) *SkillVersionUpdate {
+	_u.mutation.AddRequiredByBindingIDs(ids...)
+	return _u
+}
+
+// AddRequiredByBindings adds the "required_by_bindings" edges to the WorkflowSkillBinding entity.
+func (_u *SkillVersionUpdate) AddRequiredByBindings(v ...*WorkflowSkillBinding) *SkillVersionUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRequiredByBindingIDs(ids...)
+}
+
 // Mutation returns the SkillVersionMutation object of the builder.
 func (_u *SkillVersionUpdate) Mutation() *SkillVersionMutation {
 	return _u.mutation
@@ -120,6 +136,27 @@ func (_u *SkillVersionUpdate) Mutation() *SkillVersionMutation {
 func (_u *SkillVersionUpdate) ClearSkill() *SkillVersionUpdate {
 	_u.mutation.ClearSkill()
 	return _u
+}
+
+// ClearRequiredByBindings clears all "required_by_bindings" edges to the WorkflowSkillBinding entity.
+func (_u *SkillVersionUpdate) ClearRequiredByBindings() *SkillVersionUpdate {
+	_u.mutation.ClearRequiredByBindings()
+	return _u
+}
+
+// RemoveRequiredByBindingIDs removes the "required_by_bindings" edge to WorkflowSkillBinding entities by IDs.
+func (_u *SkillVersionUpdate) RemoveRequiredByBindingIDs(ids ...uuid.UUID) *SkillVersionUpdate {
+	_u.mutation.RemoveRequiredByBindingIDs(ids...)
+	return _u
+}
+
+// RemoveRequiredByBindings removes "required_by_bindings" edges to WorkflowSkillBinding entities.
+func (_u *SkillVersionUpdate) RemoveRequiredByBindings(v ...*WorkflowSkillBinding) *SkillVersionUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRequiredByBindingIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -211,6 +248,51 @@ func (_u *SkillVersionUpdate) sqlSave(ctx context.Context) (_node int, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RequiredByBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.RequiredByBindingsTable,
+			Columns: []string{skillversion.RequiredByBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRequiredByBindingsIDs(); len(nodes) > 0 && !_u.mutation.RequiredByBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.RequiredByBindingsTable,
+			Columns: []string{skillversion.RequiredByBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RequiredByBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.RequiredByBindingsTable,
+			Columns: []string{skillversion.RequiredByBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -320,6 +402,21 @@ func (_u *SkillVersionUpdateOne) SetSkill(v *Skill) *SkillVersionUpdateOne {
 	return _u.SetSkillID(v.ID)
 }
 
+// AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
+func (_u *SkillVersionUpdateOne) AddRequiredByBindingIDs(ids ...uuid.UUID) *SkillVersionUpdateOne {
+	_u.mutation.AddRequiredByBindingIDs(ids...)
+	return _u
+}
+
+// AddRequiredByBindings adds the "required_by_bindings" edges to the WorkflowSkillBinding entity.
+func (_u *SkillVersionUpdateOne) AddRequiredByBindings(v ...*WorkflowSkillBinding) *SkillVersionUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRequiredByBindingIDs(ids...)
+}
+
 // Mutation returns the SkillVersionMutation object of the builder.
 func (_u *SkillVersionUpdateOne) Mutation() *SkillVersionMutation {
 	return _u.mutation
@@ -329,6 +426,27 @@ func (_u *SkillVersionUpdateOne) Mutation() *SkillVersionMutation {
 func (_u *SkillVersionUpdateOne) ClearSkill() *SkillVersionUpdateOne {
 	_u.mutation.ClearSkill()
 	return _u
+}
+
+// ClearRequiredByBindings clears all "required_by_bindings" edges to the WorkflowSkillBinding entity.
+func (_u *SkillVersionUpdateOne) ClearRequiredByBindings() *SkillVersionUpdateOne {
+	_u.mutation.ClearRequiredByBindings()
+	return _u
+}
+
+// RemoveRequiredByBindingIDs removes the "required_by_bindings" edge to WorkflowSkillBinding entities by IDs.
+func (_u *SkillVersionUpdateOne) RemoveRequiredByBindingIDs(ids ...uuid.UUID) *SkillVersionUpdateOne {
+	_u.mutation.RemoveRequiredByBindingIDs(ids...)
+	return _u
+}
+
+// RemoveRequiredByBindings removes "required_by_bindings" edges to WorkflowSkillBinding entities.
+func (_u *SkillVersionUpdateOne) RemoveRequiredByBindings(v ...*WorkflowSkillBinding) *SkillVersionUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRequiredByBindingIDs(ids...)
 }
 
 // Where appends a list predicates to the SkillVersionUpdate builder.
@@ -450,6 +568,51 @@ func (_u *SkillVersionUpdateOne) sqlSave(ctx context.Context) (_node *SkillVersi
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RequiredByBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.RequiredByBindingsTable,
+			Columns: []string{skillversion.RequiredByBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRequiredByBindingsIDs(); len(nodes) > 0 && !_u.mutation.RequiredByBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.RequiredByBindingsTable,
+			Columns: []string{skillversion.RequiredByBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RequiredByBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.RequiredByBindingsTable,
+			Columns: []string{skillversion.RequiredByBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -21,6 +21,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -33,6 +34,7 @@ type AgentRunQuery struct {
 	predicates               []predicate.AgentRun
 	withAgent                *AgentQuery
 	withWorkflow             *WorkflowQuery
+	withWorkflowVersion      *WorkflowVersionQuery
 	withTicket               *TicketQuery
 	withProvider             *AgentProviderQuery
 	withCurrentForTicket     *TicketQuery
@@ -112,6 +114,28 @@ func (_q *AgentRunQuery) QueryWorkflow() *WorkflowQuery {
 			sqlgraph.From(agentrun.Table, agentrun.FieldID, selector),
 			sqlgraph.To(workflow.Table, workflow.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, agentrun.WorkflowTable, agentrun.WorkflowColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryWorkflowVersion chains the current query on the "workflow_version" edge.
+func (_q *AgentRunQuery) QueryWorkflowVersion() *WorkflowVersionQuery {
+	query := (&WorkflowVersionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agentrun.Table, agentrun.FieldID, selector),
+			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentrun.WorkflowVersionTable, agentrun.WorkflowVersionColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -445,6 +469,7 @@ func (_q *AgentRunQuery) Clone() *AgentRunQuery {
 		predicates:               append([]predicate.AgentRun{}, _q.predicates...),
 		withAgent:                _q.withAgent.Clone(),
 		withWorkflow:             _q.withWorkflow.Clone(),
+		withWorkflowVersion:      _q.withWorkflowVersion.Clone(),
 		withTicket:               _q.withTicket.Clone(),
 		withProvider:             _q.withProvider.Clone(),
 		withCurrentForTicket:     _q.withCurrentForTicket.Clone(),
@@ -476,6 +501,17 @@ func (_q *AgentRunQuery) WithWorkflow(opts ...func(*WorkflowQuery)) *AgentRunQue
 		opt(query)
 	}
 	_q.withWorkflow = query
+	return _q
+}
+
+// WithWorkflowVersion tells the query-builder to eager-load the nodes that are connected to
+// the "workflow_version" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AgentRunQuery) WithWorkflowVersion(opts ...func(*WorkflowVersionQuery)) *AgentRunQuery {
+	query := (&WorkflowVersionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withWorkflowVersion = query
 	return _q
 }
 
@@ -623,9 +659,10 @@ func (_q *AgentRunQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Age
 	var (
 		nodes       = []*AgentRun{}
 		_spec       = _q.querySpec()
-		loadedTypes = [8]bool{
+		loadedTypes = [9]bool{
 			_q.withAgent != nil,
 			_q.withWorkflow != nil,
+			_q.withWorkflowVersion != nil,
 			_q.withTicket != nil,
 			_q.withProvider != nil,
 			_q.withCurrentForTicket != nil,
@@ -661,6 +698,12 @@ func (_q *AgentRunQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Age
 	if query := _q.withWorkflow; query != nil {
 		if err := _q.loadWorkflow(ctx, query, nodes, nil,
 			func(n *AgentRun, e *Workflow) { n.Edges.Workflow = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withWorkflowVersion; query != nil {
+		if err := _q.loadWorkflowVersion(ctx, query, nodes, nil,
+			func(n *AgentRun, e *WorkflowVersion) { n.Edges.WorkflowVersion = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -760,6 +803,38 @@ func (_q *AgentRunQuery) loadWorkflow(ctx context.Context, query *WorkflowQuery,
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "workflow_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *AgentRunQuery) loadWorkflowVersion(ctx context.Context, query *WorkflowVersionQuery, nodes []*AgentRun, init func(*AgentRun), assign func(*AgentRun, *WorkflowVersion)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*AgentRun)
+	for i := range nodes {
+		if nodes[i].WorkflowVersionID == nil {
+			continue
+		}
+		fk := *nodes[i].WorkflowVersionID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(workflowversion.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "workflow_version_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -979,6 +1054,9 @@ func (_q *AgentRunQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withWorkflow != nil {
 			_spec.Node.AddColumnOnce(agentrun.FieldWorkflowID)
+		}
+		if _q.withWorkflowVersion != nil {
+			_spec.Node.AddColumnOnce(agentrun.FieldWorkflowVersionID)
 		}
 		if _q.withTicket != nil {
 			_spec.Node.AddColumnOnce(agentrun.FieldTicketID)

@@ -18,6 +18,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -40,6 +42,20 @@ func (_c *AgentRunCreate) SetWorkflowID(v uuid.UUID) *AgentRunCreate {
 	return _c
 }
 
+// SetWorkflowVersionID sets the "workflow_version_id" field.
+func (_c *AgentRunCreate) SetWorkflowVersionID(v uuid.UUID) *AgentRunCreate {
+	_c.mutation.SetWorkflowVersionID(v)
+	return _c
+}
+
+// SetNillableWorkflowVersionID sets the "workflow_version_id" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableWorkflowVersionID(v *uuid.UUID) *AgentRunCreate {
+	if v != nil {
+		_c.SetWorkflowVersionID(*v)
+	}
+	return _c
+}
+
 // SetTicketID sets the "ticket_id" field.
 func (_c *AgentRunCreate) SetTicketID(v uuid.UUID) *AgentRunCreate {
 	_c.mutation.SetTicketID(v)
@@ -49,6 +65,12 @@ func (_c *AgentRunCreate) SetTicketID(v uuid.UUID) *AgentRunCreate {
 // SetProviderID sets the "provider_id" field.
 func (_c *AgentRunCreate) SetProviderID(v uuid.UUID) *AgentRunCreate {
 	_c.mutation.SetProviderID(v)
+	return _c
+}
+
+// SetSkillVersionIds sets the "skill_version_ids" field.
+func (_c *AgentRunCreate) SetSkillVersionIds(v pgarray.StringArray) *AgentRunCreate {
+	_c.mutation.SetSkillVersionIds(v)
 	return _c
 }
 
@@ -192,6 +214,11 @@ func (_c *AgentRunCreate) SetAgent(v *Agent) *AgentRunCreate {
 // SetWorkflow sets the "workflow" edge to the Workflow entity.
 func (_c *AgentRunCreate) SetWorkflow(v *Workflow) *AgentRunCreate {
 	return _c.SetWorkflowID(v.ID)
+}
+
+// SetWorkflowVersion sets the "workflow_version" edge to the WorkflowVersion entity.
+func (_c *AgentRunCreate) SetWorkflowVersion(v *WorkflowVersion) *AgentRunCreate {
+	return _c.SetWorkflowVersionID(v.ID)
 }
 
 // SetTicket sets the "ticket" edge to the Ticket entity.
@@ -381,6 +408,10 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 		_node.ID = id
 		_spec.ID.Value = &id
 	}
+	if value, ok := _c.mutation.SkillVersionIds(); ok {
+		_spec.SetField(agentrun.FieldSkillVersionIds, field.TypeOther, value)
+		_node.SkillVersionIds = value
+	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(agentrun.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
@@ -449,6 +480,23 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.WorkflowID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.WorkflowVersionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agentrun.WorkflowVersionTable,
+			Columns: []string{agentrun.WorkflowVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.WorkflowVersionID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.TicketIDs(); len(nodes) > 0 {

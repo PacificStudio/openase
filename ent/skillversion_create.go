@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/google/uuid"
 )
 
@@ -91,6 +92,21 @@ func (_c *SkillVersionCreate) SetNillableID(v *uuid.UUID) *SkillVersionCreate {
 // SetSkill sets the "skill" edge to the Skill entity.
 func (_c *SkillVersionCreate) SetSkill(v *Skill) *SkillVersionCreate {
 	return _c.SetSkillID(v.ID)
+}
+
+// AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
+func (_c *SkillVersionCreate) AddRequiredByBindingIDs(ids ...uuid.UUID) *SkillVersionCreate {
+	_c.mutation.AddRequiredByBindingIDs(ids...)
+	return _c
+}
+
+// AddRequiredByBindings adds the "required_by_bindings" edges to the WorkflowSkillBinding entity.
+func (_c *SkillVersionCreate) AddRequiredByBindings(v ...*WorkflowSkillBinding) *SkillVersionCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRequiredByBindingIDs(ids...)
 }
 
 // Mutation returns the SkillVersionMutation object of the builder.
@@ -240,6 +256,22 @@ func (_c *SkillVersionCreate) createSpec() (*SkillVersion, *sqlgraph.CreateSpec)
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.SkillID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RequiredByBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.RequiredByBindingsTable,
+			Columns: []string{skillversion.RequiredByBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

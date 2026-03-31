@@ -35,7 +35,7 @@ func (WorkflowSkillBinding) Edges() []ent.Edge {
 			Field("skill_id").
 			Unique().
 			Required(),
-		edge.From("required_version", WorkflowVersion.Type).
+		edge.From("required_version", SkillVersion.Type).
 			Ref("required_by_bindings").
 			Field("required_version_id").
 			Unique(),
