@@ -14,17 +14,17 @@ import (
 )
 
 type rawCreateTicketRequest struct {
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
+	Title          string                            `json:"title"`
+	Description    string                            `json:"description"`
+	StatusID       *string                           `json:"status_id"`
+	Priority       *string                           `json:"priority"`
+	Type           *string                           `json:"type"`
+	WorkflowID     *string                           `json:"workflow_id"`
 	RepoScopes     []rawCreateTicketRepoScopeRequest `json:"repo_scopes"`
-	CreatedBy      *string  `json:"created_by"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	CreatedBy      *string                           `json:"created_by"`
+	ParentTicketID *string                           `json:"parent_ticket_id"`
+	ExternalRef    *string                           `json:"external_ref"`
+	BudgetUSD      *float64                          `json:"budget_usd"`
 }
 
 type rawCreateTicketRepoScopeRequest struct {

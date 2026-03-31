@@ -140,10 +140,10 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	}
 
 	repoTwo, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
-		ProjectID:        project.ID,
-		Name:             "worker-tools",
-		RepositoryURL:    "https://github.com/GrandCX/worker-tools.git",
-		DefaultBranch:    "develop",
+		ProjectID:     project.ID,
+		Name:          "worker-tools",
+		RepositoryURL: "https://github.com/GrandCX/worker-tools.git",
+		DefaultBranch: "develop",
 	})
 	if err != nil {
 		t.Fatalf("CreateProjectRepo() repoTwo error = %v", err)
@@ -358,10 +358,10 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 	}
 
 	projectRepo, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
-		ProjectID:        project.ID,
-		Name:             "openase-main",
-		RepositoryURL:    "https://github.com/GrandCX/openase.git",
-		DefaultBranch:    "main",
+		ProjectID:     project.ID,
+		Name:          "openase-main",
+		RepositoryURL: "https://github.com/GrandCX/openase.git",
+		DefaultBranch: "main",
 	})
 	if err != nil {
 		t.Fatalf("CreateProjectRepo() error = %v", err)
@@ -680,12 +680,12 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		t.Fatalf("CreateTicketRepoScope(missing repo) error = %v, want %v", err, ErrNotFound)
 	}
 	if _, err := repo.UpdateTicketRepoScope(ctx, domain.UpdateTicketRepoScope{
-		ID:             uuid.New(),
-		ProjectID:      project.ID,
-		TicketID:       ticketItem.ID,
-		RepoID:         projectRepo.ID,
-		PrStatus:       domain.TicketRepoScopePRStatusOpen,
-		CiStatus:       domain.TicketRepoScopeCIStatusPending,
+		ID:        uuid.New(),
+		ProjectID: project.ID,
+		TicketID:  ticketItem.ID,
+		RepoID:    projectRepo.ID,
+		PrStatus:  domain.TicketRepoScopePRStatusOpen,
+		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("UpdateTicketRepoScope(missing) error = %v, want %v", err, ErrNotFound)
 	}

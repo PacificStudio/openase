@@ -388,7 +388,6 @@ func createMirrorTestFixtures(ctx context.Context, t *testing.T, client *ent.Cli
 		SetRepositoryURL("https://example.invalid/backend.git").
 		SetDefaultBranch("master").
 		SetWorkspaceDirname("backend").
-		SetIsPrimary(true).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project repo: %v", err)

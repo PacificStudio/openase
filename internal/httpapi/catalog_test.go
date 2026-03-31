@@ -1059,8 +1059,8 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		http.MethodPatch,
 		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+backendCreate.RepoScope.ID,
 		map[string]any{
-			"pr_status":        "approved",
-			"ci_status":        "passing",
+			"pr_status": "approved",
+			"ci_status": "passing",
 		},
 		http.StatusOK,
 		&backendUpdate,

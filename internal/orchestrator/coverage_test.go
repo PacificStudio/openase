@@ -230,18 +230,18 @@ func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
 		}
 	})
 
-		t.Run("working directory selection", func(t *testing.T) {
-			primaryRepoID := uuid.New()
-			secondaryRepoID := uuid.New()
-			launchContext := runtimeLaunchContext{
-				projectRepos: []*ent.ProjectRepo{
-					{ID: primaryRepoID, Name: "backend", WorkspaceDirname: "repos/backend"},
-					{ID: secondaryRepoID, Name: "frontend", WorkspaceDirname: "repos/frontend"},
-				},
-				ticketScopes: []*ent.TicketRepoScope{
-					{RepoID: secondaryRepoID},
-				},
-			}
+	t.Run("working directory selection", func(t *testing.T) {
+		primaryRepoID := uuid.New()
+		secondaryRepoID := uuid.New()
+		launchContext := runtimeLaunchContext{
+			projectRepos: []*ent.ProjectRepo{
+				{ID: primaryRepoID, Name: "backend", WorkspaceDirname: "repos/backend"},
+				{ID: secondaryRepoID, Name: "frontend", WorkspaceDirname: "repos/frontend"},
+			},
+			ticketScopes: []*ent.TicketRepoScope{
+				{RepoID: secondaryRepoID},
+			},
+		}
 
 		workspace := workspaceinfra.Workspace{
 			Path: "/tmp/workspaces/ASE-278",
@@ -251,41 +251,41 @@ func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
 			},
 		}
 
-			selectedRepos, err := selectLaunchContextProjectRepos(launchContext.projectRepos, launchContext.ticketScopes)
-			if err != nil || len(selectedRepos) != 1 || selectedRepos[0].ID != secondaryRepoID {
-				t.Fatalf("selectLaunchContextProjectRepos(explicit scope) = %+v, %v", selectedRepos, err)
-			}
-			if got := resolveAgentWorkingDirectory(launchContext, workspace); got != "/tmp/workspaces/ASE-278" {
-				t.Fatalf("resolveAgentWorkingDirectory(multi repo) = %q", got)
-			}
+		selectedRepos, err := selectLaunchContextProjectRepos(launchContext.projectRepos, launchContext.ticketScopes)
+		if err != nil || len(selectedRepos) != 1 || selectedRepos[0].ID != secondaryRepoID {
+			t.Fatalf("selectLaunchContextProjectRepos(explicit scope) = %+v, %v", selectedRepos, err)
+		}
+		if got := resolveAgentWorkingDirectory(launchContext, workspace); got != "/tmp/workspaces/ASE-278" {
+			t.Fatalf("resolveAgentWorkingDirectory(multi repo) = %q", got)
+		}
 
-			singleRepoContext := runtimeLaunchContext{
-				projectRepos: []*ent.ProjectRepo{
-					{ID: primaryRepoID, Name: "backend", WorkspaceDirname: "repos/backend"},
-				},
-			}
-			selectedRepos, err = selectLaunchContextProjectRepos(singleRepoContext.projectRepos, nil)
-			if err != nil || len(selectedRepos) != 1 || selectedRepos[0].ID != primaryRepoID {
-				t.Fatalf("selectLaunchContextProjectRepos(single repo) = %+v, %v", selectedRepos, err)
-			}
-			if got := resolveAgentWorkingDirectory(singleRepoContext, workspaceinfra.Workspace{
-				Path:  "/tmp/workspaces/ASE-278",
-				Repos: []workspaceinfra.PreparedRepo{{Name: "backend", WorkspaceDirname: "repos/backend", Path: "/tmp/workspaces/ASE-278/repos/backend"}},
-			}); got != "/tmp/workspaces/ASE-278/repos/backend" {
-				t.Fatalf("resolveAgentWorkingDirectory(single repo) = %q", got)
-			}
-			if _, err := selectLaunchContextProjectRepos([]*ent.ProjectRepo{
-				{ID: primaryRepoID, Name: "backend"},
-				{ID: secondaryRepoID, Name: "frontend"},
-			}, nil); !errors.Is(err, errExplicitRepoScopeRequired) {
-				t.Fatalf("selectLaunchContextProjectRepos(multi repo without scope) error = %v", err)
-			}
-			if got := resolveAgentWorkingDirectory(runtimeLaunchContext{}, workspaceinfra.Workspace{Path: "/tmp/workspaces/ASE-278"}); got != "/tmp/workspaces/ASE-278" {
-				t.Fatalf("resolveAgentWorkingDirectory(workspace root) = %q", got)
-			}
-			if got := projectRepoWorkspaceDirname(&ent.ProjectRepo{Name: "backend"}); got != "backend" {
-				t.Fatalf("projectRepoWorkspaceDirname(default) = %q", got)
-			}
+		singleRepoContext := runtimeLaunchContext{
+			projectRepos: []*ent.ProjectRepo{
+				{ID: primaryRepoID, Name: "backend", WorkspaceDirname: "repos/backend"},
+			},
+		}
+		selectedRepos, err = selectLaunchContextProjectRepos(singleRepoContext.projectRepos, nil)
+		if err != nil || len(selectedRepos) != 1 || selectedRepos[0].ID != primaryRepoID {
+			t.Fatalf("selectLaunchContextProjectRepos(single repo) = %+v, %v", selectedRepos, err)
+		}
+		if got := resolveAgentWorkingDirectory(singleRepoContext, workspaceinfra.Workspace{
+			Path:  "/tmp/workspaces/ASE-278",
+			Repos: []workspaceinfra.PreparedRepo{{Name: "backend", WorkspaceDirname: "repos/backend", Path: "/tmp/workspaces/ASE-278/repos/backend"}},
+		}); got != "/tmp/workspaces/ASE-278/repos/backend" {
+			t.Fatalf("resolveAgentWorkingDirectory(single repo) = %q", got)
+		}
+		if _, err := selectLaunchContextProjectRepos([]*ent.ProjectRepo{
+			{ID: primaryRepoID, Name: "backend"},
+			{ID: secondaryRepoID, Name: "frontend"},
+		}, nil); !errors.Is(err, errExplicitRepoScopeRequired) {
+			t.Fatalf("selectLaunchContextProjectRepos(multi repo without scope) error = %v", err)
+		}
+		if got := resolveAgentWorkingDirectory(runtimeLaunchContext{}, workspaceinfra.Workspace{Path: "/tmp/workspaces/ASE-278"}); got != "/tmp/workspaces/ASE-278" {
+			t.Fatalf("resolveAgentWorkingDirectory(workspace root) = %q", got)
+		}
+		if got := projectRepoWorkspaceDirname(&ent.ProjectRepo{Name: "backend"}); got != "backend" {
+			t.Fatalf("projectRepoWorkspaceDirname(default) = %q", got)
+		}
 		if got := projectRepoWorkspaceDirname(nil); got != "" {
 			t.Fatalf("projectRepoWorkspaceDirname(nil) = %q", got)
 		}

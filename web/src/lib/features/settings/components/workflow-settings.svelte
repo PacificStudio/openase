@@ -18,10 +18,6 @@
   import StatusConcurrency from './status-concurrency.svelte'
   import { startStatusRuntimeSync } from './status-runtime-sync'
 
-  const props = $props<{
-    onOpenRepositories?: (() => void) | undefined
-  }>()
-
   let loading = $state(false)
   let error = $state('')
   let prerequisite = $state<WorkflowRepositoryPrerequisite | null>(null)

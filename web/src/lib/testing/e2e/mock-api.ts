@@ -264,7 +264,7 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     }
     if (segments.length === 4) {
       const repoId = segments[3]
-      let repo = findById(mockState.repos, repoId)
+      const repo = findById(mockState.repos, repoId)
       if (!repo) {
         return notFound('Repository not found.')
       }

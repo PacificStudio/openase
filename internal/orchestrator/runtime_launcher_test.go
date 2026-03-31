@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -230,7 +231,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		t.Fatalf("expected non-whitelisted machine to stay out of developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
 	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); !os.IsNotExist(err) {
-		t.Fatalf("expected built-in platform skill to stay out of primary repo authority paths, stat err=%v", err)
+		t.Fatalf("expected built-in platform skill to stay out of repo authority paths, stat err=%v", err)
 	}
 	workspacePath, err := workspaceinfra.TicketWorkspacePath(
 		expectedLocalWorkspaceRoot,
@@ -3657,6 +3658,9 @@ func newRuntimeLauncherWorkflowService(
 func copyRuntimeLauncherDir(t *testing.T, sourceRoot string, targetRoot string) {
 	t.Helper()
 
+	cleanSourceRoot := filepath.Clean(sourceRoot)
+	cleanTargetRoot := filepath.Clean(targetRoot)
+
 	info, err := os.Stat(sourceRoot)
 	if os.IsNotExist(err) {
 		return
@@ -3667,26 +3671,52 @@ func copyRuntimeLauncherDir(t *testing.T, sourceRoot string, targetRoot string) 
 	if !info.IsDir() {
 		return
 	}
-	if err := filepath.Walk(sourceRoot, func(path string, entry os.FileInfo, walkErr error) error {
+
+	sourceDir, err := os.OpenRoot(cleanSourceRoot)
+	if err != nil {
+		t.Fatalf("open source root %s: %v", cleanSourceRoot, err)
+	}
+	defer func() {
+		if closeErr := sourceDir.Close(); closeErr != nil {
+			t.Errorf("close source root %s: %v", cleanSourceRoot, closeErr)
+		}
+	}()
+
+	if err := os.MkdirAll(cleanTargetRoot, 0o750); err != nil {
+		t.Fatalf("create target root %s: %v", cleanTargetRoot, err)
+	}
+	targetDir, err := os.OpenRoot(cleanTargetRoot)
+	if err != nil {
+		t.Fatalf("open target root %s: %v", cleanTargetRoot, err)
+	}
+	defer func() {
+		if closeErr := targetDir.Close(); closeErr != nil {
+			t.Errorf("close target root %s: %v", cleanTargetRoot, closeErr)
+		}
+	}()
+
+	if err := fs.WalkDir(sourceDir.FS(), ".", func(relativePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		relativePath, err := filepath.Rel(sourceRoot, path)
-		if err != nil {
-			return err
+		cleanRelativePath := filepath.Clean(relativePath)
+		if filepath.IsAbs(cleanRelativePath) || cleanRelativePath == ".." || strings.HasPrefix(cleanRelativePath, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("unexpected path outside source root: %s", relativePath)
 		}
-		targetPath := filepath.Join(targetRoot, relativePath)
+		if cleanRelativePath == "." {
+			return nil
+		}
 		if entry.IsDir() {
-			return os.MkdirAll(targetPath, 0o750)
+			return targetDir.MkdirAll(cleanRelativePath, 0o750)
 		}
-		data, err := os.ReadFile(path)
+		data, err := sourceDir.ReadFile(cleanRelativePath)
 		if err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o750); err != nil {
+		if err := targetDir.MkdirAll(filepath.Dir(cleanRelativePath), 0o750); err != nil {
 			return err
 		}
-		return os.WriteFile(targetPath, data, 0o600)
+		return targetDir.WriteFile(cleanRelativePath, data, 0o600)
 	}); err != nil {
 		t.Fatalf("copy %s to %s: %v", sourceRoot, targetRoot, err)
 	}

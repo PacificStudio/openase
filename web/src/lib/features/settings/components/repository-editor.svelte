@@ -27,10 +27,14 @@
   }
 </script>
 
-<div class="space-y-5">
+<div class="space-y-5" aria-busy={saving}>
   <section class="space-y-4">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Repository identity</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {mode === 'edit'
+          ? `Repository identity · ${selectedRepo?.name ?? 'bound repo'}`
+          : 'Repository identity'}
+      </h3>
       <p class="text-muted-foreground mt-1 text-xs">
         Basic Git coordinates that OpenASE uses for repo scopes and workspace preparation.
       </p>
@@ -96,7 +100,8 @@
     <div>
       <h3 class="text-foreground text-sm font-semibold">Metadata</h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        Labels help group repositories for workflows and ticket repo scopes.
+        Labels help group repositories for workflows and ticket repo scopes across {reposCount}
+        bound repos.
       </p>
     </div>
 
