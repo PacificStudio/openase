@@ -125,6 +125,75 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/connectors/{connectorId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an issue connector */
+    delete: operations['deleteIssueConnector']
+    options?: never
+    head?: never
+    /** Update an issue connector */
+    patch: operations['updateIssueConnector']
+    trace?: never
+  }
+  '/api/v1/connectors/{connectorId}/stats': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get connector runtime stats and last sync details */
+    get: operations['getIssueConnectorStats']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/connectors/{connectorId}/sync': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Trigger a manual connector pull sync */
+    post: operations['syncIssueConnector']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/connectors/{connectorId}/test': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Run a connector health check */
+    post: operations['testIssueConnector']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/events/stream': {
     parameters: {
       query?: never
@@ -389,6 +458,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/summary': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get organization dashboard summary metrics */
+    get: operations['getOrganizationSummary']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}': {
     parameters: {
       query?: never
@@ -556,6 +642,24 @@ export interface paths {
     get: operations['streamAgentSteps']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/connectors': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List project issue connectors */
+    get: operations['listIssueConnectors']
+    put?: never
+    /** Create a project issue connector */
+    post: operations['createIssueConnector']
     delete?: never
     options?: never
     head?: never
@@ -1296,6 +1400,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/workspace/summary': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get workspace dashboard summary metrics */
+    get: operations['getWorkspaceSummary']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
@@ -2025,6 +2146,449 @@ export interface operations {
       }
       /** @description Bad Request response. */
       400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteIssueConnector: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Connector ID. */
+        connectorId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete an issue connector response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            deleted_connector_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateIssueConnector: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Connector ID. */
+        connectorId: string
+      }
+      cookie?: never
+    }
+    /** @description Update an issue connector request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Connector runtime configuration. */
+          config?: {
+            /** @description Connector-scoped auth token. Leave blank to fall back to project GitHub credentials when supported. */
+            auth_token?: string | null
+            /** @description Optional workflow binding associated with imported tickets. */
+            auto_workflow?: string | null
+            /** @description Optional API base URL override for self-hosted or test endpoints. */
+            base_url?: string | null
+            /** @description Optional connector-side issue filters. */
+            filters?: {
+              /** @description Allowed upstream issue authors. */
+              authors?: string[]
+              /** @description Labels that should exclude an issue from import. */
+              exclude_labels?: string[]
+              /** @description Labels required for an issue to be imported. */
+              labels?: string[]
+              /** @description Allowed upstream issue states. */
+              states?: string[]
+            } | null
+            /** @description Pull sync interval encoded as a Go duration string such as 5m. */
+            poll_interval?: string | null
+            /** @description External repository or project reference, for example owner/repo. */
+            project_ref?: string | null
+            /** @description Map of upstream statuses to internal project ticket statuses. */
+            status_mapping?: {
+              [key: string]: string
+            }
+            /** @description Sync policy. Supported values are bidirectional, pull_only, and push_only. */
+            sync_direction?: string | null
+            /** @description Optional shared secret used to validate inbound webhook deliveries. */
+            webhook_secret?: string | null
+          } | null
+          /** @description Human-readable connector name shown in Settings. */
+          name?: string | null
+          /** @description Runtime connector state. Supported values are active, paused, and error. */
+          status?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update an issue connector response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            connector?: {
+              config?: {
+                auth_token_configured?: boolean
+                auto_workflow?: string
+                base_url?: string
+                filters?: {
+                  authors?: string[]
+                  exclude_labels?: string[]
+                  labels?: string[]
+                  states?: string[]
+                }
+                poll_interval?: string
+                project_ref?: string
+                status_mapping?: {
+                  [key: string]: string
+                }
+                sync_direction?: string
+                type?: string
+                webhook_secret_configured?: boolean
+              }
+              id?: string
+              last_error?: string
+              last_sync_at?: string | null
+              name?: string
+              project_id?: string
+              stats?: {
+                failed_count?: number
+                synced24h?: number
+                total_synced?: number
+              }
+              status?: string
+              type?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getIssueConnectorStats: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Connector ID. */
+        connectorId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get connector runtime stats and last sync details response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            stats?: {
+              connector_id?: string
+              last_error?: string
+              last_sync_at?: string | null
+              stats?: {
+                failed_count?: number
+                synced24h?: number
+                total_synced?: number
+              }
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  syncIssueConnector: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Connector ID. */
+        connectorId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Trigger a manual connector pull sync response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            connector?: {
+              config?: {
+                auth_token_configured?: boolean
+                auto_workflow?: string
+                base_url?: string
+                filters?: {
+                  authors?: string[]
+                  exclude_labels?: string[]
+                  labels?: string[]
+                  states?: string[]
+                }
+                poll_interval?: string
+                project_ref?: string
+                status_mapping?: {
+                  [key: string]: string
+                }
+                sync_direction?: string
+                type?: string
+                webhook_secret_configured?: boolean
+              }
+              id?: string
+              last_error?: string
+              last_sync_at?: string | null
+              name?: string
+              project_id?: string
+              stats?: {
+                failed_count?: number
+                synced24h?: number
+                total_synced?: number
+              }
+              status?: string
+              type?: string
+            }
+            report?: {
+              connectors_failed?: number
+              connectors_scanned?: number
+              connectors_synced?: number
+              issues_synced?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  testIssueConnector: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Connector ID. */
+        connectorId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Run a connector health check response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            result?: {
+              checked_at?: string
+              healthy?: boolean
+              message?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }
@@ -4026,6 +4590,91 @@ export interface operations {
       }
     }
   }
+  getOrganizationSummary: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get organization dashboard summary metrics response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            organization?: {
+              active_project_count?: number
+              active_tickets?: number
+              organization_id?: string
+              project_count?: number
+              provider_count?: number
+              running_agents?: number
+              /** Format: double */
+              today_cost?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }
+            projects?: {
+              active_tickets?: number
+              description?: string
+              last_activity_at?: string | null
+              name?: string
+              project_id?: string
+              running_agents?: number
+              status?: string
+              /** Format: double */
+              today_cost?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getProject: {
     parameters: {
       query?: never
@@ -4983,6 +5632,250 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listIssueConnectors: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List project issue connectors response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            connectors?: {
+              config?: {
+                auth_token_configured?: boolean
+                auto_workflow?: string
+                base_url?: string
+                filters?: {
+                  authors?: string[]
+                  exclude_labels?: string[]
+                  labels?: string[]
+                  states?: string[]
+                }
+                poll_interval?: string
+                project_ref?: string
+                status_mapping?: {
+                  [key: string]: string
+                }
+                sync_direction?: string
+                type?: string
+                webhook_secret_configured?: boolean
+              }
+              id?: string
+              last_error?: string
+              last_sync_at?: string | null
+              name?: string
+              project_id?: string
+              stats?: {
+                failed_count?: number
+                synced24h?: number
+                total_synced?: number
+              }
+              status?: string
+              type?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createIssueConnector: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a project issue connector request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Connector runtime configuration. */
+          config?: {
+            /** @description Connector-scoped auth token. Leave blank to fall back to project GitHub credentials when supported. */
+            auth_token?: string
+            /** @description Optional workflow binding associated with imported tickets. */
+            auto_workflow?: string
+            /** @description Optional API base URL override for self-hosted or test endpoints. */
+            base_url?: string
+            /** @description Optional connector-side issue filters. */
+            filters?: {
+              /** @description Allowed upstream issue authors. */
+              authors?: string[]
+              /** @description Labels that should exclude an issue from import. */
+              exclude_labels?: string[]
+              /** @description Labels required for an issue to be imported. */
+              labels?: string[]
+              /** @description Allowed upstream issue states. */
+              states?: string[]
+            }
+            /** @description Pull sync interval encoded as a Go duration string such as 5m. */
+            poll_interval?: string
+            /** @description External repository or project reference, for example owner/repo. */
+            project_ref?: string
+            /** @description Map of upstream statuses to internal project ticket statuses. */
+            status_mapping?: {
+              [key: string]: string
+            }
+            /** @description Sync policy. Supported values are bidirectional, pull_only, and push_only. */
+            sync_direction?: string
+            /** @description Connector implementation type and must match the top-level type on create. */
+            type?: string
+            /** @description Optional shared secret used to validate inbound webhook deliveries. */
+            webhook_secret?: string
+          }
+          /** @description Human-readable connector name shown in Settings. */
+          name?: string
+          /** @description Runtime connector state. Supported values are active, paused, and error. */
+          status?: string
+          /** @description Connector implementation type. The shipped Settings surface currently targets the GitHub issue connector. */
+          type?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a project issue connector response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            connector?: {
+              config?: {
+                auth_token_configured?: boolean
+                auto_workflow?: string
+                base_url?: string
+                filters?: {
+                  authors?: string[]
+                  exclude_labels?: string[]
+                  labels?: string[]
+                  states?: string[]
+                }
+                poll_interval?: string
+                project_ref?: string
+                status_mapping?: {
+                  [key: string]: string
+                }
+                sync_direction?: string
+                type?: string
+                webhook_secret_configured?: boolean
+              }
+              id?: string
+              last_error?: string
+              last_sync_at?: string | null
+              name?: string
+              project_id?: string
+              stats?: {
+                failed_count?: number
+                synced24h?: number
+                total_synced?: number
+              }
+              status?: string
+              type?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }
@@ -10987,6 +11880,63 @@ export interface operations {
           'application/json': {
             code?: string
             message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getWorkspaceSummary: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get workspace dashboard summary metrics response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            organizations?: {
+              active_tickets?: number
+              name?: string
+              organization_id?: string
+              project_count?: number
+              provider_count?: number
+              running_agents?: number
+              slug?: string
+              /** Format: double */
+              today_cost?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }[]
+            workspace?: {
+              active_tickets?: number
+              organization_count?: number
+              project_count?: number
+              provider_count?: number
+              running_agents?: number
+              /** Format: double */
+              today_cost?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }
           }
         }
       }

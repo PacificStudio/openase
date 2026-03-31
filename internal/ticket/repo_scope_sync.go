@@ -161,6 +161,7 @@ func (s *Service) scheduleRepoScopeRetry(ctx context.Context, tx *ent.Tx, ticket
 		ClearCurrentRunID().
 		SetAttemptCount(nextAttemptCount).
 		SetConsecutiveErrors(current.ConsecutiveErrors + 1).
+		SetStallCount(0).
 		SetNextRetryAt(timeNowUTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount)))
 
 	if ticketing.ShouldPauseForBudget(current.CostAmount, current.BudgetUsd) {
@@ -199,19 +200,13 @@ func (s *Service) finishTicketForMergedRepoScopes(ctx context.Context, tx *ent.T
 		return err
 	}
 
-	update := tx.Ticket.UpdateOneID(current.ID).
-		SetStatusID(finishStatusID).
-		SetCompletedAt(timeNowUTC()).
-		ClearCurrentRunID()
-	if current.NextRetryAt != nil {
-		update.ClearNextRetryAt()
-	}
-	if current.RetryPaused {
-		update.SetRetryPaused(false)
-	}
-	if current.PauseReason != "" {
-		update.ClearPauseReason()
-	}
+	update := ResetRetryBaseline(
+		tx.Ticket.UpdateOneID(current.ID).
+			SetStatusID(finishStatusID).
+			SetCompletedAt(timeNowUTC()).
+			ClearCurrentRunID(),
+		current,
+	)
 
 	if _, err := update.Save(ctx); err != nil {
 		return s.mapTicketWriteError("finish ticket after repo scopes merged", err)

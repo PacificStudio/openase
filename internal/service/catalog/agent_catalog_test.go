@@ -892,6 +892,14 @@ func (r *stubRepository) DeleteTicketRepoScope(context.Context, uuid.UUID, uuid.
 	return domain.TicketRepoScope{}, nil
 }
 
+func (r *stubRepository) GetWorkspaceDashboardSummary(context.Context) (domain.WorkspaceDashboardSummary, error) {
+	return domain.WorkspaceDashboardSummary{}, nil
+}
+
+func (r *stubRepository) GetOrganizationDashboardSummary(context.Context, uuid.UUID) (domain.OrganizationDashboardSummary, error) {
+	return domain.OrganizationDashboardSummary{}, nil
+}
+
 var _ Repository = (*stubRepository)(nil)
 
 func equalStrings(left []string, right []string) bool {

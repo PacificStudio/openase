@@ -9,6 +9,6 @@ export {
   findTicketLocation,
   patchTicket,
   relocateTicket,
-  type PendingTicketMove,
 } from './model'
-export type { BoardColumn as BoardColumnType, BoardTicket, BoardFilter } from './types'
+export type { PendingTicketMove } from './model'
+export type { BoardColumn as BoardColumnType, BoardFilter, BoardTicket } from './types'

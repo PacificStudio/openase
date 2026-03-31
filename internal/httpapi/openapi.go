@@ -41,6 +41,51 @@ type OpenAPIProject struct {
 	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
 }
 
+type OpenAPIWorkspaceDashboardMetrics struct {
+	OrganizationCount int     `json:"organization_count"`
+	ProjectCount      int     `json:"project_count"`
+	ProviderCount     int     `json:"provider_count"`
+	RunningAgents     int     `json:"running_agents"`
+	ActiveTickets     int     `json:"active_tickets"`
+	TodayCost         float64 `json:"today_cost"`
+	TotalTokens       int64   `json:"total_tokens"`
+}
+
+type OpenAPIWorkspaceOrganizationSummary struct {
+	OrganizationID string  `json:"organization_id"`
+	Name           string  `json:"name"`
+	Slug           string  `json:"slug"`
+	ProjectCount   int     `json:"project_count"`
+	ProviderCount  int     `json:"provider_count"`
+	RunningAgents  int     `json:"running_agents"`
+	ActiveTickets  int     `json:"active_tickets"`
+	TodayCost      float64 `json:"today_cost"`
+	TotalTokens    int64   `json:"total_tokens"`
+}
+
+type OpenAPIOrganizationDashboardMetrics struct {
+	OrganizationID     string  `json:"organization_id"`
+	ProjectCount       int     `json:"project_count"`
+	ActiveProjectCount int     `json:"active_project_count"`
+	ProviderCount      int     `json:"provider_count"`
+	RunningAgents      int     `json:"running_agents"`
+	ActiveTickets      int     `json:"active_tickets"`
+	TodayCost          float64 `json:"today_cost"`
+	TotalTokens        int64   `json:"total_tokens"`
+}
+
+type OpenAPIOrganizationProjectSummary struct {
+	ProjectID      string  `json:"project_id"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	Status         string  `json:"status"`
+	RunningAgents  int     `json:"running_agents"`
+	ActiveTickets  int     `json:"active_tickets"`
+	TodayCost      float64 `json:"today_cost"`
+	TotalTokens    int64   `json:"total_tokens"`
+	LastActivityAt *string `json:"last_activity_at,omitempty"`
+}
+
 type OpenAPIMachine struct {
 	ID              string         `json:"id"`
 	OrganizationID  string         `json:"organization_id"`
@@ -576,12 +621,22 @@ type OpenAPIOrganizationResponse struct {
 	Organization OpenAPIOrganization `json:"organization"`
 }
 
+type OpenAPIWorkspaceSummaryResponse struct {
+	Workspace     OpenAPIWorkspaceDashboardMetrics      `json:"workspace"`
+	Organizations []OpenAPIWorkspaceOrganizationSummary `json:"organizations"`
+}
+
 type OpenAPIProjectsResponse struct {
 	Projects []OpenAPIProject `json:"projects"`
 }
 
 type OpenAPIProjectResponse struct {
 	Project OpenAPIProject `json:"project"`
+}
+
+type OpenAPIOrganizationSummaryResponse struct {
+	Organization OpenAPIOrganizationDashboardMetrics `json:"organization"`
+	Projects     []OpenAPIOrganizationProjectSummary `json:"projects"`
 }
 
 type OpenAPIMachinesResponse struct {
@@ -784,6 +839,90 @@ type OpenAPIScheduledJobTriggerResponse struct {
 	Ticket       OpenAPITicket       `json:"ticket"`
 }
 
+type OpenAPIIssueConnectorFilters struct {
+	Labels        []string `json:"labels"`
+	ExcludeLabels []string `json:"exclude_labels"`
+	States        []string `json:"states"`
+	Authors       []string `json:"authors"`
+}
+
+type OpenAPIIssueConnectorConfig struct {
+	Type                    string                       `json:"type"`
+	BaseURL                 string                       `json:"base_url"`
+	ProjectRef              string                       `json:"project_ref"`
+	PollInterval            string                       `json:"poll_interval"`
+	SyncDirection           string                       `json:"sync_direction"`
+	Filters                 OpenAPIIssueConnectorFilters `json:"filters"`
+	StatusMapping           map[string]string            `json:"status_mapping"`
+	AutoWorkflow            string                       `json:"auto_workflow"`
+	AuthTokenConfigured     bool                         `json:"auth_token_configured"`
+	WebhookSecretConfigured bool                         `json:"webhook_secret_configured"`
+}
+
+type OpenAPIIssueConnectorStats struct {
+	TotalSynced int `json:"total_synced"`
+	Synced24h   int `json:"synced24h"`
+	FailedCount int `json:"failed_count"`
+}
+
+type OpenAPIIssueConnector struct {
+	ID         string                      `json:"id"`
+	ProjectID  string                      `json:"project_id"`
+	Type       string                      `json:"type"`
+	Name       string                      `json:"name"`
+	Status     string                      `json:"status"`
+	Config     OpenAPIIssueConnectorConfig `json:"config"`
+	LastSyncAt *string                     `json:"last_sync_at,omitempty"`
+	LastError  string                      `json:"last_error"`
+	Stats      OpenAPIIssueConnectorStats  `json:"stats"`
+}
+
+type OpenAPIIssueConnectorsResponse struct {
+	Connectors []OpenAPIIssueConnector `json:"connectors"`
+}
+
+type OpenAPIIssueConnectorResponse struct {
+	Connector OpenAPIIssueConnector `json:"connector"`
+}
+
+type OpenAPIIssueConnectorDeleteResponse struct {
+	DeletedConnectorID string `json:"deleted_connector_id"`
+}
+
+type OpenAPIIssueConnectorTestResult struct {
+	Healthy   bool   `json:"healthy"`
+	CheckedAt string `json:"checked_at"`
+	Message   string `json:"message"`
+}
+
+type OpenAPIIssueConnectorTestResponse struct {
+	Result OpenAPIIssueConnectorTestResult `json:"result"`
+}
+
+type OpenAPIIssueConnectorSyncReport struct {
+	ConnectorsScanned int `json:"connectors_scanned"`
+	ConnectorsSynced  int `json:"connectors_synced"`
+	ConnectorsFailed  int `json:"connectors_failed"`
+	IssuesSynced      int `json:"issues_synced"`
+}
+
+type OpenAPIIssueConnectorSyncResponse struct {
+	Connector OpenAPIIssueConnector           `json:"connector"`
+	Report    OpenAPIIssueConnectorSyncReport `json:"report"`
+}
+
+type OpenAPIIssueConnectorStatsDetail struct {
+	ConnectorID string                     `json:"connector_id"`
+	Status      string                     `json:"status"`
+	LastSyncAt  *string                    `json:"last_sync_at,omitempty"`
+	LastError   string                     `json:"last_error"`
+	Stats       OpenAPIIssueConnectorStats `json:"stats"`
+}
+
+type OpenAPIIssueConnectorStatsResponse struct {
+	Stats OpenAPIIssueConnectorStatsDetail `json:"stats"`
+}
+
 type OpenAPIHarnessResponse struct {
 	Harness OpenAPIHarnessDocument `json:"harness"`
 }
@@ -940,6 +1079,50 @@ type OpenAPIUpdateHarnessRequest rawUpdateHarnessRequest
 type OpenAPIValidateHarnessRequest rawValidateHarnessRequest
 type OpenAPICreateScheduledJobRequest rawCreateScheduledJobRequest
 type OpenAPIUpdateScheduledJobRequest rawUpdateScheduledJobRequest
+type OpenAPICreateIssueConnectorFilters struct {
+	Labels        []string `json:"labels"`
+	ExcludeLabels []string `json:"exclude_labels"`
+	States        []string `json:"states"`
+	Authors       []string `json:"authors"`
+}
+
+type OpenAPICreateIssueConnectorConfig struct {
+	Type          string                             `json:"type"`
+	BaseURL       string                             `json:"base_url"`
+	AuthToken     string                             `json:"auth_token"`
+	ProjectRef    string                             `json:"project_ref"`
+	PollInterval  string                             `json:"poll_interval"`
+	SyncDirection string                             `json:"sync_direction"`
+	Filters       OpenAPICreateIssueConnectorFilters `json:"filters"`
+	StatusMapping map[string]string                  `json:"status_mapping"`
+	WebhookSecret string                             `json:"webhook_secret"`
+	AutoWorkflow  string                             `json:"auto_workflow"`
+}
+
+type OpenAPICreateIssueConnectorRequest struct {
+	Type   string                            `json:"type"`
+	Name   string                            `json:"name"`
+	Status string                            `json:"status"`
+	Config OpenAPICreateIssueConnectorConfig `json:"config"`
+}
+
+type OpenAPIUpdateIssueConnectorConfig struct {
+	BaseURL       *string                             `json:"base_url,omitempty"`
+	AuthToken     *string                             `json:"auth_token,omitempty"`
+	ProjectRef    *string                             `json:"project_ref,omitempty"`
+	PollInterval  *string                             `json:"poll_interval,omitempty"`
+	SyncDirection *string                             `json:"sync_direction,omitempty"`
+	Filters       *OpenAPICreateIssueConnectorFilters `json:"filters,omitempty"`
+	StatusMapping map[string]string                   `json:"status_mapping,omitempty"`
+	WebhookSecret *string                             `json:"webhook_secret,omitempty"`
+	AutoWorkflow  *string                             `json:"auto_workflow,omitempty"`
+}
+
+type OpenAPIUpdateIssueConnectorRequest struct {
+	Name   *string                            `json:"name,omitempty"`
+	Status *string                            `json:"status,omitempty"`
+	Config *OpenAPIUpdateIssueConnectorConfig `json:"config,omitempty"`
+}
 type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
 type OpenAPICreateTicketRequest rawCreateTicketRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
@@ -1157,6 +1340,26 @@ var (
 		"role_slug":               "HR advisor role slug to activate for the project.",
 		"create_bootstrap_ticket": "Whether activation should create a bootstrap ticket immediately.",
 	}
+	openAPIIssueConnectorDescriptions = map[string]string{
+		"type":                          "Connector implementation type. The shipped Settings surface currently targets the GitHub issue connector.",
+		"name":                          "Human-readable connector name shown in Settings.",
+		"status":                        "Runtime connector state. Supported values are active, paused, and error.",
+		"config":                        "Connector runtime configuration.",
+		"config.type":                   "Connector implementation type and must match the top-level type on create.",
+		"config.base_url":               "Optional API base URL override for self-hosted or test endpoints.",
+		"config.auth_token":             "Connector-scoped auth token. Leave blank to fall back to project GitHub credentials when supported.",
+		"config.project_ref":            "External repository or project reference, for example owner/repo.",
+		"config.poll_interval":          "Pull sync interval encoded as a Go duration string such as 5m.",
+		"config.sync_direction":         "Sync policy. Supported values are bidirectional, pull_only, and push_only.",
+		"config.filters":                "Optional connector-side issue filters.",
+		"config.filters.labels":         "Labels required for an issue to be imported.",
+		"config.filters.exclude_labels": "Labels that should exclude an issue from import.",
+		"config.filters.states":         "Allowed upstream issue states.",
+		"config.filters.authors":        "Allowed upstream issue authors.",
+		"config.status_mapping":         "Map of upstream statuses to internal project ticket statuses.",
+		"config.webhook_secret":         "Optional shared secret used to validate inbound webhook deliveries.",
+		"config.auto_workflow":          "Optional workflow binding associated with imported tickets.",
+	}
 	openAPIChatRequestDescriptions = map[string]string{
 		"message":             "User message content for the chat turn.",
 		"provider_id":         "Optional provider ID used to run this chat session.",
@@ -1205,6 +1408,8 @@ var (
 		"PATCH /api/v1/statuses/{statusId}":                                           openAPIStatusRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/notification-rules":                        openAPINotificationRuleDescriptions,
 		"PATCH /api/v1/notification-rules/{ruleId}":                                   openAPINotificationRuleDescriptions,
+		"POST /api/v1/projects/{projectId}/connectors":                                openAPIIssueConnectorDescriptions,
+		"PATCH /api/v1/connectors/{connectorId}":                                      openAPIIssueConnectorDescriptions,
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":            openAPIRepoScopeCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}": openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                       openAPIHRAdvisorActivateDescriptions,
@@ -1249,6 +1454,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			{Name: "streams"},
 			{Name: "hr-advisor"},
 			{Name: "notifications"},
+			{Name: "connectors"},
 			{Name: "security-settings"},
 		},
 	}
@@ -1267,6 +1473,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 		return nil, err
 	}
 	if err := builder.addTicketOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addIssueConnectorOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addNotificationOperations(); err != nil {
@@ -1337,6 +1546,20 @@ func (b openAPISpecBuilder) addSystemOperations() error {
 }
 
 func (b openAPISpecBuilder) addCatalogOperations() error {
+	workspaceSummaryGet, err := b.jsonOperation(
+		"getWorkspaceSummary",
+		"Get workspace dashboard summary metrics",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIWorkspaceSummaryResponse{},
+		nil,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/workspace/summary", http.MethodGet, workspaceSummaryGet)
+
 	orgsGet, err := b.jsonOperation(
 		"listOrganizations",
 		"List organizations",
@@ -1366,6 +1589,23 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 		return err
 	}
 	b.doc.AddOperation("/api/v1/orgs", http.MethodPost, orgsPost)
+
+	orgSummaryGet, err := b.jsonOperation(
+		"getOrganizationSummary",
+		"Get organization dashboard summary metrics",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIOrganizationSummaryResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSummaryGet.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/summary", http.MethodGet, orgSummaryGet)
 
 	orgProjectsGet, err := b.jsonOperation(
 		"listProjects",
@@ -2642,6 +2882,131 @@ func (b openAPISpecBuilder) addScheduledJobOperations() error {
 	}
 	scheduledJobTrigger.AddParameter(uuidPathParameter("jobId", "Scheduled job ID."))
 	b.doc.AddOperation("/api/v1/scheduled-jobs/{jobId}/trigger", http.MethodPost, scheduledJobTrigger)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addIssueConnectorOperations() error {
+	connectorsGet, err := b.jsonOperation(
+		"listIssueConnectors",
+		"List project issue connectors",
+		[]string{"connectors"},
+		http.StatusOK,
+		OpenAPIIssueConnectorsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	connectorsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/connectors", http.MethodGet, connectorsGet)
+
+	connectorsPost, err := b.jsonOperation(
+		"createIssueConnector",
+		"Create a project issue connector",
+		[]string{"connectors"},
+		http.StatusCreated,
+		OpenAPIIssueConnectorResponse{},
+		OpenAPICreateIssueConnectorRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	connectorsPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/connectors", http.MethodPost, connectorsPost)
+
+	connectorPatch, err := b.jsonOperation(
+		"updateIssueConnector",
+		"Update an issue connector",
+		[]string{"connectors"},
+		http.StatusOK,
+		OpenAPIIssueConnectorResponse{},
+		OpenAPIUpdateIssueConnectorRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	connectorPatch.AddParameter(uuidPathParameter("connectorId", "Connector ID."))
+	b.doc.AddOperation("/api/v1/connectors/{connectorId}", http.MethodPatch, connectorPatch)
+
+	connectorDelete, err := b.jsonOperation(
+		"deleteIssueConnector",
+		"Delete an issue connector",
+		[]string{"connectors"},
+		http.StatusOK,
+		OpenAPIIssueConnectorDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	connectorDelete.AddParameter(uuidPathParameter("connectorId", "Connector ID."))
+	b.doc.AddOperation("/api/v1/connectors/{connectorId}", http.MethodDelete, connectorDelete)
+
+	connectorTest, err := b.jsonOperation(
+		"testIssueConnector",
+		"Run a connector health check",
+		[]string{"connectors"},
+		http.StatusOK,
+		OpenAPIIssueConnectorTestResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	connectorTest.AddParameter(uuidPathParameter("connectorId", "Connector ID."))
+	b.doc.AddOperation("/api/v1/connectors/{connectorId}/test", http.MethodPost, connectorTest)
+
+	connectorSync, err := b.jsonOperation(
+		"syncIssueConnector",
+		"Trigger a manual connector pull sync",
+		[]string{"connectors"},
+		http.StatusOK,
+		OpenAPIIssueConnectorSyncResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	connectorSync.AddParameter(uuidPathParameter("connectorId", "Connector ID."))
+	b.doc.AddOperation("/api/v1/connectors/{connectorId}/sync", http.MethodPost, connectorSync)
+
+	connectorStats, err := b.jsonOperation(
+		"getIssueConnectorStats",
+		"Get connector runtime stats and last sync details",
+		[]string{"connectors"},
+		http.StatusOK,
+		OpenAPIIssueConnectorStatsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	connectorStats.AddParameter(uuidPathParameter("connectorId", "Connector ID."))
+	b.doc.AddOperation("/api/v1/connectors/{connectorId}/stats", http.MethodGet, connectorStats)
 
 	return nil
 }

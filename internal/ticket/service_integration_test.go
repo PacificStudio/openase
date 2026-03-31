@@ -2,6 +2,8 @@ package ticket
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -10,10 +12,12 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
@@ -275,8 +279,21 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	if resumedTicket.RetryPaused || resumedTicket.PauseReason != "" {
 		t.Fatalf("Update(budget resume) = %+v", resumedTicket)
 	}
+	retryAt := time.Date(2026, 3, 27, 16, 0, 0, 0, time.UTC)
+	if _, err := client.Ticket.UpdateOneID(parent.ID).
+		SetAttemptCount(4).
+		SetConsecutiveErrors(2).
+		SetNextRetryAt(retryAt).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("seed retry baseline before manual status change: %v", err)
+	}
 
 	runID := seedTicketCurrentRun(ctx, t, client, fixture, parent.ID)
+	if _, err := client.Ticket.UpdateOneID(parent.ID).SetStallCount(2).Save(ctx); err != nil {
+		t.Fatalf("seed ticket stall count: %v", err)
+	}
 	updatedParent, err := service.Update(ctx, UpdateInput{
 		TicketID:                          parent.ID,
 		StatusID:                          Some(fixture.doneID),
@@ -288,6 +305,16 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	}
 	if updatedParent.CurrentRunID != nil || updatedParent.StatusID != fixture.doneID || updatedParent.TargetMachineID == nil || *updatedParent.TargetMachineID != fixture.workerTwoID {
 		t.Fatalf("Update(status transition) = %+v", updatedParent)
+	}
+	updatedParentEntity, err := client.Ticket.Get(ctx, parent.ID)
+	if err != nil {
+		t.Fatalf("reload updated parent: %v", err)
+	}
+	if updatedParentEntity.StallCount != 0 {
+		t.Fatalf("expected status transition to reset stall count, got %+v", updatedParentEntity)
+	}
+	if updatedParent.AttemptCount != 4 || updatedParent.ConsecutiveErrors != 0 || updatedParent.NextRetryAt != nil || updatedParent.RetryPaused || updatedParent.PauseReason != "" {
+		t.Fatalf("Update(status transition) should normalize retry baseline, got %+v", updatedParent)
 	}
 
 	runAfterRelease, err := client.AgentRun.Get(ctx, runID)
@@ -497,6 +524,231 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	}
 	if _, err := service.RemoveComment(ctx, parent.ID, comment.ID); err != nil {
 		t.Fatalf("RemoveComment(existing) error = %v", err)
+	}
+}
+
+func TestTicketServiceRunsCancelHookWhenNonFinishStatusChangeReleasesCurrentRun(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := NewService(client)
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(localMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider to local machine: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_cancel": []any{
+					map[string]any{"cmd": `printf 'cancel\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set workflow cancel hooks: %v", err)
+	}
+
+	ticketItem, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Cancel current run",
+		StatusID:   &fixture.todoID,
+		Priority:   "high",
+		Type:       "feature",
+		WorkflowID: &fixture.workflowID,
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, ticketItem.ID)
+
+	repoItem, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+	mirrorItem, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(repoItem.ID).
+		SetMachineID(localMachine.ID).
+		SetLocalPath(filepath.Join(t.TempDir(), "mirror-backend")).
+		SetState(entprojectrepomirror.StateReady).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo mirror: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	repoPath := filepath.Join(workspaceRoot, "backend")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("create repo path: %v", err)
+	}
+	if _, err := client.TicketRepoWorkspace.Create().
+		SetTicketID(ticketItem.ID).
+		SetAgentRunID(runID).
+		SetRepoID(repoItem.ID).
+		SetMirrorID(mirrorItem.ID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName("agent/planner/ASE-cancel").
+		SetState(entticketrepoworkspace.StateReady).
+		SetPreparedAt(time.Now().UTC()).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket repo workspace: %v", err)
+	}
+
+	updated, err := service.Update(ctx, UpdateInput{
+		TicketID:                          ticketItem.ID,
+		StatusID:                          Some(fixture.backlogID),
+		RestrictStatusToWorkflowFinishSet: false,
+	})
+	if err != nil {
+		t.Fatalf("update ticket status: %v", err)
+	}
+	if updated.CurrentRunID != nil {
+		t.Fatalf("expected released current run, got %+v", updated.CurrentRunID)
+	}
+
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err := os.ReadFile(filepath.Join(workspaceRoot, "hook.log"))
+	if err != nil {
+		t.Fatalf("read cancel hook log: %v", err)
+	}
+	if string(raw) != "cancel\n" {
+		t.Fatalf("unexpected cancel hook log %q", string(raw))
+	}
+}
+
+func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := NewService(client)
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(localMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider to local machine: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_done": []any{
+					map[string]any{"cmd": `printf 'done\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_cancel": []any{
+					map[string]any{"cmd": `printf 'cancel\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set workflow done hooks: %v", err)
+	}
+
+	ticketItem, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Finish current run",
+		StatusID:   &fixture.todoID,
+		Priority:   "high",
+		Type:       "feature",
+		WorkflowID: &fixture.workflowID,
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, ticketItem.ID)
+
+	repoItem, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+	mirrorItem, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(repoItem.ID).
+		SetMachineID(localMachine.ID).
+		SetLocalPath(filepath.Join(t.TempDir(), "mirror-backend")).
+		SetState(entprojectrepomirror.StateReady).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo mirror: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	repoPath := filepath.Join(workspaceRoot, "backend")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("create repo path: %v", err)
+	}
+	if _, err := client.TicketRepoWorkspace.Create().
+		SetTicketID(ticketItem.ID).
+		SetAgentRunID(runID).
+		SetRepoID(repoItem.ID).
+		SetMirrorID(mirrorItem.ID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName("agent/planner/ASE-done").
+		SetState(entticketrepoworkspace.StateReady).
+		SetPreparedAt(time.Now().UTC()).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket repo workspace: %v", err)
+	}
+
+	updated, err := service.Update(ctx, UpdateInput{
+		TicketID:                          ticketItem.ID,
+		StatusID:                          Some(fixture.doneID),
+		RestrictStatusToWorkflowFinishSet: true,
+	})
+	if err != nil {
+		t.Fatalf("update ticket status: %v", err)
+	}
+	if updated.CurrentRunID != nil {
+		t.Fatalf("expected released current run, got %+v", updated.CurrentRunID)
+	}
+
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err := os.ReadFile(filepath.Join(workspaceRoot, "hook.log"))
+	if err != nil {
+		t.Fatalf("read done hook log: %v", err)
+	}
+	if string(raw) != "done\n" {
+		t.Fatalf("unexpected done hook log %q", string(raw))
 	}
 }
 
@@ -942,9 +1194,12 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 	retryPausedFinishRunID := seedTicketCurrentRun(ctx, t, client, fixture, retryPausedFinishTicket.ID)
 	nextRetryAt := time.Date(2026, 3, 28, 9, 0, 0, 0, time.UTC)
 	if _, err := client.Ticket.UpdateOneID(retryPausedFinishTicket.ID).
+		SetAttemptCount(5).
+		SetConsecutiveErrors(3).
 		SetNextRetryAt(nextRetryAt).
 		SetRetryPaused(true).
 		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		SetStallCount(2).
 		Save(ctx); err != nil {
 		t.Fatalf("mark retry paused finish ticket: %v", err)
 	}
@@ -967,8 +1222,15 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 	if !retryPausedFinishResult.Matched || retryPausedFinishResult.Outcome != RepoScopePRStatusSyncOutcomeFinished || retryPausedFinishResult.Ticket == nil {
 		t.Fatalf("SyncRepoScopePRStatus(finish clears retry state) = %+v", retryPausedFinishResult)
 	}
-	if retryPausedFinishResult.Ticket.NextRetryAt != nil || retryPausedFinishResult.Ticket.RetryPaused || retryPausedFinishResult.Ticket.PauseReason != "" {
+	if retryPausedFinishResult.Ticket.AttemptCount != 5 || retryPausedFinishResult.Ticket.ConsecutiveErrors != 0 || retryPausedFinishResult.Ticket.NextRetryAt != nil || retryPausedFinishResult.Ticket.RetryPaused || retryPausedFinishResult.Ticket.PauseReason != "" {
 		t.Fatalf("retry-paused finish ticket after sync = %+v", retryPausedFinishResult.Ticket)
+	}
+	retryPausedFinishTicketAfter, err := client.Ticket.Get(ctx, retryPausedFinishTicket.ID)
+	if err != nil {
+		t.Fatalf("reload retry-paused finish ticket: %v", err)
+	}
+	if retryPausedFinishTicketAfter.StallCount != 0 {
+		t.Fatalf("expected repo-scope finish to reset stall count, got %+v", retryPausedFinishTicketAfter)
 	}
 	retryPausedFinishRunAfter, err := client.AgentRun.Get(ctx, retryPausedFinishRunID)
 	if err != nil {

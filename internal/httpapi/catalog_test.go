@@ -1777,6 +1777,14 @@ func (f *fakeCatalogService) DeleteTicketRepoScope(_ context.Context, projectID 
 	return item, nil
 }
 
+func (f *fakeCatalogService) GetWorkspaceDashboardSummary(context.Context) (domain.WorkspaceDashboardSummary, error) {
+	return domain.WorkspaceDashboardSummary{}, nil
+}
+
+func (f *fakeCatalogService) GetOrganizationDashboardSummary(context.Context, uuid.UUID) (domain.OrganizationDashboardSummary, error) {
+	return domain.OrganizationDashboardSummary{}, nil
+}
+
 func (f *fakeCatalogService) hasProjectRepos(projectID uuid.UUID) bool {
 	for _, item := range f.projectRepos {
 		if item.ProjectID == projectID {

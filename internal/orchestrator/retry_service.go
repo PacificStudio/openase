@@ -77,6 +77,7 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 		ClearCurrentRunID().
 		SetAttemptCount(nextAttemptCount).
 		SetConsecutiveErrors(nextConsecutiveErrors).
+		SetStallCount(0).
 		SetNextRetryAt(nextRetryAt)
 
 	pauseReason := ticketing.PauseReason("")
