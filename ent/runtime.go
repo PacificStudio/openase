@@ -22,6 +22,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
+	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillversion"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
@@ -31,6 +33,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/domain/issueconnector"
 	"github.com/google/uuid"
 )
@@ -393,6 +397,60 @@ func init() {
 	scheduledjobDescID := scheduledjobFields[0].Descriptor()
 	// scheduledjob.DefaultID holds the default value on creation for the id field.
 	scheduledjob.DefaultID = scheduledjobDescID.Default.(func() uuid.UUID)
+	skillFields := schema.Skill{}.Fields()
+	_ = skillFields
+	// skillDescName is the schema descriptor for name field.
+	skillDescName := skillFields[3].Descriptor()
+	// skill.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	skill.NameValidator = skillDescName.Validators[0].(func(string) error)
+	// skillDescDescription is the schema descriptor for description field.
+	skillDescDescription := skillFields[4].Descriptor()
+	// skill.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
+	skill.DescriptionValidator = skillDescDescription.Validators[0].(func(string) error)
+	// skillDescIsBuiltin is the schema descriptor for is_builtin field.
+	skillDescIsBuiltin := skillFields[5].Descriptor()
+	// skill.DefaultIsBuiltin holds the default value on creation for the is_builtin field.
+	skill.DefaultIsBuiltin = skillDescIsBuiltin.Default.(bool)
+	// skillDescIsEnabled is the schema descriptor for is_enabled field.
+	skillDescIsEnabled := skillFields[6].Descriptor()
+	// skill.DefaultIsEnabled holds the default value on creation for the is_enabled field.
+	skill.DefaultIsEnabled = skillDescIsEnabled.Default.(bool)
+	// skillDescCreatedBy is the schema descriptor for created_by field.
+	skillDescCreatedBy := skillFields[7].Descriptor()
+	// skill.DefaultCreatedBy holds the default value on creation for the created_by field.
+	skill.DefaultCreatedBy = skillDescCreatedBy.Default.(string)
+	// skillDescCreatedAt is the schema descriptor for created_at field.
+	skillDescCreatedAt := skillFields[9].Descriptor()
+	// skill.DefaultCreatedAt holds the default value on creation for the created_at field.
+	skill.DefaultCreatedAt = skillDescCreatedAt.Default.(func() time.Time)
+	// skillDescUpdatedAt is the schema descriptor for updated_at field.
+	skillDescUpdatedAt := skillFields[10].Descriptor()
+	// skill.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	skill.DefaultUpdatedAt = skillDescUpdatedAt.Default.(func() time.Time)
+	// skill.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	skill.UpdateDefaultUpdatedAt = skillDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// skillDescID is the schema descriptor for id field.
+	skillDescID := skillFields[0].Descriptor()
+	// skill.DefaultID holds the default value on creation for the id field.
+	skill.DefaultID = skillDescID.Default.(func() uuid.UUID)
+	skillversionFields := schema.SkillVersion{}.Fields()
+	_ = skillversionFields
+	// skillversionDescContentHash is the schema descriptor for content_hash field.
+	skillversionDescContentHash := skillversionFields[4].Descriptor()
+	// skillversion.ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
+	skillversion.ContentHashValidator = skillversionDescContentHash.Validators[0].(func(string) error)
+	// skillversionDescCreatedBy is the schema descriptor for created_by field.
+	skillversionDescCreatedBy := skillversionFields[5].Descriptor()
+	// skillversion.DefaultCreatedBy holds the default value on creation for the created_by field.
+	skillversion.DefaultCreatedBy = skillversionDescCreatedBy.Default.(string)
+	// skillversionDescCreatedAt is the schema descriptor for created_at field.
+	skillversionDescCreatedAt := skillversionFields[6].Descriptor()
+	// skillversion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	skillversion.DefaultCreatedAt = skillversionDescCreatedAt.Default.(func() time.Time)
+	// skillversionDescID is the schema descriptor for id field.
+	skillversionDescID := skillversionFields[0].Descriptor()
+	// skillversion.DefaultID holds the default value on creation for the id field.
+	skillversion.DefaultID = skillversionDescID.Default.(func() uuid.UUID)
 	ticketFields := schema.Ticket{}.Fields()
 	_ = ticketFields
 	// ticketDescIdentifier is the schema descriptor for identifier field.
@@ -600,43 +658,71 @@ func init() {
 	workflowFields := schema.Workflow{}.Fields()
 	_ = workflowFields
 	// workflowDescName is the schema descriptor for name field.
-	workflowDescName := workflowFields[3].Descriptor()
+	workflowDescName := workflowFields[4].Descriptor()
 	// workflow.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	workflow.NameValidator = workflowDescName.Validators[0].(func(string) error)
 	// workflowDescHarnessPath is the schema descriptor for harness_path field.
-	workflowDescHarnessPath := workflowFields[5].Descriptor()
+	workflowDescHarnessPath := workflowFields[6].Descriptor()
 	// workflow.HarnessPathValidator is a validator for the "harness_path" field. It is called by the builders before save.
 	workflow.HarnessPathValidator = workflowDescHarnessPath.Validators[0].(func(string) error)
 	// workflowDescHooks is the schema descriptor for hooks field.
-	workflowDescHooks := workflowFields[6].Descriptor()
+	workflowDescHooks := workflowFields[7].Descriptor()
 	// workflow.DefaultHooks holds the default value on creation for the hooks field.
 	workflow.DefaultHooks = workflowDescHooks.Default.(func() map[string]interface{})
 	// workflowDescMaxConcurrent is the schema descriptor for max_concurrent field.
-	workflowDescMaxConcurrent := workflowFields[7].Descriptor()
+	workflowDescMaxConcurrent := workflowFields[8].Descriptor()
 	// workflow.DefaultMaxConcurrent holds the default value on creation for the max_concurrent field.
 	workflow.DefaultMaxConcurrent = workflowDescMaxConcurrent.Default.(int)
 	// workflowDescMaxRetryAttempts is the schema descriptor for max_retry_attempts field.
-	workflowDescMaxRetryAttempts := workflowFields[8].Descriptor()
+	workflowDescMaxRetryAttempts := workflowFields[9].Descriptor()
 	// workflow.DefaultMaxRetryAttempts holds the default value on creation for the max_retry_attempts field.
 	workflow.DefaultMaxRetryAttempts = workflowDescMaxRetryAttempts.Default.(int)
 	// workflowDescTimeoutMinutes is the schema descriptor for timeout_minutes field.
-	workflowDescTimeoutMinutes := workflowFields[9].Descriptor()
+	workflowDescTimeoutMinutes := workflowFields[10].Descriptor()
 	// workflow.DefaultTimeoutMinutes holds the default value on creation for the timeout_minutes field.
 	workflow.DefaultTimeoutMinutes = workflowDescTimeoutMinutes.Default.(int)
 	// workflowDescStallTimeoutMinutes is the schema descriptor for stall_timeout_minutes field.
-	workflowDescStallTimeoutMinutes := workflowFields[10].Descriptor()
+	workflowDescStallTimeoutMinutes := workflowFields[11].Descriptor()
 	// workflow.DefaultStallTimeoutMinutes holds the default value on creation for the stall_timeout_minutes field.
 	workflow.DefaultStallTimeoutMinutes = workflowDescStallTimeoutMinutes.Default.(int)
 	// workflowDescVersion is the schema descriptor for version field.
-	workflowDescVersion := workflowFields[11].Descriptor()
+	workflowDescVersion := workflowFields[12].Descriptor()
 	// workflow.DefaultVersion holds the default value on creation for the version field.
 	workflow.DefaultVersion = workflowDescVersion.Default.(int)
 	// workflowDescIsActive is the schema descriptor for is_active field.
-	workflowDescIsActive := workflowFields[12].Descriptor()
+	workflowDescIsActive := workflowFields[13].Descriptor()
 	// workflow.DefaultIsActive holds the default value on creation for the is_active field.
 	workflow.DefaultIsActive = workflowDescIsActive.Default.(bool)
 	// workflowDescID is the schema descriptor for id field.
 	workflowDescID := workflowFields[0].Descriptor()
 	// workflow.DefaultID holds the default value on creation for the id field.
 	workflow.DefaultID = workflowDescID.Default.(func() uuid.UUID)
+	workflowskillbindingFields := schema.WorkflowSkillBinding{}.Fields()
+	_ = workflowskillbindingFields
+	// workflowskillbindingDescCreatedAt is the schema descriptor for created_at field.
+	workflowskillbindingDescCreatedAt := workflowskillbindingFields[4].Descriptor()
+	// workflowskillbinding.DefaultCreatedAt holds the default value on creation for the created_at field.
+	workflowskillbinding.DefaultCreatedAt = workflowskillbindingDescCreatedAt.Default.(func() time.Time)
+	// workflowskillbindingDescID is the schema descriptor for id field.
+	workflowskillbindingDescID := workflowskillbindingFields[0].Descriptor()
+	// workflowskillbinding.DefaultID holds the default value on creation for the id field.
+	workflowskillbinding.DefaultID = workflowskillbindingDescID.Default.(func() uuid.UUID)
+	workflowversionFields := schema.WorkflowVersion{}.Fields()
+	_ = workflowversionFields
+	// workflowversionDescContentHash is the schema descriptor for content_hash field.
+	workflowversionDescContentHash := workflowversionFields[4].Descriptor()
+	// workflowversion.ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
+	workflowversion.ContentHashValidator = workflowversionDescContentHash.Validators[0].(func(string) error)
+	// workflowversionDescCreatedBy is the schema descriptor for created_by field.
+	workflowversionDescCreatedBy := workflowversionFields[5].Descriptor()
+	// workflowversion.DefaultCreatedBy holds the default value on creation for the created_by field.
+	workflowversion.DefaultCreatedBy = workflowversionDescCreatedBy.Default.(string)
+	// workflowversionDescCreatedAt is the schema descriptor for created_at field.
+	workflowversionDescCreatedAt := workflowversionFields[6].Descriptor()
+	// workflowversion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	workflowversion.DefaultCreatedAt = workflowversionDescCreatedAt.Default.(func() time.Time)
+	// workflowversionDescID is the schema descriptor for id field.
+	workflowversionDescID := workflowversionFields[0].Descriptor()
+	// workflowversion.DefaultID holds the default value on creation for the id field.
+	workflowversion.DefaultID = workflowversionDescID.Default.(func() uuid.UUID)
 }

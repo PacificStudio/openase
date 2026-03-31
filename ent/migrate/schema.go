@@ -790,6 +790,83 @@ var (
 			},
 		},
 	}
+	// SkillsColumns holds the columns for the "skills" table.
+	SkillsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString},
+		{Name: "is_builtin", Type: field.TypeBool, Default: false},
+		{Name: "is_enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_by", Type: field.TypeString, Default: "user:manual"},
+		{Name: "archived_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "current_version_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// SkillsTable holds the schema information for the "skills" table.
+	SkillsTable = &schema.Table{
+		Name:       "skills",
+		Columns:    SkillsColumns,
+		PrimaryKey: []*schema.Column{SkillsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "skills_projects_skills",
+				Columns:    []*schema.Column{SkillsColumns[9]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "skills_skill_versions_current_version",
+				Columns:    []*schema.Column{SkillsColumns[10]},
+				RefColumns: []*schema.Column{SkillVersionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "skill_project_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{SkillsColumns[9], SkillsColumns[1]},
+			},
+			{
+				Name:    "skill_project_id_archived_at",
+				Unique:  false,
+				Columns: []*schema.Column{SkillsColumns[9], SkillsColumns[6]},
+			},
+		},
+	}
+	// SkillVersionsColumns holds the columns for the "skill_versions" table.
+	SkillVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "version", Type: field.TypeInt},
+		{Name: "content_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "content_hash", Type: field.TypeString},
+		{Name: "created_by", Type: field.TypeString, Default: "system:workflow-service"},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "skill_id", Type: field.TypeUUID},
+	}
+	// SkillVersionsTable holds the schema information for the "skill_versions" table.
+	SkillVersionsTable = &schema.Table{
+		Name:       "skill_versions",
+		Columns:    SkillVersionsColumns,
+		PrimaryKey: []*schema.Column{SkillVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "skill_versions_skills_versions",
+				Columns:    []*schema.Column{SkillVersionsColumns[6]},
+				RefColumns: []*schema.Column{SkillsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "skillversion_skill_id_version",
+				Unique:  true,
+				Columns: []*schema.Column{SkillVersionsColumns[6], SkillVersionsColumns[1]},
+			},
+		},
+	}
 	// TicketsColumns holds the columns for the "tickets" table.
 	TicketsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1211,6 +1288,7 @@ var (
 		{Name: "is_active", Type: field.TypeBool, Default: true},
 		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "current_version_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// WorkflowsTable holds the schema information for the "workflows" table.
 	WorkflowsTable = &schema.Table{
@@ -1230,6 +1308,12 @@ var (
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
+			{
+				Symbol:     "workflows_workflow_versions_current_version",
+				Columns:    []*schema.Column{WorkflowsColumns[13]},
+				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
 		},
 		Indexes: []*schema.Index{
 			{
@@ -1241,6 +1325,83 @@ var (
 				Name:    "workflow_project_id_is_active",
 				Unique:  false,
 				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[10]},
+			},
+		},
+	}
+	// WorkflowSkillBindingsColumns holds the columns for the "workflow_skill_bindings" table.
+	WorkflowSkillBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "skill_id", Type: field.TypeUUID},
+		{Name: "workflow_id", Type: field.TypeUUID},
+		{Name: "required_version_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// WorkflowSkillBindingsTable holds the schema information for the "workflow_skill_bindings" table.
+	WorkflowSkillBindingsTable = &schema.Table{
+		Name:       "workflow_skill_bindings",
+		Columns:    WorkflowSkillBindingsColumns,
+		PrimaryKey: []*schema.Column{WorkflowSkillBindingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "workflow_skill_bindings_skills_workflow_bindings",
+				Columns:    []*schema.Column{WorkflowSkillBindingsColumns[2]},
+				RefColumns: []*schema.Column{SkillsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "workflow_skill_bindings_workflows_skill_bindings",
+				Columns:    []*schema.Column{WorkflowSkillBindingsColumns[3]},
+				RefColumns: []*schema.Column{WorkflowsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "workflow_skill_bindings_workflow_versions_required_by_bindings",
+				Columns:    []*schema.Column{WorkflowSkillBindingsColumns[4]},
+				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "workflowskillbinding_workflow_id_skill_id",
+				Unique:  true,
+				Columns: []*schema.Column{WorkflowSkillBindingsColumns[3], WorkflowSkillBindingsColumns[2]},
+			},
+			{
+				Name:    "workflowskillbinding_skill_id_workflow_id",
+				Unique:  false,
+				Columns: []*schema.Column{WorkflowSkillBindingsColumns[2], WorkflowSkillBindingsColumns[3]},
+			},
+		},
+	}
+	// WorkflowVersionsColumns holds the columns for the "workflow_versions" table.
+	WorkflowVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "version", Type: field.TypeInt},
+		{Name: "content_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "content_hash", Type: field.TypeString},
+		{Name: "created_by", Type: field.TypeString, Default: "system:workflow-service"},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "workflow_id", Type: field.TypeUUID},
+	}
+	// WorkflowVersionsTable holds the schema information for the "workflow_versions" table.
+	WorkflowVersionsTable = &schema.Table{
+		Name:       "workflow_versions",
+		Columns:    WorkflowVersionsColumns,
+		PrimaryKey: []*schema.Column{WorkflowVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "workflow_versions_workflows_versions",
+				Columns:    []*schema.Column{WorkflowVersionsColumns[6]},
+				RefColumns: []*schema.Column{WorkflowsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "workflowversion_workflow_id_version",
+				Unique:  true,
+				Columns: []*schema.Column{WorkflowVersionsColumns[6], WorkflowVersionsColumns[1]},
 			},
 		},
 	}
@@ -1312,6 +1473,8 @@ var (
 		ProjectReposTable,
 		ProjectRepoMirrorsTable,
 		ScheduledJobsTable,
+		SkillsTable,
+		SkillVersionsTable,
 		TicketsTable,
 		TicketCommentsTable,
 		TicketCommentRevisionsTable,
@@ -1321,6 +1484,8 @@ var (
 		TicketRepoWorkspacesTable,
 		TicketStatusTable,
 		WorkflowsTable,
+		WorkflowSkillBindingsTable,
+		WorkflowVersionsTable,
 		WorkflowPickupStatusesTable,
 		WorkflowFinishStatusesTable,
 	}
@@ -1364,6 +1529,9 @@ func init() {
 	ProjectRepoMirrorsTable.ForeignKeys[1].RefTable = ProjectReposTable
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
+	SkillsTable.ForeignKeys[0].RefTable = ProjectsTable
+	SkillsTable.ForeignKeys[1].RefTable = SkillVersionsTable
+	SkillVersionsTable.ForeignKeys[0].RefTable = SkillsTable
 	TicketsTable.ForeignKeys[0].RefTable = AgentRunsTable
 	TicketsTable.ForeignKeys[1].RefTable = MachinesTable
 	TicketsTable.ForeignKeys[2].RefTable = ProjectsTable
@@ -1384,6 +1552,11 @@ func init() {
 	TicketStatusTable.ForeignKeys[0].RefTable = ProjectsTable
 	WorkflowsTable.ForeignKeys[0].RefTable = AgentsTable
 	WorkflowsTable.ForeignKeys[1].RefTable = ProjectsTable
+	WorkflowsTable.ForeignKeys[2].RefTable = WorkflowVersionsTable
+	WorkflowSkillBindingsTable.ForeignKeys[0].RefTable = SkillsTable
+	WorkflowSkillBindingsTable.ForeignKeys[1].RefTable = WorkflowsTable
+	WorkflowSkillBindingsTable.ForeignKeys[2].RefTable = WorkflowVersionsTable
+	WorkflowVersionsTable.ForeignKeys[0].RefTable = WorkflowsTable
 	WorkflowPickupStatusesTable.ForeignKeys[0].RefTable = WorkflowsTable
 	WorkflowPickupStatusesTable.ForeignKeys[1].RefTable = TicketStatusTable
 	WorkflowFinishStatusesTable.ForeignKeys[0].RefTable = WorkflowsTable

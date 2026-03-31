@@ -20,6 +20,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -32,6 +34,9 @@ type WorkflowQuery struct {
 	predicates         []predicate.Workflow
 	withProject        *ProjectQuery
 	withAgent          *AgentQuery
+	withCurrentVersion *WorkflowVersionQuery
+	withVersions       *WorkflowVersionQuery
+	withSkillBindings  *WorkflowSkillBindingQuery
 	withPickupStatuses *TicketStatusQuery
 	withFinishStatuses *TicketStatusQuery
 	withTickets        *TicketQuery
@@ -110,6 +115,72 @@ func (_q *WorkflowQuery) QueryAgent() *AgentQuery {
 			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
 			sqlgraph.To(agent.Table, agent.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, workflow.AgentTable, workflow.AgentColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCurrentVersion chains the current query on the "current_version" edge.
+func (_q *WorkflowQuery) QueryCurrentVersion() *WorkflowVersionQuery {
+	query := (&WorkflowVersionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
+			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, workflow.CurrentVersionTable, workflow.CurrentVersionColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryVersions chains the current query on the "versions" edge.
+func (_q *WorkflowQuery) QueryVersions() *WorkflowVersionQuery {
+	query := (&WorkflowVersionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
+			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workflow.VersionsTable, workflow.VersionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySkillBindings chains the current query on the "skill_bindings" edge.
+func (_q *WorkflowQuery) QuerySkillBindings() *WorkflowSkillBindingQuery {
+	query := (&WorkflowSkillBindingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflow.Table, workflow.FieldID, selector),
+			sqlgraph.To(workflowskillbinding.Table, workflowskillbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workflow.SkillBindingsTable, workflow.SkillBindingsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -421,6 +492,9 @@ func (_q *WorkflowQuery) Clone() *WorkflowQuery {
 		predicates:         append([]predicate.Workflow{}, _q.predicates...),
 		withProject:        _q.withProject.Clone(),
 		withAgent:          _q.withAgent.Clone(),
+		withCurrentVersion: _q.withCurrentVersion.Clone(),
+		withVersions:       _q.withVersions.Clone(),
+		withSkillBindings:  _q.withSkillBindings.Clone(),
 		withPickupStatuses: _q.withPickupStatuses.Clone(),
 		withFinishStatuses: _q.withFinishStatuses.Clone(),
 		withTickets:        _q.withTickets.Clone(),
@@ -451,6 +525,39 @@ func (_q *WorkflowQuery) WithAgent(opts ...func(*AgentQuery)) *WorkflowQuery {
 		opt(query)
 	}
 	_q.withAgent = query
+	return _q
+}
+
+// WithCurrentVersion tells the query-builder to eager-load the nodes that are connected to
+// the "current_version" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkflowQuery) WithCurrentVersion(opts ...func(*WorkflowVersionQuery)) *WorkflowQuery {
+	query := (&WorkflowVersionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCurrentVersion = query
+	return _q
+}
+
+// WithVersions tells the query-builder to eager-load the nodes that are connected to
+// the "versions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkflowQuery) WithVersions(opts ...func(*WorkflowVersionQuery)) *WorkflowQuery {
+	query := (&WorkflowVersionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withVersions = query
+	return _q
+}
+
+// WithSkillBindings tells the query-builder to eager-load the nodes that are connected to
+// the "skill_bindings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkflowQuery) WithSkillBindings(opts ...func(*WorkflowSkillBindingQuery)) *WorkflowQuery {
+	query := (&WorkflowSkillBindingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSkillBindings = query
 	return _q
 }
 
@@ -587,9 +694,12 @@ func (_q *WorkflowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wor
 	var (
 		nodes       = []*Workflow{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [10]bool{
 			_q.withProject != nil,
 			_q.withAgent != nil,
+			_q.withCurrentVersion != nil,
+			_q.withVersions != nil,
+			_q.withSkillBindings != nil,
 			_q.withPickupStatuses != nil,
 			_q.withFinishStatuses != nil,
 			_q.withTickets != nil,
@@ -624,6 +734,26 @@ func (_q *WorkflowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wor
 	if query := _q.withAgent; query != nil {
 		if err := _q.loadAgent(ctx, query, nodes, nil,
 			func(n *Workflow, e *Agent) { n.Edges.Agent = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCurrentVersion; query != nil {
+		if err := _q.loadCurrentVersion(ctx, query, nodes, nil,
+			func(n *Workflow, e *WorkflowVersion) { n.Edges.CurrentVersion = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withVersions; query != nil {
+		if err := _q.loadVersions(ctx, query, nodes,
+			func(n *Workflow) { n.Edges.Versions = []*WorkflowVersion{} },
+			func(n *Workflow, e *WorkflowVersion) { n.Edges.Versions = append(n.Edges.Versions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSkillBindings; query != nil {
+		if err := _q.loadSkillBindings(ctx, query, nodes,
+			func(n *Workflow) { n.Edges.SkillBindings = []*WorkflowSkillBinding{} },
+			func(n *Workflow, e *WorkflowSkillBinding) { n.Edges.SkillBindings = append(n.Edges.SkillBindings, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -723,6 +853,98 @@ func (_q *WorkflowQuery) loadAgent(ctx context.Context, query *AgentQuery, nodes
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *WorkflowQuery) loadCurrentVersion(ctx context.Context, query *WorkflowVersionQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *WorkflowVersion)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Workflow)
+	for i := range nodes {
+		if nodes[i].CurrentVersionID == nil {
+			continue
+		}
+		fk := *nodes[i].CurrentVersionID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(workflowversion.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "current_version_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *WorkflowQuery) loadVersions(ctx context.Context, query *WorkflowVersionQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *WorkflowVersion)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Workflow)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(workflowversion.FieldWorkflowID)
+	}
+	query.Where(predicate.WorkflowVersion(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(workflow.VersionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.WorkflowID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "workflow_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *WorkflowQuery) loadSkillBindings(ctx context.Context, query *WorkflowSkillBindingQuery, nodes []*Workflow, init func(*Workflow), assign func(*Workflow, *WorkflowSkillBinding)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Workflow)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(workflowskillbinding.FieldWorkflowID)
+	}
+	query.Where(predicate.WorkflowSkillBinding(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(workflow.SkillBindingsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.WorkflowID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "workflow_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }
@@ -972,6 +1194,9 @@ func (_q *WorkflowQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withAgent != nil {
 			_spec.Node.AddColumnOnce(workflow.FieldAgentID)
+		}
+		if _q.withCurrentVersion != nil {
+			_spec.Node.AddColumnOnce(workflow.FieldCurrentVersionID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

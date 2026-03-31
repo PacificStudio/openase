@@ -32,6 +32,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillversion"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
@@ -41,6 +43,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 )
 
 // Client is the client that holds all ent builders.
@@ -80,6 +84,10 @@ type Client struct {
 	ProjectRepoMirror *ProjectRepoMirrorClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
+	// Skill is the client for interacting with the Skill builders.
+	Skill *SkillClient
+	// SkillVersion is the client for interacting with the SkillVersion builders.
+	SkillVersion *SkillVersionClient
 	// Ticket is the client for interacting with the Ticket builders.
 	Ticket *TicketClient
 	// TicketComment is the client for interacting with the TicketComment builders.
@@ -98,6 +106,10 @@ type Client struct {
 	TicketStatus *TicketStatusClient
 	// Workflow is the client for interacting with the Workflow builders.
 	Workflow *WorkflowClient
+	// WorkflowSkillBinding is the client for interacting with the WorkflowSkillBinding builders.
+	WorkflowSkillBinding *WorkflowSkillBindingClient
+	// WorkflowVersion is the client for interacting with the WorkflowVersion builders.
+	WorkflowVersion *WorkflowVersionClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -125,6 +137,8 @@ func (c *Client) init() {
 	c.ProjectRepo = NewProjectRepoClient(c.config)
 	c.ProjectRepoMirror = NewProjectRepoMirrorClient(c.config)
 	c.ScheduledJob = NewScheduledJobClient(c.config)
+	c.Skill = NewSkillClient(c.config)
+	c.SkillVersion = NewSkillVersionClient(c.config)
 	c.Ticket = NewTicketClient(c.config)
 	c.TicketComment = NewTicketCommentClient(c.config)
 	c.TicketCommentRevision = NewTicketCommentRevisionClient(c.config)
@@ -134,6 +148,8 @@ func (c *Client) init() {
 	c.TicketRepoWorkspace = NewTicketRepoWorkspaceClient(c.config)
 	c.TicketStatus = NewTicketStatusClient(c.config)
 	c.Workflow = NewWorkflowClient(c.config)
+	c.WorkflowSkillBinding = NewWorkflowSkillBindingClient(c.config)
+	c.WorkflowVersion = NewWorkflowVersionClient(c.config)
 }
 
 type (
@@ -242,6 +258,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ProjectRepo:           NewProjectRepoClient(cfg),
 		ProjectRepoMirror:     NewProjectRepoMirrorClient(cfg),
 		ScheduledJob:          NewScheduledJobClient(cfg),
+		Skill:                 NewSkillClient(cfg),
+		SkillVersion:          NewSkillVersionClient(cfg),
 		Ticket:                NewTicketClient(cfg),
 		TicketComment:         NewTicketCommentClient(cfg),
 		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
@@ -251,6 +269,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		TicketRepoWorkspace:   NewTicketRepoWorkspaceClient(cfg),
 		TicketStatus:          NewTicketStatusClient(cfg),
 		Workflow:              NewWorkflowClient(cfg),
+		WorkflowSkillBinding:  NewWorkflowSkillBindingClient(cfg),
+		WorkflowVersion:       NewWorkflowVersionClient(cfg),
 	}, nil
 }
 
@@ -286,6 +306,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ProjectRepo:           NewProjectRepoClient(cfg),
 		ProjectRepoMirror:     NewProjectRepoMirrorClient(cfg),
 		ScheduledJob:          NewScheduledJobClient(cfg),
+		Skill:                 NewSkillClient(cfg),
+		SkillVersion:          NewSkillVersionClient(cfg),
 		Ticket:                NewTicketClient(cfg),
 		TicketComment:         NewTicketCommentClient(cfg),
 		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
@@ -295,6 +317,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		TicketRepoWorkspace:   NewTicketRepoWorkspaceClient(cfg),
 		TicketStatus:          NewTicketStatusClient(cfg),
 		Workflow:              NewWorkflowClient(cfg),
+		WorkflowSkillBinding:  NewWorkflowSkillBindingClient(cfg),
+		WorkflowVersion:       NewWorkflowVersionClient(cfg),
 	}, nil
 }
 
@@ -327,9 +351,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.IssueConnector, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ProjectRepoMirror, c.ScheduledJob, c.Ticket, c.TicketComment,
-		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
-		c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus, c.Workflow,
+		c.ProjectRepo, c.ProjectRepoMirror, c.ScheduledJob, c.Skill, c.SkillVersion,
+		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
+		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -342,9 +367,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.IssueConnector, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ProjectRepoMirror, c.ScheduledJob, c.Ticket, c.TicketComment,
-		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
-		c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus, c.Workflow,
+		c.ProjectRepo, c.ProjectRepoMirror, c.ScheduledJob, c.Skill, c.SkillVersion,
+		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
+		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -385,6 +411,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ProjectRepoMirror.mutate(ctx, m)
 	case *ScheduledJobMutation:
 		return c.ScheduledJob.mutate(ctx, m)
+	case *SkillMutation:
+		return c.Skill.mutate(ctx, m)
+	case *SkillVersionMutation:
+		return c.SkillVersion.mutate(ctx, m)
 	case *TicketMutation:
 		return c.Ticket.mutate(ctx, m)
 	case *TicketCommentMutation:
@@ -403,6 +433,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TicketStatus.mutate(ctx, m)
 	case *WorkflowMutation:
 		return c.Workflow.mutate(ctx, m)
+	case *WorkflowSkillBindingMutation:
+		return c.WorkflowSkillBinding.mutate(ctx, m)
+	case *WorkflowVersionMutation:
+		return c.WorkflowVersion.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -2944,6 +2978,22 @@ func (c *ProjectClient) QueryRepos(_m *Project) *ProjectRepoQuery {
 	return query
 }
 
+// QuerySkills queries the skills edge of a Project.
+func (c *ProjectClient) QuerySkills(_m *Project) *SkillQuery {
+	query := (&SkillClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(skill.Table, skill.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.SkillsTable, project.SkillsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryStatuses queries the statuses edge of a Project.
 func (c *ProjectClient) QueryStatuses(_m *Project) *TicketStatusQuery {
 	query := (&TicketStatusClient{config: c.config}).Query()
@@ -3717,6 +3767,352 @@ func (c *ScheduledJobClient) mutate(ctx context.Context, m *ScheduledJobMutation
 		return (&ScheduledJobDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ScheduledJob mutation op: %q", m.Op())
+	}
+}
+
+// SkillClient is a client for the Skill schema.
+type SkillClient struct {
+	config
+}
+
+// NewSkillClient returns a client for the Skill from the given config.
+func NewSkillClient(c config) *SkillClient {
+	return &SkillClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `skill.Hooks(f(g(h())))`.
+func (c *SkillClient) Use(hooks ...Hook) {
+	c.hooks.Skill = append(c.hooks.Skill, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `skill.Intercept(f(g(h())))`.
+func (c *SkillClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Skill = append(c.inters.Skill, interceptors...)
+}
+
+// Create returns a builder for creating a Skill entity.
+func (c *SkillClient) Create() *SkillCreate {
+	mutation := newSkillMutation(c.config, OpCreate)
+	return &SkillCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Skill entities.
+func (c *SkillClient) CreateBulk(builders ...*SkillCreate) *SkillCreateBulk {
+	return &SkillCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SkillClient) MapCreateBulk(slice any, setFunc func(*SkillCreate, int)) *SkillCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SkillCreateBulk{err: fmt.Errorf("calling to SkillClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SkillCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SkillCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Skill.
+func (c *SkillClient) Update() *SkillUpdate {
+	mutation := newSkillMutation(c.config, OpUpdate)
+	return &SkillUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SkillClient) UpdateOne(_m *Skill) *SkillUpdateOne {
+	mutation := newSkillMutation(c.config, OpUpdateOne, withSkill(_m))
+	return &SkillUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SkillClient) UpdateOneID(id uuid.UUID) *SkillUpdateOne {
+	mutation := newSkillMutation(c.config, OpUpdateOne, withSkillID(id))
+	return &SkillUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Skill.
+func (c *SkillClient) Delete() *SkillDelete {
+	mutation := newSkillMutation(c.config, OpDelete)
+	return &SkillDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SkillClient) DeleteOne(_m *Skill) *SkillDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SkillClient) DeleteOneID(id uuid.UUID) *SkillDeleteOne {
+	builder := c.Delete().Where(skill.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SkillDeleteOne{builder}
+}
+
+// Query returns a query builder for Skill.
+func (c *SkillClient) Query() *SkillQuery {
+	return &SkillQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSkill},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Skill entity by its id.
+func (c *SkillClient) Get(ctx context.Context, id uuid.UUID) (*Skill, error) {
+	return c.Query().Where(skill.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SkillClient) GetX(ctx context.Context, id uuid.UUID) *Skill {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a Skill.
+func (c *SkillClient) QueryProject(_m *Skill) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skill.Table, skill.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, skill.ProjectTable, skill.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCurrentVersion queries the current_version edge of a Skill.
+func (c *SkillClient) QueryCurrentVersion(_m *Skill) *SkillVersionQuery {
+	query := (&SkillVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skill.Table, skill.FieldID, id),
+			sqlgraph.To(skillversion.Table, skillversion.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, skill.CurrentVersionTable, skill.CurrentVersionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryVersions queries the versions edge of a Skill.
+func (c *SkillClient) QueryVersions(_m *Skill) *SkillVersionQuery {
+	query := (&SkillVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skill.Table, skill.FieldID, id),
+			sqlgraph.To(skillversion.Table, skillversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, skill.VersionsTable, skill.VersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryWorkflowBindings queries the workflow_bindings edge of a Skill.
+func (c *SkillClient) QueryWorkflowBindings(_m *Skill) *WorkflowSkillBindingQuery {
+	query := (&WorkflowSkillBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skill.Table, skill.FieldID, id),
+			sqlgraph.To(workflowskillbinding.Table, workflowskillbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, skill.WorkflowBindingsTable, skill.WorkflowBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SkillClient) Hooks() []Hook {
+	return c.hooks.Skill
+}
+
+// Interceptors returns the client interceptors.
+func (c *SkillClient) Interceptors() []Interceptor {
+	return c.inters.Skill
+}
+
+func (c *SkillClient) mutate(ctx context.Context, m *SkillMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SkillCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SkillUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SkillUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SkillDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Skill mutation op: %q", m.Op())
+	}
+}
+
+// SkillVersionClient is a client for the SkillVersion schema.
+type SkillVersionClient struct {
+	config
+}
+
+// NewSkillVersionClient returns a client for the SkillVersion from the given config.
+func NewSkillVersionClient(c config) *SkillVersionClient {
+	return &SkillVersionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `skillversion.Hooks(f(g(h())))`.
+func (c *SkillVersionClient) Use(hooks ...Hook) {
+	c.hooks.SkillVersion = append(c.hooks.SkillVersion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `skillversion.Intercept(f(g(h())))`.
+func (c *SkillVersionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SkillVersion = append(c.inters.SkillVersion, interceptors...)
+}
+
+// Create returns a builder for creating a SkillVersion entity.
+func (c *SkillVersionClient) Create() *SkillVersionCreate {
+	mutation := newSkillVersionMutation(c.config, OpCreate)
+	return &SkillVersionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SkillVersion entities.
+func (c *SkillVersionClient) CreateBulk(builders ...*SkillVersionCreate) *SkillVersionCreateBulk {
+	return &SkillVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SkillVersionClient) MapCreateBulk(slice any, setFunc func(*SkillVersionCreate, int)) *SkillVersionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SkillVersionCreateBulk{err: fmt.Errorf("calling to SkillVersionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SkillVersionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SkillVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SkillVersion.
+func (c *SkillVersionClient) Update() *SkillVersionUpdate {
+	mutation := newSkillVersionMutation(c.config, OpUpdate)
+	return &SkillVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SkillVersionClient) UpdateOne(_m *SkillVersion) *SkillVersionUpdateOne {
+	mutation := newSkillVersionMutation(c.config, OpUpdateOne, withSkillVersion(_m))
+	return &SkillVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SkillVersionClient) UpdateOneID(id uuid.UUID) *SkillVersionUpdateOne {
+	mutation := newSkillVersionMutation(c.config, OpUpdateOne, withSkillVersionID(id))
+	return &SkillVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SkillVersion.
+func (c *SkillVersionClient) Delete() *SkillVersionDelete {
+	mutation := newSkillVersionMutation(c.config, OpDelete)
+	return &SkillVersionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SkillVersionClient) DeleteOne(_m *SkillVersion) *SkillVersionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SkillVersionClient) DeleteOneID(id uuid.UUID) *SkillVersionDeleteOne {
+	builder := c.Delete().Where(skillversion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SkillVersionDeleteOne{builder}
+}
+
+// Query returns a query builder for SkillVersion.
+func (c *SkillVersionClient) Query() *SkillVersionQuery {
+	return &SkillVersionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSkillVersion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SkillVersion entity by its id.
+func (c *SkillVersionClient) Get(ctx context.Context, id uuid.UUID) (*SkillVersion, error) {
+	return c.Query().Where(skillversion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SkillVersionClient) GetX(ctx context.Context, id uuid.UUID) *SkillVersion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySkill queries the skill edge of a SkillVersion.
+func (c *SkillVersionClient) QuerySkill(_m *SkillVersion) *SkillQuery {
+	query := (&SkillClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skillversion.Table, skillversion.FieldID, id),
+			sqlgraph.To(skill.Table, skill.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, skillversion.SkillTable, skillversion.SkillColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SkillVersionClient) Hooks() []Hook {
+	return c.hooks.SkillVersion
+}
+
+// Interceptors returns the client interceptors.
+func (c *SkillVersionClient) Interceptors() []Interceptor {
+	return c.inters.SkillVersion
+}
+
+func (c *SkillVersionClient) mutate(ctx context.Context, m *SkillVersionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SkillVersionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SkillVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SkillVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SkillVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SkillVersion mutation op: %q", m.Op())
 	}
 }
 
@@ -5468,6 +5864,54 @@ func (c *WorkflowClient) QueryAgent(_m *Workflow) *AgentQuery {
 	return query
 }
 
+// QueryCurrentVersion queries the current_version edge of a Workflow.
+func (c *WorkflowClient) QueryCurrentVersion(_m *Workflow) *WorkflowVersionQuery {
+	query := (&WorkflowVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflow.Table, workflow.FieldID, id),
+			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, workflow.CurrentVersionTable, workflow.CurrentVersionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryVersions queries the versions edge of a Workflow.
+func (c *WorkflowClient) QueryVersions(_m *Workflow) *WorkflowVersionQuery {
+	query := (&WorkflowVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflow.Table, workflow.FieldID, id),
+			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workflow.VersionsTable, workflow.VersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySkillBindings queries the skill_bindings edge of a Workflow.
+func (c *WorkflowClient) QuerySkillBindings(_m *Workflow) *WorkflowSkillBindingQuery {
+	query := (&WorkflowSkillBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflow.Table, workflow.FieldID, id),
+			sqlgraph.To(workflowskillbinding.Table, workflowskillbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workflow.SkillBindingsTable, workflow.SkillBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryPickupStatuses queries the pickup_statuses edge of a Workflow.
 func (c *WorkflowClient) QueryPickupStatuses(_m *Workflow) *TicketStatusQuery {
 	query := (&TicketStatusClient{config: c.config}).Query()
@@ -5573,22 +6017,370 @@ func (c *WorkflowClient) mutate(ctx context.Context, m *WorkflowMutation) (Value
 	}
 }
 
+// WorkflowSkillBindingClient is a client for the WorkflowSkillBinding schema.
+type WorkflowSkillBindingClient struct {
+	config
+}
+
+// NewWorkflowSkillBindingClient returns a client for the WorkflowSkillBinding from the given config.
+func NewWorkflowSkillBindingClient(c config) *WorkflowSkillBindingClient {
+	return &WorkflowSkillBindingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `workflowskillbinding.Hooks(f(g(h())))`.
+func (c *WorkflowSkillBindingClient) Use(hooks ...Hook) {
+	c.hooks.WorkflowSkillBinding = append(c.hooks.WorkflowSkillBinding, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `workflowskillbinding.Intercept(f(g(h())))`.
+func (c *WorkflowSkillBindingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.WorkflowSkillBinding = append(c.inters.WorkflowSkillBinding, interceptors...)
+}
+
+// Create returns a builder for creating a WorkflowSkillBinding entity.
+func (c *WorkflowSkillBindingClient) Create() *WorkflowSkillBindingCreate {
+	mutation := newWorkflowSkillBindingMutation(c.config, OpCreate)
+	return &WorkflowSkillBindingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of WorkflowSkillBinding entities.
+func (c *WorkflowSkillBindingClient) CreateBulk(builders ...*WorkflowSkillBindingCreate) *WorkflowSkillBindingCreateBulk {
+	return &WorkflowSkillBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *WorkflowSkillBindingClient) MapCreateBulk(slice any, setFunc func(*WorkflowSkillBindingCreate, int)) *WorkflowSkillBindingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &WorkflowSkillBindingCreateBulk{err: fmt.Errorf("calling to WorkflowSkillBindingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*WorkflowSkillBindingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &WorkflowSkillBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for WorkflowSkillBinding.
+func (c *WorkflowSkillBindingClient) Update() *WorkflowSkillBindingUpdate {
+	mutation := newWorkflowSkillBindingMutation(c.config, OpUpdate)
+	return &WorkflowSkillBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *WorkflowSkillBindingClient) UpdateOne(_m *WorkflowSkillBinding) *WorkflowSkillBindingUpdateOne {
+	mutation := newWorkflowSkillBindingMutation(c.config, OpUpdateOne, withWorkflowSkillBinding(_m))
+	return &WorkflowSkillBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *WorkflowSkillBindingClient) UpdateOneID(id uuid.UUID) *WorkflowSkillBindingUpdateOne {
+	mutation := newWorkflowSkillBindingMutation(c.config, OpUpdateOne, withWorkflowSkillBindingID(id))
+	return &WorkflowSkillBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for WorkflowSkillBinding.
+func (c *WorkflowSkillBindingClient) Delete() *WorkflowSkillBindingDelete {
+	mutation := newWorkflowSkillBindingMutation(c.config, OpDelete)
+	return &WorkflowSkillBindingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *WorkflowSkillBindingClient) DeleteOne(_m *WorkflowSkillBinding) *WorkflowSkillBindingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *WorkflowSkillBindingClient) DeleteOneID(id uuid.UUID) *WorkflowSkillBindingDeleteOne {
+	builder := c.Delete().Where(workflowskillbinding.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &WorkflowSkillBindingDeleteOne{builder}
+}
+
+// Query returns a query builder for WorkflowSkillBinding.
+func (c *WorkflowSkillBindingClient) Query() *WorkflowSkillBindingQuery {
+	return &WorkflowSkillBindingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeWorkflowSkillBinding},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a WorkflowSkillBinding entity by its id.
+func (c *WorkflowSkillBindingClient) Get(ctx context.Context, id uuid.UUID) (*WorkflowSkillBinding, error) {
+	return c.Query().Where(workflowskillbinding.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *WorkflowSkillBindingClient) GetX(ctx context.Context, id uuid.UUID) *WorkflowSkillBinding {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryWorkflow queries the workflow edge of a WorkflowSkillBinding.
+func (c *WorkflowSkillBindingClient) QueryWorkflow(_m *WorkflowSkillBinding) *WorkflowQuery {
+	query := (&WorkflowClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflowskillbinding.Table, workflowskillbinding.FieldID, id),
+			sqlgraph.To(workflow.Table, workflow.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, workflowskillbinding.WorkflowTable, workflowskillbinding.WorkflowColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySkill queries the skill edge of a WorkflowSkillBinding.
+func (c *WorkflowSkillBindingClient) QuerySkill(_m *WorkflowSkillBinding) *SkillQuery {
+	query := (&SkillClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflowskillbinding.Table, workflowskillbinding.FieldID, id),
+			sqlgraph.To(skill.Table, skill.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, workflowskillbinding.SkillTable, workflowskillbinding.SkillColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequiredVersion queries the required_version edge of a WorkflowSkillBinding.
+func (c *WorkflowSkillBindingClient) QueryRequiredVersion(_m *WorkflowSkillBinding) *WorkflowVersionQuery {
+	query := (&WorkflowVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflowskillbinding.Table, workflowskillbinding.FieldID, id),
+			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, workflowskillbinding.RequiredVersionTable, workflowskillbinding.RequiredVersionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *WorkflowSkillBindingClient) Hooks() []Hook {
+	return c.hooks.WorkflowSkillBinding
+}
+
+// Interceptors returns the client interceptors.
+func (c *WorkflowSkillBindingClient) Interceptors() []Interceptor {
+	return c.inters.WorkflowSkillBinding
+}
+
+func (c *WorkflowSkillBindingClient) mutate(ctx context.Context, m *WorkflowSkillBindingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&WorkflowSkillBindingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&WorkflowSkillBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&WorkflowSkillBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&WorkflowSkillBindingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown WorkflowSkillBinding mutation op: %q", m.Op())
+	}
+}
+
+// WorkflowVersionClient is a client for the WorkflowVersion schema.
+type WorkflowVersionClient struct {
+	config
+}
+
+// NewWorkflowVersionClient returns a client for the WorkflowVersion from the given config.
+func NewWorkflowVersionClient(c config) *WorkflowVersionClient {
+	return &WorkflowVersionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `workflowversion.Hooks(f(g(h())))`.
+func (c *WorkflowVersionClient) Use(hooks ...Hook) {
+	c.hooks.WorkflowVersion = append(c.hooks.WorkflowVersion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `workflowversion.Intercept(f(g(h())))`.
+func (c *WorkflowVersionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.WorkflowVersion = append(c.inters.WorkflowVersion, interceptors...)
+}
+
+// Create returns a builder for creating a WorkflowVersion entity.
+func (c *WorkflowVersionClient) Create() *WorkflowVersionCreate {
+	mutation := newWorkflowVersionMutation(c.config, OpCreate)
+	return &WorkflowVersionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of WorkflowVersion entities.
+func (c *WorkflowVersionClient) CreateBulk(builders ...*WorkflowVersionCreate) *WorkflowVersionCreateBulk {
+	return &WorkflowVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *WorkflowVersionClient) MapCreateBulk(slice any, setFunc func(*WorkflowVersionCreate, int)) *WorkflowVersionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &WorkflowVersionCreateBulk{err: fmt.Errorf("calling to WorkflowVersionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*WorkflowVersionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &WorkflowVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for WorkflowVersion.
+func (c *WorkflowVersionClient) Update() *WorkflowVersionUpdate {
+	mutation := newWorkflowVersionMutation(c.config, OpUpdate)
+	return &WorkflowVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *WorkflowVersionClient) UpdateOne(_m *WorkflowVersion) *WorkflowVersionUpdateOne {
+	mutation := newWorkflowVersionMutation(c.config, OpUpdateOne, withWorkflowVersion(_m))
+	return &WorkflowVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *WorkflowVersionClient) UpdateOneID(id uuid.UUID) *WorkflowVersionUpdateOne {
+	mutation := newWorkflowVersionMutation(c.config, OpUpdateOne, withWorkflowVersionID(id))
+	return &WorkflowVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for WorkflowVersion.
+func (c *WorkflowVersionClient) Delete() *WorkflowVersionDelete {
+	mutation := newWorkflowVersionMutation(c.config, OpDelete)
+	return &WorkflowVersionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *WorkflowVersionClient) DeleteOne(_m *WorkflowVersion) *WorkflowVersionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *WorkflowVersionClient) DeleteOneID(id uuid.UUID) *WorkflowVersionDeleteOne {
+	builder := c.Delete().Where(workflowversion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &WorkflowVersionDeleteOne{builder}
+}
+
+// Query returns a query builder for WorkflowVersion.
+func (c *WorkflowVersionClient) Query() *WorkflowVersionQuery {
+	return &WorkflowVersionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeWorkflowVersion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a WorkflowVersion entity by its id.
+func (c *WorkflowVersionClient) Get(ctx context.Context, id uuid.UUID) (*WorkflowVersion, error) {
+	return c.Query().Where(workflowversion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *WorkflowVersionClient) GetX(ctx context.Context, id uuid.UUID) *WorkflowVersion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryWorkflow queries the workflow edge of a WorkflowVersion.
+func (c *WorkflowVersionClient) QueryWorkflow(_m *WorkflowVersion) *WorkflowQuery {
+	query := (&WorkflowClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflowversion.Table, workflowversion.FieldID, id),
+			sqlgraph.To(workflow.Table, workflow.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, workflowversion.WorkflowTable, workflowversion.WorkflowColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequiredByBindings queries the required_by_bindings edge of a WorkflowVersion.
+func (c *WorkflowVersionClient) QueryRequiredByBindings(_m *WorkflowVersion) *WorkflowSkillBindingQuery {
+	query := (&WorkflowSkillBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workflowversion.Table, workflowversion.FieldID, id),
+			sqlgraph.To(workflowskillbinding.Table, workflowskillbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workflowversion.RequiredByBindingsTable, workflowversion.RequiredByBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *WorkflowVersionClient) Hooks() []Hook {
+	return c.hooks.WorkflowVersion
+}
+
+// Interceptors returns the client interceptors.
+func (c *WorkflowVersionClient) Interceptors() []Interceptor {
+	return c.inters.WorkflowVersion
+}
+
+func (c *WorkflowVersionClient) mutate(ctx context.Context, m *WorkflowVersionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&WorkflowVersionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&WorkflowVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&WorkflowVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&WorkflowVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown WorkflowVersion mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, IssueConnector, Machine, NotificationChannel,
 		NotificationRule, Organization, Project, ProjectRepo, ProjectRepoMirror,
-		ScheduledJob, Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow []ent.Hook
+		ScheduledJob, Skill, SkillVersion, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, IssueConnector, Machine, NotificationChannel,
 		NotificationRule, Organization, Project, ProjectRepo, ProjectRepoMirror,
-		ScheduledJob, Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow []ent.Interceptor
+		ScheduledJob, Skill, SkillVersion, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Interceptor
 	}
 )

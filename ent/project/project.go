@@ -39,6 +39,8 @@ const (
 	EdgeOrganization = "organization"
 	// EdgeRepos holds the string denoting the repos edge name in mutations.
 	EdgeRepos = "repos"
+	// EdgeSkills holds the string denoting the skills edge name in mutations.
+	EdgeSkills = "skills"
 	// EdgeStatuses holds the string denoting the statuses edge name in mutations.
 	EdgeStatuses = "statuses"
 	// EdgeWorkflows holds the string denoting the workflows edge name in mutations.
@@ -81,6 +83,13 @@ const (
 	ReposInverseTable = "project_repos"
 	// ReposColumn is the table column denoting the repos relation/edge.
 	ReposColumn = "project_id"
+	// SkillsTable is the table that holds the skills relation/edge.
+	SkillsTable = "skills"
+	// SkillsInverseTable is the table name for the Skill entity.
+	// It exists in this package in order to avoid circular dependency with the "skill" package.
+	SkillsInverseTable = "skills"
+	// SkillsColumn is the table column denoting the skills relation/edge.
+	SkillsColumn = "project_id"
 	// StatusesTable is the table that holds the statuses relation/edge.
 	StatusesTable = "ticket_status"
 	// StatusesInverseTable is the table name for the TicketStatus entity.
@@ -284,6 +293,20 @@ func ByRepos(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// BySkillsCount orders the results by skills count.
+func BySkillsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSkillsStep(), opts...)
+	}
+}
+
+// BySkills orders the results by skills terms.
+func BySkills(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSkillsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByStatusesCount orders the results by statuses count.
 func ByStatusesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -463,6 +486,13 @@ func newReposStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ReposInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ReposTable, ReposColumn),
+	)
+}
+func newSkillsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SkillsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SkillsTable, SkillsColumn),
 	)
 }
 func newStatusesStep() *sqlgraph.Step {

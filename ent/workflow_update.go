@@ -18,6 +18,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -65,6 +67,26 @@ func (_u *WorkflowUpdate) SetNillableAgentID(v *uuid.UUID) *WorkflowUpdate {
 // ClearAgentID clears the value of the "agent_id" field.
 func (_u *WorkflowUpdate) ClearAgentID() *WorkflowUpdate {
 	_u.mutation.ClearAgentID()
+	return _u
+}
+
+// SetCurrentVersionID sets the "current_version_id" field.
+func (_u *WorkflowUpdate) SetCurrentVersionID(v uuid.UUID) *WorkflowUpdate {
+	_u.mutation.SetCurrentVersionID(v)
+	return _u
+}
+
+// SetNillableCurrentVersionID sets the "current_version_id" field if the given value is not nil.
+func (_u *WorkflowUpdate) SetNillableCurrentVersionID(v *uuid.UUID) *WorkflowUpdate {
+	if v != nil {
+		_u.SetCurrentVersionID(*v)
+	}
+	return _u
+}
+
+// ClearCurrentVersionID clears the value of the "current_version_id" field.
+func (_u *WorkflowUpdate) ClearCurrentVersionID() *WorkflowUpdate {
+	_u.mutation.ClearCurrentVersionID()
 	return _u
 }
 
@@ -245,6 +267,41 @@ func (_u *WorkflowUpdate) SetAgent(v *Agent) *WorkflowUpdate {
 	return _u.SetAgentID(v.ID)
 }
 
+// SetCurrentVersion sets the "current_version" edge to the WorkflowVersion entity.
+func (_u *WorkflowUpdate) SetCurrentVersion(v *WorkflowVersion) *WorkflowUpdate {
+	return _u.SetCurrentVersionID(v.ID)
+}
+
+// AddVersionIDs adds the "versions" edge to the WorkflowVersion entity by IDs.
+func (_u *WorkflowUpdate) AddVersionIDs(ids ...uuid.UUID) *WorkflowUpdate {
+	_u.mutation.AddVersionIDs(ids...)
+	return _u
+}
+
+// AddVersions adds the "versions" edges to the WorkflowVersion entity.
+func (_u *WorkflowUpdate) AddVersions(v ...*WorkflowVersion) *WorkflowUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVersionIDs(ids...)
+}
+
+// AddSkillBindingIDs adds the "skill_bindings" edge to the WorkflowSkillBinding entity by IDs.
+func (_u *WorkflowUpdate) AddSkillBindingIDs(ids ...uuid.UUID) *WorkflowUpdate {
+	_u.mutation.AddSkillBindingIDs(ids...)
+	return _u
+}
+
+// AddSkillBindings adds the "skill_bindings" edges to the WorkflowSkillBinding entity.
+func (_u *WorkflowUpdate) AddSkillBindings(v ...*WorkflowSkillBinding) *WorkflowUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSkillBindingIDs(ids...)
+}
+
 // AddPickupStatusIDs adds the "pickup_statuses" edge to the TicketStatus entity by IDs.
 func (_u *WorkflowUpdate) AddPickupStatusIDs(ids ...uuid.UUID) *WorkflowUpdate {
 	_u.mutation.AddPickupStatusIDs(ids...)
@@ -335,6 +392,54 @@ func (_u *WorkflowUpdate) ClearProject() *WorkflowUpdate {
 func (_u *WorkflowUpdate) ClearAgent() *WorkflowUpdate {
 	_u.mutation.ClearAgent()
 	return _u
+}
+
+// ClearCurrentVersion clears the "current_version" edge to the WorkflowVersion entity.
+func (_u *WorkflowUpdate) ClearCurrentVersion() *WorkflowUpdate {
+	_u.mutation.ClearCurrentVersion()
+	return _u
+}
+
+// ClearVersions clears all "versions" edges to the WorkflowVersion entity.
+func (_u *WorkflowUpdate) ClearVersions() *WorkflowUpdate {
+	_u.mutation.ClearVersions()
+	return _u
+}
+
+// RemoveVersionIDs removes the "versions" edge to WorkflowVersion entities by IDs.
+func (_u *WorkflowUpdate) RemoveVersionIDs(ids ...uuid.UUID) *WorkflowUpdate {
+	_u.mutation.RemoveVersionIDs(ids...)
+	return _u
+}
+
+// RemoveVersions removes "versions" edges to WorkflowVersion entities.
+func (_u *WorkflowUpdate) RemoveVersions(v ...*WorkflowVersion) *WorkflowUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVersionIDs(ids...)
+}
+
+// ClearSkillBindings clears all "skill_bindings" edges to the WorkflowSkillBinding entity.
+func (_u *WorkflowUpdate) ClearSkillBindings() *WorkflowUpdate {
+	_u.mutation.ClearSkillBindings()
+	return _u
+}
+
+// RemoveSkillBindingIDs removes the "skill_bindings" edge to WorkflowSkillBinding entities by IDs.
+func (_u *WorkflowUpdate) RemoveSkillBindingIDs(ids ...uuid.UUID) *WorkflowUpdate {
+	_u.mutation.RemoveSkillBindingIDs(ids...)
+	return _u
+}
+
+// RemoveSkillBindings removes "skill_bindings" edges to WorkflowSkillBinding entities.
+func (_u *WorkflowUpdate) RemoveSkillBindings(v ...*WorkflowSkillBinding) *WorkflowUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSkillBindingIDs(ids...)
 }
 
 // ClearPickupStatuses clears all "pickup_statuses" edges to the TicketStatus entity.
@@ -600,6 +705,125 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CurrentVersionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   workflow.CurrentVersionTable,
+			Columns: []string{workflow.CurrentVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CurrentVersionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   workflow.CurrentVersionTable,
+			Columns: []string{workflow.CurrentVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.VersionsTable,
+			Columns: []string{workflow.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVersionsIDs(); len(nodes) > 0 && !_u.mutation.VersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.VersionsTable,
+			Columns: []string{workflow.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.VersionsTable,
+			Columns: []string{workflow.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SkillBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.SkillBindingsTable,
+			Columns: []string{workflow.SkillBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSkillBindingsIDs(); len(nodes) > 0 && !_u.mutation.SkillBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.SkillBindingsTable,
+			Columns: []string{workflow.SkillBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SkillBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.SkillBindingsTable,
+			Columns: []string{workflow.SkillBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -886,6 +1110,26 @@ func (_u *WorkflowUpdateOne) ClearAgentID() *WorkflowUpdateOne {
 	return _u
 }
 
+// SetCurrentVersionID sets the "current_version_id" field.
+func (_u *WorkflowUpdateOne) SetCurrentVersionID(v uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.SetCurrentVersionID(v)
+	return _u
+}
+
+// SetNillableCurrentVersionID sets the "current_version_id" field if the given value is not nil.
+func (_u *WorkflowUpdateOne) SetNillableCurrentVersionID(v *uuid.UUID) *WorkflowUpdateOne {
+	if v != nil {
+		_u.SetCurrentVersionID(*v)
+	}
+	return _u
+}
+
+// ClearCurrentVersionID clears the value of the "current_version_id" field.
+func (_u *WorkflowUpdateOne) ClearCurrentVersionID() *WorkflowUpdateOne {
+	_u.mutation.ClearCurrentVersionID()
+	return _u
+}
+
 // SetName sets the "name" field.
 func (_u *WorkflowUpdateOne) SetName(v string) *WorkflowUpdateOne {
 	_u.mutation.SetName(v)
@@ -1063,6 +1307,41 @@ func (_u *WorkflowUpdateOne) SetAgent(v *Agent) *WorkflowUpdateOne {
 	return _u.SetAgentID(v.ID)
 }
 
+// SetCurrentVersion sets the "current_version" edge to the WorkflowVersion entity.
+func (_u *WorkflowUpdateOne) SetCurrentVersion(v *WorkflowVersion) *WorkflowUpdateOne {
+	return _u.SetCurrentVersionID(v.ID)
+}
+
+// AddVersionIDs adds the "versions" edge to the WorkflowVersion entity by IDs.
+func (_u *WorkflowUpdateOne) AddVersionIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.AddVersionIDs(ids...)
+	return _u
+}
+
+// AddVersions adds the "versions" edges to the WorkflowVersion entity.
+func (_u *WorkflowUpdateOne) AddVersions(v ...*WorkflowVersion) *WorkflowUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVersionIDs(ids...)
+}
+
+// AddSkillBindingIDs adds the "skill_bindings" edge to the WorkflowSkillBinding entity by IDs.
+func (_u *WorkflowUpdateOne) AddSkillBindingIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.AddSkillBindingIDs(ids...)
+	return _u
+}
+
+// AddSkillBindings adds the "skill_bindings" edges to the WorkflowSkillBinding entity.
+func (_u *WorkflowUpdateOne) AddSkillBindings(v ...*WorkflowSkillBinding) *WorkflowUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSkillBindingIDs(ids...)
+}
+
 // AddPickupStatusIDs adds the "pickup_statuses" edge to the TicketStatus entity by IDs.
 func (_u *WorkflowUpdateOne) AddPickupStatusIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
 	_u.mutation.AddPickupStatusIDs(ids...)
@@ -1153,6 +1432,54 @@ func (_u *WorkflowUpdateOne) ClearProject() *WorkflowUpdateOne {
 func (_u *WorkflowUpdateOne) ClearAgent() *WorkflowUpdateOne {
 	_u.mutation.ClearAgent()
 	return _u
+}
+
+// ClearCurrentVersion clears the "current_version" edge to the WorkflowVersion entity.
+func (_u *WorkflowUpdateOne) ClearCurrentVersion() *WorkflowUpdateOne {
+	_u.mutation.ClearCurrentVersion()
+	return _u
+}
+
+// ClearVersions clears all "versions" edges to the WorkflowVersion entity.
+func (_u *WorkflowUpdateOne) ClearVersions() *WorkflowUpdateOne {
+	_u.mutation.ClearVersions()
+	return _u
+}
+
+// RemoveVersionIDs removes the "versions" edge to WorkflowVersion entities by IDs.
+func (_u *WorkflowUpdateOne) RemoveVersionIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.RemoveVersionIDs(ids...)
+	return _u
+}
+
+// RemoveVersions removes "versions" edges to WorkflowVersion entities.
+func (_u *WorkflowUpdateOne) RemoveVersions(v ...*WorkflowVersion) *WorkflowUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVersionIDs(ids...)
+}
+
+// ClearSkillBindings clears all "skill_bindings" edges to the WorkflowSkillBinding entity.
+func (_u *WorkflowUpdateOne) ClearSkillBindings() *WorkflowUpdateOne {
+	_u.mutation.ClearSkillBindings()
+	return _u
+}
+
+// RemoveSkillBindingIDs removes the "skill_bindings" edge to WorkflowSkillBinding entities by IDs.
+func (_u *WorkflowUpdateOne) RemoveSkillBindingIDs(ids ...uuid.UUID) *WorkflowUpdateOne {
+	_u.mutation.RemoveSkillBindingIDs(ids...)
+	return _u
+}
+
+// RemoveSkillBindings removes "skill_bindings" edges to WorkflowSkillBinding entities.
+func (_u *WorkflowUpdateOne) RemoveSkillBindings(v ...*WorkflowSkillBinding) *WorkflowUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSkillBindingIDs(ids...)
 }
 
 // ClearPickupStatuses clears all "pickup_statuses" edges to the TicketStatus entity.
@@ -1448,6 +1775,125 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CurrentVersionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   workflow.CurrentVersionTable,
+			Columns: []string{workflow.CurrentVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CurrentVersionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   workflow.CurrentVersionTable,
+			Columns: []string{workflow.CurrentVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.VersionsTable,
+			Columns: []string{workflow.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVersionsIDs(); len(nodes) > 0 && !_u.mutation.VersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.VersionsTable,
+			Columns: []string{workflow.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.VersionsTable,
+			Columns: []string{workflow.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SkillBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.SkillBindingsTable,
+			Columns: []string{workflow.SkillBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSkillBindingsIDs(); len(nodes) > 0 && !_u.mutation.SkillBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.SkillBindingsTable,
+			Columns: []string{workflow.SkillBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SkillBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.SkillBindingsTable,
+			Columns: []string{workflow.SkillBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

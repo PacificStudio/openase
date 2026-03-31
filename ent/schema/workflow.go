@@ -18,6 +18,9 @@ func (Workflow) Fields() []ent.Field {
 		field.UUID("agent_id", uuidZero()).
 			Optional().
 			Nillable(),
+		field.UUID("current_version_id", uuidZero()).
+			Optional().
+			Nillable(),
 		field.String("name").NotEmpty(),
 		field.Enum("type").
 			Values("coding", "test", "doc", "security", "deploy", "refine-harness", "custom"),
@@ -44,6 +47,11 @@ func (Workflow) Edges() []ent.Edge {
 			Ref("workflows").
 			Field("agent_id").
 			Unique(),
+		edge.To("current_version", WorkflowVersion.Type).
+			Field("current_version_id").
+			Unique(),
+		edge.To("versions", WorkflowVersion.Type),
+		edge.To("skill_bindings", WorkflowSkillBinding.Type),
 		edge.To("pickup_statuses", TicketStatus.Type).
 			Required(),
 		edge.To("finish_statuses", TicketStatus.Type).
