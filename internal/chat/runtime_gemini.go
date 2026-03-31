@@ -276,6 +276,7 @@ func (r *GeminiRuntime) collectTurn(
 		Event: "done",
 		Payload: donePayload{
 			SessionID:      sessionID.String(),
+			CostUSD:        nil,
 			TurnsUsed:      turnsUsed,
 			TurnsRemaining: remainingTurns(maxTurns, turnsUsed),
 		},

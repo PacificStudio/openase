@@ -1,4 +1,4 @@
-import type { ChatActionProposalPayload, ChatMessagePayload } from '$lib/api/chat'
+import type { ChatActionProposalPayload, ChatDiffPayload, ChatMessagePayload } from '$lib/api/chat'
 import type { ChatActionExecutionResult } from './action-proposal-executor'
 
 export type EphemeralChatRole = 'user' | 'assistant' | 'system'
@@ -20,7 +20,17 @@ export type EphemeralChatActionProposalEntry = {
   results: ChatActionExecutionResult[]
 }
 
-export type EphemeralChatTranscriptEntry = EphemeralChatTextEntry | EphemeralChatActionProposalEntry
+export type EphemeralChatDiffEntry = {
+  id: string
+  role: 'assistant'
+  kind: 'diff'
+  diff: ChatDiffPayload
+}
+
+export type EphemeralChatTranscriptEntry =
+  | EphemeralChatTextEntry
+  | EphemeralChatActionProposalEntry
+  | EphemeralChatDiffEntry
 
 type AssistantTextUpdate = {
   entries: EphemeralChatTranscriptEntry[]
@@ -50,6 +60,15 @@ export function mapChatPayloadToTranscriptEntry(
       proposal: payload,
       status: 'pending',
       results: [],
+    }
+  }
+
+  if (isDiffPayload(payload)) {
+    return {
+      id,
+      role: 'assistant',
+      kind: 'diff',
+      diff: payload,
     }
   }
 
@@ -83,6 +102,10 @@ export function isActionProposalEntry(
   entry: EphemeralChatTranscriptEntry,
 ): entry is EphemeralChatActionProposalEntry {
   return entry.kind === 'action_proposal'
+}
+
+export function isDiffEntry(entry: EphemeralChatTranscriptEntry): entry is EphemeralChatDiffEntry {
+  return entry.kind === 'diff'
 }
 
 export function isTextTranscriptEntry(
@@ -181,4 +204,10 @@ function isActionProposalPayload(
   payload: ChatMessagePayload,
 ): payload is Extract<ChatMessagePayload, { type: 'action_proposal' }> {
   return payload.type === 'action_proposal'
+}
+
+function isDiffPayload(
+  payload: ChatMessagePayload,
+): payload is Extract<ChatMessagePayload, { type: 'diff' }> {
+  return payload.type === 'diff'
 }

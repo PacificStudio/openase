@@ -35,6 +35,8 @@ type openAPICommandSpec struct {
 	Method           string   `json:"method"`
 	Path             string   `json:"path"`
 	PositionalParams []string `json:"positional_params,omitempty"`
+	HelpNotes        []string `json:"help_notes,omitempty"`
+	Example          string   `json:"example,omitempty"`
 }
 
 type openAPICommandContract struct {
@@ -245,13 +247,79 @@ func newMachineCommand() *cobra.Command {
 		Use:   "machine",
 		Short: "Operate on machines through the OpenASE API.",
 	}
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [orgId]", Short: "List machines.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/machines", PositionalParams: []string{"orgId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [machineId]", Short: "Get a machine.", Method: http.MethodGet, Path: "/api/v1/machines/{machineId}", PositionalParams: []string{"machineId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [orgId]",
+		Short:            "List machines.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/orgs/{orgId}/machines",
+		PositionalParams: []string{"orgId"},
+		HelpNotes: []string{
+			"Use this to audit machine status, heartbeat freshness, workspace roots, and the latest cached resource snapshot before scheduling work.",
+		},
+		Example: strings.TrimSpace(`
+  openase machine list $OPENASE_ORG_ID
+  openase machine list 550e8400-e29b-41d4-a716-446655440000 --json machines
+`),
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "get [machineId]",
+		Short:            "Get a machine.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/machines/{machineId}",
+		PositionalParams: []string{"machineId"},
+		HelpNotes: []string{
+			"This shows the current machine status, last heartbeat, workspace settings, and the latest stored resources for one machine.",
+		},
+		Example: strings.TrimSpace(`
+  openase machine get $OPENASE_MACHINE_ID
+  openase machine get 550e8400-e29b-41d4-a716-446655440000
+`),
+	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a machine.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/machines", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [machineId]", Short: "Update a machine.", Method: http.MethodPatch, Path: "/api/v1/machines/{machineId}", PositionalParams: []string{"machineId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [machineId]", Short: "Delete a machine.", Method: http.MethodDelete, Path: "/api/v1/machines/{machineId}", PositionalParams: []string{"machineId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "resources [machineId]", Short: "Get machine resources.", Method: http.MethodGet, Path: "/api/v1/machines/{machineId}/resources", PositionalParams: []string{"machineId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "test [machineId]", Short: "Test a machine connection.", Method: http.MethodPost, Path: "/api/v1/machines/{machineId}/test", PositionalParams: []string{"machineId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "resources [machineId]",
+		Short:            "Get machine resources.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/machines/{machineId}/resources",
+		PositionalParams: []string{"machineId"},
+		HelpNotes: []string{
+			"This returns the current stored resource snapshot. Run `openase machine refresh-health` first when you need a fresh probe before inspection.",
+		},
+		Example: strings.TrimSpace(`
+  openase machine resources $OPENASE_MACHINE_ID
+  openase machine resources 550e8400-e29b-41d4-a716-446655440000
+`),
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "test [machineId]",
+		Short:            "Test a machine connection.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/machines/{machineId}/test",
+		PositionalParams: []string{"machineId"},
+		HelpNotes: []string{
+			"This runs an on-demand transport probe against the machine and returns the machine payload plus probe output for operator troubleshooting.",
+		},
+		Example: strings.TrimSpace(`
+  openase machine test $OPENASE_MACHINE_ID
+  openase machine test 550e8400-e29b-41d4-a716-446655440000
+`),
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "refresh-health [machineId]",
+		Short:            "Refresh machine health.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/machines/{machineId}/refresh-health",
+		PositionalParams: []string{"machineId"},
+		HelpNotes: []string{
+			"This re-runs the machine health collector so machine status and provider availability can be observed from refreshed data before you inspect resources or providers.",
+		},
+		Example: strings.TrimSpace(`
+  openase machine refresh-health $OPENASE_MACHINE_ID
+  openase machine refresh-health 550e8400-e29b-41d4-a716-446655440000
+`),
+	}))
 	return command
 }
 
@@ -260,7 +328,34 @@ func newProviderCommand() *cobra.Command {
 		Use:   "provider",
 		Short: "Operate on agent providers through the OpenASE API.",
 	}
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [orgId]", Short: "List providers.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/providers", PositionalParams: []string{"orgId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [orgId]",
+		Short:            "List providers.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/orgs/{orgId}/providers",
+		PositionalParams: []string{"orgId"},
+		HelpNotes: []string{
+			"Provider list responses include derived availability fields so operators can audit whether each provider is runnable on its machine without reading source code.",
+		},
+		Example: strings.TrimSpace(`
+  openase provider list $OPENASE_ORG_ID
+  openase provider list 550e8400-e29b-41d4-a716-446655440000 --json providers
+`),
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "get [providerId]",
+		Short:            "Get a provider.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/providers/{providerId}",
+		PositionalParams: []string{"providerId"},
+		HelpNotes: []string{
+			"This shows one provider with derived availability_state, available, availability_reason, and backing machine metadata so provider health is directly inspectable from the CLI.",
+		},
+		Example: strings.TrimSpace(`
+  openase provider get $OPENASE_PROVIDER_ID
+  openase provider get 550e8400-e29b-41d4-a716-446655440000
+`),
+	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a provider.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/providers", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [providerId]", Short: "Update a provider.", Method: http.MethodPatch, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}}))
 	return command
@@ -288,23 +383,50 @@ func newSkillCommand() *cobra.Command {
 		Short: "Operate on skills through the OpenASE API.",
 	}
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "bind [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "unbind [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "harvest [projectId]", Short: "Harvest workspace-authored skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/harvest", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [skillId]", Short: "Get a skill.", Method: http.MethodGet, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [skillId]", Short: "Update a skill.", Method: http.MethodPut, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [skillId]", Short: "Delete a skill.", Method: http.MethodDelete, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "enable [skillId]", Short: "Enable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/enable", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "disable [skillId]", Short: "Disable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/disable", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "bind [skillId]", Short: "Bind a skill to workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/bind", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "unbind [skillId]", Short: "Unbind a skill from workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/unbind", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "bind-workflow [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "unbind-workflow [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}}))
 	return command
 }
 
 func newWatchCommand() *cobra.Command {
+	return newStreamNamespaceCommand("watch", "Operate on real-time watch endpoints.")
+}
+
+func newStreamCommand() *cobra.Command {
+	return newStreamNamespaceCommand("stream", "Operate on real-time stream endpoints.")
+}
+
+func newStreamNamespaceCommand(use string, short string) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "watch",
-		Short: "Operate on stream and watch endpoints.",
+		Use:   use,
+		Short: short,
 	}
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "events", Short: "Stream system events.", Method: http.MethodGet, Path: "/api/v1/events/stream"}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "tickets [projectId]", Short: "Stream project ticket events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/stream", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "agents [projectId]", Short: "Stream project agent events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/stream", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "activity [projectId]", Short: "Stream project activity events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/activity/stream", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "hooks [projectId]", Short: "Stream project hook events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/hooks/stream", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "output [projectId] [agentId]", Short: "Stream agent output.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/output/stream", PositionalParams: []string{"projectId", "agentId"}}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "steps [projectId] [agentId]", Short: "Stream agent steps.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/steps/stream", PositionalParams: []string{"projectId", "agentId"}}))
+	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{
+		Use:    "events",
+		Short:  "Stream system events.",
+		Method: http.MethodGet,
+		Path:   "/api/v1/events/stream",
+		HelpNotes: []string{
+			"Use this first-class stream entrypoint for operator observation. Machine and provider lifecycle updates flow through the global event stream until dedicated resource-specific streams exist.",
+		},
+		Example: "openase " + use + " events",
+	}))
+	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "tickets [projectId]", Short: "Stream project ticket events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/stream", PositionalParams: []string{"projectId"}, Example: "openase " + use + " tickets $OPENASE_PROJECT_ID"}))
+	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "agents [projectId]", Short: "Stream project agent events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/stream", PositionalParams: []string{"projectId"}, Example: "openase " + use + " agents $OPENASE_PROJECT_ID"}))
+	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "activity [projectId]", Short: "Stream project activity events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/activity/stream", PositionalParams: []string{"projectId"}, Example: "openase " + use + " activity $OPENASE_PROJECT_ID"}))
+	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "hooks [projectId]", Short: "Stream project hook events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/hooks/stream", PositionalParams: []string{"projectId"}, Example: "openase " + use + " hooks $OPENASE_PROJECT_ID"}))
+	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "output [projectId] [agentId]", Short: "Stream agent output.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/output/stream", PositionalParams: []string{"projectId", "agentId"}, Example: "openase " + use + " output $OPENASE_PROJECT_ID $OPENASE_AGENT_ID"}))
+	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "steps [projectId] [agentId]", Short: "Stream agent steps.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/steps/stream", PositionalParams: []string{"projectId", "agentId"}, Example: "openase " + use + " steps $OPENASE_PROJECT_ID $OPENASE_AGENT_ID"}))
 	return command
 }
 
@@ -312,10 +434,11 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	contract := mustOpenAPICommandContract(spec)
 	deps := apiCommandDeps{httpClient: http.DefaultClient}
 	command := &cobra.Command{
-		Use:   spec.Use,
-		Short: contract.summary,
-		Long:  buildOpenAPIOperationHelp(spec, contract.summary),
-		Args:  cobra.MaximumNArgs(len(spec.PositionalParams)),
+		Use:     spec.Use,
+		Short:   contract.summary,
+		Long:    buildOpenAPIOperationHelp(spec, contract.summary),
+		Example: strings.TrimSpace(spec.Example),
+		Args:    cobra.MaximumNArgs(len(spec.PositionalParams)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOpenAPIOperationCommand(cmd, deps, contract, args)
 		},
@@ -329,6 +452,7 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 func buildOpenAPIOperationHelp(spec openAPICommandSpec, summary string) string {
 	lines := []string{summary}
 	if len(spec.PositionalParams) == 0 {
+		lines = append(lines, spec.HelpNotes...)
 		return strings.Join(lines, "\n\n")
 	}
 
@@ -345,6 +469,7 @@ func buildOpenAPIOperationHelp(spec openAPICommandSpec, summary string) string {
 			strings.Join(uuidParams, ", "),
 		))
 	}
+	lines = append(lines, spec.HelpNotes...)
 	return strings.Join(lines, "\n\n")
 }
 
@@ -355,7 +480,7 @@ func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {
 		Use:     spec.Use,
 		Short:   contract.summary,
 		Long:    buildOpenAPIStreamHelp(spec, contract.summary),
-		Example: "openase watch " + spec.Use,
+		Example: firstNonEmpty(strings.TrimSpace(spec.Example), "openase watch "+spec.Use),
 		Args:    cobra.MaximumNArgs(len(spec.PositionalParams)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOpenAPIStreamCommand(cmd, deps, contract, args)
@@ -387,6 +512,7 @@ func buildOpenAPIStreamHelp(spec openAPICommandSpec, summary string) string {
 		))
 	}
 
+	lines = append(lines, spec.HelpNotes...)
 	lines = append(lines, "Use Ctrl-C to stop the stream when running interactively.")
 	return strings.Join(lines, "\n\n")
 }
@@ -1126,7 +1252,9 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "delete [machineId]", Short: "Delete a machine.", Method: http.MethodDelete, Path: "/api/v1/machines/{machineId}", PositionalParams: []string{"machineId"}},
 		{Use: "resources [machineId]", Short: "Get machine resources.", Method: http.MethodGet, Path: "/api/v1/machines/{machineId}/resources", PositionalParams: []string{"machineId"}},
 		{Use: "test [machineId]", Short: "Test a machine connection.", Method: http.MethodPost, Path: "/api/v1/machines/{machineId}/test", PositionalParams: []string{"machineId"}},
+		{Use: "refresh-health [machineId]", Short: "Refresh machine health.", Method: http.MethodPost, Path: "/api/v1/machines/{machineId}/refresh-health", PositionalParams: []string{"machineId"}},
 		{Use: "list [orgId]", Short: "List providers.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/providers", PositionalParams: []string{"orgId"}},
+		{Use: "get [providerId]", Short: "Get a provider.", Method: http.MethodGet, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}},
 		{Use: "create [orgId]", Short: "Create a provider.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/providers", PositionalParams: []string{"orgId"}},
 		{Use: "update [providerId]", Short: "Update a provider.", Method: http.MethodPatch, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}},
 		{Use: "list [projectId]", Short: "List agents.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}},
@@ -1138,8 +1266,18 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "output [projectId] [agentId]", Short: "List agent output entries.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/output", PositionalParams: []string{"projectId", "agentId"}},
 		{Use: "steps [projectId] [agentId]", Short: "List agent step entries.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/steps", PositionalParams: []string{"projectId", "agentId"}},
 		{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}},
-		{Use: "bind [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}},
-		{Use: "unbind [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}},
+		{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}},
+		{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}},
+		{Use: "harvest [projectId]", Short: "Harvest workspace-authored skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/harvest", PositionalParams: []string{"projectId"}},
+		{Use: "get [skillId]", Short: "Get a skill.", Method: http.MethodGet, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},
+		{Use: "update [skillId]", Short: "Update a skill.", Method: http.MethodPut, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},
+		{Use: "delete [skillId]", Short: "Delete a skill.", Method: http.MethodDelete, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},
+		{Use: "enable [skillId]", Short: "Enable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/enable", PositionalParams: []string{"skillId"}},
+		{Use: "disable [skillId]", Short: "Disable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/disable", PositionalParams: []string{"skillId"}},
+		{Use: "bind [skillId]", Short: "Bind a skill to workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/bind", PositionalParams: []string{"skillId"}},
+		{Use: "unbind [skillId]", Short: "Unbind a skill from workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/unbind", PositionalParams: []string{"skillId"}},
+		{Use: "bind-workflow [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}},
+		{Use: "unbind-workflow [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}},
 		{Use: "events", Short: "Stream system events.", Method: http.MethodGet, Path: "/api/v1/events/stream"},
 		{Use: "tickets [projectId]", Short: "Stream project ticket events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/stream", PositionalParams: []string{"projectId"}},
 		{Use: "agents [projectId]", Short: "Stream project agent events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/stream", PositionalParams: []string{"projectId"}},

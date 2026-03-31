@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "42ab24f64e124f968dcbd8172c5a863fe9eb309674fed3a0d121cd945bcddd0f",
+  "openapi_sha256": "9932f2cb51e521dc6d4181a08dbb78b4b6752aae41fcdf5dfd6b05ed39a4fb38",
   "commands": [
     {
       "use": "list [projectId]",
@@ -66,42 +66,52 @@
       "body_fields": [
         {
           "name": "budget_usd",
+          "description": "Optional budget limit for the ticket in USD.",
           "kind": "float64"
         },
         {
           "name": "created_by",
+          "description": "Actor identifier recorded as the creator of the ticket.",
           "kind": "string"
         },
         {
           "name": "description",
+          "description": "Ticket description or problem statement.",
           "kind": "string"
         },
         {
           "name": "external_ref",
+          "description": "Optional external reference string associated with the ticket.",
           "kind": "string"
         },
         {
           "name": "parent_ticket_id",
+          "description": "Optional parent ticket ID for hierarchical ticket relationships.",
           "kind": "string"
         },
         {
           "name": "priority",
+          "description": "Ticket priority value.",
           "kind": "string"
         },
         {
           "name": "status_id",
+          "description": "Optional ticket status ID to assign explicitly.",
           "kind": "string"
         },
         {
           "name": "title",
+          "description": "Human-readable ticket title.",
           "kind": "string"
         },
         {
           "name": "type",
+          "description": "Ticket type value.",
           "kind": "string"
         },
         {
           "name": "workflow_id",
+          "description": "Optional workflow ID that should handle the ticket.",
           "kind": "string"
         }
       ]
@@ -125,42 +135,52 @@
       "body_fields": [
         {
           "name": "budget_usd",
+          "description": "Optional budget limit for the ticket in USD.",
           "kind": "float64"
         },
         {
           "name": "created_by",
+          "description": "Actor identifier recorded as the creator of the ticket.",
           "kind": "string"
         },
         {
           "name": "description",
+          "description": "Ticket description or problem statement.",
           "kind": "string"
         },
         {
           "name": "external_ref",
+          "description": "Optional external reference string associated with the ticket.",
           "kind": "string"
         },
         {
           "name": "parent_ticket_id",
+          "description": "Optional parent ticket ID for hierarchical ticket relationships.",
           "kind": "string"
         },
         {
           "name": "priority",
+          "description": "Ticket priority value.",
           "kind": "string"
         },
         {
           "name": "status_id",
+          "description": "Optional ticket status ID to assign explicitly.",
           "kind": "string"
         },
         {
           "name": "title",
+          "description": "Human-readable ticket title.",
           "kind": "string"
         },
         {
           "name": "type",
+          "description": "Ticket type value.",
           "kind": "string"
         },
         {
           "name": "workflow_id",
+          "description": "Optional workflow ID that should handle the ticket.",
           "kind": "string"
         }
       ]
@@ -225,10 +245,12 @@
       "body_fields": [
         {
           "name": "body",
+          "description": "Markdown body content for the ticket comment.",
           "kind": "string"
         },
         {
           "name": "created_by",
+          "description": "Actor identifier recorded as the creator of the comment.",
           "kind": "string"
         }
       ]
@@ -259,14 +281,17 @@
       "body_fields": [
         {
           "name": "body",
+          "description": "Updated markdown body content for the ticket comment.",
           "kind": "string"
         },
         {
           "name": "edit_reason",
+          "description": "Reason recorded for editing the comment.",
           "kind": "string"
         },
         {
           "name": "edited_by",
+          "description": "Actor identifier recorded as the editor of the comment.",
           "kind": "string"
         }
       ]
@@ -372,34 +397,42 @@
       "body_fields": [
         {
           "name": "accessible_machine_ids",
+          "description": "Machine IDs that the project is allowed to use.",
           "kind": "string_slice"
         },
         {
           "name": "default_agent_provider_id",
+          "description": "Optional default agent provider ID for the project.",
           "kind": "string"
         },
         {
           "name": "default_workflow_id",
+          "description": "Optional default workflow ID for newly created tickets in the project.",
           "kind": "string"
         },
         {
           "name": "description",
+          "description": "Human-readable project description.",
           "kind": "string"
         },
         {
           "name": "max_concurrent_agents",
+          "description": "Maximum number of agents that may run concurrently in the project.",
           "kind": "int64"
         },
         {
           "name": "name",
+          "description": "Human-readable project name.",
           "kind": "string"
         },
         {
           "name": "slug",
+          "description": "Stable URL-safe project slug.",
           "kind": "string"
         },
         {
           "name": "status",
+          "description": "Current project lifecycle status name.",
           "kind": "string"
         }
       ]
@@ -423,34 +456,42 @@
       "body_fields": [
         {
           "name": "accessible_machine_ids",
+          "description": "Machine IDs that the project is allowed to use.",
           "kind": "string_slice"
         },
         {
           "name": "default_agent_provider_id",
+          "description": "Optional default agent provider ID for the project.",
           "kind": "string"
         },
         {
           "name": "default_workflow_id",
+          "description": "Optional default workflow ID for newly created tickets in the project.",
           "kind": "string"
         },
         {
           "name": "description",
+          "description": "Human-readable project description.",
           "kind": "string"
         },
         {
           "name": "max_concurrent_agents",
+          "description": "Maximum number of agents that may run concurrently in the project.",
           "kind": "int64"
         },
         {
           "name": "name",
+          "description": "Human-readable project name.",
           "kind": "string"
         },
         {
           "name": "slug",
+          "description": "Stable URL-safe project slug.",
           "kind": "string"
         },
         {
           "name": "status",
+          "description": "Current project lifecycle status name.",
           "kind": "string"
         }
       ]
@@ -525,50 +566,62 @@
       "body_fields": [
         {
           "name": "agent_id",
+          "description": "Agent ID assigned to execute this workflow.",
           "kind": "string"
         },
         {
           "name": "finish_status_ids",
+          "description": "Ticket status IDs that mark workflow completion.",
           "kind": "string_slice"
         },
         {
           "name": "harness_content",
+          "description": "Initial harness content written when creating the workflow.",
           "kind": "string"
         },
         {
           "name": "harness_path",
+          "description": "Repository path where the workflow harness file is stored.",
           "kind": "string"
         },
         {
           "name": "is_active",
+          "description": "Whether the workflow is active and eligible to pick up work.",
           "kind": "bool"
         },
         {
           "name": "max_concurrent",
+          "description": "Maximum number of concurrent runs allowed for the workflow.",
           "kind": "int64"
         },
         {
           "name": "max_retry_attempts",
+          "description": "Maximum retry attempts before the workflow run fails permanently.",
           "kind": "int64"
         },
         {
           "name": "name",
+          "description": "Human-readable workflow name.",
           "kind": "string"
         },
         {
           "name": "pickup_status_ids",
+          "description": "Ticket status IDs that allow the workflow to pick up tickets.",
           "kind": "string_slice"
         },
         {
           "name": "stall_timeout_minutes",
+          "description": "Timeout for detecting stalled workflow runs, in minutes.",
           "kind": "int64"
         },
         {
           "name": "timeout_minutes",
+          "description": "Hard execution timeout for workflow runs, in minutes.",
           "kind": "int64"
         },
         {
           "name": "type",
+          "description": "Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom.",
           "kind": "string"
         }
       ]
@@ -592,46 +645,57 @@
       "body_fields": [
         {
           "name": "agent_id",
+          "description": "Agent ID assigned to execute this workflow.",
           "kind": "string"
         },
         {
           "name": "finish_status_ids",
+          "description": "Ticket status IDs that mark workflow completion.",
           "kind": "string_slice"
         },
         {
           "name": "harness_path",
+          "description": "Repository path where the workflow harness file is stored.",
           "kind": "string"
         },
         {
           "name": "is_active",
+          "description": "Whether the workflow is active and eligible to pick up work.",
           "kind": "bool"
         },
         {
           "name": "max_concurrent",
+          "description": "Maximum number of concurrent runs allowed for the workflow.",
           "kind": "int64"
         },
         {
           "name": "max_retry_attempts",
+          "description": "Maximum retry attempts before the workflow run fails permanently.",
           "kind": "int64"
         },
         {
           "name": "name",
+          "description": "Human-readable workflow name.",
           "kind": "string"
         },
         {
           "name": "pickup_status_ids",
+          "description": "Ticket status IDs that allow the workflow to pick up tickets.",
           "kind": "string_slice"
         },
         {
           "name": "stall_timeout_minutes",
+          "description": "Timeout for detecting stalled workflow runs, in minutes.",
           "kind": "int64"
         },
         {
           "name": "timeout_minutes",
+          "description": "Hard execution timeout for workflow runs, in minutes.",
           "kind": "int64"
         },
         {
           "name": "type",
+          "description": "Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom.",
           "kind": "string"
         }
       ]
@@ -706,6 +770,7 @@
       "body_fields": [
         {
           "name": "content",
+          "description": "Harness content to write or validate.",
           "kind": "string"
         }
       ]
@@ -746,18 +811,22 @@
       "body_fields": [
         {
           "name": "cron_expression",
+          "description": "Cron expression that controls when the job triggers.",
           "kind": "string"
         },
         {
           "name": "is_enabled",
+          "description": "Whether the scheduled job is enabled.",
           "kind": "bool"
         },
         {
           "name": "name",
+          "description": "Human-readable scheduled job name.",
           "kind": "string"
         },
         {
           "name": "workflow_id",
+          "description": "Workflow ID executed when the scheduled job triggers.",
           "kind": "string"
         }
       ]
@@ -781,18 +850,22 @@
       "body_fields": [
         {
           "name": "cron_expression",
+          "description": "Cron expression that controls when the job triggers.",
           "kind": "string"
         },
         {
           "name": "is_enabled",
+          "description": "Whether the scheduled job is enabled.",
           "kind": "bool"
         },
         {
           "name": "name",
+          "description": "Human-readable scheduled job name.",
           "kind": "string"
         },
         {
           "name": "workflow_id",
+          "description": "Workflow ID executed when the scheduled job triggers.",
           "kind": "string"
         }
       ]
@@ -884,50 +957,62 @@
       "body_fields": [
         {
           "name": "agent_cli_path",
+          "description": "Absolute path to the agent CLI executable on the machine.",
           "kind": "string"
         },
         {
           "name": "description",
+          "description": "Human-readable machine description.",
           "kind": "string"
         },
         {
           "name": "env_vars",
+          "description": "Environment variable entries exported when work runs on the machine.",
           "kind": "string_slice"
         },
         {
           "name": "host",
+          "description": "Hostname or address used to reach the machine.",
           "kind": "string"
         },
         {
           "name": "labels",
+          "description": "Labels attached to the machine for operator reference.",
           "kind": "string_slice"
         },
         {
           "name": "mirror_root",
+          "description": "Filesystem root directory where repository mirrors are stored on the machine.",
           "kind": "string"
         },
         {
           "name": "name",
+          "description": "Human-readable machine name.",
           "kind": "string"
         },
         {
           "name": "port",
+          "description": "SSH port used to connect to the machine.",
           "kind": "int64"
         },
         {
           "name": "ssh_key_path",
+          "description": "Path to the SSH private key used for machine access.",
           "kind": "string"
         },
         {
           "name": "ssh_user",
+          "description": "SSH username used for machine access.",
           "kind": "string"
         },
         {
           "name": "status",
+          "description": "Machine lifecycle status value.",
           "kind": "string"
         },
         {
           "name": "workspace_root",
+          "description": "Filesystem root directory where ticket workspaces are created on the machine.",
           "kind": "string"
         }
       ]
@@ -951,50 +1036,62 @@
       "body_fields": [
         {
           "name": "agent_cli_path",
+          "description": "Absolute path to the agent CLI executable on the machine.",
           "kind": "string"
         },
         {
           "name": "description",
+          "description": "Human-readable machine description.",
           "kind": "string"
         },
         {
           "name": "env_vars",
+          "description": "Environment variable entries exported when work runs on the machine.",
           "kind": "string_slice"
         },
         {
           "name": "host",
+          "description": "Hostname or address used to reach the machine.",
           "kind": "string"
         },
         {
           "name": "labels",
+          "description": "Labels attached to the machine for operator reference.",
           "kind": "string_slice"
         },
         {
           "name": "mirror_root",
+          "description": "Filesystem root directory where repository mirrors are stored on the machine.",
           "kind": "string"
         },
         {
           "name": "name",
+          "description": "Human-readable machine name.",
           "kind": "string"
         },
         {
           "name": "port",
+          "description": "SSH port used to connect to the machine.",
           "kind": "int64"
         },
         {
           "name": "ssh_key_path",
+          "description": "Path to the SSH private key used for machine access.",
           "kind": "string"
         },
         {
           "name": "ssh_user",
+          "description": "SSH username used for machine access.",
           "kind": "string"
         },
         {
           "name": "status",
+          "description": "Machine lifecycle status value.",
           "kind": "string"
         },
         {
           "name": "workspace_root",
+          "description": "Filesystem root directory where ticket workspaces are created on the machine.",
           "kind": "string"
         }
       ]
@@ -1051,6 +1148,23 @@
       ]
     },
     {
+      "use": "refresh-health [machineId]",
+      "method": "POST",
+      "path": "/api/v1/machines/{machineId}/refresh-health",
+      "operation_id": "refreshMachineHealth",
+      "positional_params": [
+        "machineId"
+      ],
+      "path_params": [
+        {
+          "name": "machineId",
+          "description": "Machine ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
       "use": "list [orgId]",
       "method": "GET",
       "path": "/api/v1/orgs/{orgId}/providers",
@@ -1062,6 +1176,23 @@
         {
           "name": "orgId",
           "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [providerId]",
+      "method": "GET",
+      "path": "/api/v1/providers/{providerId}",
+      "operation_id": "getAgentProvider",
+      "positional_params": [
+        "providerId"
+      ],
+      "path_params": [
+        {
+          "name": "providerId",
+          "description": "Agent provider ID.",
           "required": true,
           "kind": "string"
         }
@@ -1086,42 +1217,57 @@
       "body_fields": [
         {
           "name": "adapter_type",
+          "description": "Adapter type used to launch and communicate with the provider.",
           "kind": "string"
         },
         {
           "name": "cli_args",
+          "description": "Additional CLI arguments passed to the provider command.",
           "kind": "string_slice"
         },
         {
           "name": "cli_command",
+          "description": "CLI command used to launch the provider.",
           "kind": "string"
         },
         {
           "name": "cost_per_input_token",
+          "description": "Estimated USD cost per input token.",
           "kind": "float64"
         },
         {
           "name": "cost_per_output_token",
+          "description": "Estimated USD cost per output token.",
           "kind": "float64"
         },
         {
           "name": "machine_id",
+          "description": "Machine ID where this provider runs.",
           "kind": "string"
         },
         {
+          "name": "max_parallel_runs",
+          "description": "Maximum number of concurrent runs allowed for the provider.",
+          "kind": "int64"
+        },
+        {
           "name": "model_max_tokens",
+          "description": "Maximum number of output tokens allowed for the provider model.",
           "kind": "int64"
         },
         {
           "name": "model_name",
+          "description": "Model name configured for the provider.",
           "kind": "string"
         },
         {
           "name": "model_temperature",
+          "description": "Sampling temperature configured for the provider model.",
           "kind": "float64"
         },
         {
           "name": "name",
+          "description": "Human-readable provider name.",
           "kind": "string"
         }
       ]
@@ -1145,42 +1291,57 @@
       "body_fields": [
         {
           "name": "adapter_type",
+          "description": "Adapter type used to launch and communicate with the provider.",
           "kind": "string"
         },
         {
           "name": "cli_args",
+          "description": "Additional CLI arguments passed to the provider command.",
           "kind": "string_slice"
         },
         {
           "name": "cli_command",
+          "description": "CLI command used to launch the provider.",
           "kind": "string"
         },
         {
           "name": "cost_per_input_token",
+          "description": "Estimated USD cost per input token.",
           "kind": "float64"
         },
         {
           "name": "cost_per_output_token",
+          "description": "Estimated USD cost per output token.",
           "kind": "float64"
         },
         {
           "name": "machine_id",
+          "description": "Machine ID where this provider runs.",
           "kind": "string"
         },
         {
+          "name": "max_parallel_runs",
+          "description": "Maximum number of concurrent runs allowed for the provider.",
+          "kind": "int64"
+        },
+        {
           "name": "model_max_tokens",
+          "description": "Maximum number of output tokens allowed for the provider model.",
           "kind": "int64"
         },
         {
           "name": "model_name",
+          "description": "Model name configured for the provider.",
           "kind": "string"
         },
         {
           "name": "model_temperature",
+          "description": "Sampling temperature configured for the provider model.",
           "kind": "float64"
         },
         {
           "name": "name",
+          "description": "Human-readable provider name.",
           "kind": "string"
         }
       ]
@@ -1238,10 +1399,12 @@
       "body_fields": [
         {
           "name": "name",
+          "description": "Human-readable agent name.",
           "kind": "string"
         },
         {
           "name": "provider_id",
+          "description": "Agent provider ID used to run the agent.",
           "kind": "string"
         }
       ]
@@ -1387,7 +1550,274 @@
       ]
     },
     {
-      "use": "bind [workflowId]",
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/skills",
+      "operation_id": "createSkill",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "content",
+          "description": "Skill markdown content. Frontmatter is optional on input and will be normalized on write.",
+          "kind": "string"
+        },
+        {
+          "name": "created_by",
+          "description": "Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Optional description used when the input content does not declare one.",
+          "kind": "string"
+        },
+        {
+          "name": "is_enabled",
+          "description": "Whether the new skill should be enabled for runtime injection immediately.",
+          "kind": "bool"
+        },
+        {
+          "name": "name",
+          "description": "Project-unique skill directory name.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "refresh [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/skills/refresh",
+      "operation_id": "refreshSkills",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "adapter_type",
+          "description": "Agent adapter type used to derive the runtime skill directory.",
+          "kind": "string"
+        },
+        {
+          "name": "workflow_id",
+          "description": "Optional workflow ID used to project only the currently bound enabled skills.",
+          "kind": "string"
+        },
+        {
+          "name": "workspace_root",
+          "description": "Workspace repository root that owns the agent skill directory.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "harvest [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/skills/harvest",
+      "operation_id": "harvestSkills",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "adapter_type",
+          "description": "Agent adapter type used to derive the runtime skill directory.",
+          "kind": "string"
+        },
+        {
+          "name": "workflow_id",
+          "description": "Optional workflow ID used to project only the currently bound enabled skills.",
+          "kind": "string"
+        },
+        {
+          "name": "workspace_root",
+          "description": "Workspace repository root that owns the agent skill directory.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [skillId]",
+      "method": "GET",
+      "path": "/api/v1/skills/{skillId}",
+      "operation_id": "getSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [skillId]",
+      "method": "PUT",
+      "path": "/api/v1/skills/{skillId}",
+      "operation_id": "updateSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "content",
+          "description": "Replacement skill markdown content. Frontmatter is optional on input and will be normalized on write.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Optional description override used when the input content does not declare one.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [skillId]",
+      "method": "DELETE",
+      "path": "/api/v1/skills/{skillId}",
+      "operation_id": "deleteSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "enable [skillId]",
+      "method": "POST",
+      "path": "/api/v1/skills/{skillId}/enable",
+      "operation_id": "enableSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "disable [skillId]",
+      "method": "POST",
+      "path": "/api/v1/skills/{skillId}/disable",
+      "operation_id": "disableSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "bind [skillId]",
+      "method": "POST",
+      "path": "/api/v1/skills/{skillId}/bind",
+      "operation_id": "bindSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "harness_ids",
+          "description": "Alias of workflow_ids kept for PRD terminology compatibility.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "workflow_ids",
+          "description": "Workflow IDs that should bind or unbind this skill.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "unbind [skillId]",
+      "method": "POST",
+      "path": "/api/v1/skills/{skillId}/unbind",
+      "operation_id": "unbindSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "harness_ids",
+          "description": "Alias of workflow_ids kept for PRD terminology compatibility.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "workflow_ids",
+          "description": "Workflow IDs that should bind or unbind this skill.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "bind-workflow [workflowId]",
       "method": "POST",
       "path": "/api/v1/workflows/{workflowId}/skills/bind",
       "operation_id": "bindWorkflowSkills",
@@ -1405,12 +1835,13 @@
       "body_fields": [
         {
           "name": "skills",
+          "description": "Skill names included in this workflow skill binding request.",
           "kind": "string_slice"
         }
       ]
     },
     {
-      "use": "unbind [workflowId]",
+      "use": "unbind-workflow [workflowId]",
       "method": "POST",
       "path": "/api/v1/workflows/{workflowId}/skills/unbind",
       "operation_id": "unbindWorkflowSkills",
@@ -1428,6 +1859,7 @@
       "body_fields": [
         {
           "name": "skills",
+          "description": "Skill names included in this workflow skill binding request.",
           "kind": "string_slice"
         }
       ]

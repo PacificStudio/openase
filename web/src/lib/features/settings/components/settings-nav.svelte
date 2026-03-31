@@ -1,6 +1,16 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Settings, GitBranch, Columns3, Workflow, Bot, Plug, Bell, Shield } from '@lucide/svelte'
+  import {
+    Settings,
+    GitBranch,
+    Columns3,
+    Workflow,
+    Bot,
+    Plug,
+    Bell,
+    Shield,
+    Wrench,
+  } from '@lucide/svelte'
   import type { Component } from 'svelte'
   import type { SettingsSection } from '../types'
 
@@ -20,6 +30,7 @@
 
   const items: NavItem[] = [
     { key: 'general', label: 'General', icon: Settings },
+    { key: 'skills', label: 'Skills', icon: Wrench },
     { key: 'repositories', label: 'Repositories', icon: GitBranch },
     { key: 'statuses', label: 'Statuses', icon: Columns3 },
     { key: 'workflows', label: 'Workflows', icon: Workflow },

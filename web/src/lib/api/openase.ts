@@ -43,6 +43,17 @@ import type {
   ScheduledJobUpdateResponse,
   SecuritySettingsResponse,
   SkillListPayload,
+  SkillCreateResponse,
+  SkillDeleteResponse,
+  SkillDetailResponse,
+  SkillRefreshResponse,
+  SkillHarvestResponse,
+  SkillBindingUpdateResponse,
+  SkillToggleResponse,
+  SkillUpdateResponse,
+  StageDeleteResponse,
+  StagePayload,
+  StageResponse,
   StatusDeleteResponse,
   StatusPayload,
   StatusResetPayload,
@@ -480,12 +491,46 @@ export function listStatuses(projectId: string) {
   return api.get<StatusPayload>(`/api/v1/projects/${projectId}/statuses`)
 }
 
+export function listStages(projectId: string) {
+  return api.get<StagePayload>(`/api/v1/projects/${projectId}/stages`)
+}
+
+export function createStage(
+  projectId: string,
+  body: {
+    key: string
+    name: string
+    position?: number
+    max_active_runs?: number | null
+    description?: string
+  },
+) {
+  return api.post<StageResponse>(`/api/v1/projects/${projectId}/stages`, { body })
+}
+
+export function updateStage(
+  stageId: string,
+  body: {
+    name?: string
+    position?: number
+    max_active_runs?: number | null
+    description?: string
+  },
+) {
+  return api.patch<StageResponse>(`/api/v1/stages/${stageId}`, { body })
+}
+
+export function deleteStage(stageId: string) {
+  return api.delete<StageDeleteResponse>(`/api/v1/stages/${stageId}`)
+}
+
 export function createStatus(
   projectId: string,
   body: {
     name: string
     color: string
     icon?: string
+    stage_id?: string | null
     position?: number
     is_default?: boolean
     description?: string
@@ -504,6 +549,7 @@ export function updateStatus(
     name?: string
     color?: string
     icon?: string
+    stage_id?: string | null
     position?: number
     is_default?: boolean
     description?: string
@@ -926,6 +972,79 @@ export function listHarnessVariables() {
 
 export function listSkills(projectId: string) {
   return api.get<SkillListPayload>(`/api/v1/projects/${projectId}/skills`)
+}
+
+export function createSkill(
+  projectId: string,
+  body: {
+    name: string
+    content: string
+    description?: string
+    created_by?: string
+    is_enabled?: boolean
+  },
+) {
+  return api.post<SkillCreateResponse>(`/api/v1/projects/${projectId}/skills`, { body })
+}
+
+export function getSkill(skillId: string) {
+  return api.get<SkillDetailResponse>(`/api/v1/skills/${skillId}`)
+}
+
+export function updateSkill(
+  skillId: string,
+  body: {
+    content: string
+    description?: string
+  },
+) {
+  return api.put<SkillUpdateResponse>(`/api/v1/skills/${skillId}`, { body })
+}
+
+export function deleteSkill(skillId: string) {
+  return api.delete<SkillDeleteResponse>(`/api/v1/skills/${skillId}`)
+}
+
+export function enableSkill(skillId: string) {
+  return api.post<SkillToggleResponse>(`/api/v1/skills/${skillId}/enable`)
+}
+
+export function disableSkill(skillId: string) {
+  return api.post<SkillToggleResponse>(`/api/v1/skills/${skillId}/disable`)
+}
+
+export function bindSkill(skillId: string, workflowIds: string[]) {
+  return api.post<SkillBindingUpdateResponse>(`/api/v1/skills/${skillId}/bind`, {
+    body: { workflow_ids: workflowIds },
+  })
+}
+
+export function unbindSkill(skillId: string, workflowIds: string[]) {
+  return api.post<SkillBindingUpdateResponse>(`/api/v1/skills/${skillId}/unbind`, {
+    body: { workflow_ids: workflowIds },
+  })
+}
+
+export function refreshSkills(
+  projectId: string,
+  body: {
+    workspace_root: string
+    adapter_type: string
+    workflow_id?: string
+  },
+) {
+  return api.post<SkillRefreshResponse>(`/api/v1/projects/${projectId}/skills/refresh`, { body })
+}
+
+export function harvestSkills(
+  projectId: string,
+  body: {
+    workspace_root: string
+    adapter_type: string
+    workflow_id?: string
+  },
+) {
+  return api.post<SkillHarvestResponse>(`/api/v1/projects/${projectId}/skills/harvest`, { body })
 }
 
 export function bindWorkflowSkills(workflowId: string, skills: string[]) {

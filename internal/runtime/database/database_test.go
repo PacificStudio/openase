@@ -993,11 +993,11 @@ func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 	firstEntered := make(chan struct{})
 	releaseFirst := make(chan struct{})
 	secondEntered := make(chan struct{})
-	firstErr := make(chan error, 1)
-	secondErr := make(chan error, 1)
+	firstDone := make(chan error, 1)
+	secondDone := make(chan error, 1)
 
 	go func() {
-		firstErr <- withSchemaBootstrapLock(ctx, dsn, func() error {
+		firstDone <- withSchemaBootstrapLock(ctx, dsn, func() error {
 			close(firstEntered)
 			<-releaseFirst
 			return nil
@@ -1006,14 +1006,14 @@ func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 
 	select {
 	case <-firstEntered:
-	case err := <-firstErr:
+	case err := <-firstDone:
 		t.Fatalf("first schema bootstrap lock caller failed before entering critical section: %v", err)
 	case <-time.After(waitTimeout):
 		t.Fatal("timed out waiting for first schema bootstrap lock holder")
 	}
 
 	go func() {
-		secondErr <- withSchemaBootstrapLock(ctx, dsn, func() error {
+		secondDone <- withSchemaBootstrapLock(ctx, dsn, func() error {
 			close(secondEntered)
 			return nil
 		})
@@ -1022,15 +1022,15 @@ func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 	select {
 	case <-secondEntered:
 		t.Fatal("expected second schema bootstrap caller to wait for lock release")
-	case err := <-secondErr:
-		t.Fatalf("second schema bootstrap lock caller failed before entering critical section: %v", err)
+	case err := <-secondDone:
+		t.Fatalf("second schema bootstrap lock caller finished before lock release: %v", err)
 	case <-time.After(500 * time.Millisecond):
 	}
 
 	close(releaseFirst)
 
 	select {
-	case err := <-firstErr:
+	case err := <-firstDone:
 		if err != nil {
 			t.Fatalf("first schema bootstrap lock caller failed: %v", err)
 		}
@@ -1040,14 +1040,14 @@ func TestWithSchemaBootstrapLockSerializesConcurrentCallers(t *testing.T) {
 
 	select {
 	case <-secondEntered:
-	case err := <-secondErr:
-		t.Fatalf("second schema bootstrap lock caller failed before entering critical section: %v", err)
+	case err := <-secondDone:
+		t.Fatalf("second schema bootstrap lock caller finished before signalling entry: %v", err)
 	case <-time.After(waitTimeout):
 		t.Fatal("timed out waiting for second schema bootstrap lock caller to enter")
 	}
 
 	select {
-	case err := <-secondErr:
+	case err := <-secondDone:
 		if err != nil {
 			t.Fatalf("second schema bootstrap lock caller failed: %v", err)
 		}

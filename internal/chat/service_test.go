@@ -65,6 +65,16 @@ func TestParseActionProposalTextAcceptsCodeFenceWithWhitespace(t *testing.T) {
 	}
 }
 
+func TestParseDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
+	payload, ok := parseDiffPayloadText("```json\n{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}\n```")
+	if !ok {
+		t.Fatalf("expected diff payload to parse")
+	}
+	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" || len(payload.Hunks) != 1 {
+		t.Fatalf("unexpected diff payload: %#v", payload)
+	}
+}
+
 func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 	workflowID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	service := NewService(nil, nil, nil, nil, harnessWorkflowReader{
@@ -93,10 +103,37 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 	}
 	if !containsAll(prompt,
 		"Harness 编辑器回复要求",
-		"完整 Harness 必须放在一个 ```markdown 代码块中",
+		"结构化 diff JSON 对象",
+		"\"type\":\"diff\",\"file\":\"harness content\"",
 		"普通 Harness 建议不要输出 action_proposal",
 	) {
 		t.Fatalf("expected harness-editor response instructions in prompt, got %q", prompt)
+	}
+}
+
+func TestMapClaudeEventPromotesDiffJSON(t *testing.T) {
+	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind: provider.ClaudeCodeEventKindAssistant,
+		Message: []byte("{\n" +
+			"  \"role\":\"assistant\",\n" +
+			"  \"content\":[\n" +
+			"    {\n" +
+			"      \"type\":\"text\",\n" +
+			"      \"text\":\"```json\\n{\\\"type\\\":\\\"diff\\\",\\\"file\\\":\\\"harness content\\\",\\\"hunks\\\":[{\\\"old_start\\\":1,\\\"old_lines\\\":1,\\\"new_start\\\":1,\\\"new_lines\\\":2,\\\"lines\\\":[{\\\"op\\\":\\\"context\\\",\\\"text\\\":\\\"---\\\"},{\\\"op\\\":\\\"add\\\",\\\"text\\\":\\\"new line\\\"}]}]}\\n```\"\n" +
+			"    }\n" +
+			"  ]\n" +
+			"}"),
+	})
+	if len(events) != 1 {
+		t.Fatalf("expected one mapped event, got %d", len(events))
+	}
+
+	payload, ok := events[0].Payload.(diffPayload)
+	if !ok {
+		t.Fatalf("expected diff payload, got %#v", events[0].Payload)
+	}
+	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" {
+		t.Fatalf("unexpected diff payload: %#v", payload)
 	}
 }
 
@@ -644,6 +681,150 @@ func TestStartTurnAllowsUnlimitedProjectSidebarResume(t *testing.T) {
 	}
 	if runtime.lastInput.MaxTurns != 0 {
 		t.Fatalf("runtime max turns = %d, want unlimited resume policy", runtime.lastInput.MaxTurns)
+	}
+}
+
+func TestStartTurnRejectsResumeAfterBudgetExceeded(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440010")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440010")
+	userID := UserID("user:budget")
+	providerID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440010")
+	runtime := &fakeRuntime{
+		closeResult: true,
+		startFn: func(input RuntimeTurnInput) []StreamEvent {
+			return []StreamEvent{{
+				Event: "done",
+				Payload: donePayload{
+					SessionID:      input.SessionID.String(),
+					CostUSD:        floatPointer(0.11),
+					TurnsUsed:      1,
+					TurnsRemaining: remainingTurns(input.MaxTurns, 1),
+				},
+			}}
+		},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             providerID,
+					OrganizationID: orgID,
+					Name:           "Codex",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:     "codex",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+	service.maxBudgetUSD = 0.10
+
+	stream, err := service.StartTurn(context.Background(), userID, StartInput{
+		Message: "first",
+		Source:  SourceHarnessEditor,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	events := collectStreamEvents(stream.Events)
+	sessionID := SessionID(events[0].Payload.(sessionPayload).SessionID)
+
+	if len(runtime.closeCalls) != 1 || runtime.closeCalls[0] != sessionID {
+		t.Fatalf("runtime close calls = %+v, want session %q to close on budget exhaustion", runtime.closeCalls, sessionID)
+	}
+
+	if _, err := service.StartTurn(context.Background(), userID, StartInput{
+		Message:   "resume",
+		Source:    SourceHarnessEditor,
+		Context:   Context{ProjectID: projectID},
+		SessionID: &sessionID,
+	}); !errors.Is(err, ErrSessionBudgetExceeded) {
+		t.Fatalf("resume after budget exhaustion error = %v, want %v", err, ErrSessionBudgetExceeded)
+	}
+}
+
+func TestStartTurnAllowsResumeWhenProviderSpendUnavailable(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440011")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440011")
+	userID := UserID("user:no-cost")
+	providerID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440011")
+	runtime := &fakeRuntime{
+		startFn: func(input RuntimeTurnInput) []StreamEvent {
+			return []StreamEvent{{
+				Event: "done",
+				Payload: donePayload{
+					SessionID:      input.SessionID.String(),
+					TurnsUsed:      1,
+					TurnsRemaining: remainingTurns(input.MaxTurns, 1),
+				},
+			}}
+		},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             providerID,
+					OrganizationID: orgID,
+					Name:           "Gemini",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+					CliCommand:     "gemini",
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		"",
+	)
+	service.maxBudgetUSD = 0.01
+
+	stream, err := service.StartTurn(context.Background(), userID, StartInput{
+		Message: "first",
+		Source:  SourceHarnessEditor,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("first StartTurn() error = %v", err)
+	}
+
+	events := collectStreamEvents(stream.Events)
+	sessionID := SessionID(events[0].Payload.(sessionPayload).SessionID)
+
+	if len(runtime.closeCalls) != 0 {
+		t.Fatalf("runtime close calls = %+v, want no budget-driven close without cost telemetry", runtime.closeCalls)
+	}
+
+	if _, err := service.StartTurn(context.Background(), userID, StartInput{
+		Message:   "resume",
+		Source:    SourceHarnessEditor,
+		Context:   Context{ProjectID: projectID},
+		SessionID: &sessionID,
+	}); err != nil {
+		t.Fatalf("resume with spend-unavailable provider error = %v, want nil", err)
 	}
 }
 

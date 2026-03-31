@@ -152,6 +152,22 @@ func (s *Server) createAgentProvider(c echo.Context) error {
 	})
 }
 
+func (s *Server) getAgentProvider(c echo.Context) error {
+	providerID, err := parseUUIDPathParam(c, "providerId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.GetAgentProvider(c.Request().Context(), providerID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"provider": mapAgentProviderResponse(item),
+	})
+}
+
 func (s *Server) patchAgentProvider(c echo.Context) error {
 	providerID, err := parseUUIDPathParam(c, "providerId")
 	if err != nil {

@@ -20,6 +20,7 @@ func TestTypedAPILeafCommandsProvideLongHelp(t *testing.T) {
 		{"agent"},
 		{"skill"},
 		{"watch"},
+		{"stream"},
 	} {
 		command, _, err := root.Find(path)
 		if err != nil {
@@ -34,7 +35,7 @@ func TestTypedAPILeafCommandsProvideLongHelp(t *testing.T) {
 				t.Fatalf("command %s is missing Long help", strings.Join(path, " "))
 			}
 
-			if path[0] == "watch" {
+			if path[0] == "watch" || path[0] == "stream" {
 				for _, want := range []string{
 					"keeps the connection open",
 					"Use Ctrl-C to stop the stream",
@@ -108,7 +109,10 @@ func TestCriticalCLICommandsProvideExamples(t *testing.T) {
 	for _, path := range [][]string{
 		{"api"},
 		{"watch", "tickets"},
+		{"stream", "events"},
 		{"ticket", "comment", "workpad"},
+		{"machine", "refresh-health"},
+		{"provider", "get"},
 	} {
 		command, _, err := root.Find(path)
 		if err != nil {

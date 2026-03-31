@@ -17,6 +17,7 @@ export type CapabilityKey =
   | 'agentResume'
   | 'repositoriesSettings'
   | 'statusesSettings'
+  | 'skillsSettings'
   | 'workflowsSettings'
   | 'agentsSettings'
   | 'connectorsSettings'
@@ -95,6 +96,11 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary:
       'Repository settings now wire project repo list/create/update/delete flows and primary repo management to the existing catalog API.',
   },
+  skillsSettings: {
+    state: 'available',
+    summary:
+      'Skills settings now expose project skill list/create flows, enable/disable state, and workflow binding management from the shipped Settings surface.',
+  },
   statusesSettings: {
     state: 'available',
     summary:
@@ -129,6 +135,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
 
 export const settingsCapabilityBySection: Record<SettingsSection, CapabilityKey> = {
   general: 'generalSettings',
+  skills: 'skillsSettings',
   repositories: 'repositoriesSettings',
   statuses: 'statusesSettings',
   workflows: 'workflowsSettings',

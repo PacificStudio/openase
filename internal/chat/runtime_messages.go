@@ -8,6 +8,7 @@ import (
 
 const (
 	chatMessageTypeText             = "text"
+	chatMessageTypeDiff             = "diff"
 	chatMessageTypeActionProposal   = "action_proposal"
 	chatMessageTypeTaskStarted      = "task_started"
 	chatMessageTypeTaskProgress     = "task_progress"
@@ -15,6 +16,25 @@ const (
 )
 
 var codeFencePattern = regexp.MustCompile("(?s)^```(?:json)?\\s*(\\{.*\\})\\s*```$")
+
+type diffPayload struct {
+	Type  string     `json:"type"`
+	File  string     `json:"file"`
+	Hunks []diffHunk `json:"hunks"`
+}
+
+type diffHunk struct {
+	OldStart int        `json:"old_start"`
+	OldLines int        `json:"old_lines"`
+	NewStart int        `json:"new_start"`
+	NewLines int        `json:"new_lines"`
+	Lines    []diffLine `json:"lines"`
+}
+
+type diffLine struct {
+	Op   string `json:"op"`
+	Text string `json:"text"`
+}
 
 func newTextMessageEvent(content string) StreamEvent {
 	return StreamEvent{
@@ -35,6 +55,9 @@ func newTaskMessageEvent(kind string, raw any) StreamEvent {
 func normalizeAssistantText(text string) []StreamEvent {
 	if proposal, ok := parseActionProposalText(text); ok {
 		return []StreamEvent{{Event: "message", Payload: proposal}}
+	}
+	if diff, ok := parseDiffPayloadText(text); ok {
+		return []StreamEvent{{Event: "message", Payload: diff}}
 	}
 
 	return []StreamEvent{newTextMessageEvent(text)}
@@ -86,6 +109,54 @@ func parseActionProposalText(text string) (map[string]any, bool) {
 		return nil, false
 	}
 	return payload, true
+}
+
+func parseDiffPayloadText(text string) (diffPayload, bool) {
+	trimmed := extractJSONObjectCandidate(text)
+	if trimmed == "" {
+		return diffPayload{}, false
+	}
+
+	var payload diffPayload
+	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
+		return diffPayload{}, false
+	}
+	if strings.TrimSpace(payload.Type) != chatMessageTypeDiff {
+		return diffPayload{}, false
+	}
+	if strings.TrimSpace(payload.File) == "" || len(payload.Hunks) == 0 {
+		return diffPayload{}, false
+	}
+	for _, hunk := range payload.Hunks {
+		if !isValidDiffHunk(hunk) {
+			return diffPayload{}, false
+		}
+	}
+	return payload, true
+}
+
+func isValidDiffHunk(hunk diffHunk) bool {
+	if hunk.OldStart < 1 || hunk.NewStart < 1 || hunk.OldLines < 0 || hunk.NewLines < 0 || len(hunk.Lines) == 0 {
+		return false
+	}
+
+	oldLineCount := 0
+	newLineCount := 0
+	for _, line := range hunk.Lines {
+		switch strings.TrimSpace(line.Op) {
+		case "context":
+			oldLineCount++
+			newLineCount++
+		case "remove":
+			oldLineCount++
+		case "add":
+			newLineCount++
+		default:
+			return false
+		}
+	}
+
+	return oldLineCount == hunk.OldLines && newLineCount == hunk.NewLines
 }
 
 func extractJSONObjectCandidate(text string) string {

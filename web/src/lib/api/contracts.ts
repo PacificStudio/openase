@@ -113,6 +113,9 @@ export type ActivityEvent = ItemOf<ActivityPayload['events']>
 export type StatusPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/statuses', 'get'>
 >
+export type StagePayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/stages', 'get'>>
+export type StageResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/stages', 'post'>>
+export type StageDeleteResponse = DeepRequired<ResponseFor<'/api/v1/stages/{stageId}', 'delete'>>
 export type StatusResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/statuses', 'post'>
 >
@@ -122,6 +125,7 @@ export type StatusResetPayload = DeepRequired<
 export type StatusDeleteResponse = DeepRequired<
   ResponseFor<'/api/v1/statuses/{statusId}', 'delete'>
 >
+export type TicketStage = ItemOf<StagePayload['stages']>
 export type TicketStatus = ItemOf<StatusPayload['statuses']>
 
 export type TicketPayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/tickets', 'get'>>
@@ -239,6 +243,25 @@ export type SkillListPayload = DeepRequired<
 >
 export type Skill = ItemOf<SkillListPayload['skills']>
 export type SkillBinding = ItemOf<Skill['bound_workflows']>
+export type SkillDetailResponse = DeepRequired<ResponseFor<'/api/v1/skills/{skillId}', 'get'>>
+export type SkillDetail = SkillDetailResponse['skill']
+export type SkillCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/skills', 'post'>
+>
+export type SkillUpdateResponse = DeepRequired<ResponseFor<'/api/v1/skills/{skillId}', 'put'>>
+export type SkillDeleteResponse = DeepRequired<ResponseFor<'/api/v1/skills/{skillId}', 'delete'>>
+export type SkillToggleResponse = DeepRequired<
+  ResponseFor<'/api/v1/skills/{skillId}/enable', 'post'>
+>
+export type SkillBindingUpdateResponse = DeepRequired<
+  ResponseFor<'/api/v1/skills/{skillId}/bind', 'post'>
+>
+export type SkillRefreshResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/skills/refresh', 'post'>
+>
+export type SkillHarvestResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/skills/harvest', 'post'>
+>
 
 export type BuiltinRolePayload = DeepRequired<ResponseFor<'/api/v1/roles/builtin', 'get'>>
 export type BuiltinRole = ItemOf<BuiltinRolePayload['roles']>
